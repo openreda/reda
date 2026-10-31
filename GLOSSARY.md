@@ -139,3 +139,13 @@ _Avoid_: Update, forward/back annotation, import changes, ECO
 **Change List**:
 The set of individual differences between the Schematic Sheets and the PCB Document that a Sync would apply, each of which can be included or left out.
 _Avoid_: ECO, diff, differences
+
+## Working with the design
+
+**Command**:
+A named user-visible action, such as adding a Wire or running a Sync, that every way of driving REDA (menus, shortcuts, scripts, the command line, AI agents) invokes in the same way.
+_Avoid_: Action, operation, function
+
+**Tool**:
+An interactive mode, such as Wire drawing or routing, that follows the pointer with a live preview and finishes by carrying out a Command.
+_Avoid_: Mode (alone), editor, interactive command
