@@ -55,7 +55,7 @@ A connection point of a Symbol, corresponding to one or more pads of its Footpri
 _Avoid_: Terminal, port
 
 **Net**:
-A set of Pins that are electrically connected.
+A set of Pins and Pads that are electrically connected; on Schematic Sheets it follows from the drawing, while the PCB Document keeps its own Nets in step with the schematic through sync.
 _Avoid_: Signal, connection, wire (a wire is only one way of drawing part of a Net)
 
 ## Schematic drawing
