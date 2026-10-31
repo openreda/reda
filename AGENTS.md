@@ -2,6 +2,8 @@
 
 Rust monorepo: a Cargo virtual workspace. Each crate lives in `crates/<name>/` and is picked up automatically by `members = ["crates/*"]`. Shared metadata, dependency versions and lints are set at the workspace level, and crates opt in with `edition.workspace = true`, `foo.workspace = true` and `[lints] workspace = true`. The toolchain is pinned in `rust-toolchain.toml`.
 
+Everything for REDA lives in this repo (see `docs/adr/0003-monorepo.md`); only forks of upstream dependencies may live elsewhere. Architecture decisions are in `docs/adr/`, domain vocabulary in `GLOSSARY.md`.
+
 ## Agent skills
 
 ### Issue tracker

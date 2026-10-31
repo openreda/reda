@@ -1,0 +1,3 @@
+# Permissive dependencies only; third-party library data is supported, never shipped
+
+REDA is MIT-licensed. Dependencies must be permissively licensed (MIT, Apache-2.0, BSD, zlib, ISC; MPL-2.0 case by case) and no GPL or LGPL code may be linked or copied. GPL EDA tools (KiCad, LibrePCB, Horizon EDA) are references for ideas only. REDA may read third-party library data and formats (for example KiCad's symbol and footprint libraries) that users obtain themselves, but does not bundle or redistribute that data, because its licences (e.g. CC-BY-SA with exception) would bind REDA's distribution. Enforced with `cargo-deny` once dependencies exist.
