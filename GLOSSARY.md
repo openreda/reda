@@ -38,6 +38,10 @@ _Avoid_: Land pattern, package, decal
 One placed instance of a Library part in a Project, shown as one or more Units on Schematic Sheets and as a Footprint on the PCB Document.
 _Avoid_: Part (when an instance is meant), device
 
+**Component Type**:
+The kind of a part that decides whether its Components go into the BOM and whether they may exist on the board without a schematic counterpart, such as Standard or Mechanical.
+_Avoid_: Part class, category, BOM flag
+
 **Unit**:
 One independently placeable section of a Symbol, such as one amplifier of a dual op-amp or its power section; a single-unit Symbol has exactly one.
 _Avoid_: Gate, sub-part, section
@@ -79,3 +83,49 @@ _Avoid_: Power symbol, power flag, rail symbol
 **No-Connect Marker**:
 A mark on a Pin stating that it is intentionally left unconnected.
 _Avoid_: No-ERC, NC flag, X
+
+## Board
+
+**Board Outline**:
+The closed shape that defines the physical edge of the board in a PCB Document.
+_Avoid_: Board shape, edge cuts, outline layer
+
+**Board Cutout**:
+A closed shape inside the Board Outline where the board material is removed.
+_Avoid_: Slot (a slot is a hole), hole, void
+
+**Layer**:
+One plane of the PCB Document on which objects sit, such as Top Copper, Bottom Silkscreen or Board Outline.
+_Avoid_: Plane (alone), sheet, level
+
+**Pad**:
+A copper area, with or without a hole, through which a Footprint (or a free-standing hole) connects to the board; each Pad belongs to at most one Net.
+_Avoid_: Land, pin (pins are on Symbols)
+
+**Free Pad**:
+A Pad placed directly on the board without belonging to any Footprint, such as a mounting hole.
+_Avoid_: Standalone pad, hole object
+
+**Track**:
+A drawn copper segment on a copper Layer that joins Pads, Vias and other Tracks of the same Net.
+_Avoid_: Trace, wire (wires are on Schematic Sheets), route
+
+**Via**:
+A plated hole that joins copper on different Layers within one Net.
+_Avoid_: Through-hole (that describes parts), feedthrough
+
+**Zone**:
+A Net-assigned area on a copper Layer that is filled with copper around everything it must keep clear of.
+_Avoid_: Pour, polygon, plane, fill
+
+**Keepout**:
+An area of the board in which chosen kinds of object, such as copper or Vias, must not be placed.
+_Avoid_: Restrict area, rule area, exclusion
+
+**Ratsnest**:
+The lines showing connections a Net still needs on the board that copper does not yet make.
+_Avoid_: Airwires, connection lines, unrouted nets
+
+**Net Class**:
+A named group of Nets that share board design rules, such as wider Tracks for power.
+_Avoid_: Net group, rule set
