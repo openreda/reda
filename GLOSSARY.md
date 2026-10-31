@@ -129,3 +129,13 @@ _Avoid_: Airwires, connection lines, unrouted nets
 **Net Class**:
 A named group of Nets that share board design rules, such as wider Tracks for power.
 _Avoid_: Net group, rule set
+
+## Sync
+
+**Sync**:
+Bringing the PCB Document in line with the Schematic Sheets by applying a reviewed Change List; the schematic is always the source, never the board.
+_Avoid_: Update, forward/back annotation, import changes, ECO
+
+**Change List**:
+The set of individual differences between the Schematic Sheets and the PCB Document that a Sync would apply, each of which can be included or left out.
+_Avoid_: ECO, diff, differences
