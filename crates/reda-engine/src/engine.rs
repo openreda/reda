@@ -16,6 +16,7 @@ use crate::journal::{JournalEntry, Source};
 pub fn registry() -> Registry {
     let mut registry = Registry::new();
     crate::commands::register_all(&mut registry);
+    reda_pcb::register_all(&mut registry);
     reda_library::register_all(&mut registry);
     registry
 }
@@ -87,12 +88,21 @@ impl Engine {
 
     /// Whether the open Project has changes not yet saved, in any file.
     pub fn is_dirty(&self) -> bool {
-        !self.session.history.dirty_scopes().is_empty()
+        !self.dirty_scopes().is_empty()
     }
 
     /// The Project file and the Documents with changes not yet saved, the Project first.
+    /// A deleted Document keeps its stack, so undoing the delete brings it back as it
+    /// was, but is not listed while it is gone.
     pub fn dirty_scopes(&self) -> Vec<Scope> {
-        self.session.history.dirty_scopes()
+        let exists = |scope: &Scope| match (scope, &self.session.project) {
+            (Scope::Project, _) => true,
+            (Scope::Document(uuid), Some(project)) => project.document(*uuid).is_some(),
+            (Scope::Document(_), None) => false,
+        };
+        let mut dirty = self.session.history.dirty_scopes();
+        dirty.retain(exists);
+        dirty
     }
 
     /// The undo stacks of the open Project, for menus to label Undo and Redo.

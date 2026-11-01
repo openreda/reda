@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::Uuid;
 
-// The PCB Document joins in a later ticket.
 /// What kind of Document an entry is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DocumentKind {
     Schematic,
+    Pcb,
 }
 
 impl DocumentKind {
@@ -18,12 +18,14 @@ impl DocumentKind {
     pub const fn extension(self) -> &'static str {
         match self {
             DocumentKind::Schematic => "redasch",
+            DocumentKind::Pcb => "redapcb",
         }
     }
 
     pub fn from_extension(ext: &str) -> Option<DocumentKind> {
         match ext {
             "redasch" => Some(DocumentKind::Schematic),
+            "redapcb" => Some(DocumentKind::Pcb),
             _ => None,
         }
     }

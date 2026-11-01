@@ -12,6 +12,7 @@ publish.workspace = true
 reda-command = { path = "../reda-command" }
 reda-library = { path = "../reda-library" }
 reda-model = { path = "../reda-model" }
+reda-pcb = { path = "../reda-pcb" }
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

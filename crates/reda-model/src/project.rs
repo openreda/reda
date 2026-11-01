@@ -5,9 +5,10 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::Uuid;
 use crate::change::{ChangeSet, Object};
 use crate::document::{DocumentEntry, DocumentKind, SchematicSheet};
+use crate::pcb::PcbDocument;
+use crate::{TxError, Uuid};
 
 /// Project-wide properties, stored in `<name>.reda`.
 ///
@@ -33,6 +34,7 @@ pub struct Project {
     props: ProjectProps,
     entries: BTreeMap<Uuid, DocumentEntry>,
     schematic_sheets: BTreeMap<Uuid, SchematicSheet>,
+    pcb_documents: BTreeMap<Uuid, PcbDocument>,
     #[cfg(feature = "test-objects")]
     probes: BTreeMap<Uuid, crate::Probe>,
 }
@@ -48,6 +50,7 @@ impl Project {
             props,
             entries: BTreeMap::new(),
             schematic_sheets: BTreeMap::new(),
+            pcb_documents: BTreeMap::new(),
             #[cfg(feature = "test-objects")]
             probes: BTreeMap::new(),
         }
@@ -74,6 +77,17 @@ impl Project {
         self.schematic_sheets.get(&uuid)
     }
 
+    pub fn pcb_document(&self, uuid: Uuid) -> Option<&PcbDocument> {
+        self.pcb_documents.get(&uuid)
+    }
+
+    /// The Project's PCB Document, if it has one. A v0.1 Project has at most one.
+    pub fn pcb(&self) -> Option<&PcbDocument> {
+        self.documents()
+            .find(|d| d.kind == DocumentKind::Pcb)
+            .and_then(|d| self.pcb_documents.get(&d.uuid))
+    }
+
     /// The object with this UUID, cloned, wherever it lives.
     pub fn object(&self, uuid: Uuid) -> Option<Object> {
         if uuid == self.props.uuid {
@@ -83,13 +97,41 @@ impl Project {
         if let Some(probe) = self.probes.get(&uuid) {
             return Some(Object::Probe(probe.clone()));
         }
+        if let Some(object) = self.pcb_documents.values().find_map(|pcb| pcb.object(uuid)) {
+            return Some(object);
+        }
         self.entries.get(&uuid).cloned().map(Object::Document)
+    }
+
+    /// Checks that the Document an object names exists and can hold it.
+    pub(crate) fn check_home(&self, object: &Object) -> Result<(), TxError> {
+        let pcb = match object {
+            Object::LayerSet(o) => o.document,
+            Object::BoardSetup(o) => o.document,
+            Object::BoardOutline(o) => o.document,
+            Object::BoardCutout(o) => o.document,
+            Object::NetClass(o) => o.document,
+            Object::Net(o) => o.document,
+            _ => return Ok(()),
+        };
+        match self.pcb_documents.contains_key(&pcb) {
+            true => Ok(()),
+            false => Err(TxError::Invalid(format!("{pcb} is not a PCB Document"))),
+        }
+    }
+
+    /// Whether the body of Document `uuid` holds no objects.
+    pub(crate) fn body_is_empty(&self, uuid: Uuid) -> bool {
+        self.pcb_documents
+            .get(&uuid)
+            .is_none_or(PcbDocument::is_empty)
     }
 
     /// Every object, cloned, sorted by UUID. A new object kind adds its table here.
     pub fn objects(&self) -> Vec<Object> {
         let mut out: Vec<Object> = std::iter::once(Object::Project(self.props.clone()))
             .chain(self.entries.values().cloned().map(Object::Document))
+            .chain(self.pcb_documents.values().flat_map(PcbDocument::objects))
             .collect();
         #[cfg(feature = "test-objects")]
         out.extend(self.probes.values().cloned().map(Object::Probe));
@@ -120,14 +162,36 @@ impl Project {
                 }
                 self.entries.insert(uuid, entry);
             }
+            Some(Object::LayerSet(o)) => {
+                self.pcb_mut(o.document).layer_sets.insert(uuid, o.object);
+            }
+            Some(Object::BoardSetup(o)) => {
+                self.pcb_mut(o.document).setups.insert(uuid, o.object);
+            }
+            Some(Object::BoardOutline(o)) => {
+                self.pcb_mut(o.document).outlines.insert(uuid, o.object);
+            }
+            Some(Object::BoardCutout(o)) => {
+                self.pcb_mut(o.document).cutouts.insert(uuid, o.object);
+            }
+            Some(Object::NetClass(o)) => {
+                self.pcb_mut(o.document).net_classes.insert(uuid, o.object);
+            }
+            Some(Object::Net(o)) => {
+                self.pcb_mut(o.document).nets.insert(uuid, o.object);
+            }
             #[cfg(feature = "test-objects")]
             Some(Object::Probe(probe)) => {
                 self.probes.insert(uuid, probe);
             }
             None => {
+                for pcb in self.pcb_documents.values_mut() {
+                    pcb.remove(uuid);
+                }
                 assert_ne!(uuid, self.props.uuid, "the Project itself is never removed");
                 if self.entries.remove(&uuid).is_some() {
                     self.schematic_sheets.remove(&uuid);
+                    self.pcb_documents.remove(&uuid);
                 }
                 #[cfg(feature = "test-objects")]
                 self.probes.remove(&uuid);
@@ -135,8 +199,18 @@ impl Project {
         }
     }
 
+    fn pcb_mut(&mut self, document: Uuid) -> &mut PcbDocument {
+        self.pcb_documents
+            .get_mut(&document)
+            .expect("the transaction checks an object's Document exists")
+    }
+
     fn create_body(&mut self, entry: &DocumentEntry) {
         match entry.kind {
+            DocumentKind::Pcb => {
+                self.pcb_documents
+                    .insert(entry.uuid, PcbDocument::new(entry.uuid));
+            }
             DocumentKind::Schematic => {
                 self.schematic_sheets
                     .insert(entry.uuid, SchematicSheet { uuid: entry.uuid });
@@ -160,6 +234,9 @@ impl Project {
                 "Document {orphan} is missing from the Document order"
             ));
         }
-        Ok(())
+        if self.pcb_documents.len() > 1 {
+            return Err("a Project has at most one PCB Document".into());
+        }
+        self.pcb_documents.values().try_for_each(PcbDocument::check)
     }
 }
