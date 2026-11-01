@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOT95P237X112-3N","description":"SOT-23-3, IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":2500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":650000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-925000,"y":950000},"rotation":0,"width":1500000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-925000,"y":-950000},"rotation":0,"width":1500000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":925000,"y":0},"rotation":0,"width":1500000,"height":600000,"corner_radius":150000}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-000000000005","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1950000,"y":-1800000},"end":{"x":1950000,"y":1800000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000006","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-325000,"y":1460000},{"x":650000,"y":1460000},{"x":650000,"y":-1460000},{"x":-650000,"y":-1460000},{"x":-650000,"y":1135000}]},"width":100000},
+    {"uuid":"00000000-0000-4000-8000-000000000007","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1675000,"y":1580000},"end":{"x":700000,"y":1580000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000008","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-700000,"y":-1580000},"end":{"x":700000,"y":-1580000}},"width":120000}
+  ]
+}

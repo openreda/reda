@@ -1368,6 +1368,1087 @@
     },
     {
       "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a two-terminal rectangular chip (resistor, capacitor or inductor) of a standard size from 0201 to 2512, or of the body `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.chip",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ChipClass": {
+            "enum": [
+              "resistor",
+              "capacitor",
+              "inductor"
+            ],
+            "type": "string"
+          },
+          "ChipDimensions": {
+            "additionalProperties": false,
+            "description": "A chip's body dimensions.",
+            "properties": {
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest body height."
+              },
+              "length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body length, terminal end to terminal end."
+              },
+              "terminal": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The length of each terminal along the body."
+              },
+              "width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body width."
+              }
+            },
+            "required": [
+              "length",
+              "width",
+              "terminal",
+              "height"
+            ],
+            "type": "object"
+          },
+          "ChipSize": {
+            "description": "A standard chip size by its imperial (EIA) code.",
+            "enum": [
+              "0201",
+              "0402",
+              "0603",
+              "0805",
+              "1206",
+              "1210",
+              "1812",
+              "2010",
+              "2512"
+            ],
+            "type": "string"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "$ref": "#/$defs/ChipClass",
+            "description": "What the chip is, which sets the name prefix (`RESC`, `CAPC`, `INDC`)."
+          },
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ChipDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The body dimensions from a datasheet, for a chip of no standard size."
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as `RESC1608X55N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ChipSize"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A standard EIA size, with typical body dimensions. Give `size` or `dimensions`."
+          }
+        },
+        "required": [
+          "library"
+        ],
+        "title": "ChipParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate Chip Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a 1.27 mm pitch SOIC with a narrow or wide standard body, or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.soic",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "GullWingDimensions": {
+            "additionalProperties": false,
+            "description": "A gull-wing package's dimensions from a datasheet.",
+            "properties": {
+              "body_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body length along the lead rows (D)."
+              },
+              "body_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body width between the lead rows, without the leads (E1)."
+              },
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest height (A)."
+              },
+              "lead_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The length of the lead's flat foot (L)."
+              },
+              "lead_span": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The span over the lead tips (E)."
+              },
+              "lead_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The lead width (b)."
+              },
+              "pitch": {
+                "$ref": "#/$defs/Length",
+                "description": "The lead pitch (e)."
+              }
+            },
+            "required": [
+              "pitch",
+              "body_length",
+              "body_width",
+              "lead_span",
+              "lead_width",
+              "lead_length",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/GullWingDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOIC127P600X175-8N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "The number of leads: 8, 14 or 16 for the narrow (3.9 mm) body; 16, 18, 20, 24 or 28\nfor the wide (7.5 mm) one. Any even number of at least 4 with `dimensions`.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "wide": {
+            "default": false,
+            "description": "The wide (7.5 mm, JEDEC MS-013) body instead of the narrow one (MS-012).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "library",
+          "pins"
+        ],
+        "title": "SoicParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate SOIC Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a SOT-23 with 3, 5 or 6 leads or a SOT-223, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.sot",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "SotPackage": {
+            "oneOf": [
+              {
+                "const": "sot23_3",
+                "description": "SOT-23 with 3 leads (JEDEC TO-236): pins 1 and 2 on the left, 3 on the right.",
+                "type": "string"
+              },
+              {
+                "const": "sot23_5",
+                "description": "SOT-23 with 5 leads (JEDEC MO-178): 1–3 on the left, 4 and 5 on the right.",
+                "type": "string"
+              },
+              {
+                "const": "sot23_6",
+                "description": "SOT-23 with 6 leads (JEDEC MO-178).",
+                "type": "string"
+              },
+              {
+                "const": "sot223",
+                "description": "SOT-223 (JEDEC TO-261): pins 1–3 on the left, the tab (pin 4) on the right.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOT95P237X112-3N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "package": {
+            "$ref": "#/$defs/SotPackage"
+          }
+        },
+        "required": [
+          "library",
+          "package"
+        ],
+        "title": "SotParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate SOT Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a 0.65 mm pitch SSOP with the standard 5.3 mm body (JEDEC MO-150), or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.ssop",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "GullWingDimensions": {
+            "additionalProperties": false,
+            "description": "A gull-wing package's dimensions from a datasheet.",
+            "properties": {
+              "body_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body length along the lead rows (D)."
+              },
+              "body_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body width between the lead rows, without the leads (E1)."
+              },
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest height (A)."
+              },
+              "lead_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The length of the lead's flat foot (L)."
+              },
+              "lead_span": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The span over the lead tips (E)."
+              },
+              "lead_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The lead width (b)."
+              },
+              "pitch": {
+                "$ref": "#/$defs/Length",
+                "description": "The lead pitch (e)."
+              }
+            },
+            "required": [
+              "pitch",
+              "body_length",
+              "body_width",
+              "lead_span",
+              "lead_width",
+              "lead_length",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/GullWingDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOP65P640X120-14N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "The number of leads: one of the standard counts, or any even number of at least 4\nwith `dimensions`.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "library",
+          "pins"
+        ],
+        "title": "SmallOutlineParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate SSOP Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a 0.65 mm pitch TSSOP with the standard 4.4 mm body (JEDEC MO-153), or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.tssop",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "GullWingDimensions": {
+            "additionalProperties": false,
+            "description": "A gull-wing package's dimensions from a datasheet.",
+            "properties": {
+              "body_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body length along the lead rows (D)."
+              },
+              "body_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body width between the lead rows, without the leads (E1)."
+              },
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest height (A)."
+              },
+              "lead_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The length of the lead's flat foot (L)."
+              },
+              "lead_span": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The span over the lead tips (E)."
+              },
+              "lead_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The lead width (b)."
+              },
+              "pitch": {
+                "$ref": "#/$defs/Length",
+                "description": "The lead pitch (e)."
+              }
+            },
+            "required": [
+              "pitch",
+              "body_length",
+              "body_width",
+              "lead_span",
+              "lead_width",
+              "lead_length",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/GullWingDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOP65P640X120-14N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "The number of leads: one of the standard counts, or any even number of at least 4\nwith `dimensions`.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "library",
+          "pins"
+        ],
+        "title": "SmallOutlineParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate TSSOP Footprint"
+    },
+    {
+      "category": "library",
       "description": "Draws a line, rectangle, arc, circle, polygon or text on the Silkscreen, Courtyard or Assembly Layer, top or bottom, of an open Footprint.",
       "icon": "footprint_edit",
       "id": "library.footprint.graphic.add",

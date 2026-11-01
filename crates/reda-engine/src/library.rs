@@ -1,17 +1,18 @@
 //! The registered Libraries on disk: which folders they are, and reading them for
-//! `reda-library`'s scan.
+//! `reda-library`'s scan, and writing generated Footprints into them.
 
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use reda_command::{CommandError, FootprintCopyData, PartCopy, PartSource, Session, UserDirs};
-use reda_library::{LibraryFiles, LibraryIndex, LibraryRoot, Origin, scan};
+use reda_library::{ElementKind, LibraryFiles, LibraryIndex, LibraryRoot, Origin, scan};
 use reda_model::{Footprint, LibraryInfo, Part, Symbol, Uuid};
 
 use crate::format::library::{
     read_footprint, read_library_info, read_part, read_symbol, write_footprint, write_part,
     write_symbol,
 };
+use crate::fs::write_atomic;
 use crate::preferences;
 
 /// Library files read from disk and decoded with the file format.
@@ -75,6 +76,43 @@ pub fn registered_roots(session: &Session) -> Vec<LibraryRoot> {
 /// Scans every registered Library from disk.
 pub fn scan_registered(session: &Session) -> LibraryIndex {
     scan(&registered_roots(session), &mut DiskLibraryFiles)
+}
+
+/// Writes a generated Footprint to `<library>/footprints/<name>.redafp` in a registered
+/// Library: the [`reda_library::FootprintStore`] the generators write through.
+pub fn store_footprint(
+    session: &mut Session,
+    library: Uuid,
+    footprint: &Footprint,
+) -> Result<PathBuf, CommandError> {
+    let index = scan_registered(session);
+    let library = index.library(library).ok_or_else(|| {
+        CommandError::not_found(format!("no registered Library has UUID {library}"))
+    })?;
+    if library.origin == Origin::Starter {
+        return Err(CommandError::rejected(
+            "the starter Library is read-only; generate the Footprint into your own Library",
+        ));
+    }
+    let kind = ElementKind::Footprint;
+    let path =
+        library
+            .root
+            .join(kind.folder())
+            .join(format!("{}.{}", footprint.name, kind.extension()));
+    if path.exists() {
+        return Err(CommandError::rejected(format!(
+            "{} already exists; give the Footprint another name",
+            path.display()
+        )));
+    }
+    let bytes = write_footprint(footprint).map_err(|e| CommandError::internal(e.to_string()))?;
+    let io = |e: std::io::Error| CommandError::internal(format!("writing {}: {e}", path.display()));
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(io)?;
+    }
+    write_atomic(&path, &bytes).map_err(io)?;
+    Ok(path)
 }
 
 /// The engine's [`PartSource`]: the registered Libraries on disk, as they were when the
