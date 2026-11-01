@@ -202,6 +202,10 @@ _Avoid_: Hotkeys, key bindings (as a whole), accelerators
 The searchable list of every Command and Preset available in the current context, opened from the keyboard.
 _Avoid_: Command bar, quick open, launcher
 
+**Journal**:
+The record of every Command carried out in the current session, with its parameters, where it came from and its result, which can be exported and run again to repeat the session.
+_Avoid_: History, log, macro, undo stack
+
 ## Application window
 
 **Panel**:
