@@ -116,6 +116,8 @@ pub struct Shell {
     pub open_requests: Vec<usize>,
     pub cursor: Pos2,
     pub torn_off_window_has_menu: bool,
+    /// The own-docking-layer prototype has its own variants, so it hides the Layout radios.
+    pub layout_menu: bool,
 }
 
 impl Shell {
@@ -216,6 +218,7 @@ impl Shell {
             open_requests: vec![],
             cursor: Pos2::ZERO,
             torn_off_window_has_menu: false,
+            layout_menu: true,
         }
     }
 
@@ -320,13 +323,15 @@ impl Shell {
             }
         });
         ui.menu_button("View", |ui| {
-            ui.label("Layout");
-            for l in Layout::ALL {
-                if ui.radio(self.layout == l, l.label()).clicked() {
-                    self.set_layout(l);
+            if self.layout_menu {
+                ui.label("Layout");
+                for l in Layout::ALL {
+                    if ui.radio(self.layout == l, l.label()).clicked() {
+                        self.set_layout(l);
+                    }
                 }
+                ui.separator();
             }
-            ui.separator();
             ui.label("Theme");
             for t in ThemeChoice::ALL {
                 if ui.radio(self.theme == t, t.label()).clicked() {

@@ -2993,6 +2993,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "prototype-shell-own-dock"
+version = "0.0.0"
+dependencies = [
+ "eframe 0.37.0",
+]
+
+[[package]]
 name = "prototype-shell-tiles"
 version = "0.0.0"
 dependencies = [
