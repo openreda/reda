@@ -4,6 +4,7 @@
 //! file's typed shape, where unknown fields are an error. Writing always produces the
 //! current [`FORMAT`] through the canonical writer.
 
+pub mod library;
 mod project_file;
 mod schema;
 mod sheet_file;
@@ -29,16 +30,35 @@ pub enum FileKind {
     Project,
     /// `<name>.redasch`: one Schematic Sheet.
     Sheet,
+    /// `<name>.redalib`: marks a folder as a Library.
+    Library,
+    /// `<name>.redasym`: one Library Symbol.
+    Symbol,
+    /// `<name>.redafp`: one Library Footprint.
+    Footprint,
+    /// `<name>.redapart`: one Library Part.
+    Part,
 }
 
 impl FileKind {
-    pub const ALL: [FileKind; 2] = [FileKind::Project, FileKind::Sheet];
+    pub const ALL: [FileKind; 6] = [
+        FileKind::Project,
+        FileKind::Sheet,
+        FileKind::Library,
+        FileKind::Symbol,
+        FileKind::Footprint,
+        FileKind::Part,
+    ];
 
     /// The file extension, without the dot.
     pub const fn extension(self) -> &'static str {
         match self {
             FileKind::Project => "reda",
             FileKind::Sheet => "redasch",
+            FileKind::Library => "redalib",
+            FileKind::Symbol => "redasym",
+            FileKind::Footprint => "redafp",
+            FileKind::Part => "redapart",
         }
     }
 }
@@ -53,7 +73,7 @@ pub const MIGRATIONS: &[Migration] = &[];
 
 const _: () = assert!(MIGRATIONS.len() == FORMAT as usize - 1);
 
-/// Why a Project could not be read.
+/// Why a Project or Library file could not be read.
 #[derive(Debug)]
 pub enum LoadError {
     Missing(PathBuf),

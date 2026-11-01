@@ -1,0 +1,8 @@
+{
+  "format": 2,
+  "library": {
+    "description": "A demo Library for the file-format tests",
+    "name": "Demo",
+    "uuid": "00000001-0000-4000-8000-000000000000"
+  }
+}
