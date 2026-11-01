@@ -88,6 +88,7 @@ pub fn open_from(
         uuid: file.project.uuid,
         name: name.to_owned(),
         documents: vec![],
+        libraries: file.libraries.clone(),
     });
     let mut missing = vec![];
     let mut tx = project.transaction();

@@ -235,6 +235,7 @@ impl Command for Create {
             uuid,
             name: format!("at {}", cx.now().0),
             documents: vec![],
+            libraries: vec![],
         }));
         Ok(uuid)
     }

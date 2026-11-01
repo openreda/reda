@@ -8,6 +8,7 @@ use std::process::ExitCode;
 const USAGE: &str = "\
 Usage:
   reda run <id> [--params <json> | --<key> <value>…] [--project <path>] [--save]
+  reda run --script <journal.jsonl> [--project <path>] [--save]
   reda commands [--json]
   reda --version";
 

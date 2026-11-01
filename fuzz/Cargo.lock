@@ -185,6 +185,7 @@ version = "0.0.0"
 dependencies = [
  "directories",
  "reda-command",
+ "reda-library",
  "reda-model",
  "reda-pcb",
  "schemars",
@@ -205,6 +206,16 @@ dependencies = [
 name = "reda-geom"
 version = "0.0.0"
 dependencies = [
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "reda-library"
+version = "0.0.0"
+dependencies = [
+ "reda-command",
+ "reda-model",
  "schemars",
  "serde",
 ]

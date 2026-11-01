@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "FootprintRow": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name"
+      ],
+      "type": "object"
+    },
+    "Hole": {
+      "additionalProperties": false,
+      "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
+      "properties": {
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "Pad": {
+      "additionalProperties": false,
+      "description": "A copper area, with or without a hole, of a Footprint.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The Pad centre, relative to the Footprint origin."
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Hole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A round hole when width equals height, otherwise a slot. SMD Pads have none."
+        },
+        "kind": {
+          "$ref": "#/$defs/PadKind"
+        },
+        "mask_margin": {
+          "description": "Overrides the board's solder-mask margin for this Pad.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "number": {
+          "type": "string"
+        },
+        "paste_margin": {
+          "description": "Overrides the board's solder-paste margin for this Pad.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "rotation": {
+          "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "shape": {
+          "$ref": "#/$defs/PadShape"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uuid",
+        "number",
+        "kind",
+        "shape",
+        "at",
+        "rotation",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "PadKind": {
+      "enum": [
+        "smd",
+        "plated_through_hole",
+        "non_plated"
+      ],
+      "type": "string"
+    },
+    "PadShape": {
+      "enum": [
+        "circle",
+        "rect",
+        "rounded_rect",
+        "oval"
+      ],
+      "type": "string"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+      "properties": {
+        "x": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "y": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Footprint file (`.redafp`).",
+  "properties": {
+    "footprint": {
+      "$ref": "#/$defs/FootprintRow"
+    },
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "pads": {
+      "description": "The Pads, sorted by UUID. Pads that share a number belong to one Pin.",
+      "items": {
+        "$ref": "#/$defs/Pad"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "format",
+    "footprint",
+    "pads"
+  ],
+  "title": "REDA Footprint file",
+  "type": "object"
+}

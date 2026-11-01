@@ -20,6 +20,8 @@ pub struct Session {
     /// The per-user folders, or `None` when there is no home folder (or in tests that
     /// keep away from disk). Preferences and `state.json` live here.
     pub user_dirs: Option<UserDirs>,
+    /// The folder of the starter Library that ships with REDA, if this front end has one.
+    pub starter_library: Option<PathBuf>,
 }
 
 /// The injected inputs a Command run needs besides the session.

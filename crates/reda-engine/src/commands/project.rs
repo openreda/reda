@@ -33,7 +33,9 @@ pub struct ProjectSummary {
     /// In Project order.
     pub documents: Vec<DocumentEntry>,
     /// Documents the Project file lists whose files are missing, left out of the open
-    /// Project. Only a PCB Document can be missing; `document.add {kind: pcb}` adds a new one.
+    /// Project; left out when there are none. Only a PCB Document can be missing;
+    /// `document.add {kind: pcb}` adds a new one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing: Vec<DocumentEntry>,
 }
 
@@ -88,6 +90,7 @@ impl Command for ProjectNew {
             uuid: cx.new_id(),
             name: p.name.clone(),
             documents: vec![],
+            libraries: vec![],
         });
         let sheet = DocumentEntry {
             uuid: cx.new_id(),

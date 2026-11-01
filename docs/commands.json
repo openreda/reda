@@ -333,6 +333,259 @@
       "title": "Undo"
     },
     {
+      "category": "library",
+      "description": "Scans the registered Libraries (the starter Library, the user's from Preferences and the Project's) and returns the Parts whose name or field values contain `text`, optionally only from one Library or of one Component Type.",
+      "icon": "search",
+      "id": "library.search",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "component_type": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ComponentType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only Parts of this Component Type."
+          },
+          "library": {
+            "default": null,
+            "description": "Only Parts of the Library with this UUID.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "default": "",
+            "description": "Matched, ignoring case, as a substring of a Part's name or any of its field values\n(Value, Description, Keywords, MPN, the free-form fields…). Empty matches every Part.",
+            "type": "string"
+          }
+        },
+        "title": "SearchParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
+          "Field": {
+            "additionalProperties": false,
+            "description": "One free-form field.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "Fields": {
+            "additionalProperties": false,
+            "description": "A Part's default fields, copied onto each Component placed from it.",
+            "properties": {
+              "custom": {
+                "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                },
+                "type": "array"
+              },
+              "datasheet": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "string"
+              },
+              "manufacturer": {
+                "type": "string"
+              },
+              "mpn": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "LibrarySummary": {
+            "description": "One scanned Library.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "origin": {
+                "$ref": "#/$defs/Origin"
+              },
+              "path": {
+                "description": "The Library folder.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "origin",
+              "path"
+            ],
+            "type": "object"
+          },
+          "Origin": {
+            "description": "How a Library came to be registered.",
+            "oneOf": [
+              {
+                "const": "starter",
+                "description": "The starter Library that ships with REDA. Read-only.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "Listed in the user's Preferences.",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "description": "Listed in the open Project's `.reda` file.",
+                "type": "string"
+              }
+            ]
+          },
+          "PartHit": {
+            "description": "One Part found.",
+            "properties": {
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields"
+              },
+              "footprints": {
+                "description": "The alternate Footprints, the default first.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "library": {
+                "$ref": "#/$defs/LibrarySummary"
+              },
+              "name": {
+                "type": "string"
+              },
+              "symbol": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "component_type",
+              "symbol",
+              "footprints",
+              "fields",
+              "library"
+            ],
+            "type": "object"
+          },
+          "ScanProblem": {
+            "description": "A file or folder a scan could not use, and why.",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "message"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "libraries": {
+            "description": "Every registered Library that scanned, in scan order.",
+            "items": {
+              "$ref": "#/$defs/LibrarySummary"
+            },
+            "type": "array"
+          },
+          "parts": {
+            "description": "The matching Parts, sorted by name.",
+            "items": {
+              "$ref": "#/$defs/PartHit"
+            },
+            "type": "array"
+          },
+          "problems": {
+            "description": "Folders and files that could not be used, and why.",
+            "items": {
+              "$ref": "#/$defs/ScanProblem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "libraries",
+          "parts",
+          "problems"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "title": "Search Libraries"
+    },
+    {
       "category": "query",
       "description": "Returns the object with this UUID, whatever its type, and the Document it lives in.",
       "icon": "inspect",
@@ -665,6 +918,13 @@
                     "description": "Every Document's UUID, in Project order.",
                     "items": {
                       "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "libraries": {
+                    "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.",
+                    "items": {
                       "type": "string"
                     },
                     "type": "array"
@@ -1314,6 +1574,13 @@
                     "description": "Every Document's UUID, in Project order.",
                     "items": {
                       "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "libraries": {
+                    "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.",
+                    "items": {
                       "type": "string"
                     },
                     "type": "array"
@@ -2629,6 +2896,90 @@
       "title": "Set Design Rules"
     },
     {
+      "category": "library",
+      "description": "Registers a Library folder with the Project. The path is relative to the Project folder and is stored in the `.reda` file, so the Library travels with the Project.",
+      "icon": "library_add",
+      "id": "project.library.add",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params naming one Project Library folder.",
+        "properties": {
+          "path": {
+            "description": "The Library folder, relative to the Project folder, such as `parts` or\n`../shared/libs`. Either slash separates folders.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "LibraryPathParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The Project Library paths after the edit, in order.",
+        "properties": {
+          "libraries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "libraries"
+        ],
+        "title": "LibraryPathResult",
+        "type": "object"
+      },
+      "title": "Add Project Library"
+    },
+    {
+      "category": "library",
+      "description": "Unregisters a Library folder from the Project. The folder and its files stay on disk.",
+      "icon": "library_remove",
+      "id": "project.library.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params naming one Project Library folder.",
+        "properties": {
+          "path": {
+            "description": "The Library folder, relative to the Project folder, such as `parts` or\n`../shared/libs`. Either slash separates folders.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "LibraryPathParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The Project Library paths after the edit, in order.",
+        "properties": {
+          "libraries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "libraries"
+        ],
+        "title": "LibraryPathResult",
+        "type": "object"
+      },
+      "title": "Remove Project Library"
+    },
+    {
       "category": "project",
       "description": "Creates a Project called `name` in the folder `<path>/<name>/` with one empty Schematic Sheet titled \"Sheet 1\", and opens it. The folder must not exist or be empty. Nothing is written until `project.save`.",
       "icon": "project_new",
@@ -2705,7 +3056,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject. Only a PCB Document can be missing; `document.add {kind: pcb}` adds a new one.",
+            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject; left out when there are none. Only a PCB Document can be missing;\n`document.add {kind: pcb}` adds a new one.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },
@@ -2727,8 +3078,7 @@
           "uuid",
           "name",
           "path",
-          "documents",
-          "missing"
+          "documents"
         ],
         "title": "ProjectSummary",
         "type": "object"
@@ -2807,7 +3157,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject. Only a PCB Document can be missing; `document.add {kind: pcb}` adds a new one.",
+            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject; left out when there are none. Only a PCB Document can be missing;\n`document.add {kind: pcb}` adds a new one.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },
@@ -2829,8 +3179,7 @@
           "uuid",
           "name",
           "path",
-          "documents",
-          "missing"
+          "documents"
         ],
         "title": "ProjectSummary",
         "type": "object"

@@ -6,6 +6,7 @@
 
 mod change;
 mod document;
+mod library;
 mod pcb;
 #[cfg(feature = "test-objects")]
 mod probe;
@@ -15,6 +16,10 @@ mod uuid;
 
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
+pub use library::{
+    ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
+    PinMap, PinPads, PinType, Symbol, Unit,
+};
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, InDocument, Layer, LayerKind,
     LayerSet, Net, NetClass, PcbDocument, Rules, Severity, Side,

@@ -11,6 +11,7 @@ fn empty_project() -> Project {
         uuid: id(1),
         name: "Demo".into(),
         documents: vec![],
+        libraries: vec![],
     })
 }
 

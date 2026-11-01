@@ -233,7 +233,7 @@ fn a_saved_pcb_document_opens_and_saves_to_the_same_bytes() {
     let before = read_tree(&folder);
     let mut engine = test_engine();
     let out = engine.run_ok("project.open", json!({"path": folder}));
-    assert_eq!(out["missing"], json!([]));
+    assert!(out.get("missing").is_none(), "{out}");
     assert!(!engine.is_dirty());
     engine.run_ok("project.save", json!({}));
     assert_eq!(read_tree(&folder), before);

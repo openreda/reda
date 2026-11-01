@@ -21,6 +21,9 @@ pub struct ProjectProps {
     pub name: String,
     /// Every Document's UUID, in Project order.
     pub documents: Vec<Uuid>,
+    /// The Project Libraries: folders relative to the Project folder, `/`-separated.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub libraries: Vec<String>,
 }
 
 /// One electronic design and everything that belongs to it.
