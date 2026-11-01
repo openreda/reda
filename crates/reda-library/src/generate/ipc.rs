@@ -150,6 +150,11 @@ pub fn span(span: Tol, terminal: Tol, goals: Goals) -> Result<Span, String> {
     Ok(span)
 }
 
+/// `value` rounded up to the round-off grid.
+pub fn round_up(value: Nm) -> Nm {
+    round(value.0 as f64, ROUND_OFF, true)
+}
+
 /// `X` for a termination `width` wide.
 pub fn land_width(width: Tol, goals: Goals) -> Nm {
     let x = width.min.0 as f64 + 2.0 * goals.side.0 as f64 + rss(width.tolerance());

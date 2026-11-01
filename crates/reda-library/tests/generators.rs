@@ -360,3 +360,98 @@ fn an_existing_file_or_an_unknown_library_is_refused() {
     );
     assert_eq!(err.code, ErrorCode::NotFound);
 }
+
+/// Each Pad's number, centre and size, sorted by number.
+fn pad_boxes(file: &Value) -> Vec<(String, i64, i64, i64, i64)> {
+    let mut pads: Vec<_> = file["pads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            (
+                p["number"].as_str().unwrap().to_owned(),
+                p["at"]["x"].as_i64().unwrap(),
+                p["at"]["y"].as_i64().unwrap(),
+                p["width"].as_i64().unwrap(),
+                p["height"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    pads.sort_by_key(|(n, ..)| n.parse::<u32>().unwrap_or(u32::MAX));
+    pads
+}
+
+#[test]
+fn sot_23_3_lands_stop_short_of_the_middle_of_the_body() {
+    let dir = TempDir::new("gen-sot23-3");
+    let mut e = engine_with_library(&dir);
+    let out = e.run_ok(
+        "library.footprint.generate.sot",
+        json!({"library": LIBRARY, "package": "sot23_3"}),
+    );
+    let file = read_json(Path::new(out["file"].as_str().unwrap()));
+    // TO-236: E 2.10–2.64, L 0.40–0.60, b 0.30–0.50, E1 1.20–1.40 mm. IPC-7351 gives
+    // Z 3.35 and G 0.35, which would put 0.525 mm of each land under a 0.70 mm half-body;
+    // the heel edge is held back to a quarter of E1 max from the body edge: G 0.70.
+    let (x, y, w, h) = (1_012_500, 950_000, 1_325_000, 600_000);
+    assert_eq!(
+        pad_boxes(&file),
+        [
+            ("1".into(), -x, y, w, h),
+            ("2".into(), -x, -y, w, h),
+            ("3".into(), x, 0, w, h),
+        ]
+    );
+}
+
+#[test]
+fn gull_wing_lands_reach_under_the_body_by_at_most_a_quarter_of_its_width() {
+    let dir = TempDir::new("gen-under-body");
+    let mut e = engine_with_library(&dir);
+    // Each package with its greatest body width between the lead rows (E1).
+    let cases = [
+        (
+            "library.footprint.generate.sot",
+            json!({"package": "sot23_3"}),
+            1_400_000,
+        ),
+        (
+            "library.footprint.generate.sot",
+            json!({"package": "sot23_5"}),
+            1_700_000,
+        ),
+        (
+            "library.footprint.generate.sot",
+            json!({"package": "sot223"}),
+            3_700_000,
+        ),
+        (
+            "library.footprint.generate.soic",
+            json!({"pins": 8}),
+            4_000_000,
+        ),
+        (
+            "library.footprint.generate.ssop",
+            json!({"pins": 20}),
+            5_600_000,
+        ),
+        (
+            "library.footprint.generate.tssop",
+            json!({"pins": 14}),
+            4_500_000,
+        ),
+    ];
+    for (id, mut params, body) in cases {
+        params["library"] = json!(LIBRARY);
+        let out = e.run_ok(id, params);
+        let file = read_json(Path::new(out["file"].as_str().unwrap()));
+        for (number, x, _, w, _) in pad_boxes(&file) {
+            let reach = body / 2 - (x.abs() - w / 2);
+            assert!(
+                reach <= body / 4,
+                "{}: land {number} reaches {reach} nm under the body",
+                out["name"]
+            );
+        }
+    }
+}
