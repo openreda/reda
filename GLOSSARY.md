@@ -134,6 +134,24 @@ _Avoid_: Airwires, connection lines, unrouted nets
 A named group of Nets that share board design rules, such as wider Tracks for power.
 _Avoid_: Net group, rule set
 
+**Placement Origin**:
+The point on a PCB Document from which Component positions are measured in manufacturing outputs.
+_Avoid_: Aux origin, drill origin, datum, zero point
+
+## Manufacturing
+
+**Fab Preset**:
+A named description of what one fabrication house expects, such as its minimum design rules, file conventions and BOM columns.
+_Avoid_: Fab profile, manufacturer settings, CAM settings
+
+**Output Job**:
+A saved, named recipe in a Project that produces a chosen set of manufacturing files for one PCB Document according to one Fab Preset.
+_Avoid_: OutJob, export settings, plot settings, fab output
+
+**Not Fitted**:
+The state of a Component that stays in the design and on the board but is left out of assembly.
+_Avoid_: DNP, DNF, do not populate, excluded
+
 ## Sync
 
 **Sync**:
