@@ -10,7 +10,7 @@ Everything for REDA lives in this repo (see `docs/adr/0003-monorepo.md`); only f
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues for mnj/REDA, using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues for openreda/reda, using the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

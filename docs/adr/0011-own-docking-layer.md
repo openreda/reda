@@ -4,7 +4,7 @@ REDA's main window is laid out by its own docking layer on upstream egui, not by
 
 Documents are ordinary tabs. Nothing in the centre is protected: Documents and Panels can go into any group, Documents can be split side by side, and an empty centre is allowed. The default layout puts the Documents in the centre and Projects, Properties and Messages in Docks at the left, right and bottom.
 
-A prototype ([`prototype/main-window-shell`](https://github.com/mnj/REDA/tree/prototype/main-window-shell), crate `prototype-shell-own-dock`) settled this. In about 1,500 lines, it showed drop-target buttons with live previews, rule checks shown before release, collapsible Docks and dragging tabs between OS windows. Neither docking crate offers these. A comparable layer in a reference Rust/egui app suite is about 13k lines plus 12k of tests. It needs no egui patches.
+A prototype ([`prototype/main-window-shell`](https://github.com/openreda/reda/tree/prototype/main-window-shell), crate `prototype-shell-own-dock`) settled this. In about 1,500 lines, it showed drop-target buttons with live previews, rule checks shown before release, collapsible Docks and dragging tabs between OS windows. Neither docking crate offers these. A comparable layer in a reference Rust/egui app suite is about 13k lines plus 12k of tests. It needs no egui patches.
 
 ## Considered Options
 

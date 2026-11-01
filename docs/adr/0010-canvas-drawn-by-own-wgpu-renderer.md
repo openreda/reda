@@ -2,7 +2,7 @@
 
 The PCB and schematic canvases are drawn by a REDA renderer on wgpu, embedded in the egui window through an `egui_wgpu` paint callback. Document geometry is uploaded to the GPU once, as instanced primitives (capsule, rect, ring) with analytic anti-aliasing plus triangle lists for Zone fills, and is re-uploaded only when the Document changes. Each frame writes only the view transform. egui still draws the UI around the canvas and may draw light overlays on top of it.
 
-A prototype ([`prototype/board-renderer`](https://github.com/mnj/REDA/tree/prototype/board-renderer)) settled this. On a synthetic 2-layer board with 12k Tracks, 12k Pads and 4k Vias, rebuilding egui shapes every frame cost up to about 14 ms of CPU time per frame when zoomed out to the whole board, and about 65 ms at 8× that density. The wgpu path held about 0.3 ms at every density and zoom.
+A prototype ([`prototype/board-renderer`](https://github.com/openreda/reda/tree/prototype/board-renderer)) settled this. On a synthetic 2-layer board with 12k Tracks, 12k Pads and 4k Vias, rebuilding egui shapes every frame cost up to about 14 ms of CPU time per frame when zoomed out to the whole board, and about 65 ms at 8× that density. The wgpu path held about 0.3 ms at every density and zoom.
 
 ## Considered Options
 

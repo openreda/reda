@@ -6,7 +6,7 @@ members = ["crates/*"]
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"
-repository = "https://github.com/mnj/REDA"
+repository = "https://github.com/openreda/reda"
 
 [workspace.dependencies]
 
