@@ -58,6 +58,8 @@ struct Behavior<'a> {
 
 impl egui_tiles::Behavior<Tab> for Behavior<'_> {
     fn pane_ui(&mut self, ui: &mut egui::Ui, _tile_id: TileId, pane: &mut Tab) -> UiResponse {
+        // egui_tiles paints no pane background; without this the window clear colour shows.
+        ui.painter().rect_filled(ui.max_rect(), 0.0, ui.visuals().panel_fill);
         match *pane {
             Tab::Doc(i) => self.shell.doc_ui(ui, i),
             Tab::Panel(p) => {
@@ -108,6 +110,19 @@ impl egui_tiles::Behavior<Tab> for Behavior<'_> {
 
     fn simplification_options(&self) -> SimplificationOptions {
         SimplificationOptions { all_panes_must_have_tabs: true, ..Default::default() }
+    }
+
+    fn paint_drag_preview(&self, visuals: &egui::Visuals, painter: &egui::Painter, parent_rect: Option<egui::Rect>, preview_rect: egui::Rect) {
+        let accent = visuals.hyperlink_color;
+        if let Some(parent) = parent_rect {
+            painter.rect_filled(parent, 4.0, visuals.panel_fill.gamma_multiply(0.35));
+            painter.rect_stroke(parent, 4.0, egui::Stroke::new(1.0, accent.gamma_multiply(0.5)), egui::StrokeKind::Inside);
+        }
+        painter.rect(preview_rect.shrink(3.0), 6.0, accent.gamma_multiply(0.28), egui::Stroke::new(2.0, accent), egui::StrokeKind::Inside);
+    }
+
+    fn tab_bar_color(&self, visuals: &egui::Visuals) -> egui::Color32 {
+        visuals.faint_bg_color
     }
 
     fn gap_width(&self, _style: &egui::Style) -> f32 {
