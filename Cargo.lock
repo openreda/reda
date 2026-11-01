@@ -345,6 +345,7 @@ name = "reda-command"
 version = "0.0.0"
 dependencies = [
  "reda-model",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -402,6 +403,7 @@ version = "0.0.0"
 dependencies = [
  "reda-engine",
  "reda-model",
+ "schemars",
  "serde",
  "serde_json",
 ]

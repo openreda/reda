@@ -34,6 +34,8 @@ pub struct Env<'a> {
 
 pub(crate) enum Access<'a> {
     Edit(Transaction<'a>, &'a History),
+    /// A query step inside a batch: it reads the transaction's Project but cannot edit it.
+    ReadInEdit(Transaction<'a>),
     Read(Option<&'a Project>),
     File(&'a mut Session),
 }
@@ -59,7 +61,7 @@ impl<'a> Context<'a> {
     /// The open Project. For an edit, as the steps so far have left it.
     pub fn project(&self) -> Result<&Project, CommandError> {
         let project = match &self.access {
-            Access::Edit(tx, _) => Some(tx.project()),
+            Access::Edit(tx, _) | Access::ReadInEdit(tx) => Some(tx.project()),
             Access::Read(project) => *project,
             Access::File(session) => session.project.as_ref(),
         };

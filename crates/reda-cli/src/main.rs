@@ -1,5 +1,6 @@
 //! The `reda` binary.
 
+mod commands;
 mod run;
 
 use std::process::ExitCode;
@@ -7,6 +8,7 @@ use std::process::ExitCode;
 const USAGE: &str = "\
 Usage:
   reda run <id> [--params <json> | --<key> <value>…] [--project <path>] [--save]
+  reda commands [--json]
   reda --version";
 
 /// The version string for a local build: the Cargo version plus `-dev` and the git hash.
@@ -33,6 +35,10 @@ fn main() -> ExitCode {
         }
         ["run", rest @ ..] => match run::parse(rest) {
             Ok(run_args) => run::execute(run_args),
+            Err(message) => usage_error(&message),
+        },
+        ["commands", rest @ ..] => match commands::parse(rest) {
+            Ok(json) => commands::execute(json),
             Err(message) => usage_error(&message),
         },
         [] => {

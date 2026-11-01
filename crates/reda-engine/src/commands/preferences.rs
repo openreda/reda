@@ -4,6 +4,7 @@
 //! never undoable and never dirty the Project. Changes apply at once.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry, UserDirs};
+use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -26,7 +27,7 @@ fn unknown_key(key: &str) -> CommandError {
 
 pub struct PreferencesGet;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GetParams {
     /// A dotted key such as `schematic.repeat_placement`. Without one, every Preference.
@@ -67,7 +68,7 @@ impl Command for PreferencesGet {
 
 pub struct PreferencesSet;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SetParams {
     /// A dotted key such as `schematic.repeat_placement`.

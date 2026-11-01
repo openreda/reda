@@ -5,19 +5,40 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::{DocumentEntry, ProjectProps, Uuid};
 
-/// Any persisted object addressable by UUID. New object kinds add a variant here, a table
-/// in [`crate::Project`], and arms in `Project::object` and `Project::put`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+// New object kinds add a variant here, a table in `crate::Project`, and arms in
+// `Project::object`, `Project::objects` and `Project::put`.
+/// Any persisted object addressable by UUID, tagged with its `type`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Object {
     Project(ProjectProps),
     Document(DocumentEntry),
+    // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
+    #[schemars(skip)]
     Probe(crate::Probe),
+}
+
+// A new object kind adds a variant here with the same name as its `Object` variant.
+/// The type of an object, as its `type` tag names it.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectType {
+    /// The Project's own properties, in the Project file.
+    Project,
+    /// A Document's entry in the Project's Document list.
+    Document,
+    /// The test-only Probe.
+    #[cfg(feature = "test-objects")]
+    #[schemars(skip)]
+    Probe,
 }
 
 impl Object {
@@ -27,6 +48,15 @@ impl Object {
             Object::Document(d) => d.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
+        }
+    }
+
+    pub fn object_type(&self) -> ObjectType {
+        match self {
+            Object::Project(_) => ObjectType::Project,
+            Object::Document(_) => ObjectType::Document,
+            #[cfg(feature = "test-objects")]
+            Object::Probe(_) => ObjectType::Probe,
         }
     }
 

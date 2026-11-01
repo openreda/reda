@@ -13,7 +13,7 @@ mod project;
 mod transaction;
 mod uuid;
 
-pub use change::{Change, ChangeSet, Object, Scope, ScopeSummary};
+pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
 pub use library::{
     ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
