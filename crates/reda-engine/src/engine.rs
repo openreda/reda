@@ -18,6 +18,7 @@ pub fn registry() -> Registry {
     crate::commands::register_all(&mut registry);
     reda_pcb::register_all(&mut registry);
     reda_library::register_all(&mut registry);
+    reda_output::register_all(&mut registry);
     reda_schematic::register_all(&mut registry);
     registry
 }

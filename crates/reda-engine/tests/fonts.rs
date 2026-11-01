@@ -17,7 +17,6 @@ fn engine_with(fonts: Fonts, dir: &TempDir) -> TestEngine {
         .build();
     let mut engine = TestEngine(engine);
     engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
-    engine.run_ok("document.add", json!({"kind": "pcb"}));
     engine
 }
 

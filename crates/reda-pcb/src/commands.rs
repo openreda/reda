@@ -9,6 +9,8 @@ mod rules;
 mod text;
 mod text_geometry;
 
+pub use outline::rect_outline;
+
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
 };

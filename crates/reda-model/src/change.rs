@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
 };
@@ -24,6 +25,8 @@ use crate::{
 pub enum Object {
     Project(ProjectProps),
     Document(DocumentEntry),
+    FabPreset(ProjectFabPreset),
+    OutputJob(OutputJob),
     /// An open Library element (see [`crate::Project::open_element`]).
     Symbol(Symbol),
     Footprint(Footprint),
@@ -57,6 +60,10 @@ pub enum ObjectType {
     Project,
     /// A Document's entry in the Project's Document list.
     Document,
+    /// The Project's copy of a Fab Preset.
+    FabPreset,
+    /// A named recipe for manufacturing files.
+    OutputJob,
     /// An open Library Symbol.
     Symbol,
     /// An open Library Footprint.
@@ -98,6 +105,8 @@ impl Object {
         match self {
             Object::Project(p) => p.uuid,
             Object::Document(d) => d.uuid,
+            Object::FabPreset(o) => o.uuid,
+            Object::OutputJob(o) => o.uuid,
             Object::Symbol(s) => s.uuid,
             Object::Footprint(f) => f.uuid,
             Object::Part(p) => p.uuid,
@@ -122,6 +131,8 @@ impl Object {
         match self {
             Object::Project(_) => ObjectType::Project,
             Object::Document(_) => ObjectType::Document,
+            Object::FabPreset(_) => ObjectType::FabPreset,
+            Object::OutputJob(_) => ObjectType::OutputJob,
             Object::Symbol(_) => ObjectType::Symbol,
             Object::Footprint(_) => ObjectType::Footprint,
             Object::Part(_) => ObjectType::Part,
@@ -145,7 +156,10 @@ impl Object {
     /// The undo stack and dirty flag this object belongs to.
     pub fn scope(&self) -> Scope {
         match self {
-            Object::Project(_) | Object::Document(_) => Scope::Project,
+            Object::Project(_)
+            | Object::Document(_)
+            | Object::FabPreset(_)
+            | Object::OutputJob(_) => Scope::Project,
             Object::Symbol(_) | Object::Footprint(_) | Object::Part(_) => {
                 Scope::Element(self.uuid())
             }

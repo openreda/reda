@@ -3,15 +3,18 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
 };
-use reda_model::{DrcCheck, InDocument, Object, Rules, Severity};
+use reda_model::geom::Nm;
+use reda_model::{DrcCheck, InDocument, Object, Project, Rules, Severity, Uuid};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::{needs_pcb, optional_non_negative, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(RulesSet);
     registry.add(SeveritySet);
+    registry.add(FabPresetDiff);
+    registry.add(FabPresetApply);
 }
 
 pub struct RulesSet;
@@ -126,5 +129,128 @@ impl Command for SeveritySet {
         cx.tx()?
             .replace(Object::BoardSetup(InDocument::new(document, setup)))?;
         Ok(())
+    }
+}
+
+/// Names one of the Project's Fab Preset copies.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresetRef {
+    /// The Project copy's UUID.
+    pub preset: Uuid,
+}
+
+/// One rule the preset would change.
+#[derive(Debug, PartialEq, Serialize, JsonSchema)]
+pub struct RuleChange {
+    /// The rule, as `pcb.rules.set` names it.
+    pub rule: &'static str,
+    /// The board's value now.
+    pub board: Nm,
+    /// The preset's value.
+    pub preset: Nm,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct RuleChanges {
+    /// Every rule that differs, in `pcb.rules.set` order; empty when they all match.
+    pub changes: Vec<RuleChange>,
+}
+
+/// The rules where `board` and `preset` differ.
+fn rule_changes(board: &Rules, preset: &Rules) -> Vec<RuleChange> {
+    let pairs = [
+        ("clearance", board.clearance, preset.clearance),
+        ("track_width", board.track_width, preset.track_width),
+        ("via_diameter", board.via_diameter, preset.via_diameter),
+        ("via_hole", board.via_hole, preset.via_hole),
+        ("annular_ring", board.annular_ring, preset.annular_ring),
+        ("hole_to_hole", board.hole_to_hole, preset.hole_to_hole),
+        (
+            "edge_clearance",
+            board.edge_clearance,
+            preset.edge_clearance,
+        ),
+    ];
+    pairs
+        .into_iter()
+        .filter(|(_, b, p)| b != p)
+        .map(|(rule, board, preset)| RuleChange {
+            rule,
+            board,
+            preset,
+        })
+        .collect()
+}
+
+fn preset_rules(project: &Project, uuid: Uuid) -> Result<Rules, CommandError> {
+    project
+        .fab_preset(uuid)
+        .map(|p| p.rules)
+        .ok_or_else(|| CommandError::not_found(format!("the Project has no Fab Preset {uuid}")))
+}
+
+pub struct FabPresetDiff;
+
+impl Command for FabPresetDiff {
+    const META: Meta = Meta {
+        id: "pcb.rules.fab_preset_diff",
+        title: "Preview Fab Preset Rules",
+        description: "Lists the board-wide design rules that applying one of the Project's \
+                      Fab Preset copies would change, with the board's and the preset's \
+                      values. `pcb.rules.apply_fab_preset` applies them.",
+        category: "pcb",
+        icon: "rules",
+        kind: Kind::Query,
+    };
+    type Params = PresetRef;
+    type Output = RuleChanges;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: PresetRef) -> Result<RuleChanges, CommandError> {
+        let preset = preset_rules(cx.project()?, p.preset)?;
+        let board = pcb(cx)?.setup().rules;
+        Ok(RuleChanges {
+            changes: rule_changes(&board, &preset),
+        })
+    }
+}
+
+pub struct FabPresetApply;
+
+impl Command for FabPresetApply {
+    const META: Meta = Meta {
+        id: "pcb.rules.apply_fab_preset",
+        title: "Apply Fab Preset Rules",
+        description: "Re-seeds the board-wide design rules from one of the Project's Fab \
+                      Preset copies, after `pcb.rules.fab_preset_diff` has shown what \
+                      changes. Net Class overrides and DRC severities are kept. Returns the \
+                      changes.",
+        category: "pcb",
+        icon: "rules",
+        kind: Kind::Edit,
+    };
+    type Params = PresetRef;
+    type Output = RuleChanges;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: PresetRef) -> Result<RuleChanges, CommandError> {
+        let preset = preset_rules(cx.project()?, p.preset)?;
+        let pcb = pcb(cx)?;
+        let document = pcb.uuid;
+        let mut setup = pcb.setup().clone();
+        let changes = rule_changes(&setup.rules, &preset);
+        if !changes.is_empty() {
+            setup.rules = preset;
+            cx.tx()?
+                .replace(Object::BoardSetup(InDocument::new(document, setup)))?;
+        }
+        Ok(RuleChanges { changes })
     }
 }
