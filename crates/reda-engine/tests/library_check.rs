@@ -59,6 +59,7 @@ fn write_flawed_library(folder: &Path) {
         graphics: vec![],
         designator: FootprintText::DESIGNATOR,
         value: FootprintText::VALUE,
+        provenance: None,
     };
     std::fs::write(
         folder.join("footprints/TP.redafp"),
@@ -73,6 +74,7 @@ fn write_flawed_library(folder: &Path) {
         footprints: vec![uuid(FOOTPRINT)],
         fields: Fields::default(),
         pin_map: PinMap::default(),
+        provenance: None,
     };
     std::fs::write(
         folder.join("parts/TestPoint.redapart"),

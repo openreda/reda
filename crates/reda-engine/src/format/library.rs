@@ -24,7 +24,7 @@ use std::path::Path;
 
 use reda_model::{
     ComponentType, Fields, Footprint, FootprintGraphic, FootprintText, LibraryInfo, Pad, Part, Pin,
-    PinMap, Symbol, SymbolGraphic, Unit, Uuid,
+    PinMap, Provenance, Symbol, SymbolGraphic, Unit, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -55,6 +55,10 @@ pub(crate) struct SymbolFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     symbol: SymbolRow,
+    /// Where an imported element came from: the service, its terms and any copyright
+    /// lines. Elements made in REDA have none.
+    #[serde(default)]
+    provenance: Option<Provenance>,
     /// The Units in order (A, B, C…). A single-unit Symbol has exactly one.
     units: Vec<Unit>,
     /// Every Pin of every Unit, sorted by UUID.
@@ -85,6 +89,10 @@ pub(crate) struct FootprintFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     footprint: FootprintRow,
+    /// Where an imported element came from: the service, its terms and any copyright
+    /// lines. Elements made in REDA have none.
+    #[serde(default)]
+    provenance: Option<Provenance>,
     /// Where the Designator and value text go.
     #[serde(default)]
     text: FootprintTexts,
@@ -130,6 +138,10 @@ pub(crate) struct PartFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     part: PartRow,
+    /// Where an imported element came from: the service, its terms and any copyright
+    /// lines. Elements made in REDA have none.
+    #[serde(default)]
+    provenance: Option<Provenance>,
     /// The alternate Footprints by UUID, in order; the first is the default.
     footprints: Vec<Uuid>,
     /// The default fields, copied onto each Component placed from the Part.
@@ -171,6 +183,7 @@ pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
             description: symbol.description.clone(),
         },
     )?;
+    write_provenance(&mut w, &symbol.provenance)?;
     w.list("units", &symbol.units)?;
     w.table("pins", &symbol.pins, |p| p.uuid)?;
     w.table("graphics", &symbol.graphics, |g| g.uuid)?;
@@ -210,6 +223,7 @@ pub fn read_symbol(path: &Path, bytes: &[u8]) -> Result<Symbol, LoadError> {
         units: file.units,
         pins,
         graphics,
+        provenance: file.provenance,
     })
 }
 
@@ -223,6 +237,7 @@ pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError>
             description: footprint.description.clone(),
         },
     )?;
+    write_provenance(&mut w, &footprint.provenance)?;
     w.field(
         "text",
         &FootprintTexts {
@@ -252,6 +267,7 @@ pub fn read_footprint(path: &Path, bytes: &[u8]) -> Result<Footprint, LoadError>
         graphics,
         designator: file.text.designator,
         value: file.text.value,
+        provenance: file.provenance,
     })
 }
 
@@ -266,6 +282,7 @@ pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
             symbol: part.symbol,
         },
     )?;
+    write_provenance(&mut w, &part.provenance)?;
     w.list("footprints", &part.footprints)?;
     w.field("fields", &part.fields)?;
     w.field("pin_map", &sorted(&part.pin_map))?;
@@ -282,7 +299,19 @@ pub fn read_part(path: &Path, bytes: &[u8]) -> Result<Part, LoadError> {
         footprints: file.footprints,
         fields: file.fields,
         pin_map: sorted(&file.pin_map),
+        provenance: file.provenance,
     })
+}
+
+/// The `provenance` line, written only for imported elements.
+fn write_provenance(
+    w: &mut CanonicalWriter,
+    provenance: &Option<Provenance>,
+) -> Result<(), CanonicalError> {
+    match provenance {
+        Some(p) => w.field("provenance", p),
+        None => Ok(()),
+    }
 }
 
 /// The pin map in its canonical order: overrides by Pin number, unconnected Pads sorted.

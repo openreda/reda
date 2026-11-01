@@ -3932,6 +3932,17 @@
                 },
                 "type": "array"
               },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Footprint came from. Elements made in REDA have none."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -4764,6 +4775,17 @@
               "pin_map": {
                 "$ref": "#/$defs/PinMap"
               },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Part came from. Elements made in REDA have none."
+              },
               "symbol": {
                 "description": "Mechanical Parts may have none; Standard Parts need one.",
                 "format": "uuid",
@@ -4921,6 +4943,31 @@
             "required": [
               "x",
               "y"
+            ],
+            "type": "object"
+          },
+          "Provenance": {
+            "additionalProperties": false,
+            "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+            "properties": {
+              "copyright": {
+                "description": "Copyright lines found in the imported files, kept verbatim.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "service": {
+                "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+                "type": "string"
+              },
+              "terms_url": {
+                "description": "The service's terms of use, when known.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
             ],
             "type": "object"
           },
@@ -5172,6 +5219,17 @@
                   "$ref": "#/$defs/Pin"
                 },
                 "type": "array"
+              },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Symbol came from. Elements made in REDA have none."
               },
               "units": {
                 "description": "In order: A, B, C… A single-unit Symbol has exactly one.",
@@ -5585,6 +5643,17 @@
                   "$ref": "#/$defs/Pad"
                 },
                 "type": "array"
+              },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Footprint came from. Elements made in REDA have none."
               },
               "uuid": {
                 "format": "uuid",
@@ -6439,6 +6508,17 @@
               "pin_map": {
                 "$ref": "#/$defs/PinMap"
               },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Part came from. Elements made in REDA have none."
+              },
               "symbol": {
                 "description": "Mechanical Parts may have none; Standard Parts need one.",
                 "format": "uuid",
@@ -6596,6 +6676,31 @@
             "required": [
               "x",
               "y"
+            ],
+            "type": "object"
+          },
+          "Provenance": {
+            "additionalProperties": false,
+            "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+            "properties": {
+              "copyright": {
+                "description": "Copyright lines found in the imported files, kept verbatim.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "service": {
+                "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+                "type": "string"
+              },
+              "terms_url": {
+                "description": "The service's terms of use, when known.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
             ],
             "type": "object"
           },
@@ -6847,6 +6952,17 @@
                   "$ref": "#/$defs/Pin"
                 },
                 "type": "array"
+              },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Symbol came from. Elements made in REDA have none."
               },
               "units": {
                 "description": "In order: A, B, C… A single-unit Symbol has exactly one.",

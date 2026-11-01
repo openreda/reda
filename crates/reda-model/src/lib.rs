@@ -21,7 +21,7 @@ pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
 pub use library::{
     ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
     FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
-    PinPads, PinType, Shape, Symbol, SymbolGraphic, Unit,
+    PinPads, PinType, Provenance, Shape, Symbol, SymbolGraphic, Unit,
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, GraphicShape, HERSHEY_FONT,

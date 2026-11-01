@@ -10,8 +10,8 @@ use reda_engine::format::library::{
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{
     ComponentType, Field, Fields, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole,
-    LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap, PinPads, PinType, Shape, Symbol,
-    SymbolGraphic, Unit, Uuid,
+    LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap, PinPads, PinType, Provenance, Shape,
+    Symbol, SymbolGraphic, Unit, Uuid,
 };
 use reda_testkit::assert_golden;
 
@@ -104,6 +104,7 @@ fn opamp() -> Symbol {
                 fill: false,
             },
         ],
+        provenance: None,
     }
 }
 
@@ -162,6 +163,7 @@ fn soic() -> Footprint {
             visible: false,
             ..FootprintText::VALUE
         },
+        provenance: None,
     }
 }
 
@@ -199,6 +201,7 @@ fn hole() -> Footprint {
         }],
         designator: FootprintText::DESIGNATOR,
         value: FootprintText::VALUE,
+        provenance: None,
     }
 }
 
@@ -234,6 +237,7 @@ fn lm358() -> Part {
             }],
             unconnected: vec!["EP".into()],
         },
+        provenance: None,
     }
 }
 
@@ -246,6 +250,7 @@ fn mounting_hole() -> Part {
         footprints: vec![id(0x40)],
         fields: Fields::default(),
         pin_map: PinMap::default(),
+        provenance: None,
     }
 }
 
@@ -388,4 +393,47 @@ fn a_pin_on_an_unknown_unit_is_refused() {
     let bytes = write_symbol(&symbol).unwrap();
     let err = read_symbol(&golden("symbols/x.redasym"), &bytes).unwrap_err();
     assert!(err.to_string().contains("unit"), "{err}");
+}
+
+/// An imported element keeps its provenance through a write and a read, on one line after
+/// the element's own row; elements made in REDA have no such line.
+#[test]
+fn provenance_is_written_on_its_own_line_and_read_back() {
+    let provenance = Provenance {
+        service: "SnapMagic".into(),
+        terms_url: "https://www.snapeda.com/about/terms/".into(),
+        copyright: vec!["Copyright (C) 2026 Example Corp.".into()],
+    };
+    let line = r#""provenance": {"service":"SnapMagic","terms_url":"https://www.snapeda.com/about/terms/","copyright":["Copyright (C) 2026 Example Corp."]},"#;
+
+    let mut symbol = opamp();
+    symbol.provenance = Some(provenance.clone());
+    let bytes = write_symbol(&symbol).unwrap();
+    let text = String::from_utf8(bytes.clone()).unwrap();
+    assert_eq!(
+        text.lines().nth(3),
+        Some(format!("  {line}").as_str()),
+        "{text}"
+    );
+    let read = read_symbol(Path::new("s.redasym"), &bytes).unwrap();
+    assert_eq!(read.provenance, symbol.provenance);
+    assert_eq!(write_symbol(&read).unwrap(), bytes);
+
+    let mut footprint = soic();
+    footprint.provenance = Some(provenance.clone());
+    let bytes = write_footprint(&footprint).unwrap();
+    assert!(String::from_utf8(bytes.clone()).unwrap().contains(line));
+    assert_eq!(
+        read_footprint(Path::new("f.redafp"), &bytes).unwrap(),
+        footprint
+    );
+
+    let mut part = lm358();
+    part.provenance = Some(provenance);
+    let bytes = write_part(&part).unwrap();
+    assert!(String::from_utf8(bytes.clone()).unwrap().contains(line));
+    assert_eq!(read_part(Path::new("p.redapart"), &bytes).unwrap(), part);
+
+    let plain = String::from_utf8(write_part(&lm358()).unwrap()).unwrap();
+    assert!(!plain.contains("provenance"));
 }
