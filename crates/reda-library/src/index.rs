@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use reda_model::{Footprint, LibraryInfo, Part, Symbol, Uuid};
+use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -90,6 +90,24 @@ impl LibraryIndex {
 
     pub fn part(&self, uuid: Uuid) -> Option<&Part> {
         self.library_of(uuid)?.parts.get(&uuid)
+    }
+
+    /// The element with this UUID, whatever its kind, cloned.
+    pub fn element(&self, uuid: Uuid) -> Option<LibraryElement> {
+        let library = self.library_of(uuid)?;
+        let symbol = || {
+            library
+                .symbols
+                .get(&uuid)
+                .cloned()
+                .map(LibraryElement::Symbol)
+        };
+        let footprint = || {
+            let footprint = library.footprints.get(&uuid).cloned();
+            footprint.map(LibraryElement::Footprint)
+        };
+        let part = || library.parts.get(&uuid).cloned().map(LibraryElement::Part);
+        symbol().or_else(footprint).or_else(part)
     }
 
     /// Every Part of every Library, Library by Library.

@@ -443,11 +443,12 @@ fn describe(entry: &Registered) -> Value {
     })
 }
 
-/// The key of a scope in the edit envelope: `"project"` or the Document's UUID.
+/// The key of a scope in the edit envelope: `"project"`, or the Document's or open Library
+/// element's UUID.
 pub fn scope_key(scope: Scope) -> String {
     match scope {
         Scope::Project => "project".to_owned(),
-        Scope::Document(uuid) => uuid.to_string(),
+        Scope::Document(uuid) | Scope::Element(uuid) => uuid.to_string(),
     }
 }
 

@@ -1,5 +1,6 @@
 //! Libraries: finding Symbols, Footprints and Parts in registered Library folders,
-//! searching them, and the library Commands.
+//! searching them, and the library Commands, including the editors' edit Commands
+//! ([`edit`]).
 //!
 //! A Library is a folder holding `<name>.redalib` and one file per element under
 //! `symbols/`, `footprints/` and `parts/`. Nothing lists the elements: [`scan`] finds them
@@ -8,6 +9,7 @@
 //! implementation that reads and decodes real files.
 
 mod commands;
+pub mod edit;
 mod index;
 mod scan;
 mod search;
@@ -16,6 +18,7 @@ pub use commands::{
     LibraryPathParams, LibraryPathResult, ProjectLibraryAdd, ProjectLibraryRemove,
     normalise_library_path, register_all,
 };
+pub use edit::check_element_name;
 pub use index::{Library, LibraryIndex, Origin, ScanProblem};
 pub use scan::{ElementKind, LIBRARY_EXTENSION, LibraryFiles, LibraryRoot, scan};
 pub use search::{SearchHit, SearchQuery};

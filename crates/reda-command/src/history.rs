@@ -135,6 +135,11 @@ impl History {
         self.stacks.clear();
     }
 
+    /// Forgets one scope's stack and saved marker: for a Library element opened or closed.
+    pub fn forget(&mut self, scope: Scope) {
+        self.stacks.remove(&scope);
+    }
+
     /// Whether `scope` has changes not yet saved.
     pub fn is_dirty(&self, scope: Scope) -> bool {
         self.stacks.get(&scope).is_some_and(Stack::is_dirty)

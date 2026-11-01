@@ -114,14 +114,16 @@ impl Engine {
         !self.dirty_scopes().is_empty()
     }
 
-    /// The Project file and the Documents with changes not yet saved, the Project first.
+    /// The Project file, the Documents and the open Library elements with changes not yet
+    /// saved, the Project first.
     /// A deleted Document keeps its stack, so undoing the delete brings it back as it
     /// was, but is not listed while it is gone.
     pub fn dirty_scopes(&self) -> Vec<Scope> {
         let exists = |scope: &Scope| match (scope, &self.session.project) {
             (Scope::Project, _) => true,
             (Scope::Document(uuid), Some(project)) => project.document(*uuid).is_some(),
-            (Scope::Document(_), None) => false,
+            (Scope::Element(uuid), Some(project)) => project.element(*uuid).is_some(),
+            (Scope::Document(_) | Scope::Element(_), None) => false,
         };
         let mut dirty = self.session.history.dirty_scopes();
         dirty.retain(exists);
