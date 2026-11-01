@@ -20,6 +20,22 @@ _Avoid_: Schematic page, diagram
 A Document that expresses the physical board: its outline, layers, placed Footprints and copper.
 _Avoid_: Board file, layout file
 
+**Panel Document**:
+A Document that arranges copies of the Project's own boards, with rails and break-offs, into one manufacturable panel.
+_Avoid_: Panel file, array, step-and-repeat
+
+**Gerber Document**:
+A read-only Document that shows a set of Gerber and drill files, whether REDA wrote them or not.
+_Avoid_: CAM file, Gerber view
+
+**Waveform Document**:
+A Document holding the results of a circuit simulation as plotted signals.
+_Avoid_: Simulation results, plot, scope
+
+**Sheet Instance**:
+One use of a Schematic Sheet within a hierarchy; a sheet used several times has one Sheet Instance per use, each with its own Designators and Net names.
+_Avoid_: Channel, sheet copy, repeat
+
 ## Parts
 
 **Library**:
@@ -102,6 +118,10 @@ _Avoid_: Slot (a slot is a hole), hole, void
 One plane of the PCB Document on which objects sit, such as Top Copper, Bottom Silkscreen or Board Outline.
 _Avoid_: Plane (alone), sheet, level
 
+**Stackup**:
+The ordered physical build of a PCB Document: its copper and dielectric layers with their materials and thicknesses.
+_Avoid_: Layer stack, build-up, layer setup
+
 **Pad**:
 A copper area, with or without a hole, through which a Footprint (or a free-standing hole) connects to the board; each Pad belongs to at most one Net.
 _Avoid_: Land, pin (pins are on Symbols)
@@ -151,6 +171,10 @@ _Avoid_: OutJob, export settings, plot settings, fab output
 **Not Fitted**:
 The state of a Component that stays in the design and on the board but is left out of assembly.
 _Avoid_: DNP, DNF, do not populate, excluded
+
+**Variant**:
+A named, Project-level set of per-Component overrides (Not Fitted, value, Part substitution) that yields one buildable version of the design.
+_Avoid_: Assembly variant, configuration, build option
 
 ## Checking
 
