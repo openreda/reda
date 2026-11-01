@@ -6,11 +6,11 @@ use std::path::{Path, PathBuf};
 
 use proptest::prelude::*;
 use reda_engine::format::LoadError;
-use reda_engine::model::geom::{Millideg, Nm, Vertex};
+use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities,
-    InDocument, Layer, LayerKind, LayerSet, Net, NetClass, Object, Project, ProjectProps, Rules,
-    Severity, Side, Uuid,
+    GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, Object, PcbGraphic,
+    PcbText, Project, ProjectProps, Rules, Severity, Side, Uuid,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -60,6 +60,63 @@ struct PcbSeed {
     cutouts: Vec<Vec<Vertex>>,
     classes: Vec<(String, Option<Nm>, Option<Nm>)>,
     nets: Vec<(String, usize)>,
+    texts: Vec<TextSeed>,
+    graphics: Vec<(usize, Nm, GraphicShape)>,
+}
+
+/// A text object; the Layer is an index into the seed's Layers.
+#[derive(Clone, Debug)]
+struct TextSeed {
+    layer: usize,
+    text: String,
+    font: String,
+    position: Point,
+    height: Nm,
+    rotation: Millideg,
+    mirrored: bool,
+}
+
+fn point() -> impl Strategy<Value = Point> {
+    (length(), length()).prop_map(|(x, y)| Point::new(x, y))
+}
+
+fn text_seed() -> impl Strategy<Value = TextSeed> {
+    (
+        any::<usize>(),
+        any::<String>(),
+        any::<String>(),
+        point(),
+        length(),
+        0i64..360_000,
+        any::<bool>(),
+    )
+        .prop_map(
+            |(layer, text, font, position, height, r, mirrored)| TextSeed {
+                layer,
+                text,
+                font,
+                position,
+                height,
+                rotation: Millideg(r),
+                mirrored,
+            },
+        )
+}
+
+fn shape() -> impl Strategy<Value = GraphicShape> {
+    prop_oneof![
+        (point(), point()).prop_map(|(from, to)| GraphicShape::Line { from, to }),
+        (point(), point(), -359_999i64..360_000).prop_map(|(from, to, s)| GraphicShape::Arc {
+            from,
+            to,
+            sweep: Millideg(s)
+        }),
+        (point(), point(), any::<bool>()).prop_map(|(from, to, filled)| GraphicShape::Rect {
+            from,
+            to,
+            filled
+        }),
+    ]
 }
 
 prop_compose! {
@@ -76,9 +133,25 @@ prop_compose! {
             0..3,
         ),
         nets in prop::collection::vec((any::<String>(), any::<usize>()), 0..4),
+        texts in prop::collection::vec(text_seed(), 0..3),
+        graphics in prop::collection::vec((any::<usize>(), length(), shape()), 0..3),
     ) -> PcbSeed {
-        PcbSeed { base, name, title, rules, severities, outline, cutouts, classes, nets }
+        PcbSeed {
+            base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
+            graphics,
+        }
     }
+}
+
+/// The UUIDs of the Layers in the Layer set among `objects`.
+fn layers_of(objects: &[Object]) -> Vec<Uuid> {
+    objects
+        .iter()
+        .find_map(|o| match o {
+            Object::LayerSet(set) => Some(set.layers.iter().map(|l| l.uuid).collect()),
+            _ => None,
+        })
+        .expect("the seed has a Layer set")
 }
 
 /// The PCB Document's entry and objects, with UUIDs counted up from the seed's base.
@@ -190,6 +263,34 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 uuid: id(),
                 name,
                 class,
+            },
+        )));
+    }
+    let layer_ids: Vec<Uuid> = layers_of(&objects);
+    for t in seed.texts {
+        objects.push(Object::PcbText(InDocument::new(
+            doc,
+            PcbText {
+                uuid: id(),
+                layer: layer_ids[t.layer % layer_ids.len()],
+                text: t.text,
+                font: t.font,
+                position: t.position,
+                height: t.height,
+                thickness: t.height,
+                rotation: t.rotation,
+                mirrored: t.mirrored,
+            },
+        )));
+    }
+    for (layer, width, shape) in seed.graphics {
+        objects.push(Object::PcbGraphic(InDocument::new(
+            doc,
+            PcbGraphic {
+                uuid: id(),
+                layer: layer_ids[layer % layer_ids.len()],
+                width,
+                shape,
             },
         )));
     }

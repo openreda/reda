@@ -8,7 +8,9 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::pcb::{BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass};
+use crate::pcb::{
+    BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
+};
 use crate::{DocumentEntry, ProjectProps, Uuid};
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
@@ -25,6 +27,8 @@ pub enum Object {
     BoardCutout(InDocument<BoardCutout>),
     NetClass(InDocument<NetClass>),
     Net(InDocument<Net>),
+    PcbText(InDocument<PcbText>),
+    PcbGraphic(InDocument<PcbGraphic>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -54,6 +58,10 @@ pub enum ObjectType {
     NetClass,
     /// A PCB Net.
     Net,
+    /// Free text on a PCB Layer.
+    PcbText,
+    /// A line, arc or rectangle on a PCB Layer.
+    PcbGraphic,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -71,6 +79,8 @@ impl Object {
             Object::BoardCutout(o) => o.uuid,
             Object::NetClass(o) => o.uuid,
             Object::Net(o) => o.uuid,
+            Object::PcbText(o) => o.uuid,
+            Object::PcbGraphic(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -86,6 +96,8 @@ impl Object {
             Object::BoardCutout(_) => ObjectType::BoardCutout,
             Object::NetClass(_) => ObjectType::NetClass,
             Object::Net(_) => ObjectType::Net,
+            Object::PcbText(_) => ObjectType::PcbText,
+            Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -101,6 +113,8 @@ impl Object {
             Object::BoardCutout(o) => Scope::Document(o.document),
             Object::NetClass(o) => Scope::Document(o.document),
             Object::Net(o) => Scope::Document(o.document),
+            Object::PcbText(o) => Scope::Document(o.document),
+            Object::PcbGraphic(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }
