@@ -21,3 +21,7 @@ reda-model -> serde
 reda-model -> serde_json [dev]
 reda-testkit -> reda-engine
 reda-testkit -> serde_json
+reda-text -> harfrust
+reda-text -> i_triangle
+reda-text -> reda-geom
+reda-text -> skrifa
