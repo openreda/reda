@@ -8,9 +8,10 @@ use proptest::prelude::*;
 use reda_engine::format::LoadError;
 use reda_engine::model::geom::{Millideg, Nm, Vertex};
 use reda_engine::model::{
-    BoardCutout, BoardOutline, BoardSetup, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities,
-    InDocument, Layer, LayerKind, LayerSet, Net, NetClass, Object, Project, ProjectProps, Rules,
-    Severity, Side, Uuid,
+    BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, DocumentEntry, DocumentKind,
+    DrcCheck, DrcSeverities, FabPreset, FileNaming, GerberSettings, InDocument, Layer, LayerKind,
+    LayerSet, Net, NetClass, Object, OutputJob, Outputs, Project, ProjectFabPreset, ProjectProps,
+    Rules, Severity, Side, Uuid,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -207,6 +208,47 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     (entry, objects)
 }
 
+fn column() -> impl Strategy<Value = Column> {
+    let source = prop_oneof![
+        Just(ColumnSource::Designator),
+        Just(ColumnSource::MidX),
+        any::<String>().prop_map(ColumnSource::Field),
+    ];
+    (any::<String>(), source).prop_map(|(header, source)| Column { header, source })
+}
+
+prop_compose! {
+    /// A Fab Preset copy and an Output Job using it.
+    fn settings()(
+        preset in uuid(),
+        job in uuid(),
+        pcb in uuid(),
+        name in any::<String>(),
+        lengths in prop::array::uniform7(length()),
+        x2_attributes in any::<bool>(),
+        bom in prop::collection::vec(column(), 0..4),
+        cpl in prop::collection::vec(column(), 0..3),
+        job_name in stem("j"),
+        outputs in prop::array::uniform4(any::<bool>()),
+        destination in prop::option::of(stem("d")),
+    ) -> (ProjectFabPreset, OutputJob) {
+        let [clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance] = lengths;
+        let rules = Rules { clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance };
+        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Protel };
+        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, gerber, bom, cpl });
+        let [gerber, drill, bom, cpl] = outputs;
+        let job = OutputJob {
+            uuid: job,
+            name: job_name,
+            pcb,
+            fab_preset: preset,
+            outputs: Outputs { gerber, drill, bom, cpl },
+            destination,
+        };
+        (copy, job)
+    }
+}
+
 prop_compose! {
     fn project()(
         uuid in uuid(),
@@ -214,6 +256,7 @@ prop_compose! {
         documents in prop::collection::vec(document(), 0..6),
         pcb in prop::option::of(pcb_seed()),
         libraries in prop::collection::vec(any::<String>(), 0..3),
+        settings in prop::option::of(settings()),
     ) -> Project {
         let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries });
         let mut tx = project.transaction();
@@ -237,6 +280,15 @@ prop_compose! {
                 order.push(entry.uuid);
                 tx.insert(Object::Document(entry)).unwrap();
                 contents = objects;
+            }
+        }
+        if let Some((copy, job)) = settings {
+            let mut taken: Vec<Uuid> = contents.iter().map(Object::uuid).collect();
+            taken.push(uuid);
+            taken.extend(&order);
+            if copy.uuid != job.uuid && !taken.contains(&copy.uuid) && !taken.contains(&job.uuid) {
+                contents.push(Object::FabPreset(copy));
+                contents.push(Object::OutputJob(job));
             }
         }
         for object in contents {

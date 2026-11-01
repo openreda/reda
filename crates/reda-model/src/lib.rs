@@ -7,6 +7,7 @@
 mod change;
 mod document;
 mod library;
+mod output;
 mod pcb;
 #[cfg(feature = "test-objects")]
 mod probe;
@@ -19,6 +20,10 @@ pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
 pub use library::{
     ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
     PinMap, PinPads, PinType, Symbol, Unit,
+};
+pub use output::{
+    Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,
+    ProjectFabPreset,
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, InDocument, Layer, LayerKind,

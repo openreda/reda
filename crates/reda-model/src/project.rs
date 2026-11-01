@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::change::{ChangeSet, Object};
 use crate::document::{DocumentEntry, DocumentKind, SchematicSheet};
+use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::PcbDocument;
 use crate::{TxError, Uuid};
 
@@ -33,6 +34,8 @@ pub struct ProjectProps {
 pub struct Project {
     props: ProjectProps,
     entries: BTreeMap<Uuid, DocumentEntry>,
+    fab_presets: BTreeMap<Uuid, ProjectFabPreset>,
+    output_jobs: BTreeMap<Uuid, OutputJob>,
     schematic_sheets: BTreeMap<Uuid, SchematicSheet>,
     pcb_documents: BTreeMap<Uuid, PcbDocument>,
     #[cfg(feature = "test-objects")]
@@ -49,6 +52,8 @@ impl Project {
         Project {
             props,
             entries: BTreeMap::new(),
+            fab_presets: BTreeMap::new(),
+            output_jobs: BTreeMap::new(),
             schematic_sheets: BTreeMap::new(),
             pcb_documents: BTreeMap::new(),
             #[cfg(feature = "test-objects")]
@@ -71,6 +76,24 @@ impl Project {
 
     pub fn document(&self, uuid: Uuid) -> Option<&DocumentEntry> {
         self.entries.get(&uuid)
+    }
+
+    /// The Project's copies of Fab Presets, by UUID.
+    pub fn fab_presets(&self) -> impl Iterator<Item = &ProjectFabPreset> {
+        self.fab_presets.values()
+    }
+
+    pub fn fab_preset(&self, uuid: Uuid) -> Option<&ProjectFabPreset> {
+        self.fab_presets.get(&uuid)
+    }
+
+    /// The Output Jobs, by UUID.
+    pub fn output_jobs(&self) -> impl Iterator<Item = &OutputJob> {
+        self.output_jobs.values()
+    }
+
+    pub fn output_job(&self, uuid: Uuid) -> Option<&OutputJob> {
+        self.output_jobs.get(&uuid)
     }
 
     pub fn schematic_sheet(&self, uuid: Uuid) -> Option<&SchematicSheet> {
@@ -96,6 +119,12 @@ impl Project {
         #[cfg(feature = "test-objects")]
         if let Some(probe) = self.probes.get(&uuid) {
             return Some(Object::Probe(probe.clone()));
+        }
+        if let Some(preset) = self.fab_presets.get(&uuid) {
+            return Some(Object::FabPreset(preset.clone()));
+        }
+        if let Some(job) = self.output_jobs.get(&uuid) {
+            return Some(Object::OutputJob(job.clone()));
         }
         if let Some(object) = self.pcb_documents.values().find_map(|pcb| pcb.object(uuid)) {
             return Some(object);
@@ -131,6 +160,8 @@ impl Project {
     pub fn objects(&self) -> Vec<Object> {
         let mut out: Vec<Object> = std::iter::once(Object::Project(self.props.clone()))
             .chain(self.entries.values().cloned().map(Object::Document))
+            .chain(self.fab_presets.values().cloned().map(Object::FabPreset))
+            .chain(self.output_jobs.values().cloned().map(Object::OutputJob))
             .chain(self.pcb_documents.values().flat_map(PcbDocument::objects))
             .collect();
         #[cfg(feature = "test-objects")]
@@ -162,6 +193,12 @@ impl Project {
                 }
                 self.entries.insert(uuid, entry);
             }
+            Some(Object::FabPreset(o)) => {
+                self.fab_presets.insert(uuid, o);
+            }
+            Some(Object::OutputJob(o)) => {
+                self.output_jobs.insert(uuid, o);
+            }
             Some(Object::LayerSet(o)) => {
                 self.pcb_mut(o.document).layer_sets.insert(uuid, o.object);
             }
@@ -188,6 +225,8 @@ impl Project {
                 for pcb in self.pcb_documents.values_mut() {
                     pcb.remove(uuid);
                 }
+                self.fab_presets.remove(&uuid);
+                self.output_jobs.remove(&uuid);
                 assert_ne!(uuid, self.props.uuid, "the Project itself is never removed");
                 if self.entries.remove(&uuid).is_some() {
                     self.schematic_sheets.remove(&uuid);
@@ -233,6 +272,17 @@ impl Project {
             return Err(format!(
                 "Document {orphan} is missing from the Document order"
             ));
+        }
+        for job in self.output_jobs.values() {
+            if job.name.trim().is_empty() {
+                return Err(format!("Output Job {} has no name", job.uuid));
+            }
+            if !self.fab_presets.contains_key(&job.fab_preset) {
+                return Err(format!(
+                    "Output Job {:?} names Fab Preset {}, which the Project has no copy of",
+                    job.name, job.fab_preset
+                ));
+            }
         }
         if self.pcb_documents.len() > 1 {
             return Err("a Project has at most one PCB Document".into());

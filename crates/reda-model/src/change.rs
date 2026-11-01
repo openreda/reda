@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass};
 use crate::{DocumentEntry, ProjectProps, Uuid};
 
@@ -19,6 +20,8 @@ use crate::{DocumentEntry, ProjectProps, Uuid};
 pub enum Object {
     Project(ProjectProps),
     Document(DocumentEntry),
+    FabPreset(ProjectFabPreset),
+    OutputJob(OutputJob),
     LayerSet(InDocument<LayerSet>),
     BoardSetup(InDocument<BoardSetup>),
     BoardOutline(InDocument<BoardOutline>),
@@ -42,6 +45,10 @@ pub enum ObjectType {
     Project,
     /// A Document's entry in the Project's Document list.
     Document,
+    /// The Project's copy of a Fab Preset.
+    FabPreset,
+    /// A named recipe for manufacturing files.
+    OutputJob,
     /// The PCB Document's ordered Layers.
     LayerSet,
     /// The PCB Document's rules, DRC severities and Default Net Class.
@@ -65,6 +72,8 @@ impl Object {
         match self {
             Object::Project(p) => p.uuid,
             Object::Document(d) => d.uuid,
+            Object::FabPreset(o) => o.uuid,
+            Object::OutputJob(o) => o.uuid,
             Object::LayerSet(o) => o.uuid,
             Object::BoardSetup(o) => o.uuid,
             Object::BoardOutline(o) => o.uuid,
@@ -80,6 +89,8 @@ impl Object {
         match self {
             Object::Project(_) => ObjectType::Project,
             Object::Document(_) => ObjectType::Document,
+            Object::FabPreset(_) => ObjectType::FabPreset,
+            Object::OutputJob(_) => ObjectType::OutputJob,
             Object::LayerSet(_) => ObjectType::LayerSet,
             Object::BoardSetup(_) => ObjectType::BoardSetup,
             Object::BoardOutline(_) => ObjectType::BoardOutline,
@@ -94,7 +105,10 @@ impl Object {
     /// The undo stack and dirty flag this object belongs to.
     pub fn scope(&self) -> Scope {
         match self {
-            Object::Project(_) | Object::Document(_) => Scope::Project,
+            Object::Project(_)
+            | Object::Document(_)
+            | Object::FabPreset(_)
+            | Object::OutputJob(_) => Scope::Project,
             Object::LayerSet(o) => Scope::Document(o.document),
             Object::BoardSetup(o) => Scope::Document(o.document),
             Object::BoardOutline(o) => Scope::Document(o.document),
