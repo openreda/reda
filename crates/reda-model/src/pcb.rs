@@ -11,7 +11,7 @@ use reda_geom::{Nm, Vertex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{Object, Uuid};
+use crate::{Object, Severity, Uuid};
 
 /// Which face of the board a sided Layer is on.
 #[derive(
@@ -95,15 +95,6 @@ pub struct Rules {
     pub hole_to_hole: Nm,
     /// Minimum clearance from copper to the Board Outline and Board Cutouts.
     pub edge_clearance: Nm,
-}
-
-/// How a check's Violations are reported.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Severity {
-    Error,
-    Warning,
-    Off,
 }
 
 macro_rules! drc_checks {

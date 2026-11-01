@@ -5,6 +5,7 @@
 //! file format is not defined here: the engine maps these types to canonical JSON.
 
 mod change;
+mod check;
 mod document;
 mod library;
 mod pcb;
@@ -15,6 +16,7 @@ mod transaction;
 mod uuid;
 
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
+pub use check::{Severity, Violation, ViolationArg};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
 pub use library::{
     ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
@@ -23,7 +25,7 @@ pub use library::{
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, InDocument, Layer, LayerKind,
-    LayerSet, Net, NetClass, PcbDocument, Rules, Severity, Side,
+    LayerSet, Net, NetClass, PcbDocument, Rules, Side,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
