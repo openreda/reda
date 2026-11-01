@@ -9,9 +9,14 @@ pub mod commands;
 mod engine;
 pub mod format;
 pub mod fs;
+pub mod journal;
+pub mod preferences;
+pub mod state;
 pub mod store;
+pub mod user_dirs;
 
 pub use engine::{Engine, EngineBuilder, registry};
+pub use journal::{JournalEntry, Source};
 
 /// The Command system, re-exported so front ends depend only on the engine.
 pub use reda_command as command;

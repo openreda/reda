@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
-use crate::{Clock, CommandError, History, IdSource, Timestamp};
+use crate::{Clock, CommandError, History, IdSource, Timestamp, UserDirs};
 
 /// The engine's mutable state between Commands.
 #[derive(Debug, Default)]
@@ -17,6 +17,9 @@ pub struct Session {
     pub location: Option<PathBuf>,
     /// The undo stacks and dirty state of the open Project.
     pub history: History,
+    /// The per-user folders, or `None` when there is no home folder (or in tests that
+    /// keep away from disk). Preferences and `state.json` live here.
+    pub user_dirs: Option<UserDirs>,
 }
 
 /// The injected inputs a Command run needs besides the session.

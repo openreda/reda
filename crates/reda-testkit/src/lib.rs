@@ -6,7 +6,7 @@ mod engine;
 mod files;
 mod probe;
 
-pub use engine::{TestEngine, test_engine};
+pub use engine::{TestEngine, test_engine, test_engine_in};
 pub use files::{TempDir, read_tree};
 pub use probe::probe_engine;
 

@@ -4,9 +4,12 @@ use std::path::Path;
 
 use reda_command::{
     Clock, CommandError, Env, History, IdSource, RandomIds, Registry, Session, SystemClock,
+    UserDirs,
 };
 use reda_model::{Project, Scope};
 use serde_json::Value;
+
+use crate::journal::{JournalEntry, Source};
 
 /// The full registry: every crate's `register_all()`. Add a line here when a new crate
 /// brings Commands.
@@ -23,10 +26,13 @@ pub struct Engine {
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
     headless: bool,
+    source: Source,
+    journal: Vec<JournalEntry>,
 }
 
 impl Engine {
-    /// A headless engine with random UUIDs and the wall clock, for real sessions.
+    /// A headless engine with random UUIDs, the wall clock and the per-user folders from
+    /// `REDA_HOME` or the platform, for real sessions.
     pub fn new() -> Engine {
         Engine::builder().build()
     }
@@ -35,14 +41,34 @@ impl Engine {
         EngineBuilder::default()
     }
 
-    /// Runs one Command. See [`Registry::run`] for the result shape.
+    /// Runs one Command and records it in the Journal. See [`Registry::run`] for the
+    /// result shape.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
         let mut env = Env {
             ids: &mut *self.ids,
             clock: &*self.clock,
             headless: self.headless,
         };
-        self.registry.run(&mut self.session, &mut env, id, params)
+        let outcome = self
+            .registry
+            .run(&mut self.session, &mut env, id, params.clone());
+        self.journal.push(JournalEntry {
+            id: id.to_owned(),
+            params,
+            source: self.source,
+            outcome: outcome.clone(),
+        });
+        outcome
+    }
+
+    /// Every Command run so far, oldest first.
+    pub fn journal(&self) -> &[JournalEntry] {
+        &self.journal
+    }
+
+    /// The per-user folders, if there are any.
+    pub fn user_dirs(&self) -> Option<&UserDirs> {
+        self.session.user_dirs.as_ref()
     }
 
     pub fn registry(&self) -> &Registry {
@@ -87,13 +113,16 @@ impl Default for Engine {
 }
 
 /// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless, unlimited
-/// undo, and the full [`registry`].
+/// undo, the full [`registry`], the CLI as the source, and the per-user folders from
+/// [`crate::user_dirs::discover`].
 pub struct EngineBuilder {
     registry: Registry,
     undo_depth: Option<usize>,
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
     headless: bool,
+    source: Source,
+    user_dirs: Option<UserDirs>,
 }
 
 impl Default for EngineBuilder {
@@ -104,6 +133,8 @@ impl Default for EngineBuilder {
             ids: Box::new(RandomIds::new()),
             clock: Box::new(SystemClock),
             headless: true,
+            source: Source::default(),
+            user_dirs: crate::user_dirs::discover(),
         }
     }
 }
@@ -125,6 +156,18 @@ impl EngineBuilder {
         self
     }
 
+    /// Who drives this engine, as recorded in the Journal.
+    pub fn source(mut self, source: Source) -> EngineBuilder {
+        self.source = source;
+        self
+    }
+
+    /// The per-user folders, or `None` to keep Preferences and state off disk.
+    pub fn user_dirs(mut self, user_dirs: Option<UserDirs>) -> EngineBuilder {
+        self.user_dirs = user_dirs;
+        self
+    }
+
     /// Adds Commands beyond the full [`registry`], such as test-only ones.
     pub fn commands(mut self, register_all: impl FnOnce(&mut Registry)) -> EngineBuilder {
         register_all(&mut self.registry);
@@ -140,12 +183,15 @@ impl EngineBuilder {
     pub fn build(self) -> Engine {
         let mut session = Session::default();
         session.history.set_depth(self.undo_depth);
+        session.user_dirs = self.user_dirs;
         Engine {
             registry: self.registry,
             session,
             ids: self.ids,
             clock: self.clock,
             headless: self.headless,
+            source: self.source,
+            journal: Vec::new(),
         }
     }
 }
