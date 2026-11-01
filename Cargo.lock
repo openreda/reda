@@ -66,6 +66,8 @@ name = "reda-model"
 version = "0.0.0"
 dependencies = [
  "reda-geom",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

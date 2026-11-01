@@ -9,4 +9,6 @@ reda-engine -> reda-command
 reda-geom -> serde
 reda-geom -> serde_json [dev]
 reda-model -> reda-geom
+reda-model -> serde
+reda-model -> serde_json [dev]
 reda-testkit -> serde_json [dev]
