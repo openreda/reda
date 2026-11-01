@@ -6,6 +6,7 @@
 
 mod change;
 mod document;
+mod library;
 #[cfg(feature = "test-objects")]
 mod probe;
 mod project;
@@ -14,6 +15,10 @@ mod uuid;
 
 pub use change::{Change, ChangeSet, Object, Scope, ScopeSummary};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
+pub use library::{
+    ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
+    PinMap, PinPads, PinType, Symbol, Unit,
+};
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
 pub use project::{Project, ProjectProps};
