@@ -1,0 +1,73 @@
+# The merge gate (docs/spec/v0.1/quality-and-release.md#ci-and-merge-gate).
+# Every job runs on the toolchain pinned in rust-toolchain.toml; `rustup toolchain install`
+# with no arguments installs exactly that.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: fmt, clippy, test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+
+  wasm:
+    name: wasm32 build of the engine crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain and the wasm32 target
+        run: |
+          rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # Every crate below reda-control in docs/spec/v0.1/architecture.md#crates must build for
+      # wasm32. The crates at or above it, and the dev-only testkit, are excluded by name, so a
+      # new engine-side crate is covered without touching this file. Excluding a crate that
+      # does not exist yet only warns.
+      - name: Build for wasm32-unknown-unknown
+        run: >
+          cargo build --locked --target wasm32-unknown-unknown --workspace
+          --exclude reda-control
+          --exclude reda-ui
+          --exclude reda-app
+          --exclude reda-cli
+          --exclude reda-testkit
+
+  deny:
+    name: cargo-deny (licences, advisories, bans, sources)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      # Policy in deny.toml; the licence allow-list enforces ADR-0002.
+      - run: cargo deny --locked check advisories licenses bans sources
