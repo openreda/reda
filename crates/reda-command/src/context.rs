@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
-use crate::{Clock, CommandError, History, IdSource, Signals, Timestamp, UserDirs};
+use crate::{Clock, CommandError, Fonts, History, IdSource, Signals, Timestamp, UserDirs};
 
 /// The engine's mutable state between Commands.
 #[derive(Debug, Default)]
@@ -28,6 +28,8 @@ pub struct Session {
 pub struct Env<'a> {
     pub ids: &'a mut dyn IdSource,
     pub clock: &'a dyn Clock,
+    /// The font bytes the front end handed over, for text in installed fonts.
+    pub fonts: &'a Fonts,
     /// No GUI: view Commands are unavailable.
     pub headless: bool,
 }
@@ -46,6 +48,7 @@ pub struct Context<'a> {
     pub(crate) access: Access<'a>,
     pub(crate) ids: &'a mut dyn IdSource,
     pub(crate) clock: &'a dyn Clock,
+    pub(crate) fonts: &'a Fonts,
     pub(crate) signals: &'a Signals,
     /// Set when an edit replays an undo or redo entry instead of making a new change.
     pub(crate) step: Option<Step>,
@@ -141,6 +144,11 @@ impl<'a> Context<'a> {
     /// The time from the injected `Clock`.
     pub fn now(&self) -> Timestamp {
         self.clock.now()
+    }
+
+    /// The font bytes the front end handed over.
+    pub fn fonts(&self) -> &Fonts {
+        self.fonts
     }
 
     /// The run's cancellation token and progress reporter.

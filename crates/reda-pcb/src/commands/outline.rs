@@ -29,7 +29,7 @@ pub struct PointParam {
 }
 
 impl PointParam {
-    fn point(self) -> Point {
+    pub(super) fn point(self) -> Point {
         Point::new(self.x.nm(), self.y.nm())
     }
 }

@@ -11,7 +11,7 @@ use crate::batch::{self, BatchParams};
 use crate::command::{AvailabilityContext, NO_PROJECT, Preset, Unavailable};
 use crate::context::{Access, Context, Env, Session, Step};
 use crate::schema;
-use crate::{Clock, Command, CommandError, IdSource, Kind, Meta, Signals};
+use crate::{Clock, Command, CommandError, Fonts, IdSource, Kind, Meta, Signals};
 
 /// The object-safe face of a [`Command`].
 trait Erased: Send + Sync {
@@ -199,7 +199,7 @@ impl Registry {
                         Kind::Edit,
                         (project.transaction(), &session.history),
                         &mut *env.ids,
-                        env.clock,
+                        (env.clock, env.fonts),
                         signals,
                         params,
                     );
@@ -219,6 +219,7 @@ impl Registry {
                     access: Access::Read(session.project.as_ref()),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    fonts: env.fonts,
                     signals,
                     step: None,
                 };
@@ -229,6 +230,7 @@ impl Registry {
                     access: Access::File(session),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    fonts: env.fonts,
                     signals,
                     step: None,
                 };
@@ -271,7 +273,7 @@ impl Registry {
                 entry.meta.kind,
                 (tx, history),
                 ids,
-                env.clock,
+                (env.clock, env.fonts),
                 signals,
                 params,
             );
@@ -343,7 +345,7 @@ fn invoke_in<'a>(
     kind: Kind,
     (tx, history): (Transaction<'a>, &'a History),
     ids: &'a mut dyn IdSource,
-    clock: &'a dyn Clock,
+    (clock, fonts): (&'a dyn Clock, &'a Fonts),
     signals: &'a Signals,
     params: Value,
 ) -> InTx<'a> {
@@ -355,6 +357,7 @@ fn invoke_in<'a>(
         access,
         ids,
         clock,
+        fonts,
         signals,
         step: None,
     };
