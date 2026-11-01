@@ -11,7 +11,7 @@ use crate::batch::{self, BatchParams};
 use crate::command::{AvailabilityContext, NO_PROJECT, Preset, Unavailable};
 use crate::context::{Access, Context, Env, Session, Step};
 use crate::schema;
-use crate::{Clock, Command, CommandError, IdSource, Kind, Meta, Signals};
+use crate::{Clock, Command, CommandError, IdSource, Kind, Meta, Signals, UserDirs};
 
 /// The object-safe face of a [`Command`].
 trait Erased: Send + Sync {
@@ -197,7 +197,11 @@ impl Registry {
                     let run = invoke_in(
                         command.as_ref(),
                         Kind::Edit,
-                        (project.transaction(), &session.history),
+                        (
+                            project.transaction(),
+                            &session.history,
+                            session.user_dirs.as_ref(),
+                        ),
                         &mut *env.ids,
                         env.clock,
                         signals,
@@ -220,6 +224,7 @@ impl Registry {
                     ids: &mut *env.ids,
                     clock: env.clock,
                     signals,
+                    user_dirs: session.user_dirs.as_ref(),
                     step: None,
                 };
                 command.invoke(&mut cx, params)
@@ -230,6 +235,7 @@ impl Registry {
                     ids: &mut *env.ids,
                     clock: env.clock,
                     signals,
+                    user_dirs: None,
                     step: None,
                 };
                 command.invoke(&mut cx, params)
@@ -253,6 +259,7 @@ impl Registry {
             .as_mut()
             .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
         let history = &session.history;
+        let user_dirs = session.user_dirs.as_ref();
         let mut tx = project.transaction();
         let mut ids: &mut dyn IdSource = &mut *env.ids;
         let mut results = Vec::with_capacity(params.commands.len());
@@ -269,7 +276,7 @@ impl Registry {
             let run = invoke_in(
                 command.as_ref(),
                 entry.meta.kind,
-                (tx, history),
+                (tx, history, user_dirs),
                 ids,
                 env.clock,
                 signals,
@@ -341,7 +348,7 @@ struct InTx<'a> {
 fn invoke_in<'a>(
     command: &dyn Erased,
     kind: Kind,
-    (tx, history): (Transaction<'a>, &'a History),
+    (tx, history, user_dirs): (Transaction<'a>, &'a History, Option<&'a UserDirs>),
     ids: &'a mut dyn IdSource,
     clock: &'a dyn Clock,
     signals: &'a Signals,
@@ -356,6 +363,7 @@ fn invoke_in<'a>(
         ids,
         clock,
         signals,
+        user_dirs,
         step: None,
     };
     let result = command.invoke(&mut cx, params);

@@ -47,6 +47,9 @@ pub struct Context<'a> {
     pub(crate) ids: &'a mut dyn IdSource,
     pub(crate) clock: &'a dyn Clock,
     pub(crate) signals: &'a Signals,
+    /// The per-user folders, for Commands other than file Commands (which read them from
+    /// the session).
+    pub(crate) user_dirs: Option<&'a UserDirs>,
     /// Set when an edit replays an undo or redo entry instead of making a new change.
     pub(crate) step: Option<Step>,
 }
@@ -141,6 +144,15 @@ impl<'a> Context<'a> {
     /// The time from the injected `Clock`.
     pub fn now(&self) -> Timestamp {
         self.clock.now()
+    }
+
+    /// The per-user folders, if there are any: user Fab Presets, Preferences, `state.json`.
+    /// Every kind of Command can read them.
+    pub fn user_dirs(&self) -> Option<&UserDirs> {
+        match &self.access {
+            Access::File(session) => session.user_dirs.as_ref(),
+            _ => self.user_dirs,
+        }
     }
 
     /// The run's cancellation token and progress reporter.
