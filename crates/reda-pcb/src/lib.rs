@@ -6,5 +6,5 @@
 mod board;
 mod commands;
 
-pub use board::{DEFAULT_NET_CLASS, GENERIC_RULES, V01_LAYERS, new_board};
-pub use commands::register_all;
+pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board};
+pub use commands::{rect_outline, register_all};

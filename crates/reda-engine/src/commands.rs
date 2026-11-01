@@ -2,6 +2,7 @@
 //! work.
 
 pub mod document;
+pub mod fab_preset;
 pub mod history;
 pub mod library;
 pub mod preferences;
@@ -15,6 +16,7 @@ use serde::{Deserialize, Deserializer};
 /// Adds every Command defined in `reda-engine`.
 pub fn register_all(registry: &mut Registry) {
     document::register_all(registry);
+    fab_preset::register_all(registry);
     history::register_all(registry);
     library::register_all(registry);
     preferences::register_all(registry);

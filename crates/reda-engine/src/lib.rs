@@ -7,6 +7,7 @@ mod builders;
 pub mod canonical;
 pub mod commands;
 mod engine;
+pub mod fab_presets;
 pub mod format;
 pub mod fs;
 pub mod journal;

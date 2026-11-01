@@ -101,7 +101,7 @@ fn library_paths_are_saved_in_the_project_file_and_read_back() {
     let file = dir.path().join("Demo").join("Demo.reda");
     let text = std::fs::read_to_string(&file).unwrap();
     assert!(
-        text.ends_with("  \"libraries\": [\n    \"parts\",\n    \"../shared\"\n  ]\n}\n"),
+        text.contains("  \"libraries\": [\n    \"parts\",\n    \"../shared\"\n  ],\n"),
         "{text}"
     );
 

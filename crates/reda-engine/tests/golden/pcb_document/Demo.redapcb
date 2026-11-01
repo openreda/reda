@@ -21,7 +21,7 @@
   "board": {"uuid":"00000000-0000-4000-8000-000000000015","default_net_class":"00000000-0000-4000-8000-000000000014"},
   "rules": {"clearance":160000,"track_width":200000,"via_diameter":700000,"via_hole":300000,"annular_ring":200000,"hole_to_hole":500000,"edge_clearance":400000},
   "severities": {"clearance":"error","short_circuit":"error","track_width":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","courtyard_overlap":"warning","silkscreen_over_pads":"warning","out_of_sync":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000016","vertices":[
+  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000018","vertices":[
     {"x":2000000,"y":0},
     {"x":98000000,"y":0,"sweep":90000},
     {"x":100000000,"y":2000000},
@@ -32,7 +32,7 @@
     {"x":0,"y":2000000,"sweep":90000}
   ]},
   "board_cutouts": [
-    {"uuid":"00000000-0000-4000-8000-000000000017","vertices":[
+    {"uuid":"00000000-0000-4000-8000-000000000019","vertices":[
       {"x":10000000,"y":10000000},
       {"x":20000000,"y":10000000},
       {"x":20000000,"y":20000000}
@@ -40,7 +40,7 @@
   ],
   "net_classes": [
     {"uuid":"00000000-0000-4000-8000-000000000014","name":"Default"},
-    {"uuid":"00000000-0000-4000-8000-000000000018","name":"Power","clearance":300000,"track_width":500000}
+    {"uuid":"00000000-0000-4000-8000-00000000001a","name":"Power","clearance":300000,"track_width":500000}
   ],
   "nets": []
 }

@@ -5,6 +5,8 @@ mod net_class;
 mod outline;
 mod rules;
 
+pub use outline::rect_outline;
+
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
 };

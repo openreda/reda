@@ -62,6 +62,8 @@ struct Client {
     thread: writer::WriterThread,
     /// Notifications seen while waiting for responses.
     notifications: Vec<Value>,
+    /// Where `project.new` writes the Project; removed on drop.
+    dir: reda_testkit::TempDir,
 }
 
 impl Client {
@@ -84,6 +86,7 @@ impl Client {
             server,
             thread,
             notifications: Vec::new(),
+            dir: reda_testkit::TempDir::new("mcp-unit"),
         };
         client
             .request(
@@ -99,11 +102,12 @@ impl Client {
         client
             .send(json!({"jsonrpc": "2.0", "method": "notifications/initialized"}))
             .await;
+        let path = client.dir.path().to_owned();
         let created = client
             .call(
                 2,
                 json!({"name": "run_command", "arguments": {
-                    "id": "project.new", "params": {"path": "/nonexistent", "name": "Demo"}
+                    "id": "project.new", "params": {"path": path, "name": "Demo"}
                 }}),
             )
             .await;

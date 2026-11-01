@@ -176,6 +176,13 @@ fn run_command_runs_on_one_session_and_query_tools_see_its_result() {
     let mut client = Client::spawn(&[]);
     let created = client.call("run_command", new_project(dir.path()));
     assert_eq!(created["structuredContent"]["name"], "Demo", "{created}");
+    // project.new writes the new Project; later edits stay in memory.
+    let written = read_tree(dir.path());
+    let added = client.call(
+        "run_command",
+        json!({"id": "document.add", "params": {"kind": "schematic"}}),
+    );
+    assert_eq!(added["isError"], false, "{added}");
 
     let overview = client.call("project.overview", json!({}));
     assert_eq!(overview["structuredContent"]["name"], "Demo", "{overview}");
@@ -189,7 +196,7 @@ fn run_command_runs_on_one_session_and_query_tools_see_its_result() {
     assert_eq!(bad["structuredContent"]["details"]["pointer"], "/extra");
 
     let stderr = client.finish();
-    assert!(read_tree(dir.path()).is_empty(), "nothing is saved");
+    assert_eq!(read_tree(dir.path()), written, "the edit is not saved");
     assert!(stderr.contains("discarding unsaved changes"), "{stderr}");
 }
 
@@ -198,10 +205,16 @@ fn saves_only_through_project_save() {
     let dir = TempDir::new("mcp-save");
     let mut client = Client::spawn(&[]);
     client.call("run_command", new_project(dir.path()));
+    client.call(
+        "run_command",
+        json!({"id": "document.add", "params": {"kind": "schematic"}}),
+    );
+    let sheet_2 = dir.path().join("Demo").join("Sheet 2.redasch");
+    assert!(!sheet_2.exists());
     let saved = client.call("run_command", json!({"id": "project.save"}));
     assert_eq!(saved["isError"], false, "{saved}");
     let stderr = client.finish();
-    assert!(dir.path().join("Demo").join("Demo.reda").is_file());
+    assert!(sheet_2.is_file());
     assert!(!stderr.contains("discarding"), "{stderr}");
 }
 
@@ -210,7 +223,7 @@ fn project_flag_opens_the_project_first() {
     let dir = TempDir::new("mcp-project");
     let params = json!({"path": dir.path(), "name": "Demo"}).to_string();
     let out = Command::new(env!("CARGO_BIN_EXE_reda"))
-        .args(["run", "project.new", "--params", &params, "--save"])
+        .args(["run", "project.new", "--params", &params])
         .output()
         .unwrap();
     assert!(out.status.success());

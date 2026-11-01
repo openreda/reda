@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "pcb": {"uuid":"00000000-0000-4000-8000-000000000003"},
+  "layers": {"uuid":"00000000-0000-4000-8000-000000000004","layers":[
+    {"uuid":"00000000-0000-4000-8000-000000000005","kind":"courtyard","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000006","kind":"assembly","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000007","kind":"silkscreen","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000008","kind":"paste","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000009","kind":"solder_mask","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","kind":"copper","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","kind":"copper","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000c","kind":"solder_mask","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","kind":"paste","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","kind":"silkscreen","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","kind":"assembly","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-000000000010","kind":"courtyard","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-000000000011","kind":"board_outline"},
+    {"uuid":"00000000-0000-4000-8000-000000000012","kind":"mechanical"},
+    {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
+  ]},
+  "board": {"uuid":"00000000-0000-4000-8000-000000000015","default_net_class":"00000000-0000-4000-8000-000000000014"},
+  "rules": {"clearance":160000,"track_width":200000,"via_diameter":700000,"via_hole":300000,"annular_ring":200000,"hole_to_hole":500000,"edge_clearance":400000},
+  "severities": {"clearance":"error","short_circuit":"error","track_width":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","courtyard_overlap":"warning","silkscreen_over_pads":"warning","out_of_sync":"warning"},
+  "board_cutouts": [],
+  "net_classes": [
+    {"uuid":"00000000-0000-4000-8000-000000000014","name":"Default"}
+  ],
+  "nets": []
+}

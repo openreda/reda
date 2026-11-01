@@ -9,9 +9,22 @@ use serde_json::{Value, json};
 
 const GOLDEN: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/pcb_document");
 
-fn new_project(dir: &Path) -> TestEngine {
+/// A new Project as `project.new` makes it, with its PCB Document.
+fn new_project_with_pcb(dir: &Path) -> TestEngine {
     let mut engine = test_engine();
     engine.run_ok("project.new", json!({"path": dir, "name": "Demo"}));
+    engine
+}
+
+/// A new Project whose PCB Document (and the Output Job plotting it) has been deleted, so
+/// tests can add one.
+fn new_project(dir: &Path) -> TestEngine {
+    let mut engine = new_project_with_pcb(dir);
+    let project = engine.project().unwrap();
+    let job = project.output_jobs().next().unwrap().uuid;
+    let pcb = project.pcb().unwrap().uuid;
+    engine.run_ok("output.job.delete", json!({"job": job}));
+    engine.run_ok("document.delete", json!({"document": pcb}));
     engine
 }
 
@@ -112,8 +125,8 @@ fn the_pcb_document_can_be_deleted_and_added_again() {
     assert!(project.object(pcb).is_none());
     assert_eq!(
         project.objects().len(),
-        2,
-        "the Project and its sheet remain"
+        3,
+        "the Project, its sheet and its Fab Preset copy remain"
     );
     add_pcb(&mut engine);
 }
@@ -188,8 +201,7 @@ fn deleting_the_pcb_document_undoes_with_its_contents() {
 
 fn saved_with_pcb(label: &str) -> (TempDir, std::path::PathBuf) {
     let dir = TempDir::new(label);
-    let mut engine = new_project(dir.path());
-    add_pcb(&mut engine);
+    let mut engine = new_project_with_pcb(dir.path());
     engine.run_ok(
         "pcb.board_outline.add_rect",
         json!({"width": "100mm", "height": "80mm", "corner_radius": "2mm"}),

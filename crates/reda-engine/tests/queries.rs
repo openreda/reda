@@ -6,6 +6,7 @@ use serde_json::json;
 
 const PROJECT: &str = "00000000-0000-4000-8000-000000000001";
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
+const PCB: &str = "00000000-0000-4000-8000-000000000003";
 
 fn demo(dir: &TempDir) -> TestEngine {
     let mut engine = test_engine();
@@ -28,6 +29,12 @@ fn overview_lists_the_project_and_its_documents_in_order() {
                 "name": "Demo",
                 "title": "Sheet 1",
                 "objects": {}
+            }, {
+                "uuid": PCB,
+                "kind": "pcb",
+                "name": "Demo",
+                "title": "Demo",
+                "objects": {"layer_set": 1, "board_setup": 1, "net_class": 1}
             }]
         })
     );
@@ -47,7 +54,7 @@ fn object_get_returns_any_object_with_its_document() {
     let project = engine.run_ok("object.get", json!({"uuid": PROJECT}));
     assert_eq!(
         project["object"],
-        json!({"type": "project", "uuid": PROJECT, "name": "Demo", "documents": [SHEET]})
+        json!({"type": "project", "uuid": PROJECT, "name": "Demo", "documents": [SHEET, PCB]})
     );
 }
 
@@ -73,11 +80,19 @@ fn objects_query_filters_by_type_and_document() {
         .iter()
         .map(|o| o["object"]["uuid"].as_str().unwrap())
         .collect();
-    assert_eq!(uuids, [PROJECT, SHEET]);
+    assert_eq!(uuids.len(), 8, "{uuids:?}");
+    assert_eq!(&uuids[..3], [PROJECT, SHEET, PCB]);
+    let mut sorted = uuids.clone();
+    sorted.sort();
+    assert_eq!(uuids, sorted);
 
     let documents = engine.run_ok("objects.query", json!({"type": "document"}));
-    assert_eq!(documents["objects"].as_array().unwrap().len(), 1);
+    assert_eq!(documents["objects"].as_array().unwrap().len(), 2);
     assert_eq!(documents["objects"][0]["object"]["uuid"], SHEET);
+
+    let jobs = engine.run_ok("objects.query", json!({"type": "output_job"}));
+    assert_eq!(jobs["objects"][0]["document"], json!(null));
+    assert_eq!(jobs["objects"][0]["object"]["name"], "Generic");
 
     // A new sheet holds no objects yet; the Document's own entry lives in the Project file.
     let in_sheet = engine.run_ok("objects.query", json!({"document": SHEET}));

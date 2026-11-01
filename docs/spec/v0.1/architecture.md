@@ -208,7 +208,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
   - If a running instance has the target Project open, the CLI bridges to it. Otherwise it runs in-process.
   - With no `--project` and exactly one instance running, it bridges to that instance.
 - **Saving:**
-  - In-process `reda run` writes nothing to disk without `--save` or `project.save`.
+  - In-process `reda run` writes edits to disk only with `--save` or `project.save`. File Commands write what they always write: `project.new` writes the new Project ([app](app.md#new-project)).
   - In-process `reda mcp` saves only through `project.save`, and warns on stderr when it discards changes on exit.
   - Bridged sessions never save. Their edits show as unsaved changes in the app.
 - **Control port:**

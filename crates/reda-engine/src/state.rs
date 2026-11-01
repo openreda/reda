@@ -26,6 +26,9 @@ pub struct UserState {
     /// The main window's geometry when no Project is open.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window: Option<WindowGeometry>,
+    /// The Fab Preset the last new Project used: the New Project dialog's default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_fab_preset: Option<String>,
     /// Fields written by another version of REDA, kept as they are.
     #[serde(flatten)]
     pub other: BTreeMap<String, Value>,

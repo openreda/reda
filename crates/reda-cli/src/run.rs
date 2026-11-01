@@ -2,8 +2,10 @@
 //! `reda run --script journal.jsonl [--project p] [--save]`.
 //!
 //! Runs in-process (bridging to a running app comes with the control port). Prints the
-//! result as JSON on stdout, or the `{code, message}` error as JSON on stderr. Writes
-//! nothing to disk unless `--save` is given or the Command itself is `project.save`.
+//! result as JSON on stdout, or the `{code, message}` error as JSON on stderr. Edit
+//! Commands change only the in-memory Project, so they reach disk only with `--save`; file
+//! Commands write what they always write (`project.new` writes the new Project,
+//! `project.save` saves).
 //!
 //! `--script` replays an exported Journal (see [`reda_engine::journal::replay`]) and prints
 //! the replay's own Journal as JSON lines. A replay mismatch prints
