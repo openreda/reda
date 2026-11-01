@@ -37,6 +37,8 @@ name = "reda-cli"
 version = "0.0.0"
 dependencies = [
  "reda-engine",
+ "reda-testkit",
+ "serde_json",
 ]
 
 [[package]]
