@@ -254,6 +254,53 @@
       ],
       "type": "object"
     },
+    "NetLabel": {
+      "additionalProperties": false,
+      "description": "A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the\nsame name on its sheet.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The connection point."
+        },
+        "name": {
+          "type": "string"
+        },
+        "rotation": {
+          "description": "Counter-clockwise; only how the label is drawn.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "at",
+        "rotation"
+      ],
+      "type": "object"
+    },
+    "NoConnect": {
+      "additionalProperties": false,
+      "description": "A mark on the Pin under `at` stating that it is deliberately left unconnected.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "at"
+      ],
+      "type": "object"
+    },
     "Pad": {
       "additionalProperties": false,
       "description": "A copper area, with or without a hole, of a Footprint.",
@@ -941,6 +988,28 @@
         "component_type"
       ],
       "type": "object"
+    },
+    "Wire": {
+      "additionalProperties": false,
+      "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/Point"
+        },
+        "to": {
+          "$ref": "#/$defs/Point"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "from",
+        "to"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -972,6 +1041,22 @@
       "default": null,
       "description": "The sheet's frame settings. Without it the sheet is A4."
     },
+    "net_labels": {
+      "default": [],
+      "description": "The Net Labels, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/NetLabel"
+      },
+      "type": "array"
+    },
+    "no_connects": {
+      "default": [],
+      "description": "The No-Connect Markers, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/NoConnect"
+      },
+      "type": "array"
+    },
     "parts": {
       "default": [],
       "description": "The part table: one copied Part with its Symbol per entry, sorted by UUID.",
@@ -989,6 +1074,14 @@
       "description": "The placed Units, sorted by UUID.",
       "items": {
         "$ref": "#/$defs/UnitInstance"
+      },
+      "type": "array"
+    },
+    "wires": {
+      "default": [],
+      "description": "The Wires: one orthogonal segment each, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/Wire"
       },
       "type": "array"
     }
