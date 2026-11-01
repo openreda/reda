@@ -21,8 +21,8 @@ pub struct LibraryInfo {
     pub description: String,
 }
 
-/// The schematic representation of a part: its Units, each with its Pins.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// The schematic representation of a part: its Units, each with its Pins and graphics.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Symbol {
     pub uuid: Uuid,
     pub name: String,
@@ -33,6 +33,9 @@ pub struct Symbol {
     pub units: Vec<Unit>,
     /// Every Pin of every Unit, sorted by UUID; [`Pin::unit`] says which Unit it is on.
     pub pins: Vec<Pin>,
+    /// The body drawing of every Unit, sorted by UUID; [`SymbolGraphic::unit`] says which
+    /// Unit it belongs to.
+    pub graphics: Vec<SymbolGraphic>,
 }
 
 impl Symbol {
@@ -68,6 +71,24 @@ pub struct Pin {
     /// The direction from the connection end towards the body, counter-clockwise from +x.
     pub rotation: Millideg,
     pub length: Nm,
+    /// Whether the Pin's name is drawn.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub name_visible: bool,
+    /// Whether the Pin's number is drawn.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub number_visible: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// A Pin's electrical type, which ERC checks.
@@ -86,14 +107,157 @@ pub enum PinType {
     NotConnected,
 }
 
-/// The physical land pattern of a part.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// The physical land pattern of a part. Coordinates are relative to its origin, and its
+/// zero orientation follows IPC-7351.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Footprint {
     pub uuid: Uuid,
     pub name: String,
     pub description: String,
     /// Sorted by UUID. Numbers may repeat: Pads that share a number belong to one Pin.
     pub pads: Vec<Pad>,
+    /// Silkscreen, Courtyard and Assembly drawing, sorted by UUID.
+    pub graphics: Vec<FootprintGraphic>,
+    /// Where the Designator text goes.
+    pub designator: FootprintText,
+    /// Where the value text goes.
+    pub value: FootprintText,
+}
+
+/// The Layers a Footprint draws on besides copper.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FootprintLayer {
+    SilkscreenTop,
+    SilkscreenBottom,
+    CourtyardTop,
+    CourtyardBottom,
+    AssemblyTop,
+    AssemblyBottom,
+}
+
+/// The placement of a Footprint's Designator or value text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintText {
+    /// The text centre, relative to the Footprint origin.
+    pub at: Point,
+    pub rotation: Millideg,
+    /// The text height.
+    pub size: Nm,
+    pub layer: FootprintLayer,
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub visible: bool,
+}
+
+impl FootprintText {
+    /// The Designator text of a new Footprint: 1 mm high on the top Silkscreen, at the
+    /// origin.
+    pub const DESIGNATOR: FootprintText = FootprintText {
+        at: Point::new(Nm(0), Nm(0)),
+        rotation: Millideg(0),
+        size: Nm::from_mm(1),
+        layer: FootprintLayer::SilkscreenTop,
+        visible: true,
+    };
+
+    /// The value text of a new Footprint: 1 mm high on the top Assembly Layer, at the
+    /// origin.
+    pub const VALUE: FootprintText = FootprintText {
+        at: Point::new(Nm(0), Nm(0)),
+        rotation: Millideg(0),
+        size: Nm::from_mm(1),
+        layer: FootprintLayer::AssemblyTop,
+        visible: true,
+    };
+}
+
+/// A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Shape {
+    Line {
+        start: Point,
+        end: Point,
+    },
+    /// An axis-aligned rectangle between two opposite corners.
+    Rect {
+        start: Point,
+        end: Point,
+    },
+    /// The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative
+    /// is clockwise).
+    Arc {
+        center: Point,
+        start: Point,
+        sweep: Millideg,
+    },
+    Circle {
+        center: Point,
+        radius: Nm,
+    },
+    /// A closed polygon through its corners.
+    Polygon {
+        points: Vec<Point>,
+    },
+    Text {
+        /// The text's anchor.
+        at: Point,
+        text: String,
+        /// The text height.
+        size: Nm,
+        rotation: Millideg,
+    },
+}
+
+impl Shape {
+    /// The shape moved by `by`.
+    pub fn translated(&self, by: Point) -> Shape {
+        let mut shape = self.clone();
+        match &mut shape {
+            Shape::Line { start, end } | Shape::Rect { start, end } => {
+                *start = *start + by;
+                *end = *end + by;
+            }
+            Shape::Arc { center, start, .. } => {
+                *center = *center + by;
+                *start = *start + by;
+            }
+            Shape::Circle { center, .. } => *center = *center + by,
+            Shape::Polygon { points } => points.iter_mut().for_each(|p| *p = *p + by),
+            Shape::Text { at, .. } => *at = *at + by,
+        }
+        shape
+    }
+}
+
+/// One shape of a Symbol Unit's body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SymbolGraphic {
+    pub uuid: Uuid,
+    /// The Unit it is drawn on.
+    pub unit: Uuid,
+    pub shape: Shape,
+    /// The stroke width.
+    pub width: Nm,
+    /// Whether a closed shape is filled.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub fill: bool,
+}
+
+/// One shape a Footprint draws on a non-copper Layer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintGraphic {
+    pub uuid: Uuid,
+    pub layer: FootprintLayer,
+    pub shape: Shape,
+    /// The stroke width.
+    pub width: Nm,
+    /// Whether a closed shape is filled.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub fill: bool,
 }
 
 /// A copper area, with or without a hole, of a Footprint.
@@ -109,6 +273,9 @@ pub struct Pad {
     pub rotation: Millideg,
     pub width: Nm,
     pub height: Nm,
+    /// The corner radius of a rounded-rectangle Pad.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corner_radius: Option<Nm>,
     /// A round hole when width equals height, otherwise a slot. SMD Pads have none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hole: Option<Hole>,
@@ -147,7 +314,7 @@ pub struct Hole {
 
 /// A Library definition that binds a Symbol to its alternate Footprints, with default
 /// fields and a Component Type.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Part {
     pub uuid: Uuid,
     pub name: String,
@@ -240,4 +407,38 @@ impl PinMap {
 pub struct PinPads {
     pub pin: String,
     pub pads: Vec<String>,
+}
+
+/// One Library element of any kind.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LibraryElement {
+    Symbol(Symbol),
+    Footprint(Footprint),
+    Part(Part),
+}
+
+impl LibraryElement {
+    pub fn uuid(&self) -> Uuid {
+        match self {
+            LibraryElement::Symbol(s) => s.uuid,
+            LibraryElement::Footprint(f) => f.uuid,
+            LibraryElement::Part(p) => p.uuid,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            LibraryElement::Symbol(s) => &s.name,
+            LibraryElement::Footprint(f) => &f.name,
+            LibraryElement::Part(p) => &p.name,
+        }
+    }
+}
+
+/// Where an open Library element came from: its Library, and whether that Library may be
+/// changed (the starter Library may not).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ElementSource {
+    pub library: Uuid,
+    pub read_only: bool,
 }

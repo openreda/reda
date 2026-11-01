@@ -17,7 +17,8 @@ pub(crate) fn register_all(registry: &mut Registry) {
 /// An object and the Document it lives in.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ObjectView {
-    /// The Document holding the object, or `null` for objects in the Project file.
+    /// The Document holding the object, the UUID of an open Library element itself, or
+    /// `null` for objects in the Project file.
     pub document: Option<Uuid>,
     pub object: Object,
 }
@@ -26,7 +27,7 @@ impl ObjectView {
     fn of(object: Object) -> ObjectView {
         let document = match object.scope() {
             Scope::Project => None,
-            Scope::Document(uuid) => Some(uuid),
+            Scope::Document(uuid) | Scope::Element(uuid) => Some(uuid),
         };
         ObjectView { document, object }
     }

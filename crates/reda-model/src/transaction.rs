@@ -65,6 +65,11 @@ impl Transaction<'_> {
         if self.project.object(uuid).is_some() {
             return Err(TxError::Conflict(uuid));
         }
+        if matches!(object.scope(), crate::Scope::Element(_)) {
+            return Err(TxError::Invalid(
+                "a Library element is opened, not inserted".into(),
+            ));
+        }
         self.project.check_home(&object)?;
         self.set(uuid, None, Some(object));
         Ok(())
@@ -96,6 +101,11 @@ impl Transaction<'_> {
             ));
         }
         let before = self.project.object(uuid).ok_or(TxError::NotFound(uuid))?;
+        if matches!(before.scope(), crate::Scope::Element(_)) {
+            return Err(TxError::Invalid(
+                "a Library element is closed, not removed".into(),
+            ));
+        }
         if matches!(before, Object::Document(_)) && !self.project.body_is_empty(uuid) {
             return Err(TxError::Invalid(format!(
                 "Document {uuid} still holds objects; remove them first"

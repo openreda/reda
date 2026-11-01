@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub fn register_all(registry: &mut Registry) {
     registry.add(ProjectLibraryAdd);
     registry.add(ProjectLibraryRemove);
+    crate::edit::register_all(registry);
 }
 
 /// Params naming one Project Library folder.
