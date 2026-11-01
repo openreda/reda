@@ -5,6 +5,8 @@
 
 mod angle;
 mod length;
+mod units;
 
 pub use angle::Millideg;
 pub use length::{Nm, Point};
+pub use units::UnitError;
