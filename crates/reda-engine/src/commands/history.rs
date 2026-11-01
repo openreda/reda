@@ -1,6 +1,7 @@
 //! `edit.undo` and `edit.redo`: one step back or forward on one undo stack.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
+use reda_model::Scope;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -14,8 +15,17 @@ pub(crate) fn register_all(registry: &mut Registry) {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StackParams {
-    /// The stack: a Document's UUID, or `"project"` for the Project file's own stack.
+    /// The stack: a Document's or open Library element's UUID, or `"project"` for the
+    /// Project file's own stack.
     pub document: DocumentRef,
+}
+
+/// The stack `document` names: an open Library element's UUID names its own stack.
+fn stack(cx: &Context<'_>, document: DocumentRef) -> Result<Scope, CommandError> {
+    Ok(match document.0 {
+        Scope::Document(uuid) if cx.project()?.element(uuid).is_some() => Scope::Element(uuid),
+        scope => scope,
+    })
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -41,7 +51,8 @@ impl Command for EditUndo {
     type Output = StepResult;
 
     fn run(&self, cx: &mut Context<'_>, p: StackParams) -> Result<StepResult, CommandError> {
-        let label = cx.undo(p.document.0)?;
+        let scope = stack(cx, p.document)?;
+        let label = cx.undo(scope)?;
         Ok(StepResult { label })
     }
 }
@@ -63,7 +74,8 @@ impl Command for EditRedo {
     type Output = StepResult;
 
     fn run(&self, cx: &mut Context<'_>, p: StackParams) -> Result<StepResult, CommandError> {
-        let label = cx.redo(p.document.0)?;
+        let scope = stack(cx, p.document)?;
+        let label = cx.redo(scope)?;
         Ok(StepResult { label })
     }
 }

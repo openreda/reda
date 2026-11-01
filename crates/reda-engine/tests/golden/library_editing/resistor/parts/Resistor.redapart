@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"00000000-0000-4000-8000-000000000010","name":"Resistor","component_type":"standard","symbol":"00000000-0000-4000-8000-000000000003"},
+  "footprints": [
+    "00000000-0000-4000-8000-000000000008"
+  ],
+  "fields": {"value":"10k","description":"Generic resistor","keywords":"resistor R"},
+  "pin_map": {}
+}

@@ -142,7 +142,7 @@
         "properties": {
           "document": {
             "$ref": "#/$defs/DocumentRef",
-            "description": "The stack: a Document's UUID, or `\"project\"` for the Project file's own stack."
+            "description": "The stack: a Document's or open Library element's UUID, or `\"project\"` for the\nProject file's own stack."
           }
         },
         "required": [
@@ -195,7 +195,7 @@
         "properties": {
           "document": {
             "$ref": "#/$defs/DocumentRef",
-            "description": "The stack: a Document's UUID, or `\"project\"` for the Project file's own stack."
+            "description": "The stack: a Document's or open Library element's UUID, or `\"project\"` for the\nProject file's own stack."
           }
         },
         "required": [
@@ -220,6 +220,1904 @@
         "type": "object"
       },
       "title": "Undo"
+    },
+    {
+      "category": "library",
+      "description": "Closes an open Library element and forgets its undo stack. Unsaved changes are discarded; its file is left as it is.",
+      "icon": "close",
+      "id": "library.element.close",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params naming one element.",
+        "properties": {
+          "element": {
+            "description": "The element's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element"
+        ],
+        "title": "ElementParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "enum": [
+              "symbol",
+              "footprint",
+              "part"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the element Commands return about one open element.",
+        "properties": {
+          "element": {
+            "description": "The element's UUID, which also names its undo stack.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "library": {
+            "description": "The Library it belongs to.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "read_only": {
+            "description": "Elements of the starter Library cannot be edited.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "element",
+          "kind",
+          "name",
+          "library",
+          "read_only"
+        ],
+        "title": "ElementSummary",
+        "type": "object"
+      },
+      "title": "Close Library Element"
+    },
+    {
+      "category": "library",
+      "description": "Creates a Symbol (with one Unit, A), a Footprint or a Part called `name` in a registered Library and opens it for editing on its own undo stack. Nothing is written until `library.element.save`. The starter Library is read-only.",
+      "icon": "library_element_new",
+      "id": "library.element.new",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "enum": [
+              "symbol",
+              "footprint",
+              "part"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "library": {
+            "description": "The registered Library to create it in.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "The element's name, which is also its file stem.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "library",
+          "kind",
+          "name"
+        ],
+        "title": "ElementNewParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "enum": [
+              "symbol",
+              "footprint",
+              "part"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the element Commands return about one open element.",
+        "properties": {
+          "element": {
+            "description": "The element's UUID, which also names its undo stack.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "library": {
+            "description": "The Library it belongs to.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "read_only": {
+            "description": "Elements of the starter Library cannot be edited.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "element",
+          "kind",
+          "name",
+          "library",
+          "read_only"
+        ],
+        "title": "ElementSummary",
+        "type": "object"
+      },
+      "title": "New Library Element"
+    },
+    {
+      "category": "library",
+      "description": "Opens a Symbol, Footprint or Part of a registered Library for editing on its own undo stack, keyed by its UUID. Starter Library elements open read-only. Opening an element that is already open returns it unchanged.",
+      "icon": "library_element_open",
+      "id": "library.element.open",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params naming one element.",
+        "properties": {
+          "element": {
+            "description": "The element's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element"
+        ],
+        "title": "ElementParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "enum": [
+              "symbol",
+              "footprint",
+              "part"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the element Commands return about one open element.",
+        "properties": {
+          "element": {
+            "description": "The element's UUID, which also names its undo stack.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "library": {
+            "description": "The Library it belongs to.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "read_only": {
+            "description": "Elements of the starter Library cannot be edited.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "element",
+          "kind",
+          "name",
+          "library",
+          "read_only"
+        ],
+        "title": "ElementSummary",
+        "type": "object"
+      },
+      "title": "Edit in Library"
+    },
+    {
+      "category": "library",
+      "description": "Writes an open Library element to its file in its Library (through a temp file and a rename), or with no `element` every open element that is not read-only. A new element's file is `<name>.<extension>` in the Library's `symbols/`, `footprints/` or `parts/` folder.",
+      "icon": "save",
+      "id": "library.element.save",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "element": {
+            "default": null,
+            "description": "Saves only this open element. Omitted, every open element that is not read-only\nis saved.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "ElementSaveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "written": {
+            "description": "Every file written.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "written"
+        ],
+        "title": "ElementSaveResult",
+        "type": "object"
+      },
+      "title": "Save Library Element"
+    },
+    {
+      "category": "library",
+      "description": "Changes an open Footprint's name or description. Omitted fields keep their value.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.edit",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "footprint"
+        ],
+        "title": "FootprintEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Draws a line, rectangle, arc, circle, polygon or text on the Silkscreen, Courtyard or Assembly Layer, top or bottom, of an open Footprint.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.graphic.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintLayer": {
+            "description": "The Layers a Footprint draws on besides copper.",
+            "enum": [
+              "silkscreen_top",
+              "silkscreen_bottom",
+              "courtyard_top",
+              "courtyard_bottom",
+              "assembly_top",
+              "assembly_bottom"
+            ],
+            "type": "string"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ShapeParam": {
+            "description": "A shape param, tagged by `kind`. Coordinates are relative to the element's origin.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "sweep": {
+                    "$ref": "#/$defs/Angle"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "start",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  "radius": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "radius"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A closed polygon through at least three corners.",
+                "properties": {
+                  "kind": {
+                    "const": "polygon",
+                    "type": "string"
+                  },
+                  "points": {
+                    "items": {
+                      "$ref": "#/$defs/PointParam"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "points"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/PointParam",
+                    "description": "The text's anchor."
+                  },
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "rotation": {
+                    "$ref": "#/$defs/Angle",
+                    "default": 0
+                  },
+                  "size": {
+                    "$ref": "#/$defs/Length",
+                    "description": "The text height."
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at",
+                  "text",
+                  "size"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "fill": {
+            "description": "Whether a closed shape is filled. Omitted, not.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "layer": {
+            "$ref": "#/$defs/FootprintLayer"
+          },
+          "shape": {
+            "$ref": "#/$defs/ShapeParam"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stroke width. Omitted, 0.12 mm on Silkscreen, 0.05 mm on Courtyard and 0.1 mm\non Assembly."
+          }
+        },
+        "required": [
+          "footprint",
+          "layer",
+          "shape"
+        ],
+        "title": "FootprintGraphicAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What adding a graphic returns.",
+        "properties": {
+          "graphic": {
+            "description": "The new graphic's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "graphic"
+        ],
+        "title": "GraphicResult",
+        "type": "object"
+      },
+      "title": "Add Footprint Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Changes a Footprint graphic's Layer, shape, stroke width or fill. Omitted fields keep their value.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.graphic.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintLayer": {
+            "description": "The Layers a Footprint draws on besides copper.",
+            "enum": [
+              "silkscreen_top",
+              "silkscreen_bottom",
+              "courtyard_top",
+              "courtyard_bottom",
+              "assembly_top",
+              "assembly_bottom"
+            ],
+            "type": "string"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ShapeParam": {
+            "description": "A shape param, tagged by `kind`. Coordinates are relative to the element's origin.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "sweep": {
+                    "$ref": "#/$defs/Angle"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "start",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  "radius": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "radius"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A closed polygon through at least three corners.",
+                "properties": {
+                  "kind": {
+                    "const": "polygon",
+                    "type": "string"
+                  },
+                  "points": {
+                    "items": {
+                      "$ref": "#/$defs/PointParam"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "points"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/PointParam",
+                    "description": "The text's anchor."
+                  },
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "rotation": {
+                    "$ref": "#/$defs/Angle",
+                    "default": 0
+                  },
+                  "size": {
+                    "$ref": "#/$defs/Length",
+                    "description": "The text height."
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at",
+                  "text",
+                  "size"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "fill": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "graphic": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ShapeParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the whole shape."
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "footprint",
+          "graphic"
+        ],
+        "title": "FootprintGraphicEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Footprint Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Removes a graphic from an open Footprint.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.graphic.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "graphic": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "footprint",
+          "graphic"
+        ],
+        "title": "FootprintGraphicParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Footprint Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Moves an open Footprint's origin to `at`: every Pad, graphic and text keeps its place while its coordinates shift by `-at`.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.origin.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The new origin, in the current coordinates."
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "footprint",
+          "at"
+        ],
+        "title": "FootprintOriginSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Footprint Origin"
+    },
+    {
+      "category": "library",
+      "description": "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, rectangle, rounded rectangle or oval, with an optional round hole or slot and per-Pad mask and paste margins.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.pad.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "A drilled hole.",
+            "properties": {
+              "height": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Omitted, the same as `width`: a round hole. Otherwise a slot along the longer side."
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "width"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "enum": [
+              "circle",
+              "rect",
+              "rounded_rect",
+              "oval"
+            ],
+            "type": "string"
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The Pad centre, relative to the Footprint origin."
+          },
+          "corner_radius": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only for `rounded_rect`. Omitted, a quarter of the shorter side."
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "height": {
+            "$ref": "#/$defs/Length"
+          },
+          "hole": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/HoleParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required for plated and non-plated through-hole Pads; SMD Pads have none."
+          },
+          "kind": {
+            "$ref": "#/$defs/PadKind"
+          },
+          "mask_margin": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Overrides the board's solder-mask margin for this Pad."
+          },
+          "number": {
+            "description": "Pads that share a number belong to the same Pin. May be empty for a non-plated\nhole.",
+            "type": "string"
+          },
+          "paste_margin": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Overrides the board's solder-paste margin for this Pad."
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shape": {
+            "$ref": "#/$defs/PadShape"
+          },
+          "width": {
+            "$ref": "#/$defs/Length"
+          }
+        },
+        "required": [
+          "footprint",
+          "number",
+          "kind",
+          "shape",
+          "at",
+          "width",
+          "height"
+        ],
+        "title": "PadAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "pad": {
+            "description": "The new Pad's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pad"
+        ],
+        "title": "PadResult",
+        "type": "object"
+      },
+      "title": "Add Pad"
+    },
+    {
+      "category": "library",
+      "description": "Changes any of a Pad's number, kind, shape, position, rotation, size, corner radius, hole and mask and paste margins. Omitted fields keep their value; `null` clears an optional one.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.pad.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "A drilled hole.",
+            "properties": {
+              "height": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Omitted, the same as `width`: a round hole. Otherwise a slot along the longer side."
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "width"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "enum": [
+              "circle",
+              "rect",
+              "rounded_rect",
+              "oval"
+            ],
+            "type": "string"
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corner_radius": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`null` returns a rounded rectangle to the default radius."
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hole": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/HoleParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` removes the hole."
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mask_margin": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`null` returns to the board's margin."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pad": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "paste_margin": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`null` returns to the board's margin."
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadShape"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "footprint",
+          "pad"
+        ],
+        "title": "PadEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Pad"
+    },
+    {
+      "category": "library",
+      "description": "Removes a Pad from an open Footprint.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.pad.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "pad": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "footprint",
+          "pad"
+        ],
+        "title": "PadParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Pad"
+    },
+    {
+      "category": "library",
+      "description": "Places the Designator or value text of an open Footprint: its position, rotation, size, Layer and visibility. Omitted fields keep their value.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.text.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintLayer": {
+            "description": "The Layers a Footprint draws on besides copper.",
+            "enum": [
+              "silkscreen_top",
+              "silkscreen_bottom",
+              "courtyard_top",
+              "courtyard_bottom",
+              "assembly_top",
+              "assembly_bottom"
+            ],
+            "type": "string"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "TextWhich": {
+            "description": "Which of a Footprint's two texts.",
+            "enum": [
+              "designator",
+              "value"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The text centre, relative to the Footprint origin."
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "size": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The text height."
+          },
+          "text": {
+            "$ref": "#/$defs/TextWhich"
+          },
+          "visible": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "footprint",
+          "text"
+        ],
+        "title": "FootprintTextSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Place Footprint Text"
+    },
+    {
+      "category": "library",
+      "description": "Changes an open Part's name or Component Type. Omitted fields keep their value.",
+      "icon": "part_edit",
+      "id": "library.part.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "component_type": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ComponentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "part": {
+            "description": "The open Part.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "title": "PartEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Part"
+    },
+    {
+      "category": "library",
+      "description": "Sets an open Part's default fields, which are copied onto each Component placed from it: the built-in Value, Description, Datasheet, Manufacturer, MPN and Keywords (an empty string clears one), and with `custom` the whole list of free-form fields. Omitted fields keep their value.",
+      "icon": "part_edit",
+      "id": "library.part.fields.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Field": {
+            "additionalProperties": false,
+            "description": "One free-form field.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "custom": {
+            "description": "Replaces every free-form field, in this order. Names are unique, ignoring case,\nand differ from the built-in fields.",
+            "items": {
+              "$ref": "#/$defs/Field"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "datasheet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keywords": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mpn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "part": {
+            "description": "The open Part.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "title": "PartFieldsSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Part Fields"
+    },
+    {
+      "category": "library",
+      "description": "Sets the ordered alternate Footprints of an open Part; the first is the default. Each Footprint may appear once.",
+      "icon": "part_edit",
+      "id": "library.part.footprints.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprints": {
+            "description": "The alternate Footprints by UUID, in order; the first is the default.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "part": {
+            "description": "The open Part.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part",
+          "footprints"
+        ],
+        "title": "PartFootprintsSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Part Footprints"
+    },
+    {
+      "category": "library",
+      "description": "Replaces an open Part's pin-map overrides. A Pin connects to the Pads with its own number unless `pins` maps it to an explicit list of Pad numbers; `unconnected` lists Pads that belong to no Pin. Empty lists restore the implicit map.",
+      "icon": "part_edit",
+      "id": "library.part.pin_map.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "part": {
+            "description": "The open Part.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "pins": {
+            "default": [],
+            "description": "Pins mapped to Pads other than their own number, or to several.",
+            "items": {
+              "$ref": "#/$defs/PinPads"
+            },
+            "type": "array"
+          },
+          "unconnected": {
+            "default": [],
+            "description": "Pad numbers deliberately left unconnected.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "title": "PartPinMapSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Pin-Pad Map"
+    },
+    {
+      "category": "library",
+      "description": "Picks the Symbol of an open Part, or none with `null`.",
+      "icon": "part_edit",
+      "id": "library.part.symbol.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "part": {
+            "description": "The open Part.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "symbol": {
+            "description": "The Symbol by UUID, in any registered Library, or `null` for none (Mechanical\nParts only). The Library check reports a Symbol that cannot be found.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "title": "PartSymbolSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Part Symbol"
     },
     {
       "category": "library",
@@ -473,6 +2371,1120 @@
         "type": "object"
       },
       "title": "Search Libraries"
+    },
+    {
+      "category": "library",
+      "description": "Changes an open Symbol's name, description or Designator prefix. Omitted fields keep their value.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.edit",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "designator_prefix": {
+            "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "SymbolEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Symbol"
+    },
+    {
+      "category": "library",
+      "description": "Draws a line, rectangle, arc, circle, polygon or text on a Unit of an open Symbol.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.graphic.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ShapeParam": {
+            "description": "A shape param, tagged by `kind`. Coordinates are relative to the element's origin.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "sweep": {
+                    "$ref": "#/$defs/Angle"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "start",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  "radius": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "radius"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A closed polygon through at least three corners.",
+                "properties": {
+                  "kind": {
+                    "const": "polygon",
+                    "type": "string"
+                  },
+                  "points": {
+                    "items": {
+                      "$ref": "#/$defs/PointParam"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "points"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/PointParam",
+                    "description": "The text's anchor."
+                  },
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "rotation": {
+                    "$ref": "#/$defs/Angle",
+                    "default": 0
+                  },
+                  "size": {
+                    "$ref": "#/$defs/Length",
+                    "description": "The text height."
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at",
+                  "text",
+                  "size"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "fill": {
+            "description": "Whether a closed shape is filled. Omitted, not.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "shape": {
+            "$ref": "#/$defs/ShapeParam"
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "description": "The Unit it is drawn on. Omitted, the first.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stroke width. Omitted, 10 mil."
+          }
+        },
+        "required": [
+          "symbol",
+          "shape"
+        ],
+        "title": "SymbolGraphicAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What adding a graphic returns.",
+        "properties": {
+          "graphic": {
+            "description": "The new graphic's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "graphic"
+        ],
+        "title": "GraphicResult",
+        "type": "object"
+      },
+      "title": "Add Symbol Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Changes a Symbol graphic's Unit, shape, stroke width or fill. Omitted fields keep their value.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.graphic.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ShapeParam": {
+            "description": "A shape param, tagged by `kind`. Coordinates are relative to the element's origin.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "sweep": {
+                    "$ref": "#/$defs/Angle"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "start",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  "radius": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "radius"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A closed polygon through at least three corners.",
+                "properties": {
+                  "kind": {
+                    "const": "polygon",
+                    "type": "string"
+                  },
+                  "points": {
+                    "items": {
+                      "$ref": "#/$defs/PointParam"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "points"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/PointParam",
+                    "description": "The text's anchor."
+                  },
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "rotation": {
+                    "$ref": "#/$defs/Angle",
+                    "default": 0
+                  },
+                  "size": {
+                    "$ref": "#/$defs/Length",
+                    "description": "The text height."
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at",
+                  "text",
+                  "size"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "fill": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "graphic": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ShapeParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the whole shape."
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "symbol",
+          "graphic"
+        ],
+        "title": "SymbolGraphicEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Symbol Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Removes a graphic from an open Symbol.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.graphic.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "graphic": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "graphic"
+        ],
+        "title": "SymbolGraphicParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Symbol Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Adds a Pin to a Unit of an open Symbol. Its number must be unique across the Symbol; a Pin connects to the Pads with the same number unless the Part says otherwise.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.pin.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The connection end, relative to the Symbol origin. The editor keeps it on the\n50 mil grid; the Library check reports Pins off it."
+          },
+          "electrical_type": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PinType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omitted, `passive`."
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omitted, 100 mil."
+          },
+          "name": {
+            "type": "string"
+          },
+          "name_visible": {
+            "description": "Omitted, shown.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "number": {
+            "description": "Unique across the Symbol.",
+            "type": "string"
+          },
+          "number_visible": {
+            "description": "Omitted, shown.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The direction from the connection end towards the body, counter-clockwise from +x."
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "description": "The Unit it goes on. Omitted, the first.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "symbol",
+          "name",
+          "number",
+          "at"
+        ],
+        "title": "PinAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "pin": {
+            "description": "The new Pin's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pin"
+        ],
+        "title": "PinResult",
+        "type": "object"
+      },
+      "title": "Add Pin"
+    },
+    {
+      "category": "library",
+      "description": "Changes any of a Pin's Unit, name, number, electrical type, position, rotation, length and name and number visibility. Omitted fields keep their value.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.pin.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "electrical_type": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PinType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name_visible": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "number_visible": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "pin": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Moves the Pin to another Unit.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "symbol",
+          "pin"
+        ],
+        "title": "PinEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Pin"
+    },
+    {
+      "category": "library",
+      "description": "Removes a Pin from an open Symbol.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.pin.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "pin": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "pin"
+        ],
+        "title": "PinParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Pin"
+    },
+    {
+      "category": "library",
+      "description": "Adds a Unit after the Symbol's last one, named `name` or the next free letter.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.unit.add",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Omitted, the next free letter: B after A, and so on.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "UnitAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "description": "The new Unit's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "name"
+        ],
+        "title": "UnitResult",
+        "type": "object"
+      },
+      "title": "Add Unit"
+    },
+    {
+      "category": "library",
+      "description": "Renames a Unit of an open Symbol. Unit names are unique within the Symbol.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.unit.edit",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "unit",
+          "name"
+        ],
+        "title": "UnitEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Rename Unit"
+    },
+    {
+      "category": "library",
+      "description": "Removes a Unit with its Pins and graphics. A Symbol keeps at least one Unit.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.unit.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "unit"
+        ],
+        "title": "UnitParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Unit"
     },
     {
       "category": "query",
