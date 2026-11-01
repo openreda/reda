@@ -24,8 +24,9 @@ pub use library::{
     PinPads, PinType, Shape, Symbol, SymbolGraphic, Unit,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, InDocument, Layer, LayerKind,
-    LayerSet, Net, NetClass, PcbDocument, Rules, Side,
+    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, GraphicShape, HERSHEY_FONT,
+    InDocument, Layer, LayerKind, LayerSet, NOTO_SANS_FONT, Net, NetClass, PcbDocument, PcbGraphic,
+    PcbText, Rules, Side,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

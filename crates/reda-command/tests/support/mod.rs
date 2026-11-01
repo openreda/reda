@@ -352,6 +352,7 @@ impl Harness {
         let mut env = Env {
             ids: &mut self.ids,
             clock: &self.clock,
+            fonts: &reda_command::Fonts::default(),
             headless: self.headless,
         };
         self.registry.run(&mut self.session, &mut env, id, params)

@@ -1,9 +1,13 @@
 //! The PCB Commands. Each one edits the Project's PCB Document and is unavailable while
 //! the Project has none.
 
+mod graphic;
+mod layer;
 mod net_class;
 mod outline;
 mod rules;
+mod text;
+mod text_geometry;
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
@@ -18,6 +22,9 @@ pub fn register_all(registry: &mut Registry) {
     outline::register_all(registry);
     rules::register_all(registry);
     net_class::register_all(registry);
+    text::register_all(registry);
+    registry.add(text_geometry::TextGeometry);
+    graphic::register_all(registry);
 }
 
 /// Why a PCB Command cannot run in a Project without a PCB Document.
@@ -67,4 +74,16 @@ fn optional_non_negative(
     length: Option<Length>,
 ) -> Result<Option<Nm>, CommandError> {
     length.map(|l| non_negative(pointer, l)).transpose()
+}
+
+/// A length param that must be positive; `pointer` names it in the error.
+fn positive(pointer: &str, length: Length) -> Result<Nm, CommandError> {
+    let nm = length.nm();
+    if nm <= Nm::ZERO {
+        return Err(CommandError::invalid_params(
+            pointer,
+            format!("the {} must be positive", &pointer[1..].replace('_', " ")),
+        ));
+    }
+    Ok(nm)
 }

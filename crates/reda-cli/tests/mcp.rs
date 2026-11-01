@@ -12,6 +12,8 @@ use serde_json::{Value, json};
 /// A `reda mcp` child process spoken to as an MCP client, one request at a time.
 struct Client {
     child: Child,
+    /// The child's own `REDA_HOME`, so it never bridges to a running REDA.
+    _home: TempDir,
     stdin: Option<ChildStdin>,
     lines: Receiver<String>,
     next_id: u64,
@@ -19,9 +21,11 @@ struct Client {
 
 impl Client {
     fn spawn(args: &[&str]) -> Client {
+        let home = TempDir::new("mcp-home");
         let mut child = Command::new(env!("CARGO_BIN_EXE_reda"))
             .arg("mcp")
             .args(args)
+            .env("REDA_HOME", home.path())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -40,6 +44,7 @@ impl Client {
         let stdin = child.stdin.take();
         let mut client = Client {
             child,
+            _home: home,
             stdin,
             lines,
             next_id: 0,
@@ -208,9 +213,11 @@ fn saves_only_through_project_save() {
 #[test]
 fn project_flag_opens_the_project_first() {
     let dir = TempDir::new("mcp-project");
+    let home = TempDir::new("mcp-home");
     let params = json!({"path": dir.path(), "name": "Demo"}).to_string();
     let out = Command::new(env!("CARGO_BIN_EXE_reda"))
         .args(["run", "project.new", "--params", &params, "--save"])
+        .env("REDA_HOME", home.path())
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -224,8 +231,10 @@ fn project_flag_opens_the_project_first() {
 
 #[test]
 fn a_project_that_does_not_open_is_an_error_before_serving() {
+    let home = TempDir::new("mcp-home");
     let out = Command::new(env!("CARGO_BIN_EXE_reda"))
         .args(["mcp", "--project", "/nonexistent/Demo.reda"])
+        .env("REDA_HOME", home.path())
         .stdin(Stdio::null())
         .output()
         .unwrap();
@@ -236,8 +245,10 @@ fn a_project_that_does_not_open_is_an_error_before_serving() {
 
 #[test]
 fn unexpected_arguments_are_usage_errors() {
+    let home = TempDir::new("mcp-home");
     let out = Command::new(env!("CARGO_BIN_EXE_reda"))
         .args(["mcp", "--frob"])
+        .env("REDA_HOME", home.path())
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(2));

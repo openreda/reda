@@ -3,7 +3,8 @@
 //! One writer thread owns the engine ([`writer`]); the rmcp handler ([`server`]) sends it
 //! every Command. Nothing is written to disk except by `project.save`. When the client
 //! closes stdin, the server stops and warns on stderr if it discards unsaved changes.
-//! Bridging to a running app comes with the control port.
+//! When a running instance holds the Project, the writer bridges to it instead
+//! ([`writer::spawn_bridge`]): Commands run in the instance and nothing is ever saved.
 
 mod search;
 mod server;
@@ -20,6 +21,8 @@ use reda_engine::journal::Source;
 use rmcp::ServiceExt;
 use serde_json::json;
 use tokio::io::{AsyncRead, AsyncWrite};
+
+use crate::bridge;
 
 pub use server::Server;
 pub use writer::Leftover;
@@ -42,16 +45,34 @@ pub fn parse(args: &[&str]) -> Result<McpArgs, String> {
     }
 }
 
-/// Serves MCP over stdio until the client closes stdin.
+/// Serves MCP over stdio until the client closes stdin, bridged to the running instance
+/// that holds the Project if there is one ([`crate::bridge`]).
 pub fn execute(args: McpArgs) -> ExitCode {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("start the async runtime");
-    let (writer, thread, catalogue) =
-        writer::spawn(|| Engine::builder().source(Source::Mcp).build());
+    let bridged = bridge::connect(args.project.as_deref(), Source::Mcp);
+    let is_bridged = bridged.is_some();
+    let (writer, thread, catalogue) = match bridged {
+        Some(connection) => match writer::spawn_bridge(connection) {
+            Ok(spawned) => spawned,
+            Err(err) => {
+                eprintln!(
+                    "{}",
+                    serde_json::to_string_pretty(&err).expect("errors serialise")
+                );
+                return ExitCode::from(1);
+            }
+        },
+        None => writer::spawn(|| Engine::builder().source(Source::Mcp).build()),
+    };
+    let server = match is_bridged {
+        true => Server::bridged(writer.clone(), &catalogue),
+        false => Server::new(writer.clone(), &catalogue),
+    };
     let served = runtime.block_on(async {
-        if let Some(project) = &args.project {
+        if let (false, Some(project)) = (is_bridged, &args.project) {
             let opened = writer
                 .run(
                     "project.open",
@@ -63,7 +84,8 @@ pub fn execute(args: McpArgs) -> ExitCode {
                 return Err(serde_json::to_string_pretty(&err).expect("errors serialise"));
             }
         }
-        serve(Server::new(writer, &catalogue), rmcp::transport::stdio())
+        drop(writer);
+        serve(server, rmcp::transport::stdio())
             .await
             .map_err(|e| format!("reda: MCP transport failed: {e}"))
     });

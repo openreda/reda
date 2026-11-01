@@ -3,6 +3,7 @@
 # After adding a dependency, regenerate with
 #   REDA_BLESS=1 cargo test -p reda-testkit --test dependency_edges
 # and check that the new edge follows the layering in docs/spec/v0.1/architecture.md#crates.
+reda-cli -> reda-control
 reda-cli -> reda-engine
 reda-cli -> reda-testkit [dev]
 reda-cli -> rmcp
@@ -15,6 +16,11 @@ reda-command -> reda-model
 reda-command -> schemars
 reda-command -> serde
 reda-command -> serde_json
+reda-control -> getrandom
+reda-control -> reda-engine
+reda-control -> reda-testkit [dev]
+reda-control -> serde
+reda-control -> serde_json
 reda-engine -> directories [cfg(not(target_arch = "wasm32"))]
 reda-engine -> proptest [dev]
 reda-engine -> reda-command
@@ -42,6 +48,7 @@ reda-model -> serde_json [dev]
 reda-pcb -> reda-command
 reda-pcb -> reda-model
 reda-pcb -> reda-testkit [dev]
+reda-pcb -> reda-text
 reda-pcb -> schemars
 reda-pcb -> serde
 reda-pcb -> serde_json [dev]

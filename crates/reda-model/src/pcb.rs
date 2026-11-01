@@ -1,5 +1,5 @@
 //! The PCB Document: its Layers, board setup (rules and DRC severities), Board Outline,
-//! Board Cutouts, Net Classes and Nets.
+//! Board Cutouts, Net Classes, Nets, and free text and graphics ([`graphics`]).
 //!
 //! Every type here is a row of the `.redapcb` file as well as an object kind; field order
 //! is the on-disk key order. In the [`crate::Object`] enum they are wrapped in
@@ -12,6 +12,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{Object, Severity, Uuid};
+
+mod graphics;
+
+pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
 /// Which face of the board a sided Layer is on.
 #[derive(
@@ -277,6 +281,8 @@ pub struct PcbDocument {
     pub(crate) cutouts: BTreeMap<Uuid, BoardCutout>,
     pub(crate) net_classes: BTreeMap<Uuid, NetClass>,
     pub(crate) nets: BTreeMap<Uuid, Net>,
+    pub(crate) texts: BTreeMap<Uuid, PcbText>,
+    pub(crate) graphics: BTreeMap<Uuid, PcbGraphic>,
 }
 
 impl PcbDocument {
@@ -289,6 +295,8 @@ impl PcbDocument {
             cutouts: BTreeMap::new(),
             net_classes: BTreeMap::new(),
             nets: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            graphics: BTreeMap::new(),
         }
     }
 
@@ -345,6 +353,22 @@ impl PcbDocument {
         self.nets.get(&uuid)
     }
 
+    pub fn texts(&self) -> impl Iterator<Item = &PcbText> {
+        self.texts.values()
+    }
+
+    pub fn text(&self, uuid: Uuid) -> Option<&PcbText> {
+        self.texts.get(&uuid)
+    }
+
+    pub fn graphics(&self) -> impl Iterator<Item = &PcbGraphic> {
+        self.graphics.values()
+    }
+
+    pub fn graphic(&self, uuid: Uuid) -> Option<&PcbGraphic> {
+        self.graphics.get(&uuid)
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -362,7 +386,9 @@ impl PcbDocument {
             outlines => BoardOutline,
             cutouts => BoardCutout,
             net_classes => NetClass,
-            nets => Net
+            nets => Net,
+            texts => PcbText,
+            graphics => PcbGraphic
         )
     }
 
@@ -385,7 +411,9 @@ impl PcbDocument {
             outlines => BoardOutline,
             cutouts => BoardCutout,
             net_classes => NetClass,
-            nets => Net
+            nets => Net,
+            texts => PcbText,
+            graphics => PcbGraphic
         );
         out
     }
@@ -398,6 +426,8 @@ impl PcbDocument {
         self.cutouts.remove(&uuid);
         self.net_classes.remove(&uuid);
         self.nets.remove(&uuid);
+        self.texts.remove(&uuid);
+        self.graphics.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -407,6 +437,8 @@ impl PcbDocument {
             && self.cutouts.is_empty()
             && self.net_classes.is_empty()
             && self.nets.is_empty()
+            && self.texts.is_empty()
+            && self.graphics.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -453,6 +485,18 @@ impl PcbDocument {
                 "Net {:?} names Net Class {}, which does not exist",
                 net.name, net.class
             ));
+        }
+        let drawn = self
+            .texts
+            .values()
+            .map(|t| (t.uuid, t.layer))
+            .chain(self.graphics.values().map(|g| (g.uuid, g.layer)));
+        for (uuid, layer) in drawn {
+            if self.layers().layer(layer).is_none() {
+                return Err(format!(
+                    "{uuid} is drawn on Layer {layer}, which does not exist"
+                ));
+            }
         }
         Ok(())
     }

@@ -13,6 +13,7 @@ name = "reda"
 path = "src/main.rs"
 
 [dependencies]
+reda-control = { path = "../reda-control" }
 reda-engine = { path = "../reda-engine" }
 rmcp.workspace = true
 serde_json.workspace = true
