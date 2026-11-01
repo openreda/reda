@@ -499,12 +499,214 @@
       "presets": [],
       "result": {
         "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
               "schematic"
             ],
             "type": "string"
+          },
+          "Field": {
+            "additionalProperties": false,
+            "description": "One free-form field.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "Fields": {
+            "additionalProperties": false,
+            "description": "A Part's default fields, copied onto each Component placed from it.",
+            "properties": {
+              "custom": {
+                "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                },
+                "type": "array"
+              },
+              "datasheet": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "string"
+              },
+              "manufacturer": {
+                "type": "string"
+              },
+              "mpn": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "Footprint": {
+            "description": "The physical land pattern of a part. Coordinates are relative to its origin, and its\nzero orientation follows IPC-7351.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "designator": {
+                "$ref": "#/$defs/FootprintText",
+                "description": "Where the Designator text goes."
+              },
+              "graphics": {
+                "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
+                "items": {
+                  "$ref": "#/$defs/FootprintGraphic"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "Sorted by UUID. Numbers may repeat: Pads that share a number belong to one Pin.",
+                "items": {
+                  "$ref": "#/$defs/Pad"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/FootprintText",
+                "description": "Where the value text goes."
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "pads",
+              "graphics",
+              "designator",
+              "value"
+            ],
+            "type": "object"
+          },
+          "FootprintGraphic": {
+            "additionalProperties": false,
+            "description": "One shape a Footprint draws on a non-copper Layer.",
+            "properties": {
+              "fill": {
+                "description": "Whether a closed shape is filled.",
+                "type": "boolean"
+              },
+              "layer": {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              "shape": {
+                "$ref": "#/$defs/Shape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The stroke width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "shape",
+              "width"
+            ],
+            "type": "object"
+          },
+          "FootprintLayer": {
+            "description": "The Layers a Footprint draws on besides copper.",
+            "enum": [
+              "silkscreen_top",
+              "silkscreen_bottom",
+              "courtyard_top",
+              "courtyard_bottom",
+              "assembly_top",
+              "assembly_bottom"
+            ],
+            "type": "string"
+          },
+          "FootprintText": {
+            "additionalProperties": false,
+            "description": "The placement of a Footprint's Designator or value text.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The text centre, relative to the Footprint origin."
+              },
+              "layer": {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "size": {
+                "description": "The text height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "visible": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "at",
+              "rotation",
+              "size",
+              "layer"
+            ],
+            "type": "object"
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -580,15 +782,596 @@
                   "title"
                 ],
                 "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Symbol",
+                "description": "An open Library element (see [`crate::Project::open_element`]).",
+                "properties": {
+                  "type": {
+                    "const": "symbol",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Footprint",
+                "properties": {
+                  "type": {
+                    "const": "footprint",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Part",
+                "properties": {
+                  "type": {
+                    "const": "part",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
               }
             ]
+          },
+          "Pad": {
+            "additionalProperties": false,
+            "description": "A copper area, with or without a hole, of a Footprint.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad centre, relative to the Footprint origin."
+              },
+              "corner_radius": {
+                "description": "The corner radius of a rounded-rectangle Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A round hole when width equals height, otherwise a slot. SMD Pads have none."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind"
+              },
+              "mask_margin": {
+                "description": "Overrides the board's solder-mask margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "number": {
+                "type": "string"
+              },
+              "paste_margin": {
+                "description": "Overrides the board's solder-paste margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "number",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "enum": [
+              "circle",
+              "rect",
+              "rounded_rect",
+              "oval"
+            ],
+            "type": "string"
+          },
+          "Part": {
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "properties": {
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields"
+              },
+              "footprints": {
+                "description": "The alternate Footprints, in order; the first is the default.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pin_map": {
+                "$ref": "#/$defs/PinMap"
+              },
+              "symbol": {
+                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "component_type",
+              "symbol",
+              "footprints",
+              "fields",
+              "pin_map"
+            ],
+            "type": "object"
+          },
+          "Pin": {
+            "additionalProperties": false,
+            "description": "A connection point of a Symbol.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The connection end of the Pin, relative to the Symbol origin."
+              },
+              "electrical_type": {
+                "$ref": "#/$defs/PinType"
+              },
+              "length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "name_visible": {
+                "description": "Whether the Pin's name is drawn.",
+                "type": "boolean"
+              },
+              "number": {
+                "description": "Unique across the Symbol; Pins map to the Pads with the same number unless the\nPart overrides it.",
+                "type": "string"
+              },
+              "number_visible": {
+                "description": "Whether the Pin's number is drawn.",
+                "type": "boolean"
+              },
+              "rotation": {
+                "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Unit it belongs to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "unit",
+              "name",
+              "number",
+              "electrical_type",
+              "at",
+              "rotation",
+              "length"
+            ],
+            "type": "object"
+          },
+          "PinMap": {
+            "additionalProperties": false,
+            "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+            "properties": {
+              "pins": {
+                "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+                "items": {
+                  "$ref": "#/$defs/PinPads"
+                },
+                "type": "array"
+              },
+              "unconnected": {
+                "description": "Pad numbers deliberately left unconnected, sorted.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Shape": {
+            "description": "A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "start",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  "radius": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "radius"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A closed polygon through its corners.",
+                "properties": {
+                  "kind": {
+                    "const": "polygon",
+                    "type": "string"
+                  },
+                  "points": {
+                    "items": {
+                      "$ref": "#/$defs/Point"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "points"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/Point",
+                    "description": "The text's anchor."
+                  },
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "size": {
+                    "description": "The text height.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at",
+                  "text",
+                  "size",
+                  "rotation"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Symbol": {
+            "description": "The schematic representation of a part: its Units, each with its Pins and graphics.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "designator_prefix": {
+                "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+                "type": "string"
+              },
+              "graphics": {
+                "description": "The body drawing of every Unit, sorted by UUID; [`SymbolGraphic::unit`] says which\nUnit it belongs to.",
+                "items": {
+                  "$ref": "#/$defs/SymbolGraphic"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pins": {
+                "description": "Every Pin of every Unit, sorted by UUID; [`Pin::unit`] says which Unit it is on.",
+                "items": {
+                  "$ref": "#/$defs/Pin"
+                },
+                "type": "array"
+              },
+              "units": {
+                "description": "In order: A, B, C… A single-unit Symbol has exactly one.",
+                "items": {
+                  "$ref": "#/$defs/Unit"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "designator_prefix",
+              "units",
+              "pins",
+              "graphics"
+            ],
+            "type": "object"
+          },
+          "SymbolGraphic": {
+            "additionalProperties": false,
+            "description": "One shape of a Symbol Unit's body.",
+            "properties": {
+              "fill": {
+                "description": "Whether a closed shape is filled.",
+                "type": "boolean"
+              },
+              "shape": {
+                "$ref": "#/$defs/Shape"
+              },
+              "unit": {
+                "description": "The Unit it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The stroke width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "unit",
+              "shape",
+              "width"
+            ],
+            "type": "object"
+          },
+          "Unit": {
+            "additionalProperties": false,
+            "description": "One independently placeable section of a Symbol.",
+            "properties": {
+              "name": {
+                "description": "Such as `A`, or `Power` for a power section.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "An object and the Document it lives in.",
         "properties": {
           "document": {
-            "description": "The Document holding the object, or `null` for objects in the Project file.",
+            "description": "The Document holding the object, the UUID of an open Library element itself, or\n`null` for objects in the Project file.",
             "format": "uuid",
             "type": [
               "string",
@@ -628,6 +1411,21 @@
                 "const": "document",
                 "description": "A Document's entry in the Project's Document list.",
                 "type": "string"
+              },
+              {
+                "const": "symbol",
+                "description": "An open Library Symbol.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "An open Library Footprint.",
+                "type": "string"
+              },
+              {
+                "const": "part",
+                "description": "An open Library Part.",
+                "type": "string"
               }
             ]
           }
@@ -663,12 +1461,214 @@
       "presets": [],
       "result": {
         "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
               "schematic"
             ],
             "type": "string"
+          },
+          "Field": {
+            "additionalProperties": false,
+            "description": "One free-form field.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "Fields": {
+            "additionalProperties": false,
+            "description": "A Part's default fields, copied onto each Component placed from it.",
+            "properties": {
+              "custom": {
+                "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                },
+                "type": "array"
+              },
+              "datasheet": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "string"
+              },
+              "manufacturer": {
+                "type": "string"
+              },
+              "mpn": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "Footprint": {
+            "description": "The physical land pattern of a part. Coordinates are relative to its origin, and its\nzero orientation follows IPC-7351.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "designator": {
+                "$ref": "#/$defs/FootprintText",
+                "description": "Where the Designator text goes."
+              },
+              "graphics": {
+                "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
+                "items": {
+                  "$ref": "#/$defs/FootprintGraphic"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "Sorted by UUID. Numbers may repeat: Pads that share a number belong to one Pin.",
+                "items": {
+                  "$ref": "#/$defs/Pad"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/FootprintText",
+                "description": "Where the value text goes."
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "pads",
+              "graphics",
+              "designator",
+              "value"
+            ],
+            "type": "object"
+          },
+          "FootprintGraphic": {
+            "additionalProperties": false,
+            "description": "One shape a Footprint draws on a non-copper Layer.",
+            "properties": {
+              "fill": {
+                "description": "Whether a closed shape is filled.",
+                "type": "boolean"
+              },
+              "layer": {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              "shape": {
+                "$ref": "#/$defs/Shape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The stroke width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "shape",
+              "width"
+            ],
+            "type": "object"
+          },
+          "FootprintLayer": {
+            "description": "The Layers a Footprint draws on besides copper.",
+            "enum": [
+              "silkscreen_top",
+              "silkscreen_bottom",
+              "courtyard_top",
+              "courtyard_bottom",
+              "assembly_top",
+              "assembly_bottom"
+            ],
+            "type": "string"
+          },
+          "FootprintText": {
+            "additionalProperties": false,
+            "description": "The placement of a Footprint's Designator or value text.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The text centre, relative to the Footprint origin."
+              },
+              "layer": {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "size": {
+                "description": "The text height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "visible": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "at",
+              "rotation",
+              "size",
+              "layer"
+            ],
+            "type": "object"
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -744,6 +1744,46 @@
                   "title"
                 ],
                 "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Symbol",
+                "description": "An open Library element (see [`crate::Project::open_element`]).",
+                "properties": {
+                  "type": {
+                    "const": "symbol",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Footprint",
+                "properties": {
+                  "type": {
+                    "const": "footprint",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Part",
+                "properties": {
+                  "type": {
+                    "const": "part",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -751,7 +1791,7 @@
             "description": "An object and the Document it lives in.",
             "properties": {
               "document": {
-                "description": "The Document holding the object, or `null` for objects in the Project file.",
+                "description": "The Document holding the object, the UUID of an open Library element itself, or\n`null` for objects in the Project file.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -765,6 +1805,547 @@
             "required": [
               "document",
               "object"
+            ],
+            "type": "object"
+          },
+          "Pad": {
+            "additionalProperties": false,
+            "description": "A copper area, with or without a hole, of a Footprint.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad centre, relative to the Footprint origin."
+              },
+              "corner_radius": {
+                "description": "The corner radius of a rounded-rectangle Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A round hole when width equals height, otherwise a slot. SMD Pads have none."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind"
+              },
+              "mask_margin": {
+                "description": "Overrides the board's solder-mask margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "number": {
+                "type": "string"
+              },
+              "paste_margin": {
+                "description": "Overrides the board's solder-paste margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "number",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "enum": [
+              "circle",
+              "rect",
+              "rounded_rect",
+              "oval"
+            ],
+            "type": "string"
+          },
+          "Part": {
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "properties": {
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields"
+              },
+              "footprints": {
+                "description": "The alternate Footprints, in order; the first is the default.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pin_map": {
+                "$ref": "#/$defs/PinMap"
+              },
+              "symbol": {
+                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "component_type",
+              "symbol",
+              "footprints",
+              "fields",
+              "pin_map"
+            ],
+            "type": "object"
+          },
+          "Pin": {
+            "additionalProperties": false,
+            "description": "A connection point of a Symbol.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The connection end of the Pin, relative to the Symbol origin."
+              },
+              "electrical_type": {
+                "$ref": "#/$defs/PinType"
+              },
+              "length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "name_visible": {
+                "description": "Whether the Pin's name is drawn.",
+                "type": "boolean"
+              },
+              "number": {
+                "description": "Unique across the Symbol; Pins map to the Pads with the same number unless the\nPart overrides it.",
+                "type": "string"
+              },
+              "number_visible": {
+                "description": "Whether the Pin's number is drawn.",
+                "type": "boolean"
+              },
+              "rotation": {
+                "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Unit it belongs to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "unit",
+              "name",
+              "number",
+              "electrical_type",
+              "at",
+              "rotation",
+              "length"
+            ],
+            "type": "object"
+          },
+          "PinMap": {
+            "additionalProperties": false,
+            "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+            "properties": {
+              "pins": {
+                "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+                "items": {
+                  "$ref": "#/$defs/PinPads"
+                },
+                "type": "array"
+              },
+              "unconnected": {
+                "description": "Pad numbers deliberately left unconnected, sorted.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Shape": {
+            "description": "A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "start",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  "radius": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "radius"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A closed polygon through its corners.",
+                "properties": {
+                  "kind": {
+                    "const": "polygon",
+                    "type": "string"
+                  },
+                  "points": {
+                    "items": {
+                      "$ref": "#/$defs/Point"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "points"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/Point",
+                    "description": "The text's anchor."
+                  },
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "size": {
+                    "description": "The text height.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at",
+                  "text",
+                  "size",
+                  "rotation"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Symbol": {
+            "description": "The schematic representation of a part: its Units, each with its Pins and graphics.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "designator_prefix": {
+                "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+                "type": "string"
+              },
+              "graphics": {
+                "description": "The body drawing of every Unit, sorted by UUID; [`SymbolGraphic::unit`] says which\nUnit it belongs to.",
+                "items": {
+                  "$ref": "#/$defs/SymbolGraphic"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pins": {
+                "description": "Every Pin of every Unit, sorted by UUID; [`Pin::unit`] says which Unit it is on.",
+                "items": {
+                  "$ref": "#/$defs/Pin"
+                },
+                "type": "array"
+              },
+              "units": {
+                "description": "In order: A, B, C… A single-unit Symbol has exactly one.",
+                "items": {
+                  "$ref": "#/$defs/Unit"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "designator_prefix",
+              "units",
+              "pins",
+              "graphics"
+            ],
+            "type": "object"
+          },
+          "SymbolGraphic": {
+            "additionalProperties": false,
+            "description": "One shape of a Symbol Unit's body.",
+            "properties": {
+              "fill": {
+                "description": "Whether a closed shape is filled.",
+                "type": "boolean"
+              },
+              "shape": {
+                "$ref": "#/$defs/Shape"
+              },
+              "unit": {
+                "description": "The Unit it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The stroke width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "unit",
+              "shape",
+              "width"
+            ],
+            "type": "object"
+          },
+          "Unit": {
+            "additionalProperties": false,
+            "description": "One independently placeable section of a Symbol.",
+            "properties": {
+              "name": {
+                "description": "Such as `A`, or `Power` for a power section.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
             ],
             "type": "object"
           }

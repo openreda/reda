@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{DocumentEntry, ProjectProps, Uuid};
+use crate::{DocumentEntry, Footprint, LibraryElement, Part, ProjectProps, Symbol, Uuid};
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
 // `Project::object`, `Project::objects` and `Project::put`.
@@ -18,6 +18,10 @@ use crate::{DocumentEntry, ProjectProps, Uuid};
 pub enum Object {
     Project(ProjectProps),
     Document(DocumentEntry),
+    /// An open Library element (see [`crate::Project::open_element`]).
+    Symbol(Symbol),
+    Footprint(Footprint),
+    Part(Part),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -35,6 +39,12 @@ pub enum ObjectType {
     Project,
     /// A Document's entry in the Project's Document list.
     Document,
+    /// An open Library Symbol.
+    Symbol,
+    /// An open Library Footprint.
+    Footprint,
+    /// An open Library Part.
+    Part,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -46,6 +56,9 @@ impl Object {
         match self {
             Object::Project(p) => p.uuid,
             Object::Document(d) => d.uuid,
+            Object::Symbol(s) => s.uuid,
+            Object::Footprint(f) => f.uuid,
+            Object::Part(p) => p.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -55,6 +68,9 @@ impl Object {
         match self {
             Object::Project(_) => ObjectType::Project,
             Object::Document(_) => ObjectType::Document,
+            Object::Symbol(_) => ObjectType::Symbol,
+            Object::Footprint(_) => ObjectType::Footprint,
+            Object::Part(_) => ObjectType::Part,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -64,6 +80,9 @@ impl Object {
     pub fn scope(&self) -> Scope {
         match self {
             Object::Project(_) | Object::Document(_) => Scope::Project,
+            Object::Symbol(_) | Object::Footprint(_) | Object::Part(_) => {
+                Scope::Element(self.uuid())
+            }
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }
@@ -72,14 +91,36 @@ impl Object {
     pub(crate) fn same_kind(&self, other: &Object) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
+
+    /// The Library element this object is, if it is one.
+    pub fn into_element(self) -> Option<LibraryElement> {
+        match self {
+            Object::Symbol(s) => Some(LibraryElement::Symbol(s)),
+            Object::Footprint(f) => Some(LibraryElement::Footprint(f)),
+            Object::Part(p) => Some(LibraryElement::Part(p)),
+            _ => None,
+        }
+    }
 }
 
-/// Where a change lands: the Project file (`.reda`) or one Document. Each has its own undo
-/// stack and dirty state.
+impl From<LibraryElement> for Object {
+    fn from(element: LibraryElement) -> Object {
+        match element {
+            LibraryElement::Symbol(s) => Object::Symbol(s),
+            LibraryElement::Footprint(f) => Object::Footprint(f),
+            LibraryElement::Part(p) => Object::Part(p),
+        }
+    }
+}
+
+/// Where a change lands: the Project file (`.reda`), one Document, or one open Library
+/// element. Each has its own undo stack and dirty state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Scope {
     Project,
     Document(Uuid),
+    /// An open Library element, saved to its own file in its Library.
+    Element(Uuid),
 }
 
 /// One object's state before and after a transaction. `None` means it did not exist.
@@ -134,7 +175,7 @@ impl ChangeSet {
     pub fn in_apply_order(&self) -> Vec<(&Uuid, &Change)> {
         let rank = |c: &Change| match (c.scope, &c.after) {
             (Scope::Project, Some(_)) => 0,
-            (Scope::Document(_), _) => 1,
+            (Scope::Document(_) | Scope::Element(_), _) => 1,
             (Scope::Project, None) => 2,
         };
         let mut ordered: Vec<_> = self.changes.iter().collect();

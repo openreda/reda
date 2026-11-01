@@ -13,7 +13,8 @@
 //! }
 //! ```
 //!
-//! Units are a list (their order is A, B, C…); Pins and Pads are tables sorted by UUID.
+//! Units are a list (their order is A, B, C…); Pins, Pads and graphics are tables sorted
+//! by UUID.
 //! A Part lists its alternate Footprints in order, the default first. Pin-map overrides
 //! are written sorted. Where the files live in a Library folder is `reda-library`'s
 //! business; this module maps one file's bytes to and from its element.
@@ -22,7 +23,8 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use reda_model::{
-    ComponentType, Fields, Footprint, LibraryInfo, Pad, Part, Pin, PinMap, Symbol, Unit, Uuid,
+    ComponentType, Fields, Footprint, FootprintGraphic, FootprintText, LibraryInfo, Pad, Part, Pin,
+    PinMap, Symbol, SymbolGraphic, Unit, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -57,6 +59,9 @@ pub(crate) struct SymbolFile {
     units: Vec<Unit>,
     /// Every Pin of every Unit, sorted by UUID.
     pins: Vec<Pin>,
+    /// The body drawing of every Unit, sorted by UUID.
+    #[serde(default)]
+    graphics: Vec<SymbolGraphic>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -80,8 +85,30 @@ pub(crate) struct FootprintFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     footprint: FootprintRow,
+    /// Where the Designator and value text go.
+    #[serde(default)]
+    text: FootprintTexts,
     /// The Pads, sorted by UUID. Pads that share a number belong to one Pin.
     pads: Vec<Pad>,
+    /// The Silkscreen, Courtyard and Assembly drawing, sorted by UUID.
+    #[serde(default)]
+    graphics: Vec<FootprintGraphic>,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct FootprintTexts {
+    designator: FootprintText,
+    value: FootprintText,
+}
+
+impl Default for FootprintTexts {
+    fn default() -> FootprintTexts {
+        FootprintTexts {
+            designator: FootprintText::DESIGNATOR,
+            value: FootprintText::VALUE,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -146,6 +173,7 @@ pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
     )?;
     w.list("units", &symbol.units)?;
     w.table("pins", &symbol.pins, |p| p.uuid)?;
+    w.table("graphics", &symbol.graphics, |g| g.uuid)?;
     Ok(w.finish())
 }
 
@@ -163,8 +191,17 @@ pub fn read_symbol(path: &Path, bytes: &[u8]) -> Result<Symbol, LoadError> {
             pin.uuid, pin.unit
         )));
     }
+    unique(file.graphics.iter().map(|g| g.uuid), "graphic").map_err(invalid)?;
+    if let Some(g) = file.graphics.iter().find(|g| !units.contains(&g.unit)) {
+        return Err(invalid(format!(
+            "graphic {} is on unit {}, which the Symbol does not have",
+            g.uuid, g.unit
+        )));
+    }
     let mut pins = file.pins;
     pins.sort_by_key(|p| p.uuid);
+    let mut graphics = file.graphics;
+    graphics.sort_by_key(|g| g.uuid);
     Ok(Symbol {
         uuid: file.symbol.uuid,
         name: file.symbol.name,
@@ -172,6 +209,7 @@ pub fn read_symbol(path: &Path, bytes: &[u8]) -> Result<Symbol, LoadError> {
         designator_prefix: file.symbol.designator_prefix,
         units: file.units,
         pins,
+        graphics,
     })
 }
 
@@ -185,7 +223,15 @@ pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError>
             description: footprint.description.clone(),
         },
     )?;
+    w.field(
+        "text",
+        &FootprintTexts {
+            designator: footprint.designator,
+            value: footprint.value,
+        },
+    )?;
     w.table("pads", &footprint.pads, |p| p.uuid)?;
+    w.table("graphics", &footprint.graphics, |g| g.uuid)?;
     Ok(w.finish())
 }
 
@@ -193,13 +239,19 @@ pub fn read_footprint(path: &Path, bytes: &[u8]) -> Result<Footprint, LoadError>
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: FootprintFile = parse(FileKind::Footprint, path, bytes)?;
     unique(file.pads.iter().map(|p| p.uuid), "Pad").map_err(invalid)?;
+    unique(file.graphics.iter().map(|g| g.uuid), "graphic").map_err(invalid)?;
     let mut pads = file.pads;
     pads.sort_by_key(|p| p.uuid);
+    let mut graphics = file.graphics;
+    graphics.sort_by_key(|g| g.uuid);
     Ok(Footprint {
         uuid: file.footprint.uuid,
         name: file.footprint.name,
         description: file.footprint.description,
         pads,
+        graphics,
+        designator: file.text.designator,
+        value: file.text.value,
     })
 }
 

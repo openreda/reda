@@ -16,8 +16,9 @@ mod uuid;
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
 pub use library::{
-    ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
-    PinMap, PinPads, PinType, Symbol, Unit,
+    ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
+    FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
+    PinPads, PinType, Shape, Symbol, SymbolGraphic, Unit,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
