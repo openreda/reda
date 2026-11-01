@@ -377,6 +377,11 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             footprint: entry.part.footprints.first().copied(),
             component_type: ComponentType::Standard,
             not_fitted: mirror,
+            visible_fields: if mirror {
+                ["designator".to_owned(), "LCSC".to_owned()].into()
+            } else {
+                UnitInstance::default_visible_fields()
+            },
         };
         objects.push(Object::FootprintCopy(InDocument::new(sheet, copy)));
         objects.push(Object::PartEntry(InDocument::new(sheet, entry)));
