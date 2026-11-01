@@ -20,6 +20,7 @@ mod qfp;
 mod quad;
 mod small_outline;
 mod sot;
+mod through_hole;
 
 use std::marker::PhantomData;
 use std::path::PathBuf;
@@ -37,6 +38,7 @@ pub use pattern::{Body, Land, LandPattern};
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
+pub use through_hole::{Dip, DipParams, Header, HeaderParams, HeaderPitch};
 
 use crate::{Elements, check, check_element_name};
 
@@ -59,6 +61,8 @@ pub fn register_generators(registry: &mut Registry, store: FootprintStore) {
     registry.add(Generator::<Dfn>::new(store));
     registry.add(Generator::<Qfn>::new(store));
     registry.add(Generator::<Qfp>::new(store));
+    registry.add(Generator::<Dip>::new(store));
+    registry.add(Generator::<Header>::new(store));
 }
 
 /// One package family.
