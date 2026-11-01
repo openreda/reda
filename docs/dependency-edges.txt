@@ -6,5 +6,7 @@
 reda-cli -> reda-engine
 reda-command -> reda-model
 reda-engine -> reda-command
+reda-geom -> serde
+reda-geom -> serde_json [dev]
 reda-model -> reda-geom
 reda-testkit -> serde_json [dev]
