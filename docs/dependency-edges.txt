@@ -13,8 +13,10 @@ reda-engine -> directories [cfg(not(target_arch = "wasm32"))]
 reda-engine -> reda-command
 reda-engine -> reda-model
 reda-engine -> reda-testkit [dev]
+reda-engine -> schemars
 reda-engine -> serde
 reda-engine -> serde_json
+reda-engine -> toml_edit
 reda-geom -> serde
 reda-geom -> serde_json [dev]
 reda-model -> reda-geom

@@ -13,6 +13,8 @@ reda-command = { path = "../reda-command" }
 reda-model = { path = "../reda-model" }
 serde.workspace = true
 serde_json.workspace = true
+schemars.workspace = true
+toml_edit.workspace = true
 
 # Finding the platform's per-user folders. A browser build has none.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
