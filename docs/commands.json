@@ -2070,6 +2070,245 @@
     },
     {
       "category": "library",
+      "description": "Imports one KiCad 6+ symbol (`.kicad_sym`) and footprint (`.kicad_mod`), as vendor download services provide them, into a registered Library as a Symbol, a Footprint and a Part. Pins bind to Pads by number; MPN, manufacturer, datasheet and supplier properties map onto the Part's fields, and other properties become free-form fields. 3D models are ignored. Each element records the source service, its terms URL and any copyright lines. Existing files are never overwritten. The Library check runs on the result.",
+      "icon": "library_import",
+      "id": "library.import_part",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "Service": {
+            "description": "A part download service.",
+            "oneOf": [
+              {
+                "enum": [
+                  "ultra_librarian"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "snapmagic",
+                "description": "SnapMagic, formerly SnapEDA.",
+                "type": "string"
+              },
+              {
+                "const": "samacsys",
+                "description": "SamacSys, the Component Search Engine.",
+                "type": "string"
+              },
+              {
+                "const": "easyeda",
+                "description": "EasyEDA / LCSC parts, converted to KiCad by a third-party tool.",
+                "type": "string"
+              },
+              {
+                "const": "unknown",
+                "description": "Not recognised.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint_file": {
+            "description": "The KiCad footprint (`.kicad_mod`), in the `(footprint …)` or legacy `(module …)`\nsyntax.",
+            "type": "string"
+          },
+          "library": {
+            "description": "The registered Library to write the elements into. The starter Library is\nread-only.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Part's name; by default the symbol's.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Service"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The service the files came from; recognised from their contents when left out."
+          },
+          "symbol": {
+            "default": null,
+            "description": "Which symbol to import when the `.kicad_sym` holds several.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "symbol_file": {
+            "description": "The KiCad 6 or later symbol library (`.kicad_sym`, version 20210619 or later).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "library",
+          "symbol_file",
+          "footprint_file"
+        ],
+        "title": "ImportPartParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Provenance": {
+            "additionalProperties": false,
+            "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+            "properties": {
+              "copyright": {
+                "description": "Copyright lines found in the imported files, kept verbatim.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "service": {
+                "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+                "type": "string"
+              },
+              "terms_url": {
+                "description": "The service's terms of use, when known.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
+            ],
+            "type": "object"
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "files": {
+            "description": "The files written, in the order above.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "footprint": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "notice": {
+            "description": "The vendor-terms notice, included the first time this user imports a part (always,\nwhen REDA has no per-user folders to remember it in).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "part": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/$defs/Provenance",
+            "description": "What every imported element records about where it came from."
+          },
+          "symbol": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "violations": {
+            "description": "The Library check on the imported Symbol, Footprint and Part.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "description": "What could not be carried over exactly, such as a custom pad shape.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "symbol",
+          "footprint",
+          "part",
+          "files",
+          "provenance",
+          "warnings",
+          "violations"
+        ],
+        "title": "ImportPartResult",
+        "type": "object"
+      },
+      "title": "Import Part"
+    },
+    {
+      "category": "library",
       "description": "Changes an open Part's name or Component Type. Omitted fields keep their value.",
       "icon": "part_edit",
       "id": "library.part.edit",

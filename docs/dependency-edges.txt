@@ -24,6 +24,7 @@ reda-control -> serde_json
 reda-engine -> directories [cfg(not(target_arch = "wasm32"))]
 reda-engine -> proptest [dev]
 reda-engine -> reda-command
+reda-engine -> reda-import-kicad
 reda-engine -> reda-library
 reda-engine -> reda-model
 reda-engine -> reda-pcb
@@ -35,6 +36,10 @@ reda-engine -> toml_edit
 reda-geom -> schemars
 reda-geom -> serde
 reda-geom -> serde_json [dev]
+reda-import-kicad -> reda-library
+reda-import-kicad -> reda-model
+reda-import-kicad -> schemars
+reda-import-kicad -> serde
 reda-library -> reda-command
 reda-library -> reda-model
 reda-library -> reda-testkit [dev]
