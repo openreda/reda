@@ -142,6 +142,7 @@ impl Command for ComponentPlace {
             footprint,
             component_type,
             not_fitted: false,
+            visible_fields: UnitInstance::default_visible_fields(),
         };
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
@@ -174,12 +175,7 @@ impl Command for UnitPlace {
     fn run(&self, cx: &mut Context<'_>, p: UnitPlaceParams) -> Result<PlacedResult, CommandError> {
         let project = cx.project()?;
         sheet(project, p.document)?;
-        let placed: Vec<(Uuid, &UnitInstance)> = project
-            .documents()
-            .filter_map(|d| project.schematic_sheet(d.uuid))
-            .flat_map(|s| s.units().map(move |u| (s.uuid, u)))
-            .filter(|(_, u)| u.component.uuid == p.component && u.component.path.is_empty())
-            .collect();
+        let placed = crate::properties::units_of(project, p.component);
         let Some(&(home, template)) = placed.first() else {
             return Err(CommandError::not_found(format!(
                 "no Component has UUID {}",

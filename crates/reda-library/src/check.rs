@@ -129,7 +129,7 @@ fn check_part(elements: &dyn Elements, part: &Part) -> Vec<Violation> {
 fn check_pin_map(part: &Part, symbol: &Symbol, footprint: &Footprint, out: &mut Vec<Violation>) {
     let mut mapped: BTreeSet<&str> = BTreeSet::new();
     for pin in &symbol.pins {
-        let pads = pads_of(part, &pin.number);
+        let pads = part.pin_map.pads_of(&pin.number);
         if !footprint
             .pads
             .iter()
@@ -160,13 +160,5 @@ fn check_pin_map(part: &Part, symbol: &Symbol, footprint: &Footprint, out: &mut 
                 .objects([part.uuid, footprint.uuid])
                 .objects(pads),
         );
-    }
-}
-
-/// The Pad numbers a Pin reaches: its override's, or else its own number.
-fn pads_of<'a>(part: &'a Part, pin: &'a str) -> Vec<&'a str> {
-    match part.pin_map.pins.iter().find(|o| o.pin == pin) {
-        Some(over) => over.pads.iter().map(String::as_str).collect(),
-        None => vec![pin],
     }
 }
