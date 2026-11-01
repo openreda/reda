@@ -10,6 +10,8 @@ publish.workspace = true
 
 [dependencies]
 reda-engine = { path = "../reda-engine" }
+reda-model = { path = "../reda-model", features = ["test-objects"] }
+serde.workspace = true
 serde_json.workspace = true
 
 [lints]

@@ -7,11 +7,13 @@
 mod command;
 mod context;
 mod error;
+mod history;
 mod inputs;
 mod registry;
 
 pub use command::{AvailabilityContext, Command, Kind, Meta, NO_PROJECT, NoParams, Unavailable};
 pub use context::{Context, Env, Session};
 pub use error::{CommandError, ErrorCode};
+pub use history::{Entry, History};
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock, Timestamp};
 pub use registry::{Registry, scope_key};
