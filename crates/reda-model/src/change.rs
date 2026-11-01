@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
 };
-use crate::{DocumentEntry, Footprint, LibraryElement, Part, ProjectProps, Symbol, Uuid};
+use crate::{
+    DocumentEntry, Footprint, FootprintCopy, LibraryElement, Part, PartEntry, ProjectProps,
+    SheetFrame, Symbol, UnitInstance, Uuid,
+};
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
 // `Project::object`, `Project::objects` and `Project::put`.
@@ -31,6 +34,10 @@ pub enum Object {
     BoardCutout(InDocument<BoardCutout>),
     NetClass(InDocument<NetClass>),
     Net(InDocument<Net>),
+    SheetFrame(InDocument<SheetFrame>),
+    PartEntry(InDocument<PartEntry>),
+    FootprintCopy(InDocument<FootprintCopy>),
+    Unit(InDocument<UnitInstance>),
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
     // Left out of schemas so the catalogue is the same with and without the feature.
@@ -68,6 +75,14 @@ pub enum ObjectType {
     NetClass,
     /// A PCB Net.
     Net,
+    /// A Schematic Sheet's frame settings (its size).
+    SheetFrame,
+    /// An entry of a sheet's part table: a copied Part with its Symbol.
+    PartEntry,
+    /// A copied Footprint in a sheet's part table.
+    FootprintCopy,
+    /// A placed Unit of a Component.
+    Unit,
     /// Free text on a PCB Layer.
     PcbText,
     /// A line, arc or rectangle on a PCB Layer.
@@ -92,6 +107,10 @@ impl Object {
             Object::BoardCutout(o) => o.uuid,
             Object::NetClass(o) => o.uuid,
             Object::Net(o) => o.uuid,
+            Object::SheetFrame(o) => o.uuid,
+            Object::PartEntry(o) => o.uuid,
+            Object::FootprintCopy(o) => o.uuid,
+            Object::Unit(o) => o.uuid,
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
             #[cfg(feature = "test-objects")]
@@ -112,6 +131,10 @@ impl Object {
             Object::BoardCutout(_) => ObjectType::BoardCutout,
             Object::NetClass(_) => ObjectType::NetClass,
             Object::Net(_) => ObjectType::Net,
+            Object::SheetFrame(_) => ObjectType::SheetFrame,
+            Object::PartEntry(_) => ObjectType::PartEntry,
+            Object::FootprintCopy(_) => ObjectType::FootprintCopy,
+            Object::Unit(_) => ObjectType::Unit,
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             #[cfg(feature = "test-objects")]
@@ -132,6 +155,10 @@ impl Object {
             Object::BoardCutout(o) => Scope::Document(o.document),
             Object::NetClass(o) => Scope::Document(o.document),
             Object::Net(o) => Scope::Document(o.document),
+            Object::SheetFrame(o) => Scope::Document(o.document),
+            Object::PartEntry(o) => Scope::Document(o.document),
+            Object::FootprintCopy(o) => Scope::Document(o.document),
+            Object::Unit(o) => Scope::Document(o.document),
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]

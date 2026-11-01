@@ -6,8 +6,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::change::{ChangeSet, Object};
-use crate::document::{DocumentEntry, DocumentKind, SchematicSheet};
+use crate::document::{DocumentEntry, DocumentKind};
 use crate::pcb::PcbDocument;
+use crate::schematic::SchematicSheet;
 use crate::{ElementSource, LibraryElement, TxError, Uuid};
 
 /// Project-wide properties, stored in `<name>.reda`.
@@ -24,6 +25,27 @@ pub struct ProjectProps {
     /// The Project Libraries: folders relative to the Project folder, `/`-separated.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<String>,
+    /// The Project properties that fill the sheets' title blocks.
+    #[serde(default)]
+    pub properties: ProjectProperties,
+}
+
+/// The Project properties: fixed free-text fields that fill each sheet's title block.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct ProjectProperties {
+    pub title: String,
+    pub revision: String,
+    /// Free text, such as `2026-11-01`.
+    pub date: String,
+    pub author: String,
+    pub company: String,
+}
+
+impl ProjectProperties {
+    pub fn is_empty(&self) -> bool {
+        *self == ProjectProperties::default()
+    }
 }
 
 /// One electronic design and everything that belongs to it.
@@ -144,6 +166,9 @@ impl Project {
         if let Some(object) = self.pcb_documents.values().find_map(|pcb| pcb.object(uuid)) {
             return Some(object);
         }
+        if let Some(object) = self.schematic_sheets.values().find_map(|s| s.object(uuid)) {
+            return Some(object);
+        }
         self.entries.get(&uuid).cloned().map(Object::Document)
     }
 
@@ -156,6 +181,10 @@ impl Project {
             Object::BoardCutout(o) => o.document,
             Object::NetClass(o) => o.document,
             Object::Net(o) => o.document,
+            Object::SheetFrame(o) => return self.check_sheet(o.document),
+            Object::PartEntry(o) => return self.check_sheet(o.document),
+            Object::FootprintCopy(o) => return self.check_sheet(o.document),
+            Object::Unit(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
             _ => return Ok(()),
@@ -166,11 +195,24 @@ impl Project {
         }
     }
 
+    fn check_sheet(&self, sheet: Uuid) -> Result<(), TxError> {
+        match self.schematic_sheets.contains_key(&sheet) {
+            true => Ok(()),
+            false => Err(TxError::Invalid(format!(
+                "{sheet} is not a Schematic Sheet"
+            ))),
+        }
+    }
+
     /// Whether the body of Document `uuid` holds no objects.
     pub(crate) fn body_is_empty(&self, uuid: Uuid) -> bool {
         self.pcb_documents
             .get(&uuid)
             .is_none_or(PcbDocument::is_empty)
+            && self
+                .schematic_sheets
+                .get(&uuid)
+                .is_none_or(SchematicSheet::is_empty)
     }
 
     /// Every object, cloned, sorted by UUID. A new object kind adds its table here.
@@ -179,6 +221,11 @@ impl Project {
             .chain(self.entries.values().cloned().map(Object::Document))
             .chain(self.elements.values().map(|(_, e)| e.clone().into()))
             .chain(self.pcb_documents.values().flat_map(PcbDocument::objects))
+            .chain(
+                self.schematic_sheets
+                    .values()
+                    .flat_map(SchematicSheet::objects),
+            )
             .collect();
         #[cfg(feature = "test-objects")]
         out.extend(self.probes.values().cloned().map(Object::Probe));
@@ -235,6 +282,18 @@ impl Project {
             Some(Object::Net(o)) => {
                 self.pcb_mut(o.document).nets.insert(uuid, o.object);
             }
+            Some(Object::SheetFrame(o)) => {
+                self.sheet_mut(o.document).frames.insert(uuid, o.object);
+            }
+            Some(Object::PartEntry(o)) => {
+                self.sheet_mut(o.document).parts.insert(uuid, o.object);
+            }
+            Some(Object::FootprintCopy(o)) => {
+                self.sheet_mut(o.document).footprints.insert(uuid, o.object);
+            }
+            Some(Object::Unit(o)) => {
+                self.sheet_mut(o.document).units.insert(uuid, o.object);
+            }
             Some(Object::PcbText(o)) => {
                 self.pcb_mut(o.document).texts.insert(uuid, o.object);
             }
@@ -248,6 +307,9 @@ impl Project {
             None => {
                 for pcb in self.pcb_documents.values_mut() {
                     pcb.remove(uuid);
+                }
+                for sheet in self.schematic_sheets.values_mut() {
+                    sheet.remove(uuid);
                 }
                 assert_ne!(uuid, self.props.uuid, "the Project itself is never removed");
                 if self.entries.remove(&uuid).is_some() {
@@ -266,6 +328,12 @@ impl Project {
             .expect("the transaction checks an object's Document exists")
     }
 
+    fn sheet_mut(&mut self, sheet: Uuid) -> &mut SchematicSheet {
+        self.schematic_sheets
+            .get_mut(&sheet)
+            .expect("the transaction checks an object's Document exists")
+    }
+
     fn create_body(&mut self, entry: &DocumentEntry) {
         match entry.kind {
             DocumentKind::Pcb => {
@@ -274,7 +342,7 @@ impl Project {
             }
             DocumentKind::Schematic => {
                 self.schematic_sheets
-                    .insert(entry.uuid, SchematicSheet { uuid: entry.uuid });
+                    .insert(entry.uuid, SchematicSheet::new(entry.uuid));
             }
         }
     }
@@ -298,6 +366,11 @@ impl Project {
         if self.pcb_documents.len() > 1 {
             return Err("a Project has at most one PCB Document".into());
         }
-        self.pcb_documents.values().try_for_each(PcbDocument::check)
+        self.pcb_documents
+            .values()
+            .try_for_each(PcbDocument::check)?;
+        self.schematic_sheets
+            .values()
+            .try_for_each(SchematicSheet::check)
     }
 }

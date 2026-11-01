@@ -8,7 +8,7 @@ mod pcb;
 mod probe;
 mod scenario;
 
-pub use engine::{TestEngine, test_engine, test_engine_in};
+pub use engine::{TestEngine, test_engine, test_engine_in, test_engine_with_library};
 pub use files::{TempDir, read_tree};
 pub use probe::{probe_commands, probe_engine};
 pub use scenario::{run_scenarios, scenario_failures};

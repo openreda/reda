@@ -36,6 +36,19 @@ pub fn test_engine_in(home: &Path) -> TestEngine {
     )
 }
 
+/// Like [`test_engine`], with the Library folder `library` registered as the starter
+/// Library, for tests that place Parts.
+pub fn test_engine_with_library(library: &Path) -> TestEngine {
+    TestEngine(
+        Engine::builder()
+            .ids(SeededIds::new(0))
+            .clock(FixedClock::EPOCH)
+            .user_dirs(None)
+            .starter_library(Some(library.to_owned()))
+            .build(),
+    )
+}
+
 /// See [`test_engine`].
 pub struct TestEngine(pub Engine);
 

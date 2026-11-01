@@ -91,6 +91,7 @@ impl Command for ProjectNew {
             name: p.name.clone(),
             documents: vec![],
             libraries: vec![],
+            properties: Default::default(),
         });
         let sheet = DocumentEntry {
             uuid: cx.new_id(),

@@ -27,6 +27,7 @@ reda-engine -> reda-command
 reda-engine -> reda-library
 reda-engine -> reda-model
 reda-engine -> reda-pcb
+reda-engine -> reda-schematic
 reda-engine -> reda-testkit [dev]
 reda-engine -> schemars
 reda-engine -> serde
@@ -52,6 +53,12 @@ reda-pcb -> reda-text
 reda-pcb -> schemars
 reda-pcb -> serde
 reda-pcb -> serde_json [dev]
+reda-schematic -> reda-command
+reda-schematic -> reda-model
+reda-schematic -> reda-testkit [dev]
+reda-schematic -> schemars
+reda-schematic -> serde
+reda-schematic -> serde_json [dev]
 reda-testkit -> reda-engine
 reda-testkit -> reda-model
 reda-testkit -> schemars

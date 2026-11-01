@@ -89,6 +89,7 @@ pub fn open_from(
         name: name.to_owned(),
         documents: vec![],
         libraries: file.libraries.clone(),
+        properties: file.properties.clone(),
     });
     let mut missing = vec![];
     let mut tx = project.transaction();
@@ -96,10 +97,7 @@ pub fn open_from(
         let entry = row.entry().map_err(invalid)?;
         let path = folder.join(entry.file_name());
         let objects = match entry.kind {
-            DocumentKind::Schematic => {
-                read_sheet_file(&path, &read(&path)?, entry.uuid)?;
-                vec![]
-            }
+            DocumentKind::Schematic => read_sheet_file(&path, &read(&path)?, entry.uuid)?,
             DocumentKind::Pcb => match read(&path) {
                 Ok(bytes) => read_pcb_file(&path, &bytes, entry.uuid)?,
                 Err(LoadError::Missing(_)) => {

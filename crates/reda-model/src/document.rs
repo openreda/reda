@@ -49,10 +49,3 @@ impl DocumentEntry {
         format!("{}.{}", self.name, self.kind.extension())
     }
 }
-
-/// The body of a Schematic Sheet. Its tables (Wires, Net Labels, Units…) arrive in later
-/// tickets as UUID-keyed maps whose objects use `Scope::Document(sheet)`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SchematicSheet {
-    pub uuid: Uuid,
-}

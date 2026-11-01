@@ -8,6 +8,7 @@ pub mod library;
 pub mod library_check;
 pub mod preferences;
 pub mod project;
+pub mod properties;
 pub mod query;
 
 use reda_command::Registry;
@@ -23,6 +24,7 @@ pub fn register_all(registry: &mut Registry) {
     library_check::register_all(registry);
     preferences::register_all(registry);
     project::register_all(registry);
+    properties::register_all(registry);
     query::register_all(registry);
 }
 
