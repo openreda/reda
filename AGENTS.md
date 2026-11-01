@@ -1,6 +1,6 @@
 # REDA
 
-Rust monorepo: a Cargo virtual workspace. Each crate lives in `crates/<name>/` and is picked up automatically by `members = ["crates/*"]`. Shared metadata, dependency versions and lints are set at the workspace level, and crates opt in with `edition.workspace = true`, `foo.workspace = true` and `[lints] workspace = true`. The toolchain is pinned in `rust-toolchain.toml`.
+Rust monorepo: a Cargo virtual workspace. Each crate lives in `crates/<name>/` and is picked up automatically by `members = ["crates/*"]`. Shared metadata, dependency versions and lints are set at the workspace level, and crates opt in with `edition.workspace = true`, `publish.workspace = true`, `foo.workspace = true` and `[lints] workspace = true`. The toolchain is pinned in `rust-toolchain.toml`.
 
 Keep third-party dependencies few: depend on crates for substantial pieces that are hard to write well (polygon ops, GUI, MCP, file dialogs), and write small utilities in-house rather than pulling in a long tail of tiny crates.
 
