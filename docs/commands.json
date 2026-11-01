@@ -3830,6 +3830,177 @@
     },
     {
       "category": "pcb",
+      "description": "Returns the geometry of PCB text in board coordinates, as outputs and the canvas draw it: stroke-font capsules (with their pen width) and filled outline-font triangles. Text in a font missing on this machine is drawn as Noto Sans and listed under `missing_fonts`.",
+      "icon": "text",
+      "id": "pcb.text.geometry",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "texts": {
+            "default": null,
+            "description": "The text objects to lay out; every text on the board when left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "TextGeometryParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Fill": {
+            "description": "A triangle list: every three `indices` name one triangle in `points`.",
+            "properties": {
+              "indices": {
+                "items": {
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "points": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "points",
+              "indices"
+            ],
+            "type": "object"
+          },
+          "PlacedText": {
+            "description": "A text object's geometry in board coordinates.",
+            "properties": {
+              "drawn_font": {
+                "description": "The family it was drawn in: the one it names, or Noto Sans when that is missing.",
+                "type": "string"
+              },
+              "fill": {
+                "$ref": "#/$defs/Fill",
+                "description": "Outline-font glyphs (including characters the stroke font lacks), filled."
+              },
+              "font": {
+                "description": "The font family the text names.",
+                "type": "string"
+              },
+              "layer": {
+                "description": "Its Layer.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "missing_font": {
+                "description": "Whether the family the text names is missing on this machine.",
+                "type": "boolean"
+              },
+              "stroke_width": {
+                "description": "The pen width of the strokes.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "strokes": {
+                "description": "Stroke-font glyphs: capsules of `stroke_width` from `a` to `b`.",
+                "items": {
+                  "$ref": "#/$defs/Stroke"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "description": "The text object.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "font",
+              "drawn_font",
+              "missing_font",
+              "stroke_width",
+              "strokes",
+              "fill"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Stroke": {
+            "description": "One pen stroke, drawn as a capsule.",
+            "properties": {
+              "a": {
+                "$ref": "#/$defs/Point"
+              },
+              "b": {
+                "$ref": "#/$defs/Point"
+              }
+            },
+            "required": [
+              "a",
+              "b"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "missing_fonts": {
+            "description": "The font families among the returned texts that are missing on this machine, drawn\nas Noto Sans instead.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "texts": {
+            "description": "Each text's geometry in board coordinates, in the order asked (sorted by UUID when\nevery text is returned).",
+            "items": {
+              "$ref": "#/$defs/PlacedText"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "texts",
+          "missing_fonts"
+        ],
+        "title": "TextGeometryResult",
+        "type": "object"
+      },
+      "title": "Text Geometry"
+    },
+    {
+      "category": "pcb",
       "description": "Changes the given properties of one text object and keeps the rest. Moving it to another Layer without `mirrored` mirrors it on a bottom Layer and unmirrors it elsewhere.",
       "icon": "text_edit",
       "id": "pcb.text.set",

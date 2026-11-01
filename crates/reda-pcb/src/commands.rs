@@ -7,6 +7,7 @@ mod net_class;
 mod outline;
 mod rules;
 mod text;
+mod text_geometry;
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
@@ -22,6 +23,7 @@ pub fn register_all(registry: &mut Registry) {
     rules::register_all(registry);
     net_class::register_all(registry);
     text::register_all(registry);
+    registry.add(text_geometry::TextGeometry);
     graphic::register_all(registry);
 }
 
