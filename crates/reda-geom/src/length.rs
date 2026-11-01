@@ -2,13 +2,26 @@
 
 use std::ops::{Add, Mul, Neg, Sub};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A length or coordinate in integer nanometres. Serialises as a bare integer.
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 #[serde(transparent)]
+#[schemars(inline)]
 pub struct Nm(pub i64);
 
 impl Nm {
@@ -61,7 +74,7 @@ impl Mul<i64> for Nm {
 }
 
 /// A position on a Schematic Sheet or the PCB Document, which share one coordinate type.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Point {
     pub x: Nm,

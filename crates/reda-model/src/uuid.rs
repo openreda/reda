@@ -91,6 +91,20 @@ impl Serialize for Uuid {
     }
 }
 
+impl schemars::JsonSchema for Uuid {
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Uuid".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type": "string", "format": "uuid" })
+    }
+}
+
 impl<'de> Deserialize<'de> for Uuid {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Uuid, D::Error> {
         let s = <std::borrow::Cow<'de, str>>::deserialize(deserializer)?;

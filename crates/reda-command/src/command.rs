@@ -1,6 +1,7 @@
 //! The Command trait, its kinds and its metadata.
 
 use reda_model::Project;
+use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -56,9 +57,12 @@ pub const NO_PROJECT: &str = "no Project is open";
 /// `register_all(&mut Registry)`.
 pub trait Command: Send + Sync + 'static {
     const META: Meta;
-    /// Deserialised from the caller's JSON. Use `#[serde(deny_unknown_fields)]`.
-    type Params: DeserializeOwned;
-    type Output: Serialize;
+    /// Deserialised from the caller's JSON and described by its JSON Schema. Use
+    /// `#[serde(deny_unknown_fields)]`, and [`crate::Length`] / [`crate::Angle`] for lengths
+    /// and angles.
+    type Params: DeserializeOwned + JsonSchema;
+    /// Its schema is the MCP `output_schema`. Lengths and angles are integers here.
+    type Output: Serialize + JsonSchema;
 
     /// Whether the Command can run now. The default asks edits and queries for an open
     /// Project and lets view and file Commands always run.
@@ -71,12 +75,47 @@ pub trait Command: Send + Sync + 'static {
         }
     }
 
+    /// Named sets of fixed params, run as `<id>:<name>`. Menus, shortcuts and the Palette
+    /// bind to them like Commands. Read once, when the Command is registered.
+    fn presets(&self) -> Vec<Preset> {
+        Vec::new()
+    }
+
     /// Does the work. An edit that returns an error is rolled back by the registry.
     fn run(&self, cx: &mut Context<'_>, params: Self::Params)
     -> Result<Self::Output, CommandError>;
 }
 
+/// A named, fixed set of params for a Command, such as `panel.show:properties`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Preset {
+    /// Lowercase snake_case; the Preset's id is `<command id>:<name>`.
+    pub name: String,
+    /// English title, such as "Show Properties".
+    pub title: String,
+    /// A semantic icon key.
+    pub icon: String,
+    /// The params the Command runs with. They must fit its params schema.
+    pub params: serde_json::Value,
+}
+
+impl Preset {
+    pub fn new(
+        name: impl Into<String>,
+        title: impl Into<String>,
+        icon: impl Into<String>,
+        params: serde_json::Value,
+    ) -> Preset {
+        Preset {
+            name: name.into(),
+            title: title.into(),
+            icon: icon.into(),
+            params,
+        }
+    }
+}
+
 /// Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NoParams {}

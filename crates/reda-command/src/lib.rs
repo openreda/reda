@@ -4,14 +4,20 @@
 //! implementing [`Command`] and adds them in its own `register_all(&mut Registry)`; the
 //! engine assembles the full [`Registry`] from every crate's `register_all()`.
 
+mod batch;
 mod command;
 mod context;
 mod error;
 mod inputs;
 mod registry;
+mod schema;
+mod units;
 
-pub use command::{AvailabilityContext, Command, Kind, Meta, NO_PROJECT, NoParams, Unavailable};
+pub use command::{
+    AvailabilityContext, Command, Kind, Meta, NO_PROJECT, NoParams, Preset, Unavailable,
+};
 pub use context::{Context, Env, Session};
 pub use error::{CommandError, ErrorCode};
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock, Timestamp};
 pub use registry::{Registry, scope_key};
+pub use units::{Angle, Length};

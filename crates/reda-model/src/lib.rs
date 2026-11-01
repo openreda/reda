@@ -10,7 +10,7 @@ mod project;
 mod transaction;
 mod uuid;
 
-pub use change::{Change, ChangeSet, Object, Scope, ScopeSummary};
+pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
 pub use project::{Project, ProjectProps};
 pub use transaction::{Transaction, TxError};

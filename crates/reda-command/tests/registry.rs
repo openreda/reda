@@ -1,184 +1,11 @@
 //! Drives a registry of toy Commands the way the engine, MCP and the CLI do.
 
-use reda_command::{
-    Clock, Command, CommandError, Context, Env, ErrorCode, FixedClock, Kind, Meta, NoParams,
-    Registry, SeededIds, Session,
-};
-use reda_model::{Object, Project, ProjectProps, Scope, Uuid};
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+mod support;
 
-struct Rename;
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RenameParams {
-    name: String,
-}
-
-#[derive(Serialize)]
-struct RenameResult {
-    old: String,
-}
-
-impl Command for Rename {
-    const META: Meta = Meta {
-        id: "test.project.rename",
-        title: "Rename Project",
-        description: "Renames the Project.",
-        category: "project",
-        icon: "rename",
-        kind: Kind::Edit,
-    };
-    type Params = RenameParams;
-    type Output = RenameResult;
-
-    fn run(&self, cx: &mut Context<'_>, p: RenameParams) -> Result<RenameResult, CommandError> {
-        if p.name.is_empty() {
-            return Err(CommandError::rejected("a Project needs a name"));
-        }
-        let tx = cx.tx()?;
-        let mut props = tx.project().props().clone();
-        let old = std::mem::replace(&mut props.name, p.name.clone());
-        tx.replace(Object::Project(props))?;
-        if p.name == "fail-after-edit" {
-            return Err(CommandError::rejected("refused after editing"));
-        }
-        Ok(RenameResult { old })
-    }
-}
-
-struct Name;
-
-impl Command for Name {
-    const META: Meta = Meta {
-        id: "test.project.name",
-        title: "Project name",
-        description: "Returns the Project name.",
-        category: "project",
-        icon: "info",
-        kind: Kind::Query,
-    };
-    type Params = NoParams;
-    type Output = String;
-
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<String, CommandError> {
-        Ok(cx.project()?.props().name.clone())
-    }
-}
-
-/// A query that wrongly asks for a transaction.
-struct SneakyQuery;
-
-impl Command for SneakyQuery {
-    const META: Meta = Meta {
-        id: "test.sneaky",
-        title: "Sneaky",
-        description: "A query that tries to edit.",
-        category: "test",
-        icon: "bug",
-        kind: Kind::Query,
-    };
-    type Params = NoParams;
-    type Output = ();
-
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<(), CommandError> {
-        cx.tx()?;
-        Ok(())
-    }
-}
-
-/// A file Command that creates a fresh Project with the injected ids.
-struct Create;
-
-impl Command for Create {
-    const META: Meta = Meta {
-        id: "test.project.create",
-        title: "Create",
-        description: "Replaces the session's Project with a new one.",
-        category: "project",
-        icon: "new",
-        kind: Kind::File,
-    };
-    type Params = NoParams;
-    type Output = Uuid;
-
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Uuid, CommandError> {
-        let uuid = cx.new_id();
-        cx.session()?.project = Some(Project::new(ProjectProps {
-            uuid,
-            name: format!("at {}", cx.now().0),
-            documents: vec![],
-        }));
-        Ok(uuid)
-    }
-}
-
-struct Zoom;
-
-impl Command for Zoom {
-    const META: Meta = Meta {
-        id: "test.view.zoom",
-        title: "Zoom",
-        description: "Zooms.",
-        category: "view",
-        icon: "zoom",
-        kind: Kind::View,
-    };
-    type Params = NoParams;
-    type Output = ();
-
-    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<(), CommandError> {
-        Ok(())
-    }
-}
-
-fn register_all(registry: &mut Registry) {
-    registry.add(Rename);
-    registry.add(Name);
-    registry.add(SneakyQuery);
-    registry.add(Create);
-    registry.add(Zoom);
-}
-
-struct Harness {
-    registry: Registry,
-    session: Session,
-    ids: SeededIds,
-    clock: FixedClock,
-}
-
-impl Harness {
-    fn new() -> Harness {
-        let mut registry = Registry::new();
-        register_all(&mut registry);
-        Harness {
-            registry,
-            session: Session::default(),
-            ids: SeededIds::new(0),
-            clock: FixedClock::EPOCH,
-        }
-    }
-
-    fn with_project() -> Harness {
-        let mut h = Harness::new();
-        h.run("test.project.create", json!({})).unwrap();
-        h
-    }
-
-    fn run(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
-        let mut env = Env {
-            ids: &mut self.ids,
-            clock: &self.clock,
-            headless: true,
-        };
-        self.registry.run(&mut self.session, &mut env, id, params)
-    }
-
-    fn name(&self) -> String {
-        self.session.project.as_ref().unwrap().props().name.clone()
-    }
-}
+use reda_command::{Clock, CommandError, ErrorCode, FixedClock, Kind, Registry};
+use reda_model::Scope;
+use serde_json::json;
+use support::{Harness, Name, pointer};
 
 #[test]
 fn edit_returns_the_change_envelope_and_dirties_its_scope() {
@@ -228,13 +55,14 @@ fn only_edit_commands_may_open_a_transaction() {
 #[test]
 fn bad_params_are_invalid_params() {
     let mut h = Harness::with_project();
-    for params in [
-        json!({"name": 3}),
-        json!({}),
-        json!({"name": "x", "extra": 1}),
+    for (params, at) in [
+        (json!({"name": 3}), "/name"),
+        (json!({}), "/name"),
+        (json!({"name": "x", "extra": 1}), "/extra"),
     ] {
         let err = h.run("test.project.rename", params.clone()).unwrap_err();
         assert_eq!(err.code, ErrorCode::InvalidParams, "{params}");
+        assert_eq!(pointer(&err), at, "{params}: {}", err.message);
     }
 }
 
@@ -249,7 +77,7 @@ fn unknown_command_is_not_found() {
 #[test]
 fn view_commands_are_unavailable_headless() {
     let mut h = Harness::with_project();
-    let err = h.run("test.view.zoom", json!({})).unwrap_err();
+    let err = h.run("test.view.zoom", json!({"level": 100})).unwrap_err();
     assert_eq!(err.code, ErrorCode::Unavailable);
     assert_eq!(err.message, "requires the REDA app");
 }
@@ -292,9 +120,14 @@ fn the_registry_lists_metadata_sorted_by_id() {
     assert_eq!(
         ids,
         [
+            "batch",
+            "test.measure",
             "test.project.create",
             "test.project.name",
             "test.project.rename",
+            "test.project.title",
+            "test.sheet.add",
+            "test.sheet.retitle",
             "test.sneaky",
             "test.view.zoom"
         ]

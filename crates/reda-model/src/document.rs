@@ -1,11 +1,13 @@
 //! Documents: their entries in the Project's Document list and their bodies.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::Uuid;
 
-/// What kind of Document an entry is. The PCB Document joins in a later ticket.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+// The PCB Document joins in a later ticket.
+/// What kind of Document an entry is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DocumentKind {
     Schematic,
@@ -28,7 +30,7 @@ impl DocumentKind {
 }
 
 /// One Document in the Project's Document list, stored in `<name>.reda`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DocumentEntry {
     pub uuid: Uuid,

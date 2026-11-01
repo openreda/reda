@@ -2,13 +2,26 @@
 
 use std::ops::{Add, Neg, Sub};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 #[serde(transparent)]
+#[schemars(inline)]
 pub struct Millideg(pub i64);
 
 impl Millideg {
