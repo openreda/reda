@@ -12676,6 +12676,171 @@
     },
     {
       "category": "schematic",
+      "description": "Finds the Library elements a placed Component came from, for Edit in Library: the files of its Part, the Part's Symbol and the Component's Footprint in the registered Libraries, and whether each Library is read-only. `not_found` when no registered Library holds the Part.",
+      "icon": "library_edit",
+      "id": "schematic.component.library_element",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "description": "The placed Component, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component"
+        ],
+        "title": "LibraryElementParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementFile": {
+            "description": "One Library element on disk.",
+            "properties": {
+              "element": {
+                "description": "The element's UUID, to open with `library.element.open`.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "library": {
+                "description": "The UUID of the Library that holds it.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "path": {
+                "description": "The element's file.",
+                "type": "string"
+              },
+              "read_only": {
+                "description": "Whether its Library is read-only (the starter Library).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "element",
+              "library",
+              "path",
+              "read_only"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "footprint": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ElementFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Component's chosen Footprint; omitted when it has none or no registered\nLibrary holds it."
+          },
+          "part": {
+            "$ref": "#/$defs/ElementFile",
+            "description": "The Component's Part."
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ElementFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Part's Symbol; omitted when no registered Library holds it."
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "title": "LibraryElementResult",
+        "type": "object"
+      },
+      "title": "Find Library Element"
+    },
+    {
+      "category": "schematic",
+      "description": "Lists the Components marked \"library has a newer version\": those whose Library Part, with its Symbol and Footprints, no longer matches the copy in the part table. Components whose Part no registered Library holds are not listed. Preview an update with `schematic.component.update_preview`.",
+      "icon": "library_update",
+      "id": "schematic.component.outdated",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "OutdatedComponent": {
+            "description": "A Component whose Library Part has a newer version.",
+            "properties": {
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "library_hash": {
+                "description": "The content hash of the Part in the Library now.",
+                "type": "string"
+              },
+              "part": {
+                "description": "The Library Part, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "part_name": {
+                "type": "string"
+              },
+              "placed_hash": {
+                "description": "The content hash of the copy in the part table.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "part",
+              "part_name",
+              "placed_hash",
+              "library_hash"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "By Designator, in natural order.",
+            "items": {
+              "$ref": "#/$defs/OutdatedComponent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "OutdatedResult",
+        "type": "object"
+      },
+      "title": "List Outdated Components"
+    },
+    {
+      "category": "schematic",
       "description": "Lists a Component's Pins with the Pad number(s) each reaches on the Component's current Footprint, through the Part's pin map.",
       "icon": "pin",
       "id": "schematic.component.pins",
@@ -13031,6 +13196,598 @@
         "type": "object"
       },
       "title": "Edit Component Properties"
+    },
+    {
+      "category": "schematic",
+      "description": "Updates outdated Components to their Library Part as it is now, exactly as `schematic.component.update_preview` shows: each sheet gets a copy of the new Part (unused old copies are removed), fields the Component has not edited take the new defaults, and a Footprint that is no longer an alternate moves to the new default. Refused when a placed Unit is gone from the Symbol. The PCB is not touched: Sync carries Footprint changes there.",
+      "icon": "library_update",
+      "id": "schematic.component.update_from_library",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "description": "The Components to update, by UUID; every outdated Component by default. Listed\nComponents that are up to date are left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "UpdateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
+          "ComponentUpdate": {
+            "description": "What an update changes on one Component.",
+            "properties": {
+              "blocked": {
+                "description": "Whether a change (a placed Unit gone from the Symbol) stops this Component's\nupdate. Omitted when false.",
+                "type": "boolean"
+              },
+              "changes": {
+                "description": "The differences, Part first, then Symbol, then Footprints.",
+                "items": {
+                  "$ref": "#/$defs/PartChange"
+                },
+                "type": "array"
+              },
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "library_hash": {
+                "type": "string"
+              },
+              "part": {
+                "description": "The Library Part, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "placed_hash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "part",
+              "placed_hash",
+              "library_hash",
+              "changes"
+            ],
+            "type": "object"
+          },
+          "FootprintChange": {
+            "enum": [
+              "added",
+              "removed",
+              "modified"
+            ],
+            "type": "string"
+          },
+          "PartChange": {
+            "description": "One difference between the placed copy and the Library Part.",
+            "oneOf": [
+              {
+                "description": "The Part was renamed.",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "name",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's Component Type changed. `edited` when the Component has its own\nComponent Type, which it keeps.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/ComponentType"
+                  },
+                  "kind": {
+                    "const": "component_type",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/ComponentType"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, which it keeps; otherwise it takes the new default.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "field",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's pin-pad map overrides changed.",
+                "properties": {
+                  "kind": {
+                    "const": "pin_map",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Symbol changed (pins, graphics, Units or names); `name` is its name now.",
+                "properties": {
+                  "kind": {
+                    "const": "symbol",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Unit of the Component that is placed no longer exists in the Symbol. The\nComponent cannot be updated until that Unit is deleted.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_removed",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "An alternate Footprint was added, removed or changed. The PCB gets a Footprint\nchange through Sync, not through the update.",
+                "properties": {
+                  "change": {
+                    "$ref": "#/$defs/FootprintChange"
+                  },
+                  "footprint": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "name",
+                  "change"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The alternates are in a new order; the first is the default.",
+                "properties": {
+                  "kind": {
+                    "const": "footprint_order",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Component's Footprint is no longer an alternate, so it moves to the new\ndefault (`null` when the Part has none).",
+                "properties": {
+                  "from": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint_choice",
+                    "type": "string"
+                  },
+                  "to": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "By Designator, in natural order.",
+            "items": {
+              "$ref": "#/$defs/ComponentUpdate"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "UpdateResult",
+        "type": "object"
+      },
+      "title": "Update from Library"
+    },
+    {
+      "category": "schematic",
+      "description": "Shows what Update from Library would change on outdated Components, without changing anything: the Part's name, Component Type, default fields and pin-pad map, the Symbol and each alternate Footprint. A Component keeps field values it has edited. Apply it with `schematic.component.update_from_library`.",
+      "icon": "library_update",
+      "id": "schematic.component.update_preview",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "description": "The Components to update, by UUID; every outdated Component by default. Listed\nComponents that are up to date are left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "UpdateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
+          "ComponentUpdate": {
+            "description": "What an update changes on one Component.",
+            "properties": {
+              "blocked": {
+                "description": "Whether a change (a placed Unit gone from the Symbol) stops this Component's\nupdate. Omitted when false.",
+                "type": "boolean"
+              },
+              "changes": {
+                "description": "The differences, Part first, then Symbol, then Footprints.",
+                "items": {
+                  "$ref": "#/$defs/PartChange"
+                },
+                "type": "array"
+              },
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "library_hash": {
+                "type": "string"
+              },
+              "part": {
+                "description": "The Library Part, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "placed_hash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "part",
+              "placed_hash",
+              "library_hash",
+              "changes"
+            ],
+            "type": "object"
+          },
+          "FootprintChange": {
+            "enum": [
+              "added",
+              "removed",
+              "modified"
+            ],
+            "type": "string"
+          },
+          "PartChange": {
+            "description": "One difference between the placed copy and the Library Part.",
+            "oneOf": [
+              {
+                "description": "The Part was renamed.",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "name",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's Component Type changed. `edited` when the Component has its own\nComponent Type, which it keeps.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/ComponentType"
+                  },
+                  "kind": {
+                    "const": "component_type",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/ComponentType"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, which it keeps; otherwise it takes the new default.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "field",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's pin-pad map overrides changed.",
+                "properties": {
+                  "kind": {
+                    "const": "pin_map",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Symbol changed (pins, graphics, Units or names); `name` is its name now.",
+                "properties": {
+                  "kind": {
+                    "const": "symbol",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Unit of the Component that is placed no longer exists in the Symbol. The\nComponent cannot be updated until that Unit is deleted.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_removed",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "An alternate Footprint was added, removed or changed. The PCB gets a Footprint\nchange through Sync, not through the update.",
+                "properties": {
+                  "change": {
+                    "$ref": "#/$defs/FootprintChange"
+                  },
+                  "footprint": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "name",
+                  "change"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The alternates are in a new order; the first is the default.",
+                "properties": {
+                  "kind": {
+                    "const": "footprint_order",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Component's Footprint is no longer an alternate, so it moves to the new\ndefault (`null` when the Part has none).",
+                "properties": {
+                  "from": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint_choice",
+                    "type": "string"
+                  },
+                  "to": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "By Designator, in natural order.",
+            "items": {
+              "$ref": "#/$defs/ComponentUpdate"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "UpdateResult",
+        "type": "object"
+      },
+      "title": "Preview Update from Library"
     },
     {
       "category": "schematic",

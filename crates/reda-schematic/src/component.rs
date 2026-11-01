@@ -246,7 +246,7 @@ impl Command for UnitPlace {
 }
 
 /// What a part-table entry holds, wherever it comes from.
-struct EntryContent {
+pub(crate) struct EntryContent {
     hash: String,
     part: Part,
     symbol: Symbol,
@@ -255,7 +255,7 @@ struct EntryContent {
 }
 
 impl EntryContent {
-    fn from_copy(copy: PartCopy) -> Result<EntryContent, CommandError> {
+    pub(crate) fn from_copy(copy: PartCopy) -> Result<EntryContent, CommandError> {
         let Some(symbol) = copy.symbol else {
             return Err(CommandError::rejected(format!(
                 "Part {} has no Symbol, so it cannot be placed on a Schematic Sheet",
@@ -297,7 +297,7 @@ fn unit_named(symbol: &Symbol, name: &str) -> Result<Uuid, CommandError> {
 
 /// The sheet's part-table entry for this content, inserting it (and any Footprint copy
 /// the sheet lacks) when the sheet has none with the same Part UUID and hash.
-fn ensure_entry(
+pub(crate) fn ensure_entry(
     cx: &mut Context<'_>,
     document: Uuid,
     content: EntryContent,
