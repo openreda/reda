@@ -26,8 +26,12 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - It is long-running, with progress and cancellation ([architecture](architecture.md#definition)).
   - Zones are refilled first.
 - **Jobs in a Project:**
-  - A new Project gets one job, made from the Fab Preset the user picks.
+  - A new Project gets one job, named after the Fab Preset the user picks ([app](app.md#new-project)).
   - More jobs are allowed, for example "JLCPCB assembled" and "OSH Park bare".
+- **Editing:**
+  - Jobs are listed in the Projects panel, with Run, Edit, Duplicate, Delete and New job ([How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38)).
+  - Edit opens a modal **Output Job dialog** for one job: name, PCB Document, Fab Preset, outputs, destination and Run. It uses OK/Cancel/Apply like the other Project dialogs ([app](app.md#settings-dialogs)).
+  - It is a dialog, not a Document tab, in v0.1. It may become a tab in v0.7, when outputs grow.
 - **Destination:**
   - The default folder is `<project>/outputs/<job name>/`, overwritten on each run. It sits outside the git-ignored `.reda/`, so the user decides whether to commit it.
   - The zip is named `<project>-<job>.zip`.
@@ -55,7 +59,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 - **User presets:**
   - Users can duplicate and edit presets.
   - User presets are `.redafab` canonical-JSON files in the per-user config folder ([app](app.md#per-user-state)), in the same shape as the shipped presets and the Project copies.
-- **Project copies:** the Project keeps its own copy of every preset its jobs use, so outputs come out the same on another machine.
+- **Project copies:** the Project keeps its own copy of every preset its jobs use, so outputs come out the same on another machine. They are managed on the Fab Presets page of Project Settings, each with "Update from source" (after a preview) and "Save as user preset".
 - **The board owns its rules** ([checks](checks.md#design-rules)). A job only checks the board's rules against its preset's minimums.
 
 ## BOM

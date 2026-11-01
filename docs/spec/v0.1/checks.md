@@ -61,6 +61,7 @@ The pin-type matrix is built in and fixed. Individual cells can't be edited, but
   - Each Net Class can override the clearance, the Track width and the Via size.
   - Where two Net Classes meet, the larger clearance applies.
   - New Nets get the Default Net Class.
+  - A Net is assigned to a Net Class with `pcb.net.set_class {nets, class}`, from the Net table in Board Setup or from the Properties panel for a selected Track, Via, Pad, Zone or highlighted Net. A multi-selection sets it for all their Nets. Assignment is per Net only, with no pattern rules in v0.1.
 - **Fab Presets and the rules:**
   - A Fab Preset seeds the rules when the board is created.
   - "Apply Fab Preset rules" re-seeds them, after a preview like a Change List.
@@ -73,6 +74,10 @@ The pin-type matrix is built in and fixed. Individual cells can't be edited, but
 
 - Each check is set to Error, Warning or Off.
 - ERC severities are stored in the Project (`.reda`). DRC severities are stored in the PCB Document, next to its rules.
+- **Where they are edited** ([How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38)):
+  - ERC severities on the ERC page of **Project Settings**, beside the read-only pin-type matrix.
+  - DRC severities in **Board Setup**: on each rule's page beside the rule, and all together on its DRC page ([app](app.md#settings-dialogs)).
+  - Right-clicking a Violation in Messages offers **Set severity of "<check>" → Error / Warning / Off**, next to **Waive**.
 
 ## Running
 

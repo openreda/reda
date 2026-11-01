@@ -5,7 +5,9 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
 ## Sheets
 
 - A Project has multiple **flat** Schematic Sheets, one `.redasch` file each.
-- The Project panel can add, rename, reorder and delete sheets:
+- The Projects panel can add, rename, reorder and delete sheets ([app](app.md#projects-and-settings), [How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38)):
+  - A new Project starts with one sheet, "Sheet 1". Added sheets default to `sheet-<n>.redasch`.
+  - The changes reach disk on save, and each one is undoable on the Project's undo stack.
   - The order gives "sheet n of m" and the PDF page order.
   - Each sheet opens as a tab.
   - Deleting a sheet that holds Components asks for confirmation and removes those Components from the Project. Their Footprints go at the next Sync, as ordinary removals ([sync](sync.md)).

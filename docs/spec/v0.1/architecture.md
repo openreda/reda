@@ -64,6 +64,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
   - One Command is one transaction. It records a before/after change set per object, keyed by UUID.
   - The same change set feeds dirty tracking, incremental derived data (spatial index, Ratsnest, connectivity), the Journal and Change List previews.
   - There is **one undo stack per Document**. A cross-Document Command (Re-annotate, Sync, write-through edits) records an independent entry in each Document it touches.
+  - The **project file** (`.reda`) has its own undo stack too. It covers adding, deleting, renaming and reordering Documents, Project properties, ERC severities, Output Jobs, Fab Preset copies and Library paths. Deleting a sheet that holds Components is one transaction across `.reda` and that sheet. In the GUI, focus picks the stack that `Mod+Z` uses: the Projects panel and the Project dialogs use the Project stack, and a Document tab uses its own ([app](app.md#projects-and-settings)).
 - **Stored versus derived:**
   - Only user-authored data is stored.
   - Derived: schematic Nets, auto Net names, Junctions, PCB copper connectivity, the Ratsnest, spatial indices, ERC and DRC results.
@@ -96,6 +97,7 @@ Sources: [What does REDA's native file format look like?](https://github.com/ope
   - `name.reda` lists the Documents in order, as relative path + UUID. That order drives sheet numbering and PDF output, and nothing is found by scanning the folder.
   - `name.reda` also holds the Project-wide settings: Project properties, ERC severities, Output Jobs, copied Fab Presets and Project Library paths.
   - There is one file per Document: `name.redasch` (Schematic Sheet) and `name.redapcb` (PCB Document).
+  - A Document's name is its file stem. Renaming a Document renames its file on save. Adding or deleting a Document reaches disk on save, and a deleted Document's file goes to the OS trash ([app](app.md#projects-and-settings)).
 - **Part tables:**
   - Each Document stores its part copies once, in a table keyed by library element UUID + content hash. Instances point at the table. A locally edited copy gets its own entry by hash.
   - A Schematic Sheet stores the whole Part: Symbol, pin-map overrides, fields, Component Type, and every alternate Footprint deduplicated by hash. The PCB stores only the Footprints in use.
@@ -135,7 +137,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
   - **edit** mutates Documents in one transaction and is undoable.
   - **query** is read-only and returns data.
   - **view** changes GUI or session state. It is never undoable, never dirties a Document, and is unavailable headless.
-  - **file** covers Project new/open/save/close and exports. It touches disk, is never undoable, and works headless.
+  - **file** covers Project new/open/save/close and exports. It touches disk, is never undoable, and works headless. `project.new` is one file Command that builds a whole new Project ([app](app.md#new-project)).
 - **Targets:**
   - Targets are always explicit UUIDs. The GUI fills them in from the selection, which stays view state.
   - The Document is inferred from the object UUIDs. Creation Commands take an explicit `document` and an optional UUID supplied by the caller.

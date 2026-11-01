@@ -84,6 +84,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 
 ### Outputs (v0.7), in `reda-output`
 - Assembly PDFs, IPC-D-356 and ODB++.
+- The Output Job editor may move from a dialog to a Document tab as outputs grow ([Projects and board setup](https://github.com/openreda/reda/issues/38)).
 - A **Gerber Document** backed by a new `reda-gerber-read` crate. The Gerber read-back test shares that crate.
 
 ### Public release (v1.0)

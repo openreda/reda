@@ -1,6 +1,6 @@
 # v0.1 application
 
-The window, docking, canvas rendering, the Keymap and icons, Preferences and per-user state, crash recovery, i18n and accessibility. Crates: `reda-ui` and `reda-app`, plus `reda-render` for the canvas.
+The window, docking, Projects and settings, canvas rendering, the Keymap and icons, Preferences and per-user state, crash recovery, i18n and accessibility. Crates: `reda-ui` and `reda-app`, plus `reda-render` for the canvas.
 
 ## Window shell
 
@@ -40,6 +40,67 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
 - **Command Palette** (`Mod+Shift+P`):
   - It does a fuzzy search over every Command and Preset in the current context.
   - It shows each shortcut, and the reason for any that are unavailable.
+
+## Projects and settings
+
+Source: [How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38).
+
+### New Project
+
+- **One file Command:** `project.new {path, name, fab_preset, board?}`. It works headless and from MCP, and it is one Journal entry. It builds the Project with the same internal builders as `document.add`, `output.job.add` and `pcb.board_outline.add_rect`.
+- **What it creates:**
+  - the folder `<location>/<name>/` with `<name>.reda`, a first sheet `<name>.redasch` titled "Sheet 1", and `<name>.redapcb`
+  - the board's rules and DRC severities, seeded from the Fab Preset
+  - one Output Job, named after the Fab Preset
+  - All of it is written to disk at once, and the Project opens on the first sheet.
+  - A target folder that exists and is not empty is refused.
+- **The New Project dialog:**
+  - name and location
+  - **Fab Preset:** the shipped presets (Generic, JLCPCB, PCBWay) and the user's `.redafab` presets. The default is the last one used (kept in `state.json`), else Generic. The dialog says that the rules and the job can be changed later.
+  - **Board:** *Draw later* (the default) or *Rectangle* W × H mm with an optional corner radius. The fields are pre-filled (100 × 80 mm) but used only when *Rectangle* is picked. The rectangle is an ordinary Board Outline polygon that can be edited or replaced later. Later milestones add fields here, such as the layer count in v0.2.
+
+### Documents
+
+- A Document's name is its file stem. Renaming a Document renames its file on save, through a temp file and a rename. The title keeps what the user typed, and the stem is slugified only where the OS requires. The `.reda` entry records both.
+- Adding, deleting, renaming and reordering Documents change only the in-memory Project and dirty `.reda`. They reach disk on save, and a deleted Document's file goes to the OS trash.
+- These edits are undoable on the Project's own undo stack ([architecture](architecture.md#design-data-model)). Focus picks the stack that `Mod+Z` uses: the Projects panel and the Project dialogs use the Project stack, and a Document tab uses that Document's stack.
+- The PCB Document can be deleted and re-added ([PCB](pcb.md#board)).
+
+### Projects panel
+
+```
+▾ MyBoard                      (Project Settings…, Save All, Show in folder)
+  ▾ Schematic
+      Sheet 1 · Power · MCU    (open, rename, reorder by drag, delete, Add sheet)
+  ▾ PCB
+      MyBoard                  (open, rename, Board Setup…, delete / Add PCB Document)
+  ▾ Output Jobs
+      JLCPCB                   (Run, Edit…, Duplicate, Delete, New job…)
+  ▾ Libraries
+      parts/ (Project)         (Add folder…, Remove, Show in folder)
+```
+
+- Each item has a dirty marker.
+- Double-clicking a Document opens it. Double-clicking a job opens Edit.
+- Libraries are browsed in the Library panel. This panel lists only the Project Library paths.
+
+### Settings dialogs
+
+- **Three modal dialogs**, each with a page tree on the left: Project Settings, Board Setup and the Output Job dialog.
+- **OK / Cancel / Apply:** each Apply or OK commits the dialog's changes as one `batch` transaction and one undo entry. Invalid values (a negative clearance, a duplicate class name) are flagged inline and disable OK and Apply.
+- Preferences stays live with no OK or Cancel, because it is per-user and has no undo ([Preferences](#preferences)).
+- They are dialogs, not Document tabs, because none of them is graphical. The later Stackup editor is a tab because it is.
+- **Project Settings** (stored in `.reda`):
+  - *Properties:* title, revision, date, author, company, board thickness, copper weight. These are fixed fields only, with no free Project parameters or text variables in v0.1.
+  - *ERC:* the severity of each check, with the fixed pin-type matrix shown read-only beside the conflict check ([checks](checks.md#severities)).
+  - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview) and "Save as user preset" ([outputs](outputs.md#fab-presets)).
+  - *Libraries:* Project Library paths.
+- **Board Setup** (stored in the PCB Document):
+  - *Rules:* one page per rule (Clearance, Track Width, Via, Annular Ring, Hole Spacing, Edge Clearance). Each page has the board-wide value, an override table with one row per Net Class, and that check's DRC severity. **Apply Fab Preset rules…** is here, with its preview ([checks](checks.md#design-rules)).
+  - *Net Classes:* add, rename and delete classes, and a Net → Net Class table filterable by name.
+  - *DRC:* every check's severity, including checks with no rule, such as Courtyard overlap.
+- **Output Job dialog:** one job's name, PCB Document, Fab Preset, outputs and destination, plus Run ([outputs](outputs.md#output-jobs)).
+- **Shortcuts into the same data:** the Properties panel sets a selected object's Net Class, and right-clicking a Violation sets that check's severity ([checks](checks.md)).
 
 ## Canvas rendering
 

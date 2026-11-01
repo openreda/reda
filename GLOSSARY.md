@@ -256,6 +256,14 @@ _Avoid_: Workspace, perspective, arrangement
 A user's own choices about how REDA looks and behaves, such as the theme or repeat placement, which apply to every Project they open and never change a design.
 _Avoid_: Settings, options, config
 
+**Project Settings**:
+A Project's own settings, such as its title-block properties, ERC severities and Fab Preset copies, which travel with the Project and apply to everyone who opens it.
+_Avoid_: Project options, Project preferences
+
+**Board Setup**:
+A PCB Document's design rules, Net Classes and DRC severities, edited together.
+_Avoid_: Rules editor, board settings, constraints
+
 **Active Bar**:
 The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.
 _Avoid_: Quick bar, floating toolbar, palette

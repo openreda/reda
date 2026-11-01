@@ -9,9 +9,12 @@ Source: [Which features make up the v0.1 PCB editor?](https://github.com/openred
   - It is an object of its own.
   - It is drawn as a polygon or rectangle, or created from selected lines and arcs.
 - **Board Cutouts** are separate objects.
-- Board thickness and copper weight are Project properties. They are used only in fab notes.
-- The board owns its design rules and DRC severities ([checks](checks.md#design-rules)). A Fab Preset seeds them when the board is created.
-- Creating the PCB Document and editing its setup is open: [How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38).
+- **Creating the board:**
+  - New Project creates the PCB Document, with its rules and DRC severities seeded from the chosen Fab Preset ([app](app.md#new-project)).
+  - It may start with a rectangular Board Outline from the New Project dialog. Otherwise the canvas shows a hint: "No Board Outline: draw one, or **Create rectangle…**" (`pcb.board_outline.add_rect {width, height, corner_radius?}`).
+  - The PCB Document can be deleted after confirmation. **Add PCB Document** (`document.add {kind: pcb}`) is available only while the Project has none. Output Jobs that name a missing PCB are flagged as broken until they are re-pointed. A Project opened without its PCB file shows an error in Messages and offers Add PCB Document.
+- Board thickness and copper weight are Project properties, edited in Project Settings. They are used only in fab notes.
+- The board owns its design rules and DRC severities ([checks](checks.md#design-rules)). A Fab Preset seeds them when the board is created. They are edited in **Board Setup** ([app](app.md#settings-dialogs)).
 
 ## Layers
 
