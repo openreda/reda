@@ -11,6 +11,7 @@ repository = "https://github.com/openreda/reda"
 publish = false
 
 [workspace.dependencies]
+serde_json = "1.0.150"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
