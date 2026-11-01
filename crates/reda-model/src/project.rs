@@ -9,7 +9,7 @@ use crate::change::{ChangeSet, Object};
 use crate::document::{DocumentEntry, DocumentKind};
 use crate::pcb::PcbDocument;
 use crate::schematic::SchematicSheet;
-use crate::{TxError, Uuid};
+use crate::{ElementSource, LibraryElement, TxError, Uuid};
 
 /// Project-wide properties, stored in `<name>.reda`.
 ///
@@ -56,6 +56,8 @@ pub struct Project {
     props: ProjectProps,
     entries: BTreeMap<Uuid, DocumentEntry>,
     schematic_sheets: BTreeMap<Uuid, SchematicSheet>,
+    /// The Library elements open for editing, each its own undo scope.
+    elements: BTreeMap<Uuid, (ElementSource, LibraryElement)>,
     pcb_documents: BTreeMap<Uuid, PcbDocument>,
     #[cfg(feature = "test-objects")]
     probes: BTreeMap<Uuid, crate::Probe>,
@@ -72,6 +74,7 @@ impl Project {
             props,
             entries: BTreeMap::new(),
             schematic_sheets: BTreeMap::new(),
+            elements: BTreeMap::new(),
             pcb_documents: BTreeMap::new(),
             #[cfg(feature = "test-objects")]
             probes: BTreeMap::new(),
@@ -99,6 +102,44 @@ impl Project {
         self.schematic_sheets.get(&uuid)
     }
 
+    /// Opens a Library element for editing, outside any transaction: opening is not an
+    /// edit and is never undone. Its edits then [`crate::Transaction::replace`] it, on the
+    /// undo scope `Scope::Element(uuid)`. Refused when its UUID is taken.
+    pub fn open_element(
+        &mut self,
+        source: ElementSource,
+        element: LibraryElement,
+    ) -> Result<(), String> {
+        let uuid = element.uuid();
+        if self.object(uuid).is_some() {
+            return Err(format!("an object with UUID {uuid} is already open"));
+        }
+        self.elements.insert(uuid, (source, element));
+        Ok(())
+    }
+
+    /// Closes an open Library element and returns it, discarding nothing on disk.
+    pub fn close_element(&mut self, uuid: Uuid) -> Option<LibraryElement> {
+        self.elements.remove(&uuid).map(|(_, element)| element)
+    }
+
+    /// An open Library element.
+    pub fn element(&self, uuid: Uuid) -> Option<&LibraryElement> {
+        self.elements.get(&uuid).map(|(_, element)| element)
+    }
+
+    /// Where an open Library element came from.
+    pub fn element_source(&self, uuid: Uuid) -> Option<ElementSource> {
+        self.elements.get(&uuid).map(|(source, _)| *source)
+    }
+
+    /// Every open Library element, sorted by UUID.
+    pub fn elements(&self) -> impl Iterator<Item = (ElementSource, &LibraryElement)> {
+        self.elements
+            .values()
+            .map(|(source, element)| (*source, element))
+    }
+
     pub fn pcb_document(&self, uuid: Uuid) -> Option<&PcbDocument> {
         self.pcb_documents.get(&uuid)
     }
@@ -118,6 +159,9 @@ impl Project {
         #[cfg(feature = "test-objects")]
         if let Some(probe) = self.probes.get(&uuid) {
             return Some(Object::Probe(probe.clone()));
+        }
+        if let Some(element) = self.element(uuid) {
+            return Some(element.clone().into());
         }
         if let Some(object) = self.pcb_documents.values().find_map(|pcb| pcb.object(uuid)) {
             return Some(object);
@@ -173,6 +217,7 @@ impl Project {
     pub fn objects(&self) -> Vec<Object> {
         let mut out: Vec<Object> = std::iter::once(Object::Project(self.props.clone()))
             .chain(self.entries.values().cloned().map(Object::Document))
+            .chain(self.elements.values().map(|(_, e)| e.clone().into()))
             .chain(self.pcb_documents.values().flat_map(PcbDocument::objects))
             .chain(
                 self.schematic_sheets
@@ -208,6 +253,14 @@ impl Project {
                     self.create_body(&entry);
                 }
                 self.entries.insert(uuid, entry);
+            }
+            Some(object @ (Object::Symbol(_) | Object::Footprint(_) | Object::Part(_))) => {
+                let element = object.into_element().expect("a Library element");
+                let open = self
+                    .elements
+                    .get_mut(&uuid)
+                    .expect("Library elements are opened, not inserted");
+                open.1 = element;
             }
             Some(Object::LayerSet(o)) => {
                 self.pcb_mut(o.document).layer_sets.insert(uuid, o.object);

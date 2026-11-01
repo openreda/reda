@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 use reda_library::LibraryFiles;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    ComponentType, Fields, Footprint, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
-    PinType, Symbol, Unit, Uuid,
+    ComponentType, Fields, Footprint, FootprintText, LibraryInfo, Pad, PadKind, PadShape, Part,
+    Pin, PinMap, PinType, Symbol, Unit, Uuid,
 };
 
 pub fn uuid(n: u128) -> Uuid {
@@ -126,6 +126,8 @@ pub fn symbol(n: u128, name: &str) -> Symbol {
         at: Point::new(Nm(0), Nm::from_mil(100) * (i as i64)),
         rotation: Millideg(0),
         length: Nm::from_mil(100),
+        name_visible: true,
+        number_visible: true,
     };
     Symbol {
         uuid: uuid(n),
@@ -137,6 +139,7 @@ pub fn symbol(n: u128, name: &str) -> Symbol {
             name: "A".into(),
         }],
         pins: vec![pin(1), pin(2)],
+        graphics: vec![],
     }
 }
 
@@ -151,6 +154,7 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         rotation: Millideg(0),
         width: Nm::from_um(800),
         height: Nm::from_um(900),
+        corner_radius: None,
         hole: None,
         mask_margin: None,
         paste_margin: None,
@@ -160,6 +164,9 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         name: name.into(),
         description: String::new(),
         pads: vec![pad(1), pad(2)],
+        graphics: vec![],
+        designator: FootprintText::DESIGNATOR,
+        value: FootprintText::VALUE,
     }
 }
 

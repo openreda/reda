@@ -26,7 +26,7 @@
 //! `frame` is written only when the sheet has one, and the three tables only when the sheet
 //! holds any Component. A part-table entry (`parts`) holds the
 //! keys of a `.redapart` file (`part`, `footprints`, `fields`, `pin_map`) and of a
-//! `.redasym` file (`symbol`, `units`, `pins`) with the same shapes, plus its own `uuid`,
+//! `.redasym` file (`symbol`, `units`, `pins`, `graphics`) with the same shapes, plus its own `uuid`,
 //! its content `hash` and `copies`: the sheet's Footprint copy of each alternate. A
 //! Footprint copy (`footprints`) holds the keys of a `.redafp` file. Rows leave out the
 //! sheet their model objects name: the file is the sheet.
@@ -34,13 +34,13 @@
 use std::path::Path;
 
 use reda_model::{
-    Fields, FootprintCopy, InDocument, Object, Pad, PartEntry, Pin, PinMap, SchematicSheet,
-    SheetFrame, Unit, UnitInstance, Uuid,
+    Fields, FootprintCopy, FootprintGraphic, InDocument, Object, Pad, PartEntry, Pin, PinMap,
+    SchematicSheet, SheetFrame, SymbolGraphic, Unit, UnitInstance, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::library::{FootprintRow, PartRow, SymbolRow, sorted};
+use super::library::{FootprintRow, FootprintTexts, PartRow, SymbolRow, sorted};
 use super::{FORMAT, FileKind, LoadError, parse};
 use crate::canonical::{CanonicalError, CanonicalWriter};
 
@@ -94,6 +94,7 @@ struct PartEntryRow {
     symbol: SymbolRow,
     units: Vec<Unit>,
     pins: Vec<Pin>,
+    graphics: Vec<SymbolGraphic>,
 }
 
 /// One copied Footprint: a `.redafp` file's keys in one row.
@@ -104,7 +105,9 @@ struct FootprintCopyRow {
     /// The content hash of the Footprint, as copied.
     hash: String,
     footprint: FootprintRow,
+    text: FootprintTexts,
     pads: Vec<Pad>,
+    graphics: Vec<FootprintGraphic>,
 }
 
 pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, CanonicalError> {
@@ -124,17 +127,20 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         symbol: SymbolRow::of(&e.symbol),
         units: e.symbol.units.clone(),
         pins: e.symbol.pins.clone(),
+        graphics: e.symbol.graphics.clone(),
     });
     let footprints = sheet.footprints().map(|c| FootprintCopyRow {
         uuid: c.uuid,
         hash: c.hash.clone(),
         footprint: FootprintRow::of(&c.footprint),
+        text: FootprintTexts::of(&c.footprint),
         pads: c.footprint.pads.clone(),
+        graphics: c.footprint.graphics.clone(),
     });
     // A sheet with no Components keeps the short form of an empty sheet.
     if sheet.parts().next().is_some() || sheet.units().next().is_some() {
-        w.containers_spread("parts", parts, |r| r.uuid, &["units", "pins"])?;
-        w.containers("footprints", footprints, |r| r.uuid, "pads")?;
+        w.containers_spread("parts", parts, |r| r.uuid, &["units", "pins", "graphics"])?;
+        w.containers_spread("footprints", footprints, |r| r.uuid, &["pads", "graphics"])?;
         w.table("units", sheet.units(), |u| u.uuid)?;
     }
     Ok(w.finish())
@@ -162,7 +168,7 @@ pub(crate) fn read_sheet_file(
     for row in file.footprints {
         let footprint = row
             .footprint
-            .into_footprint(row.pads)
+            .into_footprint(row.text, row.pads, row.graphics)
             .map_err(|e| invalid(format!("Footprint copy {}: {e}", row.uuid)))?;
         objects.push(Object::FootprintCopy(InDocument::new(
             sheet,
@@ -176,7 +182,7 @@ pub(crate) fn read_sheet_file(
     for row in file.parts {
         let symbol = row
             .symbol
-            .into_symbol(row.units, row.pins)
+            .into_symbol(row.units, row.pins, row.graphics)
             .map_err(|e| invalid(format!("part entry {}: {e}", row.uuid)))?;
         let part = row.part.into_part(row.footprints, row.fields, &row.pin_map);
         objects.push(Object::PartEntry(InDocument::new(

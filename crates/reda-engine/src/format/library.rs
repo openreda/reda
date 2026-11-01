@@ -13,7 +13,8 @@
 //! }
 //! ```
 //!
-//! Units are a list (their order is A, B, C…); Pins and Pads are tables sorted by UUID.
+//! Units are a list (their order is A, B, C…); Pins, Pads and graphics are tables sorted
+//! by UUID.
 //! A Part lists its alternate Footprints in order, the default first. Pin-map overrides
 //! are written sorted. Where the files live in a Library folder is `reda-library`'s
 //! business; this module maps one file's bytes to and from its element.
@@ -22,7 +23,8 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use reda_model::{
-    ComponentType, Fields, Footprint, LibraryInfo, Pad, Part, Pin, PinMap, Symbol, Unit, Uuid,
+    ComponentType, Fields, Footprint, FootprintGraphic, FootprintText, LibraryInfo, Pad, Part, Pin,
+    PinMap, Symbol, SymbolGraphic, Unit, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -57,6 +59,9 @@ pub(crate) struct SymbolFile {
     units: Vec<Unit>,
     /// Every Pin of every Unit, sorted by UUID.
     pins: Vec<Pin>,
+    /// The body drawing of every Unit, sorted by UUID.
+    #[serde(default)]
+    graphics: Vec<SymbolGraphic>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -80,8 +85,39 @@ pub(crate) struct FootprintFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     footprint: FootprintRow,
+    /// Where the Designator and value text go.
+    #[serde(default)]
+    text: FootprintTexts,
     /// The Pads, sorted by UUID. Pads that share a number belong to one Pin.
     pads: Vec<Pad>,
+    /// The Silkscreen, Courtyard and Assembly drawing, sorted by UUID.
+    #[serde(default)]
+    graphics: Vec<FootprintGraphic>,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FootprintTexts {
+    designator: FootprintText,
+    value: FootprintText,
+}
+
+impl FootprintTexts {
+    pub(crate) fn of(footprint: &Footprint) -> FootprintTexts {
+        FootprintTexts {
+            designator: footprint.designator,
+            value: footprint.value,
+        }
+    }
+}
+
+impl Default for FootprintTexts {
+    fn default() -> FootprintTexts {
+        FootprintTexts {
+            designator: FootprintText::DESIGNATOR,
+            value: FootprintText::VALUE,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -143,12 +179,14 @@ impl SymbolRow {
         }
     }
 
-    /// The Symbol with these Units and Pins, checked: at least one Unit, unique UUIDs and
-    /// every Pin on one of the Units. Pins come back sorted by UUID.
+    /// The Symbol with these Units, Pins and graphics, checked: at least one Unit, unique
+    /// UUIDs and every Pin and graphic on one of the Units. Pins and graphics come back
+    /// sorted by UUID.
     pub(crate) fn into_symbol(
         self,
         units: Vec<Unit>,
         mut pins: Vec<Pin>,
+        mut graphics: Vec<SymbolGraphic>,
     ) -> Result<Symbol, String> {
         if units.is_empty() {
             return Err("a Symbol needs at least one Unit".into());
@@ -161,7 +199,15 @@ impl SymbolRow {
                 pin.uuid, pin.unit
             ));
         }
+        unique(graphics.iter().map(|g| g.uuid), "graphic")?;
+        if let Some(g) = graphics.iter().find(|g| !unit_set.contains(&g.unit)) {
+            return Err(format!(
+                "graphic {} is on unit {}, which the Symbol does not have",
+                g.uuid, g.unit
+            ));
+        }
         pins.sort_by_key(|p| p.uuid);
+        graphics.sort_by_key(|g| g.uuid);
         Ok(Symbol {
             uuid: self.uuid,
             name: self.name,
@@ -169,6 +215,7 @@ impl SymbolRow {
             designator_prefix: self.designator_prefix,
             units,
             pins,
+            graphics,
         })
     }
 }
@@ -178,6 +225,7 @@ pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
     w.field("symbol", &SymbolRow::of(symbol))?;
     w.list("units", &symbol.units)?;
     w.table("pins", &symbol.pins, |p| p.uuid)?;
+    w.table("graphics", &symbol.graphics, |g| g.uuid)?;
     Ok(w.finish())
 }
 
@@ -185,7 +233,7 @@ pub fn read_symbol(path: &Path, bytes: &[u8]) -> Result<Symbol, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: SymbolFile = parse(FileKind::Symbol, path, bytes)?;
     file.symbol
-        .into_symbol(file.units, file.pins)
+        .into_symbol(file.units, file.pins, file.graphics)
         .map_err(invalid)
 }
 
@@ -198,15 +246,26 @@ impl FootprintRow {
         }
     }
 
-    /// The Footprint with these Pads, checked for unique UUIDs; Pads come back sorted.
-    pub(crate) fn into_footprint(self, mut pads: Vec<Pad>) -> Result<Footprint, String> {
+    /// The Footprint with this text, these Pads and graphics, checked for unique UUIDs;
+    /// Pads and graphics come back sorted.
+    pub(crate) fn into_footprint(
+        self,
+        text: FootprintTexts,
+        mut pads: Vec<Pad>,
+        mut graphics: Vec<FootprintGraphic>,
+    ) -> Result<Footprint, String> {
         unique(pads.iter().map(|p| p.uuid), "Pad")?;
+        unique(graphics.iter().map(|g| g.uuid), "graphic")?;
         pads.sort_by_key(|p| p.uuid);
+        graphics.sort_by_key(|g| g.uuid);
         Ok(Footprint {
             uuid: self.uuid,
             name: self.name,
             description: self.description,
             pads,
+            graphics,
+            designator: text.designator,
+            value: text.value,
         })
     }
 }
@@ -214,14 +273,18 @@ impl FootprintRow {
 pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("footprint", &FootprintRow::of(footprint))?;
+    w.field("text", &FootprintTexts::of(footprint))?;
     w.table("pads", &footprint.pads, |p| p.uuid)?;
+    w.table("graphics", &footprint.graphics, |g| g.uuid)?;
     Ok(w.finish())
 }
 
 pub fn read_footprint(path: &Path, bytes: &[u8]) -> Result<Footprint, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: FootprintFile = parse(FileKind::Footprint, path, bytes)?;
-    file.footprint.into_footprint(file.pads).map_err(invalid)
+    file.footprint
+        .into_footprint(file.text, file.pads, file.graphics)
+        .map_err(invalid)
 }
 
 impl PartRow {

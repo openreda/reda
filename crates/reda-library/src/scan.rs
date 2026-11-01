@@ -2,7 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use reda_model::{Footprint, LibraryInfo, Part, Symbol};
+use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol};
+use schemars::JsonSchema;
 
 use crate::index::{Element, LibraryIndex, Origin};
 
@@ -10,7 +11,10 @@ use crate::index::{Element, LibraryIndex, Origin};
 pub const LIBRARY_EXTENSION: &str = "redalib";
 
 /// The kinds of element a Library holds, each in its own sub-folder.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum ElementKind {
     Symbol,
     Footprint,
@@ -30,6 +34,15 @@ impl ElementKind {
             ElementKind::Symbol => "symbols",
             ElementKind::Footprint => "footprints",
             ElementKind::Part => "parts",
+        }
+    }
+
+    /// The kind of an element.
+    pub const fn of(element: &LibraryElement) -> ElementKind {
+        match element {
+            LibraryElement::Symbol(_) => ElementKind::Symbol,
+            LibraryElement::Footprint(_) => ElementKind::Footprint,
+            LibraryElement::Part(_) => ElementKind::Part,
         }
     }
 
