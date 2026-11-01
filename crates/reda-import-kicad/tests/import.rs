@@ -304,9 +304,9 @@ fn every_element_records_the_service_its_terms_and_the_copyright_lines() {
             "Copyright 2026 Example Parts Service. All rights reserved.".into(),
         ],
     };
-    assert_eq!(out.symbol.provenance.as_ref(), Some(&expected));
-    assert_eq!(out.footprint.provenance.as_ref(), Some(&expected));
-    assert_eq!(out.part.provenance.as_ref(), Some(&expected));
+    assert_eq!(out.symbol.provenance.as_deref(), Some(&expected));
+    assert_eq!(out.footprint.provenance.as_deref(), Some(&expected));
+    assert_eq!(out.part.provenance.as_deref(), Some(&expected));
 
     let plain = import_pair("divider.kicad_sym", "divider.kicad_mod");
     let unknown = plain.part.provenance.unwrap();

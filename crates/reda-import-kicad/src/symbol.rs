@@ -397,6 +397,6 @@ pub fn build(
         units,
         pins,
         graphics,
-        provenance: Some(provenance),
+        provenance: Some(Box::new(provenance)),
     }
 }

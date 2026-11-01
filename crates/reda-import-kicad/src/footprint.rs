@@ -412,6 +412,6 @@ pub fn build(
         graphics,
         designator: source.designator,
         value: source.value,
-        provenance: Some(provenance),
+        provenance: Some(Box::new(provenance)),
     }
 }

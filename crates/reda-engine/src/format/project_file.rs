@@ -9,16 +9,27 @@
 //!   ],
 //!   "libraries": [
 //!     "parts"
-//!   ]
+//!   ],
+//!   "fab_presets": [
+//!     {"uuid":"…","name":"JLCPCB","rules":{…},"gerber":{…},"bom":[…],"cpl":[…]}
+//!   ],
+//!   "output_jobs": [
+//!     {"uuid":"…","name":"JLCPCB","pcb":"…","fab_preset":"…","outputs":{…}}
+//!   ],
+//!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"}
 //! }
 //! ```
 //!
 //! The Project's name is the file stem, so it is not stored. `documents` is a list, not a
-//! table: its order is the Project's Document order.
+//! table: its order is the Project's Document order. `libraries`, `fab_presets` and
+//! `output_jobs` are written only when there are any; the last two are tables sorted by
+//! UUID.
 
 use std::path::Path;
 
-use reda_model::{DocumentEntry, DocumentKind, Project, Uuid};
+use reda_model::{
+    DocumentEntry, DocumentKind, OutputJob, Project, ProjectFabPreset, ProjectProperties, Uuid,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +53,17 @@ pub(crate) struct ProjectFile {
     /// Written only when there are any.
     #[serde(default)]
     pub libraries: Vec<String>,
+    /// The Project's copies of the Fab Presets its Output Jobs use, in the same shape as a
+    /// `.redafab` file plus a UUID.
+    #[serde(default)]
+    pub fab_presets: Vec<ProjectFabPreset>,
+    /// The Output Jobs.
+    #[serde(default)]
+    pub output_jobs: Vec<OutputJob>,
+    /// The Project properties that fill the sheets' title blocks. Written only when any
+    /// is set.
+    #[serde(default)]
+    pub properties: ProjectProperties,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -111,6 +133,18 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     let libraries = &project.props().libraries;
     if !libraries.is_empty() {
         w.list("libraries", libraries)?;
+    }
+    let presets: Vec<_> = project.fab_presets().collect();
+    if !presets.is_empty() {
+        w.table("fab_presets", presets, |p| p.uuid)?;
+    }
+    let jobs: Vec<_> = project.output_jobs().collect();
+    if !jobs.is_empty() {
+        w.table("output_jobs", jobs, |j| j.uuid)?;
+    }
+    let properties = &project.props().properties;
+    if !properties.is_empty() {
+        w.field("properties", properties)?;
     }
     Ok(w.finish())
 }

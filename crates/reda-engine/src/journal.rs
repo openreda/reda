@@ -105,6 +105,23 @@ fn present<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Value>, D::Error> {
     Value::deserialize(d).map(Some)
 }
 
+/// Points every `project.new` step of a script at a fresh folder under `dir` (`dir/1`,
+/// `dir/2`, … in script order) and returns the paths it replaced, in the same order.
+/// `project.new` writes the Project to disk, so a replay must not reuse the recorded
+/// folder; tests and the scenario harness relocate to a temporary folder.
+pub fn relocate_new_projects(steps: &mut [ScriptEntry], dir: &std::path::Path) -> Vec<Value> {
+    let mut replaced = vec![];
+    for step in steps.iter_mut().filter(|s| s.id == "project.new") {
+        let Some(params) = step.params.as_object_mut() else {
+            continue;
+        };
+        let path = dir.join((replaced.len() + 1).to_string());
+        let old = params.insert("path".into(), Value::from(path.to_string_lossy().as_ref()));
+        replaced.push(old.unwrap_or(Value::Null));
+    }
+    replaced
+}
+
 /// The entries as JSON lines, each ending in `\n`.
 pub fn export(entries: &[JournalEntry]) -> String {
     let mut out = String::new();

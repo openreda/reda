@@ -209,3 +209,40 @@ fn bad_inputs_are_refused_before_anything_is_written() {
 
     assert!(!dir.path().join("Demo/lib/symbols").exists());
 }
+
+/// A placed imported Part keeps the provenance of its Part, Symbol and Footprint in the
+/// sheet's copies, through a save and an open.
+#[test]
+fn placed_copies_keep_their_provenance() {
+    let dir = TempDir::new("import-place");
+    let mut e = engine(&dir);
+    let out = e.run_ok(
+        "library.import_part",
+        params(
+            &fixture("dual_switch.kicad_sym"),
+            &fixture("dual_switch.kicad_mod"),
+        ),
+    );
+    let sheet = e.run_ok("project.overview", json!({}))["documents"][0]["uuid"].clone();
+    e.run_ok(
+        "schematic.component.place",
+        json!({"document": sheet, "part": out["part"], "at": {"x": 0, "y": 0}}),
+    );
+    e.run_ok("project.save", json!({}));
+    let folder = dir.path().join("Demo");
+    let text = std::fs::read_to_string(folder.join("Demo.redasch")).unwrap();
+    let terms = r#""terms_url":"https://intelligence.supplyframe.com/terms/""#;
+    assert_eq!(
+        text.matches(terms).count(),
+        3,
+        "Part, Symbol and Footprint: {text}"
+    );
+
+    let mut again = test_engine_in(&dir.path().join("home"));
+    again.run_ok("project.open", json!({"path": folder}));
+    again.run_ok("project.save", json!({}));
+    assert_eq!(
+        std::fs::read_to_string(folder.join("Demo.redasch")).unwrap(),
+        text
+    );
+}

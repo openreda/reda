@@ -13,7 +13,9 @@ reda-command = { path = "../reda-command" }
 reda-import-kicad = { path = "../reda-import-kicad" }
 reda-library = { path = "../reda-library" }
 reda-model = { path = "../reda-model" }
+reda-output = { path = "../reda-output" }
 reda-pcb = { path = "../reda-pcb" }
+reda-schematic = { path = "../reda-schematic" }
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -185,7 +185,7 @@ impl Command for ImportPart {
             footprint: imported.footprint.uuid,
             part: imported.part.uuid,
             files: files.into_iter().map(|(path, _)| path).collect(),
-            provenance: imported.part.provenance.clone().expect("imports record it"),
+            provenance: *imported.part.provenance.clone().expect("imports record it"),
             notice,
             warnings: imported.warnings,
             violations,

@@ -407,7 +407,7 @@ fn provenance_is_written_on_its_own_line_and_read_back() {
     let line = r#""provenance": {"service":"SnapMagic","terms_url":"https://www.snapeda.com/about/terms/","copyright":["Copyright (C) 2026 Example Corp."]},"#;
 
     let mut symbol = opamp();
-    symbol.provenance = Some(provenance.clone());
+    symbol.provenance = Some(Box::new(provenance.clone()));
     let bytes = write_symbol(&symbol).unwrap();
     let text = String::from_utf8(bytes.clone()).unwrap();
     assert_eq!(
@@ -420,7 +420,7 @@ fn provenance_is_written_on_its_own_line_and_read_back() {
     assert_eq!(write_symbol(&read).unwrap(), bytes);
 
     let mut footprint = soic();
-    footprint.provenance = Some(provenance.clone());
+    footprint.provenance = Some(Box::new(provenance.clone()));
     let bytes = write_footprint(&footprint).unwrap();
     assert!(String::from_utf8(bytes.clone()).unwrap().contains(line));
     assert_eq!(
@@ -429,7 +429,7 @@ fn provenance_is_written_on_its_own_line_and_read_back() {
     );
 
     let mut part = lm358();
-    part.provenance = Some(provenance);
+    part.provenance = Some(Box::new(provenance));
     let bytes = write_part(&part).unwrap();
     assert!(String::from_utf8(bytes.clone()).unwrap().contains(line));
     assert_eq!(read_part(Path::new("p.redapart"), &bytes).unwrap(), part);

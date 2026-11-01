@@ -8,8 +8,8 @@ mod board;
 mod commands;
 mod text;
 
-pub use board::{DEFAULT_NET_CLASS, GENERIC_RULES, V01_LAYERS, new_board};
-pub use commands::register_all;
+pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board};
+pub use commands::{rect_outline, register_all};
 pub use text::{
     Fill, LINE_PITCH, PlacedText, Stroke, font_is_missing, missing_fonts, text_geometry,
 };

@@ -76,6 +76,7 @@ fn run(h: &mut Harness, signals: &Signals) -> Result<serde_json::Value, CommandE
     let mut env = Env {
         ids: &mut h.ids,
         clock: &h.clock,
+        parts: &reda_command::NoLibraries,
         fonts: &reda_command::Fonts::default(),
         headless: true,
     };

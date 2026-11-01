@@ -3,18 +3,23 @@
 //!
 //! A script `<name>.jsonl` is in the Journal format (`reda_engine::journal`). Its goldens
 //! are the canonical bytes of every file the open Project would save, under `<name>/`,
-//! except `.reda/.gitignore`. Nothing is written to disk by the replay: the Documents come
-//! from `store::encode`, so a script must not run `project.save`.
+//! except `.reda/.gitignore`. The goldens come from `store::encode` after the last step, so
+//! a script need not (and should not) run `project.save`.
+//!
+//! `project.new` writes the new Project to disk, so the harness points every `project.new`
+//! step at a temporary folder (see `journal::relocate_new_projects`); the path a script
+//! gives, conventionally `/nonexistent`, is only a placeholder.
 //!
 //! Blessing (`REDA_BLESS=1`) rewrites the goldens, removes stale ones, and rewrites each
-//! script as the replay's Journal, so steps written without a `result` get one.
+//! script as the replay's Journal, so steps written without a `result` get one. The
+//! temporary folders are written back as the script's own placeholder paths.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use reda_engine::{journal, store};
 
-use crate::{read_tree, test_engine};
+use crate::{TempDir, read_tree, test_engine};
 
 /// The one file the goldens leave out: its content `*` would ignore itself.
 const SKIPPED: &str = ".reda/.gitignore";
@@ -66,7 +71,9 @@ pub fn scenario_failures(dir: &Path, bless: bool) -> Vec<String> {
 
 fn run_one(script: &Path, bless: bool) -> Result<(), Vec<String>> {
     let text = std::fs::read_to_string(script).map_err(|e| vec![format!("unreadable: {e}")])?;
-    let steps = journal::parse(&text).map_err(|e| vec![e.to_string()])?;
+    let mut steps = journal::parse(&text).map_err(|e| vec![e.to_string()])?;
+    let work = TempDir::new("scenario");
+    let placeholders = journal::relocate_new_projects(&mut steps, work.path());
     let mut engine = test_engine();
     journal::replay(&mut engine, &steps).map_err(|e| vec![e.to_string()])?;
     let mut actual = BTreeMap::new();
@@ -84,8 +91,22 @@ fn run_one(script: &Path, bless: bool) -> Result<(), Vec<String>> {
                 .and_then(|()| std::fs::write(&path, bytes))
                 .map_err(|e| vec![format!("blessing {}: {e}", path.display())])?;
         }
-        std::fs::write(script, journal::export(engine.journal()))
-            .map_err(|e| vec![format!("rewriting the script: {e}")])?;
+        let mut exported = journal::export(engine.journal());
+        for (i, placeholder) in placeholders.iter().enumerate() {
+            let Some(placeholder) = placeholder.as_str() else {
+                continue;
+            };
+            let relocated = work.path().join((i + 1).to_string());
+            let escaped = |s: &str| {
+                let quoted = serde_json::to_string(s).expect("strings serialise");
+                quoted[1..quoted.len() - 1].to_owned()
+            };
+            exported = exported.replace(
+                &escaped(&relocated.to_string_lossy()),
+                &escaped(placeholder),
+            );
+        }
+        std::fs::write(script, exported).map_err(|e| vec![format!("rewriting the script: {e}")])?;
         return Ok(());
     }
 

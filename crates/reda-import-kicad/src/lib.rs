@@ -153,7 +153,7 @@ pub fn import(
         footprints: vec![footprint.uuid],
         fields: mapped.fields,
         pin_map: PinMap::default(),
-        provenance: Some(provenance),
+        provenance: Some(Box::new(provenance)),
     };
     Ok(Imported {
         symbol,

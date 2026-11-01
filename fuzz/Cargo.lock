@@ -311,7 +311,9 @@ dependencies = [
  "reda-import-kicad",
  "reda-library",
  "reda-model",
+ "reda-output",
  "reda-pcb",
+ "reda-schematic",
  "schemars",
  "serde",
  "serde_json",
@@ -365,12 +367,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "reda-output"
+version = "0.0.0"
+dependencies = [
+ "reda-command",
+ "reda-model",
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "reda-pcb"
 version = "0.0.0"
 dependencies = [
  "reda-command",
  "reda-model",
  "reda-text",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "reda-schematic"
+version = "0.0.0"
+dependencies = [
+ "reda-command",
+ "reda-model",
  "schemars",
  "serde",
 ]

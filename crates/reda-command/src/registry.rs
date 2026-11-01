@@ -11,7 +11,7 @@ use crate::batch::{self, BatchParams};
 use crate::command::{AvailabilityContext, NO_PROJECT, Preset, Unavailable};
 use crate::context::{Access, Context, Env, Session, Step};
 use crate::schema;
-use crate::{Clock, Command, CommandError, Fonts, IdSource, Kind, Meta, Signals};
+use crate::{Clock, Command, CommandError, Fonts, IdSource, Kind, Meta, Signals, UserDirs};
 
 /// The object-safe face of a [`Command`].
 trait Erased: Send + Sync {
@@ -197,9 +197,13 @@ impl Registry {
                     let run = invoke_in(
                         command.as_ref(),
                         Kind::Edit,
-                        (project.transaction(), &session.history),
+                        (
+                            project.transaction(),
+                            &session.history,
+                            session.user_dirs.as_ref(),
+                        ),
                         &mut *env.ids,
-                        (env.clock, env.fonts),
+                        (env.clock, env.parts, env.fonts),
                         signals,
                         params,
                     );
@@ -219,8 +223,10 @@ impl Registry {
                     access: Access::Read(session.project.as_ref()),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    parts: env.parts,
                     fonts: env.fonts,
                     signals,
+                    user_dirs: session.user_dirs.as_ref(),
                     step: None,
                 };
                 command.invoke(&mut cx, params)
@@ -230,8 +236,10 @@ impl Registry {
                     access: Access::File(session),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    parts: env.parts,
                     fonts: env.fonts,
                     signals,
+                    user_dirs: None,
                     step: None,
                 };
                 command.invoke(&mut cx, params)
@@ -255,6 +263,7 @@ impl Registry {
             .as_mut()
             .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
         let history = &session.history;
+        let user_dirs = session.user_dirs.as_ref();
         let mut tx = project.transaction();
         let mut ids: &mut dyn IdSource = &mut *env.ids;
         let mut results = Vec::with_capacity(params.commands.len());
@@ -271,9 +280,9 @@ impl Registry {
             let run = invoke_in(
                 command.as_ref(),
                 entry.meta.kind,
-                (tx, history),
+                (tx, history, user_dirs),
                 ids,
-                (env.clock, env.fonts),
+                (env.clock, env.parts, env.fonts),
                 signals,
                 params,
             );
@@ -343,9 +352,9 @@ struct InTx<'a> {
 fn invoke_in<'a>(
     command: &dyn Erased,
     kind: Kind,
-    (tx, history): (Transaction<'a>, &'a History),
+    (tx, history, user_dirs): (Transaction<'a>, &'a History, Option<&'a UserDirs>),
     ids: &'a mut dyn IdSource,
-    (clock, fonts): (&'a dyn Clock, &'a Fonts),
+    (clock, parts, fonts): (&'a dyn Clock, &'a dyn crate::PartSource, &'a Fonts),
     signals: &'a Signals,
     params: Value,
 ) -> InTx<'a> {
@@ -357,8 +366,10 @@ fn invoke_in<'a>(
         access,
         ids,
         clock,
+        parts,
         fonts,
         signals,
+        user_dirs,
         step: None,
     };
     let result = command.invoke(&mut cx, params);
