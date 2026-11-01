@@ -4,7 +4,9 @@
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-use reda_command::{CommandError, FootprintCopyData, PartCopy, PartSource, Session, UserDirs};
+use reda_command::{
+    CommandError, ElementLocation, FootprintCopyData, PartCopy, PartSource, Session, UserDirs,
+};
 use reda_library::{ElementKind, LibraryFiles, LibraryIndex, LibraryRoot, Origin, scan};
 use reda_model::{Footprint, LibraryInfo, Part, Symbol, Uuid};
 
@@ -160,6 +162,32 @@ impl DiskParts {
 impl PartSource for DiskParts {
     fn part(&self, uuid: Uuid) -> Result<PartCopy, CommandError> {
         copy_part(&scan(&self.roots(), &mut DiskLibraryFiles), uuid)
+    }
+
+    fn parts(&self, uuids: &[Uuid]) -> Vec<Result<PartCopy, CommandError>> {
+        if uuids.is_empty() {
+            return vec![];
+        }
+        let index = scan(&self.roots(), &mut DiskLibraryFiles);
+        uuids.iter().map(|&uuid| copy_part(&index, uuid)).collect()
+    }
+
+    fn locate(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {
+        if elements.is_empty() {
+            return vec![];
+        }
+        let index = scan(&self.roots(), &mut DiskLibraryFiles);
+        elements
+            .iter()
+            .map(|&uuid| {
+                let library = index.library_of(uuid)?;
+                Some(ElementLocation {
+                    library: library.info.uuid,
+                    path: index.file_of(uuid)?.to_owned(),
+                    read_only: library.origin == Origin::Starter,
+                })
+            })
+            .collect()
     }
 }
 
