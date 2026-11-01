@@ -23,7 +23,7 @@ _Avoid_: Board file, layout file
 ## Parts
 
 **Library**:
-A collection of reusable part definitions from which Components are placed.
+A collection of reusable Symbols, Footprints and Parts from which Components are placed.
 _Avoid_: Part database, catalog
 
 **Symbol**:
@@ -34,8 +34,12 @@ _Avoid_: Schematic part, glyph
 The physical land pattern of a part on the board.
 _Avoid_: Land pattern, package, decal
 
+**Part**:
+A Library definition that combines a Symbol, its alternate Footprints with how Pins map to Pads, and default fields; Components are placed from Parts.
+_Avoid_: Device, Library part, Component (that is the placed instance)
+
 **Component**:
-One placed instance of a Library part in a Project, shown as one or more Units on Schematic Sheets and as a Footprint on the PCB Document.
+One placed instance of a Part in a Project, shown as one or more Units on Schematic Sheets and as a Footprint on the PCB Document.
 _Avoid_: Part (when an instance is meant), device
 
 **Component Type**:
