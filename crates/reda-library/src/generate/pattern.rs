@@ -150,6 +150,7 @@ impl LandPattern {
             graphics,
             designator,
             value,
+            provenance: None,
         };
         footprint.pads.sort_by_key(|p| p.uuid);
         footprint.graphics.sort_by_key(|g| g.uuid);

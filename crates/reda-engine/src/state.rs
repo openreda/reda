@@ -23,6 +23,9 @@ pub struct UserState {
     /// Agents the user allowed to connect through the bridge.
     #[serde(default)]
     pub allowed_agents: Vec<String>,
+    /// Whether the vendor-terms notice of Import part has been shown.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub vendor_terms_notice_shown: bool,
     /// The main window's geometry when no Project is open.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window: Option<WindowGeometry>,

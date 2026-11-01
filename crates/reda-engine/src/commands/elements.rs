@@ -154,6 +154,7 @@ fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> Libra
             }],
             pins: vec![],
             graphics: vec![],
+            provenance: None,
         }),
         ElementKind::Footprint => LibraryElement::Footprint(Footprint {
             uuid,
@@ -163,6 +164,7 @@ fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> Libra
             graphics: vec![],
             designator: FootprintText::DESIGNATOR,
             value: FootprintText::VALUE,
+            provenance: None,
         }),
         ElementKind::Part => LibraryElement::Part(Part {
             uuid,
@@ -172,6 +174,7 @@ fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> Libra
             footprints: vec![],
             fields: Fields::default(),
             pin_map: PinMap::default(),
+            provenance: None,
         }),
     }
 }

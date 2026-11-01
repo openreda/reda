@@ -1,0 +1,18 @@
+[package]
+name = "reda-import-kicad"
+description = "Import part: reads one KiCad symbol and footprint pair into REDA Library elements."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+reda-library = { path = "../reda-library" }
+reda-model = { path = "../reda-model" }
+schemars.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true
