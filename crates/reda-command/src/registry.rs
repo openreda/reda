@@ -11,7 +11,7 @@ use crate::batch::{self, BatchParams};
 use crate::command::{AvailabilityContext, NO_PROJECT, Preset, Unavailable};
 use crate::context::{Access, Context, Env, Session, Step};
 use crate::schema;
-use crate::{Clock, Command, CommandError, IdSource, Kind, Meta};
+use crate::{Clock, Command, CommandError, IdSource, Kind, Meta, Signals};
 
 /// The object-safe face of a [`Command`].
 trait Erased: Send + Sync {
@@ -164,12 +164,25 @@ impl Registry {
         id: &str,
         params: Value,
     ) -> Result<Value, CommandError> {
+        self.run_with(session, env, id, params, &Signals::default())
+    }
+
+    /// [`Registry::run`] with a cancellation token and progress reporter the Command can
+    /// use while it runs (see [`Signals`]). Every step of a `batch` shares them.
+    pub fn run_with(
+        &self,
+        session: &mut Session,
+        env: &mut Env<'_>,
+        id: &str,
+        params: Value,
+        signals: &Signals,
+    ) -> Result<Value, CommandError> {
         let Resolved { entry, params } = self.resolve(id, params)?;
         check_available(entry, session.project.as_ref(), env.headless)?;
         check_params(entry, &params)?;
 
         let command = match &entry.runner {
-            Runner::Batch => return self.run_batch(session, env, params),
+            Runner::Batch => return self.run_batch(session, env, params, signals),
             Runner::Command(command) => command,
         };
         match entry.meta.kind {
@@ -187,6 +200,7 @@ impl Registry {
                         (project.transaction(), &session.history),
                         &mut *env.ids,
                         env.clock,
+                        signals,
                         params,
                     );
                     let result = run.result?;
@@ -205,6 +219,7 @@ impl Registry {
                     access: Access::Read(session.project.as_ref()),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    signals,
                     step: None,
                 };
                 command.invoke(&mut cx, params)
@@ -214,6 +229,7 @@ impl Registry {
                     access: Access::File(session),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    signals,
                     step: None,
                 };
                 command.invoke(&mut cx, params)
@@ -228,6 +244,7 @@ impl Registry {
         session: &mut Session,
         env: &mut Env<'_>,
         params: Value,
+        signals: &Signals,
     ) -> Result<Value, CommandError> {
         let params: BatchParams = serde_json::from_value(params)
             .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
@@ -255,6 +272,7 @@ impl Registry {
                 (tx, history),
                 ids,
                 env.clock,
+                signals,
                 params,
             );
             tx = run.tx;
@@ -326,6 +344,7 @@ fn invoke_in<'a>(
     (tx, history): (Transaction<'a>, &'a History),
     ids: &'a mut dyn IdSource,
     clock: &'a dyn Clock,
+    signals: &'a Signals,
     params: Value,
 ) -> InTx<'a> {
     let access = match kind {
@@ -336,6 +355,7 @@ fn invoke_in<'a>(
         access,
         ids,
         clock,
+        signals,
         step: None,
     };
     let result = command.invoke(&mut cx, params);

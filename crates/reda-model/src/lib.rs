@@ -7,6 +7,7 @@
 mod change;
 mod document;
 mod library;
+mod pcb;
 #[cfg(feature = "test-objects")]
 mod probe;
 mod project;
@@ -19,6 +20,10 @@ pub use library::{
     ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
     FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
     PinPads, PinType, Shape, Symbol, SymbolGraphic, Unit,
+};
+pub use pcb::{
+    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, InDocument, Layer, LayerKind,
+    LayerSet, Net, NetClass, PcbDocument, Rules, Severity, Side,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

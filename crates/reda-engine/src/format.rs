@@ -5,6 +5,7 @@
 //! current [`FORMAT`] through the canonical writer.
 
 pub mod library;
+mod pcb_file;
 mod project_file;
 mod schema;
 mod sheet_file;
@@ -16,6 +17,7 @@ use reda_command::CommandError;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+pub(crate) use pcb_file::{read_pcb_file, write_pcb_file};
 pub(crate) use project_file::{ProjectFile, write_project_file};
 pub use schema::schema;
 pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
@@ -30,6 +32,8 @@ pub enum FileKind {
     Project,
     /// `<name>.redasch`: one Schematic Sheet.
     Sheet,
+    /// `<name>.redapcb`: the PCB Document.
+    Pcb,
     /// `<name>.redalib`: marks a folder as a Library.
     Library,
     /// `<name>.redasym`: one Library Symbol.
@@ -41,9 +45,10 @@ pub enum FileKind {
 }
 
 impl FileKind {
-    pub const ALL: [FileKind; 6] = [
+    pub const ALL: [FileKind; 7] = [
         FileKind::Project,
         FileKind::Sheet,
+        FileKind::Pcb,
         FileKind::Library,
         FileKind::Symbol,
         FileKind::Footprint,
@@ -55,6 +60,7 @@ impl FileKind {
         match self {
             FileKind::Project => "reda",
             FileKind::Sheet => "redasch",
+            FileKind::Pcb => "redapcb",
             FileKind::Library => "redalib",
             FileKind::Symbol => "redasym",
             FileKind::Footprint => "redafp",

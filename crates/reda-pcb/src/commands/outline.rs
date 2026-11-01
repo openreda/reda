@@ -1,0 +1,323 @@
+//! The Board Outline and Board Cutouts.
+
+use reda_command::{
+    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams,
+    Registry, Unavailable,
+};
+use reda_model::geom::{self, Millideg, Nm, Point, Segment, Vertex};
+use reda_model::{BoardCutout, BoardOutline, InDocument, Object, Uuid};
+use schemars::JsonSchema;
+use serde::Deserialize;
+
+use super::{Created, needs_pcb, non_negative, pcb};
+
+pub(super) fn register_all(registry: &mut Registry) {
+    registry.add(OutlineAdd);
+    registry.add(OutlineAddRect);
+    registry.add(OutlineAddFromSegments);
+    registry.add(OutlineDelete);
+    registry.add(CutoutAdd);
+    registry.add(CutoutDelete);
+}
+
+/// A point param.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PointParam {
+    pub x: Length,
+    pub y: Length,
+}
+
+impl PointParam {
+    fn point(self) -> Point {
+        Point::new(self.x.nm(), self.y.nm())
+    }
+}
+
+/// One vertex of a contour and the edge that leaves it towards the next.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct VertexParam {
+    pub x: Length,
+    pub y: Length,
+    /// The edge to the next vertex: left out for a straight edge, otherwise an arc sweeping
+    /// this angle, counter-clockwise when positive.
+    #[serde(default)]
+    pub sweep: Option<Angle>,
+}
+
+/// Contour params as stored vertices, checked to be one closed contour.
+fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandError> {
+    let vertices: Vec<Vertex> = vertices
+        .iter()
+        .map(|v| {
+            let sweep = v.sweep.map_or(Millideg::ZERO, Angle::millideg);
+            Vertex::arc(Point::new(v.x.nm(), v.y.nm()), sweep)
+        })
+        .collect();
+    geom::check_contour(&vertices)
+        .map_err(|e| CommandError::invalid_params("/vertices", e.to_string()))?;
+    Ok(vertices)
+}
+
+/// Replaces the Board Outline, if there is one, with a new one along `vertices`.
+fn set_outline(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, CommandError> {
+    let pcb = pcb(cx)?;
+    let (document, old) = (pcb.uuid, pcb.outline().map(|o| o.uuid));
+    let uuid = cx.new_id();
+    let tx = cx.tx()?;
+    if let Some(old) = old {
+        tx.remove(old)?;
+    }
+    let outline = BoardOutline { uuid, vertices };
+    tx.insert(Object::BoardOutline(InDocument::new(document, outline)))?;
+    Ok(Created { uuid })
+}
+
+pub struct OutlineAdd;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineAddParams {
+    /// The outline's vertices in order; the last joins the first.
+    pub vertices: Vec<VertexParam>,
+}
+
+impl Command for OutlineAdd {
+    const META: Meta = Meta {
+        id: "pcb.board_outline.add",
+        title: "Add Board Outline",
+        description: "Sets the Board Outline to a polygon through `vertices`, whose edges are \
+                      straight or, with a `sweep`, arcs. Replaces any Board Outline the board \
+                      already has.",
+        category: "pcb",
+        icon: "board_outline",
+        kind: Kind::Edit,
+    };
+    type Params = OutlineAddParams;
+    type Output = Created;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: OutlineAddParams) -> Result<Created, CommandError> {
+        let vertices = contour(&p.vertices)?;
+        set_outline(cx, vertices)
+    }
+}
+
+pub struct OutlineAddRect;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineAddRectParams {
+    pub width: Length,
+    pub height: Length,
+    /// Rounds each corner with this radius; left out for sharp corners.
+    #[serde(default)]
+    pub corner_radius: Option<Length>,
+}
+
+impl Command for OutlineAddRect {
+    const META: Meta = Meta {
+        id: "pcb.board_outline.add_rect",
+        title: "Create Rectangular Board Outline",
+        description: "Sets the Board Outline to a `width` × `height` rectangle with its lower \
+                      left corner at the origin, optionally with rounded corners. Replaces \
+                      any Board Outline the board already has; the result is an ordinary \
+                      polygon outline.",
+        category: "pcb",
+        icon: "board_outline_rect",
+        kind: Kind::Edit,
+    };
+    type Params = OutlineAddRectParams;
+    type Output = Created;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: OutlineAddRectParams) -> Result<Created, CommandError> {
+        let (width, height) = (p.width.nm(), p.height.nm());
+        for (pointer, value) in [("/width", width), ("/height", height)] {
+            if value <= Nm::ZERO {
+                return Err(CommandError::invalid_params(
+                    pointer,
+                    format!("the {} must be positive", &pointer[1..]),
+                ));
+            }
+        }
+        let radius = match p.corner_radius {
+            Some(r) => non_negative("/corner_radius", r)?,
+            None => Nm::ZERO,
+        };
+        if radius.0 * 2 > width.0.min(height.0) {
+            return Err(CommandError::invalid_params(
+                "/corner_radius",
+                "the corner radius is more than half the shorter side",
+            ));
+        }
+        set_outline(cx, geom::rounded_rect(width, height, radius))
+    }
+}
+
+pub struct OutlineAddFromSegments;
+
+/// A loose line or arc.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SegmentParam {
+    pub from: PointParam,
+    pub to: PointParam,
+    /// Left out for a straight line, otherwise the arc's sweep from `from` to `to`.
+    #[serde(default)]
+    pub sweep: Option<Angle>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineAddFromSegmentsParams {
+    /// Lines and arcs in any order and direction whose ends meet exactly, forming one loop.
+    pub segments: Vec<SegmentParam>,
+}
+
+impl Command for OutlineAddFromSegments {
+    const META: Meta = Meta {
+        id: "pcb.board_outline.add_from_segments",
+        title: "Board Outline from Lines and Arcs",
+        description: "Sets the Board Outline to the closed loop that `segments`, lines and \
+                      arcs in any order and direction, form. Their ends must meet exactly, \
+                      with no branches and no second loop. Replaces any Board Outline the \
+                      board already has.",
+        category: "pcb",
+        icon: "board_outline_from_lines",
+        kind: Kind::Edit,
+    };
+    type Params = OutlineAddFromSegmentsParams;
+    type Output = Created;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: OutlineAddFromSegmentsParams,
+    ) -> Result<Created, CommandError> {
+        let segments: Vec<Segment> = p
+            .segments
+            .iter()
+            .map(|s| {
+                let sweep = s.sweep.map_or(Millideg::ZERO, Angle::millideg);
+                Segment::arc(s.from.point(), s.to.point(), sweep)
+            })
+            .collect();
+        let vertices = geom::chain(&segments)
+            .map_err(|e| CommandError::invalid_params("/segments", e.to_string()))?;
+        set_outline(cx, vertices)
+    }
+}
+
+pub struct OutlineDelete;
+
+impl Command for OutlineDelete {
+    const META: Meta = Meta {
+        id: "pcb.board_outline.delete",
+        title: "Delete Board Outline",
+        description: "Deletes the Board Outline.",
+        category: "pcb",
+        icon: "delete",
+        kind: Kind::Edit,
+    };
+    type Params = NoParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<(), CommandError> {
+        let outline = pcb(cx)?
+            .outline()
+            .map(|o| o.uuid)
+            .ok_or_else(|| CommandError::not_found("the board has no Board Outline"))?;
+        cx.tx()?.remove(outline)?;
+        Ok(())
+    }
+}
+
+pub struct CutoutAdd;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CutoutAddParams {
+    /// The cutout's vertices in order; the last joins the first.
+    pub vertices: Vec<VertexParam>,
+}
+
+impl Command for CutoutAdd {
+    const META: Meta = Meta {
+        id: "pcb.board_cutout.add",
+        title: "Add Board Cutout",
+        description: "Adds a Board Cutout: a polygon through `vertices`, whose edges are \
+                      straight or, with a `sweep`, arcs, where board material is removed.",
+        category: "pcb",
+        icon: "board_cutout",
+        kind: Kind::Edit,
+    };
+    type Params = CutoutAddParams;
+    type Output = Created;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: CutoutAddParams) -> Result<Created, CommandError> {
+        let vertices = contour(&p.vertices)?;
+        let document = pcb(cx)?.uuid;
+        let uuid = cx.new_id();
+        let cutout = BoardCutout { uuid, vertices };
+        cx.tx()?
+            .insert(Object::BoardCutout(InDocument::new(document, cutout)))?;
+        Ok(Created { uuid })
+    }
+}
+
+pub struct CutoutDelete;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CutoutDeleteParams {
+    /// The Board Cutout's UUID.
+    pub cutout: Uuid,
+}
+
+impl Command for CutoutDelete {
+    const META: Meta = Meta {
+        id: "pcb.board_cutout.delete",
+        title: "Delete Board Cutout",
+        description: "Deletes one Board Cutout.",
+        category: "pcb",
+        icon: "delete",
+        kind: Kind::Edit,
+    };
+    type Params = CutoutDeleteParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: CutoutDeleteParams) -> Result<(), CommandError> {
+        if pcb(cx)?.cutout(p.cutout).is_none() {
+            return Err(CommandError::not_found(format!(
+                "no Board Cutout has UUID {}",
+                p.cutout
+            )));
+        }
+        cx.tx()?.remove(p.cutout)?;
+        Ok(())
+    }
+}

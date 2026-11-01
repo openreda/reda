@@ -75,7 +75,11 @@ impl History {
     /// Records a committed edit: one entry per touched scope, each clearing that scope's
     /// redo stack. An empty change set records nothing.
     pub fn record(&mut self, label: &str, changes: &ChangeSet) {
-        for (scope, part) in changes.split_by_scope() {
+        // A new Document's file is not on disk yet.
+        for document in changes.created_documents() {
+            self.mark_unsaved(Scope::Document(document));
+        }
+        for (scope, part) in changes.split_by_stack() {
             let entry = self.entry(label, part);
             let stack = self.stacks.entry(scope).or_default();
             stack.redo.clear();

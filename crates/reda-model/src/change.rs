@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::pcb::{BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass};
 use crate::{DocumentEntry, Footprint, LibraryElement, Part, ProjectProps, Symbol, Uuid};
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
@@ -22,6 +23,12 @@ pub enum Object {
     Symbol(Symbol),
     Footprint(Footprint),
     Part(Part),
+    LayerSet(InDocument<LayerSet>),
+    BoardSetup(InDocument<BoardSetup>),
+    BoardOutline(InDocument<BoardOutline>),
+    BoardCutout(InDocument<BoardCutout>),
+    NetClass(InDocument<NetClass>),
+    Net(InDocument<Net>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -45,6 +52,18 @@ pub enum ObjectType {
     Footprint,
     /// An open Library Part.
     Part,
+    /// The PCB Document's ordered Layers.
+    LayerSet,
+    /// The PCB Document's rules, DRC severities and Default Net Class.
+    BoardSetup,
+    /// The board's physical edge.
+    BoardOutline,
+    /// A hole in the board material.
+    BoardCutout,
+    /// A named group of Nets sharing design rules.
+    NetClass,
+    /// A PCB Net.
+    Net,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -59,6 +78,12 @@ impl Object {
             Object::Symbol(s) => s.uuid,
             Object::Footprint(f) => f.uuid,
             Object::Part(p) => p.uuid,
+            Object::LayerSet(o) => o.uuid,
+            Object::BoardSetup(o) => o.uuid,
+            Object::BoardOutline(o) => o.uuid,
+            Object::BoardCutout(o) => o.uuid,
+            Object::NetClass(o) => o.uuid,
+            Object::Net(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -71,6 +96,12 @@ impl Object {
             Object::Symbol(_) => ObjectType::Symbol,
             Object::Footprint(_) => ObjectType::Footprint,
             Object::Part(_) => ObjectType::Part,
+            Object::LayerSet(_) => ObjectType::LayerSet,
+            Object::BoardSetup(_) => ObjectType::BoardSetup,
+            Object::BoardOutline(_) => ObjectType::BoardOutline,
+            Object::BoardCutout(_) => ObjectType::BoardCutout,
+            Object::NetClass(_) => ObjectType::NetClass,
+            Object::Net(_) => ObjectType::Net,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -83,6 +114,12 @@ impl Object {
             Object::Symbol(_) | Object::Footprint(_) | Object::Part(_) => {
                 Scope::Element(self.uuid())
             }
+            Object::LayerSet(o) => Scope::Document(o.document),
+            Object::BoardSetup(o) => Scope::Document(o.document),
+            Object::BoardOutline(o) => Scope::Document(o.document),
+            Object::BoardCutout(o) => Scope::Document(o.document),
+            Object::NetClass(o) => Scope::Document(o.document),
+            Object::Net(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }
@@ -193,6 +230,51 @@ impl ChangeSet {
                 .insert(*uuid, change.clone());
         }
         out
+    }
+
+    /// The change set split into one per undo stack: as [`ChangeSet::split_by_scope`],
+    /// except that the changes inside a Document this change set creates or deletes go
+    /// with the Project's part. Adding or deleting a Document, contents and all, is then
+    /// one step on the Project's stack, which undoes and redoes whole.
+    pub fn split_by_stack(&self) -> BTreeMap<Scope, ChangeSet> {
+        let whole: std::collections::BTreeSet<Uuid> = self
+            .created_documents()
+            .into_iter()
+            .chain(self.deleted_documents())
+            .collect();
+        let mut out: BTreeMap<Scope, ChangeSet> = BTreeMap::new();
+        for (uuid, change) in &self.changes {
+            let stack = match change.scope {
+                Scope::Document(doc) if whole.contains(&doc) => Scope::Project,
+                scope => scope,
+            };
+            out.entry(stack)
+                .or_default()
+                .changes
+                .insert(*uuid, change.clone());
+        }
+        out
+    }
+
+    /// The Documents this change set creates.
+    pub fn created_documents(&self) -> Vec<Uuid> {
+        self.document_entries(|c| c.before.is_none())
+    }
+
+    /// The Documents this change set deletes.
+    pub fn deleted_documents(&self) -> Vec<Uuid> {
+        self.document_entries(|c| c.after.is_none())
+    }
+
+    fn document_entries(&self, pick: impl Fn(&Change) -> bool) -> Vec<Uuid> {
+        self.changes
+            .iter()
+            .filter(|(_, c)| {
+                let entry = c.before.as_ref().or(c.after.as_ref());
+                matches!(entry, Some(Object::Document(_))) && pick(c)
+            })
+            .map(|(uuid, _)| *uuid)
+            .collect()
     }
 
     /// The change set that reverts this one.

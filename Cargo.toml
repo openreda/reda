@@ -22,6 +22,9 @@ skrifa = "=0.44.0"
 i_triangle = "0.51"
 toml_edit = "0.25"
 directories = "6"
+# MCP: only reda-cli uses these (it is the only crate that depends on rmcp).
+rmcp = { version = "3.8", default-features = false, features = ["server", "transport-io"] }
+tokio = "1.52"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

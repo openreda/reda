@@ -4,6 +4,7 @@
 
 mod engine;
 mod files;
+mod pcb;
 mod probe;
 mod scenario;
 

@@ -1,12 +1,14 @@
 //! The `reda` binary.
 
 mod commands;
+mod mcp;
 mod run;
 
 use std::process::ExitCode;
 
 const USAGE: &str = "\
 Usage:
+  reda mcp [--project <path>]
   reda run <id> [--params <json> | --<key> <value>…] [--project <path>] [--save]
   reda run --script <journal.jsonl> [--project <path>] [--save]
   reda commands [--json]
@@ -36,6 +38,10 @@ fn main() -> ExitCode {
         }
         ["run", rest @ ..] => match run::parse(rest) {
             Ok(run_args) => run::execute(run_args),
+            Err(message) => usage_error(&message),
+        },
+        ["mcp", rest @ ..] => match mcp::parse(rest) {
+            Ok(mcp_args) => mcp::execute(mcp_args),
             Err(message) => usage_error(&message),
         },
         ["commands", rest @ ..] => match commands::parse(rest) {

@@ -32,9 +32,14 @@ pub struct ProjectSummary {
     pub path: PathBuf,
     /// In Project order.
     pub documents: Vec<DocumentEntry>,
+    /// Documents the Project file lists whose files are missing, left out of the open
+    /// Project; left out when there are none. Only a PCB Document can be missing;
+    /// `document.add {kind: pcb}` adds a new one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing: Vec<DocumentEntry>,
 }
 
-fn summary(session: &Session) -> ProjectSummary {
+fn summary(session: &Session, missing: Vec<DocumentEntry>) -> ProjectSummary {
     let project = session.project.as_ref().expect("a Project is open");
     let folder = session.location.as_deref().unwrap_or(Path::new(""));
     ProjectSummary {
@@ -42,6 +47,7 @@ fn summary(session: &Session) -> ProjectSummary {
         name: project.props().name.clone(),
         path: store::project_file_path(folder, &project.props().name),
         documents: project.documents().cloned().collect(),
+        missing,
     }
 }
 
@@ -105,7 +111,7 @@ impl Command for ProjectNew {
         }
         session.project = Some(project);
         session.location = Some(folder);
-        Ok(summary(session))
+        Ok(summary(session, vec![]))
     }
 }
 
@@ -123,7 +129,9 @@ impl Command for ProjectOpen {
         id: "project.open",
         title: "Open Project",
         description: "Opens the Project at `path`: its `.reda` file or its folder. Any \
-                      Project already open is closed without saving.",
+                      Project already open is closed without saving. A missing PCB Document \
+                      file is reported in `missing` and left out, which dirties the Project \
+                      file.",
         category: "project",
         icon: "project_open",
         kind: Kind::File,
@@ -136,12 +144,16 @@ impl Command for ProjectOpen {
         cx: &mut Context<'_>,
         p: ProjectOpenParams,
     ) -> Result<ProjectSummary, CommandError> {
-        let (project, folder) = store::load(&store::resolve_project_file(&p.path))?;
+        let opened = store::open(&store::resolve_project_file(&p.path))?;
         let session = cx.session()?;
-        session.project = Some(project);
-        session.location = Some(folder);
+        session.project = Some(opened.project);
+        session.location = Some(opened.folder);
         session.history.clear();
-        Ok(summary(session))
+        if !opened.missing.is_empty() {
+            // The open Project no longer lists what the Project file on disk lists.
+            session.history.mark_unsaved(Scope::Project);
+        }
+        Ok(summary(session, opened.missing))
     }
 }
 
@@ -228,7 +240,7 @@ impl Command for ProjectSave {
 }
 
 /// Checks that `name` can be a file stem on every OS REDA runs on.
-fn check_file_stem(name: &str) -> Result<(), String> {
+pub(crate) fn check_file_stem(name: &str) -> Result<(), String> {
     const RESERVED: &[char] = &['/', '\\', '<', '>', ':', '"', '|', '?', '*'];
     if name.trim().is_empty() {
         return Err("the name is empty".into());

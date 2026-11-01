@@ -70,6 +70,7 @@ impl Transaction<'_> {
                 "a Library element is opened, not inserted".into(),
             ));
         }
+        self.project.check_home(&object)?;
         self.set(uuid, None, Some(object));
         Ok(())
     }
@@ -81,6 +82,11 @@ impl Transaction<'_> {
         if !before.same_kind(&object) {
             return Err(TxError::Invalid(format!(
                 "object {uuid} cannot change its kind"
+            )));
+        }
+        if before.scope() != object.scope() {
+            return Err(TxError::Invalid(format!(
+                "object {uuid} cannot move to another Document"
             )));
         }
         self.set(uuid, Some(before), Some(object));
@@ -100,6 +106,11 @@ impl Transaction<'_> {
                 "a Library element is closed, not removed".into(),
             ));
         }
+        if matches!(before, Object::Document(_)) && !self.project.body_is_empty(uuid) {
+            return Err(TxError::Invalid(format!(
+                "Document {uuid} still holds objects; remove them first"
+            )));
+        }
         self.set(uuid, Some(before.clone()), None);
         Ok(before)
     }
@@ -115,6 +126,9 @@ impl Transaction<'_> {
             return Err(TxError::Stale(**uuid));
         }
         for (uuid, change) in ordered {
+            if let Some(after) = &change.after {
+                self.project.check_home(after)?;
+            }
             self.set(*uuid, change.before.clone(), change.after.clone());
         }
         Ok(())
