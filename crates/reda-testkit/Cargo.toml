@@ -9,8 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-
-[dev-dependencies]
+reda-engine = { path = "../reda-engine" }
 serde_json.workspace = true
 
 [lints]
