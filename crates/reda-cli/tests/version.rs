@@ -1,8 +1,12 @@
 use std::process::Command;
 
+use reda_testkit::TempDir;
+
 fn reda(args: &[&str]) -> std::process::Output {
+    let home = TempDir::new("cli-home");
     Command::new(env!("CARGO_BIN_EXE_reda"))
         .args(args)
+        .env("REDA_HOME", home.path())
         .output()
         .expect("run reda")
 }
