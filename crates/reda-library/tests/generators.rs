@@ -206,6 +206,11 @@ const REPRESENTATIVE: &[(&str, &str)] = &[
     ),
     ("library.footprint.generate.ssop", r#"{"pins": 20}"#),
     ("library.footprint.generate.tssop", r#"{"pins": 14}"#),
+    ("library.footprint.generate.dfn", r#"{"pins": 8}"#),
+    ("library.footprint.generate.qfn", r#"{"pins": 16}"#),
+    ("library.footprint.generate.qfn", r#"{"pins": 32}"#),
+    ("library.footprint.generate.qfp", r#"{"pins": 44}"#),
+    ("library.footprint.generate.qfp", r#"{"pins": 64}"#),
 ];
 
 /// The file with its UUIDs renumbered `…001`, `…002`, … in order of first appearance, so
@@ -440,13 +445,28 @@ fn gull_wing_lands_reach_under_the_body_by_at_most_a_quarter_of_its_width() {
             json!({"pins": 14}),
             4_500_000,
         ),
+        (
+            "library.footprint.generate.qfp",
+            json!({"pins": 32}),
+            7_100_000,
+        ),
+        (
+            "library.footprint.generate.qfp",
+            json!({"pins": 100}),
+            14_100_000,
+        ),
     ];
     for (id, mut params, body) in cases {
         params["library"] = json!(LIBRARY);
         let out = e.run_ok(id, params);
         let file = read_json(Path::new(out["file"].as_str().unwrap()));
-        for (number, x, _, w, _) in pad_boxes(&file) {
-            let reach = body / 2 - (x.abs() - w / 2);
+        for (number, x, y, w, h) in pad_boxes(&file) {
+            // Measured towards the body's centre from the side the land is on.
+            let reach = if x.abs() >= y.abs() {
+                body / 2 - (x.abs() - w / 2)
+            } else {
+                body / 2 - (y.abs() - h / 2)
+            };
             assert!(
                 reach <= body / 4,
                 "{}: land {number} reaches {reach} nm under the body",
@@ -454,4 +474,108 @@ fn gull_wing_lands_reach_under_the_body_by_at_most_a_quarter_of_its_width() {
             );
         }
     }
+}
+
+#[test]
+fn a_dfn_10_gets_no_lead_lands_and_an_exposed_pad() {
+    let dir = TempDir::new("gen-dfn-10");
+    let mut e = engine_with_library(&dir);
+    let out = e.run_ok(
+        "library.footprint.generate.dfn",
+        json!({"library": LIBRARY, "pins": 10}),
+    );
+    assert_eq!(out["name"], "SON50P300X300X80-11N");
+    assert_eq!(out["violations"], json!([]));
+    let file = read_json(Path::new(out["file"].as_str().unwrap()));
+    // By hand, 3 × 3 mm body: D and E 2.90–3.10, L 0.30–0.50, b 0.18–0.30 mm, exposed
+    // pad 2.30–2.50 × 1.55–1.75; no-lead toe 0.30, heel 0, side −0.04:
+    // Z 3.708 → 3.75, G 2.022 → 2.00, X 0.232 → 0.25. The exposed pad keeps 0.2 mm from
+    // the lands, so it narrows from 1.65 to 1.60.
+    let (x, w, h) = (1_437_500, 875_000, 250_000);
+    let mut expected: Vec<(String, i64, i64, i64, i64)> = vec![];
+    for (i, y) in [1_000_000, 500_000, 0, -500_000, -1_000_000]
+        .iter()
+        .enumerate()
+    {
+        expected.push(((i + 1).to_string(), -x, *y, w, h));
+    }
+    for (i, y) in [-1_000_000, -500_000, 0, 500_000, 1_000_000]
+        .iter()
+        .enumerate()
+    {
+        expected.push(((i + 6).to_string(), x, *y, w, h));
+    }
+    expected.push(("11".into(), 0, 0, 1_600_000, 2_400_000));
+    assert_eq!(pad_boxes(&file), expected);
+}
+
+#[test]
+fn a_qfn_32_counts_counter_clockwise_around_four_sides_and_an_exposed_pad() {
+    let dir = TempDir::new("gen-qfn-32");
+    let mut e = engine_with_library(&dir);
+    let out = e.run_ok(
+        "library.footprint.generate.qfn",
+        json!({"library": LIBRARY, "pins": 32}),
+    );
+    assert_eq!(out["name"], "QFN50P500X500X100-33N");
+    assert_eq!(out["violations"], json!([]));
+    let file = read_json(Path::new(out["file"].as_str().unwrap()));
+    // By hand, 5 × 5 mm body: D and E 4.90–5.10, L 0.30–0.50, b 0.18–0.30 mm, exposed
+    // pad 3.35–3.55 square: Z 5.708 → 5.75, G 4.022 → 4.00, X 0.232 → 0.25.
+    let (c, end, long, short) = (2_437_500, 1_750_000, 875_000, 250_000);
+    let pads = pad_boxes(&file);
+    assert_eq!(pads.len(), 33);
+    let pick: Vec<_> = [0, 7, 8, 15, 16, 23, 24, 31, 32]
+        .iter()
+        .map(|&i| pads[i].clone())
+        .collect();
+    assert_eq!(
+        pick,
+        [
+            ("1".into(), -c, end, long, short),
+            ("8".into(), -c, -end, long, short),
+            ("9".into(), -end, -c, short, long),
+            ("16".into(), end, -c, short, long),
+            ("17".into(), c, -end, long, short),
+            ("24".into(), c, end, long, short),
+            ("25".into(), end, c, short, long),
+            ("32".into(), -end, c, short, long),
+            ("33".into(), 0, 0, 3_450_000, 3_450_000),
+        ]
+    );
+}
+
+#[test]
+fn an_lqfp_48_gets_gull_wing_lands_on_four_sides() {
+    let dir = TempDir::new("gen-qfp-48");
+    let mut e = engine_with_library(&dir);
+    let out = e.run_ok(
+        "library.footprint.generate.qfp",
+        json!({"library": LIBRARY, "pins": 48}),
+    );
+    assert_eq!(out["name"], "QFP50P900X900X160-48N");
+    assert_eq!(out["violations"], json!([]));
+    let file = read_json(Path::new(out["file"].as_str().unwrap()));
+    // By hand, MS-026 7 × 7 mm: E 8.80–9.20, L 0.45–0.75, b 0.17–0.27 mm; toe 0.35,
+    // heel 0.35, side −0.02: Z 9.904 → 9.95, G 6.806 → 6.80, X 0.245 → 0.25.
+    let (c, end, long, short) = (4_187_500, 2_750_000, 1_575_000, 250_000);
+    let pads = pad_boxes(&file);
+    assert_eq!(pads.len(), 48);
+    let pick: Vec<_> = [0, 11, 12, 23, 24, 35, 36, 47]
+        .iter()
+        .map(|&i| pads[i].clone())
+        .collect();
+    assert_eq!(
+        pick,
+        [
+            ("1".into(), -c, end, long, short),
+            ("12".into(), -c, -end, long, short),
+            ("13".into(), -end, -c, short, long),
+            ("24".into(), end, -c, short, long),
+            ("25".into(), c, -end, long, short),
+            ("36".into(), c, end, long, short),
+            ("37".into(), end, c, short, long),
+            ("48".into(), -end, c, short, long),
+        ]
+    );
 }

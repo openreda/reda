@@ -14,7 +14,10 @@
 mod chip;
 mod gull_wing;
 pub mod ipc;
+mod no_lead;
 mod pattern;
+mod qfp;
+mod quad;
 mod small_outline;
 mod sot;
 
@@ -29,7 +32,9 @@ use serde::{Deserialize, Serialize};
 
 pub use chip::{Chip, ChipClass, ChipDimensions, ChipParams, ChipSize};
 pub use gull_wing::GullWingDimensions;
+pub use no_lead::{Dfn, ExposedPadDimensions, NoLeadDimensions, NoLeadParams, Qfn};
 pub use pattern::{Body, Land, LandPattern};
+pub use qfp::{Qfp, QfpDimensions, QfpParams};
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
 
@@ -51,6 +56,9 @@ pub fn register_generators(registry: &mut Registry, store: FootprintStore) {
     registry.add(Generator::<Soic>::new(store));
     registry.add(Generator::<Ssop>::new(store));
     registry.add(Generator::<Tssop>::new(store));
+    registry.add(Generator::<Dfn>::new(store));
+    registry.add(Generator::<Qfn>::new(store));
+    registry.add(Generator::<Qfp>::new(store));
 }
 
 /// One package family.

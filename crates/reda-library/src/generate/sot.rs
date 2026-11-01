@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::gull_wing::{self, GullWing, Lead, Side};
-use super::ipc::Tol;
+use super::ipc::{Termination, Tol};
 use super::{FootprintFamily, LandPattern, Target};
 
 pub struct Sot;
@@ -133,6 +133,6 @@ impl FootprintFamily for Sot {
         };
         let name = dims.ipc_name("SOT", leads.len());
         let description = format!("{title}, IPC-7351 Nominal");
-        gull_wing::land_pattern(&dims, &leads, name, description)
+        gull_wing::land_pattern(&dims, &leads, Termination::GullWing, name, description)
     }
 }
