@@ -23,4 +23,6 @@ reda-model -> reda-geom
 reda-model -> serde
 reda-model -> serde_json [dev]
 reda-testkit -> reda-engine
+reda-testkit -> reda-model
+reda-testkit -> serde
 reda-testkit -> serde_json

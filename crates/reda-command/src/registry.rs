@@ -6,7 +6,7 @@ use reda_model::{ChangeSet, Scope};
 use serde_json::{Map, Value, json};
 
 use crate::command::{AvailabilityContext, Unavailable};
-use crate::context::{Access, Context, Env, Session};
+use crate::context::{Access, Context, Env, Session, Step};
 use crate::{Command, CommandError, Kind, Meta};
 
 /// The object-safe face of a [`Command`].
@@ -66,9 +66,10 @@ impl Registry {
     /// Runs one Command against the session.
     ///
     /// An edit runs in one transaction: on success it returns the envelope
-    /// `{changes: {<scope>: {created, modified, deleted}}, result}` and marks the touched
-    /// scopes dirty; on failure it is rolled back fully. Other kinds return their result
-    /// bare.
+    /// `{changes: {<scope>: {created, modified, deleted}}, result}` and records one undo
+    /// entry per touched scope, which dirties it; on failure it is rolled back fully and
+    /// the stacks are untouched. An edit that undoes or redoes moves that entry between
+    /// its stacks instead. Other kinds return their result bare.
     pub fn run(
         &self,
         session: &mut Session,
@@ -97,18 +98,29 @@ impl Registry {
                     .project
                     .as_mut()
                     .ok_or_else(|| CommandError::unavailable(crate::command::NO_PROJECT))?;
-                let mut cx = Context {
-                    access: Access::Edit(project.transaction()),
-                    ids: &mut *env.ids,
-                    clock: env.clock,
+                // The Context reads the stacks while the transaction holds the Project; they
+                // move only once it has committed.
+                let (result, changes, step) = {
+                    let mut cx = Context {
+                        access: Access::Edit(project.transaction(), &session.history),
+                        ids: &mut *env.ids,
+                        clock: env.clock,
+                        step: None,
+                    };
+                    let result = command.invoke(&mut cx, params);
+                    let Context { access, step, .. } = cx;
+                    let Access::Edit(tx, _) = access else {
+                        unreachable!("an edit context holds its transaction")
+                    };
+                    let result = result?;
+                    (result, tx.commit()?, step)
                 };
-                let result = command.invoke(&mut cx, params);
-                let Access::Edit(tx) = cx.access else {
-                    unreachable!("an edit context holds its transaction")
-                };
-                let result = result?;
-                let changes = tx.commit()?;
-                session.dirty.extend(changes.scopes());
+                let history = &mut session.history;
+                match step {
+                    None => history.record(meta.title, &changes),
+                    Some(Step::Undo(scope)) => history.undone(scope),
+                    Some(Step::Redo(scope)) => history.redone(scope),
+                }
                 Ok(json!({ "changes": changes_json(&changes), "result": result }))
             }
             Kind::Query | Kind::View => {
@@ -116,6 +128,7 @@ impl Registry {
                     access: Access::Read(session.project.as_ref()),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    step: None,
                 };
                 command.invoke(&mut cx, params)
             }
@@ -124,6 +137,7 @@ impl Registry {
                     access: Access::File(session),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    step: None,
                 };
                 command.invoke(&mut cx, params)
             }

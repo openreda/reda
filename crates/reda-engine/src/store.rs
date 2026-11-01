@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::CommandError;
-use reda_model::{DocumentKind, Project, ProjectProps};
+use reda_model::{DocumentKind, Project, ProjectProps, Scope};
 
 use crate::builders::add_document;
 use crate::format::{
@@ -69,18 +69,31 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
     Ok((project, folder))
 }
 
-/// Writes every file of the Project into `folder`, each through a temp file and a rename,
-/// the Project file last. Returns the written paths relative to `folder`.
-pub fn save(folder: &Path, project: &Project) -> Result<Vec<String>, CommandError> {
+/// Writes the Project's files into `folder`, each through a temp file and a rename, the
+/// Project file last: every file with `only` = `None`, or just the one `only` names (the
+/// Project file comes with `.reda/.gitignore`). Returns the written paths relative to
+/// `folder`.
+pub fn save(
+    folder: &Path,
+    project: &Project,
+    only: Option<Scope>,
+) -> Result<Vec<String>, CommandError> {
+    let wanted = |scope: Scope| only.is_none_or(|only| only == scope);
     let io = |path: &Path, e: std::io::Error| {
         CommandError::internal(format!("writing {}: {e}", path.display()))
     };
     let canonical = |e: crate::canonical::CanonicalError| CommandError::internal(e.to_string());
 
-    let state = folder.join(".reda");
-    std::fs::create_dir_all(&state).map_err(|e| io(&state, e))?;
-    let mut files: Vec<(String, Vec<u8>)> = vec![(".reda/.gitignore".into(), b"*\n".to_vec())];
-    for entry in project.documents() {
+    let mut files: Vec<(String, Vec<u8>)> = vec![];
+    if wanted(Scope::Project) {
+        let state = folder.join(".reda");
+        std::fs::create_dir_all(&state).map_err(|e| io(&state, e))?;
+        files.push((".reda/.gitignore".into(), b"*\n".to_vec()));
+    }
+    for entry in project
+        .documents()
+        .filter(|d| wanted(Scope::Document(d.uuid)))
+    {
         let bytes = match entry.kind {
             DocumentKind::Schematic => {
                 let sheet = project
@@ -91,8 +104,10 @@ pub fn save(folder: &Path, project: &Project) -> Result<Vec<String>, CommandErro
         };
         files.push((entry.file_name(), bytes));
     }
-    let name = format!("{}.{PROJECT_EXTENSION}", project.props().name);
-    files.push((name, write_project_file(project).map_err(canonical)?));
+    if wanted(Scope::Project) {
+        let name = format!("{}.{PROJECT_EXTENSION}", project.props().name);
+        files.push((name, write_project_file(project).map_err(canonical)?));
+    }
 
     for (rel, bytes) in &files {
         let path = folder.join(rel);

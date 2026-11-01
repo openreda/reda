@@ -3,9 +3,10 @@
 use std::path::Path;
 
 use reda_command::{
-    Clock, CommandError, Env, IdSource, RandomIds, Registry, Session, SystemClock, UserDirs,
+    Clock, CommandError, Env, History, IdSource, RandomIds, Registry, Session, SystemClock,
+    UserDirs,
 };
-use reda_model::Project;
+use reda_model::{Project, Scope};
 use serde_json::Value;
 
 use crate::journal::{JournalEntry, Source};
@@ -83,9 +84,25 @@ impl Engine {
         self.session.location.as_deref()
     }
 
-    /// Whether the open Project has changes not yet saved.
+    /// Whether the open Project has changes not yet saved, in any file.
     pub fn is_dirty(&self) -> bool {
-        !self.session.dirty.is_empty()
+        !self.session.history.dirty_scopes().is_empty()
+    }
+
+    /// The Project file and the Documents with changes not yet saved, the Project first.
+    pub fn dirty_scopes(&self) -> Vec<Scope> {
+        self.session.history.dirty_scopes()
+    }
+
+    /// The undo stacks of the open Project, for menus to label Undo and Redo.
+    pub fn history(&self) -> &History {
+        &self.session.history
+    }
+
+    /// Caps each undo stack at `depth` entries, trimming the oldest; `None` is unlimited,
+    /// the default. Front ends pass the *undo depth* Preference here.
+    pub fn set_undo_depth(&mut self, depth: Option<usize>) {
+        self.session.history.set_depth(depth);
     }
 }
 
@@ -95,9 +112,12 @@ impl Default for Engine {
     }
 }
 
-/// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless, the CLI as
-/// the source, and the per-user folders from [`crate::user_dirs::discover`].
+/// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless, unlimited
+/// undo, the full [`registry`], the CLI as the source, and the per-user folders from
+/// [`crate::user_dirs::discover`].
 pub struct EngineBuilder {
+    registry: Registry,
+    undo_depth: Option<usize>,
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
     headless: bool,
@@ -108,6 +128,8 @@ pub struct EngineBuilder {
 impl Default for EngineBuilder {
     fn default() -> EngineBuilder {
         EngineBuilder {
+            registry: registry(),
+            undo_depth: None,
             ids: Box::new(RandomIds::new()),
             clock: Box::new(SystemClock),
             headless: true,
@@ -146,13 +168,25 @@ impl EngineBuilder {
         self
     }
 
+    /// Adds Commands beyond the full [`registry`], such as test-only ones.
+    pub fn commands(mut self, register_all: impl FnOnce(&mut Registry)) -> EngineBuilder {
+        register_all(&mut self.registry);
+        self
+    }
+
+    /// See [`Engine::set_undo_depth`].
+    pub fn undo_depth(mut self, depth: Option<usize>) -> EngineBuilder {
+        self.undo_depth = depth;
+        self
+    }
+
     pub fn build(self) -> Engine {
+        let mut session = Session::default();
+        session.history.set_depth(self.undo_depth);
+        session.user_dirs = self.user_dirs;
         Engine {
-            registry: registry(),
-            session: Session {
-                user_dirs: self.user_dirs,
-                ..Session::default()
-            },
+            registry: self.registry,
+            session,
             ids: self.ids,
             clock: self.clock,
             headless: self.headless,

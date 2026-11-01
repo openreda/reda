@@ -3,12 +3,13 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, NoParams,
-    Registry, Session, Unavailable,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry, Session,
+    Unavailable,
 };
 use reda_model::{DocumentEntry, DocumentKind, Project, ProjectProps, Scope, Uuid};
 use serde::{Deserialize, Serialize};
 
+use super::DocumentRef;
 use crate::builders::add_document;
 use crate::store;
 
@@ -95,9 +96,11 @@ impl Command for ProjectNew {
 
         let session = cx.session()?;
         // Nothing of a new Project is on disk yet, so every scope is dirty.
-        session.dirty = std::iter::once(Scope::Project)
-            .chain(project.documents().map(|d| Scope::Document(d.uuid)))
-            .collect();
+        session.history.clear();
+        session.history.mark_unsaved(Scope::Project);
+        for document in project.documents() {
+            session.history.mark_unsaved(Scope::Document(document.uuid));
+        }
         session.project = Some(project);
         session.location = Some(folder);
         Ok(summary(session))
@@ -135,12 +138,21 @@ impl Command for ProjectOpen {
         let session = cx.session()?;
         session.project = Some(project);
         session.location = Some(folder);
-        session.dirty.clear();
+        session.history.clear();
         Ok(summary(session))
     }
 }
 
 pub struct ProjectSave;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectSaveParams {
+    /// Saves only this file: a Document's UUID, or `"project"` for the Project file.
+    /// Omitted, every file is saved (Save All).
+    #[serde(default)]
+    pub document: Option<DocumentRef>,
+}
 
 #[derive(Debug, Serialize)]
 pub struct ProjectSaveResult {
@@ -155,12 +167,13 @@ impl Command for ProjectSave {
         id: "project.save",
         title: "Save All",
         description: "Writes the Project file and every Document to the Project folder, \
-                      each through a temp file and a rename.",
+                      each through a temp file and a rename. With `document`, writes only \
+                      that Document's file, or only the Project file for `\"project\"`.",
         category: "project",
         icon: "save_all",
         kind: Kind::File,
     };
-    type Params = NoParams;
+    type Params = ProjectSaveParams;
     type Output = ProjectSaveResult;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
@@ -172,7 +185,12 @@ impl Command for ProjectSave {
         }
     }
 
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<ProjectSaveResult, CommandError> {
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: ProjectSaveParams,
+    ) -> Result<ProjectSaveResult, CommandError> {
+        let only = p.document.map(|d| d.0);
         let session = cx.session()?;
         let project = session
             .project
@@ -184,9 +202,19 @@ impl Command for ProjectSave {
             .ok_or_else(|| CommandError::unavailable("the Project has no folder yet"))?;
         std::fs::create_dir_all(&folder)
             .map_err(|e| CommandError::internal(format!("creating {}: {e}", folder.display())))?;
-        let written = store::save(&folder, project)?;
+        if let Some(Scope::Document(uuid)) = only
+            && project.document(uuid).is_none()
+        {
+            return Err(CommandError::not_found(format!(
+                "no Document has UUID {uuid}"
+            )));
+        }
+        let written = store::save(&folder, project, only)?;
         let path = store::project_file_path(&folder, &project.props().name);
-        session.dirty.clear();
+        match only {
+            Some(scope) => session.history.mark_saved(scope),
+            None => session.history.mark_all_saved(),
+        }
         Ok(ProjectSaveResult { path, written })
     }
 }
