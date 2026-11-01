@@ -2,6 +2,12 @@
 //!
 //! Every crate takes this as a dev-dependency only; a workspace test enforces that.
 
+mod engine;
+mod files;
+
+pub use engine::{TestEngine, test_engine};
+pub use files::{TempDir, read_tree};
+
 use std::path::Path;
 
 /// Asserts that the file at `path` holds exactly `actual`.

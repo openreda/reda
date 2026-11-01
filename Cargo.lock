@@ -54,6 +54,7 @@ version = "0.0.0"
 dependencies = [
  "reda-command",
  "reda-model",
+ "reda-testkit",
  "serde",
  "serde_json",
 ]
@@ -79,6 +80,7 @@ dependencies = [
 name = "reda-testkit"
 version = "0.0.0"
 dependencies = [
+ "reda-engine",
  "serde_json",
 ]
 

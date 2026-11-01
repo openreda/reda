@@ -9,6 +9,7 @@ reda-command -> serde
 reda-command -> serde_json
 reda-engine -> reda-command
 reda-engine -> reda-model
+reda-engine -> reda-testkit [dev]
 reda-engine -> serde
 reda-engine -> serde_json
 reda-geom -> serde
@@ -16,4 +17,5 @@ reda-geom -> serde_json [dev]
 reda-model -> reda-geom
 reda-model -> serde
 reda-model -> serde_json [dev]
-reda-testkit -> serde_json [dev]
+reda-testkit -> reda-engine
+reda-testkit -> serde_json
