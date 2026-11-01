@@ -110,7 +110,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 
 ## Later fog
 
-These are not placed in any milestone yet. They stay in the map's *Not yet specified* section:
+These are not placed in any milestone yet. They were ruled out of scope for the [spec map](https://github.com/openreda/reda/issues/1), whose destination stops at a ticket-ready v0.1 and module-level later milestones, and are left for a future planning effort:
 
 - **Fonts:** embedding fonts in a Project; searchable text in PDF exports; REDA-drawn stroke glyphs beyond Hershey's ASCII (µ, Ω, ±, °).
 - **Checking:** background online DRC; a rule-query language with per-Layer and per-area rules; an editable pin-type conflict matrix; solder-mask slivers, acid traps and silk-to-silk spacing.
@@ -120,4 +120,5 @@ These are not placed in any milestone yet. They stay in the map's *Not yet speci
   - Keymap presets that copy other EDA tools' habits.
   - A Keymap picker, and Keymap export/import.
   - User-editable menus, toolbars and Active Bar, as an overrides layer on the stable item ids.
+- **Text variables:** free Project parameters and `${...}` variables in sheet and board text (e.g. the revision on the silkscreen), substituted in the canvas, Gerber and PDF.
 - **Translations:** shipped languages; a language picker; locale number formatting; CJK fonts and right-to-left text.

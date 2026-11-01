@@ -57,6 +57,6 @@ These research tickets hold facts, not decisions. Implementers reach for them wh
 
 No v0.1 gaps remain open on the map. Any new gap becomes an open ticket on the map, and implementers should not decide it on their own.
 
-Later fog is listed under *Not yet specified* on the [map](https://github.com/openreda/reda/issues/1): font embedding and searchable PDF text, extra checks and a rule language, performance tracking, extra fuzz targets, UI customisation, and translations.
+Later fog is listed in [modules](modules.md#later-fog) and was ruled out of scope for the [map](https://github.com/openreda/reda/issues/1), left for a future effort: font embedding and searchable PDF text, extra checks and a rule language, performance tracking, extra fuzz targets, UI customisation, text variables, and translations.
 
 **Out of scope** for REDA: importing proprietary commercial EDA formats, signal-integrity analysis, enterprise library vaults and PLM, real-time multi-user editing, and an in-app AI chat assistant.
