@@ -5,7 +5,12 @@
 # and check that the new edge follows the layering in docs/spec/v0.1/architecture.md#crates.
 reda-cli -> reda-engine
 reda-cli -> reda-testkit [dev]
+reda-cli -> rmcp
+reda-cli -> schemars [dev]
+reda-cli -> serde [dev]
 reda-cli -> serde_json
+reda-cli -> tokio
+reda-cli -> tokio [dev]
 reda-command -> reda-model
 reda-command -> schemars
 reda-command -> serde
