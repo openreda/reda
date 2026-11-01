@@ -544,6 +544,7 @@ dependencies = [
 name = "reda-cli"
 version = "0.0.0"
 dependencies = [
+ "reda-control",
  "reda-engine",
  "reda-testkit",
  "rmcp",

@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use reda_command::ErrorCode;
+use reda_command::{CommandError, ErrorCode};
 use reda_model::Uuid;
 use serde_json::{Map, Value};
 
@@ -26,6 +26,14 @@ type UuidMap = BTreeMap<String, String>;
 /// code where it failed, or a result of a different shape. Each step lands in the
 /// engine's Journal as usual.
 pub fn replay(engine: &mut Engine, script: &[ScriptEntry]) -> Result<(), ReplayError> {
+    replay_with(|id, params| engine.run(id, params), script)
+}
+
+/// [`replay`] through any runner of Commands, such as a connection to a running app.
+pub fn replay_with(
+    mut run: impl FnMut(&str, Value) -> Result<Value, CommandError>,
+    script: &[ScriptEntry],
+) -> Result<(), ReplayError> {
     let mut map = UuidMap::new();
     for step in script {
         let fail = |pointer: Option<String>, message: String| ReplayError {
@@ -35,7 +43,7 @@ pub fn replay(engine: &mut Engine, script: &[ScriptEntry]) -> Result<(), ReplayE
             message,
         };
         let params = substitute(&step.params, &map);
-        let outcome = engine.run(&step.id, params);
+        let outcome = run(&step.id, params);
         match (&step.outcome, outcome) {
             (None, Ok(_)) => {}
             (Some(Ok(recorded)), Ok(replayed)) => {
