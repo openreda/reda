@@ -8,12 +8,14 @@
 //! crate never touches the disk and builds for `wasm32`; the engine supplies the
 //! implementation that reads and decodes real files.
 
+mod check;
 mod commands;
 pub mod edit;
 mod index;
 mod scan;
 mod search;
 
+pub use check::{Elements, PIN_GRID, check};
 pub use commands::{
     LibraryPathParams, LibraryPathResult, ProjectLibraryAdd, ProjectLibraryRemove,
     normalise_library_path, register_all,
