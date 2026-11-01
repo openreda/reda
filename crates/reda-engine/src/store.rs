@@ -63,6 +63,7 @@ pub fn load_from(
         uuid: file.project.uuid,
         name: name.to_owned(),
         documents: vec![],
+        libraries: file.libraries.clone(),
     });
     let mut tx = project.transaction();
     for row in &file.documents {

@@ -16,6 +16,7 @@ use crate::journal::{JournalEntry, Source};
 pub fn registry() -> Registry {
     let mut registry = Registry::new();
     crate::commands::register_all(&mut registry);
+    reda_library::register_all(&mut registry);
     registry
 }
 

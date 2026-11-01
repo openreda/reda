@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 reda-command = { path = "../reda-command" }
+reda-library = { path = "../reda-library" }
 reda-model = { path = "../reda-model" }
 schemars.workspace = true
 serde.workspace = true

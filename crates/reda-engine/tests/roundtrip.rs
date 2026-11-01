@@ -31,8 +31,9 @@ prop_compose! {
         uuid in uuid(),
         name in stem("p"),
         documents in prop::collection::vec(document(), 0..6),
+        libraries in prop::collection::vec(any::<String>(), 0..3),
     ) -> Project {
-        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![] });
+        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries });
         let mut tx = project.transaction();
         let mut order = vec![];
         let mut names = std::collections::BTreeSet::new();
@@ -120,6 +121,7 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         uuid: Uuid::from_u128(1),
         name: "Demo".into(),
         documents: vec![],
+        libraries: vec![],
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
 }
