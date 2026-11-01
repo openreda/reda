@@ -544,6 +544,7 @@ dependencies = [
 name = "reda-cli"
 version = "0.0.0"
 dependencies = [
+ "reda-control",
  "reda-engine",
  "reda-testkit",
  "rmcp",
@@ -559,6 +560,17 @@ version = "0.0.0"
 dependencies = [
  "reda-model",
  "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "reda-control"
+version = "0.0.0"
+dependencies = [
+ "getrandom",
+ "reda-engine",
+ "reda-testkit",
  "serde",
  "serde_json",
 ]

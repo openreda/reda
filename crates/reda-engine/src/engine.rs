@@ -58,6 +58,18 @@ impl Engine {
         params: Value,
         signals: &Signals,
     ) -> Result<Value, CommandError> {
+        self.run_from(self.source, id, params, signals)
+    }
+
+    /// [`Engine::run_with`] for a Command from another source than the engine's own, such
+    /// as a CLI or MCP client bridged to the app; the Journal records that source.
+    pub fn run_from(
+        &mut self,
+        source: Source,
+        id: &str,
+        params: Value,
+        signals: &Signals,
+    ) -> Result<Value, CommandError> {
         let mut env = Env {
             ids: &mut *self.ids,
             clock: &*self.clock,
@@ -70,7 +82,7 @@ impl Engine {
         self.journal.push(JournalEntry {
             id: id.to_owned(),
             params,
-            source: self.source,
+            source,
             outcome: outcome.clone(),
         });
         outcome
@@ -104,14 +116,16 @@ impl Engine {
         !self.dirty_scopes().is_empty()
     }
 
-    /// The Project file and the Documents with changes not yet saved, the Project first.
+    /// The Project file, the Documents and the open Library elements with changes not yet
+    /// saved, the Project first.
     /// A deleted Document keeps its stack, so undoing the delete brings it back as it
     /// was, but is not listed while it is gone.
     pub fn dirty_scopes(&self) -> Vec<Scope> {
         let exists = |scope: &Scope| match (scope, &self.session.project) {
             (Scope::Project, _) => true,
             (Scope::Document(uuid), Some(project)) => project.document(*uuid).is_some(),
-            (Scope::Document(_), None) => false,
+            (Scope::Element(uuid), Some(project)) => project.element(*uuid).is_some(),
+            (Scope::Document(_) | Scope::Element(_), None) => false,
         };
         let mut dirty = self.session.history.dirty_scopes();
         dirty.retain(exists);

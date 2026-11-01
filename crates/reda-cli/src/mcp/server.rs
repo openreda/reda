@@ -41,12 +41,22 @@ returns `{changes, result}`, where `result` fits the Command's result schema. Ru
 edits as one undo step with the `batch` Command. Nothing is written to disk until you run \
 `project.save`; unsaved changes are discarded when the server exits.";
 
+const BRIDGED_INSTRUCTIONS: &str = "\
+REDA is an electronics design tool. Every action is a Command with an id such as \
+`project.overview`. Find Commands with `search_commands`, read a Command's params and result \
+schemas with `describe_command`, and run it with `run_command {id, params}`. An edit \
+returns `{changes, result}`, where `result` fits the Command's result schema. Run several \
+edits as one undo step with the `batch` Command. This session is bridged to the REDA app, \
+which has the Project open: your edits land in its undo stacks and show there as unsaved \
+changes. The user saves; `project.save`, `project.open` and `project.new` are refused.";
+
 /// The MCP server: the catalogue, worked out once, and the writer that runs Commands.
 #[derive(Clone)]
 pub struct Server {
     tools: Arc<Vec<Tool>>,
     commands: Arc<Vec<Value>>,
     writer: Writer,
+    instructions: &'static str,
 }
 
 impl Server {
@@ -61,6 +71,15 @@ impl Server {
             tools: Arc::new(tools),
             commands: Arc::new(commands),
             writer,
+            instructions: INSTRUCTIONS,
+        }
+    }
+
+    /// [`Server::new`] for a writer bridged to a running app, which never saves.
+    pub fn bridged(writer: Writer, catalogue: &Value) -> Server {
+        Server {
+            instructions: BRIDGED_INSTRUCTIONS,
+            ..Server::new(writer, catalogue)
         }
     }
 
@@ -131,7 +150,7 @@ impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("reda", env!("CARGO_PKG_VERSION")))
-            .with_instructions(INSTRUCTIONS)
+            .with_instructions(self.instructions)
     }
 
     async fn list_tools(
