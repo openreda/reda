@@ -5,6 +5,7 @@ pub mod document;
 pub mod elements;
 pub mod history;
 pub mod library;
+pub mod library_check;
 pub mod preferences;
 pub mod project;
 pub mod properties;
@@ -20,6 +21,7 @@ pub fn register_all(registry: &mut Registry) {
     elements::register_all(registry);
     history::register_all(registry);
     library::register_all(registry);
+    library_check::register_all(registry);
     preferences::register_all(registry);
     project::register_all(registry);
     properties::register_all(registry);

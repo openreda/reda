@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 use reda_library::LibraryFiles;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    ComponentType, Fields, Footprint, FootprintText, LibraryInfo, Pad, PadKind, PadShape, Part,
-    Pin, PinMap, PinType, Symbol, Unit, Uuid,
+    ComponentType, Fields, Footprint, FootprintGraphic, FootprintLayer, FootprintText, LibraryInfo,
+    Pad, PadKind, PadShape, Part, Pin, PinMap, PinType, Shape, Symbol, Unit, Uuid,
 };
 
 pub fn uuid(n: u128) -> Uuid {
@@ -143,7 +143,7 @@ pub fn symbol(n: u128, name: &str) -> Symbol {
     }
 }
 
-/// A Footprint with two SMD Pads.
+/// A Footprint with two SMD Pads and a top courtyard.
 pub fn footprint(n: u128, name: &str) -> Footprint {
     let pad = |i: u128| Pad {
         uuid: uuid(n * 1000 + i),
@@ -164,7 +164,16 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         name: name.into(),
         description: String::new(),
         pads: vec![pad(1), pad(2)],
-        graphics: vec![],
+        graphics: vec![FootprintGraphic {
+            uuid: uuid(n * 1000 + 999),
+            layer: FootprintLayer::CourtyardTop,
+            shape: Shape::Rect {
+                start: Point::new(Nm::from_um(-200), Nm::from_um(-700)),
+                end: Point::new(Nm::from_um(2600), Nm::from_um(700)),
+            },
+            width: Nm::from_um(50),
+            fill: false,
+        }],
         designator: FootprintText::DESIGNATOR,
         value: FootprintText::VALUE,
     }
