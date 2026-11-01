@@ -206,6 +206,14 @@ _Avoid_: Command bar, quick open, launcher
 The record of every Command carried out in the current session, with its parameters, where it came from and its result, which can be exported and run again to repeat the session.
 _Avoid_: History, log, macro, undo stack
 
+**Recovery Snapshot**:
+A copy of a Document's unsaved changes that REDA keeps so they can be restored after REDA closes unexpectedly; it never replaces the Document's own file unless the user restores and saves it.
+_Avoid_: Autosave, backup
+
+**Crash Report**:
+A local record of an unexpected REDA failure that the user may choose to share.
+_Avoid_: Bug report, dump, telemetry
+
 ## Application window
 
 **Panel**:
