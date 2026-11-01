@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::{
-    Clock, CommandError, Env, History, IdSource, RandomIds, Registry, Session, Signals,
+    Clock, CommandError, Env, Fonts, History, IdSource, RandomIds, Registry, Session, Signals,
     SystemClock, UserDirs,
 };
 use reda_model::{Project, Scope};
@@ -28,6 +28,7 @@ pub struct Engine {
     session: Session,
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
+    fonts: Fonts,
     headless: bool,
     source: Source,
     journal: Vec<JournalEntry>,
@@ -75,6 +76,7 @@ impl Engine {
             ids: &mut *self.ids,
             clock: &*self.clock,
             parts: &parts,
+            fonts: &self.fonts,
             headless: self.headless,
         };
         let outcome =
@@ -133,6 +135,18 @@ impl Engine {
         dirty
     }
 
+    /// The font bytes handed to the engine for text in installed fonts.
+    pub fn fonts(&self) -> &Fonts {
+        &self.fonts
+    }
+
+    /// The fonts, to add to. The app adds the fonts installed on the machine here, at
+    /// start-up or whenever it finds them; text in a family not here draws as Noto Sans
+    /// and is reported as missing.
+    pub fn fonts_mut(&mut self) -> &mut Fonts {
+        &mut self.fonts
+    }
+
     /// The undo stacks of the open Project, for menus to label Undo and Redo.
     pub fn history(&self) -> &History {
         &self.session.history
@@ -152,13 +166,14 @@ impl Default for Engine {
 }
 
 /// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless, unlimited
-/// undo, the full [`registry`], the CLI as the source, and the per-user folders from
-/// [`crate::user_dirs::discover`].
+/// undo, no installed fonts, the full [`registry`], the CLI as the source, and the per-user
+/// folders from [`crate::user_dirs::discover`].
 pub struct EngineBuilder {
     registry: Registry,
     undo_depth: Option<usize>,
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
+    fonts: Fonts,
     headless: bool,
     source: Source,
     user_dirs: Option<UserDirs>,
@@ -172,6 +187,7 @@ impl Default for EngineBuilder {
             undo_depth: None,
             ids: Box::new(RandomIds::new()),
             clock: Box::new(SystemClock),
+            fonts: Fonts::default(),
             headless: true,
             source: Source::default(),
             user_dirs: crate::user_dirs::discover(),
@@ -188,6 +204,12 @@ impl EngineBuilder {
 
     pub fn clock(mut self, clock: impl Clock + 'static) -> EngineBuilder {
         self.clock = Box::new(clock);
+        self
+    }
+
+    /// The font bytes for text in installed fonts; see [`Engine::fonts_mut`].
+    pub fn fonts(mut self, fonts: Fonts) -> EngineBuilder {
+        self.fonts = fonts;
         self
     }
 
@@ -238,6 +260,7 @@ impl EngineBuilder {
             session,
             ids: self.ids,
             clock: self.clock,
+            fonts: self.fonts,
             headless: self.headless,
             source: self.source,
             journal: Vec::new(),

@@ -8,7 +8,9 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::pcb::{BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass};
+use crate::pcb::{
+    BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
+};
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, Part, PartEntry, ProjectProps,
     SheetFrame, Symbol, UnitInstance, Uuid,
@@ -36,6 +38,8 @@ pub enum Object {
     PartEntry(InDocument<PartEntry>),
     FootprintCopy(InDocument<FootprintCopy>),
     Unit(InDocument<UnitInstance>),
+    PcbText(InDocument<PcbText>),
+    PcbGraphic(InDocument<PcbGraphic>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -79,6 +83,10 @@ pub enum ObjectType {
     FootprintCopy,
     /// A placed Unit of a Component.
     Unit,
+    /// Free text on a PCB Layer.
+    PcbText,
+    /// A line, arc or rectangle on a PCB Layer.
+    PcbGraphic,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -103,6 +111,8 @@ impl Object {
             Object::PartEntry(o) => o.uuid,
             Object::FootprintCopy(o) => o.uuid,
             Object::Unit(o) => o.uuid,
+            Object::PcbText(o) => o.uuid,
+            Object::PcbGraphic(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -125,6 +135,8 @@ impl Object {
             Object::PartEntry(_) => ObjectType::PartEntry,
             Object::FootprintCopy(_) => ObjectType::FootprintCopy,
             Object::Unit(_) => ObjectType::Unit,
+            Object::PcbText(_) => ObjectType::PcbText,
+            Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -147,6 +159,8 @@ impl Object {
             Object::PartEntry(o) => Scope::Document(o.document),
             Object::FootprintCopy(o) => Scope::Document(o.document),
             Object::Unit(o) => Scope::Document(o.document),
+            Object::PcbText(o) => Scope::Document(o.document),
+            Object::PcbGraphic(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }

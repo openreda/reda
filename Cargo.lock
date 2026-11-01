@@ -631,6 +631,7 @@ dependencies = [
  "reda-command",
  "reda-model",
  "reda-testkit",
+ "reda-text",
  "schemars",
  "serde",
  "serde_json",

@@ -3,9 +3,13 @@
 use std::path::Path;
 use std::process::{Command, Output};
 
+use reda_testkit::TempDir;
+
 fn reda(args: &[&str]) -> Output {
+    let home = TempDir::new("cli-home");
     Command::new(env!("CARGO_BIN_EXE_reda"))
         .args(args)
+        .env("REDA_HOME", home.path())
         .output()
         .expect("run reda")
 }

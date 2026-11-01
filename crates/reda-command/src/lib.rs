@@ -8,6 +8,7 @@ mod batch;
 mod command;
 mod context;
 mod error;
+mod fonts;
 mod history;
 mod inputs;
 mod library;
@@ -22,6 +23,7 @@ pub use command::{
 };
 pub use context::{Context, Env, Session};
 pub use error::{CommandError, ErrorCode};
+pub use fonts::{FontFace, Fonts};
 pub use history::{Entry, History};
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock, Timestamp};
 pub use library::{FootprintCopyData, NoLibraries, PartCopy, PartSource};

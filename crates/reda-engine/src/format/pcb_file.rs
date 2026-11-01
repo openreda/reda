@@ -19,7 +19,13 @@
 //!   "net_classes": [
 //!     {"uuid":"…","name":"Default"}
 //!   ],
-//!   "nets": []
+//!   "nets": [],
+//!   "texts": [
+//!     {"uuid":"…","layer":"…","text":"Demo","font":"Hershey Roman Simplex","position":{"x":0,"y":0},"height":1000000,"thickness":150000}
+//!   ],
+//!   "graphics": [
+//!     {"uuid":"…","layer":"…","width":150000,"shape":{"kind":"line","from":{…},"to":{…}}}
+//!   ]
 //! }
 //! ```
 //!
@@ -31,7 +37,7 @@ use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DrcSeverities, InDocument, LayerSet, Net, NetClass,
-    Object, PcbDocument, Rules, Uuid,
+    Object, PcbDocument, PcbGraphic, PcbText, Rules, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -67,6 +73,11 @@ pub(crate) struct PcbFile {
     net_classes: Vec<NetClass>,
     /// The PCB Nets.
     nets: Vec<Net>,
+    /// Free text on copper, silkscreen, mechanical and documentation Layers.
+    texts: Vec<PcbText>,
+    /// Lines, arcs and rectangles on copper, silkscreen, mechanical and documentation
+    /// Layers.
+    graphics: Vec<PcbGraphic>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -106,6 +117,8 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     w.containers("board_cutouts", pcb.cutouts(), |c| c.uuid, "vertices")?;
     w.table("net_classes", pcb.net_classes(), |c| c.uuid)?;
     w.table("nets", pcb.nets(), |n| n.uuid)?;
+    w.table("texts", pcb.texts(), |t| t.uuid)?;
+    w.table("graphics", pcb.graphics(), |g| g.uuid)?;
     Ok(w.finish())
 }
 
@@ -157,6 +170,16 @@ pub(crate) fn read_pcb_file(
         file.nets
             .into_iter()
             .map(|n| Object::Net(InDocument::new(doc, n))),
+    );
+    objects.extend(
+        file.texts
+            .into_iter()
+            .map(|t| Object::PcbText(InDocument::new(doc, t))),
+    );
+    objects.extend(
+        file.graphics
+            .into_iter()
+            .map(|g| Object::PcbGraphic(InDocument::new(doc, g))),
     );
     Ok(objects)
 }

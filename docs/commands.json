@@ -3917,6 +3917,86 @@
             ],
             "type": "object"
           },
+          "GraphicShape": {
+            "description": "The shape of a [`PcbGraphic`].",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight line.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle with opposite corners `from` and `to`, outlined, or\nfilled as well when `filled`.",
+                "properties": {
+                  "filled": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "Hole": {
             "additionalProperties": false,
             "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
@@ -4023,6 +4103,90 @@
               "designator",
               "fields",
               "component_type"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "mirrored": {
+                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
+                "type": "boolean"
+              },
+              "position": {
+                "$ref": "#/$defs/Point",
+                "description": "The left end of the first line's baseline."
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `position`; left out when 0.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "text",
+              "font",
+              "position",
+              "height",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "InDocument12": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "shape": {
+                "$ref": "#/$defs/GraphicShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "shape"
             ],
             "type": "object"
           },
@@ -4535,6 +4699,32 @@
                 "properties": {
                   "type": {
                     "const": "unit",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument11",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument12",
+                "properties": {
+                  "type": {
+                    "const": "pcb_graphic",
                     "type": "string"
                   }
                 },
@@ -5339,6 +5529,16 @@
                 "const": "unit",
                 "description": "A placed Unit of a Component.",
                 "type": "string"
+              },
+              {
+                "const": "pcb_text",
+                "description": "Free text on a PCB Layer.",
+                "type": "string"
+              },
+              {
+                "const": "pcb_graphic",
+                "description": "A line, arc or rectangle on a PCB Layer.",
+                "type": "string"
               }
             ]
           }
@@ -5669,6 +5869,86 @@
             ],
             "type": "object"
           },
+          "GraphicShape": {
+            "description": "The shape of a [`PcbGraphic`].",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight line.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle with opposite corners `from` and `to`, outlined, or\nfilled as well when `filled`.",
+                "properties": {
+                  "filled": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "Hole": {
             "additionalProperties": false,
             "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
@@ -5775,6 +6055,90 @@
               "designator",
               "fields",
               "component_type"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "mirrored": {
+                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
+                "type": "boolean"
+              },
+              "position": {
+                "$ref": "#/$defs/Point",
+                "description": "The left end of the first line's baseline."
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `position`; left out when 0.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "text",
+              "font",
+              "position",
+              "height",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "InDocument12": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "shape": {
+                "$ref": "#/$defs/GraphicShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "shape"
             ],
             "type": "object"
           },
@@ -6287,6 +6651,32 @@
                 "properties": {
                   "type": {
                     "const": "unit",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument11",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument12",
+                "properties": {
+                  "type": {
+                    "const": "pcb_graphic",
                     "type": "string"
                   }
                 },
@@ -7593,6 +7983,341 @@
     },
     {
       "category": "pcb",
+      "description": "Draws a circular arc from `from` to `to` sweeping `sweep` (counter-clockwise when positive) with a round pen on a copper, silkscreen, mechanical or documentation Layer.",
+      "icon": "arc",
+      "id": "pcb.graphic.add_arc",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "layer": {
+            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "type": "string"
+          },
+          "sweep": {
+            "$ref": "#/$defs/Angle",
+            "description": "The arc's sweep from `from` to `to`, counter-clockwise when positive; at most one\nturn either way."
+          },
+          "to": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The pen width; 0.15 mm when left out."
+          }
+        },
+        "required": [
+          "layer",
+          "from",
+          "to",
+          "sweep"
+        ],
+        "title": "ArcAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Arc"
+    },
+    {
+      "category": "pcb",
+      "description": "Draws a straight line from `from` to `to` with a round pen on a copper, silkscreen, mechanical or documentation Layer.",
+      "icon": "line",
+      "id": "pcb.graphic.add_line",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "layer": {
+            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The pen width; 0.15 mm when left out."
+          }
+        },
+        "required": [
+          "layer",
+          "from",
+          "to"
+        ],
+        "title": "LineAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Line"
+    },
+    {
+      "category": "pcb",
+      "description": "Draws an axis-aligned rectangle with opposite corners `from` and `to` on a copper, silkscreen, mechanical or documentation Layer, outlined with a round pen and optionally filled.",
+      "icon": "rectangle",
+      "id": "pcb.graphic.add_rect",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "filled": {
+            "default": false,
+            "description": "Fill the rectangle as well as outlining it.",
+            "type": "boolean"
+          },
+          "from": {
+            "$ref": "#/$defs/PointParam",
+            "description": "One corner."
+          },
+          "layer": {
+            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The opposite corner."
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The outline's pen width; 0.15 mm when left out. A filled rectangle may use 0."
+          }
+        },
+        "required": [
+          "layer",
+          "from",
+          "to"
+        ],
+        "title": "RectAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Rectangle"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes one line, arc or rectangle.",
+      "icon": "delete",
+      "id": "pcb.graphic.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "uuid": {
+            "description": "The graphic's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "GraphicDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Graphic"
+    },
+    {
+      "category": "pcb",
       "description": "Assigns each of `nets` to the Net Class `class`.",
       "icon": "net_class",
       "id": "pcb.net.set_class",
@@ -8063,6 +8788,489 @@
         "type": "object"
       },
       "title": "Set Design Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds free text on a copper, silkscreen, mechanical or documentation Layer, starting at (`x`, `y`), the left end of its baseline. It uses the Hershey stroke font unless `font` names another family. Text on a bottom Layer is mirrored unless `mirrored` is false.",
+      "icon": "text",
+      "id": "pcb.text.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "font": {
+            "default": null,
+            "description": "The font family; `Hershey Roman Simplex` when left out. `Noto Sans` is bundled;\nother families come from the fonts installed on this machine.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The capital height; 1 mm when left out."
+          },
+          "layer": {
+            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "type": "string"
+          },
+          "mirrored": {
+            "default": null,
+            "description": "Draw mirrored so it reads from below. Only on bottom Layers, where it is the\ndefault.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Counter-clockwise about the start point; 0 when left out."
+          },
+          "text": {
+            "description": "The text; `\\n` starts a new line.",
+            "type": "string"
+          },
+          "thickness": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The pen width of stroke-font text; 0.15 mm when left out."
+          },
+          "x": {
+            "$ref": "#/$defs/Length",
+            "description": "The left end of the first baseline."
+          },
+          "y": {
+            "$ref": "#/$defs/Length"
+          }
+        },
+        "required": [
+          "layer",
+          "text",
+          "x",
+          "y"
+        ],
+        "title": "TextAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Text"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes one text object.",
+      "icon": "delete",
+      "id": "pcb.text.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "uuid": {
+            "description": "The text object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "TextDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Text"
+    },
+    {
+      "category": "pcb",
+      "description": "Returns the geometry of PCB text in board coordinates, as outputs and the canvas draw it: stroke-font capsules (with their pen width) and filled outline-font triangles. Text in a font missing on this machine is drawn as Noto Sans and listed under `missing_fonts`.",
+      "icon": "text",
+      "id": "pcb.text.geometry",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "texts": {
+            "default": null,
+            "description": "The text objects to lay out; every text on the board when left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "TextGeometryParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Fill": {
+            "description": "A triangle list: every three `indices` name one triangle in `points`.",
+            "properties": {
+              "indices": {
+                "items": {
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "points": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "points",
+              "indices"
+            ],
+            "type": "object"
+          },
+          "PlacedText": {
+            "description": "A text object's geometry in board coordinates.",
+            "properties": {
+              "drawn_font": {
+                "description": "The family it was drawn in: the one it names, or Noto Sans when that is missing.",
+                "type": "string"
+              },
+              "fill": {
+                "$ref": "#/$defs/Fill",
+                "description": "Outline-font glyphs (including characters the stroke font lacks), filled."
+              },
+              "font": {
+                "description": "The font family the text names.",
+                "type": "string"
+              },
+              "layer": {
+                "description": "Its Layer.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "missing_font": {
+                "description": "Whether the family the text names is missing on this machine.",
+                "type": "boolean"
+              },
+              "stroke_width": {
+                "description": "The pen width of the strokes.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "strokes": {
+                "description": "Stroke-font glyphs: capsules of `stroke_width` from `a` to `b`.",
+                "items": {
+                  "$ref": "#/$defs/Stroke"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "description": "The text object.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "font",
+              "drawn_font",
+              "missing_font",
+              "stroke_width",
+              "strokes",
+              "fill"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Stroke": {
+            "description": "One pen stroke, drawn as a capsule.",
+            "properties": {
+              "a": {
+                "$ref": "#/$defs/Point"
+              },
+              "b": {
+                "$ref": "#/$defs/Point"
+              }
+            },
+            "required": [
+              "a",
+              "b"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "missing_fonts": {
+            "description": "The font families among the returned texts that are missing on this machine, drawn\nas Noto Sans instead.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "texts": {
+            "description": "Each text's geometry in board coordinates, in the order asked (sorted by UUID when\nevery text is returned).",
+            "items": {
+              "$ref": "#/$defs/PlacedText"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "texts",
+          "missing_fonts"
+        ],
+        "title": "TextGeometryResult",
+        "type": "object"
+      },
+      "title": "Text Geometry"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes the given properties of one text object and keeps the rest. Moving it to another Layer without `mirrored` mirrors it on a bottom Layer and unmirrors it elsewhere.",
+      "icon": "text_edit",
+      "id": "pcb.text.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "font": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "layer": {
+            "description": "A new Layer: copper, silkscreen, mechanical or documentation.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mirrored": {
+            "default": null,
+            "description": "Mirroring; only on bottom Layers. Moving the text to another Layer without it\nmirrors on bottom Layers and unmirrors elsewhere.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "text": {
+            "default": null,
+            "description": "New text; `\\n` starts a new line.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thickness": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "uuid": {
+            "description": "The text object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A new start point; give both coordinates."
+          },
+          "y": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "TextSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Text"
     },
     {
       "category": "library",

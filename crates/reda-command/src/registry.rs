@@ -11,7 +11,7 @@ use crate::batch::{self, BatchParams};
 use crate::command::{AvailabilityContext, NO_PROJECT, Preset, Unavailable};
 use crate::context::{Access, Context, Env, Session, Step};
 use crate::schema;
-use crate::{Clock, Command, CommandError, IdSource, Kind, Meta, Signals};
+use crate::{Clock, Command, CommandError, Fonts, IdSource, Kind, Meta, Signals};
 
 /// The object-safe face of a [`Command`].
 trait Erased: Send + Sync {
@@ -199,7 +199,7 @@ impl Registry {
                         Kind::Edit,
                         (project.transaction(), &session.history),
                         &mut *env.ids,
-                        (env.clock, env.parts),
+                        (env.clock, env.parts, env.fonts),
                         signals,
                         params,
                     );
@@ -220,6 +220,7 @@ impl Registry {
                     ids: &mut *env.ids,
                     clock: env.clock,
                     parts: env.parts,
+                    fonts: env.fonts,
                     signals,
                     step: None,
                 };
@@ -231,6 +232,7 @@ impl Registry {
                     ids: &mut *env.ids,
                     clock: env.clock,
                     parts: env.parts,
+                    fonts: env.fonts,
                     signals,
                     step: None,
                 };
@@ -273,7 +275,7 @@ impl Registry {
                 entry.meta.kind,
                 (tx, history),
                 ids,
-                (env.clock, env.parts),
+                (env.clock, env.parts, env.fonts),
                 signals,
                 params,
             );
@@ -345,7 +347,7 @@ fn invoke_in<'a>(
     kind: Kind,
     (tx, history): (Transaction<'a>, &'a History),
     ids: &'a mut dyn IdSource,
-    (clock, parts): (&'a dyn Clock, &'a dyn crate::PartSource),
+    (clock, parts, fonts): (&'a dyn Clock, &'a dyn crate::PartSource, &'a Fonts),
     signals: &'a Signals,
     params: Value,
 ) -> InTx<'a> {
@@ -358,6 +360,7 @@ fn invoke_in<'a>(
         ids,
         clock,
         parts,
+        fonts,
         signals,
         step: None,
     };

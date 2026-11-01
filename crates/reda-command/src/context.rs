@@ -7,7 +7,8 @@ use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
 use crate::{
-    Clock, CommandError, History, IdSource, PartCopy, PartSource, Signals, Timestamp, UserDirs,
+    Clock, CommandError, Fonts, History, IdSource, PartCopy, PartSource, Signals, Timestamp,
+    UserDirs,
 };
 
 /// The engine's mutable state between Commands.
@@ -32,6 +33,8 @@ pub struct Env<'a> {
     pub clock: &'a dyn Clock,
     /// The registered Libraries, for Commands that copy a Part into a Document.
     pub parts: &'a dyn PartSource,
+    /// The font bytes the front end handed over, for text in installed fonts.
+    pub fonts: &'a Fonts,
     /// No GUI: view Commands are unavailable.
     pub headless: bool,
 }
@@ -51,6 +54,7 @@ pub struct Context<'a> {
     pub(crate) ids: &'a mut dyn IdSource,
     pub(crate) clock: &'a dyn Clock,
     pub(crate) parts: &'a dyn PartSource,
+    pub(crate) fonts: &'a Fonts,
     pub(crate) signals: &'a Signals,
     /// Set when an edit replays an undo or redo entry instead of making a new change.
     pub(crate) step: Option<Step>,
@@ -152,6 +156,11 @@ impl<'a> Context<'a> {
     /// The time from the injected `Clock`.
     pub fn now(&self) -> Timestamp {
         self.clock.now()
+    }
+
+    /// The font bytes the front end handed over.
+    pub fn fonts(&self) -> &Fonts {
+        self.fonts
     }
 
     /// The run's cancellation token and progress reporter.

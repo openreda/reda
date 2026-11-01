@@ -185,6 +185,8 @@ impl Project {
             Object::PartEntry(o) => return self.check_sheet(o.document),
             Object::FootprintCopy(o) => return self.check_sheet(o.document),
             Object::Unit(o) => return self.check_sheet(o.document),
+            Object::PcbText(o) => o.document,
+            Object::PcbGraphic(o) => o.document,
             _ => return Ok(()),
         };
         match self.pcb_documents.contains_key(&pcb) {
@@ -291,6 +293,12 @@ impl Project {
             }
             Some(Object::Unit(o)) => {
                 self.sheet_mut(o.document).units.insert(uuid, o.object);
+            }
+            Some(Object::PcbText(o)) => {
+                self.pcb_mut(o.document).texts.insert(uuid, o.object);
+            }
+            Some(Object::PcbGraphic(o)) => {
+                self.pcb_mut(o.document).graphics.insert(uuid, o.object);
             }
             #[cfg(feature = "test-objects")]
             Some(Object::Probe(probe)) => {
