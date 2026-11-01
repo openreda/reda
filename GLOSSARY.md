@@ -212,6 +212,14 @@ _Avoid_: Pane, sidebar, view (alone), tool window
 A strip of columns along the left, right or bottom edge of a window that holds tabs, usually Panels; a column can collapse to an icon strip whose icons open its tabs as flyouts.
 _Avoid_: Sidebar, drawer, edge panel
 
+**Layout**:
+The arrangement of tabs, splits, Docks and windows in which a user works on a Project; a user can save a Layout under a name and apply it to any Project.
+_Avoid_: Workspace, perspective, arrangement
+
+**Preferences**:
+A user's own choices about how REDA looks and behaves, such as the theme or repeat placement, which apply to every Project they open and never change a design.
+_Avoid_: Settings, options, config
+
 **Active Bar**:
 The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.
 _Avoid_: Quick bar, floating toolbar, palette
