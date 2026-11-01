@@ -1,0 +1,12 @@
+wire	an electrical schematic wire: a green line with one right-angle bend and a small solid dot at each end
+net_label	a schematic net label: a small pointed tag shape attached to the end of a short wire
+power_port	a schematic power symbol: a short vertical line topped by a wide horizontal bar
+track	a PCB copper track: a thick copper-coloured trace with a 45-degree bend joining two round pads
+via	a PCB via: a round copper annular ring with a dark drilled hole in the centre
+zone	a PCB copper pour: an irregular copper-filled polygon with a slightly darker outline
+save	save: a floppy disk
+undo	undo: a curved arrow turning back to the left
+zoom_fit	zoom to fit: a magnifying glass inside four corner brackets
+layers	layers: three stacked flat square sheets in different colours, seen at an angle
+select	select: a mouse pointer arrow
+move	move: a four-way arrow cross

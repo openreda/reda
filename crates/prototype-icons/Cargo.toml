@@ -1,0 +1,11 @@
+# PROTOTYPE — throwaway. Lives only on the prototype/icon-style branch.
+[package]
+name = "prototype-icons"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+eframe = "0.37"
+egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
