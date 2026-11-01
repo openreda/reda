@@ -15,6 +15,11 @@ reda-command -> reda-model
 reda-command -> schemars
 reda-command -> serde
 reda-command -> serde_json
+reda-control -> getrandom
+reda-control -> reda-engine
+reda-control -> reda-testkit [dev]
+reda-control -> serde
+reda-control -> serde_json
 reda-engine -> directories [cfg(not(target_arch = "wasm32"))]
 reda-engine -> proptest [dev]
 reda-engine -> reda-command

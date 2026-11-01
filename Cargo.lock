@@ -564,6 +564,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "reda-control"
+version = "0.0.0"
+dependencies = [
+ "getrandom",
+ "reda-engine",
+ "reda-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "reda-engine"
 version = "0.0.0"
 dependencies = [
