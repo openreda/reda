@@ -11,6 +11,9 @@ pub enum TxError {
     NotFound(Uuid),
     /// An object with this UUID already exists.
     Conflict(Uuid),
+    /// The object is not in the state a replayed change set expects, because something
+    /// else changed it since. Undo and redo refuse such an entry.
+    Stale(Uuid),
     /// The step or the resulting Project breaks a model invariant.
     Invalid(String),
 }
@@ -20,6 +23,10 @@ impl fmt::Display for TxError {
         match self {
             TxError::NotFound(uuid) => write!(f, "no object has UUID {uuid}"),
             TxError::Conflict(uuid) => write!(f, "an object with UUID {uuid} already exists"),
+            TxError::Stale(uuid) => write!(
+                f,
+                "object {uuid} has changed since, so this change can no longer be replayed"
+            ),
             TxError::Invalid(reason) => f.write_str(reason),
         }
     }
@@ -85,6 +92,22 @@ impl Transaction<'_> {
         let before = self.project.object(uuid).ok_or(TxError::NotFound(uuid))?;
         self.set(uuid, Some(before.clone()), None);
         Ok(before)
+    }
+
+    /// Replays a change set, such as an undo entry inverted: every object must be in its
+    /// `before` state, or the step is refused as [`TxError::Stale`] and nothing changes.
+    pub fn apply(&mut self, changes: &crate::ChangeSet) -> Result<(), TxError> {
+        let ordered = changes.in_apply_order();
+        if let Some((uuid, _)) = ordered
+            .iter()
+            .find(|(uuid, c)| self.project.object(**uuid) != c.before)
+        {
+            return Err(TxError::Stale(**uuid));
+        }
+        for (uuid, change) in ordered {
+            self.set(*uuid, change.before.clone(), change.after.clone());
+        }
+        Ok(())
     }
 
     /// Checks the Project's invariants and keeps the changes. On failure everything is
