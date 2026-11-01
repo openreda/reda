@@ -9,7 +9,8 @@
 //!   ],
 //!   "libraries": [
 //!     "parts"
-//!   ]
+//!   ],
+//!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"}
 //! }
 //! ```
 //!
@@ -18,7 +19,7 @@
 
 use std::path::Path;
 
-use reda_model::{DocumentEntry, DocumentKind, Project, Uuid};
+use reda_model::{DocumentEntry, DocumentKind, Project, ProjectProperties, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +43,10 @@ pub(crate) struct ProjectFile {
     /// Written only when there are any.
     #[serde(default)]
     pub libraries: Vec<String>,
+    /// The Project properties that fill the sheets' title blocks. Written only when any
+    /// is set.
+    #[serde(default)]
+    pub properties: ProjectProperties,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -111,6 +116,10 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     let libraries = &project.props().libraries;
     if !libraries.is_empty() {
         w.list("libraries", libraries)?;
+    }
+    let properties = &project.props().properties;
+    if !properties.is_empty() {
+        w.field("properties", properties)?;
     }
     Ok(w.finish())
 }

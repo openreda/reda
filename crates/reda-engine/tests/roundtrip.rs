@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 
 use proptest::prelude::*;
 use reda_engine::format::LoadError;
-use reda_engine::model::{DocumentEntry, DocumentKind, Object, Project, ProjectProps, Uuid};
+use reda_engine::model::{
+    DocumentEntry, DocumentKind, Object, Project, ProjectProperties, ProjectProps, Uuid,
+};
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
 
@@ -32,8 +34,11 @@ prop_compose! {
         name in stem("p"),
         documents in prop::collection::vec(document(), 0..6),
         libraries in prop::collection::vec(any::<String>(), 0..3),
+        properties in prop::collection::vec(any::<String>(), 5),
     ) -> Project {
-        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries });
+        let [title, revision, date, author, company] = <[String; 5]>::try_from(properties).unwrap();
+        let properties = ProjectProperties { title, revision, date, author, company };
+        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties });
         let mut tx = project.transaction();
         let mut order = vec![];
         let mut names = std::collections::BTreeSet::new();
@@ -122,6 +127,7 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         name: "Demo".into(),
         documents: vec![],
         libraries: vec![],
+        properties: Default::default(),
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
 }

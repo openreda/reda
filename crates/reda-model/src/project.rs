@@ -23,6 +23,27 @@ pub struct ProjectProps {
     /// The Project Libraries: folders relative to the Project folder, `/`-separated.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub libraries: Vec<String>,
+    /// The Project properties that fill the sheets' title blocks.
+    #[serde(default)]
+    pub properties: ProjectProperties,
+}
+
+/// The Project properties: fixed free-text fields that fill each sheet's title block.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct ProjectProperties {
+    pub title: String,
+    pub revision: String,
+    /// Free text, such as `2026-11-01`.
+    pub date: String,
+    pub author: String,
+    pub company: String,
+}
+
+impl ProjectProperties {
+    pub fn is_empty(&self) -> bool {
+        *self == ProjectProperties::default()
+    }
 }
 
 /// One electronic design and everything that belongs to it.

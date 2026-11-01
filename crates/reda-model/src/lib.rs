@@ -21,7 +21,7 @@ pub use library::{
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
-pub use project::{Project, ProjectProps};
+pub use project::{Project, ProjectProperties, ProjectProps};
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};
 

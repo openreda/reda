@@ -47,7 +47,8 @@ fn object_get_returns_any_object_with_its_document() {
     let project = engine.run_ok("object.get", json!({"uuid": PROJECT}));
     assert_eq!(
         project["object"],
-        json!({"type": "project", "uuid": PROJECT, "name": "Demo", "documents": [SHEET]})
+        json!({"type": "project", "uuid": PROJECT, "name": "Demo", "documents": [SHEET],
+               "properties": {"title": "", "revision": "", "date": "", "author": "", "company": ""}})
     );
 }
 

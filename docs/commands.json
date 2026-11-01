@@ -531,6 +531,17 @@
                   "name": {
                     "type": "string"
                   },
+                  "properties": {
+                    "$ref": "#/$defs/ProjectProperties",
+                    "default": {
+                      "author": "",
+                      "company": "",
+                      "date": "",
+                      "revision": "",
+                      "title": ""
+                    },
+                    "description": "The Project properties that fill the sheets' title blocks."
+                  },
                   "type": {
                     "const": "project",
                     "type": "string"
@@ -544,7 +555,8 @@
                   "type",
                   "uuid",
                   "name",
-                  "documents"
+                  "documents",
+                  "properties"
                 ],
                 "type": "object"
               },
@@ -582,6 +594,41 @@
                 "type": "object"
               }
             ]
+          },
+          "ProjectProperties": {
+            "additionalProperties": false,
+            "description": "The Project properties: fixed free-text fields that fill each sheet's title block.",
+            "properties": {
+              "author": {
+                "default": "",
+                "type": "string"
+              },
+              "company": {
+                "default": "",
+                "type": "string"
+              },
+              "date": {
+                "default": "",
+                "description": "Free text, such as `2026-11-01`.",
+                "type": "string"
+              },
+              "revision": {
+                "default": "",
+                "type": "string"
+              },
+              "title": {
+                "default": "",
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "revision",
+              "date",
+              "author",
+              "company"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -695,6 +742,17 @@
                   "name": {
                     "type": "string"
                   },
+                  "properties": {
+                    "$ref": "#/$defs/ProjectProperties",
+                    "default": {
+                      "author": "",
+                      "company": "",
+                      "date": "",
+                      "revision": "",
+                      "title": ""
+                    },
+                    "description": "The Project properties that fill the sheets' title blocks."
+                  },
                   "type": {
                     "const": "project",
                     "type": "string"
@@ -708,7 +766,8 @@
                   "type",
                   "uuid",
                   "name",
-                  "documents"
+                  "documents",
+                  "properties"
                 ],
                 "type": "object"
               },
@@ -765,6 +824,41 @@
             "required": [
               "document",
               "object"
+            ],
+            "type": "object"
+          },
+          "ProjectProperties": {
+            "additionalProperties": false,
+            "description": "The Project properties: fixed free-text fields that fill each sheet's title block.",
+            "properties": {
+              "author": {
+                "default": "",
+                "type": "string"
+              },
+              "company": {
+                "default": "",
+                "type": "string"
+              },
+              "date": {
+                "default": "",
+                "description": "Free text, such as `2026-11-01`.",
+                "type": "string"
+              },
+              "revision": {
+                "default": "",
+                "type": "string"
+              },
+              "title": {
+                "default": "",
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "revision",
+              "date",
+              "author",
+              "company"
             ],
             "type": "object"
           }
@@ -1150,6 +1244,92 @@
         "type": "object"
       },
       "title": "Project Overview"
+    },
+    {
+      "category": "project",
+      "description": "Sets the Project properties (title, revision, date, author, company) that fill every sheet's title block. Properties left out keep their value. Returns all of them.",
+      "icon": "properties",
+      "id": "project.properties.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The properties to change; those left out keep their value. An empty string clears one.",
+        "properties": {
+          "author": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "company": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "description": "Free text, such as `2026-11-01`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "PropertiesSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The Project properties: fixed free-text fields that fill each sheet's title block.",
+        "properties": {
+          "author": {
+            "default": "",
+            "type": "string"
+          },
+          "company": {
+            "default": "",
+            "type": "string"
+          },
+          "date": {
+            "default": "",
+            "description": "Free text, such as `2026-11-01`.",
+            "type": "string"
+          },
+          "revision": {
+            "default": "",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "revision",
+          "date",
+          "author",
+          "company"
+        ],
+        "title": "ProjectProperties",
+        "type": "object"
+      },
+      "title": "Set Project Properties"
     },
     {
       "category": "project",

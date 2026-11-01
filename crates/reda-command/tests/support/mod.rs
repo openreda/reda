@@ -236,6 +236,7 @@ impl Command for Create {
             name: format!("at {}", cx.now().0),
             documents: vec![],
             libraries: vec![],
+            properties: Default::default(),
         }));
         Ok(uuid)
     }
