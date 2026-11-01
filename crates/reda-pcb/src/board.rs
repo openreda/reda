@@ -1,7 +1,6 @@
 //! What a new PCB Document holds: the fixed v0.1 Layer set, the board setup and the
 //! Default Net Class.
 
-use reda_model::geom::Nm;
 use reda_model::{
     BoardSetup, DrcSeverities, InDocument, Layer, LayerKind, LayerSet, NetClass, Object, Rules,
     Side, Uuid,
@@ -31,23 +30,11 @@ pub const V01_LAYERS: [(LayerKind, Option<Side>); 15] = {
     ]
 };
 
-/// The rules of the Generic Fab Preset: conservative 2-layer values every fab in the fab
-/// research accepts. Fab Presets replace this seed when they arrive.
-pub const GENERIC_RULES: Rules = Rules {
-    clearance: Nm::from_um(160),
-    track_width: Nm::from_um(200),
-    via_diameter: Nm::from_um(700),
-    via_hole: Nm::from_um(300),
-    annular_ring: Nm::from_um(200),
-    hole_to_hole: Nm::from_um(500),
-    edge_clearance: Nm::from_um(400),
-};
-
 /// The name of the Net Class every new board starts with.
 pub const DEFAULT_NET_CLASS: &str = "Default";
 
 /// The objects of a new, empty board in PCB Document `document`: its Layers, its board
-/// setup with `rules` and the default DRC severities, and the Default Net Class. `new_id`
+/// setup with `rules` (a Fab Preset's seed rules) and the default DRC severities, and the Default Net Class. `new_id`
 /// supplies every UUID.
 pub fn new_board(document: Uuid, rules: Rules, mut new_id: impl FnMut() -> Uuid) -> Vec<Object> {
     let layers = LayerSet {

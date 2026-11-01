@@ -3,8 +3,10 @@
 //!
 //! Bridges to a running instance that holds the Project ([`crate::bridge`]), else runs
 //! in-process. Prints the result as JSON on stdout, or the `{code, message}` error as JSON
-//! on stderr. In-process, writes nothing to disk unless `--save` is given or the Command
-//! itself is `project.save`; bridged, never saves (`--save` prints a note on stderr).
+//! on stderr. In-process, edit Commands change only the in-memory Project, so they reach
+//! disk only with `--save`; file Commands write what they always write (`project.new`
+//! writes the new Project, `project.save` saves). Bridged, never saves (`--save` prints a
+//! note on stderr).
 //!
 //! `--script` replays an exported Journal (see [`reda_engine::journal::replay`]) and prints
 //! the replay's own Journal as JSON lines. A replay mismatch prints

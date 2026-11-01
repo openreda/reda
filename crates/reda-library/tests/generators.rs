@@ -208,6 +208,31 @@ const REPRESENTATIVE: &[(&str, &str)] = &[
     ("library.footprint.generate.tssop", r#"{"pins": 14}"#),
 ];
 
+/// The file with its UUIDs renumbered `…001`, `…002`, … in order of first appearance, so
+/// the goldens do not change when creating a Project takes more or fewer UUIDs.
+fn renumber_uuids(bytes: &[u8]) -> String {
+    let text = std::str::from_utf8(bytes).unwrap();
+    let mut seen: Vec<String> = vec![];
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(at) = rest.find("\"00000000-0000-4000-8000-") {
+        let (before, from) = rest.split_at(at + 1);
+        let uuid = &from[..36];
+        let n = match seen.iter().position(|u| u == uuid) {
+            Some(i) => i + 1,
+            None => {
+                seen.push(uuid.to_owned());
+                seen.len()
+            }
+        };
+        out.push_str(before);
+        out.push_str(&format!("00000000-0000-4000-8000-{n:012x}"));
+        rest = &from[36..];
+    }
+    out.push_str(rest);
+    out
+}
+
 #[test]
 fn representative_footprints_match_their_goldens_and_pass_the_library_check() {
     let dir = TempDir::new("gen-goldens");
@@ -219,7 +244,7 @@ fn representative_footprints_match_their_goldens_and_pass_the_library_check() {
         assert_eq!(out["violations"], json!([]), "{id} {out}");
         let name = out["name"].as_str().unwrap();
         let bytes = std::fs::read(out["file"].as_str().unwrap()).unwrap();
-        assert_golden(golden(name), &bytes);
+        assert_golden(golden(name), renumber_uuids(&bytes).as_bytes());
 
         let file: Value = serde_json::from_slice(&bytes).unwrap();
         let layers: Vec<&str> = file["graphics"]

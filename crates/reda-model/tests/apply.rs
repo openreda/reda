@@ -12,6 +12,7 @@ fn empty_project() -> Project {
         name: "Demo".into(),
         documents: vec![],
         libraries: vec![],
+        properties: Default::default(),
     })
 }
 

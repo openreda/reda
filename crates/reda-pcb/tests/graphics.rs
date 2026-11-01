@@ -8,7 +8,6 @@ use serde_json::json;
 fn engine_with_pcb(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
     engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
-    engine.run_ok("document.add", json!({"kind": "pcb"}));
     engine
 }
 

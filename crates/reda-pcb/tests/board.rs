@@ -8,7 +8,6 @@ use serde_json::json;
 fn engine_with_pcb(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
     engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
-    engine.run_ok("document.add", json!({"kind": "pcb"}));
     engine
 }
 
@@ -25,6 +24,8 @@ fn pcb_commands_are_unavailable_without_a_pcb_document() {
     let dir = TempDir::new("pcb-none");
     let mut engine = probe_engine();
     engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let document = pcb(&engine).uuid;
+    engine.run_ok("document.delete", json!({"document": document}));
     let err = engine.run_err(
         "pcb.board_outline.add_rect",
         json!({"width": "10mm", "height": "10mm"}),
@@ -231,4 +232,36 @@ fn board_setup_edits_undo_on_the_pcb_stack() {
     engine.run_ok("pcb.rules.set", json!({"clearance": "0.3mm"}));
     engine.run_ok("edit.undo", json!({"document": document}));
     assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(160));
+}
+
+#[test]
+fn fab_preset_rules_are_previewed_then_reseed_the_board() {
+    let dir = TempDir::new("rules-apply");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path": dir.path(), "name": "Demo", "fab_preset": "PCBWay"}),
+    );
+    engine.run_ok("pcb.rules.set", json!({"clearance": "0.3mm"}));
+    let preset = engine.project().unwrap().fab_presets().next().unwrap().uuid;
+
+    let preview = engine.run_ok("pcb.rules.fab_preset_diff", json!({"preset": preset}));
+    assert_eq!(
+        preview,
+        json!({"changes": [{"rule": "clearance", "board": 300000, "preset": 100000}]})
+    );
+    assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(300));
+
+    let out = engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset": preset}));
+    assert_eq!(out["result"]["changes"], preview["changes"]);
+    assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(100));
+    let document = pcb(&engine).uuid;
+    engine.run_ok("edit.undo", json!({"document": document}));
+    assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(300));
+
+    let err = engine.run_err(
+        "pcb.rules.apply_fab_preset",
+        json!({"preset": "00000000-0000-4000-8000-0000000000ff"}),
+    );
+    assert_eq!(err.code, reda_command::ErrorCode::NotFound);
 }

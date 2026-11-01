@@ -333,6 +333,586 @@
       "title": "Undo"
     },
     {
+      "category": "output",
+      "description": "Copies a shipped or user Fab Preset into the Project, so Output Jobs can use it and it travels with the Project.",
+      "icon": "fab_preset_add",
+      "id": "fab_preset.add",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The preset to copy: a shipped preset or one of the user's.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PresetAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates a copy returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "CopyCreated",
+        "type": "object"
+      },
+      "title": "Add Fab Preset to Project"
+    },
+    {
+      "category": "output",
+      "description": "Deletes one of the Project's Fab Preset copies. A copy an Output Job uses is refused.",
+      "icon": "delete",
+      "id": "fab_preset.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Names one of the Project's Fab Preset copies.",
+        "properties": {
+          "preset": {
+            "description": "The Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "title": "PresetRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Fab Preset from Project"
+    },
+    {
+      "category": "output",
+      "description": "Lists the Fab Presets a new Project or a job can use: the shipped Generic, JLCPCB and PCBWay, then the user's `.redafab` presets. `default` is the last one used for a new Project, else Generic.",
+      "icon": "fab_preset",
+      "id": "fab_preset.list",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Available": {
+            "description": "A preset that can be picked, with where it comes from.",
+            "properties": {
+              "origin": {
+                "$ref": "#/$defs/Origin"
+              },
+              "path": {
+                "description": "The `.redafab` file of a user preset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "preset": {
+                "$ref": "#/$defs/FabPreset"
+              }
+            },
+            "required": [
+              "preset",
+              "origin"
+            ],
+            "type": "object"
+          },
+          "Column": {
+            "additionalProperties": false,
+            "description": "One column of a BOM or CPL file.",
+            "properties": {
+              "header": {
+                "description": "The column header, such as \"LCSC Part #\".",
+                "type": "string"
+              },
+              "source": {
+                "$ref": "#/$defs/ColumnSource"
+              }
+            },
+            "required": [
+              "header",
+              "source"
+            ],
+            "type": "object"
+          },
+          "ColumnSource": {
+            "description": "Where a BOM or CPL column takes its values from.",
+            "oneOf": [
+              {
+                "const": "line",
+                "description": "The row's number, from 1.",
+                "type": "string"
+              },
+              {
+                "const": "designator",
+                "description": "The Designators of the row, in natural order (CPL: the one Designator).",
+                "type": "string"
+              },
+              {
+                "const": "quantity",
+                "description": "How many Components the BOM row groups.",
+                "type": "string"
+              },
+              {
+                "const": "value",
+                "description": "The Component's value, such as `10k`.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "The chosen Footprint's name.",
+                "type": "string"
+              },
+              {
+                "const": "mount",
+                "description": "`SMT` or `THT`.",
+                "type": "string"
+              },
+              {
+                "const": "mid_x",
+                "description": "The Footprint's centre, X, in mm from the CPL origin.",
+                "type": "string"
+              },
+              {
+                "const": "mid_y",
+                "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+                "type": "string"
+              },
+              {
+                "const": "layer",
+                "description": "`Top` or `Bottom`.",
+                "type": "string"
+              },
+              {
+                "const": "rotation",
+                "description": "The Footprint's rotation in degrees, counter-clockwise.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The Component field with this name, such as `LCSC` or `MPN`.",
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "FabPreset": {
+            "additionalProperties": false,
+            "description": "What a fab wants: seed design rules, the Gerber and drill switches, and the BOM and CPL\ncolumns. The same shape is a shipped preset, a user's `.redafab` file and the body of a\nProject copy.",
+            "properties": {
+              "bom": {
+                "description": "The BOM columns, in order.",
+                "items": {
+                  "$ref": "#/$defs/Column"
+                },
+                "type": "array"
+              },
+              "cpl": {
+                "description": "The CPL columns, in order.",
+                "items": {
+                  "$ref": "#/$defs/Column"
+                },
+                "type": "array"
+              },
+              "gerber": {
+                "$ref": "#/$defs/GerberSettings"
+              },
+              "name": {
+                "description": "The preset's name, such as \"JLCPCB\". It names the preset a Project copy came from.",
+                "type": "string"
+              },
+              "rules": {
+                "$ref": "#/$defs/Rules",
+                "description": "The design rules a new board is seeded with, and the minimums a job checks against."
+              }
+            },
+            "required": [
+              "name",
+              "rules",
+              "gerber",
+              "bom",
+              "cpl"
+            ],
+            "type": "object"
+          },
+          "FileNaming": {
+            "description": "How the Gerber and drill files of a job are named.",
+            "oneOf": [
+              {
+                "const": "protel",
+                "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+                "type": "string"
+              }
+            ]
+          },
+          "GerberSettings": {
+            "additionalProperties": false,
+            "description": "The Gerber and drill switches of a Fab Preset.",
+            "properties": {
+              "naming": {
+                "$ref": "#/$defs/FileNaming",
+                "description": "How the files are named."
+              },
+              "x2_attributes": {
+                "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "x2_attributes",
+              "naming"
+            ],
+            "type": "object"
+          },
+          "Origin": {
+            "description": "Where a preset comes from.",
+            "oneOf": [
+              {
+                "const": "shipped",
+                "description": "Shipped with REDA.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "A `.redafab` file in the user's config folder.",
+                "type": "string"
+              }
+            ]
+          },
+          "Rules": {
+            "additionalProperties": false,
+            "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+            "properties": {
+              "annular_ring": {
+                "description": "Minimum annular ring of Vias and plated Pads.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "clearance": {
+                "description": "Minimum clearance between copper of different Nets.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "edge_clearance": {
+                "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_to_hole": {
+                "description": "Minimum spacing between hole edges.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "track_width": {
+                "description": "Minimum Track width.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_diameter": {
+                "description": "Minimum Via diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_hole": {
+                "description": "Minimum Via hole.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "clearance",
+              "track_width",
+              "via_diameter",
+              "via_hole",
+              "annular_ring",
+              "hole_to_hole",
+              "edge_clearance"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "default": {
+            "description": "The New Project dialog's default: the last preset used, else Generic.",
+            "type": "string"
+          },
+          "presets": {
+            "description": "The shipped presets, then the user's.",
+            "items": {
+              "$ref": "#/$defs/Available"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "description": "User preset files that could not be read.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "presets",
+          "default"
+        ],
+        "title": "PresetListResult",
+        "type": "object"
+      },
+      "title": "List Fab Presets"
+    },
+    {
+      "category": "output",
+      "description": "Saves one of the Project's Fab Preset copies as a user preset, a `.redafab` file in the per-user config folder, so new Projects can use it.",
+      "icon": "save",
+      "id": "fab_preset.save_user",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "default": null,
+            "description": "The user preset's name; defaults to the copy's name. A shipped preset's name is\nrefused, and a user preset of the same name is replaced.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preset": {
+            "description": "The Project copy to save.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "title": "PresetSaveUserParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The `.redafab` file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PresetSaveUserResult",
+        "type": "object"
+      },
+      "title": "Save as User Preset"
+    },
+    {
+      "category": "output",
+      "description": "Compares one of the Project's Fab Preset copies with the shipped or user preset of the same name it came from, field by field. `fab_preset.update_from_source` applies the result.",
+      "icon": "fab_preset",
+      "id": "fab_preset.source_diff",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Names one of the Project's Fab Preset copies.",
+        "properties": {
+          "preset": {
+            "description": "The Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "title": "PresetRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FieldChange": {
+            "description": "One field where a Project copy and its source differ.",
+            "properties": {
+              "field": {
+                "description": "The field, such as `rules.clearance`, `gerber.x2_attributes` or `bom`.",
+                "type": "string"
+              },
+              "project": {
+                "description": "The Project copy's value."
+              },
+              "source": {
+                "description": "The source's value."
+              }
+            },
+            "required": [
+              "field",
+              "project",
+              "source"
+            ],
+            "type": "object"
+          },
+          "Origin": {
+            "description": "Where a preset comes from.",
+            "oneOf": [
+              {
+                "const": "shipped",
+                "description": "Shipped with REDA.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "A `.redafab` file in the user's config folder.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "changes": {
+            "description": "Every field that differs; empty when the copy is up to date.",
+            "items": {
+              "$ref": "#/$defs/FieldChange"
+            },
+            "type": "array"
+          },
+          "origin": {
+            "$ref": "#/$defs/Origin",
+            "description": "Where the source preset comes from."
+          }
+        },
+        "required": [
+          "origin",
+          "changes"
+        ],
+        "title": "SourceDiff",
+        "type": "object"
+      },
+      "title": "Preview Update from Source"
+    },
+    {
+      "category": "output",
+      "description": "Replaces one of the Project's Fab Preset copies with the current values of the preset it came from, after `fab_preset.source_diff` has shown what changes. The board's own rules are not touched; use `pcb.rules.apply_fab_preset` for those. Returns the changes.",
+      "icon": "fab_preset_update",
+      "id": "fab_preset.update_from_source",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Names one of the Project's Fab Preset copies.",
+        "properties": {
+          "preset": {
+            "description": "The Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "title": "PresetRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FieldChange": {
+            "description": "One field where a Project copy and its source differ.",
+            "properties": {
+              "field": {
+                "description": "The field, such as `rules.clearance`, `gerber.x2_attributes` or `bom`.",
+                "type": "string"
+              },
+              "project": {
+                "description": "The Project copy's value."
+              },
+              "source": {
+                "description": "The source's value."
+              }
+            },
+            "required": [
+              "field",
+              "project",
+              "source"
+            ],
+            "type": "object"
+          },
+          "Origin": {
+            "description": "Where a preset comes from.",
+            "oneOf": [
+              {
+                "const": "shipped",
+                "description": "Shipped with REDA.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "A `.redafab` file in the user's config folder.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "changes": {
+            "description": "Every field that differs; empty when the copy is up to date.",
+            "items": {
+              "$ref": "#/$defs/FieldChange"
+            },
+            "type": "array"
+          },
+          "origin": {
+            "$ref": "#/$defs/Origin",
+            "description": "Where the source preset comes from."
+          }
+        },
+        "required": [
+          "origin",
+          "changes"
+        ],
+        "title": "SourceDiff",
+        "type": "object"
+      },
+      "title": "Update from Source"
+    },
+    {
       "category": "library",
       "description": "Runs the Library check on one element, one Library or every registered Library, and returns its Violations: off-grid Pins, duplicate Pin numbers, Pins with no Pad in some alternate Footprint, Pads mapped to no Pin and not marked unconnected, missing courtyards and broken references. Open elements are checked with their unsaved changes. It never blocks saving.",
       "icon": "rule",
@@ -4837,6 +5417,114 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Column": {
+            "additionalProperties": false,
+            "description": "One column of a BOM or CPL file.",
+            "properties": {
+              "header": {
+                "description": "The column header, such as \"LCSC Part #\".",
+                "type": "string"
+              },
+              "source": {
+                "$ref": "#/$defs/ColumnSource"
+              }
+            },
+            "required": [
+              "header",
+              "source"
+            ],
+            "type": "object"
+          },
+          "ColumnSource": {
+            "description": "Where a BOM or CPL column takes its values from.",
+            "oneOf": [
+              {
+                "const": "line",
+                "description": "The row's number, from 1.",
+                "type": "string"
+              },
+              {
+                "const": "designator",
+                "description": "The Designators of the row, in natural order (CPL: the one Designator).",
+                "type": "string"
+              },
+              {
+                "const": "quantity",
+                "description": "How many Components the BOM row groups.",
+                "type": "string"
+              },
+              {
+                "const": "value",
+                "description": "The Component's value, such as `10k`.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "The chosen Footprint's name.",
+                "type": "string"
+              },
+              {
+                "const": "mount",
+                "description": "`SMT` or `THT`.",
+                "type": "string"
+              },
+              {
+                "const": "mid_x",
+                "description": "The Footprint's centre, X, in mm from the CPL origin.",
+                "type": "string"
+              },
+              {
+                "const": "mid_y",
+                "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+                "type": "string"
+              },
+              {
+                "const": "layer",
+                "description": "`Top` or `Bottom`.",
+                "type": "string"
+              },
+              {
+                "const": "rotation",
+                "description": "The Footprint's rotation in degrees, counter-clockwise.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The Component field with this name, such as `LCSC` or `MPN`.",
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
           "ComponentType": {
             "description": "Whether a part's Components go into the BOM and may exist only on the board.",
             "enum": [
@@ -4986,6 +5674,16 @@
             },
             "type": "object"
           },
+          "FileNaming": {
+            "description": "How the Gerber and drill files of a job are named.",
+            "oneOf": [
+              {
+                "const": "protel",
+                "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+                "type": "string"
+              }
+            ]
+          },
           "Footprint": {
             "description": "The physical land pattern of a part. Coordinates are relative to its origin, and its\nzero orientation follows IPC-7351.",
             "properties": {
@@ -5110,6 +5808,25 @@
             ],
             "type": "object"
           },
+          "GerberSettings": {
+            "additionalProperties": false,
+            "description": "The Gerber and drill switches of a Fab Preset.",
+            "properties": {
+              "naming": {
+                "$ref": "#/$defs/FileNaming",
+                "description": "How the files are named."
+              },
+              "x2_attributes": {
+                "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "x2_attributes",
+              "naming"
+            ],
+            "type": "object"
+          },
           "GraphicShape": {
             "description": "The shape of a [`PcbGraphic`].",
             "oneOf": [
@@ -5228,6 +5945,158 @@
             "required": [
               "uuid",
               "layers"
+            ],
+            "type": "object"
+          },
+          "InDocument10": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the Symbol origin sits on the sheet."
+              },
+              "component": {
+                "$ref": "#/$defs/ComponentRef"
+              },
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields",
+                "description": "The value is `fields.value`."
+              },
+              "footprint": {
+                "description": "The chosen Footprint: the UUID of one of the Part's alternates, if it has any.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mirror": {
+                "description": "Mirrored left to right before rotating.",
+                "type": "boolean"
+              },
+              "not_fitted": {
+                "type": "boolean"
+              },
+              "part": {
+                "description": "The part-table entry on this sheet it was placed from.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Symbol Unit it shows.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "component",
+              "part",
+              "unit",
+              "at",
+              "rotation",
+              "designator",
+              "fields",
+              "component_type"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "mirrored": {
+                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
+                "type": "boolean"
+              },
+              "position": {
+                "$ref": "#/$defs/Point",
+                "description": "The left end of the first line's baseline."
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `position`; left out when 0.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "text",
+              "font",
+              "position",
+              "height",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "InDocument12": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "shape": {
+                "$ref": "#/$defs/GraphicShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "shape"
             ],
             "type": "object"
           },
@@ -5375,41 +6244,8 @@
           "InDocument7": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "font": {
-                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
-                "type": "string"
-              },
-              "height": {
-                "description": "The capital height.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "layer": {
-                "description": "The Layer it is drawn on.",
-                "format": "uuid",
-                "type": "string"
-              },
-              "mirrored": {
-                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
-                "type": "boolean"
-              },
-              "position": {
-                "$ref": "#/$defs/Point",
-                "description": "The left end of the first line's baseline."
-              },
-              "rotation": {
-                "description": "Counter-clockwise about `position`; left out when 0.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "text": {
-                "description": "The text; `\\n` starts a new line.",
-                "type": "string"
-              },
-              "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
-                "format": "int64",
-                "type": "integer"
+              "size": {
+                "$ref": "#/$defs/SheetSize"
               },
               "uuid": {
                 "format": "uuid",
@@ -5418,41 +6254,65 @@
             },
             "required": [
               "uuid",
-              "layer",
-              "text",
-              "font",
-              "position",
-              "height",
-              "thickness"
+              "size"
             ],
             "type": "object"
           },
           "InDocument8": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "layer": {
-                "description": "The Layer it is drawn on.",
-                "format": "uuid",
+              "footprints": {
+                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "hash": {
+                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
                 "type": "string"
               },
-              "shape": {
-                "$ref": "#/$defs/GraphicShape"
+              "part": {
+                "$ref": "#/$defs/Part"
+              },
+              "symbol": {
+                "$ref": "#/$defs/Symbol"
               },
               "uuid": {
+                "description": "The entry's own UUID, which Units point at.",
                 "format": "uuid",
                 "type": "string"
-              },
-              "width": {
-                "description": "The pen width.",
-                "format": "int64",
-                "type": "integer"
               }
             },
             "required": [
               "uuid",
-              "layer",
-              "width",
-              "shape"
+              "hash",
+              "part",
+              "symbol",
+              "footprints"
+            ],
+            "type": "object"
+          },
+          "InDocument9": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "footprint": {
+                "$ref": "#/$defs/Footprint"
+              },
+              "hash": {
+                "description": "The content hash of the Footprint, as copied.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "footprint"
             ],
             "type": "object"
           },
@@ -5525,6 +6385,17 @@
                   "name": {
                     "type": "string"
                   },
+                  "properties": {
+                    "$ref": "#/$defs/ProjectProperties",
+                    "default": {
+                      "author": "",
+                      "company": "",
+                      "date": "",
+                      "revision": "",
+                      "title": ""
+                    },
+                    "description": "The Project properties that fill the sheets' title blocks."
+                  },
                   "type": {
                     "const": "project",
                     "type": "string"
@@ -5538,7 +6409,8 @@
                   "type",
                   "uuid",
                   "name",
-                  "documents"
+                  "documents",
+                  "properties"
                 ],
                 "type": "object"
               },
@@ -5572,6 +6444,98 @@
                   "kind",
                   "name",
                   "title"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The Project's own copy of a Fab Preset, so outputs come out the same on any machine.\nIts fields are a [`FabPreset`]'s, after the UUID.",
+                "properties": {
+                  "bom": {
+                    "items": {
+                      "$ref": "#/$defs/Column"
+                    },
+                    "type": "array"
+                  },
+                  "cpl": {
+                    "items": {
+                      "$ref": "#/$defs/Column"
+                    },
+                    "type": "array"
+                  },
+                  "gerber": {
+                    "$ref": "#/$defs/GerberSettings"
+                  },
+                  "name": {
+                    "description": "The name of the preset it was copied from.",
+                    "type": "string"
+                  },
+                  "rules": {
+                    "$ref": "#/$defs/Rules"
+                  },
+                  "type": {
+                    "const": "fab_preset",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "name",
+                  "rules",
+                  "gerber",
+                  "bom",
+                  "cpl"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A named recipe for manufacturing files, stored in the Project file.",
+                "properties": {
+                  "destination": {
+                    "description": "The output folder relative to the Project folder, `/`-separated; left out for\n`outputs/<job name>`.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fab_preset": {
+                    "description": "The Project copy of the Fab Preset it uses.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "outputs": {
+                    "$ref": "#/$defs/Outputs"
+                  },
+                  "pcb": {
+                    "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "output_job",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "name",
+                  "pcb",
+                  "fab_preset",
+                  "outputs"
                 ],
                 "type": "object"
               },
@@ -5697,7 +6661,7 @@
                 "$ref": "#/$defs/InDocument7",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "sheet_frame",
                     "type": "string"
                   }
                 },
@@ -5710,6 +6674,58 @@
                 "$ref": "#/$defs/InDocument8",
                 "properties": {
                   "type": {
+                    "const": "part_entry",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument9",
+                "properties": {
+                  "type": {
+                    "const": "footprint_copy",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument10",
+                "properties": {
+                  "type": {
+                    "const": "unit",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument11",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument12",
+                "properties": {
+                  "type": {
                     "const": "pcb_graphic",
                     "type": "string"
                   }
@@ -5720,6 +6736,35 @@
                 "type": "object"
               }
             ]
+          },
+          "Outputs": {
+            "additionalProperties": false,
+            "description": "Which files an Output Job writes.",
+            "properties": {
+              "bom": {
+                "description": "The CSV bill of materials.",
+                "type": "boolean"
+              },
+              "cpl": {
+                "description": "The CSV pick-and-place file.",
+                "type": "boolean"
+              },
+              "drill": {
+                "description": "Excellon drill files, plated and non-plated.",
+                "type": "boolean"
+              },
+              "gerber": {
+                "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "gerber",
+              "drill",
+              "bom",
+              "cpl"
+            ],
+            "type": "object"
           },
           "Pad": {
             "additionalProperties": false,
@@ -6005,6 +7050,41 @@
             ],
             "type": "object"
           },
+          "ProjectProperties": {
+            "additionalProperties": false,
+            "description": "The Project properties: fixed free-text fields that fill each sheet's title block.",
+            "properties": {
+              "author": {
+                "default": "",
+                "type": "string"
+              },
+              "company": {
+                "default": "",
+                "type": "string"
+              },
+              "date": {
+                "default": "",
+                "description": "Free text, such as `2026-11-01`.",
+                "type": "string"
+              },
+              "revision": {
+                "default": "",
+                "type": "string"
+              },
+              "title": {
+                "default": "",
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "revision",
+              "date",
+              "author",
+              "company"
+            ],
+            "type": "object"
+          },
           "Rules": {
             "additionalProperties": false,
             "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
@@ -6218,6 +7298,20 @@
                 "type": "object"
               }
             ]
+          },
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
           },
           "Side": {
             "description": "Which face of the board a sided Layer is on.",
@@ -6403,6 +7497,16 @@
                 "type": "string"
               },
               {
+                "const": "fab_preset",
+                "description": "The Project's copy of a Fab Preset.",
+                "type": "string"
+              },
+              {
+                "const": "output_job",
+                "description": "A named recipe for manufacturing files.",
+                "type": "string"
+              },
+              {
                 "const": "symbol",
                 "description": "An open Library Symbol.",
                 "type": "string"
@@ -6445,6 +7549,26 @@
               {
                 "const": "net",
                 "description": "A PCB Net.",
+                "type": "string"
+              },
+              {
+                "const": "sheet_frame",
+                "description": "A Schematic Sheet's frame settings (its size).",
+                "type": "string"
+              },
+              {
+                "const": "part_entry",
+                "description": "An entry of a sheet's part table: a copied Part with its Symbol.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_copy",
+                "description": "A copied Footprint in a sheet's part table.",
+                "type": "string"
+              },
+              {
+                "const": "unit",
+                "description": "A placed Unit of a Component.",
                 "type": "string"
               },
               {
@@ -6491,6 +7615,114 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Column": {
+            "additionalProperties": false,
+            "description": "One column of a BOM or CPL file.",
+            "properties": {
+              "header": {
+                "description": "The column header, such as \"LCSC Part #\".",
+                "type": "string"
+              },
+              "source": {
+                "$ref": "#/$defs/ColumnSource"
+              }
+            },
+            "required": [
+              "header",
+              "source"
+            ],
+            "type": "object"
+          },
+          "ColumnSource": {
+            "description": "Where a BOM or CPL column takes its values from.",
+            "oneOf": [
+              {
+                "const": "line",
+                "description": "The row's number, from 1.",
+                "type": "string"
+              },
+              {
+                "const": "designator",
+                "description": "The Designators of the row, in natural order (CPL: the one Designator).",
+                "type": "string"
+              },
+              {
+                "const": "quantity",
+                "description": "How many Components the BOM row groups.",
+                "type": "string"
+              },
+              {
+                "const": "value",
+                "description": "The Component's value, such as `10k`.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "The chosen Footprint's name.",
+                "type": "string"
+              },
+              {
+                "const": "mount",
+                "description": "`SMT` or `THT`.",
+                "type": "string"
+              },
+              {
+                "const": "mid_x",
+                "description": "The Footprint's centre, X, in mm from the CPL origin.",
+                "type": "string"
+              },
+              {
+                "const": "mid_y",
+                "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+                "type": "string"
+              },
+              {
+                "const": "layer",
+                "description": "`Top` or `Bottom`.",
+                "type": "string"
+              },
+              {
+                "const": "rotation",
+                "description": "The Footprint's rotation in degrees, counter-clockwise.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The Component field with this name, such as `LCSC` or `MPN`.",
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
           "ComponentType": {
             "description": "Whether a part's Components go into the BOM and may exist only on the board.",
             "enum": [
@@ -6640,6 +7872,16 @@
             },
             "type": "object"
           },
+          "FileNaming": {
+            "description": "How the Gerber and drill files of a job are named.",
+            "oneOf": [
+              {
+                "const": "protel",
+                "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+                "type": "string"
+              }
+            ]
+          },
           "Footprint": {
             "description": "The physical land pattern of a part. Coordinates are relative to its origin, and its\nzero orientation follows IPC-7351.",
             "properties": {
@@ -6764,6 +8006,25 @@
             ],
             "type": "object"
           },
+          "GerberSettings": {
+            "additionalProperties": false,
+            "description": "The Gerber and drill switches of a Fab Preset.",
+            "properties": {
+              "naming": {
+                "$ref": "#/$defs/FileNaming",
+                "description": "How the files are named."
+              },
+              "x2_attributes": {
+                "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "x2_attributes",
+              "naming"
+            ],
+            "type": "object"
+          },
           "GraphicShape": {
             "description": "The shape of a [`PcbGraphic`].",
             "oneOf": [
@@ -6882,6 +8143,158 @@
             "required": [
               "uuid",
               "layers"
+            ],
+            "type": "object"
+          },
+          "InDocument10": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the Symbol origin sits on the sheet."
+              },
+              "component": {
+                "$ref": "#/$defs/ComponentRef"
+              },
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields",
+                "description": "The value is `fields.value`."
+              },
+              "footprint": {
+                "description": "The chosen Footprint: the UUID of one of the Part's alternates, if it has any.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mirror": {
+                "description": "Mirrored left to right before rotating.",
+                "type": "boolean"
+              },
+              "not_fitted": {
+                "type": "boolean"
+              },
+              "part": {
+                "description": "The part-table entry on this sheet it was placed from.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Symbol Unit it shows.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "component",
+              "part",
+              "unit",
+              "at",
+              "rotation",
+              "designator",
+              "fields",
+              "component_type"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "mirrored": {
+                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
+                "type": "boolean"
+              },
+              "position": {
+                "$ref": "#/$defs/Point",
+                "description": "The left end of the first line's baseline."
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `position`; left out when 0.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "text",
+              "font",
+              "position",
+              "height",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "InDocument12": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "shape": {
+                "$ref": "#/$defs/GraphicShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "shape"
             ],
             "type": "object"
           },
@@ -7029,41 +8442,8 @@
           "InDocument7": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "font": {
-                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
-                "type": "string"
-              },
-              "height": {
-                "description": "The capital height.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "layer": {
-                "description": "The Layer it is drawn on.",
-                "format": "uuid",
-                "type": "string"
-              },
-              "mirrored": {
-                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
-                "type": "boolean"
-              },
-              "position": {
-                "$ref": "#/$defs/Point",
-                "description": "The left end of the first line's baseline."
-              },
-              "rotation": {
-                "description": "Counter-clockwise about `position`; left out when 0.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "text": {
-                "description": "The text; `\\n` starts a new line.",
-                "type": "string"
-              },
-              "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
-                "format": "int64",
-                "type": "integer"
+              "size": {
+                "$ref": "#/$defs/SheetSize"
               },
               "uuid": {
                 "format": "uuid",
@@ -7072,41 +8452,65 @@
             },
             "required": [
               "uuid",
-              "layer",
-              "text",
-              "font",
-              "position",
-              "height",
-              "thickness"
+              "size"
             ],
             "type": "object"
           },
           "InDocument8": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "layer": {
-                "description": "The Layer it is drawn on.",
-                "format": "uuid",
+              "footprints": {
+                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "hash": {
+                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
                 "type": "string"
               },
-              "shape": {
-                "$ref": "#/$defs/GraphicShape"
+              "part": {
+                "$ref": "#/$defs/Part"
+              },
+              "symbol": {
+                "$ref": "#/$defs/Symbol"
               },
               "uuid": {
+                "description": "The entry's own UUID, which Units point at.",
                 "format": "uuid",
                 "type": "string"
-              },
-              "width": {
-                "description": "The pen width.",
-                "format": "int64",
-                "type": "integer"
               }
             },
             "required": [
               "uuid",
-              "layer",
-              "width",
-              "shape"
+              "hash",
+              "part",
+              "symbol",
+              "footprints"
+            ],
+            "type": "object"
+          },
+          "InDocument9": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "footprint": {
+                "$ref": "#/$defs/Footprint"
+              },
+              "hash": {
+                "description": "The content hash of the Footprint, as copied.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "footprint"
             ],
             "type": "object"
           },
@@ -7179,6 +8583,17 @@
                   "name": {
                     "type": "string"
                   },
+                  "properties": {
+                    "$ref": "#/$defs/ProjectProperties",
+                    "default": {
+                      "author": "",
+                      "company": "",
+                      "date": "",
+                      "revision": "",
+                      "title": ""
+                    },
+                    "description": "The Project properties that fill the sheets' title blocks."
+                  },
                   "type": {
                     "const": "project",
                     "type": "string"
@@ -7192,7 +8607,8 @@
                   "type",
                   "uuid",
                   "name",
-                  "documents"
+                  "documents",
+                  "properties"
                 ],
                 "type": "object"
               },
@@ -7226,6 +8642,98 @@
                   "kind",
                   "name",
                   "title"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The Project's own copy of a Fab Preset, so outputs come out the same on any machine.\nIts fields are a [`FabPreset`]'s, after the UUID.",
+                "properties": {
+                  "bom": {
+                    "items": {
+                      "$ref": "#/$defs/Column"
+                    },
+                    "type": "array"
+                  },
+                  "cpl": {
+                    "items": {
+                      "$ref": "#/$defs/Column"
+                    },
+                    "type": "array"
+                  },
+                  "gerber": {
+                    "$ref": "#/$defs/GerberSettings"
+                  },
+                  "name": {
+                    "description": "The name of the preset it was copied from.",
+                    "type": "string"
+                  },
+                  "rules": {
+                    "$ref": "#/$defs/Rules"
+                  },
+                  "type": {
+                    "const": "fab_preset",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "name",
+                  "rules",
+                  "gerber",
+                  "bom",
+                  "cpl"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A named recipe for manufacturing files, stored in the Project file.",
+                "properties": {
+                  "destination": {
+                    "description": "The output folder relative to the Project folder, `/`-separated; left out for\n`outputs/<job name>`.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fab_preset": {
+                    "description": "The Project copy of the Fab Preset it uses.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "outputs": {
+                    "$ref": "#/$defs/Outputs"
+                  },
+                  "pcb": {
+                    "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "output_job",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "name",
+                  "pcb",
+                  "fab_preset",
+                  "outputs"
                 ],
                 "type": "object"
               },
@@ -7351,7 +8859,7 @@
                 "$ref": "#/$defs/InDocument7",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "sheet_frame",
                     "type": "string"
                   }
                 },
@@ -7362,6 +8870,58 @@
               },
               {
                 "$ref": "#/$defs/InDocument8",
+                "properties": {
+                  "type": {
+                    "const": "part_entry",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument9",
+                "properties": {
+                  "type": {
+                    "const": "footprint_copy",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument10",
+                "properties": {
+                  "type": {
+                    "const": "unit",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument11",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument12",
                 "properties": {
                   "type": {
                     "const": "pcb_graphic",
@@ -7393,6 +8953,35 @@
             "required": [
               "document",
               "object"
+            ],
+            "type": "object"
+          },
+          "Outputs": {
+            "additionalProperties": false,
+            "description": "Which files an Output Job writes.",
+            "properties": {
+              "bom": {
+                "description": "The CSV bill of materials.",
+                "type": "boolean"
+              },
+              "cpl": {
+                "description": "The CSV pick-and-place file.",
+                "type": "boolean"
+              },
+              "drill": {
+                "description": "Excellon drill files, plated and non-plated.",
+                "type": "boolean"
+              },
+              "gerber": {
+                "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "gerber",
+              "drill",
+              "bom",
+              "cpl"
             ],
             "type": "object"
           },
@@ -7680,6 +9269,41 @@
             ],
             "type": "object"
           },
+          "ProjectProperties": {
+            "additionalProperties": false,
+            "description": "The Project properties: fixed free-text fields that fill each sheet's title block.",
+            "properties": {
+              "author": {
+                "default": "",
+                "type": "string"
+              },
+              "company": {
+                "default": "",
+                "type": "string"
+              },
+              "date": {
+                "default": "",
+                "description": "Free text, such as `2026-11-01`.",
+                "type": "string"
+              },
+              "revision": {
+                "default": "",
+                "type": "string"
+              },
+              "title": {
+                "default": "",
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "revision",
+              "date",
+              "author",
+              "company"
+            ],
+            "type": "object"
+          },
           "Rules": {
             "additionalProperties": false,
             "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
@@ -7894,6 +9518,20 @@
               }
             ]
           },
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          },
           "Side": {
             "description": "Which face of the board a sided Layer is on.",
             "enum": [
@@ -8050,6 +9688,380 @@
         "type": "object"
       },
       "title": "Query Objects"
+    },
+    {
+      "category": "output",
+      "description": "Adds an Output Job that plots a PCB Document with one of the Project's Fab Preset copies. It writes every output to `outputs/<job name>` unless told otherwise.",
+      "icon": "output_job_add",
+      "id": "output.job.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "OutputsParam": {
+            "additionalProperties": false,
+            "description": "Which outputs to write; each one left out keeps its current value (on for a new job).",
+            "properties": {
+              "bom": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "cpl": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "drill": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "gerber": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "default": null,
+            "description": "The output folder inside the Project folder; defaults to `outputs/<job name>`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fab_preset": {
+            "description": "The Project's copy of the Fab Preset the job uses (`fab_preset.add` makes one).",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The job name; defaults to the preset's name, numbered if taken.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outputs": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OutputsParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which outputs to write; every output by default."
+          },
+          "pcb": {
+            "default": null,
+            "description": "The PCB Document to plot; defaults to the Project's PCB Document.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "fab_preset"
+        ],
+        "title": "JobAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates a job returns.",
+        "properties": {
+          "name": {
+            "description": "Its name.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "The new job's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name"
+        ],
+        "title": "JobCreated",
+        "type": "object"
+      },
+      "title": "New Output Job"
+    },
+    {
+      "category": "output",
+      "description": "Deletes an Output Job. Its Fab Preset copy and any files it wrote stay.",
+      "icon": "delete",
+      "id": "output.job.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "job": {
+            "description": "The job's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job"
+        ],
+        "title": "JobRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Output Job"
+    },
+    {
+      "category": "output",
+      "description": "Adds a copy of an Output Job named \"<name> copy\" (numbered if taken). A custom destination is not copied, so the two jobs write to different folders.",
+      "icon": "duplicate",
+      "id": "output.job.duplicate",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "job": {
+            "description": "The job's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job"
+        ],
+        "title": "JobRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates a job returns.",
+        "properties": {
+          "name": {
+            "description": "Its name.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "The new job's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name"
+        ],
+        "title": "JobCreated",
+        "type": "object"
+      },
+      "title": "Duplicate Output Job"
+    },
+    {
+      "category": "output",
+      "description": "Changes an Output Job's name, PCB Document, Fab Preset copy, outputs or destination. Values left out are kept; an empty `destination` restores the default. Returns the job.",
+      "icon": "output_job_edit",
+      "id": "output.job.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "OutputsParam": {
+            "additionalProperties": false,
+            "description": "Which outputs to write; each one left out keeps its current value (on for a new job).",
+            "properties": {
+              "bom": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "cpl": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "drill": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "gerber": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "default": null,
+            "description": "The output folder inside the Project folder; empty for `outputs/<job name>`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fab_preset": {
+            "default": null,
+            "description": "Another of the Project's Fab Preset copies.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "job": {
+            "description": "The job's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outputs": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OutputsParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pcb": {
+            "default": null,
+            "description": "The PCB Document to plot, for instance to repair a broken job.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "job"
+        ],
+        "title": "JobSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Outputs": {
+            "additionalProperties": false,
+            "description": "Which files an Output Job writes.",
+            "properties": {
+              "bom": {
+                "description": "The CSV bill of materials.",
+                "type": "boolean"
+              },
+              "cpl": {
+                "description": "The CSV pick-and-place file.",
+                "type": "boolean"
+              },
+              "drill": {
+                "description": "Excellon drill files, plated and non-plated.",
+                "type": "boolean"
+              },
+              "gerber": {
+                "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "gerber",
+              "drill",
+              "bom",
+              "cpl"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "A named recipe for manufacturing files, stored in the Project file.",
+        "properties": {
+          "destination": {
+            "description": "The output folder relative to the Project folder, `/`-separated; left out for\n`outputs/<job name>`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fab_preset": {
+            "description": "The Project copy of the Fab Preset it uses.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "outputs": {
+            "$ref": "#/$defs/Outputs"
+          },
+          "pcb": {
+            "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name",
+          "pcb",
+          "fab_preset",
+          "outputs"
+        ],
+        "title": "OutputJob",
+        "type": "object"
+      },
+      "title": "Edit Output Job"
     },
     {
       "category": "pcb",
@@ -9259,6 +11271,146 @@
     },
     {
       "category": "pcb",
+      "description": "Re-seeds the board-wide design rules from one of the Project's Fab Preset copies, after `pcb.rules.fab_preset_diff` has shown what changes. Net Class overrides and DRC severities are kept. Returns the changes.",
+      "icon": "rules",
+      "id": "pcb.rules.apply_fab_preset",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Names one of the Project's Fab Preset copies.",
+        "properties": {
+          "preset": {
+            "description": "The Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "title": "PresetRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "RuleChange": {
+            "description": "One rule the preset would change.",
+            "properties": {
+              "board": {
+                "description": "The board's value now.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "preset": {
+                "description": "The preset's value.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rule": {
+                "description": "The rule, as `pcb.rules.set` names it.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule",
+              "board",
+              "preset"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "changes": {
+            "description": "Every rule that differs, in `pcb.rules.set` order; empty when they all match.",
+            "items": {
+              "$ref": "#/$defs/RuleChange"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "changes"
+        ],
+        "title": "RuleChanges",
+        "type": "object"
+      },
+      "title": "Apply Fab Preset Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Lists the board-wide design rules that applying one of the Project's Fab Preset copies would change, with the board's and the preset's values. `pcb.rules.apply_fab_preset` applies them.",
+      "icon": "rules",
+      "id": "pcb.rules.fab_preset_diff",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Names one of the Project's Fab Preset copies.",
+        "properties": {
+          "preset": {
+            "description": "The Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "title": "PresetRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "RuleChange": {
+            "description": "One rule the preset would change.",
+            "properties": {
+              "board": {
+                "description": "The board's value now.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "preset": {
+                "description": "The preset's value.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rule": {
+                "description": "The rule, as `pcb.rules.set` names it.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule",
+              "board",
+              "preset"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "changes": {
+            "description": "Every rule that differs, in `pcb.rules.set` order; empty when they all match.",
+            "items": {
+              "$ref": "#/$defs/RuleChange"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "changes"
+        ],
+        "title": "RuleChanges",
+        "type": "object"
+      },
+      "title": "Preview Fab Preset Rules"
+    },
+    {
+      "category": "pcb",
       "description": "Sets board-wide design rules: any of `clearance`, `track_width`, `via_diameter`, `via_hole`, `annular_ring`, `hole_to_hole` and `edge_clearance`. Rules left out keep their values. Returns the rules.",
       "icon": "rules",
       "id": "pcb.rules.set",
@@ -9997,14 +12149,78 @@
     },
     {
       "category": "project",
-      "description": "Creates a Project called `name` in the folder `<path>/<name>/` with one empty Schematic Sheet titled \"Sheet 1\", and opens it. The folder must not exist or be empty. Nothing is written until `project.save`.",
+      "description": "Creates a Project called `name` in the folder `<path>/<name>/`, writes it to disk and opens it: a first Schematic Sheet titled \"Sheet 1\", a PCB Document whose rules are seeded from `fab_preset` (default Generic), optionally a rectangular Board Outline (`board`), and one Output Job named after the preset. A folder that exists and is not empty is refused.",
       "icon": "project_new",
       "id": "project.new",
       "kind": "file",
       "params": {
+        "$defs": {
+          "BoardParam": {
+            "additionalProperties": false,
+            "description": "A rectangular Board Outline with its lower left corner at the origin.",
+            "properties": {
+              "corner_radius": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Rounds each corner with this radius; left out for sharp corners."
+              },
+              "height": {
+                "$ref": "#/$defs/Length"
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "board": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BoardParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A rectangular Board Outline to start with; left out to draw it later."
+          },
+          "fab_preset": {
+            "default": null,
+            "description": "The Fab Preset that seeds the board's rules and names the first Output Job: a\nshipped preset (Generic, JLCPCB, PCBWay) or one of the user's `.redafab` presets.\nDefaults to Generic.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "description": "The Project name: its folder name and the stem of its `.reda` file.",
             "type": "string"
@@ -10293,6 +12509,92 @@
     },
     {
       "category": "project",
+      "description": "Sets the Project properties (title, revision, date, author, company) that fill every sheet's title block. Properties left out keep their value. Returns all of them.",
+      "icon": "properties",
+      "id": "project.properties.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The properties to change; those left out keep their value. An empty string clears one.",
+        "properties": {
+          "author": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "company": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "description": "Free text, such as `2026-11-01`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "PropertiesSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The Project properties: fixed free-text fields that fill each sheet's title block.",
+        "properties": {
+          "author": {
+            "default": "",
+            "type": "string"
+          },
+          "company": {
+            "default": "",
+            "type": "string"
+          },
+          "date": {
+            "default": "",
+            "description": "Free text, such as `2026-11-01`.",
+            "type": "string"
+          },
+          "revision": {
+            "default": "",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "revision",
+          "date",
+          "author",
+          "company"
+        ],
+        "title": "ProjectProperties",
+        "type": "object"
+      },
+      "title": "Set Project Properties"
+    },
+    {
+      "category": "project",
       "description": "Writes the Project file and every Document to the Project folder, each through a temp file and a rename. With `document`, writes only that Document's file, or only the Project file for `\"project\"`.",
       "icon": "save_all",
       "id": "project.save",
@@ -10355,6 +12657,545 @@
         "type": "object"
       },
       "title": "Save All"
+    },
+    {
+      "category": "schematic",
+      "description": "Places a new Component from a Library Part on a Schematic Sheet: copies the Part with its Symbol and every alternate Footprint into the sheet's part table (reusing an identical copy), and places one Unit with the next free Designator for the Symbol's prefix and the Part's fields. Place the other Units with `schematic.unit.place`.",
+      "icon": "component_place",
+      "id": "schematic.component.place",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/At",
+            "description": "Where the Symbol origin goes."
+          },
+          "document": {
+            "description": "The Schematic Sheet to place on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The Footprint, by UUID: one of the Part's alternates. The first by default.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mirror": {
+            "default": false,
+            "description": "Mirror left to right before rotating.",
+            "type": "boolean"
+          },
+          "part": {
+            "description": "The Library Part to place, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Counter-clockwise; 0 by default."
+          },
+          "unit": {
+            "description": "Which Unit to place, by name (such as `B`); the first by default.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The new Unit's UUID; a fresh one by default.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "document",
+          "part",
+          "at"
+        ],
+        "title": "ComponentPlaceParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What placing a Unit made.",
+        "properties": {
+          "component": {
+            "$ref": "#/$defs/ComponentRef"
+          },
+          "designator": {
+            "type": "string"
+          },
+          "part_entry": {
+            "description": "The part-table entry on the sheet the Unit was placed from.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "description": "The placed Unit.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "component",
+          "designator",
+          "part_entry"
+        ],
+        "title": "PlacedResult",
+        "type": "object"
+      },
+      "title": "Place Component"
+    },
+    {
+      "category": "schematic",
+      "description": "Sets a Schematic Sheet's paper size (A4, A3, Letter…). Sheets are landscape. A new sheet is A4.",
+      "icon": "sheet_size",
+      "id": "schematic.sheet.set_size",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet's Document UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "size": {
+            "$ref": "#/$defs/SheetSize",
+            "description": "The paper size; sheets are landscape."
+          }
+        },
+        "required": [
+          "document",
+          "size"
+        ],
+        "title": "SheetSetSizeParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "A sheet's paper size with its landscape dimensions.",
+        "properties": {
+          "height": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "size": {
+            "$ref": "#/$defs/SheetSize"
+          },
+          "width": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "size",
+          "width",
+          "height"
+        ],
+        "title": "SheetFrameView",
+        "type": "object"
+      },
+      "title": "Set Sheet Size"
+    },
+    {
+      "category": "schematic",
+      "description": "Returns a Schematic Sheet's title block as drawn: the Project properties (title, revision, date, author, company), the sheet's title, \"sheet n of m\" from the Document order, and the paper size.",
+      "icon": "title_block",
+      "id": "schematic.sheet.title_block",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params naming one Schematic Sheet.",
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet's Document UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "SheetRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "A sheet's built-in title block, filled from the Project properties and the sheet.",
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "height": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "sheet_count": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sheet_number": {
+            "description": "The sheet's place among the Project's Schematic Sheets, from 1: \"sheet n of m\".",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sheet_title": {
+            "description": "The sheet's own title, such as \"Sheet 1\".",
+            "type": "string"
+          },
+          "size": {
+            "$ref": "#/$defs/SheetSize"
+          },
+          "title": {
+            "description": "The Project title.",
+            "type": "string"
+          },
+          "width": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "revision",
+          "date",
+          "author",
+          "company",
+          "sheet_title",
+          "sheet_number",
+          "sheet_count",
+          "size",
+          "width",
+          "height"
+        ],
+        "title": "TitleBlock",
+        "type": "object"
+      },
+      "title": "Sheet Title Block"
+    },
+    {
+      "category": "schematic",
+      "description": "Places a further Unit of an existing Component, on any Schematic Sheet, with the Component's Designator and data. By default it places the first Unit not yet placed. No Library is needed: the Part comes from the part table of a sheet the Component is already on.",
+      "icon": "unit_place",
+      "id": "schematic.unit.place",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/At",
+            "description": "Where the Symbol origin goes."
+          },
+          "component": {
+            "description": "The Component, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "document": {
+            "description": "The Schematic Sheet to place on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "mirror": {
+            "default": false,
+            "description": "Mirror left to right before rotating.",
+            "type": "boolean"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Counter-clockwise; 0 by default."
+          },
+          "unit": {
+            "description": "Which Unit to place, by name; by default the first one not yet placed.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The new Unit's UUID; a fresh one by default.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "document",
+          "component",
+          "at"
+        ],
+        "title": "UnitPlaceParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What placing a Unit made.",
+        "properties": {
+          "component": {
+            "$ref": "#/$defs/ComponentRef"
+          },
+          "designator": {
+            "type": "string"
+          },
+          "part_entry": {
+            "description": "The part-table entry on the sheet the Unit was placed from.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "description": "The placed Unit.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "component",
+          "designator",
+          "part_entry"
+        ],
+        "title": "PlacedResult",
+        "type": "object"
+      },
+      "title": "Place Unit"
     }
   ]
 }

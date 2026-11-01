@@ -195,11 +195,19 @@ fn undoing_past_the_saved_state_dirties_again() {
 fn saving_one_document_writes_only_its_file_and_clears_only_its_dirty_state() {
     let dir = TempDir::new("save-one");
     let mut engine = new_project(&dir);
+    let folder = dir.path().join("Demo");
+    // project.new wrote everything; clear the folder to see what each save writes.
+    std::fs::remove_dir_all(&folder).unwrap();
+    std::fs::create_dir(&folder).unwrap();
     let sheet_2 = add_sheet(&mut engine, "second");
+    set_probes(
+        &mut engine,
+        json!([{"uuid": P1, "document": SHEET_1, "value": 1}]),
+    );
 
     let out = engine.run_ok("project.save", json!({"document": sheet_2}));
     assert_eq!(out["written"], json!(["second.redasch"]));
-    let tree = read_tree(&dir.path().join("Demo"));
+    let tree = read_tree(&folder);
     assert_eq!(tree.keys().collect::<Vec<_>>(), ["second.redasch"]);
     assert_eq!(
         engine.dirty_scopes(),

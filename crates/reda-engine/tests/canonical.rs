@@ -145,6 +145,31 @@ fn containers_put_each_child_on_its_own_line() {
 }
 
 #[test]
+fn containers_can_spread_several_child_fields() {
+    let mut w = CanonicalWriter::new(1);
+    w.containers_spread("parts", [shape(1, pts(1))], |s| s.uuid, &["tags", "points"])
+        .unwrap();
+    let text = String::from_utf8(w.finish()).unwrap();
+    assert_eq!(
+        text,
+        r#"{
+  "format": 1,
+  "parts": [
+    {"uuid":"00000000-0000-4000-8000-000000000001","name":"s","tags":[
+      "a"
+    ],"points":[
+      {"x":0,"y":0}
+    ]}
+  ]
+}
+"#
+    );
+    let mut w = CanonicalWriter::new(1);
+    let missing = w.containers_spread("parts", [shape(1, pts(1))], |s| s.uuid, &["pins"]);
+    assert!(missing.is_err());
+}
+
+#[test]
 fn a_container_with_no_children_stays_on_one_line() {
     let mut w = CanonicalWriter::new(1);
     w.container("outline", &shape(9, vec![]), "points").unwrap();

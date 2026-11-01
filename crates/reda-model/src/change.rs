@@ -8,10 +8,14 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
 };
-use crate::{DocumentEntry, Footprint, LibraryElement, Part, ProjectProps, Symbol, Uuid};
+use crate::{
+    DocumentEntry, Footprint, FootprintCopy, LibraryElement, Part, PartEntry, ProjectProps,
+    SheetFrame, Symbol, UnitInstance, Uuid,
+};
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
 // `Project::object`, `Project::objects` and `Project::put`.
@@ -21,6 +25,8 @@ use crate::{DocumentEntry, Footprint, LibraryElement, Part, ProjectProps, Symbol
 pub enum Object {
     Project(ProjectProps),
     Document(DocumentEntry),
+    FabPreset(ProjectFabPreset),
+    OutputJob(OutputJob),
     /// An open Library element (see [`crate::Project::open_element`]).
     Symbol(Symbol),
     Footprint(Footprint),
@@ -31,6 +37,10 @@ pub enum Object {
     BoardCutout(InDocument<BoardCutout>),
     NetClass(InDocument<NetClass>),
     Net(InDocument<Net>),
+    SheetFrame(InDocument<SheetFrame>),
+    PartEntry(InDocument<PartEntry>),
+    FootprintCopy(InDocument<FootprintCopy>),
+    Unit(InDocument<UnitInstance>),
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
     // Left out of schemas so the catalogue is the same with and without the feature.
@@ -50,6 +60,10 @@ pub enum ObjectType {
     Project,
     /// A Document's entry in the Project's Document list.
     Document,
+    /// The Project's copy of a Fab Preset.
+    FabPreset,
+    /// A named recipe for manufacturing files.
+    OutputJob,
     /// An open Library Symbol.
     Symbol,
     /// An open Library Footprint.
@@ -68,6 +82,14 @@ pub enum ObjectType {
     NetClass,
     /// A PCB Net.
     Net,
+    /// A Schematic Sheet's frame settings (its size).
+    SheetFrame,
+    /// An entry of a sheet's part table: a copied Part with its Symbol.
+    PartEntry,
+    /// A copied Footprint in a sheet's part table.
+    FootprintCopy,
+    /// A placed Unit of a Component.
+    Unit,
     /// Free text on a PCB Layer.
     PcbText,
     /// A line, arc or rectangle on a PCB Layer.
@@ -83,6 +105,8 @@ impl Object {
         match self {
             Object::Project(p) => p.uuid,
             Object::Document(d) => d.uuid,
+            Object::FabPreset(o) => o.uuid,
+            Object::OutputJob(o) => o.uuid,
             Object::Symbol(s) => s.uuid,
             Object::Footprint(f) => f.uuid,
             Object::Part(p) => p.uuid,
@@ -92,6 +116,10 @@ impl Object {
             Object::BoardCutout(o) => o.uuid,
             Object::NetClass(o) => o.uuid,
             Object::Net(o) => o.uuid,
+            Object::SheetFrame(o) => o.uuid,
+            Object::PartEntry(o) => o.uuid,
+            Object::FootprintCopy(o) => o.uuid,
+            Object::Unit(o) => o.uuid,
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
             #[cfg(feature = "test-objects")]
@@ -103,6 +131,8 @@ impl Object {
         match self {
             Object::Project(_) => ObjectType::Project,
             Object::Document(_) => ObjectType::Document,
+            Object::FabPreset(_) => ObjectType::FabPreset,
+            Object::OutputJob(_) => ObjectType::OutputJob,
             Object::Symbol(_) => ObjectType::Symbol,
             Object::Footprint(_) => ObjectType::Footprint,
             Object::Part(_) => ObjectType::Part,
@@ -112,6 +142,10 @@ impl Object {
             Object::BoardCutout(_) => ObjectType::BoardCutout,
             Object::NetClass(_) => ObjectType::NetClass,
             Object::Net(_) => ObjectType::Net,
+            Object::SheetFrame(_) => ObjectType::SheetFrame,
+            Object::PartEntry(_) => ObjectType::PartEntry,
+            Object::FootprintCopy(_) => ObjectType::FootprintCopy,
+            Object::Unit(_) => ObjectType::Unit,
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             #[cfg(feature = "test-objects")]
@@ -122,7 +156,10 @@ impl Object {
     /// The undo stack and dirty flag this object belongs to.
     pub fn scope(&self) -> Scope {
         match self {
-            Object::Project(_) | Object::Document(_) => Scope::Project,
+            Object::Project(_)
+            | Object::Document(_)
+            | Object::FabPreset(_)
+            | Object::OutputJob(_) => Scope::Project,
             Object::Symbol(_) | Object::Footprint(_) | Object::Part(_) => {
                 Scope::Element(self.uuid())
             }
@@ -132,6 +169,10 @@ impl Object {
             Object::BoardCutout(o) => Scope::Document(o.document),
             Object::NetClass(o) => Scope::Document(o.document),
             Object::Net(o) => Scope::Document(o.document),
+            Object::SheetFrame(o) => Scope::Document(o.document),
+            Object::PartEntry(o) => Scope::Document(o.document),
+            Object::FootprintCopy(o) => Scope::Document(o.document),
+            Object::Unit(o) => Scope::Document(o.document),
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]

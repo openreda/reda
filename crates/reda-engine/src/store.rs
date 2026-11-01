@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::CommandError;
-use reda_model::{DocumentEntry, DocumentKind, Project, ProjectProps, Scope};
+use reda_model::{DocumentEntry, DocumentKind, Object, Project, ProjectProps, Scope};
 
 use crate::builders::add_document;
 use crate::canonical::CanonicalError;
@@ -89,6 +89,7 @@ pub fn open_from(
         name: name.to_owned(),
         documents: vec![],
         libraries: file.libraries.clone(),
+        properties: file.properties.clone(),
     });
     let mut missing = vec![];
     let mut tx = project.transaction();
@@ -96,10 +97,7 @@ pub fn open_from(
         let entry = row.entry().map_err(invalid)?;
         let path = folder.join(entry.file_name());
         let objects = match entry.kind {
-            DocumentKind::Schematic => {
-                read_sheet_file(&path, &read(&path)?, entry.uuid)?;
-                vec![]
-            }
+            DocumentKind::Schematic => read_sheet_file(&path, &read(&path)?, entry.uuid)?,
             DocumentKind::Pcb => match read(&path) {
                 Ok(bytes) => read_pcb_file(&path, &bytes, entry.uuid)?,
                 Err(LoadError::Missing(_)) => {
@@ -113,6 +111,11 @@ pub fn open_from(
         for object in objects {
             tx.insert(object).map_err(|e| invalid(e.to_string()))?;
         }
+    }
+    let settings = (file.fab_presets.into_iter().map(Object::FabPreset))
+        .chain(file.output_jobs.into_iter().map(Object::OutputJob));
+    for object in settings {
+        tx.insert(object).map_err(|e| invalid(e.to_string()))?;
     }
     tx.commit().map_err(|e| invalid(e.to_string()))?;
     Ok(Opened {

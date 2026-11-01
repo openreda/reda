@@ -15,17 +15,29 @@ fn new_project(dir: &Path, name: &str) -> reda_testkit::TestEngine {
 }
 
 #[test]
-fn new_project_saves_the_golden_files() {
+fn new_project_writes_the_whole_project_at_once() {
     let dir = TempDir::new("new-golden");
-    let mut engine = new_project(dir.path(), "Demo");
-    engine.run_ok("project.save", json!({}));
+    let engine = new_project(dir.path(), "Demo");
+    assert!(
+        !engine.is_dirty(),
+        "a new Project is saved as it is created"
+    );
 
     let tree = read_tree(&dir.path().join("Demo"));
     let names: Vec<&str> = tree.keys().map(String::as_str).collect();
-    assert_eq!(names, [".reda/.gitignore", "Demo.reda", "Demo.redasch"]);
+    assert_eq!(
+        names,
+        [
+            ".reda/.gitignore",
+            "Demo.reda",
+            "Demo.redapcb",
+            "Demo.redasch"
+        ]
+    );
     assert_eq!(tree[".reda/.gitignore"], b"*\n");
-    assert_golden(format!("{GOLDEN}/Demo.reda"), &tree["Demo.reda"]);
-    assert_golden(format!("{GOLDEN}/Demo.redasch"), &tree["Demo.redasch"]);
+    for file in ["Demo.reda", "Demo.redapcb", "Demo.redasch"] {
+        assert_golden(format!("{GOLDEN}/{file}"), &tree[file]);
+    }
 }
 
 #[test]
@@ -42,18 +54,15 @@ fn new_project_reports_the_project_and_its_first_sheet() {
             "kind": "schematic",
             "name": "Demo",
             "title": "Sheet 1"
+        }, {
+            "uuid": "00000000-0000-4000-8000-000000000003",
+            "kind": "pcb",
+            "name": "Demo",
+            "title": "Demo"
         }])
     );
     let path = Path::new(out["path"].as_str().unwrap());
     assert_eq!(path, dir.path().join("Demo").join("Demo.reda"));
-}
-
-#[test]
-fn new_project_writes_nothing_until_saved() {
-    let dir = TempDir::new("new-unsaved");
-    let engine = new_project(dir.path(), "Demo");
-    assert!(read_tree(dir.path()).is_empty());
-    assert!(engine.is_dirty());
 }
 
 #[test]
@@ -85,11 +94,13 @@ fn hand_edits_are_normalised_on_save() {
     new_project(dir.path(), "Demo").run_ok("project.save", json!({}));
     let folder = dir.path().join("Demo");
     let canonical = read_tree(&folder);
-    // Keys reordered and whitespace changed. (Upper-case UUIDs are covered in reda-model.)
-    let messy = r#"{"documents":[{"title":"Sheet 1","path":"Demo.redasch",
-        "uuid":"00000000-0000-4000-8000-000000000002"}],
-        "project":{"uuid":"00000000-0000-4000-8000-000000000001"},"format":1}"#;
-    std::fs::write(folder.join("Demo.reda"), messy).unwrap();
+    // Keys sorted and whitespace dropped. (Upper-case UUIDs are covered in reda-model.)
+    for file in ["Demo.reda", "Demo.redapcb"] {
+        let value: serde_json::Value = serde_json::from_slice(&canonical[file]).unwrap();
+        let messy = serde_json::to_string(&value).unwrap();
+        assert_ne!(messy.as_bytes(), &canonical[file][..]);
+        std::fs::write(folder.join(file), messy).unwrap();
+    }
 
     let mut engine = test_engine();
     engine.run_ok("project.open", json!({"path": folder.join("Demo.reda")}));
