@@ -4,8 +4,12 @@
 
 mod component;
 pub mod connectivity;
+mod find;
 mod natural;
+mod pins;
+mod properties;
 mod sheet;
+mod similar;
 mod unit_move;
 mod wiring;
 
@@ -16,10 +20,17 @@ pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,
 };
+pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use natural::natural_cmp;
+pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
+pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
 pub use sheet::{
     SheetFrameView, SheetRef, SheetSetSize, SheetSetSizeParams, SheetTitleBlock, TitleBlock,
     title_block,
+};
+pub use similar::{
+    SelectSimilar, SelectSimilarParams, SelectSimilarResult, SimilarField, SimilarScope,
+    select_similar,
 };
 pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
 pub use wiring::{
@@ -31,6 +42,10 @@ pub use wiring::{
 pub fn register_all(registry: &mut Registry) {
     registry.add(ComponentPlace);
     registry.add(UnitPlace);
+    registry.add(ComponentSet);
+    registry.add(ComponentPinsQuery);
+    registry.add(Find);
+    registry.add(SelectSimilar);
     registry.add(SheetSetSize);
     registry.add(SheetTitleBlock);
     registry.add(WireAdd);

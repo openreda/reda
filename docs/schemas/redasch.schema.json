@@ -974,6 +974,14 @@
         "uuid": {
           "format": "uuid",
           "type": "string"
+        },
+        "visible_fields": {
+          "description": "The fields drawn on the sheet, by name: `designator`, a built-in field's stored name\n(such as `value`) or a free-form field's name. Designator and value by default.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
         }
       },
       "required": [

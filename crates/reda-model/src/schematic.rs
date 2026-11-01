@@ -129,6 +129,30 @@ pub struct UnitInstance {
     pub component_type: ComponentType,
     #[serde(default, skip_serializing_if = "is_false")]
     pub not_fitted: bool,
+    /// The fields drawn on the sheet, by name: `designator`, a built-in field's stored name
+    /// (such as `value`) or a free-form field's name. Designator and value by default.
+    #[serde(
+        default = "UnitInstance::default_visible_fields",
+        skip_serializing_if = "UnitInstance::shows_default_fields"
+    )]
+    pub visible_fields: BTreeSet<String>,
+}
+
+impl UnitInstance {
+    /// The name under which [`UnitInstance::visible_fields`] lists the Designator.
+    pub const DESIGNATOR: &'static str = "designator";
+
+    /// The fields a newly placed Unit shows: its Designator and value.
+    pub fn default_visible_fields() -> BTreeSet<String> {
+        [Self::DESIGNATOR, "value"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    fn shows_default_fields(fields: &BTreeSet<String>) -> bool {
+        *fields == Self::default_visible_fields()
+    }
 }
 
 /// One straight, orthogonal segment of a Wire run. It connects only where one of its ends

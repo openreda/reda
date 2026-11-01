@@ -357,6 +357,73 @@ pub struct Fields {
 }
 
 impl Fields {
+    /// The names of the built-in fields, as stored.
+    pub const BUILT_IN: [&'static str; 6] = [
+        "value",
+        "description",
+        "datasheet",
+        "manufacturer",
+        "mpn",
+        "keywords",
+    ];
+
+    fn built_in(&self, name: &str) -> Option<&String> {
+        Some(match name {
+            "value" => &self.value,
+            "description" => &self.description,
+            "datasheet" => &self.datasheet,
+            "manufacturer" => &self.manufacturer,
+            "mpn" => &self.mpn,
+            "keywords" => &self.keywords,
+            _ => return None,
+        })
+    }
+
+    fn built_in_mut(&mut self, name: &str) -> Option<&mut String> {
+        Some(match name {
+            "value" => &mut self.value,
+            "description" => &mut self.description,
+            "datasheet" => &mut self.datasheet,
+            "manufacturer" => &mut self.manufacturer,
+            "mpn" => &mut self.mpn,
+            "keywords" => &mut self.keywords,
+            _ => return None,
+        })
+    }
+
+    /// The field called `name`: a built-in one by its stored name (see
+    /// [`Fields::BUILT_IN`]), otherwise a free-form one. Empty when it is not set.
+    pub fn get(&self, name: &str) -> &str {
+        match self.built_in(name) {
+            Some(value) => value,
+            None => self
+                .custom
+                .iter()
+                .find(|f| f.name == name)
+                .map_or("", |f| f.value.as_str()),
+        }
+    }
+
+    /// Sets the field called `name`. An empty value clears a built-in field and removes a
+    /// free-form one; a changed free-form field keeps its place, and a new one goes last.
+    pub fn set(&mut self, name: &str, value: &str) {
+        if let Some(field) = self.built_in_mut(name) {
+            value.clone_into(field);
+            return;
+        }
+        match self.custom.iter().position(|f| f.name == name) {
+            Some(i) if value.is_empty() => {
+                self.custom.remove(i);
+            }
+            Some(i) => value.clone_into(&mut self.custom[i].value),
+            None if value.is_empty() => {}
+            None => self.custom.push(Field {
+                name: name.to_owned(),
+                value: value.to_owned(),
+            }),
+        }
+    }
+
     /// Every non-empty field value, built-in fields first.
     pub fn values(&self) -> impl Iterator<Item = &str> {
         [
@@ -398,6 +465,14 @@ pub struct PinMap {
 impl PinMap {
     pub fn is_empty(&self) -> bool {
         self.pins.is_empty() && self.unconnected.is_empty()
+    }
+
+    /// The Pad numbers the Pin numbered `pin` reaches: its override's, or else its own.
+    pub fn pads_of<'a>(&'a self, pin: &'a str) -> Vec<&'a str> {
+        match self.pins.iter().find(|o| o.pin == pin) {
+            Some(over) => over.pads.iter().map(String::as_str).collect(),
+            None => vec![pin],
+        }
     }
 }
 
