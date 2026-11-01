@@ -32,7 +32,7 @@ fn later_steps_reference_objects_created_by_earlier_steps_through_caller_uuids()
     );
     let sheet: Uuid = SHEET.parse().unwrap();
     assert_eq!(h.project().document(sheet).unwrap().title, "Power Supply");
-    assert!(h.session.dirty.contains(&Scope::Project));
+    assert_eq!(h.session.history.dirty_scopes(), [Scope::Project]);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn a_failing_step_rolls_back_every_step() {
         err.message
     );
     assert_eq!(h.project(), &before);
-    assert!(h.session.dirty.is_empty());
+    assert!(h.session.history.dirty_scopes().is_empty());
 }
 
 #[test]
@@ -130,5 +130,5 @@ fn an_empty_batch_changes_nothing() {
     let mut h = Harness::with_project();
     let out = h.run("batch", json!({"commands": []})).unwrap();
     assert_eq!(out, json!({"changes": {}, "result": []}));
-    assert!(h.session.dirty.is_empty());
+    assert!(h.session.history.dirty_scopes().is_empty());
 }

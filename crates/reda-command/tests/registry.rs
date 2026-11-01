@@ -22,7 +22,11 @@ fn edit_returns_the_change_envelope_and_dirties_its_scope() {
         })
     );
     assert_eq!(h.name(), "Blinky");
-    assert!(h.session.dirty.contains(&Scope::Project));
+    assert_eq!(h.session.history.dirty_scopes(), [Scope::Project]);
+    assert_eq!(
+        h.session.history.next_undo(Scope::Project).unwrap().label,
+        "Rename Project"
+    );
 }
 
 #[test]
@@ -33,7 +37,8 @@ fn a_failed_edit_rolls_back_fully() {
         .unwrap_err();
     assert_eq!(err.code, ErrorCode::Rejected);
     assert_eq!(h.name(), "at 1767225600000");
-    assert!(h.session.dirty.is_empty());
+    assert!(h.session.history.dirty_scopes().is_empty());
+    assert!(h.session.history.next_undo(Scope::Project).is_none());
 }
 
 #[test]

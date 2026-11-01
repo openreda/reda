@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "DocumentRow": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "The Document's file name, relative to the Project folder; its stem is the\nDocument's name and its extension its kind.",
+          "type": "string"
+        },
+        "title": {
+          "description": "The Document's title, such as \"Sheet 1\".",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "path",
+        "title"
+      ],
+      "type": "object"
+    },
+    "ProjectRow": {
+      "additionalProperties": false,
+      "properties": {
+        "uuid": {
+          "format": "uuid",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Project file (`.reda`). The Project's name is the file stem.",
+  "properties": {
+    "documents": {
+      "description": "The Project's Documents, in Project order (sheet numbering, PDF output).",
+      "items": {
+        "$ref": "#/$defs/DocumentRow"
+      },
+      "type": "array"
+    },
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "project": {
+      "$ref": "#/$defs/ProjectRow",
+      "description": "Project-wide properties."
+    }
+  },
+  "required": [
+    "format",
+    "project",
+    "documents"
+  ],
+  "title": "REDA Project file",
+  "type": "object"
+}

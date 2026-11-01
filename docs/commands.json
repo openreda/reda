@@ -1,6 +1,67 @@
 {
   "commands": [
     {
+      "category": "app",
+      "description": "Reads the user's Preferences: one key with its default and description, or every value with warnings for keys in preferences.toml that were ignored.",
+      "icon": "preferences",
+      "id": "app.preferences.get",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "default": null,
+            "description": "A dotted key such as `schematic.repeat_placement`. Without one, every Preference.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "GetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "AnyValue"
+      },
+      "title": "Get Preferences"
+    },
+    {
+      "category": "app",
+      "description": "Sets one Preference in the user's preferences.toml, keeping every other line and comment. Null, or the default value, removes the key.",
+      "icon": "preferences",
+      "id": "app.preferences.set",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "description": "A dotted key such as `schematic.repeat_placement`.",
+            "type": "string"
+          },
+          "value": {
+            "description": "The new value; `null` resets the key to its default."
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "SetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "AnyValue"
+      },
+      "title": "Set Preference"
+    },
+    {
       "category": "edit",
       "description": "Runs several edit and query Commands as one atomic edit: if any step fails, every step is rolled back. Later steps refer to objects created by earlier ones through UUIDs the caller supplied in the earlier step's params. Returns the combined changes and each step's result, in order.",
       "icon": "batch",
@@ -53,6 +114,112 @@
         "type": "array"
       },
       "title": "Batch"
+    },
+    {
+      "category": "edit",
+      "description": "Redoes the newest undone edit on one undo stack: a Document's, or the Project file's with `document: \"project\"`. Any new edit on that stack clears what could be redone.",
+      "icon": "redo",
+      "id": "edit.redo",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "DocumentRef": {
+            "anyOf": [
+              {
+                "const": "project",
+                "type": "string"
+              },
+              {
+                "format": "uuid",
+                "type": "string"
+              }
+            ],
+            "description": "One file of the Project: \"project\" for the Project file, or a Document's UUID."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "$ref": "#/$defs/DocumentRef",
+            "description": "The stack: a Document's UUID, or `\"project\"` for the Project file's own stack."
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "StackParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "label": {
+            "description": "The label of the entry undone or redone, such as \"Add Wire\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "StepResult",
+        "type": "object"
+      },
+      "title": "Redo"
+    },
+    {
+      "category": "edit",
+      "description": "Undoes the newest edit on one undo stack: a Document's, or the Project file's with `document: \"project\"`. A cross-Document edit has one entry in each Document it touched, undone independently.",
+      "icon": "undo",
+      "id": "edit.undo",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "DocumentRef": {
+            "anyOf": [
+              {
+                "const": "project",
+                "type": "string"
+              },
+              {
+                "format": "uuid",
+                "type": "string"
+              }
+            ],
+            "description": "One file of the Project: \"project\" for the Project file, or a Document's UUID."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "$ref": "#/$defs/DocumentRef",
+            "description": "The stack: a Document's UUID, or `\"project\"` for the Project file's own stack."
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "StackParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "label": {
+            "description": "The label of the entry undone or redone, such as \"Add Wire\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "StepResult",
+        "type": "object"
+      },
+      "title": "Undo"
     },
     {
       "category": "query",
@@ -635,15 +802,42 @@
     },
     {
       "category": "project",
-      "description": "Writes the Project file and every Document to the Project folder, each through a temp file and a rename.",
+      "description": "Writes the Project file and every Document to the Project folder, each through a temp file and a rename. With `document`, writes only that Document's file, or only the Project file for `\"project\"`.",
       "icon": "save_all",
       "id": "project.save",
       "kind": "file",
       "params": {
+        "$defs": {
+          "DocumentRef": {
+            "anyOf": [
+              {
+                "const": "project",
+                "type": "string"
+              },
+              {
+                "format": "uuid",
+                "type": "string"
+              }
+            ],
+            "description": "One file of the Project: \"project\" for the Project file, or a Document's UUID."
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
-        "title": "NoParams",
+        "properties": {
+          "document": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DocumentRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Saves only this file: a Document's UUID, or `\"project\"` for the Project file.\nOmitted, every file is saved (Save All)."
+          }
+        },
+        "title": "ProjectSaveParams",
         "type": "object"
       },
       "presets": [],

@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::Uuid;
-use crate::change::{ChangeSet, Object, Scope};
+use crate::change::{ChangeSet, Object};
 use crate::document::{DocumentEntry, DocumentKind, SchematicSheet};
 
 /// Project-wide properties, stored in `<name>.reda`.
@@ -30,6 +30,8 @@ pub struct Project {
     props: ProjectProps,
     entries: BTreeMap<Uuid, DocumentEntry>,
     schematic_sheets: BTreeMap<Uuid, SchematicSheet>,
+    #[cfg(feature = "test-objects")]
+    probes: BTreeMap<Uuid, crate::Probe>,
 }
 
 impl Project {
@@ -43,6 +45,8 @@ impl Project {
             props,
             entries: BTreeMap::new(),
             schematic_sheets: BTreeMap::new(),
+            #[cfg(feature = "test-objects")]
+            probes: BTreeMap::new(),
         }
     }
 
@@ -72,6 +76,10 @@ impl Project {
         if uuid == self.props.uuid {
             return Some(Object::Project(self.props.clone()));
         }
+        #[cfg(feature = "test-objects")]
+        if let Some(probe) = self.probes.get(&uuid) {
+            return Some(Object::Probe(probe.clone()));
+        }
         self.entries.get(&uuid).cloned().map(Object::Document)
     }
 
@@ -80,27 +88,22 @@ impl Project {
         let mut out: Vec<Object> = std::iter::once(Object::Project(self.props.clone()))
             .chain(self.entries.values().cloned().map(Object::Document))
             .collect();
+        #[cfg(feature = "test-objects")]
+        out.extend(self.probes.values().cloned().map(Object::Probe));
         out.sort_by_key(Object::uuid);
         out
     }
 
+    /// The test-only Probe with this UUID.
+    #[cfg(feature = "test-objects")]
+    pub fn probe(&self, uuid: Uuid) -> Option<&crate::Probe> {
+        self.probes.get(&uuid)
+    }
+
     /// Applies every change's `after` state. Apply [`ChangeSet::inverted`] to undo.
     pub fn apply(&mut self, changes: &ChangeSet) {
-        // Project-scope objects come first so a created Document's body exists before its
-        // contents land, and leave last so its contents are gone before it is dropped.
-        let in_project = |c: &&crate::Change| c.scope == Scope::Project;
-        for (uuid, change) in changes.iter().filter(|(_, c)| in_project(c)) {
-            if let Some(after) = &change.after {
-                self.put(*uuid, Some(after.clone()));
-            }
-        }
-        for (uuid, change) in changes.iter().filter(|(_, c)| !in_project(c)) {
+        for (uuid, change) in changes.in_apply_order() {
             self.put(*uuid, change.after.clone());
-        }
-        for (uuid, change) in changes.iter().filter(|(_, c)| in_project(c)) {
-            if change.after.is_none() {
-                self.put(*uuid, None);
-            }
         }
     }
 
@@ -114,11 +117,17 @@ impl Project {
                 }
                 self.entries.insert(uuid, entry);
             }
+            #[cfg(feature = "test-objects")]
+            Some(Object::Probe(probe)) => {
+                self.probes.insert(uuid, probe);
+            }
             None => {
                 assert_ne!(uuid, self.props.uuid, "the Project itself is never removed");
                 if self.entries.remove(&uuid).is_some() {
                     self.schematic_sheets.remove(&uuid);
                 }
+                #[cfg(feature = "test-objects")]
+                self.probes.remove(&uuid);
             }
         }
     }

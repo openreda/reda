@@ -14,8 +14,14 @@ reda-model = { path = "../reda-model" }
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+toml_edit.workspace = true
+
+# Finding the platform's per-user folders. A browser build has none.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+directories.workspace = true
 
 [dev-dependencies]
+proptest.workspace = true
 reda-testkit = { path = "../reda-testkit" }
 
 [lints]

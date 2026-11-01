@@ -5,6 +5,7 @@
 //! current [`FORMAT`] through the canonical writer.
 
 mod project_file;
+mod schema;
 mod sheet_file;
 
 use std::fmt;
@@ -15,17 +16,40 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 pub(crate) use project_file::{ProjectFile, write_project_file};
+pub use schema::schema;
 pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
 
 /// The format version REDA writes. Bump it together with a new [`MIGRATIONS`] step.
 pub const FORMAT: u32 = 1;
 
-/// One migration step: rewrites raw JSON of format `n` into format `n + 1`.
-type Migration = fn(Value) -> Result<Value, String>;
+/// The kinds of file REDA reads and writes, each with one typed shape and one JSON Schema.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum FileKind {
+    /// `<name>.reda`: the Project properties and the ordered Document list.
+    Project,
+    /// `<name>.redasch`: one Schematic Sheet.
+    Sheet,
+}
+
+impl FileKind {
+    pub const ALL: [FileKind; 2] = [FileKind::Project, FileKind::Sheet];
+
+    /// The file extension, without the dot.
+    pub const fn extension(self) -> &'static str {
+        match self {
+            FileKind::Project => "reda",
+            FileKind::Sheet => "redasch",
+        }
+    }
+}
+
+/// One migration step: rewrites raw JSON of format `n` into format `n + 1`. It gets the
+/// file kind so it can leave kinds it does not change alone. The chain stamps `"format"`.
+pub type Migration = fn(FileKind, Value) -> Result<Value, String>;
 
 /// `MIGRATIONS[i]` turns format `i + 1` into `i + 2`. Steps are kept forever, and each one
-/// gets a golden test.
-const MIGRATIONS: &[Migration] = &[];
+/// gets golden files under `crates/reda-engine/tests/golden/migrations/`.
+pub const MIGRATIONS: &[Migration] = &[];
 
 const _: () = assert!(MIGRATIONS.len() == FORMAT as usize - 1);
 
@@ -70,31 +94,51 @@ pub(crate) fn read_bytes(path: &Path) -> Result<Vec<u8>, LoadError> {
 
 /// Parses `bytes` as a REDA file of any supported format and deserialises the current
 /// format's shape `T`.
-pub(crate) fn parse<T: DeserializeOwned>(path: &Path, bytes: &[u8]) -> Result<T, LoadError> {
+pub(crate) fn parse<T: DeserializeOwned>(
+    kind: FileKind,
+    path: &Path,
+    bytes: &[u8],
+) -> Result<T, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let value: Value =
         serde_json::from_slice(bytes).map_err(|e| invalid(format!("not valid JSON: {e}")))?;
-    let value = migrate(value).map_err(invalid)?;
+    let value = migrate(kind, value).map_err(invalid)?;
     serde_json::from_value(value).map_err(|e| invalid(e.to_string()))
 }
 
 /// Brings raw JSON of any supported format up to [`FORMAT`].
-fn migrate(mut value: Value) -> Result<Value, String> {
+pub fn migrate(kind: FileKind, value: Value) -> Result<Value, String> {
+    migrate_with(kind, value, MIGRATIONS)
+}
+
+/// Runs the chain `steps`, where `steps[i]` turns format `i + 1` into `i + 2`, bringing raw
+/// JSON up to format `steps.len() + 1`. [`migrate`] passes [`MIGRATIONS`]; tests pass their
+/// own steps.
+pub fn migrate_with(
+    kind: FileKind,
+    mut value: Value,
+    steps: &[Migration],
+) -> Result<Value, String> {
+    let current = steps.len() as u64 + 1;
     let version = value
         .get("format")
         .and_then(Value::as_u64)
         .ok_or("has no \"format\" version number")?;
-    if version > u64::from(FORMAT) {
+    if version > current {
         return Err(format!(
-            "was written by a newer REDA (format {version}); this REDA reads up to format {FORMAT}"
+            "was written by a newer REDA (format {version}); this REDA reads up to format {current}"
         ));
     }
     if version == 0 {
         return Err("format 0 does not exist".into());
     }
-    for (from, step) in MIGRATIONS.iter().enumerate().skip(version as usize - 1) {
-        value = step(value).map_err(|e| format!("migrating from format {}: {e}", from + 1))?;
-        value["format"] = Value::from(from + 2);
+    for (from, step) in steps.iter().enumerate().skip(version as usize - 1) {
+        let fail = |e: String| format!("migrating from format {}: {e}", from + 1);
+        value = step(kind, value).map_err(fail)?;
+        let object = value
+            .as_object_mut()
+            .ok_or_else(|| fail("the step did not return a JSON object".into()))?;
+        object.insert("format".into(), Value::from(from + 2));
     }
     Ok(value)
 }

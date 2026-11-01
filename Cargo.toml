@@ -13,7 +13,15 @@ publish = false
 [workspace.dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-schemars = { version = "1.2.3", default-features = false, features = ["derive", "std"] }
+schemars = "1.2.3"
+proptest = { version = "1.12", default-features = false, features = ["std"] }
+# The font crates follow the versions egui uses, so the binary carries one copy of each.
+# harfrust and skrifa must share one read-fonts: harfrust 0.12 pairs with skrifa 0.44.
+harfrust = "=0.12.0"
+skrifa = "=0.44.0"
+i_triangle = "0.51"
+toml_edit = "0.25"
+directories = "6"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

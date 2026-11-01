@@ -13,22 +13,29 @@
 use std::path::Path;
 
 use reda_model::{SchematicSheet, Uuid};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{FORMAT, LoadError, parse};
+use super::{FORMAT, FileKind, LoadError, parse};
 use crate::canonical::{CanonicalError, CanonicalWriter};
 
-#[derive(Debug, Deserialize)]
+/// A REDA Schematic Sheet file (`.redasch`).
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct SheetFile {
+#[schemars(title = "REDA Schematic Sheet file")]
+pub(crate) struct SheetFile {
+    /// The file-format version. REDA writes only the current one.
     #[allow(dead_code, reason = "checked by the migration chain")]
+    #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
+    /// The sheet's identity; it matches the sheet's entry in the Project file.
     sheet: SheetRow,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SheetRow {
+    #[schemars(schema_with = "super::schema::uuid")]
     uuid: Uuid,
 }
 
@@ -44,7 +51,7 @@ pub(crate) fn read_sheet_file(
     bytes: &[u8],
     expected: Uuid,
 ) -> Result<SchematicSheet, LoadError> {
-    let file: SheetFile = parse(path, bytes)?;
+    let file: SheetFile = parse(FileKind::Sheet, path, bytes)?;
     if file.sheet.uuid != expected {
         return Err(LoadError::Invalid(
             path.to_owned(),

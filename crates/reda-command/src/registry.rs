@@ -3,11 +3,13 @@
 use std::collections::BTreeMap;
 
 use reda_model::{ChangeSet, Project, Scope, Transaction};
+
+use crate::History;
 use serde_json::{Map, Value, json};
 
 use crate::batch::{self, BatchParams};
 use crate::command::{AvailabilityContext, NO_PROJECT, Preset, Unavailable};
-use crate::context::{Access, Context, Env, Session};
+use crate::context::{Access, Context, Env, Session, Step};
 use crate::schema;
 use crate::{Clock, Command, CommandError, IdSource, Kind, Meta};
 
@@ -39,7 +41,7 @@ enum Runner {
 }
 
 /// One registered Command with what is worked out once, at registration.
-struct Entry {
+struct Registered {
     meta: Meta,
     runner: Runner,
     params_schema: Value,
@@ -49,7 +51,7 @@ struct Entry {
 
 /// Every registered Command, keyed by id. It always holds the built-in `batch`.
 pub struct Registry {
-    commands: BTreeMap<&'static str, Entry>,
+    commands: BTreeMap<&'static str, Registered>,
 }
 
 impl Default for Registry {
@@ -57,7 +59,7 @@ impl Default for Registry {
         let mut commands = BTreeMap::new();
         commands.insert(
             batch::META.id,
-            Entry {
+            Registered {
                 meta: batch::META,
                 runner: Runner::Batch,
                 params_schema: schema::params_schema::<BatchParams>(),
@@ -71,7 +73,7 @@ impl Default for Registry {
 
 /// The access an entry needs to run, worked out from its kind.
 struct Resolved<'r> {
-    entry: &'r Entry,
+    entry: &'r Registered,
     params: Value,
 }
 
@@ -102,7 +104,7 @@ impl Registry {
                 );
             }
         }
-        let entry = Entry {
+        let entry = Registered {
             meta,
             runner: Runner::Command(Box::new(command)),
             params_schema,
@@ -176,17 +178,26 @@ impl Registry {
                     .project
                     .as_mut()
                     .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
-                let (tx, result) = invoke_in(
-                    command.as_ref(),
-                    Kind::Edit,
-                    project.transaction(),
-                    &mut *env.ids,
-                    env.clock,
-                    params,
-                );
-                let result = result?;
-                let changes = tx.0.commit()?;
-                session.dirty.extend(changes.scopes());
+                // The Context reads the stacks while the transaction holds the Project; they
+                // move only once it has committed.
+                let (result, changes, step) = {
+                    let run = invoke_in(
+                        command.as_ref(),
+                        Kind::Edit,
+                        (project.transaction(), &session.history),
+                        &mut *env.ids,
+                        env.clock,
+                        params,
+                    );
+                    let result = run.result?;
+                    (result, run.tx.commit()?, run.step)
+                };
+                let history = &mut session.history;
+                match step {
+                    None => history.record(entry.meta.title, &changes),
+                    Some(Step::Undo(scope)) => history.undone(scope),
+                    Some(Step::Redo(scope)) => history.redone(scope),
+                }
                 Ok(envelope(&changes, result))
             }
             Kind::Query | Kind::View => {
@@ -194,6 +205,7 @@ impl Registry {
                     access: Access::Read(session.project.as_ref()),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    step: None,
                 };
                 command.invoke(&mut cx, params)
             }
@@ -202,6 +214,7 @@ impl Registry {
                     access: Access::File(session),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    step: None,
                 };
                 command.invoke(&mut cx, params)
             }
@@ -222,6 +235,7 @@ impl Registry {
             .project
             .as_mut()
             .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
+        let history = &session.history;
         let mut tx = project.transaction();
         let mut ids: &mut dyn IdSource = &mut *env.ids;
         let mut results = Vec::with_capacity(params.commands.len());
@@ -235,20 +249,26 @@ impl Registry {
             };
             check_available(entry, Some(tx.project()), env.headless).map_err(at)?;
             check_params(entry, &params).map_err(at)?;
-            let (back, result) = invoke_in(
+            let run = invoke_in(
                 command.as_ref(),
                 entry.meta.kind,
-                tx,
+                (tx, history),
                 ids,
                 env.clock,
                 params,
             );
-            tx = back.0;
-            ids = back.1;
-            results.push(result.map_err(at)?);
+            tx = run.tx;
+            ids = run.ids;
+            let result = run.result.map_err(at)?;
+            if run.step.is_some() {
+                return Err(at(CommandError::rejected(
+                    "undo and redo cannot be batch steps",
+                )));
+            }
+            results.push(result);
         }
         let changes = tx.commit()?;
-        session.dirty.extend(changes.scopes());
+        session.history.record(batch::META.title, &changes);
         Ok(envelope(&changes, Value::Array(results)))
     }
 
@@ -289,35 +309,52 @@ impl Registry {
     }
 }
 
-/// Runs a Command inside an open transaction and hands the transaction and the id source
-/// back, so a batch can thread them through its steps. A query step sees the transaction's
-/// Project but cannot change it.
+/// What [`invoke_in`] hands back: the transaction and id source, so a batch can thread
+/// them through its steps, the undo or redo the Command carried out, and its result.
+struct InTx<'a> {
+    tx: Transaction<'a>,
+    ids: &'a mut dyn IdSource,
+    step: Option<Step>,
+    result: Result<Value, CommandError>,
+}
+
+/// Runs a Command inside an open transaction. A query step sees the transaction's Project
+/// but cannot change it.
 fn invoke_in<'a>(
     command: &dyn Erased,
     kind: Kind,
-    tx: Transaction<'a>,
+    (tx, history): (Transaction<'a>, &'a History),
     ids: &'a mut dyn IdSource,
     clock: &'a dyn Clock,
     params: Value,
-) -> (
-    (Transaction<'a>, &'a mut dyn IdSource),
-    Result<Value, CommandError>,
-) {
+) -> InTx<'a> {
     let access = match kind {
-        Kind::Edit => Access::Edit(tx),
+        Kind::Edit => Access::Edit(tx, history),
         _ => Access::ReadInEdit(tx),
     };
-    let mut cx = Context { access, ids, clock };
+    let mut cx = Context {
+        access,
+        ids,
+        clock,
+        step: None,
+    };
     let result = command.invoke(&mut cx, params);
-    let Context { access, ids, .. } = cx;
-    let (Access::Edit(tx) | Access::ReadInEdit(tx)) = access else {
+    let Context {
+        access, ids, step, ..
+    } = cx;
+    let (Access::Edit(tx, _) | Access::ReadInEdit(tx)) = access else {
         unreachable!("an edit context holds its transaction")
     };
-    ((tx, ids), result)
+    InTx {
+        tx,
+        ids,
+        step,
+        result,
+    }
 }
 
 fn check_available(
-    entry: &Entry,
+    entry: &Registered,
     project: Option<&Project>,
     headless: bool,
 ) -> Result<(), CommandError> {
@@ -337,7 +374,7 @@ fn check_available(
     available.map_err(|u| CommandError::unavailable(u.reason))
 }
 
-fn check_params(entry: &Entry, params: &Value) -> Result<(), CommandError> {
+fn check_params(entry: &Registered, params: &Value) -> Result<(), CommandError> {
     schema::check(&entry.params_schema, params).map_err(|m| {
         let at = if m.pointer.is_empty() {
             "params"
@@ -359,7 +396,7 @@ fn check_id(id: &str) {
     assert!(valid, "{id:?} is not a valid Command or Preset id");
 }
 
-fn describe(entry: &Entry) -> Value {
+fn describe(entry: &Registered) -> Value {
     let meta = entry.meta;
     let presets: Vec<Value> = entry
         .presets

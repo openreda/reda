@@ -13,6 +13,12 @@ reda-geom = { path = "../reda-geom" }
 schemars.workspace = true
 serde.workspace = true
 
+[features]
+# A test-only `Object::Probe` that can live in the Project or any Document, so undo and
+# dirty tracking can be exercised before real Document object kinds exist. Enabled by
+# `reda-testkit`; never by a shipped crate.
+test-objects = []
+
 [dev-dependencies]
 serde_json.workspace = true
 
