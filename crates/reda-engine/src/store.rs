@@ -6,6 +6,7 @@ use reda_command::CommandError;
 use reda_model::{DocumentKind, Project, ProjectProps};
 
 use crate::builders::add_document;
+use crate::canonical::CanonicalError;
 use crate::format::{
     FileKind, LoadError, ProjectFile, parse, read_bytes, read_sheet_file, write_project_file,
     write_sheet_file,
@@ -33,6 +34,15 @@ pub fn resolve_project_file(path: &Path) -> PathBuf {
 
 /// Reads the Project whose Project file is `project_file`. Returns it with its folder.
 pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
+    load_from(project_file, read_bytes)
+}
+
+/// [`load`] with the file reading supplied by the caller, so tests and the fuzz target can
+/// load a Project held in memory. `read` gets each file's path under the Project folder.
+pub fn load_from(
+    project_file: &Path,
+    mut read: impl FnMut(&Path) -> Result<Vec<u8>, LoadError>,
+) -> Result<(Project, PathBuf), LoadError> {
     let invalid = |why: String| LoadError::Invalid(project_file.to_owned(), why);
     let name = project_file
         .file_stem()
@@ -47,7 +57,7 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
         .parent()
         .map(Path::to_owned)
         .unwrap_or_default();
-    let file: ProjectFile = parse(FileKind::Project, project_file, &read_bytes(project_file)?)?;
+    let file: ProjectFile = parse(FileKind::Project, project_file, &read(project_file)?)?;
 
     let mut project = Project::new(ProjectProps {
         uuid: file.project.uuid,
@@ -60,7 +70,7 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
         let path = folder.join(entry.file_name());
         match entry.kind {
             DocumentKind::Schematic => {
-                read_sheet_file(&path, &read_bytes(&path)?, entry.uuid)?;
+                read_sheet_file(&path, &read(&path)?, entry.uuid)?;
             }
         }
         add_document(&mut tx, entry).map_err(|e| invalid(e.to_string()))?;
@@ -69,16 +79,9 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
     Ok((project, folder))
 }
 
-/// Writes every file of the Project into `folder`, each through a temp file and a rename,
-/// the Project file last. Returns the written paths relative to `folder`.
-pub fn save(folder: &Path, project: &Project) -> Result<Vec<String>, CommandError> {
-    let io = |path: &Path, e: std::io::Error| {
-        CommandError::internal(format!("writing {}: {e}", path.display()))
-    };
-    let canonical = |e: crate::canonical::CanonicalError| CommandError::internal(e.to_string());
-
-    let state = folder.join(".reda");
-    std::fs::create_dir_all(&state).map_err(|e| io(&state, e))?;
+/// Every file of the Project as canonical bytes, keyed by its `/`-separated path relative to
+/// the Project folder, in write order: the Project file comes last.
+pub fn encode(project: &Project) -> Result<Vec<(String, Vec<u8>)>, CanonicalError> {
     let mut files: Vec<(String, Vec<u8>)> = vec![(".reda/.gitignore".into(), b"*\n".to_vec())];
     for entry in project.documents() {
         let bytes = match entry.kind {
@@ -86,14 +89,25 @@ pub fn save(folder: &Path, project: &Project) -> Result<Vec<String>, CommandErro
                 let sheet = project
                     .schematic_sheet(entry.uuid)
                     .expect("every Schematic entry has a sheet body");
-                write_sheet_file(sheet).map_err(canonical)?
+                write_sheet_file(sheet)?
             }
         };
         files.push((entry.file_name(), bytes));
     }
     let name = format!("{}.{PROJECT_EXTENSION}", project.props().name);
-    files.push((name, write_project_file(project).map_err(canonical)?));
+    files.push((name, write_project_file(project)?));
+    Ok(files)
+}
 
+/// Writes every file of the Project into `folder`, each through a temp file and a rename,
+/// the Project file last. Returns the written paths relative to `folder`.
+pub fn save(folder: &Path, project: &Project) -> Result<Vec<String>, CommandError> {
+    let io = |path: &Path, e: std::io::Error| {
+        CommandError::internal(format!("writing {}: {e}", path.display()))
+    };
+    let files = encode(project).map_err(|e| CommandError::internal(e.to_string()))?;
+    let state = folder.join(".reda");
+    std::fs::create_dir_all(&state).map_err(|e| io(&state, e))?;
     for (rel, bytes) in &files {
         let path = folder.join(rel);
         write_atomic(&path, bytes).map_err(|e| io(&path, e))?;

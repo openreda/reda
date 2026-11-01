@@ -9,6 +9,7 @@ reda-cli -> serde_json
 reda-command -> reda-model
 reda-command -> serde
 reda-command -> serde_json
+reda-engine -> proptest [dev]
 reda-engine -> reda-command
 reda-engine -> reda-model
 reda-engine -> reda-testkit [dev]

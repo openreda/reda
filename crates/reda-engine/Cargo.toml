@@ -16,6 +16,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+proptest.workspace = true
 reda-testkit = { path = "../reda-testkit" }
 
 [lints]
