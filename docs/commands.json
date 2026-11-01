@@ -4225,6 +4225,14 @@
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "visible_fields": {
+                "description": "The fields drawn on the sheet, by name: `designator`, a built-in field's stored name\n(such as `value`) or a free-form field's name. Designator and value by default.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               }
             },
             "required": [
@@ -6177,6 +6185,14 @@
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "visible_fields": {
+                "description": "The fields drawn on the sheet, by name: `designator`, a built-in field's stored name\n(such as `value`) or a free-form field's name. Designator and value by default.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               }
             },
             "required": [
@@ -9939,6 +9955,93 @@
     },
     {
       "category": "schematic",
+      "description": "Lists a Component's Pins with the Pad number(s) each reaches on the Component's current Footprint, through the Part's pin map.",
+      "icon": "pin",
+      "id": "schematic.component.pins",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "description": "The Component, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component"
+        ],
+        "title": "ComponentPinsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "PinPads": {
+            "description": "One Pin and the Pad numbers it reaches on the current Footprint.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pad numbers the Part's pin map sends this Pin to that the Footprint has, in\nthe pin map's order. Empty when the Footprint has none of them.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "unit": {
+                "description": "The name of the Unit the Pin belongs to.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "unit",
+              "number",
+              "name",
+              "pads"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "A Component's Pins with the Pads they reach.",
+        "properties": {
+          "footprint": {
+            "description": "The chosen Footprint, by Library UUID; none when the Part has no Footprint.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "Every Pin of the Symbol, in its order.",
+            "items": {
+              "$ref": "#/$defs/PinPads"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "pins"
+        ],
+        "title": "ComponentPins",
+        "type": "object"
+      },
+      "title": "Component Pins"
+    },
+    {
+      "category": "schematic",
       "description": "Places a new Component from a Library Part on a Schematic Sheet: copies the Part with its Symbol and every alternate Footprint into the sheet's part table (reusing an identical copy), and places one Unit with the next free Designator for the Symbol's prefix and the Part's fields. Place the other Units with `schematic.unit.place`.",
       "icon": "component_place",
       "id": "schematic.component.place",
@@ -10112,6 +10215,101 @@
         "type": "object"
       },
       "title": "Place Component"
+    },
+    {
+      "category": "schematic",
+      "description": "Sets properties of one or more Components: each property given applies to every Component listed and to every placed Unit of it, on every sheet, so the Units keep one copy of the Component's data.",
+      "icon": "properties",
+      "id": "schematic.component.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "description": "The Components to edit, by UUID. The edit applies to each of them.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "designator": {
+            "description": "The new Designator. Only with a single Component, and not one another Component\nuses.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "default": {},
+            "description": "Fields to set, by name: the built-in `description`, `datasheet`, `manufacturer`,\n`mpn` and `keywords`, or any free-form name such as `LCSC`. An empty value or\n`null` clears a built-in field and removes a free-form one. Set the value with\n`value`.",
+            "type": "object"
+          },
+          "footprint": {
+            "description": "The Footprint, by UUID: one of each Component's Part's alternates.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "not_fitted": {
+            "description": "Whether the Components are left off the board and out of the BOM.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "value": {
+            "description": "The new value.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visible": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "default": {},
+            "description": "Which fields to show (`true`) or hide (`false`) on the sheet, by name:\n`designator`, `value`, another built-in field or a free-form field's name.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "ComponentSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What an edit changed.",
+        "properties": {
+          "units": {
+            "description": "Every rewritten Unit, in the order of `components`, then Document order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "units"
+        ],
+        "title": "ComponentSetResult",
+        "type": "object"
+      },
+      "title": "Edit Component Properties"
     },
     {
       "category": "schematic",

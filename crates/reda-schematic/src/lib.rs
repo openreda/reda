@@ -2,6 +2,8 @@
 //! the schematic Commands. Connectivity and ERC join later.
 
 mod component;
+mod pins;
+mod properties;
 mod sheet;
 
 use reda_command::{CommandError, Registry};
@@ -11,6 +13,8 @@ pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,
 };
+pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
+pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
 pub use sheet::{
     SheetFrameView, SheetRef, SheetSetSize, SheetSetSizeParams, SheetTitleBlock, TitleBlock,
     title_block,
@@ -20,6 +24,8 @@ pub use sheet::{
 pub fn register_all(registry: &mut Registry) {
     registry.add(ComponentPlace);
     registry.add(UnitPlace);
+    registry.add(ComponentSet);
+    registry.add(ComponentPinsQuery);
     registry.add(SheetSetSize);
     registry.add(SheetTitleBlock);
 }

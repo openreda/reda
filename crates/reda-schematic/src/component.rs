@@ -142,6 +142,7 @@ impl Command for ComponentPlace {
             footprint,
             component_type,
             not_fitted: false,
+            visible_fields: UnitInstance::default_visible_fields(),
         };
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
