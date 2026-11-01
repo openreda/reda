@@ -189,3 +189,13 @@ _Avoid_: Action, operation, function
 **Tool**:
 An interactive mode, such as Wire drawing or routing, that follows the pointer with a live preview and finishes by carrying out a Command.
 _Avoid_: Mode (alone), editor, interactive command
+
+## Application window
+
+**Panel**:
+A shared, dockable view of the Project or the selection, such as Projects, Properties or Messages, that sits beside the Documents in the one window and serves whichever Document is active.
+_Avoid_: Pane, sidebar, view (alone), tool window
+
+**Active Bar**:
+The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.
+_Avoid_: Quick bar, floating toolbar, palette
