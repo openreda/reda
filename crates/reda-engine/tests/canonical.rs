@@ -79,3 +79,92 @@ fn non_ascii_text_stays_utf8() {
     let text = String::from_utf8(w.finish()).unwrap();
     assert!(text.contains(r#""title": "Ω µ""#), "{text}");
 }
+
+#[derive(Serialize)]
+struct Pt {
+    x: i64,
+    y: i64,
+}
+
+#[derive(Serialize)]
+struct Shape {
+    uuid: Uuid,
+    name: &'static str,
+    tags: Vec<&'static str>,
+    points: Vec<Pt>,
+}
+
+fn shape(n: u128, points: Vec<Pt>) -> Shape {
+    Shape {
+        uuid: Uuid::v4_from_bits(n),
+        name: "s",
+        tags: vec!["a"],
+        points,
+    }
+}
+
+fn pts(n: i64) -> Vec<Pt> {
+    (0..n).map(|i| Pt { x: i, y: -i }).collect()
+}
+
+#[test]
+fn containers_put_each_child_on_its_own_line() {
+    let mut w = CanonicalWriter::new(1);
+    w.container("outline", &shape(9, pts(2)), "points").unwrap();
+    w.containers(
+        "cutouts",
+        [shape(2, pts(2)), shape(1, pts(1))],
+        |s| s.uuid,
+        "points",
+    )
+    .unwrap();
+    w.containers("empty", Vec::<Shape>::new(), |s| s.uuid, "points")
+        .unwrap();
+    let text = String::from_utf8(w.finish()).unwrap();
+    assert_eq!(
+        text,
+        r#"{
+  "format": 1,
+  "outline": {"uuid":"00000000-0000-4000-8000-000000000009","name":"s","tags":["a"],"points":[
+    {"x":0,"y":0},
+    {"x":1,"y":-1}
+  ]},
+  "cutouts": [
+    {"uuid":"00000000-0000-4000-8000-000000000001","name":"s","tags":["a"],"points":[
+      {"x":0,"y":0}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000002","name":"s","tags":["a"],"points":[
+      {"x":0,"y":0},
+      {"x":1,"y":-1}
+    ]}
+  ],
+  "empty": []
+}
+"#
+    );
+}
+
+#[test]
+fn a_container_with_no_children_stays_on_one_line() {
+    let mut w = CanonicalWriter::new(1);
+    w.container("outline", &shape(9, vec![]), "points").unwrap();
+    let text = String::from_utf8(w.finish()).unwrap();
+    assert!(text.contains(r#""tags":["a"],"points":[]}"#), "{text}");
+}
+
+#[test]
+fn a_container_whose_children_field_is_missing_is_an_error() {
+    let mut w = CanonicalWriter::new(1);
+    assert!(w.container("outline", &row(1, "a"), "points").is_err());
+}
+
+#[test]
+fn floats_inside_container_children_are_refused() {
+    #[derive(Serialize)]
+    struct Bad {
+        points: Vec<f64>,
+    }
+    let mut w = CanonicalWriter::new(1);
+    let bad = Bad { points: vec![0.5] };
+    assert!(w.container("outline", &bad, "points").is_err());
+}
