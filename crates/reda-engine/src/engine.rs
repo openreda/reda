@@ -2,7 +2,9 @@
 
 use std::path::Path;
 
-use reda_command::{Clock, CommandError, Env, IdSource, RandomIds, Registry, Session, SystemClock};
+use reda_command::{
+    Clock, CommandError, Env, IdSource, RandomIds, Registry, Session, SystemClock, UserDirs,
+};
 use reda_model::Project;
 use serde_json::Value;
 
@@ -24,7 +26,8 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// A headless engine with random UUIDs and the wall clock, for real sessions.
+    /// A headless engine with random UUIDs, the wall clock and the per-user folders from
+    /// `REDA_HOME` or the platform, for real sessions.
     pub fn new() -> Engine {
         Engine::builder().build()
     }
@@ -41,6 +44,11 @@ impl Engine {
             headless: self.headless,
         };
         self.registry.run(&mut self.session, &mut env, id, params)
+    }
+
+    /// The per-user folders, if there are any.
+    pub fn user_dirs(&self) -> Option<&UserDirs> {
+        self.session.user_dirs.as_ref()
     }
 
     pub fn registry(&self) -> &Registry {
@@ -68,11 +76,13 @@ impl Default for Engine {
     }
 }
 
-/// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless.
+/// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless, and the
+/// per-user folders from [`crate::user_dirs::discover`].
 pub struct EngineBuilder {
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
     headless: bool,
+    user_dirs: Option<UserDirs>,
 }
 
 impl Default for EngineBuilder {
@@ -81,6 +91,7 @@ impl Default for EngineBuilder {
             ids: Box::new(RandomIds::new()),
             clock: Box::new(SystemClock),
             headless: true,
+            user_dirs: crate::user_dirs::discover(),
         }
     }
 }
@@ -102,10 +113,19 @@ impl EngineBuilder {
         self
     }
 
+    /// The per-user folders, or `None` to keep Preferences and state off disk.
+    pub fn user_dirs(mut self, user_dirs: Option<UserDirs>) -> EngineBuilder {
+        self.user_dirs = user_dirs;
+        self
+    }
+
     pub fn build(self) -> Engine {
         Engine {
             registry: registry(),
-            session: Session::default(),
+            session: Session {
+                user_dirs: self.user_dirs,
+                ..Session::default()
+            },
             ids: self.ids,
             clock: self.clock,
             headless: self.headless,

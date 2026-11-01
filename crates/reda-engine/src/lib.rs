@@ -9,7 +9,9 @@ pub mod commands;
 mod engine;
 pub mod format;
 pub mod fs;
+pub mod state;
 pub mod store;
+pub mod user_dirs;
 
 pub use engine::{Engine, EngineBuilder, registry};
 

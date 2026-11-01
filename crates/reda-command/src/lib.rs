@@ -9,9 +9,11 @@ mod context;
 mod error;
 mod inputs;
 mod registry;
+mod user;
 
 pub use command::{AvailabilityContext, Command, Kind, Meta, NO_PROJECT, NoParams, Unavailable};
 pub use context::{Context, Env, Session};
 pub use error::{CommandError, ErrorCode};
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock, Timestamp};
 pub use registry::{Registry, scope_key};
+pub use user::UserDirs;

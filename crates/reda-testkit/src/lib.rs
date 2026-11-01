@@ -5,7 +5,7 @@
 mod engine;
 mod files;
 
-pub use engine::{TestEngine, test_engine};
+pub use engine::{TestEngine, test_engine, test_engine_in};
 pub use files::{TempDir, read_tree};
 
 use std::path::Path;

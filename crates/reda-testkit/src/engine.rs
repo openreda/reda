@@ -1,13 +1,16 @@
 //! The test-engine builder: a headless engine with deterministic inputs.
 
 use std::ops::{Deref, DerefMut};
+use std::path::Path;
 
 use reda_engine::Engine;
-use reda_engine::command::{CommandError, FixedClock, SeededIds};
+use reda_engine::command::{CommandError, FixedClock, SeededIds, UserDirs};
 use serde_json::Value;
 
 /// A headless [`Engine`] with `SeededIds::new(0)` and `FixedClock::EPOCH`, so UUIDs run
 /// `00000000-0000-4000-8000-000000000001`, `…002`, … and saved files are reproducible.
+/// It has no per-user folders, so it never reads the real user's Preferences; use
+/// [`test_engine_in`] for tests of per-user files.
 ///
 /// It derefs to [`Engine`]; [`TestEngine::run_ok`] and [`TestEngine::run_err`] add the
 /// panicking helpers scenario tests want.
@@ -16,6 +19,19 @@ pub fn test_engine() -> TestEngine {
         Engine::builder()
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
+            .user_dirs(None)
+            .build(),
+    )
+}
+
+/// Like [`test_engine`], with the per-user folders under `home`, as `REDA_HOME=home` would
+/// put them.
+pub fn test_engine_in(home: &Path) -> TestEngine {
+    TestEngine(
+        Engine::builder()
+            .ids(SeededIds::new(0))
+            .clock(FixedClock::EPOCH)
+            .user_dirs(Some(UserDirs::under(home)))
             .build(),
     )
 }
