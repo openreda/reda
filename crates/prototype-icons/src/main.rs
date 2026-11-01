@@ -9,7 +9,7 @@
 //   2 · filled shapes with soft depth: one top-to-bottom gradient per fill, a darker edge of the
 //       same hue, a thin top highlight, no shadows or perspective.
 // The yellow PROTOTYPE bar (or ←/→) switches style; it also sets the toolbar and Active Bar
-// sizes (16/20/24 px; menus stay 16) and opens an icon sheet showing every icon in every state,
+// sizes (16/20/24 px; menus use 20) and opens an icon sheet showing every icon in every state,
 // size and theme. State is on the button: accent background active, hover background, disabled
 // drawn as a faded greyscale copy. Save is disabled until something changes; Move until a
 // selection exists.

@@ -229,7 +229,7 @@ impl Shell {
             torn_off_window_has_menu: false,
             layout_menu: true,
             icon_style: Style::Line,
-            toolbar_px: 20.0,
+            toolbar_px: 24.0,
             bar_px: 24.0,
             tool: "edit.select.rect".into(),
             dirty: false,
@@ -253,7 +253,7 @@ impl Shell {
     fn menu_item(&mut self, ui: &mut egui::Ui, label: &str, cmd: &str, enabled: bool) {
         let b = match icons::key_for(cmd) {
             Some(k) => {
-                let mut img = icons::image(self.icon_style, k, 16.0, !enabled);
+                let mut img = icons::image(self.icon_style, k, 20.0, !enabled, ui.visuals().dark_mode);
                 if !enabled {
                     img = img.tint(Color32::from_white_alpha(120));
                 }

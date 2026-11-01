@@ -56,6 +56,29 @@ macro_rules! set {
 
 static SRC: [[&str; 12]; 2] = [set!("line"), set!("depth")];
 
+/// Line style role colours: the SVGs carry the dark-theme values; the light theme swaps in
+/// deeper tones so every role keeps ≥3:1 contrast on both theme backgrounds.
+const LIGHT_SWAP: [(&str, &str); 5] = [
+    ("#8a93a0", "#727984"), // existing / context
+    ("#2fb36b", "#228a51"), // created, schematic
+    ("#e08a2e", "#ac6921"), // created, PCB copper
+    ("#3d8fd6", "#347dbc"), // created, general
+    ("#ec4f7a", "#d2456c"), // picked point
+];
+
+fn light_src() -> &'static [&'static [u8]; 12] {
+    static L: OnceLock<[&'static [u8]; 12]> = OnceLock::new();
+    L.get_or_init(|| {
+        SRC[0].map(|svg| {
+            let mut s = svg.to_string();
+            for (d, l) in LIGHT_SWAP {
+                s = s.replace(d, l);
+            }
+            &*Box::leak(s.into_bytes().into_boxed_slice())
+        })
+    })
+}
+
 /// Greyscale copies: every `#rrggbb` becomes its luminance, pulled toward mid grey.
 fn grey_src() -> &'static [[&'static [u8]; 12]; 2] {
     static G: OnceLock<[[&'static [u8]; 12]; 2]> = OnceLock::new();
@@ -83,10 +106,12 @@ fn grey_src() -> &'static [[&'static [u8]; 12]; 2] {
     })
 }
 
-pub fn image(style: Style, key: &str, px: f32, greyed: bool) -> egui::Image<'static> {
+pub fn image(style: Style, key: &str, px: f32, greyed: bool, dark: bool) -> egui::Image<'static> {
     let i = KEYS.iter().position(|k| *k == key).unwrap_or_else(|| panic!("no icon {key}"));
     let (uri, bytes): (String, &'static [u8]) = if greyed {
         (format!("bytes://{}/{key}.grey.svg", style.dir()), grey_src()[style.idx()][i])
+    } else if !dark && style == Style::Line {
+        (format!("bytes://{}/{key}.light.svg", style.dir()), light_src()[i])
     } else {
         (format!("bytes://{}/{key}.svg", style.dir()), SRC[style.idx()][i].as_bytes())
     };
@@ -125,7 +150,7 @@ pub fn button(ui: &mut egui::Ui, style: Style, key: &str, px: f32, active: bool,
         Color32::TRANSPARENT
     };
     ui.painter().rect_filled(rect, CornerRadius::same(3), fill);
-    let mut img = image(style, key, px, !enabled);
+    let mut img = image(style, key, px, !enabled, ui.visuals().dark_mode);
     if !enabled {
         img = img.tint(Color32::from_white_alpha(120));
     }
@@ -171,7 +196,7 @@ pub fn sheet(ui: &mut egui::Ui, style: Style) {
                         2 => { p.rect_filled(btn, CornerRadius::same(3), *active); }
                         _ => {}
                     }
-                    let mut img = image(style, key, *px, st == 3);
+                    let mut img = image(style, key, *px, st == 3, t == 0);
                     if st == 3 {
                         img = img.tint(Color32::from_white_alpha(120));
                     }

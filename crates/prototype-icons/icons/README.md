@@ -12,3 +12,6 @@ No generated image is shipped or traced. The concepts in `../concepts/` were sty
 - Model: `recraft/recraft-v4.1-flash` through OpenRouter, raster (WebP) output.
 - Prompt: `A single software toolbar icon for an electronics design app, simple enough to read at 16 pixels. Subject: <subject>. <style>` with subjects from `subjects.tsv` and styles A–E from `styles.tsv`.
 - Contact sheets: `sheet-A.png` … `sheet-E.png` (12 subjects each, in `subjects.tsv` order).
+
+`line/` won. Its SVGs carry the dark-theme role colours; `src/icons.rs` swaps in the light-theme
+tones on load (`LIGHT_SWAP`).
