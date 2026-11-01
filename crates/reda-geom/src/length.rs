@@ -74,7 +74,21 @@ impl Mul<i64> for Nm {
 }
 
 /// A position on a Schematic Sheet or the PCB Document, which share one coordinate type.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+// Points order by x, then y (sorted Junction lists rely on it).
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Point {
     pub x: Nm,

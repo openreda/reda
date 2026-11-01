@@ -19,12 +19,22 @@
 //!   ],
 //!   "units": [
 //!     {"uuid":"…","component":{"uuid":"…"},"part":"…","unit":"…","at":{…},"rotation":0,"designator":"U1",…}
+//!   ],
+//!   "wires": [
+//!     {"uuid":"…","from":{"x":0,"y":0},"to":{"x":2540000,"y":0}}
+//!   ],
+//!   "net_labels": [
+//!     {"uuid":"…","name":"SDA","at":{…},"rotation":0}
+//!   ],
+//!   "no_connects": [
+//!     {"uuid":"…","at":{…}}
 //!   ]
 //! }
 //! ```
 //!
 //! `frame` is written only when the sheet has one, and the three tables only when the sheet
-//! holds any Component. A part-table entry (`parts`) holds the
+//! holds any Component; `wires`, `net_labels` and `no_connects` only when not empty. Nets
+//! and Junctions are derived from the drawing, never written. A part-table entry (`parts`) holds the
 //! keys of a `.redapart` file (`part`, `footprints`, `fields`, `pin_map`) and of a
 //! `.redasym` file (`symbol`, `units`, `pins`, `graphics`) with the same shapes, plus its own `uuid`,
 //! its content `hash` and `copies`: the sheet's Footprint copy of each alternate. An
@@ -35,8 +45,9 @@
 use std::path::Path;
 
 use reda_model::{
-    Fields, FootprintCopy, FootprintGraphic, InDocument, Object, Pad, PartEntry, Pin, PinMap,
-    Provenance, SchematicSheet, SheetFrame, SymbolGraphic, Unit, UnitInstance, Uuid,
+    Fields, FootprintCopy, FootprintGraphic, InDocument, NetLabel, NoConnect, Object, Pad,
+    PartEntry, Pin, PinMap, Provenance, SchematicSheet, SheetFrame, SymbolGraphic, Unit,
+    UnitInstance, Uuid, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -68,6 +79,15 @@ pub(crate) struct SheetFile {
     /// The placed Units, sorted by UUID.
     #[serde(default)]
     units: Vec<UnitInstance>,
+    /// The Wires: one orthogonal segment each, sorted by UUID.
+    #[serde(default)]
+    wires: Vec<Wire>,
+    /// The Net Labels, sorted by UUID.
+    #[serde(default)]
+    net_labels: Vec<NetLabel>,
+    /// The No-Connect Markers, sorted by UUID.
+    #[serde(default)]
+    no_connects: Vec<NoConnect>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -156,6 +176,15 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         w.containers_spread("footprints", footprints, |r| r.uuid, &["pads", "graphics"])?;
         w.table("units", sheet.units(), |u| u.uuid)?;
     }
+    if sheet.wires().next().is_some() {
+        w.table("wires", sheet.wires(), |r| r.uuid)?;
+    }
+    if sheet.net_labels().next().is_some() {
+        w.table("net_labels", sheet.net_labels(), |r| r.uuid)?;
+    }
+    if sheet.no_connects().next().is_some() {
+        w.table("no_connects", sheet.no_connects(), |r| r.uuid)?;
+    }
     Ok(w.finish())
 }
 
@@ -213,6 +242,15 @@ pub(crate) fn read_sheet_file(
     }
     for unit in file.units {
         objects.push(Object::Unit(InDocument::new(sheet, unit)));
+    }
+    for wire in file.wires {
+        objects.push(Object::Wire(InDocument::new(sheet, wire)));
+    }
+    for label in file.net_labels {
+        objects.push(Object::NetLabel(InDocument::new(sheet, label)));
+    }
+    for marker in file.no_connects {
+        objects.push(Object::NoConnect(InDocument::new(sheet, marker)));
     }
     Ok(objects)
 }
