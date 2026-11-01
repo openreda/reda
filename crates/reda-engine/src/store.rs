@@ -6,8 +6,9 @@ use reda_command::CommandError;
 use reda_model::{DocumentKind, Project, ProjectProps, Scope};
 
 use crate::builders::add_document;
+use crate::canonical::CanonicalError;
 use crate::format::{
-    LoadError, ProjectFile, parse, read_bytes, read_sheet_file, write_project_file,
+    FileKind, LoadError, ProjectFile, parse, read_bytes, read_sheet_file, write_project_file,
     write_sheet_file,
 };
 use crate::fs::write_atomic;
@@ -33,6 +34,15 @@ pub fn resolve_project_file(path: &Path) -> PathBuf {
 
 /// Reads the Project whose Project file is `project_file`. Returns it with its folder.
 pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
+    load_from(project_file, read_bytes)
+}
+
+/// [`load`] with the file reading supplied by the caller, so tests and the fuzz target can
+/// load a Project held in memory. `read` gets each file's path under the Project folder.
+pub fn load_from(
+    project_file: &Path,
+    mut read: impl FnMut(&Path) -> Result<Vec<u8>, LoadError>,
+) -> Result<(Project, PathBuf), LoadError> {
     let invalid = |why: String| LoadError::Invalid(project_file.to_owned(), why);
     let name = project_file
         .file_stem()
@@ -47,7 +57,7 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
         .parent()
         .map(Path::to_owned)
         .unwrap_or_default();
-    let file: ProjectFile = parse(project_file, &read_bytes(project_file)?)?;
+    let file: ProjectFile = parse(FileKind::Project, project_file, &read(project_file)?)?;
 
     let mut project = Project::new(ProjectProps {
         uuid: file.project.uuid,
@@ -60,7 +70,7 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
         let path = folder.join(entry.file_name());
         match entry.kind {
             DocumentKind::Schematic => {
-                read_sheet_file(&path, &read_bytes(&path)?, entry.uuid)?;
+                read_sheet_file(&path, &read(&path)?, entry.uuid)?;
             }
         }
         add_document(&mut tx, entry).map_err(|e| invalid(e.to_string()))?;
@@ -69,25 +79,21 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
     Ok((project, folder))
 }
 
-/// Writes the Project's files into `folder`, each through a temp file and a rename, the
-/// Project file last: every file with `only` = `None`, or just the one `only` names (the
-/// Project file comes with `.reda/.gitignore`). Returns the written paths relative to
-/// `folder`.
-pub fn save(
-    folder: &Path,
+/// Every file of the Project as canonical bytes, keyed by its `/`-separated path relative to
+/// the Project folder, in write order: the Project file comes last.
+pub fn encode(project: &Project) -> Result<Vec<(String, Vec<u8>)>, CanonicalError> {
+    encode_scoped(project, None)
+}
+
+/// Like [`encode`], but with `only` = `Some(scope)` just the one file `scope` names (the
+/// Project file comes with `.reda/.gitignore`).
+fn encode_scoped(
     project: &Project,
     only: Option<Scope>,
-) -> Result<Vec<String>, CommandError> {
+) -> Result<Vec<(String, Vec<u8>)>, CanonicalError> {
     let wanted = |scope: Scope| only.is_none_or(|only| only == scope);
-    let io = |path: &Path, e: std::io::Error| {
-        CommandError::internal(format!("writing {}: {e}", path.display()))
-    };
-    let canonical = |e: crate::canonical::CanonicalError| CommandError::internal(e.to_string());
-
     let mut files: Vec<(String, Vec<u8>)> = vec![];
     if wanted(Scope::Project) {
-        let state = folder.join(".reda");
-        std::fs::create_dir_all(&state).map_err(|e| io(&state, e))?;
         files.push((".reda/.gitignore".into(), b"*\n".to_vec()));
     }
     for entry in project
@@ -99,16 +105,35 @@ pub fn save(
                 let sheet = project
                     .schematic_sheet(entry.uuid)
                     .expect("every Schematic entry has a sheet body");
-                write_sheet_file(sheet).map_err(canonical)?
+                write_sheet_file(sheet)?
             }
         };
         files.push((entry.file_name(), bytes));
     }
     if wanted(Scope::Project) {
         let name = format!("{}.{PROJECT_EXTENSION}", project.props().name);
-        files.push((name, write_project_file(project).map_err(canonical)?));
+        files.push((name, write_project_file(project)?));
     }
+    Ok(files)
+}
 
+/// Writes the Project's files into `folder`, each through a temp file and a rename, the
+/// Project file last: every file with `only` = `None`, or just the one `only` names (the
+/// Project file comes with `.reda/.gitignore`). Returns the written paths relative to
+/// `folder`.
+pub fn save(
+    folder: &Path,
+    project: &Project,
+    only: Option<Scope>,
+) -> Result<Vec<String>, CommandError> {
+    let io = |path: &Path, e: std::io::Error| {
+        CommandError::internal(format!("writing {}: {e}", path.display()))
+    };
+    let files = encode_scoped(project, only).map_err(|e| CommandError::internal(e.to_string()))?;
+    if only.is_none_or(|only| only == Scope::Project) {
+        let state = folder.join(".reda");
+        std::fs::create_dir_all(&state).map_err(|e| io(&state, e))?;
+    }
     for (rel, bytes) in &files {
         let path = folder.join(rel);
         write_atomic(&path, bytes).map_err(|e| io(&path, e))?;

@@ -1,0 +1,38 @@
+{
+  "$defs": {
+    "SheetRow": {
+      "additionalProperties": false,
+      "properties": {
+        "uuid": {
+          "format": "uuid",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Schematic Sheet file (`.redasch`).",
+  "properties": {
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "sheet": {
+      "$ref": "#/$defs/SheetRow",
+      "description": "The sheet's identity; it matches the sheet's entry in the Project file."
+    }
+  },
+  "required": [
+    "format",
+    "sheet"
+  ],
+  "title": "REDA Schematic Sheet file",
+  "type": "object"
+}
