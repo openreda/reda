@@ -6,12 +6,16 @@
 
 mod change;
 mod document;
+#[cfg(feature = "test-objects")]
+mod probe;
 mod project;
 mod transaction;
 mod uuid;
 
 pub use change::{Change, ChangeSet, Object, Scope, ScopeSummary};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
+#[cfg(feature = "test-objects")]
+pub use probe::Probe;
 pub use project::{Project, ProjectProps};
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};

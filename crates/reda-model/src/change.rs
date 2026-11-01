@@ -16,6 +16,8 @@ use crate::{DocumentEntry, ProjectProps, Uuid};
 pub enum Object {
     Project(ProjectProps),
     Document(DocumentEntry),
+    #[cfg(feature = "test-objects")]
+    Probe(crate::Probe),
 }
 
 impl Object {
@@ -23,6 +25,8 @@ impl Object {
         match self {
             Object::Project(p) => p.uuid,
             Object::Document(d) => d.uuid,
+            #[cfg(feature = "test-objects")]
+            Object::Probe(p) => p.uuid,
         }
     }
 
@@ -30,6 +34,8 @@ impl Object {
     pub fn scope(&self) -> Scope {
         match self {
             Object::Project(_) | Object::Document(_) => Scope::Project,
+            #[cfg(feature = "test-objects")]
+            Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }
     }
 
@@ -89,6 +95,33 @@ impl ChangeSet {
     /// The scopes this change set touches.
     pub fn scopes(&self) -> std::collections::BTreeSet<Scope> {
         self.changes.values().map(|c| c.scope).collect()
+    }
+
+    /// Every change in the order that applies it safely: Project-scope upserts first, so a
+    /// created Document's body exists before its contents land; then Document-scope
+    /// changes; then Project-scope removals, so a Document's contents are gone before it
+    /// is dropped.
+    pub fn in_apply_order(&self) -> Vec<(&Uuid, &Change)> {
+        let rank = |c: &Change| match (c.scope, &c.after) {
+            (Scope::Project, Some(_)) => 0,
+            (Scope::Document(_), _) => 1,
+            (Scope::Project, None) => 2,
+        };
+        let mut ordered: Vec<_> = self.changes.iter().collect();
+        ordered.sort_by_key(|(_, c)| rank(c));
+        ordered
+    }
+
+    /// The change set split into one per scope, each holding only that scope's changes.
+    pub fn split_by_scope(&self) -> BTreeMap<Scope, ChangeSet> {
+        let mut out: BTreeMap<Scope, ChangeSet> = BTreeMap::new();
+        for (uuid, change) in &self.changes {
+            out.entry(change.scope)
+                .or_default()
+                .changes
+                .insert(*uuid, change.clone());
+        }
+        out
     }
 
     /// The change set that reverts this one.
