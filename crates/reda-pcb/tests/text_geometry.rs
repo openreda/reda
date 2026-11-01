@@ -6,7 +6,6 @@ use serde_json::{Value, json};
 
 fn with_pcb(mut engine: TestEngine, dir: &TempDir) -> TestEngine {
     engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
-    engine.run_ok("document.add", json!({"kind": "pcb"}));
     engine
 }
 

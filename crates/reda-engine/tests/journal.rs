@@ -1,9 +1,10 @@
 //! The session Journal: recording, JSON-lines export and replay with UUID remapping.
 
 use reda_engine::command::{ErrorCode, FixedClock, SeededIds};
+use reda_engine::journal::ScriptEntry;
 use reda_engine::journal::{self, Source};
 use reda_engine::{Engine, store};
-use reda_testkit::test_engine;
+use reda_testkit::{TempDir, test_engine};
 use serde_json::{Value, json};
 
 fn engine_seeded(seed: u64) -> Engine {
@@ -20,13 +21,21 @@ fn lines(text: &str) -> Vec<Value> {
         .collect()
 }
 
+/// A script parsed from `text`, with its `project.new` steps pointed at a fresh temporary
+/// folder, which must outlive the replay.
+fn script(text: &str) -> (TempDir, Vec<ScriptEntry>) {
+    let dir = TempDir::new("journal-replay");
+    let mut steps = journal::parse(text).unwrap();
+    journal::relocate_new_projects(&mut steps, dir.path());
+    (dir, steps)
+}
+
 /// A session on seed 0: a new Project, a query naming the created Sheet, and a failure.
 fn recorded_session() -> String {
+    let dir = TempDir::new("journal-recorded");
     let mut e = test_engine();
-    let sheet = e.run_ok(
-        "project.new",
-        json!({"path": "/nonexistent", "name": "Demo"}),
-    )["documents"][0]["uuid"]
+    let sheet = e.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}))["documents"]
+        [0]["uuid"]
         .clone();
     e.run_ok("object.get", json!({ "uuid": sheet }));
     e.run_err(
@@ -45,11 +54,9 @@ fn the_journal_records_source_and_outcome_of_every_command() {
         .source(Source::Mcp)
         .build();
     e.run("project.overview", json!({})).unwrap_err();
-    e.run(
-        "project.new",
-        json!({"path": "/nonexistent", "name": "Demo"}),
-    )
-    .unwrap();
+    let dir = TempDir::new("journal-source");
+    e.run("project.new", json!({"path": dir.path(), "name": "Demo"}))
+        .unwrap();
     let journal = e.journal();
     assert_eq!(journal.len(), 2);
     assert!(journal.iter().all(|entry| entry.source == Source::Mcp));
@@ -97,7 +104,7 @@ fn a_result_of_null_is_recorded() {
 
 #[test]
 fn replay_substitutes_created_uuids_in_later_params() {
-    let script = journal::parse(&recorded_session()).unwrap();
+    let (_dir, script) = script(&recorded_session());
     // Seed 7 creates different UUIDs, so the recorded Sheet UUID only resolves if the
     // replay substitutes the one created on replay.
     let mut e = engine_seeded(7);
@@ -111,14 +118,12 @@ fn replay_substitutes_created_uuids_in_later_params() {
 
 #[test]
 fn replay_reproduces_the_recorded_documents() {
-    let script = journal::parse(&recorded_session()).unwrap();
+    let (_dir, script) = script(&recorded_session());
     let mut e = engine_seeded(0);
     journal::replay(&mut e, &script).unwrap();
+    let dir = TempDir::new("journal-original");
     let mut original = test_engine();
-    original.run_ok(
-        "project.new",
-        json!({"path": "/nonexistent", "name": "Demo"}),
-    );
+    original.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     assert_eq!(
         store::encode(e.project().unwrap()).unwrap(),
         store::encode(original.project().unwrap()).unwrap()
@@ -130,7 +135,7 @@ fn replay_fails_when_a_result_shape_differs() {
     let mut recorded = lines(&recorded_session());
     recorded[0]["result"]["extra"] = json!(1);
     let text: String = recorded.iter().map(|l| format!("{l}\n")).collect();
-    let script = journal::parse(&text).unwrap();
+    let (_dir, script) = script(&text);
     let err = journal::replay(&mut engine_seeded(0), &script).unwrap_err();
     assert_eq!(err.line, 1);
     assert_eq!(err.pointer.as_deref(), Some("/extra"));
@@ -142,7 +147,8 @@ fn replay_fails_when_a_value_changes_type() {
     let mut recorded = lines(&recorded_session());
     recorded[0]["result"]["documents"] = json!({});
     let text: String = recorded.iter().map(|l| format!("{l}\n")).collect();
-    let err = journal::replay(&mut engine_seeded(0), &journal::parse(&text).unwrap()).unwrap_err();
+    let (_dir, script) = script(&text);
+    let err = journal::replay(&mut engine_seeded(0), &script).unwrap_err();
     assert_eq!(err.pointer.as_deref(), Some("/documents"));
 }
 
@@ -154,7 +160,8 @@ fn replay_fails_when_an_array_length_differs() {
         .unwrap()
         .push(json!({}));
     let text: String = recorded.iter().map(|l| format!("{l}\n")).collect();
-    let err = journal::replay(&mut engine_seeded(0), &journal::parse(&text).unwrap()).unwrap_err();
+    let (_dir, script) = script(&text);
+    let err = journal::replay(&mut engine_seeded(0), &script).unwrap_err();
     assert_eq!(err.pointer.as_deref(), Some("/documents"));
 }
 
@@ -174,7 +181,8 @@ fn replay_fails_when_a_recorded_error_now_succeeds_or_changes_code() {
     assert!(err.message.contains("not_found"), "{}", err.message);
 
     let text = "{\"id\":\"project.new\",\"params\":{\"path\":\"/nonexistent\",\"name\":\"D\"},\"error\":{\"code\":\"rejected\",\"message\":\"x\"}}\n";
-    let err = journal::replay(&mut engine_seeded(0), &journal::parse(text).unwrap()).unwrap_err();
+    let (_dir, script) = script(text);
+    let err = journal::replay(&mut engine_seeded(0), &script).unwrap_err();
     assert!(err.message.contains("succeeded"), "{}", err.message);
 }
 
@@ -182,8 +190,9 @@ fn replay_fails_when_a_recorded_error_now_succeeds_or_changes_code() {
 fn a_step_without_a_recorded_outcome_only_has_to_succeed() {
     let text = "\n{\"id\":\"project.new\",\"params\":{\"path\":\"/nonexistent\",\"name\":\"D\"}}\n\
                 {\"id\":\"project.overview\"}\n";
+    let (_dir, script) = script(text);
     let mut e = engine_seeded(0);
-    journal::replay(&mut e, &journal::parse(text).unwrap()).unwrap();
+    journal::replay(&mut e, &script).unwrap();
     assert_eq!(e.journal().len(), 2);
 }
 
@@ -203,11 +212,10 @@ fn parse_reports_the_line_of_a_bad_entry() {
 
 #[test]
 fn replay_with_random_uuids_remaps_uuid_keyed_changes_across_documents() {
+    let dir = TempDir::new("journal-remap");
     let mut e = reda_testkit::probe_engine();
-    let first = e.run_ok(
-        "project.new",
-        json!({"path": "/nonexistent", "name": "Demo"}),
-    )["documents"][0]["uuid"]
+    let first = e.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}))["documents"]
+        [0]["uuid"]
         .clone();
     let second = e.run_ok("test.sheet.add", json!({"name": "B"}))["result"]["uuid"].clone();
     e.run_ok(
@@ -218,7 +226,7 @@ fn replay_with_random_uuids_remaps_uuid_keyed_changes_across_documents() {
         ]}),
     );
     e.run_ok("edit.undo", json!({ "document": second }));
-    let script = journal::parse(&journal::export(e.journal())).unwrap();
+    let (_dir, script) = script(&journal::export(e.journal()));
 
     let mut replayed = Engine::builder()
         .user_dirs(None)
@@ -231,7 +239,7 @@ fn replay_with_random_uuids_remaps_uuid_keyed_changes_across_documents() {
         .documents()
         .map(|d| d.uuid.to_string())
         .collect();
-    assert_eq!(docs.len(), 2);
-    assert_ne!(docs[1], second.as_str().unwrap());
-    assert_eq!(replayed.journal()[3].params["document"], docs[1]);
+    assert_eq!(docs.len(), 3, "the sheet, the PCB Document and sheet B");
+    assert_ne!(docs[2], second.as_str().unwrap());
+    assert_eq!(replayed.journal()[3].params["document"], docs[2]);
 }

@@ -1,5 +1,91 @@
 {
   "$defs": {
+    "Column": {
+      "additionalProperties": false,
+      "description": "One column of a BOM or CPL file.",
+      "properties": {
+        "header": {
+          "description": "The column header, such as \"LCSC Part #\".",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ColumnSource"
+        }
+      },
+      "required": [
+        "header",
+        "source"
+      ],
+      "type": "object"
+    },
+    "ColumnSource": {
+      "description": "Where a BOM or CPL column takes its values from.",
+      "oneOf": [
+        {
+          "const": "line",
+          "description": "The row's number, from 1.",
+          "type": "string"
+        },
+        {
+          "const": "designator",
+          "description": "The Designators of the row, in natural order (CPL: the one Designator).",
+          "type": "string"
+        },
+        {
+          "const": "quantity",
+          "description": "How many Components the BOM row groups.",
+          "type": "string"
+        },
+        {
+          "const": "value",
+          "description": "The Component's value, such as `10k`.",
+          "type": "string"
+        },
+        {
+          "const": "footprint",
+          "description": "The chosen Footprint's name.",
+          "type": "string"
+        },
+        {
+          "const": "mount",
+          "description": "`SMT` or `THT`.",
+          "type": "string"
+        },
+        {
+          "const": "mid_x",
+          "description": "The Footprint's centre, X, in mm from the CPL origin.",
+          "type": "string"
+        },
+        {
+          "const": "mid_y",
+          "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+          "type": "string"
+        },
+        {
+          "const": "layer",
+          "description": "`Top` or `Bottom`.",
+          "type": "string"
+        },
+        {
+          "const": "rotation",
+          "description": "The Footprint's rotation in degrees, counter-clockwise.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The Component field with this name, such as `LCSC` or `MPN`.",
+          "properties": {
+            "field": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "DocumentRow": {
       "additionalProperties": false,
       "properties": {
@@ -21,6 +107,146 @@
         "uuid",
         "path",
         "title"
+      ],
+      "type": "object"
+    },
+    "FileNaming": {
+      "description": "How the Gerber and drill files of a job are named.",
+      "oneOf": [
+        {
+          "const": "protel",
+          "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+          "type": "string"
+        }
+      ]
+    },
+    "GerberSettings": {
+      "additionalProperties": false,
+      "description": "The Gerber and drill switches of a Fab Preset.",
+      "properties": {
+        "naming": {
+          "$ref": "#/$defs/FileNaming",
+          "description": "How the files are named."
+        },
+        "x2_attributes": {
+          "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "x2_attributes",
+        "naming"
+      ],
+      "type": "object"
+    },
+    "OutputJob": {
+      "additionalProperties": false,
+      "description": "A named recipe for manufacturing files, stored in the Project file.",
+      "properties": {
+        "destination": {
+          "description": "The output folder relative to the Project folder, `/`-separated; left out for\n`outputs/<job name>`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fab_preset": {
+          "description": "The Project copy of the Fab Preset it uses.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "outputs": {
+          "$ref": "#/$defs/Outputs"
+        },
+        "pcb": {
+          "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "pcb",
+        "fab_preset",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "Outputs": {
+      "additionalProperties": false,
+      "description": "Which files an Output Job writes.",
+      "properties": {
+        "bom": {
+          "description": "The CSV bill of materials.",
+          "type": "boolean"
+        },
+        "cpl": {
+          "description": "The CSV pick-and-place file.",
+          "type": "boolean"
+        },
+        "drill": {
+          "description": "Excellon drill files, plated and non-plated.",
+          "type": "boolean"
+        },
+        "gerber": {
+          "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gerber",
+        "drill",
+        "bom",
+        "cpl"
+      ],
+      "type": "object"
+    },
+    "ProjectFabPreset": {
+      "additionalProperties": false,
+      "description": "The Project's own copy of a Fab Preset, so outputs come out the same on any machine.\nIts fields are a [`FabPreset`]'s, after the UUID.",
+      "properties": {
+        "bom": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "type": "array"
+        },
+        "cpl": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "type": "array"
+        },
+        "gerber": {
+          "$ref": "#/$defs/GerberSettings"
+        },
+        "name": {
+          "description": "The name of the preset it was copied from.",
+          "type": "string"
+        },
+        "rules": {
+          "$ref": "#/$defs/Rules"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "rules",
+        "gerber",
+        "bom",
+        "cpl"
       ],
       "type": "object"
     },
@@ -65,6 +291,57 @@
         "uuid"
       ],
       "type": "object"
+    },
+    "Rules": {
+      "additionalProperties": false,
+      "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+      "properties": {
+        "annular_ring": {
+          "description": "Minimum annular ring of Vias and plated Pads.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "clearance": {
+          "description": "Minimum clearance between copper of different Nets.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_to_hole": {
+          "description": "Minimum spacing between hole edges.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "track_width": {
+          "description": "Minimum Track width.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_diameter": {
+          "description": "Minimum Via diameter.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_hole": {
+          "description": "Minimum Via hole.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "clearance",
+        "track_width",
+        "via_diameter",
+        "via_hole",
+        "annular_ring",
+        "hole_to_hole",
+        "edge_clearance"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -78,6 +355,14 @@
       },
       "type": "array"
     },
+    "fab_presets": {
+      "default": [],
+      "description": "The Project's copies of the Fab Presets its Output Jobs use, in the same shape as a\n`.redafab` file plus a UUID.",
+      "items": {
+        "$ref": "#/$defs/ProjectFabPreset"
+      },
+      "type": "array"
+    },
     "format": {
       "const": 1,
       "description": "The file-format version. REDA writes only the current one.",
@@ -88,6 +373,14 @@
       "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.\nWritten only when there are any.",
       "items": {
         "type": "string"
+      },
+      "type": "array"
+    },
+    "output_jobs": {
+      "default": [],
+      "description": "The Output Jobs.",
+      "items": {
+        "$ref": "#/$defs/OutputJob"
       },
       "type": "array"
     },

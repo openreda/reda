@@ -8,6 +8,7 @@ mod change;
 mod check;
 mod document;
 mod library;
+mod output;
 mod pcb;
 #[cfg(feature = "test-objects")]
 mod probe;
@@ -23,6 +24,10 @@ pub use library::{
     ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
     FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
     PinPads, PinType, Shape, Symbol, SymbolGraphic, Unit,
+};
+pub use output::{
+    Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,
+    ProjectFabPreset,
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, GraphicShape, HERSHEY_FONT,
