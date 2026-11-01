@@ -890,6 +890,10 @@
         "designator": {
           "type": "string"
         },
+        "designator_locked": {
+          "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
+          "type": "boolean"
+        },
         "fields": {
           "$ref": "#/$defs/Fields",
           "description": "The value is `fields.value`."
