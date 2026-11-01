@@ -32,7 +32,11 @@ fn later_steps_reference_objects_created_by_earlier_steps_through_caller_uuids()
     );
     let sheet: Uuid = SHEET.parse().unwrap();
     assert_eq!(h.project().document(sheet).unwrap().title, "Power Supply");
-    assert_eq!(h.session.history.dirty_scopes(), [Scope::Project]);
+    // The new sheet has never been saved, so its own file is dirty too.
+    assert_eq!(
+        h.session.history.dirty_scopes(),
+        [Scope::Project, Scope::Document(sheet)]
+    );
 }
 
 #[test]

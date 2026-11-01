@@ -12,6 +12,7 @@ mod history;
 mod inputs;
 mod registry;
 mod schema;
+mod signals;
 mod units;
 mod user;
 
@@ -23,5 +24,6 @@ pub use error::{CommandError, ErrorCode};
 pub use history::{Entry, History};
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock, Timestamp};
 pub use registry::{Registry, scope_key};
+pub use signals::{CancelToken, Progress, Signals};
 pub use units::{Angle, Length};
 pub use user::UserDirs;

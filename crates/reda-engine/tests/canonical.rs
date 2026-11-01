@@ -80,73 +80,91 @@ fn non_ascii_text_stays_utf8() {
     assert!(text.contains(r#""title": "Ω µ""#), "{text}");
 }
 
+#[derive(Serialize)]
+struct Pt {
+    x: i64,
+    y: i64,
+}
+
+#[derive(Serialize)]
+struct Shape {
+    uuid: Uuid,
+    name: &'static str,
+    tags: Vec<&'static str>,
+    points: Vec<Pt>,
+}
+
+fn shape(n: u128, points: Vec<Pt>) -> Shape {
+    Shape {
+        uuid: Uuid::v4_from_bits(n),
+        name: "s",
+        tags: vec!["a"],
+        points,
+    }
+}
+
+fn pts(n: i64) -> Vec<Pt> {
+    (0..n).map(|i| Pt { x: i, y: -i }).collect()
+}
+
 #[test]
-fn containers_span_lines_with_each_child_on_its_own_line() {
+fn containers_put_each_child_on_its_own_line() {
     let mut w = CanonicalWriter::new(1);
+    w.container("outline", &shape(9, pts(2)), "points").unwrap();
     w.containers(
-        "parts",
-        [(2, "b"), (1, "a")],
-        |(n, _)| Uuid::v4_from_bits(*n),
-        |(n, name), c| {
-            c.field("part", &row(n, name))?;
-            c.list("footprints", [Uuid::v4_from_bits(7)])?;
-            c.table("pins", [row(6, "y"), row(5, "x")], |r| r.uuid)?;
-            c.list("empty", Vec::<Row>::new())
-        },
+        "cutouts",
+        [shape(2, pts(2)), shape(1, pts(1))],
+        |s| s.uuid,
+        "points",
     )
     .unwrap();
-    w.field("after", &1).unwrap();
+    w.containers("empty", Vec::<Shape>::new(), |s| s.uuid, "points")
+        .unwrap();
     let text = String::from_utf8(w.finish()).unwrap();
     assert_eq!(
         text,
         r#"{
   "format": 1,
-  "parts": [
-    {
-      "part": {"uuid":"00000000-0000-4000-8000-000000000001","name":"a","width":254000},
-      "footprints": [
-        "00000000-0000-4000-8000-000000000007"
-      ],
-      "pins": [
-        {"uuid":"00000000-0000-4000-8000-000000000005","name":"x","width":254000},
-        {"uuid":"00000000-0000-4000-8000-000000000006","name":"y","width":254000}
-      ],
-      "empty": []
-    },
-    {
-      "part": {"uuid":"00000000-0000-4000-8000-000000000002","name":"b","width":254000},
-      "footprints": [
-        "00000000-0000-4000-8000-000000000007"
-      ],
-      "pins": [
-        {"uuid":"00000000-0000-4000-8000-000000000005","name":"x","width":254000},
-        {"uuid":"00000000-0000-4000-8000-000000000006","name":"y","width":254000}
-      ],
-      "empty": []
-    }
+  "outline": {"uuid":"00000000-0000-4000-8000-000000000009","name":"s","tags":["a"],"points":[
+    {"x":0,"y":0},
+    {"x":1,"y":-1}
+  ]},
+  "cutouts": [
+    {"uuid":"00000000-0000-4000-8000-000000000001","name":"s","tags":["a"],"points":[
+      {"x":0,"y":0}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000002","name":"s","tags":["a"],"points":[
+      {"x":0,"y":0},
+      {"x":1,"y":-1}
+    ]}
   ],
-  "after": 1
+  "empty": []
 }
 "#
     );
 }
 
 #[test]
-fn an_empty_container_table_is_an_empty_array_and_duplicates_are_refused() {
+fn a_container_with_no_children_stays_on_one_line() {
     let mut w = CanonicalWriter::new(1);
-    w.containers(
-        "parts",
-        Vec::<u128>::new(),
-        |n| Uuid::v4_from_bits(*n),
-        |_, _| Ok(()),
-    )
-    .unwrap();
+    w.container("outline", &shape(9, vec![]), "points").unwrap();
     let text = String::from_utf8(w.finish()).unwrap();
-    assert!(text.contains("\"parts\": []"), "{text}");
+    assert!(text.contains(r#""tags":["a"],"points":[]}"#), "{text}");
+}
+
+#[test]
+fn a_container_whose_children_field_is_missing_is_an_error() {
     let mut w = CanonicalWriter::new(1);
-    let twice = [1u128, 1];
-    assert!(
-        w.containers("parts", twice, |n| Uuid::v4_from_bits(*n), |_, _| Ok(()))
-            .is_err()
-    );
+    assert!(w.container("outline", &row(1, "a"), "points").is_err());
+}
+
+#[test]
+fn floats_inside_container_children_are_refused() {
+    #[derive(Serialize)]
+    struct Bad {
+        points: Vec<f64>,
+    }
+    let mut w = CanonicalWriter::new(1);
+    let bad = Bad { points: vec![0.5] };
+    assert!(w.container("outline", &bad, "points").is_err());
 }

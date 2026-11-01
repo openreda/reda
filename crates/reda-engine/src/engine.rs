@@ -3,8 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::{
-    Clock, CommandError, Env, History, IdSource, RandomIds, Registry, Session, SystemClock,
-    UserDirs,
+    Clock, CommandError, Env, History, IdSource, RandomIds, Registry, Session, Signals,
+    SystemClock, UserDirs,
 };
 use reda_model::{Project, Scope};
 use serde_json::Value;
@@ -16,6 +16,7 @@ use crate::journal::{JournalEntry, Source};
 pub fn registry() -> Registry {
     let mut registry = Registry::new();
     crate::commands::register_all(&mut registry);
+    reda_pcb::register_all(&mut registry);
     reda_library::register_all(&mut registry);
     registry
 }
@@ -45,14 +46,25 @@ impl Engine {
     /// Runs one Command and records it in the Journal. See [`Registry::run`] for the
     /// result shape.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
+        self.run_with(id, params, &Signals::default())
+    }
+
+    /// [`Engine::run`] with a cancellation token and progress reporter for a long-running
+    /// Command (see [`Signals`]).
+    pub fn run_with(
+        &mut self,
+        id: &str,
+        params: Value,
+        signals: &Signals,
+    ) -> Result<Value, CommandError> {
         let mut env = Env {
             ids: &mut *self.ids,
             clock: &*self.clock,
             headless: self.headless,
         };
-        let outcome = self
-            .registry
-            .run(&mut self.session, &mut env, id, params.clone());
+        let outcome =
+            self.registry
+                .run_with(&mut self.session, &mut env, id, params.clone(), signals);
         self.journal.push(JournalEntry {
             id: id.to_owned(),
             params,
@@ -87,12 +99,21 @@ impl Engine {
 
     /// Whether the open Project has changes not yet saved, in any file.
     pub fn is_dirty(&self) -> bool {
-        !self.session.history.dirty_scopes().is_empty()
+        !self.dirty_scopes().is_empty()
     }
 
     /// The Project file and the Documents with changes not yet saved, the Project first.
+    /// A deleted Document keeps its stack, so undoing the delete brings it back as it
+    /// was, but is not listed while it is gone.
     pub fn dirty_scopes(&self) -> Vec<Scope> {
-        self.session.history.dirty_scopes()
+        let exists = |scope: &Scope| match (scope, &self.session.project) {
+            (Scope::Project, _) => true,
+            (Scope::Document(uuid), Some(project)) => project.document(*uuid).is_some(),
+            (Scope::Document(_), None) => false,
+        };
+        let mut dirty = self.session.history.dirty_scopes();
+        dirty.retain(exists);
+        dirty
     }
 
     /// The undo stacks of the open Project, for menus to label Undo and Redo.

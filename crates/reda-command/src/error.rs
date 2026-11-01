@@ -69,6 +69,20 @@ impl CommandError {
     pub fn internal(message: impl Into<String>) -> CommandError {
         CommandError::new(ErrorCode::Internal, message)
     }
+
+    /// The caller cancelled the run: `rejected` with `details.cancelled = true`.
+    pub fn cancelled() -> CommandError {
+        CommandError {
+            details: Some(json!({ "cancelled": true })),
+            ..CommandError::rejected("cancelled by the caller")
+        }
+    }
+
+    /// Whether this is the error of a cancelled run.
+    pub fn is_cancelled(&self) -> bool {
+        self.code == ErrorCode::Rejected
+            && self.details.as_ref().and_then(|d| d.get("cancelled")) == Some(&Value::Bool(true))
+    }
 }
 
 impl fmt::Display for CommandError {

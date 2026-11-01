@@ -8,14 +8,6 @@
 //!   "sheet": {"uuid":"…"},
 //!   "wires": [
 //!     {"uuid":"…","from":{"x":0,"y":0},"to":{"x":2540000,"y":0}}
-//!   ],
-//!   "parts": [
-//!     {
-//!       "part": {"uuid":"…","name":"LM358"},
-//!       "pins": [
-//!         {"uuid":"…","number":"1"}
-//!       ]
-//!     }
 //!   ]
 //! }
 //! ```
@@ -27,12 +19,27 @@
 //!   `BTreeMap`, never `HashMap`, for maps inside a row.
 //! - [`CanonicalWriter::table`] sorts rows by UUID; [`CanonicalWriter::list`] keeps the given
 //!   order, for data whose order is meaningful (the Project's Document order).
-//! - [`CanonicalWriter::containers`] writes a table of containers (part-table entries,
-//!   Footprint instances with their Pads): each row is an object spanning lines, whose
-//!   values, table rows and list elements each sit on their own line, one level deeper.
 //! - Values are integers only: a float anywhere is an error.
+//! - A container (the Board Outline, a Footprint instance with its Pads) spreads one array
+//!   field over several lines, one child per line, with [`CanonicalWriter::container`] or,
+//!   for a table of them, [`CanonicalWriter::containers`]. The rest of the row stays
+//!   compact on its first line:
+//!
+//! ```text
+//!   "board_outline": {"uuid":"…","vertices":[
+//!     {"x":0,"y":0},
+//!     {"x":100000000,"y":0}
+//!   ]},
+//!   "board_cutouts": [
+//!     {"uuid":"…","vertices":[
+//!       {"x":10000000,"y":10000000},
+//!       …
+//!     ]}
+//!   ]
+//! ```
 
 use std::fmt;
+use std::io;
 
 use reda_model::Uuid;
 use serde::Serialize;
@@ -50,56 +57,16 @@ impl fmt::Display for CanonicalError {
 
 impl std::error::Error for CanonicalError {}
 
-/// Builds one canonical JSON file. Call [`CanonicalWriter::finish`] for the bytes. It
-/// derefs to the [`ObjectWriter`] of the file's top-level object.
+/// Builds one canonical JSON file. Call [`CanonicalWriter::finish`] for the bytes.
 pub struct CanonicalWriter {
-    body: ObjectWriter,
+    out: String,
 }
 
 impl CanonicalWriter {
     /// Starts a file of the given format version.
     pub fn new(format: u32) -> CanonicalWriter {
-        let mut body = ObjectWriter::new(1);
-        body.key("format");
-        body.out.push_str(&format.to_string());
-        CanonicalWriter { body }
-    }
-
-    /// The finished file.
-    pub fn finish(self) -> Vec<u8> {
-        let mut out = self.body.out;
-        out.push_str("\n}\n");
-        out.into_bytes()
-    }
-}
-
-impl std::ops::Deref for CanonicalWriter {
-    type Target = ObjectWriter;
-    fn deref(&self) -> &ObjectWriter {
-        &self.body
-    }
-}
-
-impl std::ops::DerefMut for CanonicalWriter {
-    fn deref_mut(&mut self) -> &mut ObjectWriter {
-        &mut self.body
-    }
-}
-
-/// The keys of one multi-line object: a whole file, or one container row of
-/// [`ObjectWriter::containers`]. Keys follow in the order they are written.
-pub struct ObjectWriter {
-    /// Starts with `{`; the closing brace is added by the owner.
-    out: String,
-    /// The nesting depth of this object's keys; each level is two spaces.
-    depth: usize,
-}
-
-impl ObjectWriter {
-    fn new(depth: usize) -> ObjectWriter {
-        ObjectWriter {
-            out: "{".into(),
-            depth,
+        CanonicalWriter {
+            out: format!("{{\n  \"format\": {format}"),
         }
     }
 
@@ -123,8 +90,7 @@ impl ObjectWriter {
         rows: impl IntoIterator<Item = T>,
         uuid_of: impl Fn(&T) -> Uuid,
     ) -> Result<(), CanonicalError> {
-        let rows = sorted_by_uuid(key, rows, uuid_of)?;
-        self.list(key, rows)
+        self.list(key, sorted(key, rows, uuid_of)?)
     }
 
     /// Writes an array: one element per line, in the given order.
@@ -137,72 +103,72 @@ impl ObjectWriter {
             .into_iter()
             .map(|row| compact(key, &row))
             .collect::<Result<Vec<_>, _>>()?;
-        self.array(key, lines);
+        self.lines(key, lines);
         Ok(())
     }
 
-    /// Writes a table of containers, sorted by the UUID `uuid_of` returns. Each row is an
-    /// object spanning lines, whose keys `write` fills in with the same calls as a file's:
-    /// values, table rows and list elements each on their own line, one level deeper.
-    /// Containers nest. Two rows with the same UUID are an error.
-    pub fn containers<T>(
+    /// Writes `"key": <value>` as a container: compact, except that each element of its
+    /// array field `children` goes on its own line. The value must have that field.
+    pub fn container<T: Serialize + ?Sized>(
+        &mut self,
+        key: &str,
+        value: &T,
+        children: &str,
+    ) -> Result<(), CanonicalError> {
+        let text = spread(key, value, children, 2)?;
+        self.key(key);
+        self.out.push_str(&text);
+        Ok(())
+    }
+
+    /// Writes a table of containers (see [`CanonicalWriter::container`]), sorted by UUID as
+    /// [`CanonicalWriter::table`] sorts.
+    pub fn containers<T: Serialize>(
         &mut self,
         key: &str,
         rows: impl IntoIterator<Item = T>,
         uuid_of: impl Fn(&T) -> Uuid,
-        mut write: impl FnMut(T, &mut ObjectWriter) -> Result<(), CanonicalError>,
+        children: &str,
     ) -> Result<(), CanonicalError> {
-        let rows = sorted_by_uuid(key, rows, uuid_of)?;
-        let mut items = Vec::with_capacity(rows.len());
-        for row in rows {
-            let mut child = ObjectWriter::new(self.depth + 2);
-            write(row, &mut child)?;
-            child.out.push('\n');
-            child.out.push_str(&indent(self.depth + 1));
-            child.out.push('}');
-            items.push(child.out);
-        }
-        self.array(key, items);
+        let lines = sorted(key, rows, uuid_of)?
+            .iter()
+            .map(|row| spread(key, row, children, 4))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.lines(key, lines);
         Ok(())
     }
 
-    /// Writes `"key": [...]` with each already-rendered item on its own line.
-    fn array(&mut self, key: &str, items: Vec<String>) {
+    /// The finished file.
+    pub fn finish(mut self) -> Vec<u8> {
+        self.out.push_str("\n}\n");
+        self.out.into_bytes()
+    }
+
+    /// Writes `"key": [` and one pre-rendered element per line.
+    fn lines(&mut self, key: &str, lines: Vec<String>) {
         self.key(key);
-        if items.is_empty() {
+        if lines.is_empty() {
             self.out.push_str("[]");
             return;
         }
-        let item_indent = indent(self.depth + 1);
         self.out.push('[');
-        for (i, item) in items.iter().enumerate() {
-            self.out.push_str(if i == 0 { "\n" } else { ",\n" });
-            self.out.push_str(&item_indent);
-            self.out.push_str(item);
+        for (i, line) in lines.iter().enumerate() {
+            self.out.push_str(if i == 0 { "\n    " } else { ",\n    " });
+            self.out.push_str(line);
         }
-        self.out.push('\n');
-        self.out.push_str(&indent(self.depth));
-        self.out.push(']');
+        self.out.push_str("\n  ]");
     }
 
     fn key(&mut self, key: &str) {
-        if self.out != "{" {
-            self.out.push(',');
-        }
-        self.out.push('\n');
-        self.out.push_str(&indent(self.depth));
+        self.out.push_str(",\n  ");
         self.out
             .push_str(&serde_json::to_string(key).expect("a string serialises"));
         self.out.push_str(": ");
     }
 }
 
-fn indent(depth: usize) -> String {
-    "  ".repeat(depth)
-}
-
-/// The rows sorted by UUID, refusing a UUID that appears twice.
-fn sorted_by_uuid<T>(
+/// The rows sorted by UUID; two rows with the same UUID are an error.
+fn sorted<T>(
     key: &str,
     rows: impl IntoIterator<Item = T>,
     uuid_of: impl Fn(&T) -> Uuid,
@@ -220,14 +186,49 @@ fn sorted_by_uuid<T>(
 
 /// `value` as compact JSON, refusing floats.
 fn compact<T: Serialize + ?Sized>(key: &str, value: &T) -> Result<String, CanonicalError> {
-    let fail = |e: serde_json::Error| CanonicalError(format!("{key:?}: {e}"));
-    let tree = serde_json::to_value(value).map_err(fail)?;
+    check_integers(key, value)?;
+    serde_json::to_string(value).map_err(|e| CanonicalError(format!("{key:?}: {e}")))
+}
+
+/// `value` as compact JSON with each element of its array field `children` on its own
+/// line, indented two more than `indent`, the row's own indent.
+fn spread<T: Serialize + ?Sized>(
+    key: &str,
+    value: &T,
+    children: &str,
+    indent: usize,
+) -> Result<String, CanonicalError> {
+    check_integers(key, value)?;
+    let mut formatter = Spread {
+        children,
+        indent,
+        depth: 0,
+        arrays: Vec::new(),
+        key: None,
+        last_key: String::new(),
+        found: false,
+    };
+    let mut out = Vec::new();
+    let mut ser = serde_json::Serializer::with_formatter(&mut out, &mut formatter);
+    value
+        .serialize(&mut ser)
+        .map_err(|e| CanonicalError(format!("{key:?}: {e}")))?;
+    if !formatter.found {
+        return Err(CanonicalError(format!(
+            "{key:?} has no array field {children:?} to spread over lines"
+        )));
+    }
+    Ok(String::from_utf8(out).expect("serde_json writes UTF-8"))
+}
+
+fn check_integers<T: Serialize + ?Sized>(key: &str, value: &T) -> Result<(), CanonicalError> {
+    let tree = serde_json::to_value(value).map_err(|e| CanonicalError(format!("{key:?}: {e}")))?;
     if has_float(&tree) {
         return Err(CanonicalError(format!(
             "{key:?} holds a non-integer number; stored values are integers only"
         )));
     }
-    serde_json::to_string(value).map_err(fail)
+    Ok(())
 }
 
 fn has_float(value: &Value) -> bool {
@@ -236,5 +237,98 @@ fn has_float(value: &Value) -> bool {
         Value::Array(items) => items.iter().any(has_float),
         Value::Object(map) => map.values().any(has_float),
         _ => false,
+    }
+}
+
+/// serde_json's compact output, except that the elements of one array field of the row
+/// itself go on their own lines.
+struct Spread<'a> {
+    /// The field whose elements are spread.
+    children: &'a str,
+    /// The row's indent; children get two more.
+    indent: usize,
+    /// How many objects are open; the row itself is depth 1.
+    depth: usize,
+    /// For each open array: whether it is spread, and whether it has an element yet.
+    arrays: Vec<(bool, bool)>,
+    /// The key being written, while it is one of the row's own keys.
+    key: Option<String>,
+    /// The row's key written last.
+    last_key: String,
+    /// Whether the children field was met.
+    found: bool,
+}
+
+impl serde_json::ser::Formatter for &mut Spread<'_> {
+    fn begin_object<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+        self.depth += 1;
+        w.write_all(b"{")
+    }
+
+    fn end_object<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+        self.depth -= 1;
+        w.write_all(b"}")
+    }
+
+    fn begin_object_key<W: ?Sized + io::Write>(
+        &mut self,
+        w: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        if self.depth == 1 && self.arrays.is_empty() {
+            self.key = Some(String::new());
+        }
+        if first { Ok(()) } else { w.write_all(b",") }
+    }
+
+    fn end_object_key<W: ?Sized + io::Write>(&mut self, _: &mut W) -> io::Result<()> {
+        if let Some(key) = self.key.take() {
+            self.last_key = key;
+        }
+        Ok(())
+    }
+
+    fn write_string_fragment<W: ?Sized + io::Write>(
+        &mut self,
+        w: &mut W,
+        fragment: &str,
+    ) -> io::Result<()> {
+        if let Some(key) = &mut self.key {
+            key.push_str(fragment);
+        }
+        w.write_all(fragment.as_bytes())
+    }
+
+    fn begin_array<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+        // An array straight under the row: the value of the row's last key.
+        let spread = self.depth == 1 && self.arrays.is_empty() && self.last_key == self.children;
+        self.found |= spread;
+        self.arrays.push((spread, false));
+        w.write_all(b"[")
+    }
+
+    fn begin_array_value<W: ?Sized + io::Write>(
+        &mut self,
+        w: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        if !first {
+            w.write_all(b",")?;
+        }
+        let indent = self.indent + 2;
+        let top = self.arrays.last_mut().expect("inside an array");
+        top.1 = true;
+        if top.0 {
+            write!(w, "\n{:indent$}", "")?;
+        }
+        Ok(())
+    }
+
+    fn end_array<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+        let (spread, any) = self.arrays.pop().expect("inside an array");
+        if spread && any {
+            write!(w, "\n{:indent$}", "", indent = self.indent)?;
+        }
+        w.write_all(b"]")
     }
 }

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::TestEngine;
 
-/// Like [`crate::test_engine`], plus `test.probe.set` and `test.sheet.add`.
+/// Like [`crate::test_engine`], plus `test.probe.set`, `test.sheet.add` and `test.net.add`.
 pub fn probe_engine() -> TestEngine {
     TestEngine(
         Engine::builder()
@@ -27,6 +27,7 @@ pub fn probe_engine() -> TestEngine {
 pub fn probe_commands(registry: &mut Registry) {
     registry.add(ProbeSet);
     registry.add(SheetAdd);
+    crate::pcb::register_all(registry);
 }
 
 /// `test.probe.set {probes: [{uuid, document, value}]}`: creates or replaces each Probe,
