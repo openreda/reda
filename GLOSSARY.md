@@ -152,6 +152,24 @@ _Avoid_: OutJob, export settings, plot settings, fab output
 The state of a Component that stays in the design and on the board but is left out of assembly.
 _Avoid_: DNP, DNF, do not populate, excluded
 
+## Checking
+
+**ERC**:
+The Electrical Rule Check: a check of the Schematic Sheets for connections that are electrically suspect, such as two Outputs driving one Net.
+_Avoid_: Validation, verify, electrical check
+
+**DRC**:
+The Design Rule Check: a check of the PCB Document against its design rules, such as clearance and Track width.
+_Avoid_: Validation, verify, board check
+
+**Violation**:
+One breach of an electrical or design rule reported by a check, naming the objects involved.
+_Avoid_: Error (that is one severity), marker, issue, DRC error
+
+**Waiver**:
+A recorded acceptance that a particular Violation is intentional, so checks stop reporting it.
+_Avoid_: Exclusion, ignore, suppression
+
 ## Sync
 
 **Sync**:
