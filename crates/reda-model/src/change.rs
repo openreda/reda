@@ -9,8 +9,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
-use crate::pcb::{BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass};
-use crate::{DocumentEntry, ProjectProps, Uuid};
+use crate::pcb::{
+    BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
+};
+use crate::{
+    DocumentEntry, Footprint, FootprintCopy, LibraryElement, Part, PartEntry, ProjectProps,
+    SheetFrame, Symbol, UnitInstance, Uuid,
+};
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
 // `Project::object`, `Project::objects` and `Project::put`.
@@ -22,12 +27,22 @@ pub enum Object {
     Document(DocumentEntry),
     FabPreset(ProjectFabPreset),
     OutputJob(OutputJob),
+    /// An open Library element (see [`crate::Project::open_element`]).
+    Symbol(Symbol),
+    Footprint(Footprint),
+    Part(Part),
     LayerSet(InDocument<LayerSet>),
     BoardSetup(InDocument<BoardSetup>),
     BoardOutline(InDocument<BoardOutline>),
     BoardCutout(InDocument<BoardCutout>),
     NetClass(InDocument<NetClass>),
     Net(InDocument<Net>),
+    SheetFrame(InDocument<SheetFrame>),
+    PartEntry(InDocument<PartEntry>),
+    FootprintCopy(InDocument<FootprintCopy>),
+    Unit(InDocument<UnitInstance>),
+    PcbText(InDocument<PcbText>),
+    PcbGraphic(InDocument<PcbGraphic>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -49,6 +64,12 @@ pub enum ObjectType {
     FabPreset,
     /// A named recipe for manufacturing files.
     OutputJob,
+    /// An open Library Symbol.
+    Symbol,
+    /// An open Library Footprint.
+    Footprint,
+    /// An open Library Part.
+    Part,
     /// The PCB Document's ordered Layers.
     LayerSet,
     /// The PCB Document's rules, DRC severities and Default Net Class.
@@ -61,6 +82,18 @@ pub enum ObjectType {
     NetClass,
     /// A PCB Net.
     Net,
+    /// A Schematic Sheet's frame settings (its size).
+    SheetFrame,
+    /// An entry of a sheet's part table: a copied Part with its Symbol.
+    PartEntry,
+    /// A copied Footprint in a sheet's part table.
+    FootprintCopy,
+    /// A placed Unit of a Component.
+    Unit,
+    /// Free text on a PCB Layer.
+    PcbText,
+    /// A line, arc or rectangle on a PCB Layer.
+    PcbGraphic,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -74,12 +107,21 @@ impl Object {
             Object::Document(d) => d.uuid,
             Object::FabPreset(o) => o.uuid,
             Object::OutputJob(o) => o.uuid,
+            Object::Symbol(s) => s.uuid,
+            Object::Footprint(f) => f.uuid,
+            Object::Part(p) => p.uuid,
             Object::LayerSet(o) => o.uuid,
             Object::BoardSetup(o) => o.uuid,
             Object::BoardOutline(o) => o.uuid,
             Object::BoardCutout(o) => o.uuid,
             Object::NetClass(o) => o.uuid,
             Object::Net(o) => o.uuid,
+            Object::SheetFrame(o) => o.uuid,
+            Object::PartEntry(o) => o.uuid,
+            Object::FootprintCopy(o) => o.uuid,
+            Object::Unit(o) => o.uuid,
+            Object::PcbText(o) => o.uuid,
+            Object::PcbGraphic(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -91,12 +133,21 @@ impl Object {
             Object::Document(_) => ObjectType::Document,
             Object::FabPreset(_) => ObjectType::FabPreset,
             Object::OutputJob(_) => ObjectType::OutputJob,
+            Object::Symbol(_) => ObjectType::Symbol,
+            Object::Footprint(_) => ObjectType::Footprint,
+            Object::Part(_) => ObjectType::Part,
             Object::LayerSet(_) => ObjectType::LayerSet,
             Object::BoardSetup(_) => ObjectType::BoardSetup,
             Object::BoardOutline(_) => ObjectType::BoardOutline,
             Object::BoardCutout(_) => ObjectType::BoardCutout,
             Object::NetClass(_) => ObjectType::NetClass,
             Object::Net(_) => ObjectType::Net,
+            Object::SheetFrame(_) => ObjectType::SheetFrame,
+            Object::PartEntry(_) => ObjectType::PartEntry,
+            Object::FootprintCopy(_) => ObjectType::FootprintCopy,
+            Object::Unit(_) => ObjectType::Unit,
+            Object::PcbText(_) => ObjectType::PcbText,
+            Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -109,12 +160,21 @@ impl Object {
             | Object::Document(_)
             | Object::FabPreset(_)
             | Object::OutputJob(_) => Scope::Project,
+            Object::Symbol(_) | Object::Footprint(_) | Object::Part(_) => {
+                Scope::Element(self.uuid())
+            }
             Object::LayerSet(o) => Scope::Document(o.document),
             Object::BoardSetup(o) => Scope::Document(o.document),
             Object::BoardOutline(o) => Scope::Document(o.document),
             Object::BoardCutout(o) => Scope::Document(o.document),
             Object::NetClass(o) => Scope::Document(o.document),
             Object::Net(o) => Scope::Document(o.document),
+            Object::SheetFrame(o) => Scope::Document(o.document),
+            Object::PartEntry(o) => Scope::Document(o.document),
+            Object::FootprintCopy(o) => Scope::Document(o.document),
+            Object::Unit(o) => Scope::Document(o.document),
+            Object::PcbText(o) => Scope::Document(o.document),
+            Object::PcbGraphic(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }
@@ -123,14 +183,36 @@ impl Object {
     pub(crate) fn same_kind(&self, other: &Object) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
+
+    /// The Library element this object is, if it is one.
+    pub fn into_element(self) -> Option<LibraryElement> {
+        match self {
+            Object::Symbol(s) => Some(LibraryElement::Symbol(s)),
+            Object::Footprint(f) => Some(LibraryElement::Footprint(f)),
+            Object::Part(p) => Some(LibraryElement::Part(p)),
+            _ => None,
+        }
+    }
 }
 
-/// Where a change lands: the Project file (`.reda`) or one Document. Each has its own undo
-/// stack and dirty state.
+impl From<LibraryElement> for Object {
+    fn from(element: LibraryElement) -> Object {
+        match element {
+            LibraryElement::Symbol(s) => Object::Symbol(s),
+            LibraryElement::Footprint(f) => Object::Footprint(f),
+            LibraryElement::Part(p) => Object::Part(p),
+        }
+    }
+}
+
+/// Where a change lands: the Project file (`.reda`), one Document, or one open Library
+/// element. Each has its own undo stack and dirty state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Scope {
     Project,
     Document(Uuid),
+    /// An open Library element, saved to its own file in its Library.
+    Element(Uuid),
 }
 
 /// One object's state before and after a transaction. `None` means it did not exist.
@@ -185,7 +267,7 @@ impl ChangeSet {
     pub fn in_apply_order(&self) -> Vec<(&Uuid, &Change)> {
         let rank = |c: &Change| match (c.scope, &c.after) {
             (Scope::Project, Some(_)) => 0,
-            (Scope::Document(_), _) => 1,
+            (Scope::Document(_) | Scope::Element(_), _) => 1,
             (Scope::Project, None) => 2,
         };
         let mut ordered: Vec<_> = self.changes.iter().collect();

@@ -250,6 +250,34 @@
       ],
       "type": "object"
     },
+    "ProjectProperties": {
+      "additionalProperties": false,
+      "description": "The Project properties: fixed free-text fields that fill each sheet's title block.",
+      "properties": {
+        "author": {
+          "default": "",
+          "type": "string"
+        },
+        "company": {
+          "default": "",
+          "type": "string"
+        },
+        "date": {
+          "default": "",
+          "description": "Free text, such as `2026-11-01`.",
+          "type": "string"
+        },
+        "revision": {
+          "default": "",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "ProjectRow": {
       "additionalProperties": false,
       "properties": {
@@ -359,6 +387,17 @@
     "project": {
       "$ref": "#/$defs/ProjectRow",
       "description": "Project-wide properties."
+    },
+    "properties": {
+      "$ref": "#/$defs/ProjectProperties",
+      "default": {
+        "author": "",
+        "company": "",
+        "date": "",
+        "revision": "",
+        "title": ""
+      },
+      "description": "The Project properties that fill the sheets' title blocks. Written only when any\nis set."
     }
   },
   "required": [

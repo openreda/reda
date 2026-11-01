@@ -216,6 +216,31 @@ fn saved_with_pcb(label: &str) -> (TempDir, std::path::PathBuf) {
         "pcb.net_class.add",
         json!({"name": "Power", "track_width": "0.5mm", "clearance": "0.3mm"}),
     );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer": "silkscreen_top", "text": "Demo\nrev A", "x": "5mm", "y": "70mm",
+               "height": "2mm", "rotation": "90deg"}),
+    );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer": "silkscreen_bottom", "text": "Bottom", "x": "5mm", "y": "5mm",
+               "font": "Noto Sans"}),
+    );
+    engine.run_ok(
+        "pcb.graphic.add_line",
+        json!({"layer": "silkscreen_top", "from": {"x": "1mm", "y": "1mm"},
+               "to": {"x": "9mm", "y": "1mm"}}),
+    );
+    engine.run_ok(
+        "pcb.graphic.add_arc",
+        json!({"layer": "mechanical", "from": {"x": "60mm", "y": "40mm"},
+               "to": {"x": "50mm", "y": "50mm"}, "sweep": "90deg", "width": "0.1mm"}),
+    );
+    engine.run_ok(
+        "pcb.graphic.add_rect",
+        json!({"layer": "copper_top", "from": {"x": "70mm", "y": "10mm"},
+               "to": {"x": "80mm", "y": "20mm"}, "filled": true, "width": 0}),
+    );
     engine.run_ok("project.save", json!({}));
     let folder = dir.path().join("Demo");
     (dir, folder)
@@ -247,6 +272,8 @@ fn a_saved_pcb_document_opens_and_saves_to_the_same_bytes() {
     let out = engine.run_ok("project.open", json!({"path": folder}));
     assert!(out.get("missing").is_none(), "{out}");
     assert!(!engine.is_dirty());
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    assert_eq!((pcb.texts().count(), pcb.graphics().count()), (2, 3));
     engine.run_ok("project.save", json!({}));
     assert_eq!(read_tree(&folder), before);
 }

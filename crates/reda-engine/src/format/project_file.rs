@@ -15,7 +15,8 @@
 //!   ],
 //!   "output_jobs": [
 //!     {"uuid":"…","name":"JLCPCB","pcb":"…","fab_preset":"…","outputs":{…}}
-//!   ]
+//!   ],
+//!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"}
 //! }
 //! ```
 //!
@@ -26,7 +27,9 @@
 
 use std::path::Path;
 
-use reda_model::{DocumentEntry, DocumentKind, OutputJob, Project, ProjectFabPreset, Uuid};
+use reda_model::{
+    DocumentEntry, DocumentKind, OutputJob, Project, ProjectFabPreset, ProjectProperties, Uuid,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +60,10 @@ pub(crate) struct ProjectFile {
     /// The Output Jobs.
     #[serde(default)]
     pub output_jobs: Vec<OutputJob>,
+    /// The Project properties that fill the sheets' title blocks. Written only when any
+    /// is set.
+    #[serde(default)]
+    pub properties: ProjectProperties,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -134,6 +141,10 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     let jobs: Vec<_> = project.output_jobs().collect();
     if !jobs.is_empty() {
         w.table("output_jobs", jobs, |j| j.uuid)?;
+    }
+    let properties = &project.props().properties;
+    if !properties.is_empty() {
+        w.field("properties", properties)?;
     }
     Ok(w.finish())
 }

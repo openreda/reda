@@ -236,6 +236,7 @@ impl Command for Create {
             name: format!("at {}", cx.now().0),
             documents: vec![],
             libraries: vec![],
+            properties: Default::default(),
         }));
         Ok(uuid)
     }
@@ -352,6 +353,8 @@ impl Harness {
         let mut env = Env {
             ids: &mut self.ids,
             clock: &self.clock,
+            parts: &reda_command::NoLibraries,
+            fonts: &reda_command::Fonts::default(),
             headless: self.headless,
         };
         self.registry.run(&mut self.session, &mut env, id, params)

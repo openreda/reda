@@ -115,7 +115,7 @@ impl CanonicalWriter {
         value: &T,
         children: &str,
     ) -> Result<(), CanonicalError> {
-        let text = spread(key, value, children, 2)?;
+        let text = spread(key, value, &[children], 2)?;
         self.key(key);
         self.out.push_str(&text);
         Ok(())
@@ -129,6 +129,20 @@ impl CanonicalWriter {
         rows: impl IntoIterator<Item = T>,
         uuid_of: impl Fn(&T) -> Uuid,
         children: &str,
+    ) -> Result<(), CanonicalError> {
+        self.containers_spread(key, rows, uuid_of, &[children])
+    }
+
+    /// Like [`CanonicalWriter::containers`], spreading several array fields of each row:
+    /// each of `children` must be there, and each of their elements goes on its own line.
+    /// For containers with more than one kind of child, such as a part-table entry with its
+    /// Units and Pins.
+    pub fn containers_spread<T: Serialize>(
+        &mut self,
+        key: &str,
+        rows: impl IntoIterator<Item = T>,
+        uuid_of: impl Fn(&T) -> Uuid,
+        children: &[&str],
     ) -> Result<(), CanonicalError> {
         let lines = sorted(key, rows, uuid_of)?
             .iter()
@@ -190,12 +204,12 @@ fn compact<T: Serialize + ?Sized>(key: &str, value: &T) -> Result<String, Canoni
     serde_json::to_string(value).map_err(|e| CanonicalError(format!("{key:?}: {e}")))
 }
 
-/// `value` as compact JSON with each element of its array field `children` on its own
+/// `value` as compact JSON with each element of its array fields `children` on its own
 /// line, indented two more than `indent`, the row's own indent.
 fn spread<T: Serialize + ?Sized>(
     key: &str,
     value: &T,
-    children: &str,
+    children: &[&str],
     indent: usize,
 ) -> Result<String, CanonicalError> {
     check_integers(key, value)?;
@@ -206,16 +220,16 @@ fn spread<T: Serialize + ?Sized>(
         arrays: Vec::new(),
         key: None,
         last_key: String::new(),
-        found: false,
+        found: Vec::new(),
     };
     let mut out = Vec::new();
     let mut ser = serde_json::Serializer::with_formatter(&mut out, &mut formatter);
     value
         .serialize(&mut ser)
         .map_err(|e| CanonicalError(format!("{key:?}: {e}")))?;
-    if !formatter.found {
+    if let Some(missing) = children.iter().find(|c| !formatter.found.contains(c)) {
         return Err(CanonicalError(format!(
-            "{key:?} has no array field {children:?} to spread over lines"
+            "{key:?} has no array field {missing:?} to spread over lines"
         )));
     }
     Ok(String::from_utf8(out).expect("serde_json writes UTF-8"))
@@ -243,8 +257,8 @@ fn has_float(value: &Value) -> bool {
 /// serde_json's compact output, except that the elements of one array field of the row
 /// itself go on their own lines.
 struct Spread<'a> {
-    /// The field whose elements are spread.
-    children: &'a str,
+    /// The fields whose elements are spread.
+    children: &'a [&'a str],
     /// The row's indent; children get two more.
     indent: usize,
     /// How many objects are open; the row itself is depth 1.
@@ -255,8 +269,8 @@ struct Spread<'a> {
     key: Option<String>,
     /// The row's key written last.
     last_key: String,
-    /// Whether the children field was met.
-    found: bool,
+    /// The children fields met so far.
+    found: Vec<&'a str>,
 }
 
 impl serde_json::ser::Formatter for &mut Spread<'_> {
@@ -301,8 +315,11 @@ impl serde_json::ser::Formatter for &mut Spread<'_> {
 
     fn begin_array<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
         // An array straight under the row: the value of the row's last key.
-        let spread = self.depth == 1 && self.arrays.is_empty() && self.last_key == self.children;
-        self.found |= spread;
+        let child = (self.depth == 1 && self.arrays.is_empty())
+            .then(|| self.children.iter().find(|c| **c == self.last_key))
+            .flatten();
+        let spread = child.is_some();
+        self.found.extend(child.copied());
         self.arrays.push((spread, false));
         w.write_all(b"[")
     }

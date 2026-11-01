@@ -11,7 +11,7 @@ use crate::batch::{self, BatchParams};
 use crate::command::{AvailabilityContext, NO_PROJECT, Preset, Unavailable};
 use crate::context::{Access, Context, Env, Session, Step};
 use crate::schema;
-use crate::{Clock, Command, CommandError, IdSource, Kind, Meta, Signals, UserDirs};
+use crate::{Clock, Command, CommandError, Fonts, IdSource, Kind, Meta, Signals, UserDirs};
 
 /// The object-safe face of a [`Command`].
 trait Erased: Send + Sync {
@@ -203,7 +203,7 @@ impl Registry {
                             session.user_dirs.as_ref(),
                         ),
                         &mut *env.ids,
-                        env.clock,
+                        (env.clock, env.parts, env.fonts),
                         signals,
                         params,
                     );
@@ -223,6 +223,8 @@ impl Registry {
                     access: Access::Read(session.project.as_ref()),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    parts: env.parts,
+                    fonts: env.fonts,
                     signals,
                     user_dirs: session.user_dirs.as_ref(),
                     step: None,
@@ -234,6 +236,8 @@ impl Registry {
                     access: Access::File(session),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    parts: env.parts,
+                    fonts: env.fonts,
                     signals,
                     user_dirs: None,
                     step: None,
@@ -278,7 +282,7 @@ impl Registry {
                 entry.meta.kind,
                 (tx, history, user_dirs),
                 ids,
-                env.clock,
+                (env.clock, env.parts, env.fonts),
                 signals,
                 params,
             );
@@ -350,7 +354,7 @@ fn invoke_in<'a>(
     kind: Kind,
     (tx, history, user_dirs): (Transaction<'a>, &'a History, Option<&'a UserDirs>),
     ids: &'a mut dyn IdSource,
-    clock: &'a dyn Clock,
+    (clock, parts, fonts): (&'a dyn Clock, &'a dyn crate::PartSource, &'a Fonts),
     signals: &'a Signals,
     params: Value,
 ) -> InTx<'a> {
@@ -362,6 +366,8 @@ fn invoke_in<'a>(
         access,
         ids,
         clock,
+        parts,
+        fonts,
         signals,
         user_dirs,
         step: None,
@@ -451,11 +457,12 @@ fn describe(entry: &Registered) -> Value {
     })
 }
 
-/// The key of a scope in the edit envelope: `"project"` or the Document's UUID.
+/// The key of a scope in the edit envelope: `"project"`, or the Document's or open Library
+/// element's UUID.
 pub fn scope_key(scope: Scope) -> String {
     match scope {
         Scope::Project => "project".to_owned(),
-        Scope::Document(uuid) => uuid.to_string(),
+        Scope::Document(uuid) | Scope::Element(uuid) => uuid.to_string(),
     }
 }
 

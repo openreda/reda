@@ -6,12 +6,15 @@ use std::path::{Path, PathBuf};
 
 use proptest::prelude::*;
 use reda_engine::format::LoadError;
-use reda_engine::model::geom::{Millideg, Nm, Vertex};
+use reda_engine::format::library::{read_footprint, read_part, read_symbol};
+use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
-    BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, DocumentEntry, DocumentKind,
-    DrcCheck, DrcSeverities, FabPreset, FileNaming, GerberSettings, InDocument, Layer, LayerKind,
-    LayerSet, Net, NetClass, Object, OutputJob, Outputs, Project, ProjectFabPreset, ProjectProps,
-    Rules, Severity, Side, Uuid,
+    BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
+    DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, FabPreset, FileNaming, FootprintCopy,
+    GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, Object,
+    OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Project, ProjectFabPreset,
+    ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetSize, Side, UnitInstance,
+    Uuid,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -61,6 +64,63 @@ struct PcbSeed {
     cutouts: Vec<Vec<Vertex>>,
     classes: Vec<(String, Option<Nm>, Option<Nm>)>,
     nets: Vec<(String, usize)>,
+    texts: Vec<TextSeed>,
+    graphics: Vec<(usize, Nm, GraphicShape)>,
+}
+
+/// A text object; the Layer is an index into the seed's Layers.
+#[derive(Clone, Debug)]
+struct TextSeed {
+    layer: usize,
+    text: String,
+    font: String,
+    position: Point,
+    height: Nm,
+    rotation: Millideg,
+    mirrored: bool,
+}
+
+fn point() -> impl Strategy<Value = Point> {
+    (length(), length()).prop_map(|(x, y)| Point::new(x, y))
+}
+
+fn text_seed() -> impl Strategy<Value = TextSeed> {
+    (
+        any::<usize>(),
+        any::<String>(),
+        any::<String>(),
+        point(),
+        length(),
+        0i64..360_000,
+        any::<bool>(),
+    )
+        .prop_map(
+            |(layer, text, font, position, height, r, mirrored)| TextSeed {
+                layer,
+                text,
+                font,
+                position,
+                height,
+                rotation: Millideg(r),
+                mirrored,
+            },
+        )
+}
+
+fn shape() -> impl Strategy<Value = GraphicShape> {
+    prop_oneof![
+        (point(), point()).prop_map(|(from, to)| GraphicShape::Line { from, to }),
+        (point(), point(), -359_999i64..360_000).prop_map(|(from, to, s)| GraphicShape::Arc {
+            from,
+            to,
+            sweep: Millideg(s)
+        }),
+        (point(), point(), any::<bool>()).prop_map(|(from, to, filled)| GraphicShape::Rect {
+            from,
+            to,
+            filled
+        }),
+    ]
 }
 
 prop_compose! {
@@ -77,9 +137,25 @@ prop_compose! {
             0..3,
         ),
         nets in prop::collection::vec((any::<String>(), any::<usize>()), 0..4),
+        texts in prop::collection::vec(text_seed(), 0..3),
+        graphics in prop::collection::vec((any::<usize>(), length(), shape()), 0..3),
     ) -> PcbSeed {
-        PcbSeed { base, name, title, rules, severities, outline, cutouts, classes, nets }
+        PcbSeed {
+            base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
+            graphics,
+        }
     }
+}
+
+/// The UUIDs of the Layers in the Layer set among `objects`.
+fn layers_of(objects: &[Object]) -> Vec<Uuid> {
+    objects
+        .iter()
+        .find_map(|o| match o {
+            Object::LayerSet(set) => Some(set.layers.iter().map(|l| l.uuid).collect()),
+            _ => None,
+        })
+        .expect("the seed has a Layer set")
 }
 
 /// The PCB Document's entry and objects, with UUIDs counted up from the seed's base.
@@ -194,6 +270,34 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             },
         )));
     }
+    let layer_ids: Vec<Uuid> = layers_of(&objects);
+    for t in seed.texts {
+        objects.push(Object::PcbText(InDocument::new(
+            doc,
+            PcbText {
+                uuid: id(),
+                layer: layer_ids[t.layer % layer_ids.len()],
+                text: t.text,
+                font: t.font,
+                position: t.position,
+                height: t.height,
+                thickness: t.height,
+                rotation: t.rotation,
+                mirrored: t.mirrored,
+            },
+        )));
+    }
+    for (layer, width, shape) in seed.graphics {
+        objects.push(Object::PcbGraphic(InDocument::new(
+            doc,
+            PcbGraphic {
+                uuid: id(),
+                layer: layer_ids[layer % layer_ids.len()],
+                width,
+                shape,
+            },
+        )));
+    }
     objects.extend(
         classes
             .into_iter()
@@ -249,37 +353,120 @@ prop_compose! {
     }
 }
 
+const SYMBOL: &str = r#"{"format":1,"symbol":{"uuid":"a0000000-0000-4000-8000-000000000010","name":"R","designator_prefix":"R"},"units":[{"uuid":"a0000000-0000-4000-8000-000000000011","name":"A"}],"pins":[{"uuid":"a0000000-0000-4000-8000-000000000012","unit":"a0000000-0000-4000-8000-000000000011","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000}]}"#;
+const FOOTPRINT: &str = r#"{"format":1,"footprint":{"uuid":"a0000000-0000-4000-8000-000000000040","name":"R_0603"},"pads":[{"uuid":"a0000000-0000-4000-8000-000000000041","number":"1","kind":"smd","shape":"rect","at":{"x":-800000,"y":0},"rotation":0,"width":800000,"height":950000}]}"#;
+const PART: &str = r#"{"format":1,"part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040"],"fields":{"value":"10k"},"pin_map":{"unconnected":["2"]}}"#;
+
+/// What a Schematic Sheet holds besides its entry: an optional frame and an optional
+/// placed Component. Its UUIDs are `base`, `base + 1`, …
+#[derive(Clone, Debug)]
+struct SheetSeed {
+    base: u128,
+    size: Option<usize>,
+    component: Option<(String, String, Nm, Nm, bool)>,
+}
+
+prop_compose! {
+    fn sheet_seed()(
+        base in any::<u128>(),
+        size in prop::option::of(0usize..3),
+        component in prop::option::of(
+            (any::<String>(), any::<String>(), length(), length(), any::<bool>())
+        ),
+    ) -> SheetSeed {
+        SheetSeed { base, size, component }
+    }
+}
+
+fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
+    let id = |k: u128| Uuid::v4_from_bits(seed.base.wrapping_add(k));
+    let mut objects = vec![];
+    if let Some(size) = seed.size {
+        let size = [SheetSize::A4, SheetSize::Letter, SheetSize::A0][size];
+        objects.push(Object::SheetFrame(InDocument::new(
+            sheet,
+            SheetFrame { uuid: id(0), size },
+        )));
+    }
+    if let Some((value, designator, x, y, mirror)) = seed.component {
+        let path = Path::new("x");
+        let footprint = read_footprint(path, FOOTPRINT.as_bytes()).unwrap();
+        let mut part = read_part(path, PART.as_bytes()).unwrap();
+        part.fields.value = value;
+        let symbol = read_symbol(path, SYMBOL.as_bytes()).unwrap();
+        let copy = FootprintCopy {
+            uuid: id(1),
+            hash: "f".repeat(32),
+            footprint,
+        };
+        let entry = PartEntry {
+            uuid: id(2),
+            hash: "0123456789abcdef".repeat(2),
+            footprints: vec![copy.uuid],
+            part,
+            symbol,
+        };
+        let unit = UnitInstance {
+            uuid: id(3),
+            component: ComponentRef::new(id(4)),
+            part: entry.uuid,
+            unit: entry.symbol.units[0].uuid,
+            at: Point::new(x, y),
+            rotation: Millideg(90_000),
+            mirror,
+            designator,
+            fields: entry.part.fields.clone(),
+            footprint: entry.part.footprints.first().copied(),
+            component_type: ComponentType::Standard,
+            not_fitted: mirror,
+        };
+        objects.push(Object::FootprintCopy(InDocument::new(sheet, copy)));
+        objects.push(Object::PartEntry(InDocument::new(sheet, entry)));
+        objects.push(Object::Unit(InDocument::new(sheet, unit)));
+    }
+    objects
+}
+
 prop_compose! {
     fn project()(
         uuid in uuid(),
         name in stem("p"),
-        documents in prop::collection::vec(document(), 0..6),
+        documents in prop::collection::vec((document(), sheet_seed()), 0..6),
         pcb in prop::option::of(pcb_seed()),
         libraries in prop::collection::vec(any::<String>(), 0..3),
         settings in prop::option::of(settings()),
+        properties in prop::collection::vec(any::<String>(), 5),
     ) -> Project {
-        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries });
+        let [title, revision, date, author, company] = <[String; 5]>::try_from(properties).unwrap();
+        let properties = ProjectProperties { title, revision, date, author, company };
+        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties });
         let mut tx = project.transaction();
         let mut order = vec![];
         let mut names = std::collections::BTreeSet::new();
-        for entry in documents {
+        let mut contents = vec![];
+        let mut used = std::collections::BTreeSet::from([uuid]);
+        for (entry, seed) in documents {
             // UUIDs and file names (case-insensitively, for macOS and Windows) are unique.
-            if entry.uuid == uuid || order.contains(&entry.uuid)
+            let objects = sheet_objects(entry.uuid, seed);
+            if used.contains(&entry.uuid)
+                || objects.iter().any(|o| used.contains(&o.uuid()) || o.uuid() == entry.uuid)
                 || !names.insert(entry.name.to_lowercase())
             {
                 continue;
             }
+            used.insert(entry.uuid);
+            used.extend(objects.iter().map(Object::uuid));
             order.push(entry.uuid);
             tx.insert(Object::Document(entry)).unwrap();
+            contents.extend(objects);
         }
-        let mut contents = vec![];
         if let Some(seed) = pcb {
             let (entry, objects) = pcb_objects(seed);
-            let taken = |u: Uuid| u == uuid || order.contains(&u);
+            let taken = |u: Uuid| used.contains(&u);
             if !taken(entry.uuid) && !objects.iter().any(|o| taken(o.uuid())) {
                 order.push(entry.uuid);
                 tx.insert(Object::Document(entry)).unwrap();
-                contents = objects;
+                contents.extend(objects);
             }
         }
         if let Some((copy, job)) = settings {
@@ -369,6 +556,7 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         name: "Demo".into(),
         documents: vec![],
         libraries: vec![],
+        properties: Default::default(),
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
 }

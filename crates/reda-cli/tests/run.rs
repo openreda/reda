@@ -7,8 +7,10 @@ use reda_testkit::{TempDir, read_tree};
 use serde_json::Value;
 
 fn reda(args: &[&str]) -> Output {
+    let home = TempDir::new("cli-home");
     Command::new(env!("CARGO_BIN_EXE_reda"))
         .args(args)
+        .env("REDA_HOME", home.path())
         .output()
         .expect("run reda")
 }

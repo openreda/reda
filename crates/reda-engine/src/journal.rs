@@ -12,7 +12,7 @@ use reda_command::CommandError;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
-pub use replay::replay;
+pub use replay::{replay, replay_with};
 
 /// Who asked for a Command.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

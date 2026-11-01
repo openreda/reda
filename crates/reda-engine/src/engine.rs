@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::{
-    Clock, CommandError, Env, History, IdSource, RandomIds, Registry, Session, Signals,
+    Clock, CommandError, Env, Fonts, History, IdSource, RandomIds, Registry, Session, Signals,
     SystemClock, UserDirs,
 };
 use reda_model::{Project, Scope};
@@ -19,6 +19,7 @@ pub fn registry() -> Registry {
     reda_pcb::register_all(&mut registry);
     reda_library::register_all(&mut registry);
     reda_output::register_all(&mut registry);
+    reda_schematic::register_all(&mut registry);
     registry
 }
 
@@ -28,6 +29,7 @@ pub struct Engine {
     session: Session,
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
+    fonts: Fonts,
     headless: bool,
     source: Source,
     journal: Vec<JournalEntry>,
@@ -58,9 +60,24 @@ impl Engine {
         params: Value,
         signals: &Signals,
     ) -> Result<Value, CommandError> {
+        self.run_from(self.source, id, params, signals)
+    }
+
+    /// [`Engine::run_with`] for a Command from another source than the engine's own, such
+    /// as a CLI or MCP client bridged to the app; the Journal records that source.
+    pub fn run_from(
+        &mut self,
+        source: Source,
+        id: &str,
+        params: Value,
+        signals: &Signals,
+    ) -> Result<Value, CommandError> {
+        let parts = crate::library::DiskParts::new(&self.session);
         let mut env = Env {
             ids: &mut *self.ids,
             clock: &*self.clock,
+            parts: &parts,
+            fonts: &self.fonts,
             headless: self.headless,
         };
         let outcome =
@@ -69,7 +86,7 @@ impl Engine {
         self.journal.push(JournalEntry {
             id: id.to_owned(),
             params,
-            source: self.source,
+            source,
             outcome: outcome.clone(),
         });
         outcome
@@ -103,18 +120,32 @@ impl Engine {
         !self.dirty_scopes().is_empty()
     }
 
-    /// The Project file and the Documents with changes not yet saved, the Project first.
+    /// The Project file, the Documents and the open Library elements with changes not yet
+    /// saved, the Project first.
     /// A deleted Document keeps its stack, so undoing the delete brings it back as it
     /// was, but is not listed while it is gone.
     pub fn dirty_scopes(&self) -> Vec<Scope> {
         let exists = |scope: &Scope| match (scope, &self.session.project) {
             (Scope::Project, _) => true,
             (Scope::Document(uuid), Some(project)) => project.document(*uuid).is_some(),
-            (Scope::Document(_), None) => false,
+            (Scope::Element(uuid), Some(project)) => project.element(*uuid).is_some(),
+            (Scope::Document(_) | Scope::Element(_), None) => false,
         };
         let mut dirty = self.session.history.dirty_scopes();
         dirty.retain(exists);
         dirty
+    }
+
+    /// The font bytes handed to the engine for text in installed fonts.
+    pub fn fonts(&self) -> &Fonts {
+        &self.fonts
+    }
+
+    /// The fonts, to add to. The app adds the fonts installed on the machine here, at
+    /// start-up or whenever it finds them; text in a family not here draws as Noto Sans
+    /// and is reported as missing.
+    pub fn fonts_mut(&mut self) -> &mut Fonts {
+        &mut self.fonts
     }
 
     /// The undo stacks of the open Project, for menus to label Undo and Redo.
@@ -136,13 +167,14 @@ impl Default for Engine {
 }
 
 /// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless, unlimited
-/// undo, the full [`registry`], the CLI as the source, and the per-user folders from
-/// [`crate::user_dirs::discover`].
+/// undo, no installed fonts, the full [`registry`], the CLI as the source, and the per-user
+/// folders from [`crate::user_dirs::discover`].
 pub struct EngineBuilder {
     registry: Registry,
     undo_depth: Option<usize>,
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
+    fonts: Fonts,
     headless: bool,
     source: Source,
     user_dirs: Option<UserDirs>,
@@ -156,6 +188,7 @@ impl Default for EngineBuilder {
             undo_depth: None,
             ids: Box::new(RandomIds::new()),
             clock: Box::new(SystemClock),
+            fonts: Fonts::default(),
             headless: true,
             source: Source::default(),
             user_dirs: crate::user_dirs::discover(),
@@ -172,6 +205,12 @@ impl EngineBuilder {
 
     pub fn clock(mut self, clock: impl Clock + 'static) -> EngineBuilder {
         self.clock = Box::new(clock);
+        self
+    }
+
+    /// The font bytes for text in installed fonts; see [`Engine::fonts_mut`].
+    pub fn fonts(mut self, fonts: Fonts) -> EngineBuilder {
+        self.fonts = fonts;
         self
     }
 
@@ -222,6 +261,7 @@ impl EngineBuilder {
             session,
             ids: self.ids,
             clock: self.clock,
+            fonts: self.fonts,
             headless: self.headless,
             source: self.source,
             journal: Vec::new(),

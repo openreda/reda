@@ -5,6 +5,7 @@
 //! file format is not defined here: the engine maps these types to canonical JSON.
 
 mod change;
+mod check;
 mod document;
 mod library;
 mod output;
@@ -12,26 +13,33 @@ mod pcb;
 #[cfg(feature = "test-objects")]
 mod probe;
 mod project;
+mod schematic;
 mod transaction;
 mod uuid;
 
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
-pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
+pub use check::{Severity, Violation, ViolationArg};
+pub use document::{DocumentEntry, DocumentKind};
 pub use library::{
-    ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
-    PinMap, PinPads, PinType, Symbol, Unit,
+    ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
+    FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
+    PinPads, PinType, Shape, Symbol, SymbolGraphic, Unit,
 };
 pub use output::{
     Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,
     ProjectFabPreset,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, InDocument, Layer, LayerKind,
-    LayerSet, Net, NetClass, PcbDocument, Rules, Severity, Side,
+    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, GraphicShape, HERSHEY_FONT,
+    InDocument, Layer, LayerKind, LayerSet, NOTO_SANS_FONT, Net, NetClass, PcbDocument, PcbGraphic,
+    PcbText, Rules, Side,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
-pub use project::{Project, ProjectProps};
+pub use project::{Project, ProjectProperties, ProjectProps};
+pub use schematic::{
+    ComponentRef, FootprintCopy, PartEntry, SchematicSheet, SheetFrame, SheetSize, UnitInstance,
+};
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};
 

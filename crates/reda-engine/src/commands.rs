@@ -2,11 +2,14 @@
 //! work.
 
 pub mod document;
+pub mod elements;
 pub mod fab_preset;
 pub mod history;
 pub mod library;
+pub mod library_check;
 pub mod preferences;
 pub mod project;
+pub mod properties;
 pub mod query;
 
 use reda_command::Registry;
@@ -17,10 +20,13 @@ use serde::{Deserialize, Deserializer};
 pub fn register_all(registry: &mut Registry) {
     document::register_all(registry);
     fab_preset::register_all(registry);
+    elements::register_all(registry);
     history::register_all(registry);
     library::register_all(registry);
+    library_check::register_all(registry);
     preferences::register_all(registry);
     project::register_all(registry);
+    properties::register_all(registry);
     query::register_all(registry);
 }
 

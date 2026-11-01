@@ -6,7 +6,10 @@ use std::path::PathBuf;
 use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
-use crate::{Clock, CommandError, History, IdSource, Signals, Timestamp, UserDirs};
+use crate::{
+    Clock, CommandError, Fonts, History, IdSource, PartCopy, PartSource, Signals, Timestamp,
+    UserDirs,
+};
 
 /// The engine's mutable state between Commands.
 #[derive(Debug, Default)]
@@ -28,6 +31,10 @@ pub struct Session {
 pub struct Env<'a> {
     pub ids: &'a mut dyn IdSource,
     pub clock: &'a dyn Clock,
+    /// The registered Libraries, for Commands that copy a Part into a Document.
+    pub parts: &'a dyn PartSource,
+    /// The font bytes the front end handed over, for text in installed fonts.
+    pub fonts: &'a Fonts,
     /// No GUI: view Commands are unavailable.
     pub headless: bool,
 }
@@ -46,6 +53,8 @@ pub struct Context<'a> {
     pub(crate) access: Access<'a>,
     pub(crate) ids: &'a mut dyn IdSource,
     pub(crate) clock: &'a dyn Clock,
+    pub(crate) parts: &'a dyn PartSource,
+    pub(crate) fonts: &'a Fonts,
     pub(crate) signals: &'a Signals,
     /// The per-user folders, for Commands other than file Commands (which read them from
     /// the session).
@@ -141,6 +150,12 @@ impl<'a> Context<'a> {
         self.ids.next_id()
     }
 
+    /// The Part with this UUID from the registered Libraries, copied with its Symbol and
+    /// Footprints, or `not_found`.
+    pub fn library_part(&self, uuid: Uuid) -> Result<PartCopy, CommandError> {
+        self.parts.part(uuid)
+    }
+
     /// The time from the injected `Clock`.
     pub fn now(&self) -> Timestamp {
         self.clock.now()
@@ -153,6 +168,11 @@ impl<'a> Context<'a> {
             Access::File(session) => session.user_dirs.as_ref(),
             _ => self.user_dirs,
         }
+    }
+
+    /// The font bytes the front end handed over.
+    pub fn fonts(&self) -> &Fonts {
+        self.fonts
     }
 
     /// The run's cancellation token and progress reporter.

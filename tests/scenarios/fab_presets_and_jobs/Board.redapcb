@@ -35,5 +35,7 @@
   "net_classes": [
     {"uuid":"00000000-0000-4000-8000-000000000014","name":"Default"}
   ],
-  "nets": []
+  "nets": [],
+  "texts": [],
+  "graphics": []
 }

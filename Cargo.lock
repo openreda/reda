@@ -544,6 +544,7 @@ dependencies = [
 name = "reda-cli"
 version = "0.0.0"
 dependencies = [
+ "reda-control",
  "reda-engine",
  "reda-testkit",
  "rmcp",
@@ -564,6 +565,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "reda-control"
+version = "0.0.0"
+dependencies = [
+ "getrandom",
+ "reda-engine",
+ "reda-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "reda-engine"
 version = "0.0.0"
 dependencies = [
@@ -574,6 +586,7 @@ dependencies = [
  "reda-model",
  "reda-output",
  "reda-pcb",
+ "reda-schematic",
  "reda-testkit",
  "schemars",
  "serde",
@@ -626,6 +639,19 @@ dependencies = [
 
 [[package]]
 name = "reda-pcb"
+version = "0.0.0"
+dependencies = [
+ "reda-command",
+ "reda-model",
+ "reda-testkit",
+ "reda-text",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "reda-schematic"
 version = "0.0.0"
 dependencies = [
  "reda-command",

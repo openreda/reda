@@ -149,6 +149,7 @@ fn build_project(
         name: name.clone(),
         documents: vec![],
         libraries: vec![],
+        properties: Default::default(),
     });
     let sheet = DocumentEntry {
         uuid: cx.new_id(),
@@ -297,7 +298,13 @@ impl Command for ProjectSave {
         let path = store::project_file_path(&folder, &project.props().name);
         match only {
             Some(scope) => session.history.mark_saved(scope),
-            None => session.history.mark_all_saved(),
+            // Open Library elements are saved to their Libraries, not with the Project.
+            None => {
+                session.history.mark_saved(Scope::Project);
+                for document in project.documents() {
+                    session.history.mark_saved(Scope::Document(document.uuid));
+                }
+            }
         }
         Ok(ProjectSaveResult { path, written })
     }

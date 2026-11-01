@@ -9,8 +9,9 @@ use reda_engine::format::library::{
 };
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{
-    ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
-    PinMap, PinPads, PinType, Symbol, Unit, Uuid,
+    ComponentType, Field, Fields, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole,
+    LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap, PinPads, PinType, Shape, Symbol,
+    SymbolGraphic, Unit, Uuid,
 };
 use reda_testkit::assert_golden;
 
@@ -44,6 +45,8 @@ fn opamp() -> Symbol {
         at: Point::new(Nm::from_mil(x), Nm::from_mil(y)),
         rotation: Millideg(rot),
         length: Nm::from_mil(100),
+        name_visible: true,
+        number_visible: true,
     };
     Symbol {
         uuid: id(0x10),
@@ -74,6 +77,33 @@ fn opamp() -> Symbol {
             pin(0x27, b, "OUT", "7", PinType::Output, 300, 0, 180_000),
             pin(0x28, power, "V+", "8", PinType::PowerIn, 0, 300, 270_000),
         ],
+        graphics: vec![
+            SymbolGraphic {
+                uuid: id(0x1a),
+                unit: a,
+                shape: Shape::Polygon {
+                    points: vec![
+                        Point::new(Nm::from_mil(-200), Nm::from_mil(200)),
+                        Point::new(Nm::from_mil(200), Nm(0)),
+                        Point::new(Nm::from_mil(-200), Nm::from_mil(-200)),
+                    ],
+                },
+                width: Nm::from_mil(10),
+                fill: true,
+            },
+            SymbolGraphic {
+                uuid: id(0x1b),
+                unit: power,
+                shape: Shape::Text {
+                    at: Point::new(Nm::from_mil(50), Nm(0)),
+                    text: "PWR".into(),
+                    size: Nm::from_mil(50),
+                    rotation: Millideg(90_000),
+                },
+                width: Nm::from_mil(6),
+                fill: false,
+            },
+        ],
     }
 }
 
@@ -88,6 +118,7 @@ fn soic() -> Footprint {
         rotation: Millideg(0),
         width: Nm::from_um(600),
         height: Nm::from_um(1550),
+        corner_radius: None,
         hole: None,
         mask_margin: None,
         paste_margin: None,
@@ -100,6 +131,37 @@ fn soic() -> Footprint {
         name: "SOIC-8".into(),
         description: String::new(),
         pads: vec![pad(0x31, "1", -1905), pad(0x32, "4", 1905), exposed],
+        graphics: vec![
+            FootprintGraphic {
+                uuid: id(0x34),
+                layer: FootprintLayer::CourtyardTop,
+                shape: Shape::Rect {
+                    start: Point::new(Nm::from_um(-3700), Nm::from_um(-2700)),
+                    end: Point::new(Nm::from_um(3700), Nm::from_um(2700)),
+                },
+                width: Nm::from_um(50),
+                fill: false,
+            },
+            FootprintGraphic {
+                uuid: id(0x35),
+                layer: FootprintLayer::SilkscreenTop,
+                shape: Shape::Arc {
+                    center: Point::new(Nm::from_um(-2500), Nm(0)),
+                    start: Point::new(Nm::from_um(-2500), Nm::from_um(500)),
+                    sweep: Millideg(-180_000),
+                },
+                width: Nm::from_um(120),
+                fill: false,
+            },
+        ],
+        designator: FootprintText {
+            at: Point::new(Nm(0), Nm::from_um(-3500)),
+            ..FootprintText::DESIGNATOR
+        },
+        value: FootprintText {
+            visible: false,
+            ..FootprintText::VALUE
+        },
     }
 }
 
@@ -117,6 +179,7 @@ fn hole() -> Footprint {
             rotation: Millideg(0),
             width: Nm::from_um(3200),
             height: Nm::from_um(3200),
+            corner_radius: None,
             hole: Some(Hole {
                 width: Nm::from_um(3200),
                 height: Nm::from_um(3200),
@@ -124,6 +187,18 @@ fn hole() -> Footprint {
             mask_margin: Some(Nm::from_um(50)),
             paste_margin: None,
         }],
+        graphics: vec![FootprintGraphic {
+            uuid: id(0x42),
+            layer: FootprintLayer::AssemblyBottom,
+            shape: Shape::Circle {
+                center: Point::default(),
+                radius: Nm::from_um(1600),
+            },
+            width: Nm::from_um(100),
+            fill: false,
+        }],
+        designator: FootprintText::DESIGNATOR,
+        value: FootprintText::VALUE,
     }
 }
 
