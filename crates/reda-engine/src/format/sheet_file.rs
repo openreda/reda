@@ -19,23 +19,35 @@
 //!   ],
 //!   "units": [
 //!     {"uuid":"…","component":{"uuid":"…"},"part":"…","unit":"…","at":{…},"rotation":0,"designator":"U1",…}
+//!   ],
+//!   "wires": [
+//!     {"uuid":"…","from":{"x":0,"y":0},"to":{"x":2540000,"y":0}}
+//!   ],
+//!   "net_labels": [
+//!     {"uuid":"…","name":"SDA","at":{…},"rotation":0}
+//!   ],
+//!   "no_connects": [
+//!     {"uuid":"…","at":{…}}
 //!   ]
 //! }
 //! ```
 //!
 //! `frame` is written only when the sheet has one, and the three tables only when the sheet
-//! holds any Component. A part-table entry (`parts`) holds the
+//! holds any Component; `wires`, `net_labels` and `no_connects` only when not empty. Nets
+//! and Junctions are derived from the drawing, never written. A part-table entry (`parts`) holds the
 //! keys of a `.redapart` file (`part`, `footprints`, `fields`, `pin_map`) and of a
 //! `.redasym` file (`symbol`, `units`, `pins`, `graphics`) with the same shapes, plus its own `uuid`,
-//! its content `hash` and `copies`: the sheet's Footprint copy of each alternate. A
+//! its content `hash` and `copies`: the sheet's Footprint copy of each alternate. An
+//! imported Part's `provenance` and its Symbol's `symbol_provenance` are kept too. A
 //! Footprint copy (`footprints`) holds the keys of a `.redafp` file. Rows leave out the
 //! sheet their model objects name: the file is the sheet.
 
 use std::path::Path;
 
 use reda_model::{
-    Fields, FootprintCopy, FootprintGraphic, InDocument, Object, Pad, PartEntry, Pin, PinMap,
-    SchematicSheet, SheetFrame, SymbolGraphic, Unit, UnitInstance, Uuid,
+    Fields, FootprintCopy, FootprintGraphic, InDocument, NetLabel, NoConnect, Object, Pad,
+    PartEntry, Pin, PinMap, Provenance, SchematicSheet, SheetFrame, SymbolGraphic, Unit,
+    UnitInstance, Uuid, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -67,6 +79,15 @@ pub(crate) struct SheetFile {
     /// The placed Units, sorted by UUID.
     #[serde(default)]
     units: Vec<UnitInstance>,
+    /// The Wires: one orthogonal segment each, sorted by UUID.
+    #[serde(default)]
+    wires: Vec<Wire>,
+    /// The Net Labels, sorted by UUID.
+    #[serde(default)]
+    net_labels: Vec<NetLabel>,
+    /// The No-Connect Markers, sorted by UUID.
+    #[serde(default)]
+    no_connects: Vec<NoConnect>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -85,6 +106,9 @@ struct PartEntryRow {
     /// The content hash of the Part with its Symbol and Footprints, as copied.
     hash: String,
     part: PartRow,
+    /// Where the Part was imported from, as in a `.redapart` file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    provenance: Option<Box<Provenance>>,
     /// The alternate Footprints by Library UUID, the default first.
     footprints: Vec<Uuid>,
     /// The sheet's Footprint copy of each alternate, in the same order.
@@ -92,6 +116,9 @@ struct PartEntryRow {
     fields: Fields,
     pin_map: PinMap,
     symbol: SymbolRow,
+    /// Where the Symbol was imported from, as in a `.redasym` file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    symbol_provenance: Option<Box<Provenance>>,
     units: Vec<Unit>,
     pins: Vec<Pin>,
     graphics: Vec<SymbolGraphic>,
@@ -105,6 +132,9 @@ struct FootprintCopyRow {
     /// The content hash of the Footprint, as copied.
     hash: String,
     footprint: FootprintRow,
+    /// Where the Footprint was imported from, as in a `.redafp` file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    provenance: Option<Box<Provenance>>,
     text: FootprintTexts,
     pads: Vec<Pad>,
     graphics: Vec<FootprintGraphic>,
@@ -120,11 +150,13 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         uuid: e.uuid,
         hash: e.hash.clone(),
         part: PartRow::of(&e.part),
+        provenance: e.part.provenance.clone(),
         footprints: e.part.footprints.clone(),
         copies: e.footprints.clone(),
         fields: e.part.fields.clone(),
         pin_map: sorted(&e.part.pin_map),
         symbol: SymbolRow::of(&e.symbol),
+        symbol_provenance: e.symbol.provenance.clone(),
         units: e.symbol.units.clone(),
         pins: e.symbol.pins.clone(),
         graphics: e.symbol.graphics.clone(),
@@ -133,6 +165,7 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         uuid: c.uuid,
         hash: c.hash.clone(),
         footprint: FootprintRow::of(&c.footprint),
+        provenance: c.footprint.provenance.clone(),
         text: FootprintTexts::of(&c.footprint),
         pads: c.footprint.pads.clone(),
         graphics: c.footprint.graphics.clone(),
@@ -142,6 +175,15 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         w.containers_spread("parts", parts, |r| r.uuid, &["units", "pins", "graphics"])?;
         w.containers_spread("footprints", footprints, |r| r.uuid, &["pads", "graphics"])?;
         w.table("units", sheet.units(), |u| u.uuid)?;
+    }
+    if sheet.wires().next().is_some() {
+        w.table("wires", sheet.wires(), |r| r.uuid)?;
+    }
+    if sheet.net_labels().next().is_some() {
+        w.table("net_labels", sheet.net_labels(), |r| r.uuid)?;
+    }
+    if sheet.no_connects().next().is_some() {
+        w.table("no_connects", sheet.no_connects(), |r| r.uuid)?;
     }
     Ok(w.finish())
 }
@@ -168,7 +210,7 @@ pub(crate) fn read_sheet_file(
     for row in file.footprints {
         let footprint = row
             .footprint
-            .into_footprint(row.text, row.pads, row.graphics)
+            .into_footprint(row.text, row.pads, row.graphics, row.provenance)
             .map_err(|e| invalid(format!("Footprint copy {}: {e}", row.uuid)))?;
         objects.push(Object::FootprintCopy(InDocument::new(
             sheet,
@@ -182,9 +224,11 @@ pub(crate) fn read_sheet_file(
     for row in file.parts {
         let symbol = row
             .symbol
-            .into_symbol(row.units, row.pins, row.graphics)
+            .into_symbol(row.units, row.pins, row.graphics, row.symbol_provenance)
             .map_err(|e| invalid(format!("part entry {}: {e}", row.uuid)))?;
-        let part = row.part.into_part(row.footprints, row.fields, &row.pin_map);
+        let part = row
+            .part
+            .into_part(row.footprints, row.fields, &row.pin_map, row.provenance);
         objects.push(Object::PartEntry(InDocument::new(
             sheet,
             PartEntry {
@@ -198,6 +242,15 @@ pub(crate) fn read_sheet_file(
     }
     for unit in file.units {
         objects.push(Object::Unit(InDocument::new(sheet, unit)));
+    }
+    for wire in file.wires {
+        objects.push(Object::Wire(InDocument::new(sheet, wire)));
+    }
+    for label in file.net_labels {
+        objects.push(Object::NetLabel(InDocument::new(sheet, label)));
+    }
+    for marker in file.no_connects {
+        objects.push(Object::NoConnect(InDocument::new(sheet, marker)));
     }
     Ok(objects)
 }

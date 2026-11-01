@@ -214,6 +214,9 @@ impl Project {
             Object::PartEntry(o) => return self.check_sheet(o.document),
             Object::FootprintCopy(o) => return self.check_sheet(o.document),
             Object::Unit(o) => return self.check_sheet(o.document),
+            Object::Wire(o) => return self.check_sheet(o.document),
+            Object::NetLabel(o) => return self.check_sheet(o.document),
+            Object::NoConnect(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
             _ => return Ok(()),
@@ -330,6 +333,17 @@ impl Project {
             }
             Some(Object::Unit(o)) => {
                 self.sheet_mut(o.document).units.insert(uuid, o.object);
+            }
+            Some(Object::Wire(o)) => {
+                self.sheet_mut(o.document).wires.insert(uuid, o.object);
+            }
+            Some(Object::NetLabel(o)) => {
+                self.sheet_mut(o.document).net_labels.insert(uuid, o.object);
+            }
+            Some(Object::NoConnect(o)) => {
+                self.sheet_mut(o.document)
+                    .no_connects
+                    .insert(uuid, o.object);
             }
             Some(Object::PcbText(o)) => {
                 self.pcb_mut(o.document).texts.insert(uuid, o.object);

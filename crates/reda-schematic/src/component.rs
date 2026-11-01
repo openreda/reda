@@ -12,6 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::sheet;
+use crate::wiring::split_wires_at_pins;
 
 /// A point on the sheet.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
@@ -22,7 +23,7 @@ pub struct At {
 }
 
 impl At {
-    fn point(self) -> Point {
+    pub(crate) fn point(self) -> Point {
         Point::new(self.x.nm(), self.y.nm())
     }
 }
@@ -138,6 +139,7 @@ impl Command for ComponentPlace {
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
             mirror: p.mirror,
             designator: designator.clone(),
+            designator_locked: false,
             fields,
             footprint,
             component_type,
@@ -146,6 +148,7 @@ impl Command for ComponentPlace {
         };
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
+        split_wires_at_pins(cx, p.document, uuid)?;
         Ok(PlacedResult {
             unit: uuid,
             component,
@@ -236,6 +239,7 @@ impl Command for UnitPlace {
         let component = instance.component.clone();
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
+        split_wires_at_pins(cx, p.document, uuid)?;
         Ok(PlacedResult {
             unit: uuid,
             component,
@@ -246,7 +250,7 @@ impl Command for UnitPlace {
 }
 
 /// What a part-table entry holds, wherever it comes from.
-struct EntryContent {
+pub(crate) struct EntryContent {
     hash: String,
     part: Part,
     symbol: Symbol,
@@ -255,7 +259,7 @@ struct EntryContent {
 }
 
 impl EntryContent {
-    fn from_copy(copy: PartCopy) -> Result<EntryContent, CommandError> {
+    pub(crate) fn from_copy(copy: PartCopy) -> Result<EntryContent, CommandError> {
         let Some(symbol) = copy.symbol else {
             return Err(CommandError::rejected(format!(
                 "Part {} has no Symbol, so it cannot be placed on a Schematic Sheet",
@@ -297,7 +301,7 @@ fn unit_named(symbol: &Symbol, name: &str) -> Result<Uuid, CommandError> {
 
 /// The sheet's part-table entry for this content, inserting it (and any Footprint copy
 /// the sheet lacks) when the sheet has none with the same Part UUID and hash.
-fn ensure_entry(
+pub(crate) fn ensure_entry(
     cx: &mut Context<'_>,
     document: Uuid,
     content: EntryContent,

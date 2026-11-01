@@ -140,6 +140,7 @@ pub fn symbol(n: u128, name: &str) -> Symbol {
         }],
         pins: vec![pin(1), pin(2)],
         graphics: vec![],
+        provenance: None,
     }
 }
 
@@ -176,6 +177,7 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         }],
         designator: FootprintText::DESIGNATOR,
         value: FootprintText::VALUE,
+        provenance: None,
     }
 }
 
@@ -189,5 +191,6 @@ pub fn part(n: u128, name: &str, symbol: u128, footprints: &[u128]) -> Part {
         footprints: footprints.iter().map(|f| uuid(*f)).collect(),
         fields: Fields::default(),
         pin_map: PinMap::default(),
+        provenance: None,
     }
 }

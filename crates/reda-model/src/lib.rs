@@ -23,7 +23,7 @@ pub use document::{DocumentEntry, DocumentKind};
 pub use library::{
     ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
     FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
-    PinPads, PinType, Shape, Symbol, SymbolGraphic, Unit,
+    PinPads, PinType, Provenance, Shape, Symbol, SymbolGraphic, Unit,
 };
 pub use output::{
     Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,
@@ -38,7 +38,8 @@ pub use pcb::{
 pub use probe::Probe;
 pub use project::{Project, ProjectProperties, ProjectProps};
 pub use schematic::{
-    ComponentRef, FootprintCopy, PartEntry, SchematicSheet, SheetFrame, SheetSize, UnitInstance,
+    ComponentRef, FootprintCopy, NetLabel, NoConnect, PartEntry, SchematicSheet, SheetFrame,
+    SheetSize, UnitInstance, Wire,
 };
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};

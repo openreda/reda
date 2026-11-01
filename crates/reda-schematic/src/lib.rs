@@ -1,13 +1,19 @@
-//! Schematic Sheet behaviour: placing Components, the sheet frame and its title block, and
-//! the schematic Commands. Connectivity and ERC join later.
+//! Schematic Sheet behaviour: placing Components, the sheet frame and its title block, the
+//! schematic Commands, and the connectivity derived from the drawing ([`connectivity`]).
+//! ERC joins later.
 
 mod component;
+pub mod connectivity;
 mod find;
+mod library_element;
 mod natural;
 mod pins;
 mod properties;
 mod sheet;
 mod similar;
+mod unit_move;
+mod update;
+mod wiring;
 
 use reda_command::{CommandError, Registry};
 use reda_model::{Project, SchematicSheet, Uuid};
@@ -17,6 +23,9 @@ pub use component::{
     next_free_designator,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
+pub use library_element::{
+    ElementFile, LibraryElement, LibraryElementParams, LibraryElementResult,
+};
 pub use natural::natural_cmp;
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
@@ -28,6 +37,15 @@ pub use similar::{
     SelectSimilar, SelectSimilarParams, SelectSimilarResult, SimilarField, SimilarScope,
     select_similar,
 };
+pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
+pub use update::{
+    ComponentUpdate, FootprintChange, Outdated, OutdatedComponent, OutdatedResult, PartChange,
+    UpdateFromLibrary, UpdateParams, UpdatePreview, UpdateResult,
+};
+pub use wiring::{
+    NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
+    NoConnectAddParams, NoConnectAddResult, SchematicNets, WireAdd, WireAddParams, WireAddResult,
+};
 
 /// Adds every Command defined in `reda-schematic`.
 pub fn register_all(registry: &mut Registry) {
@@ -37,8 +55,17 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ComponentPinsQuery);
     registry.add(Find);
     registry.add(SelectSimilar);
+    registry.add(Outdated);
+    registry.add(UpdatePreview);
+    registry.add(UpdateFromLibrary);
+    registry.add(LibraryElement);
     registry.add(SheetSetSize);
     registry.add(SheetTitleBlock);
+    registry.add(WireAdd);
+    registry.add(NetLabelAdd);
+    registry.add(UnitMove);
+    registry.add(NoConnectAdd);
+    registry.add(SchematicNets);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

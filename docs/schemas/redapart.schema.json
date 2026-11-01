@@ -126,6 +126,31 @@
         "pads"
       ],
       "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+      "properties": {
+        "copyright": {
+          "description": "Copyright lines found in the imported files, kept verbatim.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "service": {
+          "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+          "type": "string"
+        },
+        "terms_url": {
+          "description": "The service's terms of use, when known.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -155,6 +180,18 @@
     "pin_map": {
       "$ref": "#/$defs/PinMap",
       "description": "Exceptions to the implicit map, where a Pin connects to the Pads with its number."
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where an imported element came from: the service, its terms and any copyright\nlines. Elements made in REDA have none."
     }
   },
   "required": [
