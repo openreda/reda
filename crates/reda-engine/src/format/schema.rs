@@ -7,6 +7,7 @@ use schemars::generate::SchemaSettings;
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde_json::Value;
 
+use super::pcb_file::PcbFile;
 use super::project_file::ProjectFile;
 use super::sheet_file::SheetFile;
 use super::{FORMAT, FileKind};
@@ -16,6 +17,7 @@ pub fn schema(kind: FileKind) -> Value {
     match kind {
         FileKind::Project => schema_of::<ProjectFile>(),
         FileKind::Sheet => schema_of::<SheetFile>(),
+        FileKind::Pcb => schema_of::<PcbFile>(),
     }
 }
 

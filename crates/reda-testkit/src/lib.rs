@@ -4,6 +4,7 @@
 
 mod engine;
 mod files;
+mod pcb;
 mod probe;
 
 pub use engine::{TestEngine, test_engine, test_engine_in};

@@ -6,7 +6,12 @@ use std::path::{Path, PathBuf};
 
 use proptest::prelude::*;
 use reda_engine::format::LoadError;
-use reda_engine::model::{DocumentEntry, DocumentKind, Object, Project, ProjectProps, Uuid};
+use reda_engine::model::geom::{Millideg, Nm, Vertex};
+use reda_engine::model::{
+    BoardCutout, BoardOutline, BoardSetup, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities,
+    InDocument, Layer, LayerKind, LayerSet, Net, NetClass, Object, Project, ProjectProps, Rules,
+    Severity, Side, Uuid,
+};
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
 
@@ -26,11 +31,188 @@ prop_compose! {
     }
 }
 
+fn length() -> impl Strategy<Value = Nm> {
+    (-1_000_000_000i64..1_000_000_000).prop_map(Nm)
+}
+
+fn vertices() -> impl Strategy<Value = Vec<Vertex>> {
+    let sweep = prop_oneof![Just(0i64), -359_999i64..360_000];
+    prop::collection::vec((length(), length(), sweep), 3..7).prop_map(|vs| {
+        vs.into_iter()
+            .map(|(x, y, s)| Vertex {
+                x,
+                y,
+                sweep: Millideg(s),
+            })
+            .collect()
+    })
+}
+
+/// The data of a PCB Document. Its UUIDs are `base`, `base + 1`, …
+#[derive(Clone, Debug)]
+struct PcbSeed {
+    base: u128,
+    name: String,
+    title: String,
+    rules: [Nm; 7],
+    severities: Vec<u8>,
+    outline: Option<Vec<Vertex>>,
+    cutouts: Vec<Vec<Vertex>>,
+    classes: Vec<(String, Option<Nm>, Option<Nm>)>,
+    nets: Vec<(String, usize)>,
+}
+
+prop_compose! {
+    fn pcb_seed()(
+        base in any::<u128>(),
+        name in stem("b"),
+        title in any::<String>(),
+        rules in prop::array::uniform7(length()),
+        severities in prop::collection::vec(0u8..3, DrcCheck::ALL.len()),
+        outline in prop::option::of(vertices()),
+        cutouts in prop::collection::vec(vertices(), 0..3),
+        classes in prop::collection::vec(
+            ("[A-Za-z0-9 ]{1,8}", prop::option::of(length()), prop::option::of(length())),
+            0..3,
+        ),
+        nets in prop::collection::vec((any::<String>(), any::<usize>()), 0..4),
+    ) -> PcbSeed {
+        PcbSeed { base, name, title, rules, severities, outline, cutouts, classes, nets }
+    }
+}
+
+/// The PCB Document's entry and objects, with UUIDs counted up from the seed's base.
+fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
+    let mut next = seed.base;
+    let mut id = || {
+        next = next.wrapping_add(1);
+        Uuid::v4_from_bits(next)
+    };
+    let doc = id();
+    let layers = LayerSet {
+        uuid: id(),
+        layers: [
+            (LayerKind::Copper, Some(Side::Top)),
+            (LayerKind::Copper, Some(Side::Bottom)),
+            (LayerKind::BoardOutline, None),
+        ]
+        .into_iter()
+        .map(|(kind, side)| Layer {
+            uuid: id(),
+            kind,
+            side,
+        })
+        .collect(),
+    };
+    let default = NetClass {
+        uuid: id(),
+        name: "Default".into(),
+        clearance: None,
+        track_width: None,
+        via_diameter: None,
+        via_hole: None,
+    };
+    let mut classes = vec![default.clone()];
+    for (name, clearance, track_width) in seed.classes {
+        if classes
+            .iter()
+            .any(|c| c.name.to_lowercase() == name.to_lowercase())
+            || name.trim().is_empty()
+        {
+            continue;
+        }
+        classes.push(NetClass {
+            uuid: id(),
+            name,
+            clearance,
+            track_width,
+            via_diameter: None,
+            via_hole: None,
+        });
+    }
+    let [
+        clearance,
+        track_width,
+        via_diameter,
+        via_hole,
+        annular_ring,
+        hole_to_hole,
+        edge_clearance,
+    ] = seed.rules;
+    let mut severities = DrcSeverities::DEFAULT;
+    for (check, s) in DrcCheck::ALL.iter().zip(seed.severities) {
+        severities.set(
+            *check,
+            [Severity::Error, Severity::Warning, Severity::Off][usize::from(s)],
+        );
+    }
+    let setup = BoardSetup {
+        uuid: id(),
+        default_net_class: default.uuid,
+        rules: Rules {
+            clearance,
+            track_width,
+            via_diameter,
+            via_hole,
+            annular_ring,
+            hole_to_hole,
+            edge_clearance,
+        },
+        severities,
+    };
+    let mut objects = vec![
+        Object::LayerSet(InDocument::new(doc, layers)),
+        Object::BoardSetup(InDocument::new(doc, setup)),
+    ];
+    if let Some(vertices) = seed.outline {
+        objects.push(Object::BoardOutline(InDocument::new(
+            doc,
+            BoardOutline {
+                uuid: id(),
+                vertices,
+            },
+        )));
+    }
+    for vertices in seed.cutouts {
+        objects.push(Object::BoardCutout(InDocument::new(
+            doc,
+            BoardCutout {
+                uuid: id(),
+                vertices,
+            },
+        )));
+    }
+    for (name, class) in seed.nets {
+        let class = classes[class % classes.len()].uuid;
+        objects.push(Object::Net(InDocument::new(
+            doc,
+            Net {
+                uuid: id(),
+                name,
+                class,
+            },
+        )));
+    }
+    objects.extend(
+        classes
+            .into_iter()
+            .map(|c| Object::NetClass(InDocument::new(doc, c))),
+    );
+    let entry = DocumentEntry {
+        uuid: doc,
+        kind: DocumentKind::Pcb,
+        name: seed.name,
+        title: seed.title,
+    };
+    (entry, objects)
+}
+
 prop_compose! {
     fn project()(
         uuid in uuid(),
         name in stem("p"),
         documents in prop::collection::vec(document(), 0..6),
+        pcb in prop::option::of(pcb_seed()),
     ) -> Project {
         let mut project = Project::new(ProjectProps { uuid, name, documents: vec![] });
         let mut tx = project.transaction();
@@ -45,6 +227,19 @@ prop_compose! {
             }
             order.push(entry.uuid);
             tx.insert(Object::Document(entry)).unwrap();
+        }
+        let mut contents = vec![];
+        if let Some(seed) = pcb {
+            let (entry, objects) = pcb_objects(seed);
+            let taken = |u: Uuid| u == uuid || order.contains(&u);
+            if !taken(entry.uuid) && !objects.iter().any(|o| taken(o.uuid())) {
+                order.push(entry.uuid);
+                tx.insert(Object::Document(entry)).unwrap();
+                contents = objects;
+            }
+        }
+        for object in contents {
+            tx.insert(object).unwrap();
         }
         let mut props = tx.project().props().clone();
         props.documents = order;

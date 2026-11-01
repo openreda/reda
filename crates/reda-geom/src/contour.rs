@@ -142,10 +142,15 @@ pub fn rounded_rect(width: Nm, height: Nm, corner_radius: Nm) -> Vec<Vertex> {
     let (w, h, r) = (width, height, corner_radius);
     let p = |x: Nm, y: Nm| Point::new(x, y);
     if r == Nm::ZERO {
-        return [p(Nm::ZERO, Nm::ZERO), p(w, Nm::ZERO), p(w, h), p(Nm::ZERO, h)]
-            .into_iter()
-            .map(Vertex::at)
-            .collect();
+        return [
+            p(Nm::ZERO, Nm::ZERO),
+            p(w, Nm::ZERO),
+            p(w, h),
+            p(Nm::ZERO, h),
+        ]
+        .into_iter()
+        .map(Vertex::at)
+        .collect();
     }
     let quarter = Millideg::from_deg(90);
     let corners = [

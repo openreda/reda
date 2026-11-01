@@ -4,6 +4,7 @@
 //! file's typed shape, where unknown fields are an error. Writing always produces the
 //! current [`FORMAT`] through the canonical writer.
 
+mod pcb_file;
 mod project_file;
 mod schema;
 mod sheet_file;
@@ -15,6 +16,7 @@ use reda_command::CommandError;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+pub(crate) use pcb_file::{read_pcb_file, write_pcb_file};
 pub(crate) use project_file::{ProjectFile, write_project_file};
 pub use schema::schema;
 pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
@@ -29,16 +31,19 @@ pub enum FileKind {
     Project,
     /// `<name>.redasch`: one Schematic Sheet.
     Sheet,
+    /// `<name>.redapcb`: the PCB Document.
+    Pcb,
 }
 
 impl FileKind {
-    pub const ALL: [FileKind; 2] = [FileKind::Project, FileKind::Sheet];
+    pub const ALL: [FileKind; 3] = [FileKind::Project, FileKind::Sheet, FileKind::Pcb];
 
     /// The file extension, without the dot.
     pub const fn extension(self) -> &'static str {
         match self {
             FileKind::Project => "reda",
             FileKind::Sheet => "redasch",
+            FileKind::Pcb => "redapcb",
         }
     }
 }

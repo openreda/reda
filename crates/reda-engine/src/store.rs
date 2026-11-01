@@ -3,13 +3,13 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::CommandError;
-use reda_model::{DocumentKind, Project, ProjectProps, Scope};
+use reda_model::{DocumentEntry, DocumentKind, Project, ProjectProps, Scope};
 
 use crate::builders::add_document;
 use crate::canonical::CanonicalError;
 use crate::format::{
-    FileKind, LoadError, ProjectFile, parse, read_bytes, read_sheet_file, write_project_file,
-    write_sheet_file,
+    FileKind, LoadError, ProjectFile, parse, read_bytes, read_pcb_file, read_sheet_file,
+    write_pcb_file, write_project_file, write_sheet_file,
 };
 use crate::fs::write_atomic;
 
@@ -32,6 +32,18 @@ pub fn resolve_project_file(path: &Path) -> PathBuf {
     path.to_owned()
 }
 
+/// A Project read from disk.
+#[derive(Debug)]
+pub struct Opened {
+    pub project: Project,
+    /// The Project folder.
+    pub folder: PathBuf,
+    /// Documents the Project file lists whose files are missing. They are left out of
+    /// `project`, so saving drops them from the Project file. Only a missing PCB Document
+    /// is tolerated; a missing Schematic Sheet fails the load.
+    pub missing: Vec<DocumentEntry>,
+}
+
 /// Reads the Project whose Project file is `project_file`. Returns it with its folder.
 pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
     load_from(project_file, read_bytes)
@@ -41,8 +53,21 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
 /// load a Project held in memory. `read` gets each file's path under the Project folder.
 pub fn load_from(
     project_file: &Path,
-    mut read: impl FnMut(&Path) -> Result<Vec<u8>, LoadError>,
+    read: impl FnMut(&Path) -> Result<Vec<u8>, LoadError>,
 ) -> Result<(Project, PathBuf), LoadError> {
+    open_from(project_file, read).map(|o| (o.project, o.folder))
+}
+
+/// Like [`load`], and reports the Documents whose files are missing.
+pub fn open(project_file: &Path) -> Result<Opened, LoadError> {
+    open_from(project_file, read_bytes)
+}
+
+/// [`open`] with the file reading supplied by the caller, as for [`load_from`].
+pub fn open_from(
+    project_file: &Path,
+    mut read: impl FnMut(&Path) -> Result<Vec<u8>, LoadError>,
+) -> Result<Opened, LoadError> {
     let invalid = |why: String| LoadError::Invalid(project_file.to_owned(), why);
     let name = project_file
         .file_stem()
@@ -64,19 +89,36 @@ pub fn load_from(
         name: name.to_owned(),
         documents: vec![],
     });
+    let mut missing = vec![];
     let mut tx = project.transaction();
     for row in &file.documents {
         let entry = row.entry().map_err(invalid)?;
         let path = folder.join(entry.file_name());
-        match entry.kind {
+        let objects = match entry.kind {
             DocumentKind::Schematic => {
                 read_sheet_file(&path, &read(&path)?, entry.uuid)?;
+                vec![]
             }
-        }
+            DocumentKind::Pcb => match read(&path) {
+                Ok(bytes) => read_pcb_file(&path, &bytes, entry.uuid)?,
+                Err(LoadError::Missing(_)) => {
+                    missing.push(entry);
+                    continue;
+                }
+                Err(e) => return Err(e),
+            },
+        };
         add_document(&mut tx, entry).map_err(|e| invalid(e.to_string()))?;
+        for object in objects {
+            tx.insert(object).map_err(|e| invalid(e.to_string()))?;
+        }
     }
     tx.commit().map_err(|e| invalid(e.to_string()))?;
-    Ok((project, folder))
+    Ok(Opened {
+        project,
+        folder,
+        missing,
+    })
 }
 
 /// Every file of the Project as canonical bytes, keyed by its `/`-separated path relative to
@@ -106,6 +148,12 @@ fn encode_scoped(
                     .schematic_sheet(entry.uuid)
                     .expect("every Schematic entry has a sheet body");
                 write_sheet_file(sheet)?
+            }
+            DocumentKind::Pcb => {
+                let pcb = project
+                    .pcb_document(entry.uuid)
+                    .expect("every PCB entry has a PCB body");
+                write_pcb_file(pcb)?
             }
         };
         files.push((entry.file_name(), bytes));
