@@ -1,10 +1,12 @@
 //! The engine's own Commands: Project files and, later, cross-Document work.
 
 pub mod project;
+pub mod query;
 
 use reda_command::Registry;
 
 /// Adds every Command defined in `reda-engine`.
 pub fn register_all(registry: &mut Registry) {
     project::register_all(registry);
+    query::register_all(registry);
 }

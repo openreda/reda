@@ -1,0 +1,675 @@
+{
+  "commands": [
+    {
+      "category": "edit",
+      "description": "Runs several edit and query Commands as one atomic edit: if any step fails, every step is rolled back. Later steps refer to objects created by earlier ones through UUIDs the caller supplied in the earlier step's params. Returns the combined changes and each step's result, in order.",
+      "icon": "batch",
+      "id": "batch",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "BatchStep": {
+            "additionalProperties": false,
+            "description": "One step of a batch.",
+            "properties": {
+              "id": {
+                "description": "An edit or query Command id, or one of their Presets as `<id>:<preset>`.",
+                "type": "string"
+              },
+              "params": {
+                "default": null,
+                "description": "The step's params, as the Command takes them on its own."
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The params of `batch`.",
+        "properties": {
+          "commands": {
+            "description": "The steps, run in order.",
+            "items": {
+              "$ref": "#/$defs/BatchStep"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "commands"
+        ],
+        "title": "BatchParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "items": true,
+        "title": "Array_of_AnyValue",
+        "type": "array"
+      },
+      "title": "Batch"
+    },
+    {
+      "category": "query",
+      "description": "Returns the object with this UUID, whatever its type, and the Document it lives in.",
+      "icon": "inspect",
+      "id": "object.get",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "uuid": {
+            "description": "The object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "ObjectGetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic"
+            ],
+            "type": "string"
+          },
+          "Object": {
+            "description": "Any persisted object addressable by UUID, tagged with its `type`.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Project-wide properties, stored in `<name>.reda`.\n\nThe Document order lives here because it is a Project property: it drives sheet\nnumbering and PDF output, and reordering is an edit on the Project's own undo stack.",
+                "properties": {
+                  "documents": {
+                    "description": "Every Document's UUID, in Project order.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "project",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "name",
+                  "documents"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+                "properties": {
+                  "kind": {
+                    "$ref": "#/$defs/DocumentKind"
+                  },
+                  "name": {
+                    "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+                    "type": "string"
+                  },
+                  "title": {
+                    "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "document",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "kind",
+                  "name",
+                  "title"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "An object and the Document it lives in.",
+        "properties": {
+          "document": {
+            "description": "The Document holding the object, or `null` for objects in the Project file.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "object": {
+            "$ref": "#/$defs/Object"
+          }
+        },
+        "required": [
+          "document",
+          "object"
+        ],
+        "title": "ObjectView",
+        "type": "object"
+      },
+      "title": "Get Object"
+    },
+    {
+      "category": "query",
+      "description": "Lists the objects that match every given filter, sorted by UUID: `document` keeps the objects in one Document, `type` the objects of one type. With no filter it lists every object in the Project.",
+      "icon": "search",
+      "id": "objects.query",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "ObjectType": {
+            "description": "The type of an object, as its `type` tag names it.",
+            "oneOf": [
+              {
+                "const": "project",
+                "description": "The Project's own properties, in the Project file.",
+                "type": "string"
+              },
+              {
+                "const": "document",
+                "description": "A Document's entry in the Project's Document list.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "default": null,
+            "description": "Only objects in this Document. Document entries themselves live in the Project file.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ObjectType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only objects of this type."
+          }
+        },
+        "title": "ObjectsQueryParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic"
+            ],
+            "type": "string"
+          },
+          "Object": {
+            "description": "Any persisted object addressable by UUID, tagged with its `type`.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Project-wide properties, stored in `<name>.reda`.\n\nThe Document order lives here because it is a Project property: it drives sheet\nnumbering and PDF output, and reordering is an edit on the Project's own undo stack.",
+                "properties": {
+                  "documents": {
+                    "description": "Every Document's UUID, in Project order.",
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "project",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "name",
+                  "documents"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+                "properties": {
+                  "kind": {
+                    "$ref": "#/$defs/DocumentKind"
+                  },
+                  "name": {
+                    "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+                    "type": "string"
+                  },
+                  "title": {
+                    "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "document",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "uuid",
+                  "kind",
+                  "name",
+                  "title"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "ObjectView": {
+            "description": "An object and the Document it lives in.",
+            "properties": {
+              "document": {
+                "description": "The Document holding the object, or `null` for objects in the Project file.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "object": {
+                "$ref": "#/$defs/Object"
+              }
+            },
+            "required": [
+              "document",
+              "object"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `objects.query` returns.",
+        "properties": {
+          "objects": {
+            "description": "Sorted by UUID.",
+            "items": {
+              "$ref": "#/$defs/ObjectView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "QueryResult",
+        "type": "object"
+      },
+      "title": "Query Objects"
+    },
+    {
+      "category": "project",
+      "description": "Creates a Project called `name` in the folder `<path>/<name>/` with one empty Schematic Sheet titled \"Sheet 1\", and opens it. The folder must not exist or be empty. Nothing is written until `project.save`.",
+      "icon": "project_new",
+      "id": "project.new",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The Project name: its folder name and the stem of its `.reda` file.",
+            "type": "string"
+          },
+          "path": {
+            "description": "The folder in which the Project's own folder `<path>/<name>/` is created.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name"
+        ],
+        "title": "ProjectNewParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentEntry": {
+            "additionalProperties": false,
+            "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/DocumentKind"
+              },
+              "name": {
+                "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+                "type": "string"
+              },
+              "title": {
+                "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "name",
+              "title"
+            ],
+            "type": "object"
+          },
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `project.new` and `project.open` return.",
+        "properties": {
+          "documents": {
+            "description": "In Project order.",
+            "items": {
+              "$ref": "#/$defs/DocumentEntry"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The Project file.",
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name",
+          "path",
+          "documents"
+        ],
+        "title": "ProjectSummary",
+        "type": "object"
+      },
+      "title": "New Project"
+    },
+    {
+      "category": "project",
+      "description": "Opens the Project at `path`: its `.reda` file or its folder. Any Project already open is closed without saving.",
+      "icon": "project_open",
+      "id": "project.open",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "The `.reda` file, or the Project folder that holds `<folder name>.reda`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "ProjectOpenParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentEntry": {
+            "additionalProperties": false,
+            "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/DocumentKind"
+              },
+              "name": {
+                "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+                "type": "string"
+              },
+              "title": {
+                "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "name",
+              "title"
+            ],
+            "type": "object"
+          },
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `project.new` and `project.open` return.",
+        "properties": {
+          "documents": {
+            "description": "In Project order.",
+            "items": {
+              "$ref": "#/$defs/DocumentEntry"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The Project file.",
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name",
+          "path",
+          "documents"
+        ],
+        "title": "ProjectSummary",
+        "type": "object"
+      },
+      "title": "Open Project"
+    },
+    {
+      "category": "project",
+      "description": "Summarises the open Project: its name and UUID, and each Document in Project order with its kind, title and how many objects of each type it holds.",
+      "icon": "overview",
+      "id": "project.overview",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic"
+            ],
+            "type": "string"
+          },
+          "DocumentOverview": {
+            "description": "One Document in the overview.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/DocumentKind"
+              },
+              "name": {
+                "description": "The file stem.",
+                "type": "string"
+              },
+              "objects": {
+                "additionalProperties": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "description": "How many objects of each type the Document holds. Types with none are left out.",
+                "type": "object"
+              },
+              "title": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "name",
+              "title",
+              "objects"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `project.overview` returns.",
+        "properties": {
+          "documents": {
+            "description": "In Project order.",
+            "items": {
+              "$ref": "#/$defs/DocumentOverview"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name",
+          "documents"
+        ],
+        "title": "Overview",
+        "type": "object"
+      },
+      "title": "Project Overview"
+    },
+    {
+      "category": "project",
+      "description": "Writes the Project file and every Document to the Project folder, each through a temp file and a rename.",
+      "icon": "save_all",
+      "id": "project.save",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The Project file.",
+            "type": "string"
+          },
+          "written": {
+            "description": "Every file written, relative to the Project folder.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "written"
+        ],
+        "title": "ProjectSaveResult",
+        "type": "object"
+      },
+      "title": "Save All"
+    }
+  ]
+}
