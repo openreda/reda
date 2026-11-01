@@ -190,6 +190,18 @@ _Avoid_: Action, operation, function
 An interactive mode, such as Wire drawing or routing, that follows the pointer with a live preview and finishes by carrying out a Command.
 _Avoid_: Mode (alone), editor, interactive command
 
+**Preset**:
+A named Command with some parameters fixed, such as the Wire Tool's activation, that has its own title and icon and can be placed in menus, toolbars and shortcuts like a Command.
+_Avoid_: Variant, macro, action
+
+**Keymap**:
+The set of shortcuts that map key chords to Commands and Presets, in contexts from the active Tool through the Document type to the whole application; users override it on top of the shipped defaults.
+_Avoid_: Hotkeys, key bindings (as a whole), accelerators
+
+**Command Palette**:
+The searchable list of every Command and Preset available in the current context, opened from the keyboard.
+_Avoid_: Command bar, quick open, launcher
+
 ## Application window
 
 **Panel**:
