@@ -33,26 +33,50 @@ fn new_params(dir: &Path) -> String {
 }
 
 #[test]
-fn project_new_with_save_writes_the_project_folder() {
-    let dir = TempDir::new("cli-new-save");
+fn project_new_writes_the_project_folder() {
+    let dir = TempDir::new("cli-new");
     let params = new_params(dir.path());
-    let out = reda(&["run", "project.new", "--params", &params, "--save"]);
+    let out = reda(&["run", "project.new", "--params", &params]);
     let result = stdout_json(&out);
     assert_eq!(result["name"], "Demo");
     assert_eq!(result["documents"][0]["title"], "Sheet 1");
 
     let tree = read_tree(&dir.path().join("Demo"));
     let names: Vec<&str> = tree.keys().map(String::as_str).collect();
-    assert_eq!(names, [".reda/.gitignore", "Demo.reda", "Demo.redasch"]);
+    assert_eq!(
+        names,
+        [
+            ".reda/.gitignore",
+            "Demo.reda",
+            "Demo.redapcb",
+            "Demo.redasch"
+        ]
+    );
 }
 
 #[test]
-fn nothing_is_written_without_save() {
-    let dir = TempDir::new("cli-new-nosave");
+fn an_edit_writes_nothing_without_save() {
+    let dir = TempDir::new("cli-edit-nosave");
     let params = new_params(dir.path());
-    let out = reda(&["run", "project.new", "--params", &params]);
-    stdout_json(&out);
-    assert!(read_tree(dir.path()).is_empty());
+    stdout_json(&reda(&["run", "project.new", "--params", &params]));
+    let folder = dir.path().join("Demo");
+    let before = read_tree(&folder);
+    let project = folder.join("Demo.reda");
+    let add = [
+        "run",
+        "document.add",
+        "--kind",
+        "schematic",
+        "--project",
+        path(&project),
+    ];
+    stdout_json(&reda(&add));
+    assert_eq!(read_tree(&folder), before);
+
+    let mut with_save = add.to_vec();
+    with_save.push("--save");
+    stdout_json(&reda(&with_save));
+    assert!(folder.join("Sheet 2.redasch").is_file());
 }
 
 #[test]
@@ -65,7 +89,8 @@ fn params_can_be_given_as_key_value_flags() {
         path(dir.path()),
         "--name",
         "Demo",
-        "--save",
+        "--fab_preset",
+        "JLCPCB",
     ]);
     stdout_json(&out);
     assert!(dir.path().join("Demo").join("Demo.reda").is_file());
@@ -75,13 +100,7 @@ fn params_can_be_given_as_key_value_flags() {
 fn open_and_save_through_project_reproduces_the_same_bytes() {
     let dir = TempDir::new("cli-roundtrip");
     let params = new_params(dir.path());
-    stdout_json(&reda(&[
-        "run",
-        "project.new",
-        "--params",
-        &params,
-        "--save",
-    ]));
+    stdout_json(&reda(&["run", "project.new", "--params", &params]));
     let folder = dir.path().join("Demo");
     let before = read_tree(&folder);
 

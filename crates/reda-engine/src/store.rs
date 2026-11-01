@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::CommandError;
-use reda_model::{DocumentEntry, DocumentKind, Project, ProjectProps, Scope};
+use reda_model::{DocumentEntry, DocumentKind, Object, Project, ProjectProps, Scope};
 
 use crate::builders::add_document;
 use crate::canonical::CanonicalError;
@@ -111,6 +111,11 @@ pub fn open_from(
         for object in objects {
             tx.insert(object).map_err(|e| invalid(e.to_string()))?;
         }
+    }
+    let settings = (file.fab_presets.into_iter().map(Object::FabPreset))
+        .chain(file.output_jobs.into_iter().map(Object::OutputJob));
+    for object in settings {
+        tx.insert(object).map_err(|e| invalid(e.to_string()))?;
     }
     tx.commit().map_err(|e| invalid(e.to_string()))?;
     Ok(Opened {

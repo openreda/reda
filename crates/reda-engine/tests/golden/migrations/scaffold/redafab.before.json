@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "My fab",
+  "rules": {"clearance":125000,"track_width":125000,"via_diameter":500000,"via_hole":250000,"annular_ring":125000,"hole_to_hole":400000,"edge_clearance":300000},
+  "gerber": {"x2_attributes":false,"naming":"protel"},
+  "bom": [
+    {"header":"Comment","source":"value"},
+    {"header":"Designator","source":"designator"},
+    {"header":"LCSC Part #","source":{"field":"LCSC"}}
+  ],
+  "cpl": [
+    {"header":"Designator","source":"designator"},
+    {"header":"Mid X","source":"mid_x"},
+    {"header":"Mid Y","source":"mid_y"},
+    {"header":"Layer","source":"layer"},
+    {"header":"Rotation","source":"rotation"}
+  ]
+}

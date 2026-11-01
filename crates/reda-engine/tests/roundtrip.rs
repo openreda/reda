@@ -9,9 +9,10 @@ use reda_engine::format::LoadError;
 use reda_engine::format::library::{read_footprint, read_part, read_symbol};
 use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
-    BoardCutout, BoardOutline, BoardSetup, ComponentRef, ComponentType, DocumentEntry,
-    DocumentKind, DrcCheck, DrcSeverities, FootprintCopy, GraphicShape, InDocument, Layer,
-    LayerKind, LayerSet, Net, NetClass, Object, PartEntry, PcbGraphic, PcbText, Project,
+    BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
+    DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, FabPreset, FileNaming, FootprintCopy,
+    GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, Object,
+    OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Project, ProjectFabPreset,
     ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetSize, Side, UnitInstance,
     Uuid,
 };
@@ -311,6 +312,47 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     (entry, objects)
 }
 
+fn column() -> impl Strategy<Value = Column> {
+    let source = prop_oneof![
+        Just(ColumnSource::Designator),
+        Just(ColumnSource::MidX),
+        any::<String>().prop_map(ColumnSource::Field),
+    ];
+    (any::<String>(), source).prop_map(|(header, source)| Column { header, source })
+}
+
+prop_compose! {
+    /// A Fab Preset copy and an Output Job using it.
+    fn settings()(
+        preset in uuid(),
+        job in uuid(),
+        pcb in uuid(),
+        name in any::<String>(),
+        lengths in prop::array::uniform7(length()),
+        x2_attributes in any::<bool>(),
+        bom in prop::collection::vec(column(), 0..4),
+        cpl in prop::collection::vec(column(), 0..3),
+        job_name in stem("j"),
+        outputs in prop::array::uniform4(any::<bool>()),
+        destination in prop::option::of(stem("d")),
+    ) -> (ProjectFabPreset, OutputJob) {
+        let [clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance] = lengths;
+        let rules = Rules { clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance };
+        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Protel };
+        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, gerber, bom, cpl });
+        let [gerber, drill, bom, cpl] = outputs;
+        let job = OutputJob {
+            uuid: job,
+            name: job_name,
+            pcb,
+            fab_preset: preset,
+            outputs: Outputs { gerber, drill, bom, cpl },
+            destination,
+        };
+        (copy, job)
+    }
+}
+
 const SYMBOL: &str = r#"{"format":1,"symbol":{"uuid":"a0000000-0000-4000-8000-000000000010","name":"R","designator_prefix":"R"},"units":[{"uuid":"a0000000-0000-4000-8000-000000000011","name":"A"}],"pins":[{"uuid":"a0000000-0000-4000-8000-000000000012","unit":"a0000000-0000-4000-8000-000000000011","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000}]}"#;
 const FOOTPRINT: &str = r#"{"format":1,"footprint":{"uuid":"a0000000-0000-4000-8000-000000000040","name":"R_0603"},"pads":[{"uuid":"a0000000-0000-4000-8000-000000000041","number":"1","kind":"smd","shape":"rect","at":{"x":-800000,"y":0},"rotation":0,"width":800000,"height":950000}]}"#;
 const PART: &str = r#"{"format":1,"part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040"],"fields":{"value":"10k"},"pin_map":{"unconnected":["2"]}}"#;
@@ -397,6 +439,7 @@ prop_compose! {
         documents in prop::collection::vec((document(), sheet_seed()), 0..6),
         pcb in prop::option::of(pcb_seed()),
         libraries in prop::collection::vec(any::<String>(), 0..3),
+        settings in prop::option::of(settings()),
         properties in prop::collection::vec(any::<String>(), 5),
     ) -> Project {
         let [title, revision, date, author, company] = <[String; 5]>::try_from(properties).unwrap();
@@ -429,6 +472,15 @@ prop_compose! {
                 order.push(entry.uuid);
                 tx.insert(Object::Document(entry)).unwrap();
                 contents.extend(objects);
+            }
+        }
+        if let Some((copy, job)) = settings {
+            let mut taken: Vec<Uuid> = contents.iter().map(Object::uuid).collect();
+            taken.push(uuid);
+            taken.extend(&order);
+            if copy.uuid != job.uuid && !taken.contains(&copy.uuid) && !taken.contains(&job.uuid) {
+                contents.push(Object::FabPreset(copy));
+                contents.push(Object::OutputJob(job));
             }
         }
         for object in contents {

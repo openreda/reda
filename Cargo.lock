@@ -584,6 +584,7 @@ dependencies = [
  "reda-command",
  "reda-library",
  "reda-model",
+ "reda-output",
  "reda-pcb",
  "reda-schematic",
  "reda-testkit",
@@ -619,6 +620,18 @@ name = "reda-model"
 version = "0.0.0"
 dependencies = [
  "reda-geom",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "reda-output"
+version = "0.0.0"
+dependencies = [
+ "reda-command",
+ "reda-model",
+ "reda-testkit",
  "schemars",
  "serde",
  "serde_json",

@@ -19,9 +19,14 @@ fn blessing_writes_goldens_and_records_outcomes_then_the_check_passes() {
     assert_eq!(scenario_failures(dir.path(), true), Vec::<String>::new());
 
     let goldens: Vec<String> = read_tree(&dir.path().join("demo")).into_keys().collect();
-    assert_eq!(goldens, ["Demo.reda", "Demo.redasch"]);
+    assert_eq!(goldens, ["Demo.reda", "Demo.redapcb", "Demo.redasch"]);
     let script = std::fs::read_to_string(dir.path().join("demo.jsonl")).unwrap();
     assert!(script.contains("\"result\":"), "{script}");
+    // The temporary folder the replay wrote to is recorded as the script's placeholder.
+    assert!(
+        script.contains("\"path\":\"/nonexistent") && !script.contains("reda-test-scenario-"),
+        "{script}"
+    );
     assert_eq!(scenario_failures(dir.path(), false), Vec::<String>::new());
 }
 
@@ -30,7 +35,7 @@ fn a_missing_golden_fails() {
     let dir = TempDir::new("scenarios-missing");
     write(&dir.path().join("demo.jsonl"), NEW);
     let failures = scenario_failures(dir.path(), false);
-    assert_eq!(failures.len(), 2, "{failures:?}");
+    assert_eq!(failures.len(), 3, "{failures:?}");
     assert!(failures[0].contains("demo") && failures[0].contains("Demo.reda"));
 }
 

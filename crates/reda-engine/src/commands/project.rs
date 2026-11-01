@@ -3,16 +3,20 @@
 use std::path::{Path, PathBuf};
 
 use reda_command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry, Session,
-    Unavailable,
+    AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NO_PROJECT, Registry,
+    Session, Unavailable,
 };
-use reda_model::{DocumentEntry, DocumentKind, Project, ProjectProps, Scope, Uuid};
+use reda_model::geom::Vertex;
+use reda_model::{
+    BoardOutline, DocumentEntry, DocumentKind, FabPreset, InDocument, Object, Project,
+    ProjectFabPreset, ProjectProps, Scope, Uuid,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::DocumentRef;
 use crate::builders::add_document;
-use crate::store;
+use crate::{fab_presets, state, store};
 
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(ProjectNew);
@@ -60,16 +64,37 @@ pub struct ProjectNewParams {
     pub path: PathBuf,
     /// The Project name: its folder name and the stem of its `.reda` file.
     pub name: String,
+    /// The Fab Preset that seeds the board's rules and names the first Output Job: a
+    /// shipped preset (Generic, JLCPCB, PCBWay) or one of the user's `.redafab` presets.
+    /// Defaults to Generic.
+    #[serde(default)]
+    pub fab_preset: Option<String>,
+    /// A rectangular Board Outline to start with; left out to draw it later.
+    #[serde(default)]
+    pub board: Option<BoardParam>,
+}
+
+/// A rectangular Board Outline with its lower left corner at the origin.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BoardParam {
+    pub width: Length,
+    pub height: Length,
+    /// Rounds each corner with this radius; left out for sharp corners.
+    #[serde(default)]
+    pub corner_radius: Option<Length>,
 }
 
 impl Command for ProjectNew {
     const META: Meta = Meta {
         id: "project.new",
         title: "New Project",
-        description: "Creates a Project called `name` in the folder `<path>/<name>/` with \
-                      one empty Schematic Sheet titled \"Sheet 1\", and opens it. The \
-                      folder must not exist or be empty. Nothing is written until \
-                      `project.save`.",
+        description: "Creates a Project called `name` in the folder `<path>/<name>/`, writes \
+                      it to disk and opens it: a first Schematic Sheet titled \"Sheet 1\", a \
+                      PCB Document whose rules are seeded from `fab_preset` (default \
+                      Generic), optionally a rectangular Board Outline (`board`), and one \
+                      Output Job named after the preset. A folder that exists and is not \
+                      empty is refused.",
         category: "project",
         icon: "project_new",
         kind: Kind::File,
@@ -84,36 +109,81 @@ impl Command for ProjectNew {
     ) -> Result<ProjectSummary, CommandError> {
         check_file_stem(&p.name).map_err(|why| CommandError::invalid_params("/name", why))?;
         let folder = p.path.join(&p.name);
+        let preset_name = p.fab_preset.as_deref().unwrap_or(reda_output::GENERIC_NAME);
+        let preset = fab_presets::find_or_fail("/fab_preset", preset_name, cx.user_dirs())?.preset;
+        let outline = p
+            .board
+            .map(|b| reda_pcb::rect_outline("/board", b.width, b.height, b.corner_radius))
+            .transpose()?;
         check_free_folder(&folder)?;
 
-        let mut project = Project::new(ProjectProps {
-            uuid: cx.new_id(),
-            name: p.name.clone(),
-            documents: vec![],
-            libraries: vec![],
-            properties: Default::default(),
-        });
-        let sheet = DocumentEntry {
-            uuid: cx.new_id(),
-            kind: DocumentKind::Schematic,
-            name: p.name,
-            title: FIRST_SHEET_TITLE.into(),
-        };
-        let mut tx = project.transaction();
-        add_document(&mut tx, sheet)?;
-        tx.commit()?;
+        let project = build_project(cx, p.name, preset, outline)?;
+        std::fs::create_dir_all(&folder)
+            .map_err(|e| CommandError::internal(format!("creating {}: {e}", folder.display())))?;
+        store::save(&folder, &project, None)?;
 
         let session = cx.session()?;
-        // Nothing of a new Project is on disk yet, so every scope is dirty.
         session.history.clear();
-        session.history.mark_unsaved(Scope::Project);
-        for document in project.documents() {
-            session.history.mark_unsaved(Scope::Document(document.uuid));
+        session.history.mark_all_saved();
+        if let Some(dirs) = &session.user_dirs {
+            let name = project.fab_presets().next().map(|p| p.name.clone());
+            // The dialog's default is a convenience; failing to remember it fails nothing.
+            let _ = state::update(dirs, |s| s.last_fab_preset = name);
         }
         session.project = Some(project);
         session.location = Some(folder);
         Ok(summary(session, vec![]))
     }
+}
+
+/// A new Project in memory, built in one transaction with the same builders as
+/// `document.add`, `fab_preset.add`, `output.job.add` and `pcb.board_outline.add_rect`.
+fn build_project(
+    cx: &mut Context<'_>,
+    name: String,
+    preset: FabPreset,
+    outline: Option<Vec<Vertex>>,
+) -> Result<Project, CommandError> {
+    let mut project = Project::new(ProjectProps {
+        uuid: cx.new_id(),
+        name: name.clone(),
+        documents: vec![],
+        libraries: vec![],
+        properties: Default::default(),
+    });
+    let sheet = DocumentEntry {
+        uuid: cx.new_id(),
+        kind: DocumentKind::Schematic,
+        name: name.clone(),
+        title: FIRST_SHEET_TITLE.into(),
+    };
+    let pcb = DocumentEntry {
+        uuid: cx.new_id(),
+        kind: DocumentKind::Pcb,
+        name: name.clone(),
+        title: name,
+    };
+    let board = reda_pcb::new_board(pcb.uuid, preset.rules, || cx.new_id());
+    let copy = ProjectFabPreset::new(cx.new_id(), preset);
+    let job = reda_output::new_job(cx.new_id(), copy.name.clone(), pcb.uuid, copy.uuid);
+    let outline = outline.map(|vertices| {
+        let outline = BoardOutline {
+            uuid: cx.new_id(),
+            vertices,
+        };
+        Object::BoardOutline(InDocument::new(pcb.uuid, outline))
+    });
+
+    let mut tx = project.transaction();
+    add_document(&mut tx, sheet)?;
+    add_document(&mut tx, pcb)?;
+    for object in board.into_iter().chain(outline) {
+        tx.insert(object)?;
+    }
+    tx.insert(Object::FabPreset(copy))?;
+    tx.insert(Object::OutputJob(job))?;
+    tx.commit()?;
+    Ok(project)
 }
 
 pub struct ProjectOpen;

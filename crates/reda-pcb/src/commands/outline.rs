@@ -139,27 +139,41 @@ impl Command for OutlineAddRect {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: OutlineAddRectParams) -> Result<Created, CommandError> {
-        let (width, height) = (p.width.nm(), p.height.nm());
-        for (pointer, value) in [("/width", width), ("/height", height)] {
-            if value <= Nm::ZERO {
-                return Err(CommandError::invalid_params(
-                    pointer,
-                    format!("the {} must be positive", &pointer[1..]),
-                ));
-            }
-        }
-        let radius = match p.corner_radius {
-            Some(r) => non_negative("/corner_radius", r)?,
-            None => Nm::ZERO,
-        };
-        if radius.0 * 2 > width.0.min(height.0) {
+        let vertices = rect_outline("", p.width, p.height, p.corner_radius)?;
+        set_outline(cx, vertices)
+    }
+}
+
+/// The contour of a `width` × `height` rectangle with its lower left corner at the origin
+/// and corners rounded by `corner_radius`, checked as params under `prefix` (such as
+/// `/board`). `pcb.board_outline.add_rect` and `project.new` both build with it.
+pub fn rect_outline(
+    prefix: &str,
+    width: Length,
+    height: Length,
+    corner_radius: Option<Length>,
+) -> Result<Vec<Vertex>, CommandError> {
+    let (width, height) = (width.nm(), height.nm());
+    for (field, value) in [("width", width), ("height", height)] {
+        if value <= Nm::ZERO {
             return Err(CommandError::invalid_params(
-                "/corner_radius",
-                "the corner radius is more than half the shorter side",
+                &format!("{prefix}/{field}"),
+                format!("the {field} must be positive"),
             ));
         }
-        set_outline(cx, geom::rounded_rect(width, height, radius))
     }
+    let pointer = format!("{prefix}/corner_radius");
+    let radius = match corner_radius {
+        Some(r) => non_negative(&pointer, r)?,
+        None => Nm::ZERO,
+    };
+    if radius.0 * 2 > width.0.min(height.0) {
+        return Err(CommandError::invalid_params(
+            &pointer,
+            "the corner radius is more than half the shorter side",
+        ));
+    }
+    Ok(geom::rounded_rect(width, height, radius))
 }
 
 pub struct OutlineAddFromSegments;

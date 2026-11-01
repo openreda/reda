@@ -1,0 +1,55 @@
+{
+  "bom": [
+    {
+      "header": "Comment",
+      "source": "value"
+    },
+    {
+      "header": "Designator",
+      "source": "designator"
+    },
+    {
+      "header": "LCSC Part #",
+      "source": {
+        "field": "LCSC"
+      }
+    }
+  ],
+  "cpl": [
+    {
+      "header": "Designator",
+      "source": "designator"
+    },
+    {
+      "header": "Mid X",
+      "source": "mid_x"
+    },
+    {
+      "header": "Mid Y",
+      "source": "mid_y"
+    },
+    {
+      "header": "Layer",
+      "source": "layer"
+    },
+    {
+      "header": "Rotation",
+      "source": "rotation"
+    }
+  ],
+  "format": 2,
+  "gerber": {
+    "naming": "protel",
+    "x2_attributes": false
+  },
+  "name": "My fab",
+  "rules": {
+    "annular_ring": 125000,
+    "clearance": 125000,
+    "edge_clearance": 300000,
+    "hole_to_hole": 400000,
+    "track_width": 125000,
+    "via_diameter": 500000,
+    "via_hole": 250000
+  }
+}

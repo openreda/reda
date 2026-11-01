@@ -26,6 +26,7 @@ reda-engine -> proptest [dev]
 reda-engine -> reda-command
 reda-engine -> reda-library
 reda-engine -> reda-model
+reda-engine -> reda-output
 reda-engine -> reda-pcb
 reda-engine -> reda-schematic
 reda-engine -> reda-testkit [dev]
@@ -46,6 +47,12 @@ reda-model -> reda-geom
 reda-model -> schemars
 reda-model -> serde
 reda-model -> serde_json [dev]
+reda-output -> reda-command
+reda-output -> reda-model
+reda-output -> reda-testkit [dev]
+reda-output -> schemars
+reda-output -> serde
+reda-output -> serde_json [dev]
 reda-pcb -> reda-command
 reda-pcb -> reda-model
 reda-pcb -> reda-testkit [dev]
