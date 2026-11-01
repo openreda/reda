@@ -21,9 +21,11 @@ Default severity: **E** = Error, **W** = Warning.
 | Port on only one sheet | W |
 | Duplicate Designators | E |
 | Unplaced Units of a placed multi-unit Component | W |
-| Component data differing between the Units of one Component ([model](architecture.md#design-data-model)) | — |
+| Unit data mismatch: Designator, value, fields, Footprint choice, Component Type or Not Fitted differing between the Units of one Component ([model](architecture.md#design-data-model)) | E |
 
-The pin-type matrix is built in and fixed. Individual cells can't be edited, but the whole pin-conflict check can be switched Off. The model only says that ERC flags a mismatch of duplicated Unit data. That check's default severity is open: [Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39).
+The pin-type matrix is built in and fixed. Individual cells can't be edited, but the whole pin-conflict check can be switched Off.
+
+Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-edited or merged file. There is no automatic fix in v0.1: the user makes the Units agree in the Properties panel, which shows `<mixed>` where they differ ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
 
 ## DRC checks
 
@@ -43,7 +45,7 @@ The pin-type matrix is built in and fixed. Individual cells can't be edited, but
 | Dangling Tracks and Vias | W |
 | Courtyard overlap | W |
 | Silkscreen over exposed Pads | W |
-| PCB out of sync with the schematic | W |
+| PCB out of sync with the schematic, including differing fields and Not Fitted | W |
 
 - Before checking, DRC refills stale Zones, so it never checks against an old fill.
 - Deferred: solder-mask slivers, acid traps, silk-to-silk spacing.

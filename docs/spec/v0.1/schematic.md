@@ -30,7 +30,7 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
   - **Power Ports** connect across the whole Project. They are built-in objects in fixed styles (ground, bar, arrow, circle…), not Library elements.
 - **No-Connect Markers** mark Pins that are deliberately left open.
 - **Net names:**
-  - An unnamed Net gets a stable auto-name from its lowest Designator and Pin. The format is open: [Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39). The name does not renumber when unrelated parts change.
+  - An unnamed Net gets a stable auto-name `Net-(<Designator>-<Pin number>)`, such as `Net-(R1-1)`, from its lowest Designator and then its lowest Pin number in natural sort (R2 before R10, Pin 2 before 10). It uses the Pin number, never the Pin name, and has no Unit suffix, because Pin numbers are unique across the whole Component. The name does not renumber when unrelated parts change ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
   - When a Net has several names, the winner is chosen by priority: Power Port > Port > Net Label > auto-name. ERC warns about the conflict.
 - Nets are derived live from the drawing. They are never stored ([architecture](architecture.md#design-data-model)).
 
@@ -79,7 +79,7 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
   - Placement repeats until cancelled. Repeat placement is a Preference, on by default.
 - **Editing Commands:**
   - Delete, cut, copy, paste and duplicate.
-  - Undo and redo, with one stack per sheet. How deep undo goes is open: [Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39).
+  - Undo and redo, with one stack per sheet. Undo is unlimited by default. The *undo depth* Preference is an optional cap per Document stack ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
   - Align left, right, top, bottom or by centres. Distribute horizontally or vertically. Snap the selection to the grid.
 - **Grid:**
   - Snap-grid presets: 10, 25, 50 and 100 mil, plus metric equivalents. One key cycles them, and the default is 50 mil.

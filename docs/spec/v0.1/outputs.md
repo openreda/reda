@@ -68,7 +68,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 - Designators are listed in natural order ("R1, R2, R10"), with a quantity column.
 - The columns come from the Fab Preset's mapping.
 - Mechanical and Not Fitted Components are left out.
-- Where the BOM reads Component fields and Not Fitted from is open: the job names a PCB Document, whose Footprint copies hold only Designator, value and Footprint. See [Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39).
+- The BOM and CPL read only the job's PCB Document. Each Footprint instance carries the Component's fields and Not Fitted, kept current by Sync ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
 
 ## CPL
 

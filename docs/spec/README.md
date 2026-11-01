@@ -55,10 +55,7 @@ These research tickets hold facts, not decisions. Implementers reach for them wh
 
 ## Open points
 
-Two kinds of question remain open. Gaps in v0.1 are open tickets on the map. Implementers should not decide them on their own:
-
-- [How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38)
-- [Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)
+No v0.1 gaps remain open on the map. Any new gap becomes an open ticket on the map, and implementers should not decide it on their own.
 
 Later fog is listed under *Not yet specified* on the [map](https://github.com/openreda/reda/issues/1): font embedding and searchable PDF text, extra checks and a rule language, performance tracking, extra fuzz targets, UI customisation, and translations.
 

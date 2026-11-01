@@ -58,7 +58,8 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
   - Derivation is incremental, driven by change sets. A full re-derive per transaction is an acceptable v0.1 fallback. There is no "compile" step.
 - **Component data:**
   - The schematic is the master. Each Unit carries the Component UUID and a duplicated copy of Designator, value, fields, Footprint choice, Component Type and Not Fitted. Commands keep the copies equal, and ERC flags a mismatch.
-  - The PCB Document holds a **Footprint instance** linked by Component UUID. It has its own copy of Designator, value and Footprint, and a Net per Pad. Mechanical Components may exist only on the PCB.
+  - The PCB Document holds a **Footprint instance** linked by Component UUID. It has its own copy of Designator, value, fields, Footprint and Not Fitted, and a Net per Pad, so outputs read only the PCB Document ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
+  - Mechanical Components may exist only on the PCB. They keep their fields and Not Fitted on their Footprint instance, which has no Component link.
 - **PCB Nets** are stored objects with a UUID, a name and a Net Class. Pads, Tracks, Vias, Zones and Free Pads reference them by UUID. Net Classes live on the PCB side.
 - **Undo and redo:**
   - One Command is one transaction. It records a before/after change set per object, keyed by UUID.

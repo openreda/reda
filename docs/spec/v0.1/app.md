@@ -240,7 +240,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
   - A modal Preferences dialog with a page list, a search box over every setting, and "Reset to default" on each setting.
   - Changes apply live, with no OK or Cancel.
 - **v0.1 settings:**
-  - **General:** theme dark / light / follow OS (default: follow OS); UI scale; reopen the last Project on start (on); undo depth.
+  - **General:** theme dark / light / follow OS (default: follow OS); UI scale; reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default).
   - **Schematic** and **PCB** (editing):
     - default units mm/mil (mm)
     - repeat placement (on)
