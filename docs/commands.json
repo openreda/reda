@@ -10313,6 +10313,268 @@
     },
     {
       "category": "schematic",
+      "description": "Finds objects on every Schematic Sheet whose Designator, value or Net name contains the text (or equals it, with `exact`), ignoring case.",
+      "icon": "find",
+      "id": "schematic.find",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "FindField": {
+            "description": "What a find query compares the text with.",
+            "oneOf": [
+              {
+                "enum": [
+                  "designator",
+                  "value"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "net",
+                "description": "The name of a Net.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "exact": {
+            "default": false,
+            "description": "Match the whole text rather than any part of it.",
+            "type": "boolean"
+          },
+          "fields": {
+            "description": "What to search; every field by default.",
+            "items": {
+              "$ref": "#/$defs/FindField"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "text": {
+            "description": "The text to look for. Case does not matter.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "FindParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FindField": {
+            "description": "What a find query compares the text with.",
+            "oneOf": [
+              {
+                "enum": [
+                  "designator",
+                  "value"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "net",
+                "description": "The name of a Net.",
+                "type": "string"
+              }
+            ]
+          },
+          "FindMatch": {
+            "description": "One found object.",
+            "properties": {
+              "component": {
+                "description": "The matched Unit's Component.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "document": {
+                "description": "The sheet the object is on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "field": {
+                "$ref": "#/$defs/FindField",
+                "description": "What matched."
+              },
+              "objects": {
+                "description": "The objects that carry the matched Net on this sheet, for Net matches.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "text": {
+                "description": "The whole matching text, such as the Designator.",
+                "type": "string"
+              },
+              "unit": {
+                "description": "The matched Unit, for Designator and value matches.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "text",
+              "document"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a find query found.",
+        "properties": {
+          "matches": {
+            "description": "Sheet by sheet in Document order; on each sheet the Designator matches, then the\nvalue matches, then the Net matches, each in natural order.",
+            "items": {
+              "$ref": "#/$defs/FindMatch"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "matches"
+        ],
+        "title": "FindResult",
+        "type": "object"
+      },
+      "title": "Find"
+    },
+    {
+      "category": "schematic",
+      "description": "Lists the Units that match a reference Unit on every chosen field (Part, value, Footprint, Designator prefix, Symbol Unit, Component type, Not Fitted or any field by name), on its sheet or across the Project.",
+      "icon": "select_similar",
+      "id": "schematic.select_similar",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "SimilarField": {
+            "description": "A field two Units are compared on.",
+            "oneOf": [
+              {
+                "enum": [
+                  "value",
+                  "component_type",
+                  "not_fitted"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "part",
+                "description": "The Library Part the Component was placed from.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "The chosen Footprint.",
+                "type": "string"
+              },
+              {
+                "const": "designator_prefix",
+                "description": "The Symbol's Designator prefix, such as `R`.",
+                "type": "string"
+              },
+              {
+                "const": "unit",
+                "description": "The name of the Symbol Unit shown, such as `A`.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Any field by name: a built-in one (`mpn`…) or a free-form one (`LCSC`…). Units\nthat both lack it match.",
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "SimilarScope": {
+            "description": "Where to look for similar Units.",
+            "oneOf": [
+              {
+                "const": "sheet",
+                "description": "The reference Unit's sheet.",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "description": "Every Schematic Sheet.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "match": {
+            "description": "The fields that must match; at least one.",
+            "items": {
+              "$ref": "#/$defs/SimilarField"
+            },
+            "type": "array"
+          },
+          "scope": {
+            "$ref": "#/$defs/SimilarScope"
+          },
+          "unit": {
+            "description": "The reference Unit, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "match",
+          "scope"
+        ],
+        "title": "SelectSimilarParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The matching Units.",
+        "properties": {
+          "units": {
+            "description": "The reference Unit included, sheet by sheet in Document order, then in natural\norder of Designator.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "units"
+        ],
+        "title": "SelectSimilarResult",
+        "type": "object"
+      },
+      "title": "Select Similar"
+    },
+    {
+      "category": "schematic",
       "description": "Sets a Schematic Sheet's paper size (A4, A3, Letter…). Sheets are landscape. A new sheet is A4.",
       "icon": "sheet_size",
       "id": "schematic.sheet.set_size",
