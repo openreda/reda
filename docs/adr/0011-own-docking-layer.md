@@ -17,4 +17,4 @@ A prototype ([`prototype/main-window-shell`](https://github.com/openreda/reda/tr
 - REDA owns and tests a sizeable UI subsystem. It should live in its own module or crate under `reda-ui` and be tested at the model level, through the layout actions, without a window.
 - The layout's permanent node and window ids replace `egui_tiles` tile ids as the targets of layout Commands.
 - Saving and restoring layouts, keyboard docking and accessibility are REDA's to build.
-- How floating windows behave on Wayland, which reports no window positions, is still open.
+- Floating windows are native OS windows on every platform. Wayland reports no window positions, so there a drag between windows is taken by the first window to see the pointer after release, without a preview in the target window (decided in [How should floating windows behave on Wayland?](https://github.com/openreda/reda/issues/22)).
