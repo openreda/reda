@@ -11,11 +11,12 @@ mod pcb;
 #[cfg(feature = "test-objects")]
 mod probe;
 mod project;
+mod schematic;
 mod transaction;
 mod uuid;
 
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
-pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
+pub use document::{DocumentEntry, DocumentKind};
 pub use library::{
     ComponentType, Field, Fields, Footprint, Hole, LibraryInfo, Pad, PadKind, PadShape, Part, Pin,
     PinMap, PinPads, PinType, Symbol, Unit,
@@ -27,6 +28,9 @@ pub use pcb::{
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
 pub use project::{Project, ProjectProperties, ProjectProps};
+pub use schematic::{
+    ComponentRef, FootprintCopy, PartEntry, SchematicSheet, SheetFrame, SheetSize, UnitInstance,
+};
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};
 

@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
-use crate::{Clock, CommandError, History, IdSource, Signals, Timestamp, UserDirs};
+use crate::{
+    Clock, CommandError, History, IdSource, PartCopy, PartSource, Signals, Timestamp, UserDirs,
+};
 
 /// The engine's mutable state between Commands.
 #[derive(Debug, Default)]
@@ -28,6 +30,8 @@ pub struct Session {
 pub struct Env<'a> {
     pub ids: &'a mut dyn IdSource,
     pub clock: &'a dyn Clock,
+    /// The registered Libraries, for Commands that copy a Part into a Document.
+    pub parts: &'a dyn PartSource,
     /// No GUI: view Commands are unavailable.
     pub headless: bool,
 }
@@ -46,6 +50,7 @@ pub struct Context<'a> {
     pub(crate) access: Access<'a>,
     pub(crate) ids: &'a mut dyn IdSource,
     pub(crate) clock: &'a dyn Clock,
+    pub(crate) parts: &'a dyn PartSource,
     pub(crate) signals: &'a Signals,
     /// Set when an edit replays an undo or redo entry instead of making a new change.
     pub(crate) step: Option<Step>,
@@ -136,6 +141,12 @@ impl<'a> Context<'a> {
     /// A fresh UUID from the injected `IdSource`.
     pub fn new_id(&mut self) -> Uuid {
         self.ids.next_id()
+    }
+
+    /// The Part with this UUID from the registered Libraries, copied with its Symbol and
+    /// Footprints, or `not_found`.
+    pub fn library_part(&self, uuid: Uuid) -> Result<PartCopy, CommandError> {
+        self.parts.part(uuid)
     }
 
     /// The time from the injected `Clock`.

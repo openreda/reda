@@ -22,7 +22,7 @@ pub struct LibraryInfo {
 }
 
 /// The schematic representation of a part: its Units, each with its Pins.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Symbol {
     pub uuid: Uuid,
     pub name: String,
@@ -87,7 +87,7 @@ pub enum PinType {
 }
 
 /// The physical land pattern of a part.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Footprint {
     pub uuid: Uuid,
     pub name: String,
@@ -147,7 +147,7 @@ pub struct Hole {
 
 /// A Library definition that binds a Symbol to its alternate Footprints, with default
 /// fields and a Component Type.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Part {
     pub uuid: Uuid,
     pub name: String,

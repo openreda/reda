@@ -353,6 +353,7 @@ impl Harness {
         let mut env = Env {
             ids: &mut self.ids,
             clock: &self.clock,
+            parts: &reda_command::NoLibraries,
             headless: self.headless,
         };
         self.registry.run(&mut self.session, &mut env, id, params)

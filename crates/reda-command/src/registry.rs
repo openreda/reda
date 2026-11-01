@@ -199,7 +199,7 @@ impl Registry {
                         Kind::Edit,
                         (project.transaction(), &session.history),
                         &mut *env.ids,
-                        env.clock,
+                        (env.clock, env.parts),
                         signals,
                         params,
                     );
@@ -219,6 +219,7 @@ impl Registry {
                     access: Access::Read(session.project.as_ref()),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    parts: env.parts,
                     signals,
                     step: None,
                 };
@@ -229,6 +230,7 @@ impl Registry {
                     access: Access::File(session),
                     ids: &mut *env.ids,
                     clock: env.clock,
+                    parts: env.parts,
                     signals,
                     step: None,
                 };
@@ -271,7 +273,7 @@ impl Registry {
                 entry.meta.kind,
                 (tx, history),
                 ids,
-                env.clock,
+                (env.clock, env.parts),
                 signals,
                 params,
             );
@@ -343,7 +345,7 @@ fn invoke_in<'a>(
     kind: Kind,
     (tx, history): (Transaction<'a>, &'a History),
     ids: &'a mut dyn IdSource,
-    clock: &'a dyn Clock,
+    (clock, parts): (&'a dyn Clock, &'a dyn crate::PartSource),
     signals: &'a Signals,
     params: Value,
 ) -> InTx<'a> {
@@ -355,6 +357,7 @@ fn invoke_in<'a>(
         access,
         ids,
         clock,
+        parts,
         signals,
         step: None,
     };

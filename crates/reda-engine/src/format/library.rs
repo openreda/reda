@@ -61,7 +61,7 @@ pub(crate) struct SymbolFile {
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct SymbolRow {
+pub(crate) struct SymbolRow {
     uuid: Uuid,
     name: String,
     /// The Designator prefix of Components placed from it, such as `R` or `U`.
@@ -86,7 +86,7 @@ pub(crate) struct FootprintFile {
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct FootprintRow {
+pub(crate) struct FootprintRow {
     uuid: Uuid,
     name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -113,7 +113,7 @@ pub(crate) struct PartFile {
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct PartRow {
+pub(crate) struct PartRow {
     uuid: Uuid,
     name: String,
     component_type: ComponentType,
@@ -133,17 +133,49 @@ pub fn read_library_info(path: &Path, bytes: &[u8]) -> Result<LibraryInfo, LoadE
     Ok(file.library)
 }
 
-pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
-    let mut w = CanonicalWriter::new(FORMAT);
-    w.field(
-        "symbol",
-        &SymbolRow {
+impl SymbolRow {
+    pub(crate) fn of(symbol: &Symbol) -> SymbolRow {
+        SymbolRow {
             uuid: symbol.uuid,
             name: symbol.name.clone(),
             designator_prefix: symbol.designator_prefix.clone(),
             description: symbol.description.clone(),
-        },
-    )?;
+        }
+    }
+
+    /// The Symbol with these Units and Pins, checked: at least one Unit, unique UUIDs and
+    /// every Pin on one of the Units. Pins come back sorted by UUID.
+    pub(crate) fn into_symbol(
+        self,
+        units: Vec<Unit>,
+        mut pins: Vec<Pin>,
+    ) -> Result<Symbol, String> {
+        if units.is_empty() {
+            return Err("a Symbol needs at least one Unit".into());
+        }
+        let unit_set = unique(units.iter().map(|u| u.uuid), "Unit")?;
+        unique(pins.iter().map(|p| p.uuid), "Pin")?;
+        if let Some(pin) = pins.iter().find(|p| !unit_set.contains(&p.unit)) {
+            return Err(format!(
+                "Pin {} is on unit {}, which the Symbol does not have",
+                pin.uuid, pin.unit
+            ));
+        }
+        pins.sort_by_key(|p| p.uuid);
+        Ok(Symbol {
+            uuid: self.uuid,
+            name: self.name,
+            description: self.description,
+            designator_prefix: self.designator_prefix,
+            units,
+            pins,
+        })
+    }
+}
+
+pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
+    let mut w = CanonicalWriter::new(FORMAT);
+    w.field("symbol", &SymbolRow::of(symbol))?;
     w.list("units", &symbol.units)?;
     w.table("pins", &symbol.pins, |p| p.uuid)?;
     Ok(w.finish())
@@ -152,39 +184,36 @@ pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
 pub fn read_symbol(path: &Path, bytes: &[u8]) -> Result<Symbol, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: SymbolFile = parse(FileKind::Symbol, path, bytes)?;
-    if file.units.is_empty() {
-        return Err(invalid("a Symbol needs at least one Unit".into()));
+    file.symbol
+        .into_symbol(file.units, file.pins)
+        .map_err(invalid)
+}
+
+impl FootprintRow {
+    pub(crate) fn of(footprint: &Footprint) -> FootprintRow {
+        FootprintRow {
+            uuid: footprint.uuid,
+            name: footprint.name.clone(),
+            description: footprint.description.clone(),
+        }
     }
-    let units = unique(file.units.iter().map(|u| u.uuid), "Unit").map_err(invalid)?;
-    unique(file.pins.iter().map(|p| p.uuid), "Pin").map_err(invalid)?;
-    if let Some(pin) = file.pins.iter().find(|p| !units.contains(&p.unit)) {
-        return Err(invalid(format!(
-            "Pin {} is on unit {}, which the Symbol does not have",
-            pin.uuid, pin.unit
-        )));
+
+    /// The Footprint with these Pads, checked for unique UUIDs; Pads come back sorted.
+    pub(crate) fn into_footprint(self, mut pads: Vec<Pad>) -> Result<Footprint, String> {
+        unique(pads.iter().map(|p| p.uuid), "Pad")?;
+        pads.sort_by_key(|p| p.uuid);
+        Ok(Footprint {
+            uuid: self.uuid,
+            name: self.name,
+            description: self.description,
+            pads,
+        })
     }
-    let mut pins = file.pins;
-    pins.sort_by_key(|p| p.uuid);
-    Ok(Symbol {
-        uuid: file.symbol.uuid,
-        name: file.symbol.name,
-        description: file.symbol.description,
-        designator_prefix: file.symbol.designator_prefix,
-        units: file.units,
-        pins,
-    })
 }
 
 pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
-    w.field(
-        "footprint",
-        &FootprintRow {
-            uuid: footprint.uuid,
-            name: footprint.name.clone(),
-            description: footprint.description.clone(),
-        },
-    )?;
+    w.field("footprint", &FootprintRow::of(footprint))?;
     w.table("pads", &footprint.pads, |p| p.uuid)?;
     Ok(w.finish())
 }
@@ -192,28 +221,36 @@ pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError>
 pub fn read_footprint(path: &Path, bytes: &[u8]) -> Result<Footprint, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: FootprintFile = parse(FileKind::Footprint, path, bytes)?;
-    unique(file.pads.iter().map(|p| p.uuid), "Pad").map_err(invalid)?;
-    let mut pads = file.pads;
-    pads.sort_by_key(|p| p.uuid);
-    Ok(Footprint {
-        uuid: file.footprint.uuid,
-        name: file.footprint.name,
-        description: file.footprint.description,
-        pads,
-    })
+    file.footprint.into_footprint(file.pads).map_err(invalid)
 }
 
-pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
-    let mut w = CanonicalWriter::new(FORMAT);
-    w.field(
-        "part",
-        &PartRow {
+impl PartRow {
+    pub(crate) fn of(part: &Part) -> PartRow {
+        PartRow {
             uuid: part.uuid,
             name: part.name.clone(),
             component_type: part.component_type,
             symbol: part.symbol,
-        },
-    )?;
+        }
+    }
+
+    /// The Part with these alternates, fields and pin map, the map in canonical order.
+    pub(crate) fn into_part(self, footprints: Vec<Uuid>, fields: Fields, pin_map: &PinMap) -> Part {
+        Part {
+            uuid: self.uuid,
+            name: self.name,
+            component_type: self.component_type,
+            symbol: self.symbol,
+            footprints,
+            fields,
+            pin_map: sorted(pin_map),
+        }
+    }
+}
+
+pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
+    let mut w = CanonicalWriter::new(FORMAT);
+    w.field("part", &PartRow::of(part))?;
     w.list("footprints", &part.footprints)?;
     w.field("fields", &part.fields)?;
     w.field("pin_map", &sorted(&part.pin_map))?;
@@ -222,19 +259,13 @@ pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
 
 pub fn read_part(path: &Path, bytes: &[u8]) -> Result<Part, LoadError> {
     let file: PartFile = parse(FileKind::Part, path, bytes)?;
-    Ok(Part {
-        uuid: file.part.uuid,
-        name: file.part.name,
-        component_type: file.part.component_type,
-        symbol: file.part.symbol,
-        footprints: file.footprints,
-        fields: file.fields,
-        pin_map: sorted(&file.pin_map),
-    })
+    Ok(file
+        .part
+        .into_part(file.footprints, file.fields, &file.pin_map))
 }
 
 /// The pin map in its canonical order: overrides by Pin number, unconnected Pads sorted.
-fn sorted(map: &PinMap) -> PinMap {
+pub(crate) fn sorted(map: &PinMap) -> PinMap {
     let mut map = map.clone();
     map.pins.sort_by(|a, b| a.pin.cmp(&b.pin));
     map.unconnected.sort();

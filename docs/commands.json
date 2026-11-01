@@ -610,6 +610,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -702,6 +732,105 @@
             ],
             "type": "object"
           },
+          "Field": {
+            "additionalProperties": false,
+            "description": "One free-form field.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "Fields": {
+            "additionalProperties": false,
+            "description": "A Part's default fields, copied onto each Component placed from it.",
+            "properties": {
+              "custom": {
+                "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                },
+                "type": "array"
+              },
+              "datasheet": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "string"
+              },
+              "manufacturer": {
+                "type": "string"
+              },
+              "mpn": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "Footprint": {
+            "description": "The physical land pattern of a part.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "Sorted by UUID. Numbers may repeat: Pads that share a number belong to one Pin.",
+                "items": {
+                  "$ref": "#/$defs/Pad"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
           "InDocument": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -719,6 +848,74 @@
             "required": [
               "uuid",
               "layers"
+            ],
+            "type": "object"
+          },
+          "InDocument10": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the Symbol origin sits on the sheet."
+              },
+              "component": {
+                "$ref": "#/$defs/ComponentRef"
+              },
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields",
+                "description": "The value is `fields.value`."
+              },
+              "footprint": {
+                "description": "The chosen Footprint: the UUID of one of the Part's alternates, if it has any.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mirror": {
+                "description": "Mirrored left to right before rotating.",
+                "type": "boolean"
+              },
+              "not_fitted": {
+                "type": "boolean"
+              },
+              "part": {
+                "description": "The part-table entry on this sheet it was placed from.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Symbol Unit it shows.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "component",
+              "part",
+              "unit",
+              "at",
+              "rotation",
+              "designator",
+              "fields",
+              "component_type"
             ],
             "type": "object"
           },
@@ -860,6 +1057,81 @@
               "uuid",
               "name",
               "class"
+            ],
+            "type": "object"
+          },
+          "InDocument7": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "size": {
+                "$ref": "#/$defs/SheetSize"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "size"
+            ],
+            "type": "object"
+          },
+          "InDocument8": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "footprints": {
+                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "hash": {
+                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
+                "type": "string"
+              },
+              "part": {
+                "$ref": "#/$defs/Part"
+              },
+              "symbol": {
+                "$ref": "#/$defs/Symbol"
+              },
+              "uuid": {
+                "description": "The entry's own UUID, which Units point at.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "part",
+              "symbol",
+              "footprints"
+            ],
+            "type": "object"
+          },
+          "InDocument9": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "footprint": {
+                "$ref": "#/$defs/Footprint"
+              },
+              "hash": {
+                "description": "The content hash of the Footprint, as copied.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "footprint"
             ],
             "type": "object"
           },
@@ -1071,8 +1343,328 @@
                   "type"
                 ],
                 "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument7",
+                "properties": {
+                  "type": {
+                    "const": "sheet_frame",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument8",
+                "properties": {
+                  "type": {
+                    "const": "part_entry",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument9",
+                "properties": {
+                  "type": {
+                    "const": "footprint_copy",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument10",
+                "properties": {
+                  "type": {
+                    "const": "unit",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
               }
             ]
+          },
+          "Pad": {
+            "additionalProperties": false,
+            "description": "A copper area, with or without a hole, of a Footprint.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad centre, relative to the Footprint origin."
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A round hole when width equals height, otherwise a slot. SMD Pads have none."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind"
+              },
+              "mask_margin": {
+                "description": "Overrides the board's solder-mask margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "number": {
+                "type": "string"
+              },
+              "paste_margin": {
+                "description": "Overrides the board's solder-paste margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "number",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "enum": [
+              "circle",
+              "rect",
+              "rounded_rect",
+              "oval"
+            ],
+            "type": "string"
+          },
+          "Part": {
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "properties": {
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields"
+              },
+              "footprints": {
+                "description": "The alternate Footprints, in order; the first is the default.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pin_map": {
+                "$ref": "#/$defs/PinMap"
+              },
+              "symbol": {
+                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "component_type",
+              "symbol",
+              "footprints",
+              "fields",
+              "pin_map"
+            ],
+            "type": "object"
+          },
+          "Pin": {
+            "additionalProperties": false,
+            "description": "A connection point of a Symbol.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The connection end of the Pin, relative to the Symbol origin."
+              },
+              "electrical_type": {
+                "$ref": "#/$defs/PinType"
+              },
+              "length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "number": {
+                "description": "Unique across the Symbol; Pins map to the Pads with the same number unless the\nPart overrides it.",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Unit it belongs to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "unit",
+              "name",
+              "number",
+              "electrical_type",
+              "at",
+              "rotation",
+              "length"
+            ],
+            "type": "object"
+          },
+          "PinMap": {
+            "additionalProperties": false,
+            "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+            "properties": {
+              "pins": {
+                "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+                "items": {
+                  "$ref": "#/$defs/PinPads"
+                },
+                "type": "array"
+              },
+              "unconnected": {
+                "description": "Pad numbers deliberately left unconnected, sorted.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
           },
           "ProjectProperties": {
             "additionalProperties": false,
@@ -1169,6 +1761,20 @@
             ],
             "type": "string"
           },
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          },
           "Side": {
             "description": "Which face of the board a sided Layer is on.",
             "enum": [
@@ -1176,6 +1782,67 @@
               "bottom"
             ],
             "type": "string"
+          },
+          "Symbol": {
+            "description": "The schematic representation of a part: its Units, each with its Pins.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "designator_prefix": {
+                "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pins": {
+                "description": "Every Pin of every Unit, sorted by UUID; [`Pin::unit`] says which Unit it is on.",
+                "items": {
+                  "$ref": "#/$defs/Pin"
+                },
+                "type": "array"
+              },
+              "units": {
+                "description": "In order: A, B, C… A single-unit Symbol has exactly one.",
+                "items": {
+                  "$ref": "#/$defs/Unit"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "designator_prefix",
+              "units",
+              "pins"
+            ],
+            "type": "object"
+          },
+          "Unit": {
+            "additionalProperties": false,
+            "description": "One independently placeable section of a Symbol.",
+            "properties": {
+              "name": {
+                "description": "Such as `A`, or `Power` for a power section.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
+            ],
+            "type": "object"
           },
           "Vertex": {
             "additionalProperties": false,
@@ -1278,6 +1945,26 @@
                 "const": "net",
                 "description": "A PCB Net.",
                 "type": "string"
+              },
+              {
+                "const": "sheet_frame",
+                "description": "A Schematic Sheet's frame settings (its size).",
+                "type": "string"
+              },
+              {
+                "const": "part_entry",
+                "description": "An entry of a sheet's part table: a copied Part with its Symbol.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_copy",
+                "description": "A copied Footprint in a sheet's part table.",
+                "type": "string"
+              },
+              {
+                "const": "unit",
+                "description": "A placed Unit of a Component.",
+                "type": "string"
               }
             ]
           }
@@ -1313,6 +2000,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -1405,6 +2122,105 @@
             ],
             "type": "object"
           },
+          "Field": {
+            "additionalProperties": false,
+            "description": "One free-form field.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "Fields": {
+            "additionalProperties": false,
+            "description": "A Part's default fields, copied onto each Component placed from it.",
+            "properties": {
+              "custom": {
+                "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                },
+                "type": "array"
+              },
+              "datasheet": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "string"
+              },
+              "manufacturer": {
+                "type": "string"
+              },
+              "mpn": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "Footprint": {
+            "description": "The physical land pattern of a part.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "Sorted by UUID. Numbers may repeat: Pads that share a number belong to one Pin.",
+                "items": {
+                  "$ref": "#/$defs/Pad"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
           "InDocument": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -1422,6 +2238,74 @@
             "required": [
               "uuid",
               "layers"
+            ],
+            "type": "object"
+          },
+          "InDocument10": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the Symbol origin sits on the sheet."
+              },
+              "component": {
+                "$ref": "#/$defs/ComponentRef"
+              },
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields",
+                "description": "The value is `fields.value`."
+              },
+              "footprint": {
+                "description": "The chosen Footprint: the UUID of one of the Part's alternates, if it has any.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mirror": {
+                "description": "Mirrored left to right before rotating.",
+                "type": "boolean"
+              },
+              "not_fitted": {
+                "type": "boolean"
+              },
+              "part": {
+                "description": "The part-table entry on this sheet it was placed from.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Symbol Unit it shows.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "component",
+              "part",
+              "unit",
+              "at",
+              "rotation",
+              "designator",
+              "fields",
+              "component_type"
             ],
             "type": "object"
           },
@@ -1563,6 +2447,81 @@
               "uuid",
               "name",
               "class"
+            ],
+            "type": "object"
+          },
+          "InDocument7": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "size": {
+                "$ref": "#/$defs/SheetSize"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "size"
+            ],
+            "type": "object"
+          },
+          "InDocument8": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "footprints": {
+                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "hash": {
+                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
+                "type": "string"
+              },
+              "part": {
+                "$ref": "#/$defs/Part"
+              },
+              "symbol": {
+                "$ref": "#/$defs/Symbol"
+              },
+              "uuid": {
+                "description": "The entry's own UUID, which Units point at.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "part",
+              "symbol",
+              "footprints"
+            ],
+            "type": "object"
+          },
+          "InDocument9": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "footprint": {
+                "$ref": "#/$defs/Footprint"
+              },
+              "hash": {
+                "description": "The content hash of the Footprint, as copied.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "footprint"
             ],
             "type": "object"
           },
@@ -1774,6 +2733,58 @@
                   "type"
                 ],
                 "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument7",
+                "properties": {
+                  "type": {
+                    "const": "sheet_frame",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument8",
+                "properties": {
+                  "type": {
+                    "const": "part_entry",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument9",
+                "properties": {
+                  "type": {
+                    "const": "footprint_copy",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument10",
+                "properties": {
+                  "type": {
+                    "const": "unit",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -1795,6 +2806,274 @@
             "required": [
               "document",
               "object"
+            ],
+            "type": "object"
+          },
+          "Pad": {
+            "additionalProperties": false,
+            "description": "A copper area, with or without a hole, of a Footprint.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad centre, relative to the Footprint origin."
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A round hole when width equals height, otherwise a slot. SMD Pads have none."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind"
+              },
+              "mask_margin": {
+                "description": "Overrides the board's solder-mask margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "number": {
+                "type": "string"
+              },
+              "paste_margin": {
+                "description": "Overrides the board's solder-paste margin for this Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "number",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "enum": [
+              "circle",
+              "rect",
+              "rounded_rect",
+              "oval"
+            ],
+            "type": "string"
+          },
+          "Part": {
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "properties": {
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields"
+              },
+              "footprints": {
+                "description": "The alternate Footprints, in order; the first is the default.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pin_map": {
+                "$ref": "#/$defs/PinMap"
+              },
+              "symbol": {
+                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "component_type",
+              "symbol",
+              "footprints",
+              "fields",
+              "pin_map"
+            ],
+            "type": "object"
+          },
+          "Pin": {
+            "additionalProperties": false,
+            "description": "A connection point of a Symbol.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The connection end of the Pin, relative to the Symbol origin."
+              },
+              "electrical_type": {
+                "$ref": "#/$defs/PinType"
+              },
+              "length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "number": {
+                "description": "Unique across the Symbol; Pins map to the Pads with the same number unless the\nPart overrides it.",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "unit": {
+                "description": "The Unit it belongs to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "unit",
+              "name",
+              "number",
+              "electrical_type",
+              "at",
+              "rotation",
+              "length"
+            ],
+            "type": "object"
+          },
+          "PinMap": {
+            "additionalProperties": false,
+            "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+            "properties": {
+              "pins": {
+                "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+                "items": {
+                  "$ref": "#/$defs/PinPads"
+                },
+                "type": "array"
+              },
+              "unconnected": {
+                "description": "Pad numbers deliberately left unconnected, sorted.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
             ],
             "type": "object"
           },
@@ -1893,6 +3172,20 @@
             ],
             "type": "string"
           },
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          },
           "Side": {
             "description": "Which face of the board a sided Layer is on.",
             "enum": [
@@ -1900,6 +3193,67 @@
               "bottom"
             ],
             "type": "string"
+          },
+          "Symbol": {
+            "description": "The schematic representation of a part: its Units, each with its Pins.",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "designator_prefix": {
+                "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "pins": {
+                "description": "Every Pin of every Unit, sorted by UUID; [`Pin::unit`] says which Unit it is on.",
+                "items": {
+                  "$ref": "#/$defs/Pin"
+                },
+                "type": "array"
+              },
+              "units": {
+                "description": "In order: A, B, C… A single-unit Symbol has exactly one.",
+                "items": {
+                  "$ref": "#/$defs/Unit"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "description",
+              "designator_prefix",
+              "units",
+              "pins"
+            ],
+            "type": "object"
+          },
+          "Unit": {
+            "additionalProperties": false,
+            "description": "One independently placeable section of a Symbol.",
+            "properties": {
+              "name": {
+                "description": "Such as `A`, or `Power` for a power section.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
+            ],
+            "type": "object"
           },
           "Vertex": {
             "additionalProperties": false,
@@ -3519,6 +4873,201 @@
         "type": "object"
       },
       "title": "Save All"
+    },
+    {
+      "category": "schematic",
+      "description": "Sets a Schematic Sheet's paper size (A4, A3, Letter…). Sheets are landscape. A new sheet is A4.",
+      "icon": "sheet_size",
+      "id": "schematic.sheet.set_size",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet's Document UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "size": {
+            "$ref": "#/$defs/SheetSize",
+            "description": "The paper size; sheets are landscape."
+          }
+        },
+        "required": [
+          "document",
+          "size"
+        ],
+        "title": "SheetSetSizeParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "A sheet's paper size with its landscape dimensions.",
+        "properties": {
+          "height": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "size": {
+            "$ref": "#/$defs/SheetSize"
+          },
+          "width": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "size",
+          "width",
+          "height"
+        ],
+        "title": "SheetFrameView",
+        "type": "object"
+      },
+      "title": "Set Sheet Size"
+    },
+    {
+      "category": "schematic",
+      "description": "Returns a Schematic Sheet's title block as drawn: the Project properties (title, revision, date, author, company), the sheet's title, \"sheet n of m\" from the Document order, and the paper size.",
+      "icon": "title_block",
+      "id": "schematic.sheet.title_block",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params naming one Schematic Sheet.",
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet's Document UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "SheetRef",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "SheetSize": {
+            "description": "A sheet's paper size. Sheets are landscape.",
+            "enum": [
+              "a4",
+              "a3",
+              "a2",
+              "a1",
+              "a0",
+              "letter",
+              "legal",
+              "tabloid"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "A sheet's built-in title block, filled from the Project properties and the sheet.",
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "height": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "sheet_count": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sheet_number": {
+            "description": "The sheet's place among the Project's Schematic Sheets, from 1: \"sheet n of m\".",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sheet_title": {
+            "description": "The sheet's own title, such as \"Sheet 1\".",
+            "type": "string"
+          },
+          "size": {
+            "$ref": "#/$defs/SheetSize"
+          },
+          "title": {
+            "description": "The Project title.",
+            "type": "string"
+          },
+          "width": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "revision",
+          "date",
+          "author",
+          "company",
+          "sheet_title",
+          "sheet_number",
+          "sheet_count",
+          "size",
+          "width",
+          "height"
+        ],
+        "title": "TitleBlock",
+        "type": "object"
+      },
+      "title": "Sheet Title Block"
     }
   ]
 }

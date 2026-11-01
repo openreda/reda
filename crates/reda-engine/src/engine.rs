@@ -18,6 +18,7 @@ pub fn registry() -> Registry {
     crate::commands::register_all(&mut registry);
     reda_pcb::register_all(&mut registry);
     reda_library::register_all(&mut registry);
+    reda_schematic::register_all(&mut registry);
     registry
 }
 
@@ -57,9 +58,11 @@ impl Engine {
         params: Value,
         signals: &Signals,
     ) -> Result<Value, CommandError> {
+        let parts = crate::library::DiskParts::new(&self.session);
         let mut env = Env {
             ids: &mut *self.ids,
             clock: &*self.clock,
+            parts: &parts,
             headless: self.headless,
         };
         let outcome =
