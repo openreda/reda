@@ -5,6 +5,7 @@
 //! current [`FORMAT`] through the canonical writer.
 
 mod project_file;
+mod schema;
 mod sheet_file;
 
 use std::fmt;
@@ -15,6 +16,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 pub(crate) use project_file::{ProjectFile, write_project_file};
+pub use schema::schema;
 pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
 
 /// The format version REDA writes. Bump it together with a new [`MIGRATIONS`] step.

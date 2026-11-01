@@ -23,14 +23,21 @@ fn every_frozen_format_opens_and_saves_as_the_current_goldens() {
     for n in 1..=FORMAT {
         let frozen = PathBuf::from(FORMATS).join(format!("v{n}"));
         let files = read_tree(&frozen);
-        assert!(!files.is_empty(), "no frozen Project in {}", frozen.display());
+        assert!(
+            !files.is_empty(),
+            "no frozen Project in {}",
+            frozen.display()
+        );
 
         let dir = TempDir::new(&format!("frozen-v{n}"));
         for (rel, bytes) in &files {
             std::fs::write(dir.path().join(rel), bytes).unwrap();
         }
         let mut engine = test_engine();
-        engine.run_ok("project.open", json!({"path": dir.path().join("Demo.reda")}));
+        engine.run_ok(
+            "project.open",
+            json!({"path": dir.path().join("Demo.reda")}),
+        );
         engine.run_ok("project.save", json!({}));
         let saved = read_tree(dir.path());
         for (rel, current) in read_tree(Path::new(CURRENT)) {
@@ -83,9 +90,9 @@ fn the_scaffold_step_matches_its_goldens() {
 
 #[test]
 fn every_real_step_has_goldens_for_every_file_kind() {
-    for n in 1..FORMAT {
+    for n in 1..=MIGRATIONS.len() {
         let dir = PathBuf::from(GOLDEN).join(format!("v{n}-to-v{}", n + 1));
-        let steps = &MIGRATIONS[..n as usize];
+        let steps = &MIGRATIONS[..n];
         for kind in FileKind::ALL {
             check_step_golden(&dir, steps, kind);
         }

@@ -12,6 +12,7 @@ reda-command -> serde_json
 reda-engine -> reda-command
 reda-engine -> reda-model
 reda-engine -> reda-testkit [dev]
+reda-engine -> schemars
 reda-engine -> serde
 reda-engine -> serde_json
 reda-geom -> serde

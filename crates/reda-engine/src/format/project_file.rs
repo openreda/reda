@@ -16,32 +16,43 @@
 use std::path::Path;
 
 use reda_model::{DocumentEntry, DocumentKind, Project, Uuid};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::FORMAT;
 use crate::canonical::{CanonicalError, CanonicalWriter};
 
-#[derive(Debug, Deserialize)]
+/// A REDA Project file (`.reda`). The Project's name is the file stem.
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(title = "REDA Project file")]
 pub(crate) struct ProjectFile {
+    /// The file-format version. REDA writes only the current one.
     #[allow(dead_code, reason = "checked by the migration chain")]
+    #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
+    /// Project-wide properties.
     pub project: ProjectRow,
+    /// The Project's Documents, in Project order (sheet numbering, PDF output).
     pub documents: Vec<DocumentRow>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProjectRow {
+    #[schemars(schema_with = "super::schema::uuid")]
     pub uuid: Uuid,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct DocumentRow {
+    #[schemars(schema_with = "super::schema::uuid")]
     pub uuid: Uuid,
-    /// Relative to the Project folder.
+    /// The Document's file name, relative to the Project folder; its stem is the
+    /// Document's name and its extension its kind.
     pub path: String,
+    /// The Document's title, such as "Sheet 1".
     pub title: String,
 }
 
