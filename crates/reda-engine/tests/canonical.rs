@@ -79,3 +79,74 @@ fn non_ascii_text_stays_utf8() {
     let text = String::from_utf8(w.finish()).unwrap();
     assert!(text.contains(r#""title": "Ω µ""#), "{text}");
 }
+
+#[test]
+fn containers_span_lines_with_each_child_on_its_own_line() {
+    let mut w = CanonicalWriter::new(1);
+    w.containers(
+        "parts",
+        [(2, "b"), (1, "a")],
+        |(n, _)| Uuid::v4_from_bits(*n),
+        |(n, name), c| {
+            c.field("part", &row(n, name))?;
+            c.list("footprints", [Uuid::v4_from_bits(7)])?;
+            c.table("pins", [row(6, "y"), row(5, "x")], |r| r.uuid)?;
+            c.list("empty", Vec::<Row>::new())
+        },
+    )
+    .unwrap();
+    w.field("after", &1).unwrap();
+    let text = String::from_utf8(w.finish()).unwrap();
+    assert_eq!(
+        text,
+        r#"{
+  "format": 1,
+  "parts": [
+    {
+      "part": {"uuid":"00000000-0000-4000-8000-000000000001","name":"a","width":254000},
+      "footprints": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "pins": [
+        {"uuid":"00000000-0000-4000-8000-000000000005","name":"x","width":254000},
+        {"uuid":"00000000-0000-4000-8000-000000000006","name":"y","width":254000}
+      ],
+      "empty": []
+    },
+    {
+      "part": {"uuid":"00000000-0000-4000-8000-000000000002","name":"b","width":254000},
+      "footprints": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "pins": [
+        {"uuid":"00000000-0000-4000-8000-000000000005","name":"x","width":254000},
+        {"uuid":"00000000-0000-4000-8000-000000000006","name":"y","width":254000}
+      ],
+      "empty": []
+    }
+  ],
+  "after": 1
+}
+"#
+    );
+}
+
+#[test]
+fn an_empty_container_table_is_an_empty_array_and_duplicates_are_refused() {
+    let mut w = CanonicalWriter::new(1);
+    w.containers(
+        "parts",
+        Vec::<u128>::new(),
+        |n| Uuid::v4_from_bits(*n),
+        |_, _| Ok(()),
+    )
+    .unwrap();
+    let text = String::from_utf8(w.finish()).unwrap();
+    assert!(text.contains("\"parts\": []"), "{text}");
+    let mut w = CanonicalWriter::new(1);
+    let twice = [1u128, 1];
+    assert!(
+        w.containers("parts", twice, |n| Uuid::v4_from_bits(*n), |_, _| Ok(()))
+            .is_err()
+    );
+}
