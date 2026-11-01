@@ -1,0 +1,11 @@
+# PROTOTYPE — throwaway. Lives only on the prototype/main-window-shell branch.
+[package]
+name = "prototype-shell-dock"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+eframe = "0.36"
+egui_dock = "0.21.1"
