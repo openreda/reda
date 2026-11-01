@@ -1,7 +1,7 @@
 //! `project.overview`, `object.get` and `objects.query`: read-only views of the model for
 //! agents and the CLI.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, NoParams, Registry};
 use reda_model::{DocumentKind, Object, ObjectType, Project, Scope, Uuid};
@@ -142,6 +142,11 @@ pub struct ObjectsQueryParams {
     /// Only objects of this type.
     #[serde(default, rename = "type")]
     pub object_type: Option<ObjectType>,
+    /// Only objects on the schematic Nets with this name (a Net Label name or an
+    /// auto-name such as `Net-(R1-1)`), derived from the drawing: their Wires, Net Labels,
+    /// No-Connect Markers and the Units with a Pin on them.
+    #[serde(default)]
+    pub net: Option<String>,
 }
 
 /// What `objects.query` returns.
@@ -157,7 +162,8 @@ impl Command for ObjectsQuery {
         title: "Query Objects",
         description: "Lists the objects that match every given filter, sorted by UUID: \
                       `document` keeps the objects in one Document, `type` the objects of \
-                      one type. With no filter it lists every object in the Project.",
+                      one type, `net` the objects on the schematic Nets with that name. \
+                      With no filter it lists every object in the Project.",
         category: "query",
         icon: "search",
         kind: Kind::Query,
@@ -174,9 +180,16 @@ impl Command for ObjectsQuery {
         if let Some(document) = p.document {
             check_document(project, document)?;
         }
+        let on_net: Option<BTreeSet<Uuid>> = p.net.as_deref().map(|name| {
+            reda_schematic::connectivity::project_connectivity(project)
+                .iter()
+                .flat_map(|sheet| sheet.objects_named(name))
+                .collect()
+        });
         let objects = project
             .objects()
             .into_iter()
+            .filter(|o| on_net.as_ref().is_none_or(|set| set.contains(&o.uuid())))
             .filter(|o| p.object_type.is_none_or(|t| o.object_type() == t))
             .filter(|o| p.document.is_none_or(|d| o.scope() == Scope::Document(d)))
             .map(ObjectView::of)

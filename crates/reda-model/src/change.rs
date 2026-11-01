@@ -13,8 +13,8 @@ use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
 };
 use crate::{
-    DocumentEntry, Footprint, FootprintCopy, LibraryElement, Part, PartEntry, ProjectProps,
-    SheetFrame, Symbol, UnitInstance, Uuid,
+    DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
+    ProjectProps, SheetFrame, Symbol, UnitInstance, Uuid, Wire,
 };
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
@@ -41,6 +41,9 @@ pub enum Object {
     PartEntry(InDocument<PartEntry>),
     FootprintCopy(InDocument<FootprintCopy>),
     Unit(InDocument<UnitInstance>),
+    Wire(InDocument<Wire>),
+    NetLabel(InDocument<NetLabel>),
+    NoConnect(InDocument<NoConnect>),
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
     // Left out of schemas so the catalogue is the same with and without the feature.
@@ -90,6 +93,12 @@ pub enum ObjectType {
     FootprintCopy,
     /// A placed Unit of a Component.
     Unit,
+    /// One orthogonal segment of a Wire run on a Schematic Sheet.
+    Wire,
+    /// A Net Label on a Schematic Sheet.
+    NetLabel,
+    /// A No-Connect Marker on a Pin.
+    NoConnect,
     /// Free text on a PCB Layer.
     PcbText,
     /// A line, arc or rectangle on a PCB Layer.
@@ -120,6 +129,9 @@ impl Object {
             Object::PartEntry(o) => o.uuid,
             Object::FootprintCopy(o) => o.uuid,
             Object::Unit(o) => o.uuid,
+            Object::Wire(o) => o.uuid,
+            Object::NetLabel(o) => o.uuid,
+            Object::NoConnect(o) => o.uuid,
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
             #[cfg(feature = "test-objects")]
@@ -146,6 +158,9 @@ impl Object {
             Object::PartEntry(_) => ObjectType::PartEntry,
             Object::FootprintCopy(_) => ObjectType::FootprintCopy,
             Object::Unit(_) => ObjectType::Unit,
+            Object::Wire(_) => ObjectType::Wire,
+            Object::NetLabel(_) => ObjectType::NetLabel,
+            Object::NoConnect(_) => ObjectType::NoConnect,
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             #[cfg(feature = "test-objects")]
@@ -173,6 +188,9 @@ impl Object {
             Object::PartEntry(o) => Scope::Document(o.document),
             Object::FootprintCopy(o) => Scope::Document(o.document),
             Object::Unit(o) => Scope::Document(o.document),
+            Object::Wire(o) => Scope::Document(o.document),
+            Object::NetLabel(o) => Scope::Document(o.document),
+            Object::NoConnect(o) => Scope::Document(o.document),
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
