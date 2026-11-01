@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
-use crate::{Clock, CommandError, History, IdSource, Timestamp, UserDirs};
+use crate::{Clock, CommandError, History, IdSource, Signals, Timestamp, UserDirs};
 
 /// The engine's mutable state between Commands.
 #[derive(Debug, Default)]
@@ -46,6 +46,7 @@ pub struct Context<'a> {
     pub(crate) access: Access<'a>,
     pub(crate) ids: &'a mut dyn IdSource,
     pub(crate) clock: &'a dyn Clock,
+    pub(crate) signals: &'a Signals,
     /// Set when an edit replays an undo or redo entry instead of making a new change.
     pub(crate) step: Option<Step>,
 }
@@ -140,5 +141,31 @@ impl<'a> Context<'a> {
     /// The time from the injected `Clock`.
     pub fn now(&self) -> Timestamp {
         self.clock.now()
+    }
+
+    /// The run's cancellation token and progress reporter.
+    pub fn signals(&self) -> &Signals {
+        self.signals
+    }
+
+    /// Reports progress to the caller, if it listens. `progress` should increase between
+    /// reports; `total` is optional.
+    pub fn progress(&self, progress: f64, total: Option<f64>, message: &str) {
+        self.signals.report(progress, total, message);
+    }
+
+    /// Whether the caller has asked this run to stop.
+    pub fn is_cancelled(&self) -> bool {
+        self.signals.cancel.is_cancelled()
+    }
+
+    /// `Err(CommandError::cancelled())` once the caller has asked this run to stop. A
+    /// long-running Command calls it between steps and returns the error with `?`, which
+    /// rolls an edit back fully.
+    pub fn check_cancelled(&self) -> Result<(), CommandError> {
+        if self.is_cancelled() {
+            return Err(CommandError::cancelled());
+        }
+        Ok(())
     }
 }
