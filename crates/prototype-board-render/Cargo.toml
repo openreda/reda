@@ -1,0 +1,10 @@
+# PROTOTYPE — throwaway. Lives only on the prototype/board-renderer branch.
+[package]
+name = "prototype-board-render"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+eframe = "0.37"
