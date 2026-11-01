@@ -8,6 +8,9 @@ reda-command -> reda-model
 reda-command -> serde
 reda-command -> serde_json
 reda-engine -> reda-command
+reda-engine -> reda-model
+reda-engine -> serde
+reda-engine -> serde_json
 reda-geom -> serde
 reda-geom -> serde_json [dev]
 reda-model -> reda-geom
