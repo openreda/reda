@@ -11,10 +11,10 @@ use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, FabPreset, FileNaming, FootprintCopy,
-    GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, Object,
-    OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Project, ProjectFabPreset,
-    ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetSize, Side, UnitInstance,
-    Uuid,
+    GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, NetLabel,
+    NoConnect, Object, OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Project,
+    ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetSize,
+    Side, UnitInstance, Uuid, Wire,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -364,6 +364,7 @@ struct SheetSeed {
     base: u128,
     size: Option<usize>,
     component: Option<(String, String, Nm, Nm, bool)>,
+    drawing: Option<(String, Nm, Nm, Nm)>,
 }
 
 prop_compose! {
@@ -373,8 +374,9 @@ prop_compose! {
         component in prop::option::of(
             (any::<String>(), any::<String>(), length(), length(), any::<bool>())
         ),
+        drawing in prop::option::of((any::<String>(), length(), length(), length())),
     ) -> SheetSeed {
-        SheetSeed { base, size, component }
+        SheetSeed { base, size, component, drawing }
     }
 }
 
@@ -429,6 +431,39 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
         objects.push(Object::FootprintCopy(InDocument::new(sheet, copy)));
         objects.push(Object::PartEntry(InDocument::new(sheet, entry)));
         objects.push(Object::Unit(InDocument::new(sheet, unit)));
+    }
+    if let Some((name, x, y, len)) = seed.drawing {
+        let from = Point::new(x, y);
+        let to = Point::new(x, y + Nm(len.0.abs() + 1));
+        let name = if name.trim().is_empty() {
+            "N".into()
+        } else {
+            name
+        };
+        objects.push(Object::Wire(InDocument::new(
+            sheet,
+            Wire {
+                uuid: id(5),
+                from,
+                to,
+            },
+        )));
+        objects.push(Object::NetLabel(InDocument::new(
+            sheet,
+            NetLabel {
+                uuid: id(6),
+                name,
+                at: to,
+                rotation: Millideg(180_000),
+            },
+        )));
+        objects.push(Object::NoConnect(InDocument::new(
+            sheet,
+            NoConnect {
+                uuid: id(7),
+                at: from,
+            },
+        )));
     }
     objects
 }

@@ -1,4 +1,7 @@
-//! The objects on a Schematic Sheet: its frame, its part table and its placed Units.
+//! The objects on a Schematic Sheet: its frame, its part table, its placed Units and the
+//! drawing that connects them (Wires, Net Labels and No-Connect Markers).
+//!
+//! Nets and Junctions are never stored: `reda-schematic` derives them from the drawing.
 //!
 //! Each object is stored as an [`InDocument`] row, which names the sheet it lives on, so
 //! its scope follows from the object alone; the sheet's file leaves that field out.
@@ -155,6 +158,44 @@ impl UnitInstance {
     }
 }
 
+/// One straight, orthogonal segment of a Wire run. It connects only where one of its ends
+/// touches a Pin or another Wire exactly.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Wire {
+    pub uuid: Uuid,
+    pub from: Point,
+    pub to: Point,
+}
+
+impl Wire {
+    /// Whether the segment is horizontal or vertical and not a single point.
+    pub fn is_orthogonal(&self) -> bool {
+        self.from != self.to && (self.from.x == self.to.x || self.from.y == self.to.y)
+    }
+}
+
+/// A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the
+/// same name on its sheet.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NetLabel {
+    pub uuid: Uuid,
+    pub name: String,
+    /// The connection point.
+    pub at: Point,
+    /// Counter-clockwise; only how the label is drawn.
+    pub rotation: Millideg,
+}
+
+/// A mark on the Pin under `at` stating that it is deliberately left unconnected.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NoConnect {
+    pub uuid: Uuid,
+    pub at: Point,
+}
+
 fn is_false(b: &bool) -> bool {
     !*b
 }
@@ -167,6 +208,9 @@ pub struct SchematicSheet {
     pub(crate) parts: BTreeMap<Uuid, PartEntry>,
     pub(crate) footprints: BTreeMap<Uuid, FootprintCopy>,
     pub(crate) units: BTreeMap<Uuid, UnitInstance>,
+    pub(crate) wires: BTreeMap<Uuid, Wire>,
+    pub(crate) net_labels: BTreeMap<Uuid, NetLabel>,
+    pub(crate) no_connects: BTreeMap<Uuid, NoConnect>,
 }
 
 impl SchematicSheet {
@@ -177,6 +221,9 @@ impl SchematicSheet {
             parts: BTreeMap::new(),
             footprints: BTreeMap::new(),
             units: BTreeMap::new(),
+            wires: BTreeMap::new(),
+            net_labels: BTreeMap::new(),
+            no_connects: BTreeMap::new(),
         }
     }
 
@@ -231,6 +278,33 @@ impl SchematicSheet {
         self.units.get(&uuid)
     }
 
+    /// The Wires, sorted by UUID.
+    pub fn wires(&self) -> impl Iterator<Item = &Wire> {
+        self.wires.values()
+    }
+
+    pub fn wire(&self, uuid: Uuid) -> Option<&Wire> {
+        self.wires.get(&uuid)
+    }
+
+    /// The Net Labels, sorted by UUID.
+    pub fn net_labels(&self) -> impl Iterator<Item = &NetLabel> {
+        self.net_labels.values()
+    }
+
+    pub fn net_label(&self, uuid: Uuid) -> Option<&NetLabel> {
+        self.net_labels.get(&uuid)
+    }
+
+    /// The No-Connect Markers, sorted by UUID.
+    pub fn no_connects(&self) -> impl Iterator<Item = &NoConnect> {
+        self.no_connects.values()
+    }
+
+    pub fn no_connect(&self, uuid: Uuid) -> Option<&NoConnect> {
+        self.no_connects.get(&uuid)
+    }
+
     /// The object with this UUID, if this sheet holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -246,7 +320,10 @@ impl SchematicSheet {
             frames => SheetFrame,
             parts => PartEntry,
             footprints => FootprintCopy,
-            units => Unit
+            units => Unit,
+            wires => Wire,
+            net_labels => NetLabel,
+            no_connects => NoConnect
         )
     }
 
@@ -267,7 +344,10 @@ impl SchematicSheet {
             frames => SheetFrame,
             parts => PartEntry,
             footprints => FootprintCopy,
-            units => Unit
+            units => Unit,
+            wires => Wire,
+            net_labels => NetLabel,
+            no_connects => NoConnect
         );
         out
     }
@@ -278,6 +358,9 @@ impl SchematicSheet {
         self.parts.remove(&uuid);
         self.footprints.remove(&uuid);
         self.units.remove(&uuid);
+        self.wires.remove(&uuid);
+        self.net_labels.remove(&uuid);
+        self.no_connects.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -285,6 +368,9 @@ impl SchematicSheet {
             && self.parts.is_empty()
             && self.footprints.is_empty()
             && self.units.is_empty()
+            && self.wires.is_empty()
+            && self.net_labels.is_empty()
+            && self.no_connects.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -358,6 +444,19 @@ impl SchematicSheet {
                      alternates",
                     unit.uuid
                 ));
+            }
+        }
+        for wire in self.wires.values() {
+            if !wire.is_orthogonal() {
+                return Err(format!(
+                    "Wire {} is not a horizontal or vertical segment",
+                    wire.uuid
+                ));
+            }
+        }
+        for label in self.net_labels.values() {
+            if label.name.trim().is_empty() {
+                return Err(format!("Net Label {} has no name", label.uuid));
             }
         }
         Ok(())
