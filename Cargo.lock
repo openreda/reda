@@ -357,6 +357,7 @@ dependencies = [
  "directories",
  "proptest",
  "reda-command",
+ "reda-library",
  "reda-model",
  "reda-testkit",
  "schemars",
@@ -369,6 +370,18 @@ dependencies = [
 name = "reda-geom"
 version = "0.0.0"
 dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "reda-library"
+version = "0.0.0"
+dependencies = [
+ "reda-command",
+ "reda-model",
+ "reda-testkit",
  "schemars",
  "serde",
  "serde_json",

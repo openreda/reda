@@ -6,6 +6,9 @@
 //!   "project": {"uuid":"…"},
 //!   "documents": [
 //!     {"uuid":"…","path":"Demo.redasch","title":"Sheet 1"}
+//!   ],
+//!   "libraries": [
+//!     "parts"
 //!   ]
 //! }
 //! ```
@@ -35,6 +38,10 @@ pub(crate) struct ProjectFile {
     pub project: ProjectRow,
     /// The Project's Documents, in Project order (sheet numbering, PDF output).
     pub documents: Vec<DocumentRow>,
+    /// The Project Libraries: folders relative to the Project folder, `/`-separated.
+    /// Written only when there are any.
+    #[serde(default)]
+    pub libraries: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -101,5 +108,9 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
             title: d.title.clone(),
         }),
     )?;
+    let libraries = &project.props().libraries;
+    if !libraries.is_empty() {
+        w.list("libraries", libraries)?;
+    }
     Ok(w.finish())
 }

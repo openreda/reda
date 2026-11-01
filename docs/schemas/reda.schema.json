@@ -55,6 +55,14 @@
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },
+    "libraries": {
+      "default": [],
+      "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.\nWritten only when there are any.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "project": {
       "$ref": "#/$defs/ProjectRow",
       "description": "Project-wide properties."

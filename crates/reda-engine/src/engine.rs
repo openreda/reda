@@ -1,6 +1,6 @@
 //! The headless engine: a registry, a session and the injected inputs.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use reda_command::{
     Clock, CommandError, Env, History, IdSource, RandomIds, Registry, Session, SystemClock,
@@ -16,6 +16,7 @@ use crate::journal::{JournalEntry, Source};
 pub fn registry() -> Registry {
     let mut registry = Registry::new();
     crate::commands::register_all(&mut registry);
+    reda_library::register_all(&mut registry);
     registry
 }
 
@@ -123,6 +124,7 @@ pub struct EngineBuilder {
     headless: bool,
     source: Source,
     user_dirs: Option<UserDirs>,
+    starter_library: Option<PathBuf>,
 }
 
 impl Default for EngineBuilder {
@@ -135,6 +137,7 @@ impl Default for EngineBuilder {
             headless: true,
             source: Source::default(),
             user_dirs: crate::user_dirs::discover(),
+            starter_library: None,
         }
     }
 }
@@ -168,6 +171,13 @@ impl EngineBuilder {
         self
     }
 
+    /// The starter Library's folder, which the app ships; `None` (the default) scans no
+    /// starter Library.
+    pub fn starter_library(mut self, folder: Option<PathBuf>) -> EngineBuilder {
+        self.starter_library = folder;
+        self
+    }
+
     /// Adds Commands beyond the full [`registry`], such as test-only ones.
     pub fn commands(mut self, register_all: impl FnOnce(&mut Registry)) -> EngineBuilder {
         register_all(&mut self.registry);
@@ -184,6 +194,7 @@ impl EngineBuilder {
         let mut session = Session::default();
         session.history.set_depth(self.undo_depth);
         session.user_dirs = self.user_dirs;
+        session.starter_library = self.starter_library;
         Engine {
             registry: self.registry,
             session,

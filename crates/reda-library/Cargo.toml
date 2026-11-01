@@ -1,0 +1,22 @@
+[package]
+name = "reda-library"
+description = "Library folder scanning, Library search and the library Commands."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+reda-command = { path = "../reda-command" }
+reda-model = { path = "../reda-model" }
+schemars.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+reda-testkit = { path = "../reda-testkit" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

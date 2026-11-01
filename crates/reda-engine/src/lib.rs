@@ -10,6 +10,7 @@ mod engine;
 pub mod format;
 pub mod fs;
 pub mod journal;
+pub mod library;
 pub mod preferences;
 pub mod state;
 pub mod store;

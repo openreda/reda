@@ -1,0 +1,170 @@
+{
+  "$defs": {
+    "Pin": {
+      "additionalProperties": false,
+      "description": "A connection point of a Symbol.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The connection end of the Pin, relative to the Symbol origin."
+        },
+        "electrical_type": {
+          "$ref": "#/$defs/PinType"
+        },
+        "length": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "number": {
+          "description": "Unique across the Symbol; Pins map to the Pads with the same number unless the\nPart overrides it.",
+          "type": "string"
+        },
+        "rotation": {
+          "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "unit": {
+          "description": "The Unit it belongs to.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "unit",
+        "name",
+        "number",
+        "electrical_type",
+        "at",
+        "rotation",
+        "length"
+      ],
+      "type": "object"
+    },
+    "PinType": {
+      "description": "A Pin's electrical type, which ERC checks.",
+      "enum": [
+        "input",
+        "output",
+        "bidirectional",
+        "tri_state",
+        "passive",
+        "power_in",
+        "power_out",
+        "open_collector",
+        "open_emitter",
+        "not_connected"
+      ],
+      "type": "string"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+      "properties": {
+        "x": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "y": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "SymbolRow": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "designator_prefix": {
+          "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "designator_prefix"
+      ],
+      "type": "object"
+    },
+    "Unit": {
+      "additionalProperties": false,
+      "description": "One independently placeable section of a Symbol.",
+      "properties": {
+        "name": {
+          "description": "Such as `A`, or `Power` for a power section.",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Symbol file (`.redasym`).",
+  "properties": {
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "pins": {
+      "description": "Every Pin of every Unit, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/Pin"
+      },
+      "type": "array"
+    },
+    "symbol": {
+      "$ref": "#/$defs/SymbolRow"
+    },
+    "units": {
+      "description": "The Units in order (A, B, C…). A single-unit Symbol has exactly one.",
+      "items": {
+        "$ref": "#/$defs/Unit"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "format",
+    "symbol",
+    "units",
+    "pins"
+  ],
+  "title": "REDA Symbol file",
+  "type": "object"
+}

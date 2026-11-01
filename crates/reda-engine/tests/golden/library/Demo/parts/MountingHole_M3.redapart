@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"00000070-0000-4000-8000-000000000000","name":"MountingHole_M3","component_type":"mechanical"},
+  "footprints": [
+    "00000040-0000-4000-8000-000000000000"
+  ],
+  "fields": {},
+  "pin_map": {}
+}
