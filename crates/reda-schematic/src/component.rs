@@ -22,7 +22,7 @@ pub struct At {
 }
 
 impl At {
-    fn point(self) -> Point {
+    pub(crate) fn point(self) -> Point {
         Point::new(self.x.nm(), self.y.nm())
     }
 }
