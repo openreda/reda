@@ -3,6 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
+version = "0.0.0"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"
@@ -10,6 +11,7 @@ repository = "https://github.com/openreda/reda"
 publish = false
 
 [workspace.dependencies]
+serde_json = "1.0.150"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

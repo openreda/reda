@@ -1,0 +1,10 @@
+# Allowed dependency edges of the workspace crates: `crate -> dependency [kind, target]`.
+# Checked against `cargo metadata` by crates/reda-testkit/tests/dependency_edges.rs.
+# After adding a dependency, regenerate with
+#   REDA_BLESS=1 cargo test -p reda-testkit --test dependency_edges
+# and check that the new edge follows the layering in docs/spec/v0.1/architecture.md#crates.
+reda-cli -> reda-engine
+reda-command -> reda-model
+reda-engine -> reda-command
+reda-model -> reda-geom
+reda-testkit -> serde_json [dev]

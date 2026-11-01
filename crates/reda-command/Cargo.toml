@@ -1,0 +1,15 @@
+[package]
+name = "reda-command"
+description = "The Command trait, kinds, errors, results and the registry."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+reda-model = { path = "../reda-model" }
+
+[lints]
+workspace = true
