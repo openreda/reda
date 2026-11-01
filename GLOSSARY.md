@@ -196,6 +196,10 @@ _Avoid_: Mode (alone), editor, interactive command
 A shared, dockable view of the Project or the selection, such as Projects, Properties or Messages, that sits beside the Documents in the one window and serves whichever Document is active.
 _Avoid_: Pane, sidebar, view (alone), tool window
 
+**Dock**:
+A strip of columns along the left, right or bottom edge of a window that holds tabs, usually Panels; a column can collapse to an icon strip whose icons open its tabs as flyouts.
+_Avoid_: Sidebar, drawer, edge panel
+
 **Active Bar**:
 The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.
 _Avoid_: Quick bar, floating toolbar, palette
