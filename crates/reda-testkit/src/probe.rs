@@ -17,12 +17,14 @@ pub fn probe_engine() -> TestEngine {
         Engine::builder()
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
-            .commands(register_all)
+            .commands(probe_commands)
             .build(),
     )
 }
 
-fn register_all(registry: &mut Registry) {
+/// Registers `test.probe.set` and `test.sheet.add`, for engines built by hand (with
+/// [`reda_engine::EngineBuilder::commands`]).
+pub fn probe_commands(registry: &mut Registry) {
     registry.add(ProbeSet);
     registry.add(SheetAdd);
 }

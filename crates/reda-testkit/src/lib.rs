@@ -8,7 +8,7 @@ mod probe;
 
 pub use engine::{TestEngine, test_engine, test_engine_in};
 pub use files::{TempDir, read_tree};
-pub use probe::probe_engine;
+pub use probe::{probe_commands, probe_engine};
 
 use std::path::Path;
 
