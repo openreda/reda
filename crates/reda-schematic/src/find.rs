@@ -165,10 +165,35 @@ fn unit_match(
 }
 
 /// The Nets on `sheet` whose name matches, one [`FindMatch`] per Net with the objects
-/// that carry it, in natural order of the Net name.
-///
-/// The seam for searching by Net name: Nets are derived by connectivity (ticket #57),
-/// which is not in this crate yet, so no Net matches until it is wired in here.
-fn net_matches(_project: &Project, _sheet: Uuid, _matcher: &Matcher) -> Vec<FindMatch> {
-    Vec::new()
+/// on it (Wires, Net Labels, No-Connect Markers and the Units with a Pin on it), in
+/// natural order of the Net name. Nets are derived by [`crate::connectivity`]. Unnamed
+/// Nets never match, nor do Nets that are only one unwired Pin (every unconnected Pin is
+/// a Net of its own, and finding those would bury the real Nets).
+fn net_matches(project: &Project, sheet: Uuid, matcher: &Matcher) -> Vec<FindMatch> {
+    let Some(body) = project.schematic_sheet(sheet) else {
+        return Vec::new();
+    };
+    // Nets come named first, in natural order of name.
+    crate::connectivity::derive(body)
+        .nets
+        .iter()
+        .filter_map(|net| {
+            let name = net.name.as_deref()?;
+            let lone_pin = net.pins.len() == 1 && net.wires.is_empty() && net.net_labels.is_empty();
+            if lone_pin {
+                return None;
+            }
+            matcher.matches(name).then(|| {
+                let objects: std::collections::BTreeSet<Uuid> = net.objects().collect();
+                FindMatch {
+                    field: FindField::Net,
+                    text: name.to_owned(),
+                    document: sheet,
+                    unit: None,
+                    component: None,
+                    objects: objects.into_iter().collect(),
+                }
+            })
+        })
+        .collect()
 }

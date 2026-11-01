@@ -478,3 +478,38 @@ fn moving_a_component_onto_a_wire_splits_it_and_connects() {
     assert_eq!(moved["rotation"], 180_000);
     assert_eq!(moved["mirror"], true);
 }
+
+#[test]
+fn find_by_net_name_returns_the_objects_on_the_derived_net() {
+    let dir = TempDir::new("find-net");
+    let mut engine = demo(&dir);
+    let r1 = engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": R_10K, "at": at(0, 0)}),
+    )["result"]["unit"]
+        .clone();
+    let wires = wire(&mut engine, &[(0, 150), (0, 300)]);
+    let sda = label(&mut engine, SHEET, "I2C_SDA", 0, 300);
+    let out = engine.run_ok("schematic.find", json!({"text": "sda", "fields": ["net"]}));
+    let matches = out["matches"].as_array().unwrap();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["field"], "net");
+    assert_eq!(matches[0]["text"], "I2C_SDA");
+    assert_eq!(matches[0]["document"], SHEET);
+    let mut expected = vec![r1, wires[0].clone(), sda];
+    expected.sort_by_key(|v| v.as_str().unwrap().to_owned());
+    assert_eq!(matches[0]["objects"], json!(expected));
+    // A lone unwired Pin is not worth finding as a Net.
+    let out = engine.run_ok(
+        "schematic.find",
+        json!({"text": "Net-(R1-2)", "fields": ["net"], "exact": true}),
+    );
+    assert_eq!(out["matches"], json!([]));
+    // Auto-names of wired Nets are found.
+    wire(&mut engine, &[(0, -150), (0, -300)]);
+    let out = engine.run_ok(
+        "schematic.find",
+        json!({"text": "Net-(R1-2)", "fields": ["net"], "exact": true}),
+    );
+    assert_eq!(out["matches"].as_array().unwrap().len(), 1);
+}
