@@ -7,7 +7,7 @@ use reda_model::{DocumentKind, Project, ProjectProps};
 
 use crate::builders::add_document;
 use crate::format::{
-    LoadError, ProjectFile, parse, read_bytes, read_sheet_file, write_project_file,
+    FileKind, LoadError, ProjectFile, parse, read_bytes, read_sheet_file, write_project_file,
     write_sheet_file,
 };
 use crate::fs::write_atomic;
@@ -47,7 +47,7 @@ pub fn load(project_file: &Path) -> Result<(Project, PathBuf), LoadError> {
         .parent()
         .map(Path::to_owned)
         .unwrap_or_default();
-    let file: ProjectFile = parse(project_file, &read_bytes(project_file)?)?;
+    let file: ProjectFile = parse(FileKind::Project, project_file, &read_bytes(project_file)?)?;
 
     let mut project = Project::new(ProjectProps {
         uuid: file.project.uuid,

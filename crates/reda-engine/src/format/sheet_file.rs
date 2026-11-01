@@ -15,7 +15,7 @@ use std::path::Path;
 use reda_model::{SchematicSheet, Uuid};
 use serde::{Deserialize, Serialize};
 
-use super::{FORMAT, LoadError, parse};
+use super::{FORMAT, FileKind, LoadError, parse};
 use crate::canonical::{CanonicalError, CanonicalWriter};
 
 #[derive(Debug, Deserialize)]
@@ -44,7 +44,7 @@ pub(crate) fn read_sheet_file(
     bytes: &[u8],
     expected: Uuid,
 ) -> Result<SchematicSheet, LoadError> {
-    let file: SheetFile = parse(path, bytes)?;
+    let file: SheetFile = parse(FileKind::Sheet, path, bytes)?;
     if file.sheet.uuid != expected {
         return Err(LoadError::Invalid(
             path.to_owned(),
