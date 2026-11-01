@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000003","name":"RESC0603X26N","description":"Chip resistor, 0201 (0603 metric), IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":1050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":150000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-350000,"y":0},"rotation":0,"width":400000,"height":400000,"corner_radius":100000},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":350000,"y":0},"rotation":0,"width":400000,"height":400000,"corner_radius":100000}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-000000000006","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-700000,"y":-350000},"end":{"x":700000,"y":350000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000007","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-300000,"y":-150000},"end":{"x":300000,"y":150000}},"width":100000}
+  ]
+}

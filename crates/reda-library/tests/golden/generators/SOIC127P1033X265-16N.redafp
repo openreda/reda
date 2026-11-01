@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-00000000003f","name":"SOIC127P1033X265-16N","description":"SOIC wide-16, 1.27 mm pitch, IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":6200000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000040","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000041","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000042","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000043","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000044","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000045","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000046","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000047","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000048","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-000000000049","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-00000000004a","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-00000000004b","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-00000000004c","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-00000000004d","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-00000000004e","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
+    {"uuid":"00000000-0000-4000-8000-00000000004f","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-000000000050","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-5950000,"y":-5500000},"end":{"x":5950000,"y":5500000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000051","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-2750000,"y":5150000},{"x":3750000,"y":5150000},{"x":3750000,"y":-5150000},{"x":-3750000,"y":-5150000},{"x":-3750000,"y":4150000}]},"width":100000},
+    {"uuid":"00000000-0000-4000-8000-000000000052","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-5700000,"y":5310000},"end":{"x":3800000,"y":5310000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000053","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3800000,"y":-5310000},"end":{"x":3800000,"y":-5310000}},"width":120000}
+  ]
+}
