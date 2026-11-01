@@ -293,3 +293,188 @@ fn a_wire_end_on_another_wire_connects_and_makes_a_junction() {
     assert_eq!(all["junctions"], json!([point(100, 0)]));
     assert_eq!(nets[0]["junctions"], json!([point(100, 0)]));
 }
+
+#[test]
+fn a_no_connect_marker_goes_on_a_pin() {
+    let dir = TempDir::new("no-connect");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 0, 0, 0);
+    let out = engine.run_ok(
+        "schematic.no_connect.add",
+        json!({"document": SHEET, "at": at(0, -150)}),
+    );
+    let marker = out["result"]["no_connect"].clone();
+    assert_eq!(object(&mut engine, &marker)["type"], "no_connect");
+    let net = net_of_pin(&mut engine, "R1", "2");
+    assert_eq!(net["pins"][0]["no_connect"], marker);
+    // Pin 1 has none.
+    let net = net_of_pin(&mut engine, "R1", "1");
+    assert_eq!(net["pins"][0].get("no_connect"), None);
+    // Off a Pin, or on a Pin that already has one, it is refused.
+    let err = engine.run_err(
+        "schematic.no_connect.add",
+        json!({"document": SHEET, "at": at(0, 0)}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected);
+    let err = engine.run_err(
+        "schematic.no_connect.add",
+        json!({"document": SHEET, "at": at(0, -150)}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected);
+}
+
+#[test]
+fn objects_query_can_filter_by_net_name() {
+    let dir = TempDir::new("query-net");
+    let mut engine = demo(&dir);
+    let r1 = engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": R_10K, "at": at(0, 0)}),
+    )["result"]["unit"]
+        .clone();
+    let r2 = engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": R_10K, "at": at(1000, 0)}),
+    )["result"]["unit"]
+        .clone();
+    place(&mut engine, R_10K, 5000, 0, 0);
+    let wires = wire(&mut engine, &[(0, 150), (0, 300), (1000, 300), (1000, 150)]);
+    let sda = label(&mut engine, SHEET, "SDA", 500, 300);
+    let out = engine.run_ok("objects.query", json!({"net": "SDA"}));
+    let mut found: Vec<Value> = out["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| o["object"]["uuid"].clone())
+        .collect();
+    let mut expected: Vec<Value> = wires.clone();
+    expected.extend([sda.clone(), r1.clone(), r2.clone()]);
+    let key = |v: &Value| v.as_str().unwrap().to_owned();
+    found.sort_by_key(key);
+    expected.sort_by_key(key);
+    assert_eq!(found, expected);
+    // The filters combine.
+    let out = engine.run_ok("objects.query", json!({"net": "SDA", "type": "unit"}));
+    assert_eq!(out["objects"].as_array().unwrap().len(), 2);
+    // Auto-names work too; an unknown name matches nothing.
+    let out = engine.run_ok("objects.query", json!({"net": "Net-(R1-2)"}));
+    assert_eq!(out["objects"].as_array().unwrap().len(), 1);
+    let out = engine.run_ok("objects.query", json!({"net": "NOPE"}));
+    assert_eq!(out["objects"], json!([]));
+}
+
+#[test]
+fn the_drawing_is_saved_but_nets_and_junctions_are_not() {
+    let dir = TempDir::new("save-drawing");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 0, 0, 0);
+    wire(&mut engine, &[(0, 150), (0, 300), (200, 300)]);
+    wire(&mut engine, &[(100, 300), (100, 400)]);
+    label(&mut engine, SHEET, "SDA", 200, 300);
+    engine.run_ok(
+        "schematic.no_connect.add",
+        json!({"document": SHEET, "at": at(0, -150)}),
+    );
+    let before = nets(&mut engine);
+    engine.run_ok("project.save", json!({}));
+    let (_, bytes) = reda_testkit::read_tree(dir.path())
+        .into_iter()
+        .find(|(path, _)| path.ends_with(".redasch"))
+        .unwrap();
+    let file = String::from_utf8(bytes).unwrap();
+    assert!(file.contains("\"wires\""));
+    assert!(file.contains("\"net_labels\""));
+    assert!(file.contains("\"no_connects\""));
+    assert!(!file.contains("junction"));
+    assert!(!file.contains("Net-("));
+
+    let mut reopened = test_engine_with_library(&library());
+    reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    assert_eq!(nets(&mut reopened), before);
+}
+
+/// Every Wire on the sheet as `((x1, y1), (x2, y2))` in mil, sorted.
+fn wire_segments(engine: &mut TestEngine) -> Vec<((i64, i64), (i64, i64))> {
+    let out = engine.run_ok("objects.query", json!({"document": SHEET, "type": "wire"}));
+    let mil = |p: &Value| {
+        (
+            p["x"].as_i64().unwrap() / 25_400,
+            p["y"].as_i64().unwrap() / 25_400,
+        )
+    };
+    let mut segments: Vec<_> = out["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| {
+            let (a, b) = (mil(&w["object"]["from"]), mil(&w["object"]["to"]));
+            (a.min(b), a.max(b))
+        })
+        .collect();
+    segments.sort();
+    segments
+}
+
+#[test]
+fn placing_a_component_with_a_pin_on_a_wire_splits_the_wire_and_connects() {
+    let dir = TempDir::new("split-one");
+    let mut engine = demo(&dir);
+    let original = wire(&mut engine, &[(-500, 150), (500, 150)]);
+    place(&mut engine, R_10K, 0, 0, 0);
+    assert_eq!(
+        wire_segments(&mut engine),
+        [((-500, 150), (0, 150)), ((0, 150), (500, 150))]
+    );
+    let net = net_of_pin(&mut engine, "R1", "1");
+    assert_eq!(net["wires"].as_array().unwrap().len(), 2);
+    // The original Wire keeps its UUID for one of the halves.
+    assert!(net["wires"].as_array().unwrap().contains(&original[0]));
+    assert_eq!(net["junctions"], json!([point(0, 150)]));
+    // Undo restores the whole Wire in one step.
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    assert_eq!(wire_segments(&mut engine), [((-500, 150), (500, 150))]);
+}
+
+#[test]
+fn dropping_a_component_inline_on_a_wire_removes_the_piece_between_its_pins() {
+    let dir = TempDir::new("split-inline");
+    let mut engine = demo(&dir);
+    wire(&mut engine, &[(0, -500), (0, 500)]);
+    place(&mut engine, R_10K, 0, 0, 0);
+    assert_eq!(
+        wire_segments(&mut engine),
+        [((0, -500), (0, -150)), ((0, 150), (0, 500))]
+    );
+    let top = net_of_pin(&mut engine, "R1", "1");
+    let bottom = net_of_pin(&mut engine, "R1", "2");
+    assert_eq!(pins(&top), ["R1-1"]);
+    assert_eq!(pins(&bottom), ["R1-2"]);
+    assert_eq!(top["wires"].as_array().unwrap().len(), 1);
+    assert_eq!(bottom["wires"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn moving_a_component_onto_a_wire_splits_it_and_connects() {
+    let dir = TempDir::new("split-move");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": R_10K, "at": at(2000, 0)}),
+    );
+    let unit = out["result"]["unit"].clone();
+    wire(&mut engine, &[(-500, 150), (500, 150)]);
+    assert_eq!(pins(&net_of_pin(&mut engine, "R1", "1")), ["R1-1"]);
+    engine.run_ok("schematic.unit.move", json!({"unit": unit, "at": at(0, 0)}));
+    assert_eq!(object(&mut engine, &unit)["at"], point(0, 0));
+    assert_eq!(wire_segments(&mut engine).len(), 2);
+    let net = net_of_pin(&mut engine, "R1", "1");
+    assert_eq!(net["wires"].as_array().unwrap().len(), 2);
+    // Rotation and mirroring can change with the move.
+    engine.run_ok(
+        "schematic.unit.move",
+        json!({"unit": unit, "at": at(0, 0), "rotation": "180deg", "mirror": true}),
+    );
+    let moved = object(&mut engine, &unit);
+    assert_eq!(moved["rotation"], 180_000);
+    assert_eq!(moved["mirror"], true);
+}

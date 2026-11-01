@@ -12,6 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::sheet;
+use crate::wiring::split_wires_at_pins;
 
 /// A point on the sheet.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
@@ -145,6 +146,7 @@ impl Command for ComponentPlace {
         };
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
+        split_wires_at_pins(cx, p.document, uuid)?;
         Ok(PlacedResult {
             unit: uuid,
             component,
@@ -240,6 +242,7 @@ impl Command for UnitPlace {
         let component = instance.component.clone();
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
+        split_wires_at_pins(cx, p.document, uuid)?;
         Ok(PlacedResult {
             unit: uuid,
             component,

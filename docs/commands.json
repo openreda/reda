@@ -5685,7 +5685,7 @@
     },
     {
       "category": "query",
-      "description": "Lists the objects that match every given filter, sorted by UUID: `document` keeps the objects in one Document, `type` the objects of one type. With no filter it lists every object in the Project.",
+      "description": "Lists the objects that match every given filter, sorted by UUID: `document` keeps the objects in one Document, `type` the objects of one type, `net` the objects on the schematic Nets with that name. With no filter it lists every object in the Project.",
       "icon": "search",
       "id": "objects.query",
       "kind": "query",
@@ -5804,6 +5804,14 @@
             "default": null,
             "description": "Only objects in this Document. Document entries themselves live in the Project file.",
             "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "net": {
+            "default": null,
+            "description": "Only objects on the schematic Nets with this name (a Net Label name or an\nauto-name such as `Net-(R1-1)`), derived from the drawing: their Wires, Net Labels,\nNo-Connect Markers and the Units with a Pin on them.",
             "type": [
               "string",
               "null"
@@ -10653,6 +10661,84 @@
     },
     {
       "category": "schematic",
+      "description": "Marks the Pin at a point as deliberately left unconnected. Refused where no Pin connects or the Pin already has a marker.",
+      "icon": "no_connect",
+      "id": "schematic.no_connect.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/At",
+            "description": "A Pin's connection point."
+          },
+          "document": {
+            "description": "The Schematic Sheet.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "at"
+        ],
+        "title": "NoConnectAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.no_connect.add` made.",
+        "properties": {
+          "no_connect": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "no_connect"
+        ],
+        "title": "NoConnectAddResult",
+        "type": "object"
+      },
+      "title": "Add No-Connect Marker"
+    },
+    {
+      "category": "schematic",
       "description": "Sets a Schematic Sheet's paper size (A4, A3, Letter…). Sheets are landscape. A new sheet is A4.",
       "icon": "sheet_size",
       "id": "schematic.sheet.set_size",
@@ -10845,6 +10931,122 @@
         "type": "object"
       },
       "title": "Sheet Title Block"
+    },
+    {
+      "category": "schematic",
+      "description": "Moves a placed Unit to a new origin, optionally changing its rotation and mirroring. Its Wires stay where they are (a detached move); Pins that land partway along a Wire split it and connect, as when placing.",
+      "icon": "move",
+      "id": "schematic.unit.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/At",
+            "description": "Where its Symbol origin goes."
+          },
+          "mirror": {
+            "description": "Mirror left to right before rotating; unchanged by default.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Counter-clockwise; unchanged by default."
+          },
+          "unit": {
+            "description": "The placed Unit, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "at"
+        ],
+        "title": "UnitMoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.unit.move` moved.",
+        "properties": {
+          "document": {
+            "description": "The sheet it is on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "document"
+        ],
+        "title": "UnitMoveResult",
+        "type": "object"
+      },
+      "title": "Move Unit"
     },
     {
       "category": "schematic",

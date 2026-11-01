@@ -1,9 +1,10 @@
 //! Drawing connectivity: `schematic.wire.add`, `schematic.net_label.add` and
-//! `schematic.no_connect.add`.
+//! `schematic.no_connect.add`, the Wire splitting placement and moves share, and the
+//! `schematic.nets` query.
 
 use reda_command::{Angle, Command, CommandError, Context, Kind, Meta};
 use reda_model::geom::{Millideg, Point};
-use reda_model::{InDocument, NetLabel, Object, Uuid, Wire};
+use reda_model::{InDocument, NetLabel, NoConnect, Object, Uuid, Wire};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -75,6 +76,60 @@ impl Command for WireAdd {
     }
 }
 
+/// Connects placed Unit `unit` to the Wires its Pins land on partway along: each such Wire
+/// is split at those Pins, and the pieces between two of the Unit's Pins are removed, so a
+/// Component dropped inline on a Wire is not shorted out. The first piece keeps the Wire's
+/// UUID. Call it after placing or moving a Unit.
+pub(crate) fn split_wires_at_pins(
+    cx: &mut Context<'_>,
+    document: Uuid,
+    unit: Uuid,
+) -> Result<(), CommandError> {
+    let body = sheet(cx.project()?, document)?;
+    let Some(instance) = body.unit(unit) else {
+        return Ok(());
+    };
+    let entry = body
+        .part(instance.part)
+        .expect("a Unit's part entry exists");
+    let points: Vec<Point> = entry
+        .symbol
+        .unit_pins(instance.unit)
+        .map(|pin| connectivity::pin_position(instance, pin))
+        .collect();
+    let mut cuts: Vec<(Wire, Vec<Point>)> = vec![];
+    for wire in body.wires() {
+        let mut inside: Vec<Point> = points
+            .iter()
+            .copied()
+            .filter(|&p| connectivity::in_interior(wire, p))
+            .collect();
+        if inside.is_empty() {
+            continue;
+        }
+        let from = wire.from;
+        inside.sort_by_key(|p| (p.x - from.x).0.abs() + (p.y - from.y).0.abs());
+        inside.dedup();
+        cuts.push((wire.clone(), inside));
+    }
+    for (wire, inside) in cuts {
+        let first = Wire {
+            to: inside[0],
+            ..wire.clone()
+        };
+        cx.tx()?
+            .replace(Object::Wire(InDocument::new(document, first)))?;
+        let last = Wire {
+            uuid: cx.new_id(),
+            from: *inside.last().expect("at least one cut"),
+            to: wire.to,
+        };
+        cx.tx()?
+            .insert(Object::Wire(InDocument::new(document, last)))?;
+    }
+    Ok(())
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NetLabelAddParams {
@@ -133,6 +188,67 @@ impl Command for NetLabelAdd {
         cx.tx()?
             .insert(Object::NetLabel(InDocument::new(p.document, label)))?;
         Ok(NetLabelAddResult { net_label: uuid })
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NoConnectAddParams {
+    /// The Schematic Sheet.
+    pub document: Uuid,
+    /// A Pin's connection point.
+    pub at: At,
+}
+
+/// What `schematic.no_connect.add` made.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct NoConnectAddResult {
+    pub no_connect: Uuid,
+}
+
+pub struct NoConnectAdd;
+
+impl Command for NoConnectAdd {
+    const META: Meta = Meta {
+        id: "schematic.no_connect.add",
+        title: "Add No-Connect Marker",
+        description: "Marks the Pin at a point as deliberately left unconnected. Refused \
+                      where no Pin connects or the Pin already has a marker.",
+        category: "schematic",
+        icon: "no_connect",
+        kind: Kind::Edit,
+    };
+    type Params = NoConnectAddParams;
+    type Output = NoConnectAddResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: NoConnectAddParams,
+    ) -> Result<NoConnectAddResult, CommandError> {
+        let body = sheet(cx.project()?, p.document)?;
+        let at = p.at.point();
+        if !connectivity::placed_pins(body)
+            .iter()
+            .any(|(_, _, pin)| *pin == at)
+        {
+            return Err(CommandError::rejected(
+                "No-Connect Markers go on Pins, and no Pin connects at that point",
+            ));
+        }
+        if body.no_connects().any(|m| m.at == at) {
+            return Err(CommandError::rejected(
+                "the Pin at that point already has a No-Connect Marker",
+            ));
+        }
+        let marker = NoConnect {
+            uuid: cx.new_id(),
+            at,
+        };
+        let uuid = marker.uuid;
+        cx.tx()?
+            .insert(Object::NoConnect(InDocument::new(p.document, marker)))?;
+        Ok(NoConnectAddResult { no_connect: uuid })
     }
 }
 

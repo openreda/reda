@@ -6,6 +6,7 @@ mod component;
 pub mod connectivity;
 mod natural;
 mod sheet;
+mod unit_move;
 mod wiring;
 
 use reda_command::{CommandError, Registry};
@@ -20,9 +21,10 @@ pub use sheet::{
     SheetFrameView, SheetRef, SheetSetSize, SheetSetSizeParams, SheetTitleBlock, TitleBlock,
     title_block,
 };
+pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
 pub use wiring::{
-    NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, SchematicNets, WireAdd,
-    WireAddParams, WireAddResult,
+    NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
+    NoConnectAddParams, NoConnectAddResult, SchematicNets, WireAdd, WireAddParams, WireAddResult,
 };
 
 /// Adds every Command defined in `reda-schematic`.
@@ -33,6 +35,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(SheetTitleBlock);
     registry.add(WireAdd);
     registry.add(NetLabelAdd);
+    registry.add(UnitMove);
+    registry.add(NoConnectAdd);
     registry.add(SchematicNets);
 }
 
