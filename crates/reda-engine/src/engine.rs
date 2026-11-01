@@ -57,6 +57,18 @@ impl Engine {
         params: Value,
         signals: &Signals,
     ) -> Result<Value, CommandError> {
+        self.run_from(self.source, id, params, signals)
+    }
+
+    /// [`Engine::run_with`] for a Command from another source than the engine's own, such
+    /// as a CLI or MCP client bridged to the app; the Journal records that source.
+    pub fn run_from(
+        &mut self,
+        source: Source,
+        id: &str,
+        params: Value,
+        signals: &Signals,
+    ) -> Result<Value, CommandError> {
         let mut env = Env {
             ids: &mut *self.ids,
             clock: &*self.clock,
@@ -68,7 +80,7 @@ impl Engine {
         self.journal.push(JournalEntry {
             id: id.to_owned(),
             params,
-            source: self.source,
+            source,
             outcome: outcome.clone(),
         });
         outcome

@@ -1,5 +1,6 @@
 //! The `reda` binary.
 
+mod bridge;
 mod commands;
 mod mcp;
 mod run;
