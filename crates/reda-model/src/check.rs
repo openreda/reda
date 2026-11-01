@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::Uuid;
 
+// A check set to `Off` does not run, so it reports nothing. (Kept out of the doc comment,
+// which is the file schemas' description.)
 /// How a check's Violations are reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
     Error,
     Warning,
-    /// The check does not run, so it reports no Violations.
     Off,
 }
 
