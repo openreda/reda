@@ -7,6 +7,7 @@ use reda_command::{
     Unavailable,
 };
 use reda_model::{DocumentEntry, DocumentKind, Project, ProjectProps, Scope, Uuid};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::DocumentRef;
@@ -23,7 +24,7 @@ pub(crate) fn register_all(registry: &mut Registry) {
 const FIRST_SHEET_TITLE: &str = "Sheet 1";
 
 /// What `project.new` and `project.open` return.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct ProjectSummary {
     pub uuid: Uuid,
     pub name: String,
@@ -46,7 +47,7 @@ fn summary(session: &Session) -> ProjectSummary {
 
 pub struct ProjectNew;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectNewParams {
     /// The folder in which the Project's own folder `<path>/<name>/` is created.
@@ -109,7 +110,7 @@ impl Command for ProjectNew {
 
 pub struct ProjectOpen;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectOpenParams {
     /// The `.reda` file, or the Project folder that holds `<folder name>.reda`.
@@ -145,7 +146,7 @@ impl Command for ProjectOpen {
 
 pub struct ProjectSave;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectSaveParams {
     /// Saves only this file: a Document's UUID, or `"project"` for the Project file.
@@ -154,7 +155,7 @@ pub struct ProjectSaveParams {
     pub document: Option<DocumentRef>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct ProjectSaveResult {
     /// The Project file.
     pub path: PathBuf,

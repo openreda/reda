@@ -12,7 +12,7 @@ mod project;
 mod transaction;
 mod uuid;
 
-pub use change::{Change, ChangeSet, Object, Scope, ScopeSummary};
+pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use document::{DocumentEntry, DocumentKind, SchematicSheet};
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

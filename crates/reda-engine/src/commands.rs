@@ -4,6 +4,7 @@
 pub mod history;
 pub mod preferences;
 pub mod project;
+pub mod query;
 
 use reda_command::Registry;
 use reda_model::{Scope, Uuid};
@@ -14,6 +15,7 @@ pub fn register_all(registry: &mut Registry) {
     history::register_all(registry);
     preferences::register_all(registry);
     project::register_all(registry);
+    query::register_all(registry);
 }
 
 /// A param naming one file of the Project: `"project"` for the Project file, or a
@@ -33,5 +35,21 @@ impl<'de> Deserialize<'de> for DocumentRef {
             ))
         })?;
         Ok(DocumentRef(Scope::Document(uuid)))
+    }
+}
+
+impl schemars::JsonSchema for DocumentRef {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "DocumentRef".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "One file of the Project: \"project\" for the Project file, or a Document's UUID.",
+            "anyOf": [
+                { "const": "project", "type": "string" },
+                { "type": "string", "format": "uuid" }
+            ]
+        })
     }
 }

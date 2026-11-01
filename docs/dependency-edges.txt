@@ -7,6 +7,7 @@ reda-cli -> reda-engine
 reda-cli -> reda-testkit [dev]
 reda-cli -> serde_json
 reda-command -> reda-model
+reda-command -> schemars
 reda-command -> serde
 reda-command -> serde_json
 reda-engine -> directories [cfg(not(target_arch = "wasm32"))]
@@ -18,13 +19,16 @@ reda-engine -> schemars
 reda-engine -> serde
 reda-engine -> serde_json
 reda-engine -> toml_edit
+reda-geom -> schemars
 reda-geom -> serde
 reda-geom -> serde_json [dev]
 reda-model -> reda-geom
+reda-model -> schemars
 reda-model -> serde
 reda-model -> serde_json [dev]
 reda-testkit -> reda-engine
 reda-testkit -> reda-model
+reda-testkit -> schemars
 reda-testkit -> serde
 reda-testkit -> serde_json
 reda-text -> harfrust

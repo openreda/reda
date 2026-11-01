@@ -1,6 +1,7 @@
 //! `edit.undo` and `edit.redo`: one step back or forward on one undo stack.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::DocumentRef;
@@ -10,14 +11,14 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(EditRedo);
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StackParams {
     /// The stack: a Document's UUID, or `"project"` for the Project file's own stack.
     pub document: DocumentRef,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 pub struct StepResult {
     /// The label of the entry undone or redone, such as "Add Wire".
     pub label: String,

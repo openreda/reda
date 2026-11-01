@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::Uuid;
@@ -12,7 +13,7 @@ use crate::document::{DocumentEntry, DocumentKind, SchematicSheet};
 ///
 /// The Document order lives here because it is a Project property: it drives sheet
 /// numbering and PDF output, and reordering is an edit on the Project's own undo stack.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectProps {
     pub uuid: Uuid,
@@ -80,6 +81,17 @@ impl Project {
             return Some(Object::Probe(probe.clone()));
         }
         self.entries.get(&uuid).cloned().map(Object::Document)
+    }
+
+    /// Every object, cloned, sorted by UUID. A new object kind adds its table here.
+    pub fn objects(&self) -> Vec<Object> {
+        let mut out: Vec<Object> = std::iter::once(Object::Project(self.props.clone()))
+            .chain(self.entries.values().cloned().map(Object::Document))
+            .collect();
+        #[cfg(feature = "test-objects")]
+        out.extend(self.probes.values().cloned().map(Object::Probe));
+        out.sort_by_key(Object::uuid);
+        out
     }
 
     /// The test-only Probe with this UUID.

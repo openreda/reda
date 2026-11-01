@@ -6,6 +6,7 @@ use reda_engine::command::{
     Command, CommandError, Context, FixedClock, Kind, Meta, Registry, SeededIds,
 };
 use reda_engine::model::{DocumentEntry, DocumentKind, Object, Probe, Uuid};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::TestEngine;
@@ -30,13 +31,13 @@ fn register_all(registry: &mut Registry) {
 /// all in one transaction. Probes in several Documents make it a cross-Document edit.
 struct ProbeSet;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ProbeSetParams {
     probes: Vec<ProbeRow>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ProbeRow {
     uuid: Uuid,
@@ -77,13 +78,13 @@ impl Command for ProbeSet {
 /// `test.sheet.add {name}`: appends a Schematic Sheet, an edit on the Project stack.
 struct SheetAdd;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SheetAddParams {
     name: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, JsonSchema)]
 struct SheetAddResult {
     uuid: Uuid,
 }

@@ -345,6 +345,7 @@ name = "reda-command"
 version = "0.0.0"
 dependencies = [
  "reda-model",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -368,6 +369,7 @@ dependencies = [
 name = "reda-geom"
 version = "0.0.0"
 dependencies = [
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -377,6 +379,7 @@ name = "reda-model"
 version = "0.0.0"
 dependencies = [
  "reda-geom",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -387,6 +390,7 @@ version = "0.0.0"
 dependencies = [
  "reda-engine",
  "reda-model",
+ "schemars",
  "serde",
  "serde_json",
 ]
