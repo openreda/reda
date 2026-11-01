@@ -1,0 +1,19 @@
+[package]
+name = "reda-cli"
+description = "The `reda` command-line binary: MCP server, Command runner and bridge client."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "reda"
+path = "src/main.rs"
+
+[dependencies]
+reda-engine = { path = "../reda-engine" }
+
+[lints]
+workspace = true

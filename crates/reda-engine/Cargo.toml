@@ -1,0 +1,15 @@
+[package]
+name = "reda-engine"
+description = "The headless entry point: Project open/save, cross-Document Commands, registry assembly."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+reda-command = { path = "../reda-command" }
+
+[lints]
+workspace = true
