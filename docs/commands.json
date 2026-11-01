@@ -5964,6 +5964,10 @@
               "designator": {
                 "type": "string"
               },
+              "designator_locked": {
+                "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
+                "type": "boolean"
+              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -8297,6 +8301,10 @@
               },
               "designator": {
                 "type": "string"
+              },
+              "designator_locked": {
+                "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
+                "type": "boolean"
               },
               "fields": {
                 "$ref": "#/$defs/Fields",
@@ -13195,6 +13203,13 @@
               "null"
             ]
           },
+          "designator_locked": {
+            "description": "Whether the Designator is locked against Re-annotate.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "fields": {
             "additionalProperties": {
               "type": [
@@ -13798,6 +13813,274 @@
         "type": "object"
       },
       "title": "Add No-Connect Marker"
+    },
+    {
+      "category": "schematic",
+      "description": "Renumbers Designators in a processing order (across then down, across then up, down then across, up then across; sheets in Document order). Each Component in the scope that is not Designator-locked gets the smallest free number for its prefix; locked and out-of-scope Components keep theirs. Every Unit of a Component gets the same Designator.",
+      "icon": "annotate",
+      "id": "schematic.reannotate",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Order": {
+            "description": "The processing orders a Re-annotate can take. Sheets are always numbered in Document\norder; within a sheet, these say how to walk it. Sheet y grows upwards, so \"down\"\nstarts at the top of the sheet.",
+            "oneOf": [
+              {
+                "const": "across_then_down",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "across_then_up",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "down_then_across",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "up_then_across",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              }
+            ]
+          },
+          "ReannotateScope": {
+            "description": "Which Components to renumber.",
+            "oneOf": [
+              {
+                "const": "project",
+                "description": "Every Component in the Project.",
+                "type": "string"
+              },
+              {
+                "const": "sheet",
+                "description": "Every Component with a Unit on the sheet `document`.",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "description": "The Components or Units listed in `selection`.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet, for scope `sheet`.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order": {
+            "$ref": "#/$defs/Order",
+            "description": "The order to number the Components in."
+          },
+          "scope": {
+            "$ref": "#/$defs/ReannotateScope"
+          },
+          "selection": {
+            "description": "Component or Unit UUIDs, for scope `selection`. A Unit stands for its Component.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "order",
+          "scope"
+        ],
+        "title": "ReannotateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Rename": {
+            "description": "One Component's Designator before and after.",
+            "properties": {
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "new": {
+                "type": "string"
+              },
+              "old": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "old",
+              "new"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Old → new for every Component renumbered, in processing order. Locked Components are\nleft out; a Component whose number comes out the same is listed with `old` = `new`.",
+        "properties": {
+          "designators": {
+            "items": {
+              "$ref": "#/$defs/Rename"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "designators"
+        ],
+        "title": "ReannotateResult",
+        "type": "object"
+      },
+      "title": "Re-annotate"
+    },
+    {
+      "category": "schematic",
+      "description": "Shows old → new for what `schematic.reannotate` would do with the same params, without changing anything.",
+      "icon": "annotate",
+      "id": "schematic.reannotate.preview",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "Order": {
+            "description": "The processing orders a Re-annotate can take. Sheets are always numbered in Document\norder; within a sheet, these say how to walk it. Sheet y grows upwards, so \"down\"\nstarts at the top of the sheet.",
+            "oneOf": [
+              {
+                "const": "across_then_down",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "across_then_up",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "down_then_across",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "up_then_across",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              }
+            ]
+          },
+          "ReannotateScope": {
+            "description": "Which Components to renumber.",
+            "oneOf": [
+              {
+                "const": "project",
+                "description": "Every Component in the Project.",
+                "type": "string"
+              },
+              {
+                "const": "sheet",
+                "description": "Every Component with a Unit on the sheet `document`.",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "description": "The Components or Units listed in `selection`.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet, for scope `sheet`.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order": {
+            "$ref": "#/$defs/Order",
+            "description": "The order to number the Components in."
+          },
+          "scope": {
+            "$ref": "#/$defs/ReannotateScope"
+          },
+          "selection": {
+            "description": "Component or Unit UUIDs, for scope `selection`. A Unit stands for its Component.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "order",
+          "scope"
+        ],
+        "title": "ReannotateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Rename": {
+            "description": "One Component's Designator before and after.",
+            "properties": {
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "new": {
+                "type": "string"
+              },
+              "old": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "old",
+              "new"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Old → new for every Component renumbered, in processing order. Locked Components are\nleft out; a Component whose number comes out the same is listed with `old` = `new`.",
+        "properties": {
+          "designators": {
+            "items": {
+              "$ref": "#/$defs/Rename"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "designators"
+        ],
+        "title": "ReannotateResult",
+        "type": "object"
+      },
+      "title": "Preview Re-annotate"
     },
     {
       "category": "schematic",

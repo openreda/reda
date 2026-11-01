@@ -16,6 +16,8 @@ pub struct ComponentSetParams {
     /// The new Designator. Only with a single Component, and not one another Component
     /// uses.
     pub designator: Option<String>,
+    /// Whether the Designator is locked against Re-annotate.
+    pub designator_locked: Option<bool>,
     /// The new value.
     pub value: Option<String>,
     /// Fields to set, by name: the built-in `description`, `datasheet`, `manufacturer`,
@@ -73,6 +75,9 @@ impl Command for ComponentSet {
             for (sheet, mut unit) in units {
                 if let Some(designator) = &p.designator {
                     unit.designator = designator.clone();
+                }
+                if let Some(locked) = p.designator_locked {
+                    unit.designator_locked = locked;
                 }
                 if let Some(value) = &p.value {
                     unit.fields.value = value.clone();

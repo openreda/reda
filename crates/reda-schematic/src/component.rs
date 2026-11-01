@@ -139,6 +139,7 @@ impl Command for ComponentPlace {
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
             mirror: p.mirror,
             designator: designator.clone(),
+            designator_locked: false,
             fields,
             footprint,
             component_type,
