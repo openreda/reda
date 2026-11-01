@@ -44,6 +44,8 @@ name = "reda-command"
 version = "0.0.0"
 dependencies = [
  "reda-model",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

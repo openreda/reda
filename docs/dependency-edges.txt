@@ -5,6 +5,8 @@
 # and check that the new edge follows the layering in docs/spec/v0.1/architecture.md#crates.
 reda-cli -> reda-engine
 reda-command -> reda-model
+reda-command -> serde
+reda-command -> serde_json
 reda-engine -> reda-command
 reda-geom -> serde
 reda-geom -> serde_json [dev]
