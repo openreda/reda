@@ -818,6 +818,90 @@ fn sync_leaves_mechanical_parts_alone_but_moves_their_pads_with_a_merge() {
 }
 
 #[test]
+fn free_pads_follow_a_merge_and_lose_a_net_with_no_merge_target() {
+    let dir = TempDir::new("sync-free-pads");
+    let mut engine = demo(&dir);
+    let (big, small) = big_and_small(&mut engine);
+    let free_pad = |engine: &mut TestEngine, net: &Value| {
+        engine.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind": "smd", "at": {"x": "200mm", "y": 0}, "width": "1mm", "net": net}),
+        )["result"]["uuid"]
+            .clone()
+    };
+    let on_small = free_pad(&mut engine, &small);
+    let on_big = free_pad(&mut engine, &big);
+    let net_of = |engine: &mut TestEngine, pad: &Value| {
+        let got = engine.run_ok("object.get", json!({"uuid": pad}));
+        got["object"].get("net").cloned().unwrap_or(Value::Null)
+    };
+
+    // SMALL merges into BIG.
+    wire(&mut engine, &[(20.0, -3.81), (30.0, -3.81)]);
+    sync(&mut engine);
+    assert_eq!(net_of(&mut engine, &on_small), big);
+
+    // BIG goes with no merge target once every Resistor is deleted.
+    let units: Vec<Value> = engine.run_ok("objects.query", json!({"type": "unit"}))["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|u| u["object"]["uuid"].clone())
+        .collect();
+    engine.run_ok("schematic.delete", json!({"objects": units}));
+    let list = preview(&mut engine);
+    assert!(of_kind(&list, "remove_net")[0].get("merge_into").is_none());
+    sync(&mut engine);
+    assert_eq!(net_of(&mut engine, &on_small), Value::Null);
+    assert_eq!(net_of(&mut engine, &on_big), Value::Null);
+}
+
+#[test]
+fn a_footprint_swap_keeps_placement_lock_and_designator_text() {
+    let dir = TempDir::new("sync-swap-placement");
+    let mut engine = demo(&dir);
+    let shunt = place(&mut engine, R_SHUNT, 0, 0);
+    sync(&mut engine);
+    let r1 = instances(&mut engine)[0]["uuid"].clone();
+    engine.run_ok(
+        "pcb.move",
+        json!({"objects": [r1], "by": {"x": "12mm", "y": "-7mm"}}),
+    );
+    engine.run_ok("pcb.rotate", json!({"objects": [r1], "angle": "90deg"}));
+    engine.run_ok("pcb.flip", json!({"objects": [r1]}));
+    engine.run_ok(
+        "pcb.designator_text.set",
+        json!({"footprint": r1, "at": {"x": "20mm", "y": "-3mm"}, "size": "1.5mm"}),
+    );
+    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    let before = instances(&mut engine)[0].clone();
+    assert_eq!(before["side"], "bottom");
+    assert_eq!(before["locked"], true);
+    assert!(before.get("designator_text").is_some(), "{before}");
+
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [shunt], "footprint": R_KELVIN}),
+    );
+    assert_eq!(of_kind(&preview(&mut engine), "change_footprint").len(), 1);
+    sync(&mut engine);
+
+    let after = instances(&mut engine)[0].clone();
+    assert_ne!(after["footprint"], before["footprint"]);
+    for key in [
+        "uuid",
+        "at",
+        "rotation",
+        "side",
+        "locked",
+        "designator_text",
+    ] {
+        assert_eq!(after[key], before[key], "{key} is kept");
+    }
+    assert_eq!(after["pads"].as_array().unwrap().len(), 4);
+}
+
+#[test]
 fn copper_on_a_removed_net_with_no_merge_target_becomes_unassigned() {
     let dir = TempDir::new("sync-unassigned");
     let mut engine = demo_with_test_commands(&dir);
