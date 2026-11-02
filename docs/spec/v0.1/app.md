@@ -41,7 +41,7 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
     | Panel | `#1d2024` | `#eceef1` |
     | Window | `#23272c` | `#f7f8fa` |
     | Text field | `#141619` | `#ffffff` |
-    | Faint (tab strips, Dock headers, icon strips) | `#24282d` | `#e4e7eb` |
+    | Faint (collapsed Dock icon strips) | `#24282d` | `#e4e7eb` |
     | Widget at rest (checkbox fill) | `#2b3036` | `#dfe3e8` |
     | Hovered | `#343a41` | `#d2d7de` |
     | Pressed | `#3d444c` | `#c5ccd5` |
@@ -60,11 +60,11 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   - **Blue on the active background** ([issue #32](https://github.com/openreda/reda/issues/32)'s follow-up): the icons' general-role blue keeps at least the prototype's contrast on the active button background, 2.0:1 dark and 2.36:1 light. A test enforces this, so a darker or more saturated active colour fails.
   - Default: follow the OS.
 - **Tabs and groups:**
-  - Each tab group has a 24 px tab strip in the faint colour. The active tab is raised in the panel colour with 3 px top corners; a hovered tab shows the hover colour. Each tab shows its 16 px icon, its title and any badge.
-  - Only the active Document's tab carries a 2 px accent line along its top.
+  - Each tab group's 24 px tab strip is a solid blue bar across the whole group, the same in both themes. The group holding the active Document, which the menus follow, has the full blue `#1f5fbf`. The other groups have a muted blue: `#2b4f7a` dark, `#3f6593` light.
+  - Each tab shows its 16 px icon, its title and any badge. The active tab's title and icon are white, and the other tabs' are `#d6e2f2`. A test keeps both at 4.5:1 or more on both bars. A hovered tab lightens. The out-of-sync badge is a dark-on-amber pill.
   - The active or hovered tab shows a × that closes it.
   - Groups have no borders: they sit 3 px apart, and the gaps show the gap colour. The gap at a Dock's inner edge is its splitter, and it turns the accent (at 60 %) while hovered or dragged.
-  - An expanded Dock has a faint 14 px header with its collapse button. A collapsed Dock is a 24 px faint icon strip, with no frame around it.
+  - An expanded Dock has no header. It collapses from the View menu's Docks submenu (Collapse Left, Right or Bottom Dock, the `layout.dock.collapse` Presets), or from Collapse Dock on any of its tabs' menus. A collapsed Dock is a 24 px faint icon strip, with no frame around it.
 - **Status bar:** from the left, "Active: <Document kind>" (Schematic Sheet, PCB Document, Symbol, Footprint, Part), the cursor's X and Y in the Document's units, and its grid; then notes such as "Zones need refilling", the "out of sync: N changes" badge, the bridge indicator and the Panels button, all flat buttons.
   - The cursor on a board is where it last snapped, measured from the Placement Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. mm read to two decimals, mil to whole mil.
 - **Command Palette** (`Mod+Shift+P`):

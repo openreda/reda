@@ -91,6 +91,26 @@ pub fn accent(theme: Theme) -> Color32 {
     colors(theme).accent
 }
 
+/// A tab group's tab strip: a solid blue bar, the deep accent on the active Document's
+/// group (the one the menus follow) and a muted blue on the others. Both themes share it,
+/// so the tabs' light titles keep 4.5:1 on either.
+pub fn tab_bar(theme: Theme, active_group: bool) -> Color32 {
+    match (theme, active_group) {
+        (_, true) => rgb(0x1f5fbf),
+        (Theme::Dark, false) => rgb(0x2b4f7a),
+        (Theme::Light, false) => rgb(0x3f6593),
+    }
+}
+
+/// A tab's title and icon on its [`tab_bar`]: bright on the active tab, dimmer otherwise.
+pub fn tab_text(active_tab: bool) -> Color32 {
+    if active_tab {
+        Color32::WHITE
+    } else {
+        rgb(0xd6e2f2)
+    }
+}
+
 /// The colour of the gaps between tab groups and Docks.
 pub fn gap(theme: Theme) -> Color32 {
     colors(theme).gap

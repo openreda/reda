@@ -201,6 +201,8 @@ const ACTIVE_BAR_MARGIN: i8 = 3;
 const ACTIVE_BAR_FRAME: f32 = 2.0 * (ACTIVE_BAR_MARGIN as f32 + 1.0);
 /// How close the Active Bar comes to the canvas's sides.
 const ACTIVE_BAR_INSET: f32 = 8.0;
+/// How far below the canvas top the Active Bar ends, for overlays that sit under it.
+pub const ACTIVE_BAR_BOTTOM: f32 = ACTIVE_BAR_TOP + ACTIVE_BAR_FRAME + chrome::BAR_BUTTON;
 
 /// The width of a row of bar items.
 fn row_width(items: &[Item]) -> f32 {

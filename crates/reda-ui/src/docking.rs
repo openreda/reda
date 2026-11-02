@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 
 use egui::containers::menu::menu_style;
 use egui::{
-    Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Response, Role, Sense,
+    Align2, Button, Color32, Id, Key, Modifiers, Popup, PopupKind, Rect, Response, Role, Sense,
     SetOpenCommand, Stroke, Ui, UiBuilder, Vec2, ViewportBuilder, ViewportId,
 };
 use reda_engine::model::{DocumentKind, Uuid};
@@ -66,8 +66,6 @@ const STRIP_BUTTON: f32 = 22.0;
 const TAB_STRIP: f32 = 24.0;
 /// The gap between tab groups, and between the Docks and the centre.
 const GAP: f32 = 3.0;
-/// The height of an expanded Dock's header, which holds its collapse button.
-const DOCK_HEADER: f32 = 14.0;
 /// The margin around a Panel's contents.
 const PANEL_MARGIN: i8 = 6;
 /// The size of a flyout from a collapsed Dock.
@@ -359,53 +357,14 @@ impl Cx<'_> {
             }
             return;
         }
-        let body = self.dock_header(ui, side, rect);
+        // An expanded Dock has no header: it collapses from the View menu or a tab's menu.
         let groups = &dock.groups;
         for (group, part) in groups
             .iter()
-            .zip(split_rect(body, Axis::Vertical, groups.len()))
+            .zip(split_rect(rect, Axis::Vertical, groups.len()))
         {
             self.group_at(ui, part, group, Area::Dock(side));
         }
-    }
-
-    /// The thin header across the top of an expanded Dock, with its collapse button;
-    /// returns the rest of `rect`, for the Dock's groups.
-    fn dock_header(&mut self, ui: &mut Ui, side: DockSide, rect: Rect) -> Rect {
-        let header = Rect::from_min_size(rect.min, Vec2::new(rect.width(), DOCK_HEADER));
-        ui.painter()
-            .rect_filled(header, 0.0, ui.visuals().faint_bg_color);
-        let size = Vec2::new(18.0, DOCK_HEADER);
-        let button = match side {
-            DockSide::Right => Rect::from_min_size(header.left_top(), size),
-            _ => Rect::from_min_size(header.right_top() - Vec2::new(size.x, 0.0), size),
-        };
-        let id = Id::NULL.with(("dock-collapse", side.to_string()));
-        let title = match side {
-            DockSide::Left => tr!("dock-collapse-left"),
-            DockSide::Right => tr!("dock-collapse-right"),
-            DockSide::Bottom => tr!("dock-collapse-bottom"),
-        };
-        let response = ui
-            .interact(button, id, Sense::click())
-            .on_hover_text(&title);
-        a11y::name(&response, Role::Button, true, &title, None, None);
-        let colour = if response.hovered() {
-            ui.visuals().strong_text_color()
-        } else {
-            ui.visuals().weak_text_color()
-        };
-        // The chevron points the way the Dock folds away.
-        let towards = match side {
-            DockSide::Left => Vec2::new(-1.0, 0.0),
-            DockSide::Right => Vec2::new(1.0, 0.0),
-            DockSide::Bottom => Vec2::new(0.0, 1.0),
-        };
-        chevron(ui, button.center(), towards, colour);
-        if response.clicked() {
-            self.run("layout.dock.collapse", json!({"dock": side}));
-        }
-        Rect::from_min_max(egui::pos2(rect.left(), header.bottom()), rect.max)
     }
 
     fn icon_strip(&mut self, ui: &mut Ui, side: DockSide) {
@@ -554,14 +513,20 @@ impl Cx<'_> {
         }
     }
 
-    /// Draws a tab group into `rect`: its tab strip, then its active tab's contents on the
-    /// panel colour. Groups have no border: the gaps between them separate them.
+    /// Draws a tab group into `rect`: its tab strip, a solid blue bar across the group, then
+    /// its active tab's contents on the panel colour. The bar is the full accent on the
+    /// group holding the active Document, which the menus follow, and muted on the others.
+    /// Groups have no border: the gaps between them separate them.
     fn group_at(&mut self, ui: &mut Ui, rect: Rect, group: &Group, area: Area) {
         let strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), TAB_STRIP));
         let body = Rect::from_min_max(egui::pos2(rect.left(), strip.bottom()), rect.max);
-        let (faint, panel) = (ui.visuals().faint_bg_color, ui.visuals().panel_fill);
-        ui.painter().rect_filled(strip, 0.0, faint);
-        ui.painter().rect_filled(body, 0.0, panel);
+        let holds_active_document = self
+            .layout
+            .active_document()
+            .is_some_and(|uuid| group.tabs.contains(&TabKey::Document(uuid)));
+        let bar = theme::tab_bar(ui.ctx().theme(), holds_active_document);
+        ui.painter().rect_filled(strip, 0.0, bar);
+        ui.painter().rect_filled(body, 0.0, ui.visuals().panel_fill);
         let clip = ui.clip_rect();
         let builder = UiBuilder::new()
             .max_rect(strip)
@@ -602,9 +567,9 @@ impl Cx<'_> {
         });
     }
 
-    /// Draws a tab; returns its rect. The active tab is raised in the panel colour, and
-    /// the active Document's tab carries an accent line along its top. The active or
-    /// hovered tab shows its close button.
+    /// Draws a tab on its group's blue bar; returns its rect. The active tab's title and
+    /// icon are bright, the others' dimmer; a hovered tab lightens. The active or hovered
+    /// tab shows its close button.
     fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) -> Rect {
         let title = tab_title(self.shell, tab);
         // The PCB tab carries the "out of sync" badge while Sync changes are pending.
@@ -612,30 +577,29 @@ impl Cx<'_> {
             TabKey::Document(uuid) if self.shell.is_pcb(*uuid) => self.shell.out_of_sync(),
             _ => 0,
         };
-        let visuals = ui.visuals().clone();
         let font = egui::TextStyle::Button.resolve(ui.style());
-        let colour = if active {
-            visuals.strong_text_color()
-        } else {
-            visuals.text_color()
-        };
+        let colour = theme::tab_text(active);
         let galley = ui
             .painter()
             .layout_no_wrap(title.clone(), font.clone(), colour);
+        // The badge is a dark-on-amber pill, legible on either blue.
+        let badge_text = Color32::from_rgb(0x14, 0x16, 0x19);
+        let badge_fill = Color32::from_rgb(0xe8, 0xa3, 0x3d);
         let badge = (pending > 0).then(|| {
             ui.painter().layout_no_wrap(
                 tr!("tab-out-of-sync-badge", count = pending),
                 egui::TextStyle::Small.resolve(ui.style()),
-                visuals.warn_fg_color,
+                badge_text,
             )
         });
-        let icon = tab_icon(self.shell, tab, ui.ctx().theme());
+        // The light art, tinted to the title's colour: the bar is blue on both themes.
+        let icon = tab_icon(self.shell, tab, egui::Theme::Dark).map(|i| i.tint(colour));
         // | 8 | icon 4 | title | 4 badge | 4 × 4 |
         let close_size = 14.0;
         let width = 8.0
             + icon.as_ref().map_or(0.0, |_| icons::TAB + 4.0)
             + galley.size().x
-            + badge.as_ref().map_or(0.0, |b| 4.0 + b.size().x)
+            + badge.as_ref().map_or(0.0, |b| 4.0 + b.size().x + 6.0)
             + 4.0
             + close_size
             + 4.0;
@@ -654,27 +618,9 @@ impl Cx<'_> {
             close
         });
         if ui.is_rect_visible(rect) {
-            let painter = ui.painter();
-            let fill = if active {
-                visuals.panel_fill
-            } else if pointed {
-                visuals.widgets.hovered.weak_bg_fill
-            } else {
-                egui::Color32::TRANSPARENT
-            };
-            let top = egui::CornerRadius {
-                nw: 3,
-                ne: 3,
-                sw: 0,
-                se: 0,
-            };
-            painter.rect_filled(rect, top, fill);
-            let shows_active_document = matches!(tab, TabKey::Document(uuid)
-                if active && self.layout.active_document() == Some(*uuid));
-            if shows_active_document {
-                let accent = theme::accent(ui.ctx().theme());
-                let y = rect.top() + 1.0;
-                painter.hline(rect.x_range(), y, Stroke::new(2.0, accent));
+            if pointed {
+                let hover = Color32::from_white_alpha(20);
+                ui.painter().rect_filled(rect, 3.0, hover);
             }
             let mut x = rect.left() + 8.0;
             if let Some(image) = icon {
@@ -692,14 +638,14 @@ impl Cx<'_> {
             x += title_width + 4.0;
             if let Some(badge) = badge {
                 let y = rect.center().y - badge.size().y / 2.0;
-                painter.galley(egui::pos2(x, y), badge, visuals.warn_fg_color);
+                let pill = Rect::from_min_size(egui::pos2(x, y), badge.size())
+                    .expand2(Vec2::new(3.0, 1.0))
+                    .translate(Vec2::new(3.0, 0.0));
+                painter.rect_filled(pill, 3.0, badge_fill);
+                painter.galley(egui::pos2(x + 3.0, y), badge, badge_text);
             }
             if let Some(close) = &close {
-                let colour = if close.hovered() {
-                    visuals.strong_text_color()
-                } else {
-                    visuals.weak_text_color()
-                };
+                let colour = theme::tab_text(close.hovered());
                 painter.text(
                     close_rect.center(),
                     Align2::CENTER_CENTER,

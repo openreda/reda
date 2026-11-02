@@ -136,17 +136,24 @@ fn a_right_click_tab_menu_splits_and_moves_to_a_new_window() {
 }
 
 #[test]
-fn a_docks_header_button_collapses_it() {
+fn the_view_menu_collapses_each_dock() {
     let mut h = harness();
     h.run();
-    h.get_by_role_and_label(Role::Button, "Collapse Left Dock")
-        .click();
-    h.run();
-    assert!(h.state().shell().layout().dock(DockSide::Left).collapsed);
-    assert_eq!(
-        journal(&h),
-        [("layout.dock.collapse".to_owned(), json!({"dock": "left"}))]
-    );
+    // The Docks have no header: collapsing is in the View menu and the tab menu.
+    assert!(h.query_by_label("Collapse Left Dock").is_none());
+    for (side, label) in [
+        (DockSide::Left, "Collapse Left Dock"),
+        (DockSide::Bottom, "Collapse Bottom Dock"),
+    ] {
+        h.get_by_role_and_label(Role::Button, "View").click();
+        h.run();
+        h.get_by_label("Docks").hover();
+        h.run();
+        h.get_by_label(label).click();
+        h.run();
+        assert!(h.state().shell().layout().dock(side).collapsed, "{label}");
+    }
+    assert!(!h.state().shell().layout().dock(DockSide::Right).collapsed);
 }
 
 #[test]

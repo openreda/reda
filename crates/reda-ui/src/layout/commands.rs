@@ -315,6 +315,25 @@ impl Command for Collapse {
     type Params = CollapseParams;
     type Output = Done;
 
+    /// One per Dock, for the View menu: the Docks have no header of their own.
+    fn presets(&self) -> Vec<Preset> {
+        [
+            (DockSide::Left, "Collapse Left Dock"),
+            (DockSide::Right, "Collapse Right Dock"),
+            (DockSide::Bottom, "Collapse Bottom Dock"),
+        ]
+        .into_iter()
+        .map(|(side, title)| {
+            Preset::new(
+                side.to_string(),
+                title,
+                "dock_collapse",
+                json!({ "dock": side }),
+            )
+        })
+        .collect()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: CollapseParams) -> Result<Done, CommandError> {
         layout(cx)?.collapse(p.dock, p.collapsed)?;
         Ok(Done {})

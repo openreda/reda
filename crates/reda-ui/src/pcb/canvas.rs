@@ -349,7 +349,11 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     let form_id = Id::NULL.with(("pcb-outline-rect", shown.response.id));
     let area = egui::Area::new(Id::NULL.with(("pcb-outline-hint", shown.response.id)))
         .order(egui::Order::Middle)
-        .fixed_pos(pos2(shown.rect.center().x, shown.rect.top() + 56.0))
+        // Clear of the Active Bar, which floats at the canvas's top.
+        .fixed_pos(pos2(
+            shown.rect.center().x,
+            shown.rect.top() + crate::bars::draw::ACTIVE_BAR_BOTTOM + 12.0,
+        ))
         .pivot(Align2::CENTER_TOP);
     area.show(ui.ctx(), |ui| {
         egui::Frame::popup(ui.style()).show(ui, |ui| {

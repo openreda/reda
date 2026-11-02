@@ -82,6 +82,32 @@ fn both_themes_meet_wcag_aa_text_contrast() {
 }
 
 #[test]
+fn tab_titles_meet_wcag_aa_on_both_blue_tab_bars() {
+    let mut failures = Vec::new();
+    for theme in [Theme::Dark, Theme::Light] {
+        let (full, muted) = (theme::tab_bar(theme, true), theme::tab_bar(theme, false));
+        // The active Document's group stands out from the others.
+        assert_ne!(full, muted, "{theme:?}");
+        for (bar, which) in [(full, "full"), (muted, "muted")] {
+            for active in [true, false] {
+                let ratio = contrast_ratio(theme::tab_text(active), bar);
+                if ratio < 4.5 {
+                    failures.push(format!(
+                        "{theme:?} {which} bar, active {active}: {ratio:.2}"
+                    ));
+                }
+            }
+        }
+    }
+    // The active tab's title is brighter than the others'.
+    assert!(
+        contrast_ratio(theme::tab_text(true), theme::tab_bar(Theme::Dark, true))
+            > contrast_ratio(theme::tab_text(false), theme::tab_bar(Theme::Dark, true))
+    );
+    assert!(failures.is_empty(), "below 4.5:1:\n{}", failures.join("\n"));
+}
+
+#[test]
 fn blue_icons_stay_legible_on_the_active_button_background() {
     // The icon style guide's general-role blue, as each theme draws it, keeps at least the
     // contrast the prototypes showed on the accent background: 2.0:1 dark, 2.36:1 light.
