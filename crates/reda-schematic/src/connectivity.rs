@@ -151,7 +151,7 @@ pub fn pin_position(unit: &UnitInstance, pin: &Pin) -> Point {
     Point::new(unit.at.x + Nm(x), unit.at.y + Nm(y))
 }
 
-fn rotate(x: i64, y: i64, angle: Millideg) -> (i64, i64) {
+pub(crate) fn rotate(x: i64, y: i64, angle: Millideg) -> (i64, i64) {
     match angle.normalized().0 {
         0 => (x, y),
         90_000 => (-y, x),

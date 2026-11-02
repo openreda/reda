@@ -4,6 +4,7 @@
 
 mod component;
 pub mod connectivity;
+mod edit;
 mod find;
 mod natural;
 mod pins;
@@ -19,6 +20,11 @@ use reda_model::{Project, SchematicSheet, Uuid};
 pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,
+};
+pub use edit::{
+    Align, AlignParams, AlignTo, Axis, Delete, DeleteParams, DeleteResult, Direction, Distribute,
+    DistributeParams, Drag, EditResult, Mirror, MirrorParams, Move, Rotate, RotateParams,
+    ShiftParams, SnapParams, SnapToGrid,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use natural::natural_cmp;
@@ -53,6 +59,14 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(UnitMove);
     registry.add(NoConnectAdd);
     registry.add(SchematicNets);
+    registry.add(Delete);
+    registry.add(Move);
+    registry.add(Drag);
+    registry.add(Rotate);
+    registry.add(Mirror);
+    registry.add(Align);
+    registry.add(Distribute);
+    registry.add(SnapToGrid);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

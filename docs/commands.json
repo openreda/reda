@@ -6093,6 +6093,58 @@
           "InDocument14": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The left end of the first baseline."
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `at`.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "text",
+              "at",
+              "height",
+              "rotation"
+            ],
+            "type": "object"
+          },
+          "InDocument15": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "shape": {
+                "$ref": "#/$defs/SheetShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "shape"
+            ],
+            "type": "object"
+          },
+          "InDocument16": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "font": {
                 "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
                 "type": "string"
@@ -6145,7 +6197,7 @@
             ],
             "type": "object"
           },
-          "InDocument15": {
+          "InDocument17": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -6826,7 +6878,7 @@
                 "$ref": "#/$defs/InDocument14",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "sheet_text",
                     "type": "string"
                   }
                 },
@@ -6837,6 +6889,32 @@
               },
               {
                 "$ref": "#/$defs/InDocument15",
+                "properties": {
+                  "type": {
+                    "const": "sheet_graphic",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument16",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument17",
                 "properties": {
                   "type": {
                     "const": "pcb_graphic",
@@ -7412,6 +7490,58 @@
               }
             ]
           },
+          "SheetShape": {
+            "description": "What a [`SheetGraphic`] draws.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight line, at any angle.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "filled": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "SheetSize": {
             "description": "A sheet's paper size. Sheets are landscape.",
             "enum": [
@@ -7697,6 +7827,16 @@
               {
                 "const": "no_connect",
                 "description": "A No-Connect Marker on a Pin.",
+                "type": "string"
+              },
+              {
+                "const": "sheet_text",
+                "description": "Free text on a Schematic Sheet.",
+                "type": "string"
+              },
+              {
+                "const": "sheet_graphic",
+                "description": "A free line or rectangle on a Schematic Sheet.",
                 "type": "string"
               },
               {
@@ -8427,6 +8567,58 @@
           "InDocument14": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The left end of the first baseline."
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `at`.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "text",
+              "at",
+              "height",
+              "rotation"
+            ],
+            "type": "object"
+          },
+          "InDocument15": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "shape": {
+                "$ref": "#/$defs/SheetShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "shape"
+            ],
+            "type": "object"
+          },
+          "InDocument16": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "font": {
                 "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
                 "type": "string"
@@ -8479,7 +8671,7 @@
             ],
             "type": "object"
           },
-          "InDocument15": {
+          "InDocument17": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -9160,7 +9352,7 @@
                 "$ref": "#/$defs/InDocument14",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "sheet_text",
                     "type": "string"
                   }
                 },
@@ -9171,6 +9363,32 @@
               },
               {
                 "$ref": "#/$defs/InDocument15",
+                "properties": {
+                  "type": {
+                    "const": "sheet_graphic",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument16",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument17",
                 "properties": {
                   "type": {
                     "const": "pcb_graphic",
@@ -9762,6 +9980,58 @@
                   "text",
                   "size",
                   "rotation"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "SheetShape": {
+            "description": "What a [`SheetGraphic`] draws.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight line, at any angle.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "filled": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
                 ],
                 "type": "object"
               }
@@ -12909,6 +13179,95 @@
     },
     {
       "category": "schematic",
+      "description": "Aligns the selected objects' left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y.",
+      "icon": "align",
+      "id": "schematic.align",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "AlignTo": {
+            "description": "What [`Align`] lines up. Up is +y.",
+            "oneOf": [
+              {
+                "const": "left",
+                "description": "Left edges on the leftmost.",
+                "type": "string"
+              },
+              {
+                "const": "right",
+                "description": "Right edges on the rightmost.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Top edges on the topmost.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Bottom edges on the bottommost.",
+                "type": "string"
+              },
+              {
+                "const": "center_x",
+                "description": "Centres on one vertical line through the middle of the selection's extent.",
+                "type": "string"
+              },
+              {
+                "const": "center_y",
+                "description": "Centres on one horizontal line through the middle of the selection's extent.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "keep_connections": {
+            "default": false,
+            "description": "Keep connections as a drag does. Off by default (detached).",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "The objects to align, by UUID, all on one sheet. Each one's extent is its Pins\nand body drawing (Units), its ends (Wires, graphics) or its point (labels,\nmarkers, text).",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "to": {
+            "$ref": "#/$defs/AlignTo"
+          }
+        },
+        "required": [
+          "objects",
+          "to"
+        ],
+        "title": "AlignParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The sheet an editing Command changed.",
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "EditResult",
+        "type": "object"
+      },
+      "title": "Align"
+    },
+    {
+      "category": "schematic",
       "description": "Lists a Component's Pins with the Pad number(s) each reaches on the Component's current Footprint, through the Part's pin map.",
       "icon": "pin",
       "id": "schematic.component.pins",
@@ -13267,6 +13626,196 @@
     },
     {
       "category": "schematic",
+      "description": "Deletes the selected objects from their sheets. Part-table entries no remaining Unit uses, and Footprint copies no remaining entry lists, go with them.",
+      "icon": "delete",
+      "id": "schematic.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "The objects to delete, by UUID: Units, Wires, Net Labels, No-Connect Markers, text\nand graphics, on any sheets.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "DeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.delete` removed.",
+        "properties": {
+          "deleted": {
+            "description": "The objects deleted, including the part-table entries and Footprint copies that no\nUnit uses any more.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "DeleteResult",
+        "type": "object"
+      },
+      "title": "Delete"
+    },
+    {
+      "category": "schematic",
+      "description": "Spaces the selected objects' centres evenly, horizontally or vertically, between the two outermost, which stay put.",
+      "icon": "distribute",
+      "id": "schematic.distribute",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Direction": {
+            "description": "Which way [`Distribute`] spaces objects.",
+            "enum": [
+              "horizontal",
+              "vertical"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "$ref": "#/$defs/Direction"
+          },
+          "keep_connections": {
+            "default": false,
+            "description": "Keep connections as a drag does. Off by default (detached).",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "The objects to space out, by UUID, all on one sheet.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "direction"
+        ],
+        "title": "DistributeParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The sheet an editing Command changed.",
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "EditResult",
+        "type": "object"
+      },
+      "title": "Distribute"
+    },
+    {
+      "category": "schematic",
+      "description": "Moves the selected objects by an offset and keeps their connections: the ends of unselected Wires on a moved Pin, Wire end or Net Label follow it, turning a corner where a Wire would go diagonal, and Net Labels and No-Connect Markers on a moved Pin come along.",
+      "icon": "drag",
+      "id": "schematic.drag",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/At",
+            "description": "How far to move them."
+          },
+          "objects": {
+            "description": "The objects to move, by UUID, all on one sheet: Units, Wires, Net Labels,\nNo-Connect Markers, text and graphics.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "by"
+        ],
+        "title": "ShiftParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The sheet an editing Command changed.",
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "EditResult",
+        "type": "object"
+      },
+      "title": "Drag"
+    },
+    {
+      "category": "schematic",
       "description": "Finds objects on every Schematic Sheet whose Designator, value or Net name contains the text (or equals it, with `exact`), ignoring case.",
       "icon": "find",
       "id": "schematic.find",
@@ -13407,6 +13956,199 @@
         "type": "object"
       },
       "title": "Find"
+    },
+    {
+      "category": "schematic",
+      "description": "Flips the selected objects left to right (axis x) or top to bottom (axis y) about a centre.",
+      "icon": "mirror",
+      "id": "schematic.mirror",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Axis": {
+            "description": "Which way a mirror flips.",
+            "oneOf": [
+              {
+                "const": "x",
+                "description": "Left to right: x coordinates flip about the centre.",
+                "type": "string"
+              },
+              {
+                "const": "y",
+                "description": "Top to bottom: y coordinates flip about the centre.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "axis": {
+            "$ref": "#/$defs/Axis",
+            "description": "`x` flips left to right (mirror X), `y` top to bottom (mirror Y)."
+          },
+          "center": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The point to flip about. By default a lone object's own origin, else the centre of\nthe selection's extent."
+          },
+          "keep_connections": {
+            "default": false,
+            "description": "Keep connections as a drag does: attached Wires follow the moved Pins. Off by\ndefault (detached).",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "The objects to flip, by UUID, all on one sheet.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "axis"
+        ],
+        "title": "MirrorParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The sheet an editing Command changed.",
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "EditResult",
+        "type": "object"
+      },
+      "title": "Mirror"
+    },
+    {
+      "category": "schematic",
+      "description": "Moves the selected objects by an offset, detached: the Wires attached to them stay where they are. Pins that land partway along a Wire split it and connect, as when placing.",
+      "icon": "move",
+      "id": "schematic.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/At",
+            "description": "How far to move them."
+          },
+          "objects": {
+            "description": "The objects to move, by UUID, all on one sheet: Units, Wires, Net Labels,\nNo-Connect Markers, text and graphics.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "by"
+        ],
+        "title": "ShiftParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The sheet an editing Command changed.",
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "EditResult",
+        "type": "object"
+      },
+      "title": "Move"
     },
     {
       "category": "schematic",
@@ -13801,6 +14543,123 @@
     },
     {
       "category": "schematic",
+      "description": "Turns the selected objects counter-clockwise about a centre, a quarter turn by default. Units, labels and text turn by any angle; Wires and rectangles only by quarter turns.",
+      "icon": "rotate",
+      "id": "schematic.rotate",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "angle": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Counter-clockwise; a quarter turn by default. Any angle turns Units, labels and\ntext; Wires and rectangles turn only in quarter turns."
+          },
+          "center": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The point to turn about. By default a lone object's own origin (a Unit's origin, a\nlabel's or text's point), else the centre of the selection's extent."
+          },
+          "keep_connections": {
+            "default": false,
+            "description": "Keep connections as a drag does: attached Wires follow the moved Pins. Off by\ndefault (detached).",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "The objects to turn, by UUID, all on one sheet.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "RotateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The sheet an editing Command changed.",
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "EditResult",
+        "type": "object"
+      },
+      "title": "Rotate"
+    },
+    {
+      "category": "schematic",
       "description": "Lists the Units that match a reference Unit on every chosen field (Part, value, Footprint, Designator prefix, Symbol Unit, Component type, Not Fitted or any field by name), on its sheet or across the Project.",
       "icon": "select_similar",
       "id": "schematic.select_similar",
@@ -14112,6 +14971,81 @@
         "type": "object"
       },
       "title": "Sheet Title Block"
+    },
+    {
+      "category": "schematic",
+      "description": "Moves each selected object's anchor points to the nearest grid point: a Unit's origin, a Wire's or line's ends, a rectangle's corners, a label's, marker's or text's point. 50 mil by default.",
+      "icon": "grid",
+      "id": "schematic.snap_to_grid",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "grid": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The grid pitch; 50 mil by default."
+          },
+          "keep_connections": {
+            "default": false,
+            "description": "Keep connections as a drag does. Off by default (detached).",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "The objects to snap, by UUID, all on one sheet.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "SnapParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The sheet an editing Command changed.",
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "EditResult",
+        "type": "object"
+      },
+      "title": "Snap to Grid"
     },
     {
       "category": "schematic",
