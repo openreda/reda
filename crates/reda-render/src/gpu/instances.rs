@@ -34,6 +34,13 @@ impl Flags {
     pub const HIGHLIGHTED: Flags = Flags(4);
     /// Faded towards the background.
     pub const DIMMED: Flags = Flags(8);
+    /// In flight: drawn at the canvas's moving offset ([`Canvas::set_moving_offset`]), so
+    /// a drag moves on screen with no geometry or flag writes.
+    ///
+    /// [`Canvas::set_moving_offset`]: super::Canvas::set_moving_offset
+    pub const MOVING: Flags = Flags(16);
+    /// Not drawn: a Wire a drag in flight redraws elsewhere.
+    pub const HIDDEN: Flags = Flags(32);
 
     pub const fn contains(self, other: Flags) -> bool {
         self.0 & other.0 == other.0
