@@ -33,10 +33,10 @@ pub use output::{
     ProjectFabPreset,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, FootprintInstance,
+    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, FootprintInstance, FreePad,
     GraphicShape, HERSHEY_FONT, InDocument, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT,
-    Net, NetClass, PadNet, PcbDocument, PcbGraphic, PcbText, Rules, Side, Track, TrackGeometry,
-    Via,
+    Net, NetClass, PadNet, PcbDocument, PcbGraphic, PcbText, PlacementOrigin, Rules, Side, Track,
+    TrackGeometry, Via,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

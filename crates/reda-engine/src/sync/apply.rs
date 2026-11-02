@@ -238,6 +238,13 @@ impl<'c, 'e> Applier<'c, 'e> {
                     moved.push(Object::Via(InDocument::new(pcb.uuid, via)));
                 }
             }
+            for pad in pcb.free_pads() {
+                if let Some(to) = merges.follow(pad.net) {
+                    let mut pad = pad.clone();
+                    pad.net = to;
+                    moved.push(Object::FreePad(InDocument::new(pcb.uuid, pad)));
+                }
+            }
         }
         for object in moved {
             self.cx.tx()?.replace(object)?;

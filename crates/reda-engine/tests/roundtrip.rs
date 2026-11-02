@@ -11,12 +11,13 @@ use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck, ErcSeverities, FabPreset,
-    FileNaming, FootprintCopy, FootprintInstance, GerberSettings, GraphicShape, InDocument, Layer,
-    LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, OutputJob, Outputs,
-    PadNet, PartEntry, PcbGraphic, PcbText, Port, PortDirection, PowerPort, PowerPortStyle,
-    Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame,
-    SheetGraphic, SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry, UnitInstance, Uuid,
-    Via, Waiver, Wire,
+    FileNaming, FootprintCopy, FootprintInstance, FootprintText, FreePad, GerberSettings,
+    GraphicShape, Hole, InDocument, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel,
+    NoConnect, Object, OutputJob, Outputs, PadKind, PadNet, PadShape, PartEntry, PcbGraphic,
+    PcbText, PlacementOrigin, Port, PortDirection, PowerPort, PowerPortStyle, Project,
+    ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetGraphic,
+    SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver,
+    Wire,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -309,11 +310,41 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             designator,
             fields: Default::default(),
             not_fitted: !flag,
-            designator_text: None,
+            designator_text: flag.then_some(FootprintText {
+                rotation: Millideg(270_000),
+                visible: false,
+                ..FootprintText::DESIGNATOR
+            }),
             pads,
         };
         objects.push(Object::FootprintCopy(InDocument::new(doc, copy)));
         objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
+        // A Free Pad and the Placement Origin come with it: through-hole on a Net, or SMD.
+        let free_pad = FreePad {
+            uuid: id(),
+            kind: if flag {
+                PadKind::PlatedThroughHole
+            } else {
+                PadKind::Smd
+            },
+            shape: PadShape::Circle,
+            at,
+            rotation: Millideg(if flag { 45_000 } else { 0 }),
+            width: Nm(3_000_000),
+            height: Nm(3_000_000),
+            corner_radius: None,
+            hole: flag.then_some(Hole {
+                width: Nm(1_000_000),
+                height: Nm(1_000_000),
+            }),
+            side: (!flag).then_some(Side::Bottom),
+            net: if flag { nets.first().copied() } else { None },
+        };
+        objects.push(Object::FreePad(InDocument::new(doc, free_pad)));
+        objects.push(Object::PlacementOrigin(InDocument::new(
+            doc,
+            PlacementOrigin { uuid: id(), at },
+        )));
     }
     let layer_ids: Vec<Uuid> = layers_of(&objects);
     for t in seed.texts {
