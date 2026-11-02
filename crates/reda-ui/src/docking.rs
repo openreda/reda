@@ -291,10 +291,7 @@ impl Cx<'_> {
             DockSide::Bottom => egui::Panel::bottom(id),
         };
         let shown = if dock.collapsed {
-            panel
-                .resizable(false)
-                .exact_size(STRIP)
-                .show(ui, reserve)
+            panel.resizable(false).exact_size(STRIP).show(ui, reserve)
         } else {
             let default = if side == DockSide::Bottom {
                 160.0
