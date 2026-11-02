@@ -219,7 +219,7 @@ fn focus_picks_the_undo_stack() {
     let home = TempDir::new("shell-home");
     let work = TempDir::new("shell-work");
     let mut shell = Shell::new(engine_in(home.path()));
-    assert_eq!(shell.undo_scope(false), None, "no Project, no stack");
+    assert_eq!(shell.undo_scope(None), None, "no Project, no stack");
     shell.new_project(work.path(), "Undo").unwrap();
     let sheet = document_of_kind(&shell, DocumentKind::Schematic);
     shell
@@ -239,25 +239,25 @@ fn focus_picks_the_undo_stack() {
 
     // The sheet's tab has focus: Mod+Z undoes on the sheet.
     assert_eq!(shell.layout().focus, Some(TabKey::Document(sheet)));
-    assert_eq!(shell.undo_scope(false), Some(Scope::Document(sheet)));
-    shell.undo(false, false).unwrap();
+    assert_eq!(shell.undo_scope(None), Some(Scope::Document(sheet)));
+    shell.undo(false, None).unwrap();
     assert_eq!((texts(&shell), count(&shell)), (0, 3));
 
     // The Projects panel uses the Project stack.
     shell
         .run("layout.tab.activate", json!({"tab": "projects"}))
         .unwrap();
-    assert_eq!(shell.undo_scope(false), Some(Scope::Project));
-    shell.undo(false, false).unwrap();
+    assert_eq!(shell.undo_scope(None), Some(Scope::Project));
+    shell.undo(false, None).unwrap();
     assert_eq!(count(&shell), 2);
-    shell.undo(true, false).unwrap();
+    shell.undo(true, None).unwrap();
     assert_eq!(count(&shell), 3);
 
     // So does a Project dialog, whatever tab has focus.
     shell
         .run("layout.tab.activate", json!({"tab": sheet.to_string()}))
         .unwrap();
-    assert_eq!(shell.undo_scope(true), Some(Scope::Project));
+    assert_eq!(shell.undo_scope(Some(Scope::Project)), Some(Scope::Project));
 }
 
 #[test]

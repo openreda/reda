@@ -119,6 +119,27 @@ fn rules_overrides_and_severities_apply_as_one_batch_and_one_undo_entry_on_the_p
 }
 
 #[test]
+fn undo_with_board_setup_open_undoes_its_changes_on_the_pcb() {
+    let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
+    let mut shell = shell_with_board(&home, &work);
+    // Something on the Project stack that the dialog's undo must leave alone.
+    shell
+        .run("project.properties.set", json!({"title": "Amp"}))
+        .unwrap();
+    let mut d = dialog(&shell);
+    d.page::<DrcPage>()
+        .unwrap()
+        .board()
+        .set_rule(RuleField::Clearance, "0.3");
+    d.apply(&mut shell).unwrap();
+    assert_eq!(pcb(&shell).setup().rules.clearance, Nm::from_um(300));
+
+    shell.undo(false, Some(d.undo_scope())).unwrap();
+    assert_eq!(pcb(&shell).setup().rules.clearance, Nm::from_um(160));
+    assert_eq!(shell.engine().project().unwrap().props().properties.title, "Amp");
+}
+
+#[test]
 fn each_rule_page_flags_its_own_invalid_values() {
     let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
     let shell = shell_with_board(&home, &work);

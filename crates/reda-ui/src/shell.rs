@@ -1093,9 +1093,9 @@ impl Shell {
 
     /// The Undo stack `Mod+Z` uses: a focused Document tab's own, else the Project's.
     /// The Projects panel (and any Panel that is not about one Document) uses the
-    /// Project stack, and so do the Project dialogs, which the window says by
-    /// `project_dialog`.
-    pub fn undo_scope(&self, project_dialog: bool) -> Option<Scope> {
+    /// Project stack. An open dialog names the stack its changes go on (`dialog`): the
+    /// Project's for Project Settings, the PCB Document's for Board Setup.
+    pub fn undo_scope(&self, dialog: Option<Scope>) -> Option<Scope> {
         if self.engine.project().is_none() {
             // With no Project open, only open Library elements have stacks.
             return match &self.layout().focus {
@@ -1108,8 +1108,8 @@ impl Shell {
                     .map(|t| Scope::Document(t.document)),
             };
         }
-        if project_dialog {
-            return Some(Scope::Project);
+        if dialog.is_some() {
+            return dialog;
         }
         match &self.layout().focus {
             Some(TabKey::Document(uuid)) => Some(Scope::Document(*uuid)),
@@ -1118,8 +1118,8 @@ impl Shell {
     }
 
     /// Undoes (or with `redo`, redoes) on the stack [`Shell::undo_scope`] picks.
-    pub fn undo(&mut self, redo: bool, project_dialog: bool) -> Result<Value, CommandError> {
-        let Some(scope) = self.undo_scope(project_dialog) else {
+    pub fn undo(&mut self, redo: bool, dialog: Option<Scope>) -> Result<Value, CommandError> {
+        let Some(scope) = self.undo_scope(dialog) else {
             return Err(CommandError::unavailable("no Project is open"));
         };
         let document = match scope {

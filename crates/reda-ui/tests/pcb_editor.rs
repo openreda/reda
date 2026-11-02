@@ -183,7 +183,7 @@ fn space_and_l_turn_and_flip_in_flight_and_release_is_one_undo_step() {
     assert_eq!(b.shell.engine().journal().len(), entries + 1);
     assert_eq!(journal_ids(&b).last().unwrap(), "batch");
 
-    b.shell.undo(false, false).unwrap();
+    b.shell.undo(false, None).unwrap();
     let f = footprint(&b, f1);
     assert_eq!(
         (f.at, f.rotation, f.side),

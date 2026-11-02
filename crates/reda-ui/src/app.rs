@@ -9,6 +9,7 @@ use std::time::Instant;
 
 use egui::{Panel, ThemePreference, Ui, UiBuilder};
 use reda_engine::Engine;
+use reda_engine::model::Scope;
 use reda_engine::preferences;
 use serde_json::json;
 
@@ -354,8 +355,11 @@ impl App {
             return;
         }
         // The Project dialogs: the Projects panel's and the settings dialog.
-        let dialog = projects_panel::dialog_open(ctx) || self.settings.is_some();
-        let active = if dialog {
+        let dialog = match &self.settings {
+            Some(settings) => Some(settings.undo_scope()),
+            None => projects_panel::dialog_open(ctx).then_some(Scope::Project),
+        };
+        let active = if dialog.is_some() {
             keymap::Active::default()
         } else {
             let mut active = keymap::active(&self.shell);

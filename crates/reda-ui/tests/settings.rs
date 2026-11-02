@@ -8,7 +8,7 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::model::geom::Nm;
-use reda_ui::engine::model::{ErcCheck, Severity, Uuid};
+use reda_ui::engine::model::{ErcCheck, Scope, Severity, Uuid};
 use reda_ui::settings::project::{self, ErcPage, FabPresetsPage, LibrariesPage, PropertiesPage};
 use reda_ui::shell::Shell;
 use serde_json::json;
@@ -77,12 +77,15 @@ fn apply_commits_every_page_as_one_batch_and_one_undo_entry() {
     assert!(!d.has_changes(), "applied changes are no longer pending");
 
     // One undo puts everything back, and the dialog follows.
-    shell.undo(false, true).unwrap();
+    shell.undo(false, Some(Scope::Project)).unwrap();
     let p = shell.engine().project().unwrap().props().clone();
     assert_eq!(p.properties.title, "");
     assert_eq!(p.erc.get(ErcCheck::SinglePinNet), Severity::Warning);
     assert!(p.libraries.is_empty());
-    assert!(shell.undo(false, true).is_err(), "nothing else to undo");
+    assert!(
+        shell.undo(false, Some(Scope::Project)).is_err(),
+        "nothing else to undo"
+    );
     d.sync(shell.engine().project().unwrap());
     assert_eq!(d.page::<PropertiesPage>().unwrap().title.value(), "");
     assert!(!d.has_changes());
