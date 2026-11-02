@@ -39,6 +39,11 @@ pub fn test_engine_in(home: &Path) -> TestEngine {
     )
 }
 
+/// The repo's starter Library, `library/starter`: what scenario scripts place Parts from.
+pub fn starter_library() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter")
+}
+
 /// Like [`test_engine`], with the Library folder `library` registered as the starter
 /// Library, for tests that place Parts.
 pub fn test_engine_with_library(library: &Path) -> TestEngine {

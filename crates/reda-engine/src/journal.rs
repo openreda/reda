@@ -8,6 +8,8 @@
 
 mod replay;
 
+use std::path::{Path, PathBuf};
+
 use reda_command::CommandError;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
@@ -119,18 +121,57 @@ fn present<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Value>, D::Error> {
 /// Points every `project.new` step of a script at a fresh folder under `dir` (`dir/1`,
 /// `dir/2`, … in script order) and returns the paths it replaced, in the same order.
 /// `project.new` writes the Project to disk, so a replay must not reuse the recorded
-/// folder; tests and the scenario harness relocate to a temporary folder.
-pub fn relocate_new_projects(steps: &mut [ScriptEntry], dir: &std::path::Path) -> Vec<Value> {
+/// folder; tests and the scenario harness relocate to a temporary folder. Later steps'
+/// params that name a path inside a replaced folder (`project.open` of the new Project,
+/// say) are moved along with it.
+pub fn relocate_new_projects(steps: &mut [ScriptEntry], dir: &Path) -> Vec<Value> {
+    move_new_projects(steps, |n| dir.join(n.to_string()))
+}
+
+/// Like [`relocate_new_projects`], with the folder for the `n`th `project.new` step
+/// (1-based) chosen by `folder`. `reda run --script --into <dir>` puts every one in `dir`.
+pub fn move_new_projects(
+    steps: &mut [ScriptEntry],
+    mut folder: impl FnMut(usize) -> PathBuf,
+) -> Vec<Value> {
     let mut replaced = vec![];
-    for step in steps.iter_mut().filter(|s| s.id == "project.new") {
-        let Some(params) = step.params.as_object_mut() else {
+    for i in 0..steps.len() {
+        if steps[i].id != "project.new" {
+            continue;
+        }
+        let Some(params) = steps[i].params.as_object_mut() else {
             continue;
         };
-        let path = dir.join((replaced.len() + 1).to_string());
+        let path = folder(replaced.len() + 1);
         let old = params.insert("path".into(), Value::from(path.to_string_lossy().as_ref()));
+        if let Some(old) = old.as_ref().and_then(Value::as_str) {
+            for later in &mut steps[i + 1..] {
+                move_paths(&mut later.params, Path::new(old), &path);
+            }
+        }
         replaced.push(old.unwrap_or(Value::Null));
     }
     replaced
+}
+
+/// Rewrites every string in `value` that is `from` or a path inside it to the same place
+/// under `to`.
+fn move_paths(value: &mut Value, from: &Path, to: &Path) {
+    match value {
+        Value::String(s) => {
+            if let Ok(rest) = Path::new(s.as_str()).strip_prefix(from) {
+                let moved = if rest.as_os_str().is_empty() {
+                    to.to_path_buf()
+                } else {
+                    to.join(rest)
+                };
+                *s = moved.to_string_lossy().into_owned();
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(|v| move_paths(v, from, to)),
+        Value::Object(fields) => fields.values_mut().for_each(|v| move_paths(v, from, to)),
+        _ => {}
+    }
 }
 
 /// The entries as JSON lines, each ending in `\n`.
