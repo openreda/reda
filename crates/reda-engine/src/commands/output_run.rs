@@ -40,7 +40,7 @@ pub struct JobRunParams {
 pub struct WrittenFile {
     /// The file name, such as `Demo.GTL`.
     pub name: String,
-    /// What it holds: `copper_top`, `copper_bottom` or `profile`.
+    /// What it holds: `copper_top`, `copper_bottom`, `profile`, `bom` or `cpl`.
     pub function: &'static str,
 }
 
@@ -66,7 +66,10 @@ impl Command for JobRun {
         title: "Run Output Job",
         description: "Runs an Output Job: refills stale Zones, plots the Gerber X2 files \
                       (top and bottom copper, the Board Outline as the Profile) and writes \
-                      them with their zip, `<project>-<job>.zip`, to the job's destination \
+                      them with the CSV BOM and CPL (columns from the job's Fab Preset; \
+                      Not Fitted and Mechanical Parts left out; CPL positions from the \
+                      Placement Origin, else the Board Outline's lower-left) and their \
+                      zip, `<project>-<job>.zip`, to the job's destination \
                       (default `outputs/<job>/`), replacing the last run's files. Duplicate \
                       Designators, an open Board Outline and, when the job writes a BOM or \
                       CPL, Components without a Footprint block the run (`rejected`, \
@@ -121,11 +124,7 @@ impl Command for JobRun {
 
         let blockers = checks::blockers(project, &pcb, &job);
         let mut warnings = checks::warnings(project, &pcb, &preset, &fonts);
-        for (on, output) in [
-            (job.outputs.drill, "drill"),
-            (job.outputs.bom, "bom"),
-            (job.outputs.cpl, "cpl"),
-        ] {
+        for (on, output) in [(job.outputs.drill, "drill")] {
             if on {
                 warnings.push(
                     Violation::new("output_not_built", reda_model::Severity::Warning)
@@ -168,12 +167,17 @@ impl Command for JobRun {
             gerber: preset.gerber,
             created,
         });
-        let known: Vec<String> = every_gerber.iter().map(|f| f.name.clone()).collect();
-        let files: Vec<OutputFile> = if job.outputs.gerber {
+        let bom = reda_output::bom_file(project, &pcb, &preset.bom);
+        let cpl = reda_output::cpl_file(project, &pcb, &preset.cpl);
+        let mut known: Vec<String> = every_gerber.iter().map(|f| f.name.clone()).collect();
+        known.extend([bom.name.clone(), cpl.name.clone()]);
+        let mut files: Vec<OutputFile> = if job.outputs.gerber {
             every_gerber
         } else {
             Vec::new()
         };
+        files.extend(job.outputs.bom.then_some(bom));
+        files.extend(job.outputs.cpl.then_some(cpl));
 
         cx.progress(3.0, Some(STEPS), "Zipping");
         cx.check_cancelled()?;
