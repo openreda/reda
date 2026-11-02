@@ -14,6 +14,7 @@ use super::view::format_length;
 use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{CanvasInputs, RubberBand};
 use crate::shell::Shell;
+use crate::tools::Tool;
 use crate::tr;
 
 /// How near a click counts as on an object, in points.
@@ -28,6 +29,25 @@ const SNAP_POINTS: f64 = 10.0;
 pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
     let nm_per_point = input.camera.nm_per_point;
     shell.set_pcb_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
+    shell
+        .router_mut()
+        .set_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
+    if matches!(shell.tool(), Tool::Route | Tool::Via) {
+        for &event in &input.events {
+            match event {
+                Pointer::Hover(at) | Pointer::Drag(at) | Pointer::DragStart { at, .. } => {
+                    shell.route_hover(board_point(at))
+                }
+                Pointer::Click { at, .. } | Pointer::DragEnd(at) => {
+                    shell.route_click(board_point(at))
+                }
+            }
+        }
+        if let Some(tab) = shell.document_tab_mut(document) {
+            tab.overlay.rubber_band = None;
+        }
+        return;
+    }
     let tolerance = Nm((PICK_POINTS * nm_per_point) as i64);
     for &event in &input.events {
         match event {
@@ -66,6 +86,7 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
 /// Draws what the board adds over its painted canvas: the snap marker and cursor
 /// position, the context menu and the "No Board Outline" hint.
 pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) {
+    super::route::draw(ui, shell, input);
     drawing(ui, shell, input);
     overlay(ui, shell, input);
     context_menu(shell, input);
@@ -193,7 +214,11 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     let hovered = shown.response.hovered()
         || shell.pcb_tool().moving()
         || shell.pcb_draw().preview().is_some();
-    if hovered && let Some((at, kind)) = shell.pcb_snap() {
+    let snapped = match shell.tool() {
+        Tool::Route | Tool::Via => shell.router().snap(),
+        _ => shell.pcb_snap(),
+    };
+    if hovered && let Some((at, kind)) = snapped {
         let c = screen(at);
         match kind {
             SnapKind::Grid => {
@@ -218,7 +243,7 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         .project()
         .and_then(|p| p.pcb())
         .map_or(crate::grid::pcb_default(units), |pcb| shell.grid(pcb.uuid));
-    let text = match shell.pcb_snap().filter(|_| hovered) {
+    let text = match snapped.filter(|_| hovered) {
         Some((at, _)) => {
             let at = shell.pcb_cursor_from_origin(at);
             tr!(

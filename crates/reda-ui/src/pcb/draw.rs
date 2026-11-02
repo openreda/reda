@@ -89,7 +89,7 @@ fn shape(tool: Tool) -> Shape {
         | Tool::UserOrigin
         | Tool::PlaceMechanical => Shape::Point,
         Tool::Measure => Shape::Measure,
-        Tool::Select | Tool::Move | Tool::Drag => Shape::None,
+        Tool::Select | Tool::Move | Tool::Drag | Tool::Route | Tool::Via => Shape::None,
     }
 }
 
@@ -497,7 +497,13 @@ impl Draw {
                            "rotation": self.rotation.0, "side": side}),
                 )
             }
-            Tool::Text | Tool::Measure | Tool::Select | Tool::Move | Tool::Drag => return None,
+            Tool::Text
+            | Tool::Measure
+            | Tool::Select
+            | Tool::Move
+            | Tool::Drag
+            | Tool::Route
+            | Tool::Via => return None,
         })
     }
 }

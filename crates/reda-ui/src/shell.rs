@@ -152,6 +152,8 @@ pub struct Shell {
     clipboard: Option<Value>,
     /// The PCB canvas's select-and-place Tool.
     pcb_tool: pcb::Tool,
+    /// The board's routing and Via Tools.
+    router: pcb::Router,
     /// The PCB drawing Tools' state (see `pcb::draw`).
     pcb_draw: pcb::draw::Draw,
     /// Whether the board's Zone fills are out of date ("Zones need refilling").
@@ -208,6 +210,7 @@ impl Shell {
             preferences: Watched::default(),
             clipboard: None,
             pcb_tool: pcb::Tool::default(),
+            router: pcb::Router::default(),
             pcb_draw: pcb::draw::Draw::default(),
             zones_stale: false,
             palette: PaletteHandle::default(),
@@ -452,6 +455,37 @@ impl Shell {
     /// The rubber band's corners while one is drawn.
     pub fn pcb_band(&self) -> Option<(Point, Point)> {
         self.pcb_tool.band()
+    }
+
+    // ---- The routing and Via Tools (see `pcb::route`) ----
+
+    /// The cursor moved to the board point `at` while routing or placing Vias.
+    pub fn route_hover(&mut self, at: Point) {
+        self.with_router(|r, shell| r.hover(shell, at));
+    }
+
+    /// A click at the board point `at` while routing or placing Vias.
+    pub fn route_click(&mut self, at: Point) {
+        self.with_router(|r, shell| r.click(shell, at));
+    }
+
+    /// The route in flight, if any.
+    pub fn route_preview(&self) -> Option<pcb::route::Preview> {
+        self.router.preview()
+    }
+
+    pub fn router(&self) -> &pcb::Router {
+        &self.router
+    }
+
+    pub fn router_mut(&mut self) -> &mut pcb::Router {
+        &mut self.router
+    }
+
+    fn with_router(&mut self, f: impl FnOnce(&mut pcb::Router, &mut Shell)) {
+        let mut router = std::mem::take(&mut self.router);
+        f(&mut router, self);
+        self.router = router;
     }
 
     /// Whether the active Document is the board, whose Tool `tool.rotate` and
@@ -1385,9 +1419,25 @@ impl Shell {
                     crate::schematic_editor::cancel(self, document);
                 }
                 self.pcb_cancel();
+                self.with_router(|r, shell| r.cancel(shell));
                 let part = out["part"].as_str().and_then(|p| p.parse().ok());
                 let tool = self.tool();
                 self.pcb_draw.start(tool, part);
+            }
+            "tool.cycle_corner" => self.with_router(|r, shell| r.cycle_corner(shell)),
+            "tool.undo_segment" if self.tool() == Tool::Route => {
+                self.with_router(|r, shell| r.undo_segment(shell))
+            }
+            "pcb.route.add_via" => self.with_router(|r, shell| r.add_via(shell)),
+            "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
+            "pcb.route.width" => {
+                let width = out["width"].as_i64().map(Nm);
+                let step = match out["step"].as_str() {
+                    Some("next") => Some(1),
+                    Some("previous") => Some(-1),
+                    _ => None,
+                };
+                self.with_router(|r, shell| r.set_width(shell, width, step));
             }
             "tool.undo_segment" if self.drawing() => self.pcb_draw.undo_segment(),
             "tool.finish" if self.drawing() => self.with_draw(|draw, shell| draw.finish(shell)),

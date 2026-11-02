@@ -14,6 +14,7 @@ mod rules;
 mod text;
 mod text_geometry;
 mod track;
+mod track_edit;
 mod via;
 mod zone;
 mod zone_fill;
@@ -24,6 +25,7 @@ pub use outline::rect_outline;
 pub use placement::{
     Op as PlacementOp, Placed, anchor as placement_anchor, preview as placement_preview,
 };
+pub use track_edit::{DragPlan as TrackDragPlan, drag_plan as track_drag_plan};
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
@@ -43,6 +45,7 @@ pub fn register_all(registry: &mut Registry, sync: SyncCheck) {
     registry.add(text_geometry::TextGeometry);
     graphic::register_all(registry);
     track::register_all(registry);
+    track_edit::register_all(registry);
     via::register_all(registry);
     copper::register_all(registry);
     drc::register_all(registry, sync);

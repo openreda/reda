@@ -59,6 +59,10 @@ pub enum Tool {
     Measure,
     /// Places a Mechanical Part (`part` names it), as the Library panel starts it.
     PlaceMechanical,
+    /// Routes Tracks on the board: clicks place corners, same-Net copper ends the route (T).
+    Route,
+    /// Places stitching Vias on the board, one per click (V).
+    Via,
 }
 
 impl Tool {
@@ -82,12 +86,18 @@ impl Tool {
             Tool::UserOrigin => "user_origin",
             Tool::Measure => "measure",
             Tool::PlaceMechanical => "place_mechanical",
+            Tool::Route => "route",
+            Tool::Via => "via",
         }
     }
 
-    /// Whether the Tool draws or places on the board (see [`crate::pcb::draw`]).
+    /// Whether the Tool draws or places on the board (see [`crate::pcb::draw`]); routing
+    /// and Vias have their own Tool (`pcb::route`).
     pub fn draws_on_board(self) -> bool {
-        !matches!(self, Tool::Select | Tool::Move | Tool::Drag)
+        !matches!(
+            self,
+            Tool::Select | Tool::Move | Tool::Drag | Tool::Route | Tool::Via
+        )
     }
 }
 
@@ -152,8 +162,9 @@ impl Command for ToolActivate {
         id: "tool.activate",
         title: "Activate Tool",
         description: "Makes a canvas Tool active. Move and Drag pick up the selection, which \
-                      then follows the pointer until a click puts it down; Select (also \
-                      what Escape returns to) cancels a Tool in flight.",
+                      then follows the pointer until a click puts it down; Route and Via \
+                      draw copper on the board; Select (also what Escape returns to) \
+                      cancels a Tool in flight.",
         category: "tool",
         icon: "select",
         kind: Kind::View,
@@ -166,6 +177,8 @@ impl Command for ToolActivate {
             Preset::new("select", "Select", "select", json!({"tool": "select"})),
             Preset::new("move", "Move", "move", json!({"tool": "move"})),
             Preset::new("drag", "Drag", "drag", json!({"tool": "drag"})),
+            Preset::new("route", "Route Tracks", "track", json!({"tool": "route"})),
+            Preset::new("via", "Place Vias", "via", json!({"tool": "via"})),
         ];
         for (tool, title, icon) in BOARD_TOOLS {
             let id = tool.id();
@@ -179,7 +192,8 @@ impl Command for ToolActivate {
         cx: &mut Context<'_>,
         p: ToolActivateParams,
     ) -> Result<ToolActivateResult, CommandError> {
-        if matches!(p.tool, Tool::Move | Tool::Drag) && cx.view::<Selection>()?.objects.is_empty() {
+        let carries = matches!(p.tool, Tool::Move | Tool::Drag);
+        if carries && cx.view::<Selection>()?.objects.is_empty() {
             return Err(CommandError::rejected(
                 "nothing is selected: select what to move first",
             ));
