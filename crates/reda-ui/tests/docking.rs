@@ -166,3 +166,135 @@ fn a_collapsed_dock_shows_icons_that_open_flyouts() {
         ]
     );
 }
+
+/// Presses on the tab `label` and drags it to `to`, holding the button down.
+fn drag_tab(h: &mut Harness<'_, App>, label: &str, to: egui::Pos2) {
+    let from = h.get_by_label(label).rect().center();
+    h.drag_at(from);
+    h.run();
+    h.hover_at(to);
+    h.run();
+}
+
+/// Moves the held drag onto the drop-target button `label`, then releases it there.
+fn drop_on_button(h: &mut Harness<'_, App>, label: &str) {
+    let at = h.get_by_label(label).rect().center();
+    h.hover_at(at);
+    h.run();
+    h.drop_at(at);
+    h.run();
+}
+
+#[test]
+fn dropping_a_tab_on_a_split_button_runs_one_split_command() {
+    let mut h = harness();
+    h.run();
+    let start = h.get_by_label("Welcome to REDA").rect().center();
+    drag_tab(&mut h, "Properties", start);
+    // Over the centre group, its five drop targets and the three Dock edges show.
+    for label in [
+        "Drop into Group",
+        "Drop to the Left",
+        "Drop to the Right",
+        "Drop Above",
+        "Drop Below",
+        "Drop in Left Dock",
+        "Drop in Right Dock",
+        "Drop in Bottom Dock",
+    ] {
+        h.get_by_label(label);
+    }
+    drop_on_button(&mut h, "Drop to the Left");
+
+    let centre = h
+        .state()
+        .shell()
+        .layout()
+        .place(&TabKey::Start)
+        .unwrap()
+        .group;
+    assert_eq!(
+        journal(&h),
+        [(
+            "layout.tab.split".to_owned(),
+            json!({"tab": "properties", "group": centre, "side": "left"})
+        )]
+    );
+    assert_eq!(place(&h, PanelId::Properties), Some(Area::Centre));
+    // The drag is over, and its targets are gone.
+    assert!(h.query_by_label("Drop to the Left").is_none());
+}
+
+#[test]
+fn dropping_a_tab_on_a_tab_strip_or_a_dock_edge_moves_it_there() {
+    let mut h = harness();
+    h.run();
+    // Onto the left half of the Start tab: first in the centre group.
+    let start_tab = h.get_by_label("Start").rect();
+    let before_start = egui::pos2(start_tab.left() + 2.0, start_tab.center().y);
+    drag_tab(&mut h, "Messages", before_start);
+    h.drop_at(before_start);
+    h.run();
+    let centre = h
+        .state()
+        .shell()
+        .layout()
+        .place(&TabKey::Start)
+        .unwrap()
+        .group;
+    assert_eq!(
+        journal(&h),
+        [(
+            "layout.tab.move_to_group".to_owned(),
+            json!({"tab": "messages", "group": centre, "index": 0})
+        )]
+    );
+
+    // Over the centre group, which now shows Messages.
+    let start = start_tab.center() + egui::vec2(0.0, 200.0);
+    drag_tab(&mut h, "Projects", start);
+    drop_on_button(&mut h, "Drop in Right Dock");
+    assert_eq!(
+        journal(&h)[1],
+        (
+            "layout.tab.move_to_dock".to_owned(),
+            json!({"tab": "projects", "dock": "right"})
+        )
+    );
+    assert_eq!(
+        place(&h, PanelId::Projects),
+        Some(Area::Dock(DockSide::Right))
+    );
+}
+
+#[test]
+fn a_drop_the_layout_would_refuse_shows_why_before_the_release() {
+    let mut h = harness();
+    h.run();
+    let before = h.state().shell().layout().clone();
+    // Messages is alone in the bottom Dock, so it cannot split from its own group.
+    let messages = h.get_by_label("Messages").rect();
+    let below = egui::pos2(messages.center().x + 200.0, messages.bottom() + 15.0);
+    drag_tab(&mut h, "Messages", below);
+    let above = h.get_by_label("Drop Above").rect().center();
+    h.hover_at(above);
+    h.run();
+    h.get_by_label_contains("Can't drop here");
+    h.get_by_label_contains("alone in its group");
+
+    h.drop_at(above);
+    h.run();
+    assert!(journal(&h).is_empty(), "a refused drop runs nothing");
+    assert_eq!(*h.state().shell().layout(), before);
+    assert!(h.query_by_label_contains("Can't drop here").is_none());
+}
+
+#[test]
+fn releasing_a_tab_where_it_already_is_runs_nothing() {
+    let mut h = harness();
+    h.run();
+    let start = h.get_by_label("Welcome to REDA").rect().center();
+    drag_tab(&mut h, "Start", start);
+    drop_on_button(&mut h, "Drop into Group");
+    assert!(journal(&h).is_empty());
+}
