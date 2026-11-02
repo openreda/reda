@@ -25,6 +25,8 @@ toml_edit.workspace = true
 # Finding the platform's per-user folders. A browser build has none.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 directories.workspace = true
+# The canvas renderer behind `document.render`. wgpu stays out of the browser build.
+reda-render = { path = "../reda-render", features = ["gpu"] }
 
 [dev-dependencies]
 proptest.workspace = true

@@ -28,7 +28,11 @@ tokio = "1.52"
 # The control-port token: 256 bits from the OS random source (reda-control).
 getrandom = "0.4"
 # Deleted Documents' files go to the OS trash on save (reda-cli; the app later). MIT.
-trash = { version = "5.2", default-features = false }
+trash = { version = "5.2", default-features = false, features = ["coinit_apartmentthreaded"] }
+# The canvas renderer (reda-render's `gpu` feature). wgpu must equal egui-wgpu's (0.37 uses
+# 30.0); png encodes `document.render` output.
+wgpu = "30.0.1"
+png = "0.18.1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

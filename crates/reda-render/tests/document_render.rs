@@ -89,11 +89,9 @@ fn the_view_can_be_a_rectangle_or_fit_a_set_of_objects() {
 }
 
 #[test]
-fn png_needs_the_gpu_backend_and_unknown_documents_are_not_found() {
+fn unknown_documents_are_not_found() {
     let dir = TempDir::new("render-errors");
     let mut engine = demo(&dir);
-    let err = engine.run_err("document.render", json!({"document": SHEET}));
-    assert_eq!(code(&err), "unavailable", "{err:?}");
     let err = engine.run_err(
         "document.render",
         json!({"document": "00000000-0000-4000-8000-0000000000ff", "format": "svg"}),
