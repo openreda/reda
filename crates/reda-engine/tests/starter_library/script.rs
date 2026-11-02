@@ -39,7 +39,10 @@ pub struct Uuids(BTreeMap<String, Vec<Uuid>>);
 impl Uuids {
     pub fn parse(text: &str) -> Uuids {
         let mut table = Uuids::default();
-        for line in text.lines().filter(|l| !l.is_empty() && !l.starts_with('#')) {
+        for line in text
+            .lines()
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        {
             let (key, uuid) = line
                 .split_once('\t')
                 .unwrap_or_else(|| panic!("uuids.tsv: no tab in {line:?}"));

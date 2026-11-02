@@ -27,6 +27,13 @@ pub fn build(s: &mut Script) {
 /// mating face at the bottom (−y) edge of the Footprint so it sits at a board edge. Pads
 /// that carry the same signal for both plug orientations are one Pad (`A1` is A1 and
 /// B12), and the Pin map ties the remaining pairs and the four shell legs together.
+///
+/// The land pattern is GCT USB4105 drawing (revision B4, 18/12/23), Recommended PCB
+/// Layout: 12 pads 1.15 mm long, 0.60 mm wide at ±3.20 and ±2.40 mm, 0.30 mm wide on a
+/// 0.50 mm pitch between; shell slots at ±4.32 mm, 1.00 × 2.10 mm pads with 0.60 × 1.70 mm
+/// slots at the rear and 1.00 × 1.80 mm with 0.60 × 1.40 mm in front, 4.18 mm apart, the
+/// pads' inner edge level with the rear slots; Ø0.65 mm pegs at ±2.89 mm, 3.68 mm behind
+/// the front slots; the board edge 2.60 mm in front of them; body 8.94 × 7.35 mm.
 fn usb_c(s: &mut Script) {
     let sym = s.symbol("USB_C_USB2.0", "J", "USB 2.0 Type-C receptacle");
     for (name, number, y) in [
@@ -47,11 +54,12 @@ fn usb_c(s: &mut Script) {
 
     let fp = s.footprint(
         "USB_C_Receptacle_16P_Horizontal",
-        "USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge",
+        "USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board \
+         edge. Lands per GCT USB4105 drawing, Recommended PCB Layout",
     );
     for (number, x, wide) in [
-        ("A1", -3.25, true),
-        ("A4", -2.45, true),
+        ("A1", -3.2, true),
+        ("A4", -2.4, true),
         ("B8", -1.75, false),
         ("A5", -1.25, false),
         ("B7", -0.75, false),
@@ -60,8 +68,8 @@ fn usb_c(s: &mut Script) {
         ("B6", 0.75, false),
         ("A8", 1.25, false),
         ("B5", 1.75, false),
-        ("B4", 2.45, true),
-        ("B1", 3.25, true),
+        ("B4", 2.4, true),
+        ("B1", 3.2, true),
     ] {
         s.pad(
             &fp,
@@ -69,9 +77,9 @@ fn usb_c(s: &mut Script) {
                 "number": number,
                 "kind": "smd",
                 "shape": "rect",
-                "at": {"x": mm(x), "y": mm(4.045)},
+                "at": {"x": mm(x), "y": mm(3.705)},
                 "width": mm(if wide { 0.6 } else { 0.3 }),
-                "height": mm(1.45),
+                "height": mm(1.15),
             }),
         );
     }
@@ -79,8 +87,8 @@ fn usb_c(s: &mut Script) {
     for (number, x, y, height, slot) in [
         ("S1", -4.32, 3.13, 2.1, 1.7),
         ("S2", 4.32, 3.13, 2.1, 1.7),
-        ("S3", -4.32, -1.05, 1.6, 1.2),
-        ("S4", 4.32, -1.05, 1.6, 1.2),
+        ("S3", -4.32, -1.05, 1.8, 1.4),
+        ("S4", 4.32, -1.05, 1.8, 1.4),
     ] {
         s.pad(
             &fp,
@@ -103,21 +111,26 @@ fn usb_c(s: &mut Script) {
                 "number": "",
                 "kind": "non_plated",
                 "shape": "circle",
-                "at": {"x": mm(x), "y": mm(2.6)},
+                "at": {"x": mm(x), "y": mm(2.63)},
                 "width": mm(0.65),
                 "height": mm(0.65),
                 "hole": {"width": mm(0.65)},
             }),
         );
     }
-    let (bx, face, rear) = (mm(4.47), mm(-3.65), mm(3.65));
+    let (bx, face, rear) = (mm(4.47), mm(-3.65), mm(3.7));
     s.fp_draw(&fp, "assembly_top", rect(-bx, face, bx, rear), mm(0.1));
-    // Silkscreen down the sides, clear of the shell legs.
+    // Silkscreen down the sides, 0.2 mm clear of the shell legs' pads.
     for x in [-bx, bx] {
-        s.fp_draw(&fp, "silkscreen_top", line(x, face, x, mm(-2.05)), mm(0.12));
-        s.fp_draw(&fp, "silkscreen_top", line(x, 0, x, mm(1.85)), mm(0.12));
+        s.fp_draw(&fp, "silkscreen_top", line(x, face, x, mm(-2.21)), mm(0.12));
+        s.fp_draw(
+            &fp,
+            "silkscreen_top",
+            line(x, mm(0.11), x, mm(1.82)),
+            mm(0.12),
+        );
     }
-    let (cx, top) = (mm(5.1), mm(5.05));
+    let (cx, top) = (mm(5.1), mm(4.55));
     s.fp_draw(&fp, "courtyard_top", rect(-cx, mm(-3.9), cx, top), mm(0.05));
     let fp = s.finish_footprint(&fp, top);
 
@@ -198,6 +211,16 @@ fn header(s: &mut Script, sym: &str, rows: usize, count: usize, socket: bool) {
 }
 
 /// Rising-clamp screw terminal blocks at 5.08 and 3.50 mm pitch.
+///
+/// 5.08 mm: Same Sky TB007-508 datasheet (rev 1.03), Mechanical Drawing and PCB Layout:
+/// Ø1.60 mm holes; body L = 5.08 × N, 10.25 mm deep with the pins 4.90 mm from the back.
+///
+/// 3.50 mm: Würth Elektronik 691214110002 (WR-TBL Series 2141, rising cage clamp)
+/// datasheet, Dimensions and Recommended Hole Pattern: Ø1.3 mm holes; body 7.05 mm long for
+/// two positions (1.775 mm past the end pins), 7.4 mm deep with the pins 4.0 mm from the
+/// wire entry.
+///
+/// Pads are the hole + 1.0 mm, more than IPC-2221 Level B's hole + 0.6 mm.
 fn screw_terminals(s: &mut Script) {
     for count in [2usize, 3] {
         let sym = format!("Conn_1x{count:02}");
@@ -205,9 +228,31 @@ fn screw_terminals(s: &mut Script) {
             .symbol_named(&sym)
             .unwrap_or_else(|| panic!("{sym} is made with the headers"));
         let mut footprints = vec![];
-        for (pitch, pad, drill, depth) in [(5.08, 2.6, 1.3, 8.0), (3.5, 2.0, 1.1, 7.0)] {
+        // Pitch, pad, hole, body past the end pins, and body depth in front of (wire
+        // entry) and behind the pins.
+        for (pitch, pad, drill, end, entry, back, source) in [
+            (
+                5.08,
+                2.6,
+                1.6,
+                2.54,
+                5.35,
+                4.9,
+                "Same Sky TB007-508 datasheet",
+            ),
+            (
+                3.5,
+                2.3,
+                1.3,
+                1.775,
+                4.0,
+                3.4,
+                "Würth Elektronik 691214110002 datasheet",
+            ),
+        ] {
             let name = format!("TERM_Screw_1x{count:02}_P{pitch:.2}mm");
-            let description = format!("Screw terminal block, {count} positions, {pitch} mm pitch");
+            let description =
+                format!("Screw terminal block, {count} positions, {pitch} mm pitch. Per {source}");
             let fp = s.footprint(&name, &description);
             let first = -(count as f64 - 1.0) * pitch / 2.0;
             for i in 0..count {
@@ -226,8 +271,8 @@ fn screw_terminals(s: &mut Script) {
                 );
             }
             // The block runs from the wire entry (below) to the screws (above).
-            let bx = count as f64 * pitch / 2.0;
-            let (bottom, top) = (-depth * 0.4, depth * 0.6);
+            let bx = (count as f64 - 1.0) * pitch / 2.0 + end;
+            let (bottom, top) = (-entry, back);
             s.fp_draw(
                 &fp,
                 "assembly_top",

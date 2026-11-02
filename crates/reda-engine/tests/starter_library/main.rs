@@ -139,7 +139,122 @@ fn a_new_element_gets_fresh_uuids_and_an_entry_in_the_uuid_table() {
         assert_ne!(a, b);
     }
     let table = s.uuids().to_text();
-    assert!(table.contains(&format!("part/Gadget\t{}\n", second[2])), "{table}");
+    assert!(
+        table.contains(&format!("part/Gadget\t{}\n", second[2])),
+        "{table}"
+    );
+}
+
+/// The gap kept between Silkscreen and copper, as the Footprint generators keep it.
+const SILKSCREEN_CLEARANCE_MM: f64 = 0.2;
+
+/// Points every 0.02 mm along a Footprint graphic's outline, in millimetres.
+fn outline_points(shape: &Value) -> Vec<(f64, f64)> {
+    let mm = |v: &Value| v.as_f64().unwrap() / 1e6;
+    let p = |v: &Value| (mm(&v["x"]), mm(&v["y"]));
+    let segment = |a: (f64, f64), b: (f64, f64)| {
+        let n = ((b.0 - a.0).hypot(b.1 - a.1) / 0.02).ceil().max(1.0) as usize;
+        (0..=n)
+            .map(|i| {
+                let t = i as f64 / n as f64;
+                (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)
+            })
+            .collect::<Vec<_>>()
+    };
+    let around = |c: (f64, f64), r: f64, from: f64, sweep: f64| {
+        let n = ((r * sweep.abs()) / 0.02).ceil().max(1.0) as usize;
+        (0..=n)
+            .map(|i| {
+                let a = from + sweep * i as f64 / n as f64;
+                (c.0 + r * a.cos(), c.1 + r * a.sin())
+            })
+            .collect::<Vec<_>>()
+    };
+    match shape["kind"].as_str().unwrap() {
+        "line" => segment(p(&shape["start"]), p(&shape["end"])),
+        "rect" => {
+            let (a, b) = (p(&shape["start"]), p(&shape["end"]));
+            let corners = [a, (b.0, a.1), b, (a.0, b.1), a];
+            corners
+                .windows(2)
+                .flat_map(|w| segment(w[0], w[1]))
+                .collect()
+        }
+        "polygon" => {
+            let mut points: Vec<(f64, f64)> =
+                shape["points"].as_array().unwrap().iter().map(p).collect();
+            points.push(points[0]);
+            points
+                .windows(2)
+                .flat_map(|w| segment(w[0], w[1]))
+                .collect()
+        }
+        "circle" => around(
+            p(&shape["center"]),
+            mm(&shape["radius"]),
+            0.0,
+            std::f64::consts::TAU,
+        ),
+        "arc" => {
+            let (c, s) = (p(&shape["center"]), p(&shape["start"]));
+            let sweep = (shape["sweep"].as_f64().unwrap() / 1000.0).to_radians();
+            around(
+                c,
+                (s.0 - c.0).hypot(s.1 - c.1),
+                (s.1 - c.1).atan2(s.0 - c.0),
+                sweep,
+            )
+        }
+        _ => vec![],
+    }
+}
+
+/// How far `point` is from a Pad's copper, in millimetres (0 inside). Rounded
+/// rectangles count as their full rectangle.
+fn distance_to_pad(pad: &Value, (x, y): (f64, f64)) -> f64 {
+    let mm = |v: &Value| v.as_f64().unwrap() / 1e6;
+    let (cx, cy) = (mm(&pad["at"]["x"]), mm(&pad["at"]["y"]));
+    let (mut w, mut h) = (mm(&pad["width"]), mm(&pad["height"]));
+    match pad["rotation"].as_i64().unwrap_or(0) {
+        0 | 180_000 => {}
+        90_000 | 270_000 => std::mem::swap(&mut w, &mut h),
+        other => panic!("Pad rotated {other} millidegrees"),
+    }
+    let (dx, dy) = ((x - cx).abs(), (y - cy).abs());
+    match pad["shape"].as_str().unwrap() {
+        "circle" => ((dx).hypot(dy) - w / 2.0).max(0.0),
+        "oval" => {
+            // A stadium: a segment along the long side, widened by the short half-width.
+            let r = w.min(h) / 2.0;
+            let (sx, sy) = ((w / 2.0 - r).max(0.0), (h / 2.0 - r).max(0.0));
+            ((dx - sx).max(0.0).hypot((dy - sy).max(0.0)) - r).max(0.0)
+        }
+        _ => (dx - w / 2.0).max(0.0).hypot((dy - h / 2.0).max(0.0)),
+    }
+}
+
+#[test]
+fn silkscreen_stays_clear_of_every_pad() {
+    let mut problems = vec![];
+    for (rel, bytes) in read_tree(&starter().join("footprints")) {
+        let footprint: Value = serde_json::from_slice(&bytes).unwrap();
+        let pads = footprint["pads"].as_array().unwrap();
+        for graphic in footprint["graphics"].as_array().unwrap() {
+            if !graphic["layer"].as_str().unwrap().starts_with("silkscreen") {
+                continue;
+            }
+            let half_width = graphic["width"].as_f64().unwrap() / 2e6;
+            let gap = outline_points(&graphic["shape"])
+                .into_iter()
+                .flat_map(|point| pads.iter().map(move |pad| distance_to_pad(pad, point)))
+                .fold(f64::INFINITY, f64::min)
+                - half_width;
+            if gap < SILKSCREEN_CLEARANCE_MM - 1e-3 {
+                problems.push(format!("{rel}: Silkscreen {gap:.3} mm from a Pad"));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
 /// Every Part of the checked-in Library, by name.
@@ -220,7 +335,7 @@ fn generic_passives_and_discretes_have_footprint_alternates() {
         "Crystal_HC-49US",
         "Timer_555",
         "LDO_SOT-223",
-        "MCU_USB_TSSOP-20",
+        "STM32F042F6P6",
         "USB_C_Receptacle_USB2.0",
     ] {
         let part = &parts[name];

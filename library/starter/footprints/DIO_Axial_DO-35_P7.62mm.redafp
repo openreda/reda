@@ -1,19 +1,19 @@
 {
   "format": 1,
-  "footprint": {"uuid":"3bd53cfd-bcbc-4628-a910-226fbcc07db4","name":"DIO_Axial_DO-35_P7.62mm","description":"Diode, DO-35 axial, 4.0 × 1.9 mm body, leads 7.62 mm apart"},
-  "text": {"designator":{"at":{"x":0,"y":2000000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"3bd53cfd-bcbc-4628-a910-226fbcc07db4","name":"DIO_Axial_DO-35_P7.62mm","description":"Diode, DO-35 axial, 4.56 × 1.91 mm body, leads 7.62 mm apart. Per onsemi axial lead case 017AG"},
+  "text": {"designator":{"at":{"x":0,"y":2005000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
     {"uuid":"1c80f322-c118-4598-abe0-629c0f94ddd5","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-3810000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
     {"uuid":"faf691c0-2123-473d-bb7c-8974b1d7dcc8","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":3810000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
   ],
   "graphics": [
-    {"uuid":"56ec5158-6a2b-463b-bba0-af8b1c46b193","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2060000,"y":0},"end":{"x":-2750000,"y":0}},"width":120000},
-    {"uuid":"66a73451-f910-4db9-84ba-42d61e964cb9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2000000,"y":-950000},"end":{"x":2000000,"y":950000}},"width":100000},
-    {"uuid":"7412b3dd-e2bf-4108-8293-9c93c034d266","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2060000,"y":0},"end":{"x":2750000,"y":0}},"width":120000},
-    {"uuid":"77066146-bdbc-43ab-bbd0-47955d6bd148","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1400000,"y":-1010000},"end":{"x":-1400000,"y":1010000}},"width":120000},
-    {"uuid":"9599d6cc-9b71-467c-93cb-027c7a88ecc7","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1250000,"y":-1010000},"end":{"x":-1250000,"y":1010000}},"width":120000},
-    {"uuid":"993a0abb-5400-440b-9ba6-da860f728be1","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-2060000,"y":-1010000},"end":{"x":2060000,"y":1010000}},"width":120000},
-    {"uuid":"a68f5347-5950-4fb4-941e-f634699fd15a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1100000,"y":-1010000},"end":{"x":-1100000,"y":1010000}},"width":120000},
-    {"uuid":"cc025516-23bd-4d31-81ce-b28698a25cea","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4860000,"y":-1200000},"end":{"x":4860000,"y":1200000}},"width":50000}
+    {"uuid":"56ec5158-6a2b-463b-bba0-af8b1c46b193","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2340000,"y":0},"end":{"x":-2750000,"y":0}},"width":120000},
+    {"uuid":"66a73451-f910-4db9-84ba-42d61e964cb9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2280000,"y":-955000},"end":{"x":2280000,"y":955000}},"width":100000},
+    {"uuid":"7412b3dd-e2bf-4108-8293-9c93c034d266","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2340000,"y":0},"end":{"x":2750000,"y":0}},"width":120000},
+    {"uuid":"77066146-bdbc-43ab-bbd0-47955d6bd148","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1700000,"y":-1015000},"end":{"x":-1700000,"y":1015000}},"width":120000},
+    {"uuid":"9599d6cc-9b71-467c-93cb-027c7a88ecc7","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1550000,"y":-1015000},"end":{"x":-1550000,"y":1015000}},"width":120000},
+    {"uuid":"993a0abb-5400-440b-9ba6-da860f728be1","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-2340000,"y":-1015000},"end":{"x":2340000,"y":1015000}},"width":120000},
+    {"uuid":"a68f5347-5950-4fb4-941e-f634699fd15a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1400000,"y":-1015000},"end":{"x":-1400000,"y":1015000}},"width":120000},
+    {"uuid":"cc025516-23bd-4d31-81ce-b28698a25cea","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4860000,"y":-1205000},"end":{"x":4860000,"y":1205000}},"width":50000}
   ]
 }

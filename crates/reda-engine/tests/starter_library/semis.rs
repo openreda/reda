@@ -132,31 +132,40 @@ fn smd_two(s: &mut Script, t: Smd<'_>) -> String {
 }
 
 fn diode_footprints(s: &mut Script) -> Diodes {
+    // onsemi MMSD4148T1/D, SOD-123 case 425 issue H, Recommended Mounting Footprint:
+    // 0.91 × 1.22 mm pads, centres 3.27 mm apart; body E × D 2.69 × 1.60 mm nominal.
     let sod123 = smd_two(
         s,
         Smd {
             name: "DIO_SOD-123",
-            description: "Diode, SOD-123, 2.7 × 1.6 mm body",
-            pitch: 3.2,
-            pad: (1.0, 0.9),
-            body: (2.7, 1.6),
+            description: "Diode, SOD-123, 2.69 × 1.60 mm body. \
+                          Lands per onsemi SOD-123 case 425, Recommended Mounting Footprint",
+            pitch: 3.27,
+            pad: (0.91, 1.22),
+            body: (2.69, 1.6),
         },
     );
+    // onsemi MBRA340T3/D, SMA case 403D issue J, Recommended Mounting Footprint:
+    // 2.0 × 2.0 mm pads, centres 4.0 mm apart; body E × D 4.32 × 2.60 mm nominal.
     let sma = smd_two(
         s,
         Smd {
             name: "DIO_SMA",
-            description: "Diode, SMA (DO-214AC), 4.3 × 2.6 mm body",
+            description: "Diode, SMA (DO-214AC), 4.32 × 2.60 mm body. \
+                          Lands per onsemi SMA case 403D, Recommended Mounting Footprint",
             pitch: 4.0,
-            pad: (2.0, 1.7),
-            body: (4.3, 2.6),
+            pad: (2.0, 2.0),
+            body: (4.32, 2.6),
         },
     );
+    // onsemi 1N4001/D, DO-41 case 59-10: body 5.20 × 2.70 mm max, leads Ø0.86 mm max, so
+    // a 1.1 mm hole and a 2.0 mm pad (IPC-2222 Level B: 1.06 and 1.66 mm at least).
     let do41 = tht_two(
         s,
         Tht {
             name: "DIO_Axial_DO-41_P10.16mm",
-            description: "Diode, DO-41 axial, 5.2 × 2.7 mm body, leads 10.16 mm apart",
+            description: "Diode, DO-41 axial, 5.2 × 2.7 mm body, leads 10.16 mm apart. \
+                          Per onsemi DO-41 case 59-10",
             pitch: 10.16,
             pad: 2.0,
             drill: 1.1,
@@ -164,17 +173,21 @@ fn diode_footprints(s: &mut Script) -> Diodes {
         },
         |s, fp| axial(s, fp, 10.16, 2.0, (5.2, 2.7), Some(1.9)),
     );
+    // onsemi 1N914/D, DO-35 axial lead case 017AG issue O: body 4.56 × 1.91 mm max, leads
+    // Ø0.533 mm max, so a 0.8 mm hole and a 1.6 mm pad (IPC-2222 Level B: 0.73 and
+    // 1.33 mm at least).
     let do35 = tht_two(
         s,
         Tht {
             name: "DIO_Axial_DO-35_P7.62mm",
-            description: "Diode, DO-35 axial, 4.0 × 1.9 mm body, leads 7.62 mm apart",
+            description: "Diode, DO-35 axial, 4.56 × 1.91 mm body, leads 7.62 mm apart. \
+                          Per onsemi axial lead case 017AG",
             pitch: 7.62,
             pad: 1.6,
             drill: 0.8,
-            extent: (2.0, 0.95),
+            extent: (2.28, 0.955),
         },
-        |s, fp| axial(s, fp, 7.62, 1.6, (4.0, 1.9), Some(1.4)),
+        |s, fp| axial(s, fp, 7.62, 1.6, (4.56, 1.91), Some(1.7)),
     );
     Diodes {
         sod123,
@@ -269,7 +282,9 @@ fn led(s: &mut Script) {
         s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
-    for (size, pad, body, ring) in [(3.0, 1.8, 1.5, 2.5), (5.0, 1.8, 2.5, 2.96)] {
+    // The 3 mm LED's pads are 1.6 mm (IPC-2222 Level B for its 0.9 mm hole is 1.5 mm) so
+    // its Silkscreen ring stays 0.2 mm clear of the square Pad 1.
+    for (size, pad, body, ring) in [(3.0, 1.6, 1.5, 2.5), (5.0, 1.8, 2.5, 2.96)] {
         let name = format!("LED_THT_D{size:.1}mm_P2.54mm");
         let description = format!("LED, {size} mm round, leads 2.54 mm apart");
         footprints.push(tht_two(
@@ -300,11 +315,17 @@ fn led(s: &mut Script) {
 
 /// SOT-23 and a TO-92 with its leads in a line, Pads 1 to 3 from the left with the flat
 /// face down.
+///
+/// The TO-92 is onsemi 2N3903/D, TO-92 (TO-226) case 29-11 issue AM, bent lead (tape and
+/// reel, ammo pack): leads G 2.40 to 2.80 mm apart (2.54 here), D × J 0.54 × 0.50 mm max,
+/// a 0.74 mm diagonal, so IPC-2222 Level B gives a 0.95 mm hole and a 1.55 mm pad; body A
+/// 4.45 to 5.20 mm across and C 3.18 to 4.19 mm deep.
 fn transistor_footprints(s: &mut Script) -> (String, String) {
     let sot23 = s.generate("sot", json!({"package": "sot23_3"}));
     let fp = s.footprint(
         "TO-92_Inline_P2.54mm",
-        "TO-92, leads in a line 2.54 mm apart, flat face down",
+        "TO-92, leads in a line 2.54 mm apart, flat face down. \
+         Per onsemi TO-92 case 29-11, bent lead",
     );
     for (i, number) in ["1", "2", "3"].iter().enumerate() {
         let x = (i as f64 - 1.0) * 2.54;
@@ -315,13 +336,14 @@ fn transistor_footprints(s: &mut Script) -> (String, String) {
                 "kind": "plated_through_hole",
                 "shape": if i == 0 { "rect" } else { "oval" },
                 "at": {"x": mm(x), "y": 0},
-                "width": mm(1.05),
-                "height": mm(1.5),
-                "hole": {"width": mm(0.75)},
+                "width": mm(1.55),
+                "height": mm(1.8),
+                "hole": {"width": mm(0.95)},
             }),
         );
     }
-    // The body: a 4.8 mm circle cut by the flat face 1.6 mm below the leads.
+    // The body: a 4.8 mm circle (A nominal) cut by the flat face 1.6 mm below the leads,
+    // 4.0 mm deep (C).
     let (r, flat) = (2.4_f64, -1.6_f64);
     let chord = (r * r - flat * flat).sqrt();
     let start = flat.atan2(chord).to_degrees();
@@ -353,13 +375,14 @@ fn transistor_footprints(s: &mut Script) -> (String, String) {
         line(mm(-chord), sy, mm(chord), sy),
         mm(0.12),
     );
+    // Pads reach ±3.315 mm, the body 2.4 mm up and 1.6 mm down.
     s.fp_draw(
         &fp,
         "courtyard_top",
-        rect(mm(-3.35), mm(-2.0), mm(3.35), mm(2.8)),
+        rect(mm(-3.6), mm(-1.9), mm(3.6), mm(2.75)),
         mm(0.05),
     );
-    let to92 = s.finish_footprint(&fp, mm(2.8));
+    let to92 = s.finish_footprint(&fp, mm(2.75));
     (sot23, to92)
 }
 
