@@ -55,6 +55,8 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `home` | Lucide `house` |
 | `inspect` | Lucide `scan-search` |
 | `keepout` | Lucide `ban` |
+| `layout` | Lucide `layout-dashboard` |
+| `layout_save` | Lucide `layout-template` |
 | `library_add` | Lucide `library-big` |
 | `library_edit` | Lucide `book-open` |
 | `library_element_new` | Lucide `book-plus` |

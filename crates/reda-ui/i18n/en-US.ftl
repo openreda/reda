@@ -45,6 +45,18 @@ tab-menu-close = Close
 tab-menu-collapse-dock = Collapse Dock
 tab-menu-not-in-dock = This tab is not in a Dock.
 
+## Drag and drop: the drop-target buttons shown while a tab is dragged
+
+drop-into-group = Drop into Group
+drop-split-left = Drop to the Left
+drop-split-right = Drop to the Right
+drop-split-up = Drop Above
+drop-split-down = Drop Below
+drop-dock-left = Drop in Left Dock
+drop-dock-right = Drop in Right Dock
+drop-dock-bottom = Drop in Bottom Dock
+drop-refused = Can't drop here: { $reason }
+
 ## Journal panel
 
 journal-export = Export…
@@ -207,6 +219,7 @@ canvas-description = Schematic canvas: { $document }
 error-command = { $error }
 error-show-in-folder = Could not open the file manager: { $error }
 error-state-file = Could not update the recent Projects list: { $error }
+status-last-project-missing = The last Project, { $project }, was not reopened: it is missing at { $path }
 
 ## Violations: one line per check id, built from its arguments. Lengths are in mm.
 

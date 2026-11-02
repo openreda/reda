@@ -130,7 +130,11 @@ pub(crate) fn warnings(
         );
     }
     let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
-    let drc = apply_waivers(reda_pcb::drc::check(pcb, &fills), pcb.waivers(), false);
+    let drc = apply_waivers(
+        reda_pcb::drc::check(pcb, &fills, fonts),
+        pcb.waivers(),
+        false,
+    );
     let errors = drc
         .violations
         .iter()

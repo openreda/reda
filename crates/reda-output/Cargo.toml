@@ -1,6 +1,6 @@
 [package]
 name = "reda-output"
-description = "Manufacturing outputs: the shipped Fab Presets, Output Jobs and the Gerber writer."
+description = "Manufacturing outputs: the shipped Fab Presets, Output Jobs and the Gerber and Excellon writers."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

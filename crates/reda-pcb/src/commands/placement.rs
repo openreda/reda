@@ -3,7 +3,7 @@
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
 //! and writes the results back in one transaction. Locked Footprints refuse every Op.
 
-mod arrange;
+pub(crate) mod arrange;
 mod designator;
 mod turn;
 

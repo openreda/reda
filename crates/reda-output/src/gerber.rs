@@ -10,6 +10,10 @@ use std::fmt::Write as _;
 
 use reda_model::geom::{Millideg, Nm, Point};
 
+/// The aperture function of objects that take none, such as silkscreen drawing: their
+/// apertures and regions carry no `.AperFunction`.
+pub(crate) const NO_FUNCTION: &str = "";
+
 /// An aperture shape. Rotations are CCW and taken whole by the macros, so the writer needs
 /// no trigonometry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -119,7 +123,7 @@ fn half_mm(nm: i64) -> String {
 }
 
 /// An angle as degrees in `[0, 360)` with three decimals: `45.000`.
-fn degrees(angle: Millideg) -> String {
+pub(crate) fn degrees(angle: Millideg) -> String {
     let a = angle.0.rem_euclid(360_000);
     format!("{}.{:03}", a / 1000, a % 1000)
 }
@@ -284,34 +288,63 @@ impl Gerber {
         self.clear_attributes(attributes);
     }
 
+    /// Draws the arc from `from` to `to` about a known `centre` with a round pen of
+    /// `width`, counter-clockwise when `ccw`.
+    pub(crate) fn arc_about(
+        &mut self,
+        width: Nm,
+        function: &'static str,
+        from: Point,
+        to: Point,
+        centre: Point,
+        ccw: bool,
+    ) {
+        self.polarity(true);
+        self.select(Template::Circle(width), function);
+        self.move_to(from);
+        self.arc_to(from, to, centre, ccw);
+    }
+
     /// The plot operation from the current point `from` to `to`.
     fn segment(&mut self, from: Point, to: Point, sweep: Millideg) {
         if sweep.0 == 0 {
             self.mode(1);
             self.at(to, 1);
         } else {
-            let c = arc_centre(from, to, sweep);
-            self.mode(if sweep.0 > 0 { 3 } else { 2 });
-            let _ = writeln!(
-                self.body,
-                "X{}Y{}I{}J{}D01*",
-                to.x.0,
-                to.y.0,
-                c.x.0 - from.x.0,
-                c.y.0 - from.y.0
-            );
-            self.point = Some(to);
+            self.arc_to(from, to, arc_centre(from, to, sweep), sweep.0 > 0);
         }
     }
 
-    /// A filled region bounded by `points` (closed back to the first), dark or clear.
-    pub(crate) fn region(&mut self, points: &[Point], dark: bool, attributes: &[(&str, &str)]) {
+    /// The arc plot operation from the current point `from` to `to` about `c`.
+    fn arc_to(&mut self, from: Point, to: Point, c: Point, ccw: bool) {
+        self.mode(if ccw { 3 } else { 2 });
+        let _ = writeln!(
+            self.body,
+            "X{}Y{}I{}J{}D01*",
+            to.x.0,
+            to.y.0,
+            c.x.0 - from.x.0,
+            c.y.0 - from.y.0
+        );
+        self.point = Some(to);
+    }
+
+    /// A filled region bounded by `points` (closed back to the first), dark or clear, with
+    /// the aperture function `function` ([`NO_FUNCTION`] for none).
+    pub(crate) fn region(
+        &mut self,
+        points: &[Point],
+        dark: bool,
+        function: &'static str,
+        attributes: &[(&str, &str)],
+    ) {
         let Some(&first) = points.first() else {
             return;
         };
         self.polarity(dark);
-        if self.x2 {
-            self.body.push_str("%TA.AperFunction,Conductor*%\n");
+        let tagged = self.x2 && function != NO_FUNCTION;
+        if tagged {
+            let _ = writeln!(self.body, "%TA.AperFunction,{function}*%");
         }
         self.attributes(attributes);
         self.body.push_str("G36*\n");
@@ -321,7 +354,7 @@ impl Gerber {
             self.at(*p, 1);
         }
         self.body.push_str("G37*\n");
-        if self.x2 {
+        if tagged || (self.x2 && !attributes.is_empty()) {
             self.body.push_str("%TD*%\n");
         }
     }
@@ -344,11 +377,12 @@ impl Gerber {
             }
         }
         for (i, (template, function)) in self.order.iter().enumerate() {
-            if self.x2 {
+            let tagged = self.x2 && *function != NO_FUNCTION;
+            if tagged {
                 let _ = writeln!(out, "%TA.AperFunction,{function}*%");
             }
             let _ = writeln!(out, "%ADD{}{}*%", 10 + i, template.definition());
-            if self.x2 {
+            if tagged {
                 out.push_str("%TD*%\n");
             }
         }

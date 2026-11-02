@@ -2,6 +2,8 @@
 //! split into lines, mirrored, rotated and moved into place. Gerber, PDF and the canvas all
 //! draw from this, so they agree glyph for glyph.
 
+mod footprint;
+
 use std::sync::OnceLock;
 
 use reda_command::Fonts;
@@ -10,6 +12,8 @@ use reda_model::{HERSHEY_FONT, NOTO_SANS_FONT, PcbDocument, PcbText, Uuid};
 use reda_text::{Font, OutlineFont, StrokeFont, layout};
 use schemars::JsonSchema;
 use serde::Serialize;
+
+pub use footprint::{board_layer, footprint_texts};
 
 /// The distance from one baseline to the next, as a multiple of the capital height
 /// (`LINE_PITCH.0 / LINE_PITCH.1`).
@@ -142,6 +146,48 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
         strokes,
         fill,
     }
+}
+
+/// The pen width of Footprint text (Designators and text in a Footprint's drawing), as a
+/// fraction of its height (`.0 / .1`).
+pub const FOOTPRINT_TEXT_PEN: (i64, i64) = (3, 20);
+
+/// Lays out Footprint text, already placed on the board ([`crate::placed::Frame::text`]),
+/// in the stroke font, centred on `at`: a Designator or a text in a Footprint's drawing.
+/// It is mirrored when it lands on a bottom Layer, and drawn with a pen of
+/// [`FOOTPRINT_TEXT_PEN`].
+pub fn footprint_text_geometry(
+    content: &str,
+    at: Point,
+    size: Nm,
+    rotation: Millideg,
+    mirrored: bool,
+    layer: Uuid,
+) -> PlacedText {
+    let mut text = PcbText {
+        uuid: Uuid::from_u128(0),
+        layer,
+        text: content.to_owned(),
+        font: HERSHEY_FONT.to_owned(),
+        position: Point::new(Nm(0), Nm(0)),
+        height: size,
+        thickness: Nm(size.0 * FOOTPRINT_TEXT_PEN.0 / FOOTPRINT_TEXT_PEN.1),
+        rotation: Millideg::ZERO,
+        mirrored: false,
+    };
+    let fonts = Fonts::default();
+    let upright = text_geometry(&text, &fonts);
+    let points = upright
+        .strokes
+        .iter()
+        .flat_map(|s| [s.a, s.b])
+        .chain(upright.fill.points.iter().copied());
+    let centre = crate::placed::Bounds::of_points(points).map_or(text.position, |b| b.center());
+    text.rotation = rotation;
+    text.mirrored = mirrored;
+    let offset = Placement::new(&text).apply(centre);
+    text.position = Point::new(at.x - offset.x, at.y - offset.y);
+    text_geometry(&text, &fonts)
 }
 
 /// Mirror, then rotate, then move: text-local coordinates (y-up, origin at the start of the

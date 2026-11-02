@@ -44,6 +44,8 @@ grid lucide:grid-3x3
 home lucide:house
 inspect lucide:scan-search
 keepout lucide:ban
+layout lucide:layout-dashboard
+layout_save lucide:layout-template
 library_add lucide:library-big
 library_edit lucide:book-open
 library_element_new lucide:book-plus

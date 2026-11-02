@@ -400,3 +400,34 @@ fn snapshot_of_the_icons_on_the_dark_theme() {
 fn snapshot_of_the_icons_on_the_light_theme() {
     icon_sheet_snapshot(egui::Theme::Light);
 }
+
+/// Drags the tab `tab` over the centre group and holds it on the drop target `target`.
+fn drag_snapshot(tab: &str, target: &str, name: &str) {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let from = h.get_by_label(tab).rect().center();
+    let over = h.get_by_label("Welcome to REDA").rect().center();
+    h.drag_at(from);
+    h.run();
+    h.hover_at(over);
+    h.run();
+    let at = h.get_by_label(target).rect().center();
+    h.hover_at(at);
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_a_tab_drag_previewing_a_split() {
+    drag_snapshot("Properties", "Drop to the Left", "drag_preview_dark");
+}
+
+#[test]
+fn snapshot_of_a_tab_drag_the_layout_would_refuse() {
+    // The Start page is alone in its group, so it cannot split from it.
+    drag_snapshot("Start", "Drop Below", "drag_refused_dark");
+}
