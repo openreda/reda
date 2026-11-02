@@ -13,11 +13,11 @@ use serde::Deserialize;
 
 use super::gull_wing::{self, GullWing};
 use super::ipc::{self, Termination, Tol};
-use super::pattern::Land;
+use super::pattern::PadSpec;
 use super::quad::{self, Quad};
-use super::{FootprintFamily, LandPattern, Target, TolParam, hundredths};
+use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 
-/// The least gap kept between the exposed pad's land and the lead lands.
+/// The least gap kept between the exposed pad's Pad and the lead Pads.
 pub const EXPOSED_PAD_CLEARANCE: Nm = Nm(200_000);
 
 /// A no-lead package's dimensions, with the JEDEC letters in brackets.
@@ -86,11 +86,11 @@ impl NoLead {
         )
     }
 
-    /// The exposed pad's land, numbered `number`, no larger than `room` along x and y.
-    fn exposed_pad_land(&self, number: usize, room: (Nm, Nm)) -> Option<Land> {
+    /// The exposed pad's Pad, numbered `number`, no larger than `room` along x and y.
+    fn exposed_pad_spec(&self, number: usize, room: (Nm, Nm)) -> Option<PadSpec> {
         let (length, width) = self.exposed_pad?;
         let fit = |nominal: Nm, room: Nm| Nm(nominal.0.min(room.0 - 2 * EXPOSED_PAD_CLEARANCE.0));
-        Some(Land::smd(
+        Some(PadSpec::smd(
             number.to_string(),
             Point::new(Nm(0), Nm(0)),
             fit(width.nominal(), room.0),
@@ -268,7 +268,7 @@ impl FootprintFamily for Dfn {
         }
     }
 
-    fn land_pattern(p: &NoLeadParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &NoLeadParams) -> Result<FootprintPlan, CommandError> {
         if p.pins < 2 || !p.pins.is_multiple_of(2) {
             return Err(CommandError::invalid_params(
                 "/pins",
@@ -286,7 +286,7 @@ impl FootprintFamily for Dfn {
             height: dims.height,
         };
         let leads = gull_wing::dual_row(p.pins, dims.pitch, dims.lead_width);
-        let mut pattern = gull_wing::land_pattern(
+        let mut pattern = gull_wing::plan(
             &rows,
             &leads,
             Termination::NoLead,
@@ -421,7 +421,7 @@ impl FootprintFamily for Qfn {
         }
     }
 
-    fn land_pattern(p: &NoLeadParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &NoLeadParams) -> Result<FootprintPlan, CommandError> {
         if p.pins < 4 || !p.pins.is_multiple_of(4) {
             return Err(CommandError::invalid_params(
                 "/pins",
@@ -440,7 +440,7 @@ impl FootprintFamily for Qfn {
             lead_width: dims.lead_width,
             lead_length: dims.lead_length,
         };
-        let mut pattern = quad::land_pattern(
+        let mut pattern = quad::plan(
             &quad,
             Termination::NoLead,
             dims.ipc_name("QFN", p.pins),
@@ -451,31 +451,31 @@ impl FootprintFamily for Qfn {
     }
 }
 
-/// Adds the exposed pad's land, if the package has one, between the lead lands.
+/// Adds the exposed pad's Pad, if the package has one, between the lead Pads.
 fn add_exposed_pad(
-    pattern: &mut LandPattern,
+    pattern: &mut FootprintPlan,
     dims: &NoLead,
     number: usize,
 ) -> Result<(), CommandError> {
-    // The room left between the lands on opposite sides, along x and along y.
+    // The room left between the Pads on opposite sides, along x and along y.
     let mut room = (dims.body_width.max, dims.body_length.max);
-    for land in &pattern.lands {
-        let (x, y) = (land.at.x.0.abs(), land.at.y.0.abs());
-        if x - land.width.0 / 2 > 0 && land.height.0 < land.width.0 {
-            room.0 = room.0.min(Nm(2 * (x - land.width.0 / 2)));
+    for spec in &pattern.pad_specs {
+        let (x, y) = (spec.at.x.0.abs(), spec.at.y.0.abs());
+        if x - spec.width.0 / 2 > 0 && spec.height.0 < spec.width.0 {
+            room.0 = room.0.min(Nm(2 * (x - spec.width.0 / 2)));
         }
-        if y - land.height.0 / 2 > 0 && land.width.0 < land.height.0 {
-            room.1 = room.1.min(Nm(2 * (y - land.height.0 / 2)));
+        if y - spec.height.0 / 2 > 0 && spec.width.0 < spec.height.0 {
+            room.1 = room.1.min(Nm(2 * (y - spec.height.0 / 2)));
         }
     }
-    if let Some(pad) = dims.exposed_pad_land(number, room) {
+    if let Some(pad) = dims.exposed_pad_spec(number, room) {
         if pad.width.0 <= 0 || pad.height.0 <= 0 {
             return Err(CommandError::invalid_params(
                 "/dimensions/exposed_pad",
-                "the lands leave no room for the exposed pad",
+                "the Pads leave no room for the exposed pad",
             ));
         }
-        pattern.lands.push(pad);
+        pattern.pad_specs.push(pad);
     }
     Ok(())
 }

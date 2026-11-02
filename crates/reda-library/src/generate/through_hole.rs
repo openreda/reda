@@ -1,10 +1,10 @@
 //! Through-hole packages: DIP, and 1×N and 2×N pin headers and sockets.
 //!
-//! The hole is the lead's greatest diagonal plus 0.20 mm and the land the hole plus twice
+//! The hole is the lead's greatest diagonal plus 0.20 mm and the Pad the hole plus twice
 //! a 0.25 mm annular allowance, the IPC-2222 / IPC-7251 Nominal (level B) values, each
-//! rounded up to the 0.05 mm grid. Where that land would come closer than 0.25 mm to its
+//! rounded up to the 0.05 mm grid. Where that Pad would come closer than 0.25 mm to its
 //! neighbour, as on 1.27 mm headers, it is shrunk, keeping at least a 0.10 mm ring.
-//! Pin 1's land is square, the others round.
+//! Pin 1's Pad is square, the others round.
 //!
 //! Zero orientation: pin 1 at the upper left.
 
@@ -17,16 +17,16 @@ use serde::Deserialize;
 use super::gull_wing::{self, Side};
 use super::ipc::{self, Tol};
 use super::pattern::{
-    Body, Land, LandKind, LandPattern, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH, clip_silkscreen,
-    rectangle,
+    Body, FootprintPlan, LandKind, PadSpec, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH,
+    clip_silkscreen, rectangle,
 };
 use super::{FootprintFamily, Target, hundredths};
 
 /// Added to the lead's greatest diagonal for the hole.
 pub const HOLE_ALLOWANCE: Nm = Nm(200_000);
-/// Added to the hole for the land: twice the annular ring.
+/// Added to the hole for the Pad: twice the annular ring.
 pub const LAND_ALLOWANCE: Nm = Nm(500_000);
-/// The least copper gap between neighbouring lands.
+/// The least copper gap between neighbouring Pads.
 pub const MIN_LAND_GAP: Nm = Nm(250_000);
 /// The least annular ring.
 pub const MIN_ANNULAR_RING: Nm = Nm(100_000);
@@ -48,26 +48,26 @@ impl LeadSection {
         }
     }
 
-    /// The hole and land diameters for this lead with neighbours `pitch` away.
-    fn hole_and_land(self, pitch: Nm) -> Result<(Nm, Nm), CommandError> {
+    /// The hole and Pad diameters for this lead with neighbours `pitch` away.
+    fn hole_and_pad(self, pitch: Nm) -> Result<(Nm, Nm), CommandError> {
         let (w, t) = (self.width.max.0 as f64, self.thickness.max.0 as f64);
         let diagonal = (w * w + t * t).sqrt().ceil() as i64;
         let hole = ipc::round_up(Nm(diagonal + HOLE_ALLOWANCE.0));
-        let land = ipc::round_up(Nm(hole.0 + LAND_ALLOWANCE.0))
+        let spec = ipc::round_up(Nm(hole.0 + LAND_ALLOWANCE.0))
             .min(ipc::round_down(Nm(pitch.0 - MIN_LAND_GAP.0)));
-        if land.0 < hole.0 + 2 * MIN_ANNULAR_RING.0 {
+        if spec.0 < hole.0 + 2 * MIN_ANNULAR_RING.0 {
             return Err(CommandError::invalid_params(
                 "/pitch",
-                "the pitch leaves no room for a land around the hole",
+                "the pitch leaves no room for a Pad around the hole",
             ));
         }
-        Ok((hole, land))
+        Ok((hole, spec))
     }
 }
 
-/// A round land, square for pin 1.
-fn land(number: usize, at: Point, diameter: Nm, drill: Nm) -> Land {
-    Land {
+/// A round Pad, square for pin 1.
+fn spec(number: usize, at: Point, diameter: Nm, drill: Nm) -> PadSpec {
+    PadSpec {
         number: number.to_string(),
         at,
         width: diameter,
@@ -79,7 +79,7 @@ fn land(number: usize, at: Point, diameter: Nm, drill: Nm) -> Land {
     }
 }
 
-/// The distance from a land's centre at which Silkscreen centre lines may run.
+/// The distance from a Pad's centre at which Silkscreen centre lines may run.
 fn silkscreen_offset(diameter: Nm) -> i64 {
     diameter.0 / 2 + SILKSCREEN_CLEARANCE.0 + SILKSCREEN_WIDTH.0 / 2
 }
@@ -128,7 +128,7 @@ impl FootprintFamily for Dip {
         }
     }
 
-    fn land_pattern(p: &DipParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &DipParams) -> Result<FootprintPlan, CommandError> {
         if !(4..=64).contains(&p.pins) || !p.pins.is_multiple_of(2) {
             return Err(CommandError::invalid_params(
                 "/pins",
@@ -142,9 +142,9 @@ impl FootprintFamily for Dip {
         };
         // A typical body is as long as its leads take: half the count times the pitch.
         let length = Nm(p.pins as i64 / 2 * DIP_PITCH.0);
-        let (hole, diameter) = DIP_LEAD.hole_and_land(DIP_PITCH)?;
+        let (hole, diameter) = DIP_LEAD.hole_and_pad(DIP_PITCH)?;
         let x = row_spacing.0 / 2;
-        let lands: Vec<Land> = gull_wing::dual_row(p.pins, DIP_PITCH, DIP_LEAD.width)
+        let pad_specs: Vec<PadSpec> = gull_wing::dual_row(p.pins, DIP_PITCH, DIP_LEAD.width)
             .iter()
             .enumerate()
             .map(|(i, lead)| {
@@ -152,15 +152,15 @@ impl FootprintFamily for Dip {
                     Side::Left => -x,
                     Side::Right => x,
                 };
-                land(i + 1, Point::new(Nm(x), lead.y), diameter, hole)
+                spec(i + 1, Point::new(Nm(x), lead.y), diameter, hole)
             })
             .collect();
         let outline = rectangle(
             Nm(x - silkscreen_offset(diameter)),
             Nm(length.0 / 2 + SILKSCREEN_WIDTH.0 / 2),
         );
-        let silkscreen = clip_silkscreen(&outline, &lands);
-        Ok(LandPattern {
+        let silkscreen = clip_silkscreen(&outline, &pad_specs);
+        Ok(FootprintPlan {
             name: format!(
                 "DIP{}P{}X{}-{}",
                 hundredths(DIP_PITCH),
@@ -173,7 +173,7 @@ impl FootprintFamily for Dip {
                 p.pins,
                 row_spacing.0 as f64 / 1e6
             ),
-            lands,
+            pad_specs,
             body: Body {
                 nominal: (body_width.nominal(), length),
                 max: (body_width.max, length),
@@ -227,7 +227,7 @@ pub struct HeaderParams {
     /// The pins in each row, 1 to 50.
     pub pins_per_row: usize,
     pub pitch: HeaderPitch,
-    /// A socket (female) rather than a pin header (male). The land pattern is the same.
+    /// A socket (female) rather than a pin header (male). The Footprint is the same.
     #[serde(default)]
     pub socket: bool,
 }
@@ -252,7 +252,7 @@ impl FootprintFamily for Header {
         }
     }
 
-    fn land_pattern(p: &HeaderParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &HeaderParams) -> Result<FootprintPlan, CommandError> {
         if !(1..=2).contains(&p.rows) {
             return Err(CommandError::invalid_params(
                 "/rows",
@@ -266,20 +266,20 @@ impl FootprintFamily for Header {
             ));
         }
         let pitch = p.pitch.pitch();
-        let (hole, diameter) = p.pitch.post().hole_and_land(pitch)?;
+        let (hole, diameter) = p.pitch.post().hole_and_pad(pitch)?;
         let (rows, count) = (p.rows as i64, p.pins_per_row as i64);
         // Pins count across the rows first: 1 and 2 side by side at the top.
-        let mut lands = vec![];
+        let mut pad_specs = vec![];
         for i in 0..count {
             for r in 0..rows {
                 let x = (2 * r - (rows - 1)) * pitch.0 / 2;
                 let y = ((count - 1) - 2 * i) * pitch.0 / 2;
                 let number = (i * rows + r + 1) as usize;
-                lands.push(land(number, Point::new(Nm(x), Nm(y)), diameter, hole));
+                pad_specs.push(spec(number, Point::new(Nm(x), Nm(y)), diameter, hole));
             }
         }
         let body = (Nm(rows * pitch.0), Nm(count * pitch.0));
-        // The body's outline, pushed out where it would come too close to the outer lands,
+        // The body's outline, pushed out where it would come too close to the outer Pads,
         // whose centres are `outer` from the middle.
         let outline = |outer: i64, side: Nm| {
             Nm((side.0 / 2 + SILKSCREEN_WIDTH.0 / 2).max(outer + silkscreen_offset(diameter)))
@@ -289,20 +289,20 @@ impl FootprintFamily for Header {
                 outline((rows - 1) * pitch.0 / 2, body.0),
                 outline((count - 1) * pitch.0 / 2, body.1),
             ),
-            &lands,
+            &pad_specs,
         );
         let (prefix, noun) = if p.socket {
             ("SKT", "Socket")
         } else {
             ("HDR", "Pin header")
         };
-        Ok(LandPattern {
+        Ok(FootprintPlan {
             name: format!("{prefix}{}P{rows}X{count}", hundredths(pitch)),
             description: format!(
                 "{noun}, {rows} × {count}, {} mm pitch",
                 pitch.0 as f64 / 1e6
             ),
-            lands,
+            pad_specs,
             body: Body {
                 nominal: body,
                 max: body,
