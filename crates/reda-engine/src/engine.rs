@@ -105,9 +105,15 @@ impl Engine {
             fonts: &self.fonts,
             headless: self.headless,
         };
+        let mark = self.session.history.mark();
         let outcome =
             self.registry
                 .run_with(&mut self.session, &mut env, id, params.clone(), signals);
+        if source != self.source {
+            // A bridged edit lands in the same stacks, labelled with who made it.
+            let prefix = format!("{}: ", source.label());
+            self.session.history.prefix_labels_since(mark, &prefix);
+        }
         self.journal.push(JournalEntry {
             id: id.to_owned(),
             params,
