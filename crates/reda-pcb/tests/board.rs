@@ -265,3 +265,75 @@ fn fab_preset_rules_are_previewed_then_reseed_the_board() {
     );
     assert_eq!(err.code, reda_command::ErrorCode::NotFound);
 }
+
+fn graphic(engine: &mut TestEngine, id: &str, params: serde_json::Value) -> serde_json::Value {
+    engine.run_ok(id, params)["result"]["uuid"].clone()
+}
+
+fn line(engine: &mut TestEngine, from: (i64, i64), to: (i64, i64)) -> serde_json::Value {
+    graphic(
+        engine,
+        "pcb.graphic.add_line",
+        json!({"layer": "mechanical",
+               "from": {"x": format!("{}mm", from.0), "y": format!("{}mm", from.1)},
+               "to": {"x": format!("{}mm", to.0), "y": format!("{}mm", to.1)}}),
+    )
+}
+
+#[test]
+fn an_outline_from_graphics_chains_the_lines_and_arcs_and_removes_them() {
+    let dir = TempDir::new("outline-graphics");
+    let mut engine = engine_with_pcb(&dir);
+    let a = line(&mut engine, (0, 0), (30, 0));
+    let b = line(&mut engine, (30, 0), (30, 20));
+    let c = line(&mut engine, (0, 20), (0, 0));
+    let arc = graphic(
+        &mut engine,
+        "pcb.graphic.add_arc",
+        json!({"layer": "mechanical", "from": {"x": "30mm", "y": "20mm"},
+               "to": {"x": 0, "y": "20mm"}, "sweep": "180deg"}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_from_graphics",
+        json!({"graphics": [a, b, arc, c]}),
+    );
+    let pcb = pcb(&engine);
+    let vertices = &pcb.outline().unwrap().vertices;
+    assert_eq!(vertices.len(), 4);
+    assert!(vertices.iter().any(|v| v.sweep != Millideg::ZERO));
+    assert_eq!(pcb.graphics().count(), 0, "the graphics became the outline");
+}
+
+#[test]
+fn an_outline_from_a_rectangle_graphic_keeps_it_when_asked() {
+    let dir = TempDir::new("outline-graphic-rect");
+    let mut engine = engine_with_pcb(&dir);
+    let rect = graphic(
+        &mut engine,
+        "pcb.graphic.add_rect",
+        json!({"layer": "mechanical", "from": {"x": 0, "y": 0}, "to": {"x": "20mm", "y": "10mm"}}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_from_graphics",
+        json!({"graphics": [rect], "keep": true}),
+    );
+    let pcb = pcb(&engine);
+    assert_eq!(pcb.outline().unwrap().vertices.len(), 4);
+    assert_eq!(pcb.graphics().count(), 1);
+}
+
+#[test]
+fn an_outline_from_what_is_not_a_graphic_is_refused() {
+    let dir = TempDir::new("outline-graphic-bad");
+    let mut engine = engine_with_pcb(&dir);
+    let err = engine.run_err(
+        "pcb.board_outline.add_from_graphics",
+        json!({"graphics": ["00000000-0000-4000-8000-0000000000ff"]}),
+    );
+    assert_eq!(err.code, reda_command::ErrorCode::InvalidParams);
+    assert!(
+        err.message.contains("line, arc or rectangle"),
+        "{}",
+        err.message
+    );
+}

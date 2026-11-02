@@ -5,7 +5,7 @@ use reda_command::{
     Registry, Unavailable,
 };
 use reda_model::geom::{self, Millideg, Nm, Point, Segment, Vertex};
-use reda_model::{BoardCutout, BoardOutline, InDocument, Object, Uuid};
+use reda_model::{BoardCutout, BoardOutline, GraphicShape, InDocument, Object, Uuid};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -15,6 +15,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(OutlineAdd);
     registry.add(OutlineAddRect);
     registry.add(OutlineAddFromSegments);
+    registry.add(OutlineAddFromGraphics);
     registry.add(OutlineDelete);
     registry.add(CutoutAdd);
     registry.add(CutoutDelete);
@@ -230,6 +231,83 @@ impl Command for OutlineAddFromSegments {
             .collect();
         let vertices = geom::chain(&segments)
             .map_err(|e| CommandError::invalid_params("/segments", e.to_string()))?;
+        set_outline(cx, vertices)
+    }
+}
+
+pub struct OutlineAddFromGraphics;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineAddFromGraphicsParams {
+    /// Free lines, arcs and outlined rectangles whose ends meet exactly, forming one loop,
+    /// such as the selection.
+    pub graphics: Vec<Uuid>,
+    /// Keep the graphics as well; by default they become the outline and are removed.
+    #[serde(default)]
+    pub keep: bool,
+}
+
+impl Command for OutlineAddFromGraphics {
+    const META: Meta = Meta {
+        id: "pcb.board_outline.add_from_graphics",
+        title: "Board Outline from Selection",
+        description: "Sets the Board Outline to the closed loop that the free lines, arcs \
+                      and rectangles `graphics` form, and removes them unless `keep`. \
+                      Their ends must meet exactly. Replaces any Board Outline the board \
+                      already has.",
+        category: "pcb",
+        icon: "board_outline_from_lines",
+        kind: Kind::Edit,
+    };
+    type Params = OutlineAddFromGraphicsParams;
+    type Output = Created;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: OutlineAddFromGraphicsParams,
+    ) -> Result<Created, CommandError> {
+        let pcb = pcb(cx)?;
+        let mut segments = Vec::new();
+        for (i, uuid) in p.graphics.iter().enumerate() {
+            let refuse = || {
+                CommandError::invalid_params(
+                    &format!("/graphics/{i}"),
+                    format!("{uuid} is not a free line, arc or rectangle outline"),
+                )
+            };
+            let graphic = pcb.graphic(*uuid).ok_or_else(refuse)?;
+            match graphic.shape {
+                GraphicShape::Line { from, to } => segments.push(Segment::line(from, to)),
+                GraphicShape::Arc { from, to, sweep } => {
+                    segments.push(Segment::arc(from, to, sweep))
+                }
+                GraphicShape::Rect {
+                    from,
+                    to,
+                    filled: false,
+                } => {
+                    let (b, d) = (Point::new(to.x, from.y), Point::new(from.x, to.y));
+                    for (a, z) in [(from, b), (b, to), (to, d), (d, from)] {
+                        segments.push(Segment::line(a, z));
+                    }
+                }
+                GraphicShape::Rect { .. } => return Err(refuse()),
+            }
+        }
+        let vertices = geom::chain(&segments)
+            .map_err(|e| CommandError::invalid_params("/graphics", e.to_string()))?;
+        if !p.keep {
+            let tx = cx.tx()?;
+            for uuid in &p.graphics {
+                tx.remove(*uuid)?;
+            }
+        }
         set_outline(cx, vertices)
     }
 }

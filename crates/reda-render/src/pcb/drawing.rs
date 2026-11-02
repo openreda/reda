@@ -136,6 +136,29 @@ pub(super) fn outline(b: &mut Builder) {
         let points = arc::contour(vertices);
         b.polyline(object, layer, &points, OUTLINE_WIDTH, true);
     }
+    if let Some(origin) = pcb.placement_origin() {
+        placement_origin(b, layer, origin.uuid, origin.at);
+    }
+}
+
+/// The Placement Origin's mark, on the Board Outline Layer: a ring with a cross through
+/// it, 2 mm across.
+fn placement_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
+    let r = Nm(1_000_000);
+    b.on_layer(
+        object,
+        layer,
+        Primitive::Ring {
+            center: at,
+            outer: Nm(r.0 * 7 / 10 + OUTLINE_WIDTH.0 / 2),
+            inner: Nm(r.0 * 7 / 10 - OUTLINE_WIDTH.0 / 2),
+        },
+    );
+    for (dx, dy) in [(r, Nm(0)), (Nm(0), r)] {
+        let a = Point::new(at.x - dx, at.y - dy);
+        let z = Point::new(at.x + dx, at.y + dy);
+        b.on_layer(object, layer, capsule(a, z, OUTLINE_WIDTH));
+    }
 }
 
 /// The Ratsnest: one line per connection still to be made, tagged with its Net.

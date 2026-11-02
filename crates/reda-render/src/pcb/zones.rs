@@ -1,4 +1,5 @@
-//! Zones: the fill from the fill cache, then the outline, which is always drawn.
+//! Zones: the fill from the fill cache, then the outline, which is always drawn; then
+//! Keepouts, outlined on each copper Layer they apply to.
 
 use std::collections::BTreeMap;
 
@@ -42,5 +43,11 @@ pub(super) fn build(
     for zone in pcb.zones() {
         let points = arc::contour(&zone.vertices);
         b.polyline(zone.uuid, zone.layer, &points, ZONE_OUTLINE, true);
+    }
+    for keepout in pcb.keepouts() {
+        let points = arc::contour(&keepout.vertices);
+        for layer in &keepout.layers {
+            b.polyline(keepout.uuid, *layer, &points, ZONE_OUTLINE, true);
+        }
     }
 }
