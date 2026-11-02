@@ -212,6 +212,10 @@ impl Project {
             Object::Net(o) => o.document,
             Object::SheetFrame(o) => return self.check_sheet(o.document),
             Object::PartEntry(o) => return self.check_sheet(o.document),
+            // Sheets and the PCB Document both have a part table.
+            Object::FootprintCopy(o) if self.pcb_documents.contains_key(&o.document) => {
+                return Ok(());
+            }
             Object::FootprintCopy(o) => return self.check_sheet(o.document),
             Object::Unit(o) => return self.check_sheet(o.document),
             Object::Wire(o) => return self.check_sheet(o.document),
@@ -223,6 +227,7 @@ impl Project {
             Object::SheetGraphic(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
+            Object::FootprintInstance(o) => o.document,
             _ => return Ok(()),
         };
         match self.pcb_documents.contains_key(&pcb) {
@@ -332,9 +337,14 @@ impl Project {
             Some(Object::PartEntry(o)) => {
                 self.sheet_mut(o.document).parts.insert(uuid, o.object);
             }
-            Some(Object::FootprintCopy(o)) => {
-                self.sheet_mut(o.document).footprints.insert(uuid, o.object);
-            }
+            Some(Object::FootprintCopy(o)) => match self.pcb_documents.get_mut(&o.document) {
+                Some(pcb) => {
+                    pcb.footprint_copies.insert(uuid, o.object);
+                }
+                None => {
+                    self.sheet_mut(o.document).footprints.insert(uuid, o.object);
+                }
+            },
             Some(Object::Unit(o)) => {
                 self.sheet_mut(o.document).units.insert(uuid, o.object);
             }
@@ -368,6 +378,9 @@ impl Project {
             }
             Some(Object::PcbGraphic(o)) => {
                 self.pcb_mut(o.document).graphics.insert(uuid, o.object);
+            }
+            Some(Object::FootprintInstance(o)) => {
+                self.pcb_mut(o.document).footprints.insert(uuid, o.object);
             }
             #[cfg(feature = "test-objects")]
             Some(Object::Probe(probe)) => {

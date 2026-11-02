@@ -1,5 +1,7 @@
 //! The PCB Document: its Layers, board setup (rules and DRC severities), Board Outline,
-//! Board Cutouts, Net Classes, Nets, and free text and graphics ([`graphics`]).
+//! Board Cutouts, Net Classes, Nets, free text and graphics ([`graphics`]), and the
+//! placed Footprints: a table of Footprint copies and the Footprint instances
+//! ([`footprint`]) placed from them.
 //!
 //! Every type here is a row of the `.redapcb` file as well as an object kind; field order
 //! is the on-disk key order. In the [`crate::Object`] enum they are wrapped in
@@ -11,9 +13,12 @@ use reda_geom::{Nm, Vertex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{Object, Severity, Uuid};
+use crate::{FootprintCopy, Object, Severity, Uuid};
 
+mod footprint;
 mod graphics;
+
+pub use footprint::{FootprintInstance, PadNet};
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
@@ -283,6 +288,8 @@ pub struct PcbDocument {
     pub(crate) nets: BTreeMap<Uuid, Net>,
     pub(crate) texts: BTreeMap<Uuid, PcbText>,
     pub(crate) graphics: BTreeMap<Uuid, PcbGraphic>,
+    pub(crate) footprint_copies: BTreeMap<Uuid, FootprintCopy>,
+    pub(crate) footprints: BTreeMap<Uuid, FootprintInstance>,
 }
 
 impl PcbDocument {
@@ -297,6 +304,8 @@ impl PcbDocument {
             nets: BTreeMap::new(),
             texts: BTreeMap::new(),
             graphics: BTreeMap::new(),
+            footprint_copies: BTreeMap::new(),
+            footprints: BTreeMap::new(),
         }
     }
 
@@ -369,6 +378,31 @@ impl PcbDocument {
         self.graphics.get(&uuid)
     }
 
+    /// The part table: the copies of the Footprints in use, sorted by UUID.
+    pub fn footprint_copies(&self) -> impl Iterator<Item = &FootprintCopy> {
+        self.footprint_copies.values()
+    }
+
+    pub fn footprint_copy(&self, uuid: Uuid) -> Option<&FootprintCopy> {
+        self.footprint_copies.get(&uuid)
+    }
+
+    /// The copy of Library Footprint `footprint` with content hash `hash`.
+    pub fn footprint_copy_for(&self, footprint: Uuid, hash: &str) -> Option<&FootprintCopy> {
+        self.footprint_copies
+            .values()
+            .find(|c| c.footprint.uuid == footprint && c.hash == hash)
+    }
+
+    /// The placed Footprint instances, sorted by UUID.
+    pub fn footprints(&self) -> impl Iterator<Item = &FootprintInstance> {
+        self.footprints.values()
+    }
+
+    pub fn footprint(&self, uuid: Uuid) -> Option<&FootprintInstance> {
+        self.footprints.get(&uuid)
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -388,7 +422,9 @@ impl PcbDocument {
             net_classes => NetClass,
             nets => Net,
             texts => PcbText,
-            graphics => PcbGraphic
+            graphics => PcbGraphic,
+            footprint_copies => FootprintCopy,
+            footprints => FootprintInstance
         )
     }
 
@@ -413,7 +449,9 @@ impl PcbDocument {
             net_classes => NetClass,
             nets => Net,
             texts => PcbText,
-            graphics => PcbGraphic
+            graphics => PcbGraphic,
+            footprint_copies => FootprintCopy,
+            footprints => FootprintInstance
         );
         out
     }
@@ -428,6 +466,8 @@ impl PcbDocument {
         self.nets.remove(&uuid);
         self.texts.remove(&uuid);
         self.graphics.remove(&uuid);
+        self.footprint_copies.remove(&uuid);
+        self.footprints.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -439,6 +479,8 @@ impl PcbDocument {
             && self.nets.is_empty()
             && self.texts.is_empty()
             && self.graphics.is_empty()
+            && self.footprint_copies.is_empty()
+            && self.footprints.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -495,6 +537,56 @@ impl PcbDocument {
             if self.layers().layer(layer).is_none() {
                 return Err(format!(
                     "{uuid} is drawn on Layer {layer}, which does not exist"
+                ));
+            }
+        }
+        self.check_footprints()
+    }
+
+    fn check_footprints(&self) -> Result<(), String> {
+        let mut keys = std::collections::BTreeSet::new();
+        for copy in self.footprint_copies.values() {
+            if !keys.insert((copy.footprint.uuid, copy.hash.as_str())) {
+                return Err(format!(
+                    "the PCB holds Footprint {} with hash {} twice",
+                    copy.footprint.uuid, copy.hash
+                ));
+            }
+        }
+        let mut components = std::collections::BTreeSet::new();
+        for instance in self.footprints.values() {
+            let uuid = instance.uuid;
+            if let Some(component) = &instance.component
+                && !components.insert(component)
+            {
+                return Err(format!(
+                    "two Footprint instances show Component {}",
+                    component.uuid
+                ));
+            }
+            let Some(copy) = self.footprint_copies.get(&instance.footprint) else {
+                return Err(format!(
+                    "Footprint instance {uuid} names Footprint copy {}, which the PCB does \
+                     not hold",
+                    instance.footprint
+                ));
+            };
+            let mut pads: Vec<Uuid> = copy.footprint.pads.iter().map(|p| p.uuid).collect();
+            pads.sort();
+            if !instance.pads.iter().map(|p| p.pad).eq(pads) {
+                return Err(format!(
+                    "Footprint instance {uuid} must list each Pad of its Footprint once, \
+                     sorted by UUID"
+                ));
+            }
+            if let Some(net) = instance
+                .pads
+                .iter()
+                .filter_map(|p| p.net)
+                .find(|n| !self.nets.contains_key(n))
+            {
+                return Err(format!(
+                    "Footprint instance {uuid} has a Pad on Net {net}, which does not exist"
                 ));
             }
         }

@@ -25,23 +25,37 @@
 //!   ],
 //!   "graphics": [
 //!     {"uuid":"…","layer":"…","width":150000,"shape":{"kind":"line","from":{…},"to":{…}}}
+//!   ],
+//!   "footprint_copies": [
+//!     {"uuid":"…","hash":"…","footprint":{…},"text":{…},"pads":[
+//!       {"uuid":"…","number":"1",…}
+//!     ],"graphics":[]}
+//!   ],
+//!   "footprints": [
+//!     {"uuid":"…","component":{"uuid":"…"},"footprint":"…","at":{…},"rotation":0,"side":"top","designator":"R1","fields":{…},"pads":[
+//!       {"pad":"…","net":"…"}
+//!     ]}
 //!   ]
 //! }
 //! ```
 //!
 //! The board setup is one object in the model; the file splits it over the `board`, `rules`
 //! and `severities` lines so a rule change and a severity change touch different lines.
-//! `board_outline` is left out while the board has none.
+//! `board_outline` is left out while the board has none. `footprint_copies` (the part
+//! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
+//! instances, each Pad's Net on its own line) are left out while the board has no
+//! Footprints.
 
 use std::path::Path;
 
 use reda_model::{
-    BoardCutout, BoardOutline, BoardSetup, DrcSeverities, InDocument, LayerSet, Net, NetClass,
-    Object, PcbDocument, PcbGraphic, PcbText, Rules, Uuid,
+    BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, InDocument, LayerSet,
+    Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, Rules, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::sheet_file::FootprintCopyRow;
 use super::{FORMAT, FileKind, LoadError, parse};
 use crate::canonical::{CanonicalError, CanonicalWriter};
 
@@ -78,6 +92,12 @@ pub(crate) struct PcbFile {
     /// Lines, arcs and rectangles on copper, silkscreen, mechanical and documentation
     /// Layers.
     graphics: Vec<PcbGraphic>,
+    /// The part table: a copy of each Footprint in use, sorted by UUID.
+    #[serde(default)]
+    footprint_copies: Vec<FootprintCopyRow>,
+    /// The placed Footprint instances, sorted by UUID.
+    #[serde(default)]
+    footprints: Vec<FootprintInstance>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -119,6 +139,16 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     w.table("nets", pcb.nets(), |n| n.uuid)?;
     w.table("texts", pcb.texts(), |t| t.uuid)?;
     w.table("graphics", pcb.graphics(), |g| g.uuid)?;
+    if pcb.footprint_copies().next().is_some() || pcb.footprints().next().is_some() {
+        let copies = pcb.footprint_copies().map(FootprintCopyRow::of);
+        w.containers_spread(
+            "footprint_copies",
+            copies,
+            FootprintCopyRow::uuid,
+            &["pads", "graphics"],
+        )?;
+        w.containers("footprints", pcb.footprints(), |f| f.uuid, "pads")?;
+    }
     Ok(w.finish())
 }
 
@@ -180,6 +210,17 @@ pub(crate) fn read_pcb_file(
         file.graphics
             .into_iter()
             .map(|g| Object::PcbGraphic(InDocument::new(doc, g))),
+    );
+    for row in file.footprint_copies {
+        let copy = row
+            .into_copy()
+            .map_err(|why| LoadError::Invalid(path.to_owned(), why))?;
+        objects.push(Object::FootprintCopy(InDocument::new(doc, copy)));
+    }
+    objects.extend(
+        file.footprints
+            .into_iter()
+            .map(|f| Object::FootprintInstance(InDocument::new(doc, f))),
     );
     Ok(objects)
 }
