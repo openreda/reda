@@ -1,14 +1,19 @@
 //! Plotting a PCB Document to Gerber files: the outer copper Layers (Zone fills, Tracks,
-//! Vias and Pads) and the Board Outline as the Profile.
+//! Vias, Pads and copper text and drawing), the Solder Mask and Paste ([`openings`]), the
+//! Silkscreen ([`artwork`]) and the Board Outline as the Profile.
 
-use reda_command::Timestamp;
+mod artwork;
+mod openings;
+
+use reda_command::{Fonts, Timestamp};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    GerberSettings, PadKind, PadShape, PcbDocument, Project, Side, TrackGeometry, Uuid, ZoneFills,
+    GerberSettings, LayerKind, PadKind, PadShape, PcbDocument, Project, Side, TrackGeometry, Uuid,
+    ZoneFills,
 };
 use reda_pcb::placed::{self, PlacedPad};
 
-use crate::gerber::{Gerber, Template, escape};
+use crate::gerber::{Gerber, NO_FUNCTION, Template, escape};
 
 /// The pen the Profile is drawn with.
 const PROFILE_PEN: Nm = Nm(100_000);
@@ -22,6 +27,8 @@ pub struct Plot<'a> {
     pub fills: &'a ZoneFills,
     /// The Fab Preset's Gerber switches.
     pub gerber: GerberSettings,
+    /// The fonts installed on this machine, for text in fonts other than the built-in ones.
+    pub fonts: &'a Fonts,
     /// The creation time stamped into the files, from the injected `Clock`.
     pub created: Timestamp,
 }
@@ -36,33 +43,66 @@ pub struct OutputFile {
     pub bytes: Vec<u8>,
 }
 
-/// The Gerber files of `plot`: top copper, bottom copper, then the Profile.
+/// The Gerber files of `plot`: top and bottom copper, Solder Mask, Paste and Silkscreen,
+/// then the Profile.
 pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
     let name = &plot.project.props().name;
+    let file = |extension: &str, function, bytes| OutputFile {
+        name: format!("{name}.{extension}"),
+        function,
+        bytes,
+    };
     let copper: Vec<Uuid> = plot.pcb.copper_layers().map(|l| l.uuid).collect();
     let mut files = Vec::new();
     if let (Some(&top), Some(&bottom)) = (copper.first(), copper.last()) {
-        files.push(OutputFile {
-            name: format!("{name}.GTL"),
-            function: "copper_top",
-            bytes: copper_layer(plot, top, "Copper,L1,Top".into()),
-        });
-        files.push(OutputFile {
-            name: format!("{name}.GBL"),
-            function: "copper_bottom",
-            bytes: copper_layer(plot, bottom, format!("Copper,L{},Bot", copper.len())),
-        });
+        files.push(file(
+            "GTL",
+            "copper_top",
+            copper_layer(plot, top, "Copper,L1,Top".into()),
+        ));
+        files.push(file(
+            "GBL",
+            "copper_bottom",
+            copper_layer(plot, bottom, format!("Copper,L{},Bot", copper.len())),
+        ));
     }
-    files.push(OutputFile {
-        name: format!("{name}.GKO"),
-        function: "profile",
-        bytes: profile(plot),
-    });
+    for (extension, function, side) in [
+        ("GTS", "solder_mask_top", Side::Top),
+        ("GBS", "solder_mask_bottom", Side::Bottom),
+    ] {
+        files.push(file(extension, function, openings::mask(plot, side)));
+    }
+    for (extension, function, side) in [
+        ("GTP", "paste_top", Side::Top),
+        ("GBP", "paste_bottom", Side::Bottom),
+    ] {
+        files.push(file(extension, function, openings::paste(plot, side)));
+    }
+    for (extension, function, side) in [
+        ("GTO", "silkscreen_top", Side::Top),
+        ("GBO", "silkscreen_bottom", Side::Bottom),
+    ] {
+        if let Some(layer) = plot.pcb.layers().find(LayerKind::Silkscreen, Some(side)) {
+            let bytes = artwork::silkscreen(plot, layer.uuid, side);
+            files.push(file(extension, function, bytes));
+        }
+    }
+    files.push(file("GKO", "profile", profile(plot)));
     files
 }
 
-/// The file attributes every file starts with, then `function` and the polarity.
+/// The file attributes of a positive image: what every file starts with, then `function`
+/// and the polarity.
 pub(crate) fn file_attributes(plot: &Plot<'_>, function: String) -> Vec<(&'static str, String)> {
+    file_attributes_with(plot, function, "Positive")
+}
+
+/// The file attributes every file starts with, then `function` and `polarity`.
+fn file_attributes_with(
+    plot: &Plot<'_>,
+    function: String,
+    polarity: &str,
+) -> Vec<(&'static str, String)> {
     let props = plot.project.props();
     let revision = match props.properties.revision.as_str() {
         "" => "-",
@@ -82,7 +122,7 @@ pub(crate) fn file_attributes(plot: &Plot<'_>, function: String) -> Vec<(&'stati
         ),
         (".SameCoordinates", plot.pcb.uuid.to_string()),
         (".FileFunction", function),
-        (".FilePolarity", "Positive".into()),
+        (".FilePolarity", polarity.into()),
     ]
 }
 
@@ -132,9 +172,9 @@ fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
     }
     shapes.sort_by_key(|s| std::cmp::Reverse(s.0));
     for (_, net, shape) in shapes {
-        g.region(&shape.outer, true, &net_attribute(&net));
+        g.region(&shape.outer, true, "Conductor", &net_attribute(&net));
         for hole in &shape.holes {
-            g.region(hole, false, &[]);
+            g.region(hole, false, "Conductor", &[]);
         }
     }
 
@@ -197,6 +237,9 @@ fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
         }
     }
 
+    // Copper text and drawing carry no current.
+    artwork::draw_layer(&mut g, plot, layer, "NonConductor");
+
     g.finish(&file_attributes(plot, function))
 }
 
@@ -229,7 +272,9 @@ fn pad_template(pad: &PlacedPad) -> Template {
 fn flash_pad(g: &mut Gerber, pad: &PlacedPad, attrs: &[(&str, &str)]) {
     let function = match pad.kind {
         PadKind::Smd => "SMDPad,CuDef",
-        _ => "ComponentPad",
+        PadKind::PlatedThroughHole => "ComponentPad",
+        // Only the Solder Mask opens over a non-plated hole; no pad function fits it.
+        PadKind::NonPlated => NO_FUNCTION,
     };
     g.flash(pad_template(pad), function, pad.at, attrs);
 }

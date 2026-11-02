@@ -17,8 +17,8 @@ use reda_model::{
 use super::placement::{corners, polyline};
 use super::{Board, Report};
 use crate::copper::shape::{Core, P, Prim, Shape as Copper, arc_points};
-use crate::placed::{Frame, placed_designator, placed_graphics};
-use crate::text::{PlacedText, footprint_text_geometry, text_geometry};
+use crate::placed::{Frame, placed_graphics};
+use crate::text::{PlacedText, footprint_texts, text_geometry};
 use crate::zone::poly::{self, Area, Contour, ip};
 
 /// One piece of silkscreen: the objects it belongs to, its side and its area.
@@ -118,65 +118,41 @@ fn silk_side(layer: FootprintLayer) -> Option<Side> {
     }
 }
 
-/// Every piece of silkscreen on the board, Footprints' first.
+/// Every piece of silkscreen on the board, Footprints' first. Footprint text is laid out
+/// by [`footprint_texts`], as the canvas and the Gerber silkscreen lay it out.
 fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
-    let layer_of = |side| {
-        pcb.layers()
-            .find(LayerKind::Silkscreen, Some(side))
-            .map_or(Uuid::from_u128(0), |l| l.uuid)
-    };
-    let mut out = Vec::new();
-    for instance in pcb.footprints() {
-        for graphic in placed_graphics(pcb, instance) {
-            let Some(side) = silk_side(graphic.layer) else {
-                continue;
-            };
-            let area = match &graphic.shape {
-                Shape::Text {
-                    at,
-                    text,
-                    size,
-                    rotation,
-                } => text_area(&footprint_text_geometry(
-                    text,
-                    *at,
-                    *size,
-                    *rotation,
-                    side == Side::Bottom,
-                    layer_of(side),
-                )),
-                shape => drawing_area(shape, graphic.width.0, graphic.fill),
-            };
-            out.push(Silk {
-                objects: vec![instance.uuid],
-                side,
-                area,
-            });
-        }
-        if let Some(text) = placed_designator(pcb, instance).filter(|t| t.visible)
-            && let Some(side) = silk_side(text.layer)
-        {
-            let placed = footprint_text_geometry(
-                &instance.designator,
-                text.at,
-                text.size,
-                text.rotation,
-                side == Side::Bottom,
-                layer_of(side),
-            );
-            out.push(Silk {
-                objects: vec![instance.uuid],
-                side,
-                area: text_area(&placed),
-            });
-        }
-    }
     let side_of = |layer: Uuid| {
         pcb.layers()
             .layer(layer)
             .filter(|l| l.kind == LayerKind::Silkscreen)
             .and_then(|l| l.side)
     };
+    let mut out = Vec::new();
+    for instance in pcb.footprints() {
+        for graphic in placed_graphics(pcb, instance) {
+            if matches!(graphic.shape, Shape::Text { .. }) {
+                continue;
+            }
+            let Some(side) = silk_side(graphic.layer) else {
+                continue;
+            };
+            out.push(Silk {
+                objects: vec![instance.uuid],
+                side,
+                area: drawing_area(&graphic.shape, graphic.width.0, graphic.fill),
+            });
+        }
+        for text in footprint_texts(pcb, instance, fonts) {
+            let Some(side) = side_of(text.layer) else {
+                continue;
+            };
+            out.push(Silk {
+                objects: vec![instance.uuid],
+                side,
+                area: text_area(&text_geometry(&text, fonts)),
+            });
+        }
+    }
     for graphic in pcb.graphics() {
         let Some(side) = side_of(graphic.layer) else {
             continue;
