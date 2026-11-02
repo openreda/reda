@@ -74,6 +74,7 @@ reda-pcb -> rstar
 reda-pcb -> schemars
 reda-pcb -> serde
 reda-pcb -> serde_json
+reda-release -> toml_edit
 reda-render -> i_triangle
 reda-render -> png
 reda-render -> reda-command
@@ -108,5 +109,7 @@ reda-ui -> fluent-bundle
 reda-ui -> reda-engine
 reda-ui -> reda-testkit [dev]
 reda-ui -> rfd
+reda-ui -> schemars
+reda-ui -> serde
 reda-ui -> serde_json
 reda-ui -> unic-langid

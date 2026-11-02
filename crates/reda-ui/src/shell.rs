@@ -1,9 +1,10 @@
 //! The window shell's state, kept apart from drawing so it can be tested without a
-//! window: the open tabs (the Start page or Document tabs), opening and creating Projects,
-//! recent Projects, and running Commands on the engine.
+//! window: the docking [`Layout`] and the open Document tabs, opening and creating
+//! Projects, recent Projects, and running Commands on the engine.
 //!
-//! Every change to the design goes through [`Shell::run`], which runs a Command and then
-//! refreshes what the tabs show (their Scenes) and the fonts the engine has.
+//! Every change to the design or the layout goes through [`Shell::run`], which runs a
+//! Command and then refreshes what the tabs show (their Scenes) and the fonts the engine
+//! has. The Layout lives in the engine's view state, where the layout Commands change it.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -16,6 +17,7 @@ use reda_engine::{Engine, state, store};
 use serde_json::{Value, json};
 
 use crate::canvas::{Camera, SceneHandle};
+use crate::layout::{self, Layout, TabKey};
 use crate::tr;
 
 /// Where the engine gets the bytes of fonts installed on the machine. The app scans the
@@ -33,14 +35,6 @@ impl InstalledFonts for NoFonts {
     fn load(&self, _family: &str) -> Option<FontFace> {
         None
     }
-}
-
-/// A tab in the Document area.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Tab {
-    /// Shown while no Project is open.
-    Start,
-    Document(DocumentTab),
 }
 
 /// A Document open in a tab.
@@ -68,8 +62,8 @@ pub struct RecentProject {
 /// The shell: the engine and the tabs showing it.
 pub struct Shell {
     engine: Engine,
-    tabs: Vec<Tab>,
-    active: usize,
+    /// The open Documents' tabs, wherever the Layout puts them.
+    documents: Vec<DocumentTab>,
     fonts: Arc<dyn InstalledFonts>,
     /// Families already asked of [`InstalledFonts`], found or not.
     asked_fonts: BTreeSet<String>,
@@ -78,12 +72,16 @@ pub struct Shell {
 }
 
 impl Shell {
-    /// A shell on `engine`, showing its open Project or else the Start page.
-    pub fn new(engine: Engine) -> Shell {
+    /// A shell on `engine`, showing its open Project or else the Start page, in the
+    /// Default Layout. It adds the layout Commands to the engine.
+    pub fn new(mut engine: Engine) -> Shell {
+        if engine.registry().get("panel.show").is_none() {
+            engine.register(layout::register_all);
+        }
+        engine.view_mut().set(Layout::default());
         let mut shell = Shell {
             engine,
-            tabs: vec![Tab::Start],
-            active: 0,
+            documents: Vec::new(),
             fonts: Arc::new(NoFonts),
             asked_fonts: BTreeSet::new(),
             generation: 0,
@@ -106,27 +104,52 @@ impl Shell {
         &self.engine
     }
 
-    pub fn tabs(&self) -> &[Tab] {
-        &self.tabs
+    /// The docking layout: where every tab is.
+    pub fn layout(&self) -> &Layout {
+        self.engine
+            .view()
+            .get::<Layout>()
+            .expect("the Shell installs its Layout")
     }
 
-    pub fn active(&self) -> Option<&Tab> {
-        self.tabs.get(self.active)
+    fn layout_mut(&mut self) -> &mut Layout {
+        self.engine
+            .view_mut()
+            .get_mut::<Layout>()
+            .expect("the Shell installs its Layout")
     }
 
-    pub fn active_index(&self) -> usize {
-        self.active
+    /// The open Documents' tabs.
+    pub fn document_tabs(&self) -> &[DocumentTab] {
+        &self.documents
     }
 
-    pub fn set_active(&mut self, index: usize) {
-        if index < self.tabs.len() {
-            self.active = index;
+    /// The tab of the open Document `document`.
+    pub fn document_tab(&self, document: Uuid) -> Option<&DocumentTab> {
+        self.documents.iter().find(|d| d.document == document)
+    }
+
+    /// The tab of an open Document, to update its camera.
+    pub fn document_tab_mut(&mut self, document: Uuid) -> Option<&mut DocumentTab> {
+        self.documents.iter_mut().find(|d| d.document == document)
+    }
+
+    /// The active Document's tab: the Document last interacted with.
+    pub fn active_document(&self) -> Option<&DocumentTab> {
+        self.document_tab(self.layout().active_document()?)
+    }
+
+    pub fn active_document_mut(&mut self) -> Option<&mut DocumentTab> {
+        let document = self.layout().active_document()?;
+        self.document_tab_mut(document)
+    }
+
+    /// The title of `tab`'s Document, if it is an open Document.
+    pub fn document_title(&self, tab: &TabKey) -> Option<&str> {
+        match tab {
+            TabKey::Document(uuid) => self.document_tab(*uuid).map(|d| d.title.as_str()),
+            _ => None,
         }
-    }
-
-    /// The active tab, to update its camera.
-    pub fn active_mut(&mut self) -> Option<&mut Tab> {
-        self.tabs.get_mut(self.active)
     }
 
     /// The last error to show the user, if any.
@@ -180,22 +203,21 @@ impl Shell {
         Ok(())
     }
 
-    /// Runs a Command, then refreshes the tabs when it may have changed the design.
+    /// Runs a Command, then refreshes the tabs when it may have changed the design or
+    /// closed a Document's tab.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
         let out = self.engine.run(id, params)?;
         let base = id.split(':').next().unwrap_or(id);
-        let read_only = self
-            .engine
-            .registry()
-            .get(base)
-            .is_some_and(|meta| meta.kind == Kind::Query);
-        if !read_only {
-            self.refresh();
+        match self.engine.registry().get(base).map(|meta| meta.kind) {
+            Some(Kind::Query) => {}
+            Some(Kind::View) => self.forget_closed_documents(),
+            _ => self.refresh(),
         }
         Ok(out)
     }
 
-    fn run_reporting(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
+    /// [`Shell::run`], keeping any error as the message the status bar shows.
+    pub fn run_reporting(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
         let out = self.run(id, params);
         match &out {
             Ok(_) => self.message = None,
@@ -221,53 +243,63 @@ impl Shell {
         Some(std::fs::canonicalize(&file).unwrap_or(file))
     }
 
-    /// Replaces the tabs with the open Project's first sheet.
+    /// Shows the open Project in the Default Layout, with its first sheet in the centre.
     fn show_project(&mut self) {
         let first_sheet = self.engine.project().and_then(|p| {
             p.documents()
                 .find(|d| d.kind == DocumentKind::Schematic)
                 .map(|d| (d.uuid, d.title.clone()))
         });
-        self.tabs = match first_sheet {
-            Some((document, title)) => vec![Tab::Document(DocumentTab {
+        let mut layout = Layout::with_centre(Vec::new());
+        self.documents.clear();
+        if let Some((document, title)) = first_sheet {
+            layout.open_document(document);
+            let scene = self.scene_of(document);
+            self.documents.push(DocumentTab {
                 document,
                 title,
                 camera: None,
-                scene: self.scene_of(document),
-            })],
-            None => Vec::new(),
-        };
-        self.active = 0;
+                scene,
+            });
+        }
+        *self.layout_mut() = layout;
         self.load_fonts();
     }
 
-    /// Rebuilds every tab's Scene and drops tabs whose Document is gone.
+    /// Rebuilds every tab's Scene and closes tabs whose Document is gone. With no
+    /// Project open, the centre shows the Start page again.
     fn refresh(&mut self) {
         let Some(project) = self.engine.project() else {
-            self.tabs = vec![Tab::Start];
-            self.active = 0;
+            self.documents.clear();
+            *self.layout_mut() = Layout::default();
             return;
         };
         let open: Vec<(Uuid, String)> = project
             .documents()
             .map(|d| (d.uuid, d.title.clone()))
             .collect();
-        let mut tabs = std::mem::take(&mut self.tabs);
-        tabs.retain(|t| match t {
-            Tab::Start => false,
-            Tab::Document(d) => open.iter().any(|(u, _)| *u == d.document),
+        self.layout_mut().retain_tabs(|t| match t {
+            TabKey::Start => false,
+            TabKey::Document(uuid) => open.iter().any(|(u, _)| u == uuid),
+            TabKey::Panel(_) => true,
         });
-        for tab in &mut tabs {
-            if let Tab::Document(d) = tab {
-                d.scene = self.scene_of(d.document);
-                if let Some((_, title)) = open.iter().find(|(u, _)| *u == d.document) {
-                    d.title = title.clone();
-                }
+        self.forget_closed_documents();
+        let mut documents = std::mem::take(&mut self.documents);
+        for d in &mut documents {
+            d.scene = self.scene_of(d.document);
+            if let Some((_, title)) = open.iter().find(|(u, _)| *u == d.document) {
+                d.title = title.clone();
             }
         }
-        self.tabs = tabs;
-        self.active = self.active.min(self.tabs.len().saturating_sub(1));
+        self.documents = documents;
         self.load_fonts();
+    }
+
+    /// Drops the tab state of Documents whose tabs the layout no longer has.
+    fn forget_closed_documents(&mut self) {
+        let mut documents = std::mem::take(&mut self.documents);
+        documents.retain(|d| self.layout().place(&TabKey::Document(d.document)).is_some());
+        self.documents = documents;
     }
 
     fn scene_of(&mut self, document: Uuid) -> SceneHandle {

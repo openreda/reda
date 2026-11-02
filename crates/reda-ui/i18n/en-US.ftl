@@ -19,6 +19,30 @@ window-title-project = { $project } — REDA
 document-area-empty = No Document open.
 status-ready = Ready
 status-dismiss = Dismiss
+status-panels = Panels
+panels-reopen = { $panel } (closed)
+floating-window-title = REDA
+
+## Docking
+
+panel-projects = Projects
+panel-properties = Properties
+panel-messages = Messages
+panel-library = Library
+panel-layers = Layers
+panel-journal = Journal
+panel-empty = Nothing to show yet.
+dock-expand = Expand Dock
+tab-menu-move-to = Move to
+tab-menu-left-dock = Left Dock
+tab-menu-right-dock = Right Dock
+tab-menu-bottom-dock = Bottom Dock
+tab-menu-new-window = New Window
+tab-menu-split-right = Split Right
+tab-menu-split-down = Split Down
+tab-menu-close = Close
+tab-menu-collapse-dock = Collapse Dock
+tab-menu-not-in-dock = This tab is not in a Dock.
 
 ## Menus
 

@@ -5,8 +5,8 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  # Pushes to main run CI through release.yml, which calls this workflow before packaging.
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
@@ -47,9 +47,9 @@ jobs:
           rustup target add wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       # Every crate below reda-control in docs/spec/v0.1/architecture.md#crates must build for
-      # wasm32. The crates at or above it, and the dev-only testkit, are excluded by name, so a
-      # new engine-side crate is covered without touching this file. Excluding a crate that
-      # does not exist yet only warns.
+      # wasm32. The crates at or above it, the dev-only testkit and the CI-only release tool
+      # are excluded by name, so a new engine-side crate is covered without touching this
+      # file. Excluding a crate that does not exist yet only warns.
       - name: Build for wasm32-unknown-unknown
         run: >
           cargo build --locked --target wasm32-unknown-unknown --workspace
@@ -58,6 +58,7 @@ jobs:
           --exclude reda-app
           --exclude reda-cli
           --exclude reda-testkit
+          --exclude reda-release
 
   png-snapshots:
     name: PNG snapshots (Mesa llvmpipe)
