@@ -32,10 +32,7 @@ fn main() {
         if line.starts_with('#') {
             continue;
         }
-        if let Some(title) = line
-            .strip_prefix("== ")
-            .and_then(|l| l.strip_suffix(" =="))
-        {
+        if let Some(title) = line.strip_prefix("== ").and_then(|l| l.strip_suffix(" ==")) {
             write!(out, "\n\n---- {title} ----\n\n").unwrap();
         } else if let Some(file) = line.strip_prefix("Text: ") {
             let path = root.join(file);

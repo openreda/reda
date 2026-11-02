@@ -127,6 +127,7 @@ menu-view-panels = Panels
 menu-view-theme = Theme
 menu-design = Design
 menu-library = Library
+menu-help = Help
 bars-no-active-document = no Document is active
 bars-unknown-command = there is no Command { $command }
 
@@ -157,6 +158,22 @@ new-project-rectangle = Rectangle
 new-project-width = Width (mm)
 new-project-height = Height (mm)
 new-project-corner-radius = Corner radius (mm)
+
+## Help: the About box and the update check
+
+about-title = About REDA
+about-tab-about = About
+about-tab-licences = Licences
+about-version = Version { $version }
+about-summary = Electronic design automation: capture schematics, lay out PCBs and produce fab outputs.
+about-licence = REDA is free software under the MIT licence. It ships with third-party data and Rust crates under their own licences, listed under Licences.
+about-notices = Third-party notices
+help-close = Close
+update-title = Check for Updates
+update-available = REDA { $latest } is available. This is { $current }.
+update-current = REDA { $latest } is the newest release.
+update-current-dev = This build ({ $current }) is newer than the newest release, { $latest }.
+update-open-release = Open the release page
 
 ## Properties panel
 

@@ -13,6 +13,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 
 | Key | Source |
 |---|---|
+| `about` | Lucide `info` |
 | `align` | Tabler `layout-align-left` (outline) |
 | `annotate` | Tabler `list-numbers` (outline) |
 | `arc` | Tabler `vector-spline` (outline) |
@@ -23,6 +24,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `board_outline_from_lines` | Tabler `vector` (outline) |
 | `board_outline_rect` | Lucide `rectangle-horizontal` |
 | `clearance` | Tabler `ruler-measure` (outline) |
+| `cli_install` | Lucide `square-terminal` |
 | `close` | Lucide `x` |
 | `component_place` | Lucide `cpu` |
 | `copy` | Lucide `copy` |
@@ -127,6 +129,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `track` | Tabler `route-2` (outline) |
 | `undo` | Lucide `undo-2` |
 | `unit_place` | Tabler `triangle-plus` (outline) |
+| `update_check` | Lucide `cloud-download` |
 | `via` | Lucide `circle-dot` |
 | `waive` | Lucide `shield-check` |
 | `window_new` | Lucide `app-window-mac` |

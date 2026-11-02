@@ -34,6 +34,7 @@ pub struct App {
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
+    help: crate::help::Dialogs,
 }
 
 impl App {
@@ -47,6 +48,7 @@ impl App {
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
+            help: Default::default(),
         }
     }
 
@@ -84,6 +86,7 @@ impl App {
             let _ = self.shell.run_reporting(&id, params);
         }
         self.handle_requests(&ctx);
+        self.help.show(&ctx, self.shell.engine());
         for action in frame.messages {
             crate::panels::messages::apply(&mut self.shell, action);
         }
@@ -223,6 +226,7 @@ impl App {
                     preferences::Theme::Dark => ThemePreference::Dark,
                     preferences::Theme::Light => ThemePreference::Light,
                 }),
+                Request::About => self.help.open_about(),
             }
         }
     }

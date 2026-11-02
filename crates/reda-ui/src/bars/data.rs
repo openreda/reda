@@ -54,7 +54,15 @@ pub fn merge(mut common: Bars, own: Bars) -> Bars {
                 existing.items.push(Item::Separator);
                 existing.items.extend(menu.items);
             }
-            None => common.menus.push(menu),
+            // Help stays last, as on every platform.
+            None => {
+                let at = common
+                    .menus
+                    .iter()
+                    .position(|m| m.id == "help")
+                    .unwrap_or(common.menus.len());
+                common.menus.insert(at, menu);
+            }
         }
     }
     if !own.toolbar.is_empty() {
