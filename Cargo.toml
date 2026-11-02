@@ -27,6 +27,8 @@ rmcp = { version = "3.8", default-features = false, features = ["server", "trans
 tokio = "1.52"
 # The control-port token: 256 bits from the OS random source (reda-control).
 getrandom = "0.4"
+# Deleted Documents' files go to the OS trash on save (reda-cli; the app later). MIT.
+trash = { version = "5.2", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

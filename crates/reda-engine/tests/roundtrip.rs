@@ -12,9 +12,9 @@ use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, FabPreset, FileNaming, FootprintCopy,
     GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, NetLabel,
-    NoConnect, Object, OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Project,
-    ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetSize,
-    Side, UnitInstance, Uuid, Wire,
+    NoConnect, Object, OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Port, PortDirection,
+    PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules,
+    Severity, SheetFrame, SheetSize, Side, UnitInstance, Uuid, Wire,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -452,7 +452,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             sheet,
             NetLabel {
                 uuid: id(6),
-                name,
+                name: name.clone(),
                 at: to,
                 rotation: Millideg(180_000),
             },
@@ -462,6 +462,26 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             NoConnect {
                 uuid: id(7),
                 at: from,
+            },
+        )));
+        objects.push(Object::Port(InDocument::new(
+            sheet,
+            Port {
+                uuid: id(8),
+                name: name.clone(),
+                direction: PortDirection::In,
+                at: to,
+                rotation: Millideg(90_000),
+            },
+        )));
+        objects.push(Object::PowerPort(InDocument::new(
+            sheet,
+            PowerPort {
+                uuid: id(9),
+                name,
+                style: PowerPortStyle::Ground,
+                at: from,
+                rotation: Millideg(0),
             },
         )));
     }

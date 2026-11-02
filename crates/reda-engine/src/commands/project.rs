@@ -1,5 +1,6 @@
 //! `project.new`, `project.open` and `project.save`.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use reda_command::{
@@ -130,6 +131,7 @@ impl Command for ProjectNew {
             // The dialog's default is a convenience; failing to remember it fails nothing.
             let _ = state::update(dirs, |s| s.last_fab_preset = name);
         }
+        session.files_on_disk = files_of(&project);
         session.project = Some(project);
         session.location = Some(folder);
         Ok(summary(session, vec![]))
@@ -217,6 +219,7 @@ impl Command for ProjectOpen {
     ) -> Result<ProjectSummary, CommandError> {
         let opened = store::open(&store::resolve_project_file(&p.path))?;
         let session = cx.session()?;
+        session.files_on_disk = files_of(&opened.project);
         session.project = Some(opened.project);
         session.location = Some(opened.folder);
         session.history.clear();
@@ -245,6 +248,19 @@ pub struct ProjectSaveResult {
     pub path: PathBuf,
     /// Every file written, relative to the Project folder.
     pub written: Vec<String>,
+    /// Files of renamed Documents moved to their new names; left out when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub renamed: Vec<RenamedFile>,
+    /// Files of deleted Documents sent to the trash; left out when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub trashed: Vec<String>,
+}
+
+/// A file renamed on save, relative to the Project folder.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct RenamedFile {
+    pub from: String,
+    pub to: String,
 }
 
 impl Command for ProjectSave {
@@ -253,7 +269,9 @@ impl Command for ProjectSave {
         title: "Save All",
         description: "Writes the Project file and every Document to the Project folder, \
                       each through a temp file and a rename. With `document`, writes only \
-                      that Document's file, or only the Project file for `\"project\"`.",
+                      that Document's file, or only the Project file for `\"project\"`. \
+                      Saving the Project file also renames the files of renamed Documents \
+                      and sends those of deleted Documents to the OS trash.",
         category: "project",
         icon: "save_all",
         kind: Kind::File,
@@ -294,7 +312,14 @@ impl Command for ProjectSave {
                 "no Document has UUID {uuid}"
             )));
         }
-        let written = store::save(&folder, project, only)?;
+        let trash = session.trash.clone();
+        let saved = store::save_tracked(
+            &folder,
+            project,
+            only,
+            &mut session.files_on_disk,
+            trash.as_deref(),
+        )?;
         let path = store::project_file_path(&folder, &project.props().name);
         match only {
             Some(scope) => session.history.mark_saved(scope),
@@ -306,8 +331,23 @@ impl Command for ProjectSave {
                 }
             }
         }
-        Ok(ProjectSaveResult { path, written })
+        Ok(ProjectSaveResult {
+            path,
+            written: saved.written,
+            renamed: (saved.renamed.into_iter())
+                .map(|(from, to)| RenamedFile { from, to })
+                .collect(),
+            trashed: saved.trashed,
+        })
     }
+}
+
+/// Every Document's file name, by UUID.
+fn files_of(project: &Project) -> BTreeMap<Uuid, String> {
+    project
+        .documents()
+        .map(|d| (d.uuid, d.file_name()))
+        .collect()
 }
 
 /// Checks that `name` can be a file stem on every OS REDA runs on.

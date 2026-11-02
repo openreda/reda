@@ -1,14 +1,16 @@
 //! What a running Command sees: the session, the injected inputs and, for edits, the open
 //! transaction.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
 use crate::{
     Clock, CommandError, ElementLocation, Fonts, History, IdSource, PartCopy, PartSource, Signals,
-    Timestamp, UserDirs,
+    Timestamp, Trash, UserDirs,
 };
 
 /// The engine's mutable state between Commands.
@@ -25,6 +27,12 @@ pub struct Session {
     pub user_dirs: Option<UserDirs>,
     /// The folder of the starter Library that ships with REDA, if this front end has one.
     pub starter_library: Option<PathBuf>,
+    /// The Documents' files on disk in the Project folder, by Document UUID, as REDA last
+    /// read or wrote them. Saving compares it with the Project to rename the files of
+    /// renamed Documents and trash those of deleted ones.
+    pub files_on_disk: BTreeMap<Uuid, String>,
+    /// Where deleted Documents' files go on save; `None` leaves them on disk.
+    pub trash: Option<Arc<dyn Trash>>,
 }
 
 /// The injected inputs a Command run needs besides the session.

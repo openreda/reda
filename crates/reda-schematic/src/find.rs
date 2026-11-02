@@ -170,16 +170,15 @@ fn unit_match(
 /// Nets never match, nor do Nets that are only one unwired Pin (every unconnected Pin is
 /// a Net of its own, and finding those would bury the real Nets).
 fn net_matches(project: &Project, sheet: Uuid, matcher: &Matcher) -> Vec<FindMatch> {
-    let Some(body) = project.schematic_sheet(sheet) else {
+    let Some(conn) = crate::connectivity::sheet_connectivity(project, sheet) else {
         return Vec::new();
     };
     // Nets come named first, in natural order of name.
-    crate::connectivity::derive(body)
-        .nets
+    conn.nets
         .iter()
         .filter_map(|net| {
             let name = net.name.as_deref()?;
-            let lone_pin = net.pins.len() == 1 && net.wires.is_empty() && net.net_labels.is_empty();
+            let lone_pin = net.pins.len() == 1 && net.objects().count() == 1;
             if lone_pin {
                 return None;
             }

@@ -15,6 +15,7 @@ mod library;
 mod registry;
 mod schema;
 mod signals;
+mod trash;
 mod units;
 mod user;
 
@@ -29,5 +30,6 @@ pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock,
 pub use library::{ElementLocation, FootprintCopyData, NoLibraries, PartCopy, PartSource};
 pub use registry::{Registry, scope_key};
 pub use signals::{CancelToken, Progress, Signals};
+pub use trash::Trash;
 pub use units::{Angle, Length};
 pub use user::UserDirs;
