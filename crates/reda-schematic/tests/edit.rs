@@ -455,3 +455,96 @@ fn rotate_can_keep_connections_like_a_drag() {
         [((-150, 0), (0, 0)), ((0, 0), (0, 500))]
     );
 }
+
+#[test]
+fn free_text_can_be_added_edited_moved_and_deleted() {
+    let dir = TempDir::new("text");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Power\nsupply", "at": at(100, 200)}),
+    );
+    let text = out["result"]["text"].clone();
+    let stored = object(&mut engine, &text);
+    assert_eq!(stored["type"], "sheet_text");
+    assert_eq!(stored["text"], "Power\nsupply");
+    assert_eq!(stored["at"], point(100, 200));
+    // 50 mil high and upright by default.
+    assert_eq!(stored["height"], 50 * 25_400);
+    assert_eq!(stored["rotation"], 0);
+    engine.run_ok(
+        "schematic.text.set",
+        json!({"uuid": text, "text": "Supply", "height": "100mil", "rotation": "90deg"}),
+    );
+    let stored = object(&mut engine, &text);
+    assert_eq!(stored["text"], "Supply");
+    assert_eq!(stored["height"], 100 * 25_400);
+    assert_eq!(stored["rotation"], 90_000);
+    assert_eq!(stored["at"], point(100, 200));
+    let err = engine.run_err("schematic.text.set", json!({"uuid": text, "text": "  "}));
+    assert_eq!(err.details.unwrap()["pointer"], "/text");
+    shift(&mut engine, "schematic.move", &[&text], 100, 0);
+    assert_eq!(at_mil(&mut engine, &text), (200, 200));
+    engine.run_ok("schematic.delete", json!({"objects": [text]}));
+    assert_eq!(count(&mut engine, "sheet_text"), 0);
+}
+
+#[test]
+fn lines_and_rectangles_can_be_added_edited_and_moved() {
+    let dir = TempDir::new("graphics");
+    let mut engine = demo(&dir);
+    let line = engine.run_ok(
+        "schematic.graphic.add_line",
+        json!({"document": SHEET, "from": at(0, 0), "to": at(300, 100)}),
+    )["result"]["graphic"]
+        .clone();
+    let rect = engine.run_ok(
+        "schematic.graphic.add_rect",
+        json!({"document": SHEET, "from": at(0, 0), "to": at(500, 400), "filled": true}),
+    )["result"]["graphic"]
+        .clone();
+    let stored = object(&mut engine, &line);
+    assert_eq!(stored["type"], "sheet_graphic");
+    assert_eq!(
+        stored["shape"],
+        json!({"kind": "line", "from": point(0, 0), "to": point(300, 100)})
+    );
+    assert_eq!(object(&mut engine, &rect)["shape"]["filled"], true);
+    engine.run_ok(
+        "schematic.graphic.set",
+        json!({"uuid": rect, "to": at(600, 400), "filled": false}),
+    );
+    assert_eq!(
+        object(&mut engine, &rect)["shape"],
+        json!({"kind": "rect", "from": point(0, 0), "to": point(600, 400)})
+    );
+    // Empty shapes are refused.
+    let err = engine.run_err(
+        "schematic.graphic.add_rect",
+        json!({"document": SHEET, "from": at(0, 0), "to": at(0, 400)}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    let err = engine.run_err(
+        "schematic.graphic.set",
+        json!({"uuid": line, "to": at(0, 0)}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    // A line turns by any angle; a rectangle only by quarter turns.
+    engine.run_ok(
+        "schematic.rotate",
+        json!({"objects": [line], "angle": "30deg", "center": at(0, 0)}),
+    );
+    let err = engine.run_err(
+        "schematic.rotate",
+        json!({"objects": [rect], "angle": "30deg"}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected);
+    engine.run_ok(
+        "schematic.rotate",
+        json!({"objects": [rect], "center": at(0, 0)}),
+    );
+    assert_eq!(
+        object(&mut engine, &rect)["shape"],
+        json!({"kind": "rect", "from": point(0, 0), "to": point(-400, 600)})
+    );
+}

@@ -187,12 +187,7 @@ pub(crate) fn place_anew(
                 let (a, b) = g.shape.ends();
                 let mut new = g.object.clone();
                 new.shape = g.shape.with_ends(how.point(a), how.point(b));
-                let (a, b) = new.shape.ends();
-                let empty = match new.shape {
-                    SheetShape::Line { .. } => a == b,
-                    SheetShape::Rect { .. } => a.x == b.x || a.y == b.y,
-                };
-                if empty {
+                if new.shape.is_empty() {
                     removed.push(g.uuid);
                 } else {
                     replaced.push(Object::SheetGraphic(InDocument::new(document, new)));

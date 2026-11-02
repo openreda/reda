@@ -23,8 +23,10 @@ pub use component::{
 };
 pub use edit::{
     Align, AlignParams, AlignTo, Axis, Delete, DeleteParams, DeleteResult, Direction, Distribute,
-    DistributeParams, Drag, EditResult, Mirror, MirrorParams, Move, Rotate, RotateParams,
-    ShiftParams, SnapParams, SnapToGrid,
+    DistributeParams, Drag, EditResult, GraphicResult, GraphicSet, GraphicSetParams, LineAdd,
+    LineAddParams, Mirror, MirrorParams, Move, RectAdd, RectAddParams, Rotate, RotateParams,
+    ShiftParams, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
+    TextSetParams,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use natural::natural_cmp;
@@ -67,6 +69,11 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Align);
     registry.add(Distribute);
     registry.add(SnapToGrid);
+    registry.add(TextAdd);
+    registry.add(TextSet);
+    registry.add(LineAdd);
+    registry.add(RectAdd);
+    registry.add(GraphicSet);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

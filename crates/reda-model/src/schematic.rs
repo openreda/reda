@@ -231,6 +231,16 @@ impl SheetShape {
         }
     }
 
+    /// Whether it draws nothing: a line with both ends together, or a rectangle with no
+    /// width or no height.
+    pub fn is_empty(&self) -> bool {
+        let (a, b) = self.ends();
+        match self {
+            SheetShape::Line { .. } => a == b,
+            SheetShape::Rect { .. } => a.x == b.x || a.y == b.y,
+        }
+    }
+
     /// The same shape through two other defining points.
     pub fn with_ends(&self, a: Point, b: Point) -> SheetShape {
         match self {
@@ -554,12 +564,7 @@ impl SchematicSheet {
             }
         }
         for graphic in self.graphics.values() {
-            let (a, b) = graphic.shape.ends();
-            let empty = match graphic.shape {
-                SheetShape::Line { .. } => a == b,
-                SheetShape::Rect { .. } => a.x == b.x || a.y == b.y,
-            };
-            if empty {
+            if graphic.shape.is_empty() {
                 return Err(format!("graphic {} is empty", graphic.uuid));
             }
         }

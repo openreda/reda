@@ -13959,6 +13959,277 @@
     },
     {
       "category": "schematic",
+      "description": "Draws a free straight line, at any angle, on a Schematic Sheet. It has no electrical meaning.",
+      "icon": "line",
+      "id": "schematic.graphic.add_line",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/$defs/At"
+          },
+          "to": {
+            "$ref": "#/$defs/At"
+          }
+        },
+        "required": [
+          "document",
+          "from",
+          "to"
+        ],
+        "title": "LineAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The graphic a Command made or changed.",
+        "properties": {
+          "graphic": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "graphic"
+        ],
+        "title": "GraphicResult",
+        "type": "object"
+      },
+      "title": "Add Line"
+    },
+    {
+      "category": "schematic",
+      "description": "Draws a free axis-aligned rectangle between two opposite corners on a Schematic Sheet. It has no electrical meaning.",
+      "icon": "rectangle",
+      "id": "schematic.graphic.add_rect",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "filled": {
+            "default": false,
+            "description": "Filled rather than outlined.",
+            "type": "boolean"
+          },
+          "from": {
+            "$ref": "#/$defs/At",
+            "description": "One corner."
+          },
+          "to": {
+            "$ref": "#/$defs/At",
+            "description": "The opposite corner."
+          }
+        },
+        "required": [
+          "document",
+          "from",
+          "to"
+        ],
+        "title": "RectAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The graphic a Command made or changed.",
+        "properties": {
+          "graphic": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "graphic"
+        ],
+        "title": "GraphicResult",
+        "type": "object"
+      },
+      "title": "Add Rectangle"
+    },
+    {
+      "category": "schematic",
+      "description": "Changes a free line's ends, or a rectangle's corners or fill; what is left out stays.",
+      "icon": "line",
+      "id": "schematic.graphic.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "filled": {
+            "description": "Fill a rectangle, or not. Refused for a line.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "from": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new start (line) or first corner (rectangle)."
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new end (line) or opposite corner (rectangle)."
+          },
+          "uuid": {
+            "description": "The line or rectangle, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "GraphicSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The graphic a Command made or changed.",
+        "properties": {
+          "graphic": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "graphic"
+        ],
+        "title": "GraphicResult",
+        "type": "object"
+      },
+      "title": "Edit Graphic"
+    },
+    {
+      "category": "schematic",
       "description": "Flips the selected objects left to right (axis x) or top to bottom (axis y) about a centre.",
       "icon": "mirror",
       "id": "schematic.mirror",
@@ -15046,6 +15317,252 @@
         "type": "object"
       },
       "title": "Snap to Grid"
+    },
+    {
+      "category": "schematic",
+      "description": "Places free text on a Schematic Sheet. It has no electrical meaning.",
+      "icon": "text",
+      "id": "schematic.text.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/At",
+            "description": "The left end of the first baseline."
+          },
+          "document": {
+            "description": "The Schematic Sheet.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The capital height; 50 mil by default."
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Counter-clockwise about `at`; 0 by default."
+          },
+          "text": {
+            "description": "The text; `\\n` starts a new line.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "text",
+          "at"
+        ],
+        "title": "TextAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The text `schematic.text.add` made.",
+        "properties": {
+          "text": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TextResult",
+        "type": "object"
+      },
+      "title": "Add Text"
+    },
+    {
+      "category": "schematic",
+      "description": "Changes a free text's words, position, height or rotation; what is left out stays.",
+      "icon": "text",
+      "id": "schematic.text.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new baseline start."
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new capital height."
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new rotation, counter-clockwise."
+          },
+          "text": {
+            "description": "New text; `\\n` starts a new line.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The text object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "TextSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The text `schematic.text.add` made.",
+        "properties": {
+          "text": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TextResult",
+        "type": "object"
+      },
+      "title": "Edit Text"
     },
     {
       "category": "schematic",
