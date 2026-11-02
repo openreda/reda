@@ -344,6 +344,18 @@ impl App {
         }
     }
 
+    /// Opens the Change List dialog (Update PCB from Schematic) on the open Project; with
+    /// no PCB Document, the status bar says why not.
+    pub fn open_change_list(&mut self) {
+        match self.shell.engine().project() {
+            Some(project) if project.pcb().is_some() => {
+                self.settings = Some(settings::change_list::dialog(project));
+            }
+            Some(_) => self.shell.report(reda_engine::sync::NO_PCB.to_owned()),
+            None => {}
+        }
+    }
+
     /// Opens the Output Job dialog on `job`, if the open Project has it.
     pub fn open_output_job(&mut self, job: reda_engine::model::Uuid) {
         if let Some(project) = self.shell.engine().project() {
@@ -525,6 +537,14 @@ impl App {
         let bars = bars::for_document(bars::active_type(&self.shell));
         let mut checked =
             BTreeMap::from([("view.theme.set", json!({ "theme": theme_value(ui.ctx()) }))]);
+        // The cross-probe switches show checked while on.
+        let probe = self.shell.cross_probe_switches();
+        if probe.selection {
+            checked.insert("view.cross_select.toggle", json!({}));
+        }
+        if probe.nets {
+            checked.insert("view.net_cross_probe.toggle", json!({}));
+        }
         if let Some(document) = self.shell.active_document().map(|d| d.document) {
             let grid = self.shell.grid(document).0;
             checked.insert(
@@ -566,6 +586,7 @@ impl App {
                     preferences::Theme::Light => ThemePreference::Light,
                 }),
                 Request::About => self.help.open_about(),
+                Request::ChangeList => self.open_change_list(),
             }
         }
     }
@@ -576,6 +597,18 @@ impl App {
                 self.panels_button(ui);
                 if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
                     self.open_preferences(Some(PageId::Agents));
+                }
+                let pending = self.shell.out_of_sync();
+                if pending > 0 {
+                    let badge = egui::RichText::new(tr!("status-out-of-sync", count = pending))
+                        .color(ui.visuals().warn_fg_color);
+                    if ui
+                        .small_button(badge)
+                        .on_hover_text(tr!("status-out-of-sync-hint"))
+                        .clicked()
+                    {
+                        self.open_change_list();
+                    }
                 }
                 if self.shell.zones_need_refill() {
                     if ui.small_button(tr!("status-zones-refill")).clicked() {

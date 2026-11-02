@@ -51,7 +51,10 @@
             "separator",
             { "id": "view.grid.cycle", "command": "view.grid.cycle", "params": { "document": "$active_document" } }
           ]
-        }
+        },
+        "separator",
+        { "id": "view.cross_select", "command": "view.cross_select.toggle" },
+        { "id": "view.net_cross_probe", "command": "view.net_cross_probe.toggle" }
       ]
     },
     {
@@ -70,7 +73,7 @@
       "title": "menu-design",
       "items": [
         { "id": "design.erc", "command": "erc.run" },
-        { "id": "design.sync_preview", "command": "sync.preview" }
+        { "id": "design.sync", "command": "app.dialog.open:change_list" }
       ]
     }
   ],

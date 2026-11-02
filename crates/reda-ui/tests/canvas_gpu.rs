@@ -136,6 +136,7 @@ fn selecting_objects_rewrites_only_the_flags() {
     selected.selection = SelectionHandle {
         generation: 7,
         objects: Arc::from([Uuid::from_u128(1)]),
+        highlighted: Arc::from([]),
     };
     assert!(prepare(&gpu, &mut res, &selected), "a selection re-records");
     assert!(!prepare(&gpu, &mut res, &selected));

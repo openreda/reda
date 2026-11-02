@@ -50,6 +50,12 @@ params = { document = "$undo_stack" }
 key = "Mod+Shift+P"
 command = "app.dialog.open:command_palette"
 
+# Update PCB from Schematic: the Change List dialog.
+
+[[bind]]
+key = "F8"
+command = "app.dialog.open:change_list"
+
 # Panels: only Projects, Properties and Messages have keys by default.
 
 [[bind]]

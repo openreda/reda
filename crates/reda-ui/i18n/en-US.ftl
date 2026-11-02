@@ -797,3 +797,40 @@ violation-drc-errors = DRC finds { $count } { $count ->
 }
 violation-rule-below-preset = Board { $rule } { $board } is below { $preset }'s minimum { $minimum }
 violation-missing-font = Font “{ $font }” is not installed
+
+## The Change List dialog (Update PCB from Schematic)
+change-list-title = Update PCB from Schematic
+change-list-page = Change List
+change-list-in-sync = The PCB is in sync with the schematic.
+change-list-summary = { $ticked } of { $count } changes ticked. Unticked changes show up again next time.
+change-list-group = { $group } ({ $count })
+change-list-tick-all = All
+change-list-tick-group = Tick all: { $group }
+change-list-group-components = Components
+change-list-group-footprints = Footprints
+change-list-group-component-data = Component data
+change-list-group-nets = Nets
+change-list-group-pad-nets = Pad Nets
+change-add-component = Add { $designator } ({ $footprint })
+change-remove-component = Remove { $designator }
+change-footprint = { $designator }: Footprint { $from } to { $to }
+change-designator = Designator { $from } to { $to }
+change-fields = { $designator }: { $fields }
+change-not-fitted-on = { $designator }: Not Fitted
+change-not-fitted-off = { $designator }: Fitted
+change-add-net = Add Net { $net }
+change-rename-net = Rename Net { $from } to { $to }
+change-remove-net = Remove Net { $net }
+change-merge-net = Merge Net { $net } into { $into }
+change-pad-net = { $designator }.{ $pad }: { $from } to { $to }
+change-no-net = (no Net)
+status-out-of-sync = out of sync: { $count ->
+    [one] 1 change
+   *[other] { $count } changes
+}
+status-out-of-sync-hint = Update PCB from Schematic…
+tab-out-of-sync-badge = { $count }
+tab-out-of-sync = { $tab }, out of sync: { $count ->
+    [one] 1 change
+   *[other] { $count } changes
+}

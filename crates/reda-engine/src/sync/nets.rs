@@ -9,10 +9,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::{ComponentRef, PcbDocument, Project, Uuid};
-use reda_schematic::connectivity::project_nets;
+use reda_schematic::connectivity::{
+    ProjectNet, SheetConnectivity, project_connectivity, project_nets,
+};
 
 use super::components::{Components, linked_instances};
-use super::{Change, ChangeKind, NetRef, change_id, component_key};
+use super::{Change, ChangeKind, NetLink, NetRef, change_id, component_key};
 
 /// A Pad of a Component by number: the key both sides share.
 type PadKey = (ComponentRef, String);
@@ -34,6 +36,8 @@ struct SchNet {
     matched: Option<Uuid>,
     /// The id of its `add_net` change, when it matches none.
     add_id: String,
+    /// Its project-wide Net, by index into `project_nets`.
+    index: usize,
 }
 
 /// The planned Net and Pad Net changes, with what applying them needs.
@@ -207,7 +211,7 @@ impl NetPlan {
 /// The schematic Nets that become PCB Nets, in `schematic.project_nets` order.
 fn schematic_nets(project: &Project, components: &Components) -> Vec<SchNet> {
     let mut out = Vec::new();
-    for net in project_nets(project) {
+    for (index, net) in project_nets(project).into_iter().enumerate() {
         let mut pads = BTreeSet::new();
         for pin in &net.pins {
             let Some(c) = components.get(&pin.pin.component) else {
@@ -230,9 +234,55 @@ fn schematic_nets(project: &Project, components: &Components) -> Vec<SchNet> {
             pads,
             matched: None,
             add_id,
+            index,
         });
     }
     out
+}
+
+/// Every schematic Net Sync carries to the board that a PCB Net already matches, with
+/// the objects on it.
+pub(crate) fn links(project: &Project, pcb: &PcbDocument, components: &Components) -> Vec<NetLink> {
+    let mut nets = schematic_nets(project, components);
+    match_nets(&mut nets, pcb, &pcb_pad_nets(pcb));
+    if nets.iter().all(|n| n.matched.is_none()) {
+        return Vec::new();
+    }
+    let project_nets = project_nets(project);
+    let sheets = project_connectivity(project);
+    nets.into_iter()
+        .filter_map(|net| {
+            Some(NetLink {
+                pcb: net.matched?,
+                objects: drawn_objects(&sheets, &project_nets[net.index]),
+                name: net.name,
+            })
+        })
+        .collect()
+}
+
+/// The objects on a project-wide Net on every sheet (see `SchematicNet::objects`): those
+/// of the sheet Nets with its name, or for an unnamed Net of the ones holding its Pins.
+fn drawn_objects(sheets: &[SheetConnectivity], net: &ProjectNet) -> Vec<Uuid> {
+    let mut out = BTreeSet::new();
+    for sheet in sheets {
+        for part in &sheet.nets {
+            let belongs = match &net.name {
+                Some(name) => part.name.as_ref() == Some(name),
+                None => net.pins.iter().any(|p| {
+                    p.document == sheet.document
+                        && part
+                            .pins
+                            .iter()
+                            .any(|q| q.unit == p.pin.unit && q.pin == p.pin.pin)
+                }),
+            };
+            if belongs {
+                out.extend(part.objects());
+            }
+        }
+    }
+    out.into_iter().collect()
 }
 
 /// The current PCB Nets of every linked Footprint instance's Pads, by Pad key.

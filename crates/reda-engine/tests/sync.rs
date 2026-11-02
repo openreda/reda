@@ -628,6 +628,48 @@ fn the_pending_count_is_available_to_the_ui_and_drc() {
 }
 
 #[test]
+fn net_links_pair_each_synced_schematic_net_with_its_pcb_net() {
+    let dir = TempDir::new("sync-links");
+    let mut engine = demo(&dir);
+    two_wired_resistors(&mut engine);
+    let project = engine.project().unwrap();
+    // Nothing is linked before the board has the Net.
+    assert!(reda_engine::sync::net_links(project).is_empty());
+
+    sync(&mut engine);
+    let sig = nets(&mut engine)[0]["uuid"].as_str().unwrap().to_owned();
+    let wire =
+        engine.run_ok("objects.query", json!({"type": "wire"}))["objects"][0]["object"]["uuid"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+    let net_label = engine.run_ok("objects.query", json!({"type": "net_label"}))["objects"][0]
+        ["object"]["uuid"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let project = engine.project().unwrap();
+    let links = reda_engine::sync::net_links(project);
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].pcb.to_string(), sig);
+    assert_eq!(links[0].name, "SIG");
+    let mut objects: Vec<String> = links[0].objects.iter().map(|u| u.to_string()).collect();
+    objects.sort();
+    // The Units with a Pin on the Net come with it.
+    let units = engine.run_ok("objects.query", json!({"type": "unit"}))["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| o["object"]["uuid"].as_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
+    assert_eq!(units.len(), 2);
+    let mut expected = vec![wire, net_label];
+    expected.extend(units);
+    expected.sort();
+    assert_eq!(objects, expected);
+}
+
+#[test]
 fn footprint_instances_survive_save_and_open() {
     let dir = TempDir::new("sync-save");
     let mut engine = demo(&dir);

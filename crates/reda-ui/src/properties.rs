@@ -5,6 +5,10 @@
 //! - Selected Units give their Components' properties: Designator, value and the other
 //!   fields, which fields show on the sheet, the Footprint (from the Part's alternates)
 //!   and Not Fitted. They are edited with `schematic.component.set`.
+//! - Selected Footprints (with no Units selected) give the same, edited from the board
+//!   with `pcb.footprint.set`: a synced Footprint writes through to every Unit of its
+//!   Component, a Mechanical Part changes only on the board. Which fields show on the
+//!   sheet is not set from here.
 //! - Selected Tracks, Vias, Zones, Pads and highlighted Nets give their Nets' Net Class,
 //!   set with `pcb.net.set_class`.
 //! - Any one selected object shows its stored properties, read-only.
@@ -12,7 +16,9 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
-use reda_engine::model::{Fields, Object, Project, UnitInstance, Uuid};
+use reda_engine::model::{
+    DocumentKind, Fields, FootprintInstance, Object, Project, UnitInstance, Uuid,
+};
 use serde_json::{Value, json};
 
 use crate::selection::Selection;
@@ -91,8 +97,12 @@ pub struct Properties {
 /// The properties the selected Components share.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ComponentProperties {
-    /// The Components, in the order their Units were picked.
+    /// The Components, in the order their Units (or Footprints) were picked. A Mechanical
+    /// Part has none.
     pub components: Vec<Uuid>,
+    /// The Footprint instances, when the edit comes from the board (`pcb.footprint.set`);
+    /// empty when Units are selected.
+    pub footprints: Vec<Uuid>,
     /// `designator`, `value`, the other built-in fields, then free-form fields.
     pub fields: Vec<FieldRow>,
     /// The chosen Footprint, by Library element UUID.
@@ -155,7 +165,8 @@ impl Properties {
         Properties {
             count: objects.len() + selection.pads.len() + selection.nets.len(),
             kinds,
-            component: component_properties(project, &objects),
+            component: component_properties(project, &objects)
+                .or_else(|| footprint_properties(project, &objects)),
             net_class: net_class(project, &objects, selection),
             details,
         }
@@ -169,6 +180,9 @@ impl Properties {
             return Some(("pcb.net.set_class", json!({"nets": nets, "class": class})));
         }
         let component = self.component.as_ref()?;
+        if !component.footprints.is_empty() {
+            return footprint_command(component, edit);
+        }
         let mut params = json!({"components": component.components});
         let set = params.as_object_mut().expect("an object");
         match edit {
@@ -274,11 +288,136 @@ fn component_properties(project: &Project, objects: &[Object]) -> Option<Compone
         .collect();
     Some(ComponentProperties {
         components: units.iter().map(|(_, u)| u.component.uuid).collect(),
+        footprints: Vec::new(),
         fields,
         footprint: Shared::of(units.iter().map(|(_, u)| u.footprint)).expect("not empty"),
         alternates: alternates(project, &units),
         not_fitted: Shared::of(units.iter().map(|(_, u)| u.not_fitted)).expect("not empty"),
     })
+}
+
+/// The board side of [`Properties::command`]: one `pcb.footprint.set` on the selected
+/// Footprints.
+fn footprint_command(
+    component: &ComponentProperties,
+    edit: &Edit,
+) -> Option<(&'static str, Value)> {
+    let mut params = json!({"footprints": component.footprints});
+    let set = params.as_object_mut().expect("an object");
+    match edit {
+        Edit::Field(name, value) if name == UnitInstance::DESIGNATOR => {
+            if component.footprints.len() != 1 {
+                return None;
+            }
+            set.insert("designator".into(), json!(value));
+        }
+        Edit::Field(name, value) if name == "value" => {
+            set.insert("value".into(), json!(value));
+        }
+        Edit::Field(name, value) => {
+            set.insert("fields".into(), json!({ name: value }));
+        }
+        Edit::Footprint(footprint) => {
+            if !component
+                .alternates
+                .iter()
+                .any(|a| a.footprint == *footprint)
+            {
+                return None;
+            }
+            set.insert("footprint".into(), json!(footprint));
+        }
+        Edit::NotFitted(not_fitted) => {
+            set.insert("not_fitted".into(), json!(not_fitted));
+        }
+        Edit::Visible(..) | Edit::NetClass(_) => return None,
+    }
+    Some(("pcb.footprint.set", params))
+}
+
+/// The selected Footprints' Component data, as the board holds it.
+fn footprint_properties(project: &Project, objects: &[Object]) -> Option<ComponentProperties> {
+    let pcb = project.pcb()?;
+    let mut footprints: Vec<&FootprintInstance> = Vec::new();
+    for object in objects {
+        if let Object::FootprintInstance(f) = object
+            && let Some(f) = pcb.footprint(f.object.uuid)
+            && !footprints.iter().any(|o| o.uuid == f.uuid)
+        {
+            footprints.push(f);
+        }
+    }
+    if footprints.is_empty() {
+        return None;
+    }
+    let mut names: Vec<String> = Fields::BUILT_IN.iter().map(|n| (*n).to_owned()).collect();
+    names.insert(0, UnitInstance::DESIGNATOR.to_owned());
+    for f in &footprints {
+        for field in &f.fields.custom {
+            if !names.contains(&field.name) {
+                names.push(field.name.clone());
+            }
+        }
+    }
+    let single = footprints.len() == 1;
+    let fields = names
+        .into_iter()
+        .map(|name| {
+            let value = Shared::of(footprints.iter().map(|f| {
+                if name == UnitInstance::DESIGNATOR {
+                    f.designator.clone()
+                } else {
+                    f.fields.get(&name).to_owned()
+                }
+            }))
+            .expect("footprints is not empty");
+            FieldRow {
+                editable: single || name != UnitInstance::DESIGNATOR,
+                name,
+                value,
+                visible: Shared::Same(false),
+            }
+        })
+        .collect();
+    // A synced Footprint's choice is its Component's, on the sheets.
+    let units: Vec<Option<(Uuid, &UnitInstance)>> = footprints
+        .iter()
+        .map(|f| {
+            f.component
+                .as_ref()
+                .and_then(|c| first_unit(project, c.uuid))
+        })
+        .collect();
+    let chosen = footprints.iter().zip(&units).map(|(f, unit)| match unit {
+        Some((_, u)) => u.footprint,
+        None => pcb.footprint_copy(f.footprint).map(|c| c.footprint.uuid),
+    });
+    let synced: Option<Vec<(Uuid, &UnitInstance)>> = units.iter().copied().collect();
+    Some(ComponentProperties {
+        components: footprints
+            .iter()
+            .filter_map(|f| f.component.as_ref().map(|c| c.uuid))
+            .collect(),
+        footprints: footprints.iter().map(|f| f.uuid).collect(),
+        fields,
+        footprint: Shared::of(chosen).expect("not empty"),
+        alternates: synced.map_or_else(Vec::new, |units| alternates(project, &units)),
+        not_fitted: Shared::of(footprints.iter().map(|f| f.not_fitted)).expect("not empty"),
+    })
+}
+
+/// A Unit of Component `component`, with its sheet.
+fn first_unit(project: &Project, component: Uuid) -> Option<(Uuid, &UnitInstance)> {
+    project
+        .documents()
+        .filter(|d| d.kind == DocumentKind::Schematic)
+        .filter_map(|d| project.schematic_sheet(d.uuid))
+        .find_map(|sheet| {
+            sheet
+                .units()
+                .find(|u| u.component.uuid == component)
+                .map(|u| (sheet.uuid, u))
+        })
 }
 
 fn field_value(unit: &UnitInstance, name: &str) -> String {

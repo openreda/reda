@@ -142,6 +142,11 @@ fn component_section(ui: &mut Ui, component: &ComponentProperties, edits: &mut V
                 if let Some(text) = text_field(ui, &row.name, &label, &row.value, row.editable) {
                     edits.push(Edit::Field(row.name.clone(), text));
                 }
+                // Edited from the board, which fields show on the sheet is not set here.
+                if !component.footprints.is_empty() {
+                    ui.end_row();
+                    continue;
+                }
                 let mixed = row.visible == Shared::Mixed;
                 let mut shown = row.visible.same().copied().unwrap_or(false);
                 let response = ui.add(Checkbox::without_text(&mut shown).indeterminate(mixed));

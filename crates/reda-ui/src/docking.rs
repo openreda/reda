@@ -438,11 +438,31 @@ impl Cx<'_> {
     /// Draws a tab; returns its rect.
     fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) -> Rect {
         let title = tab_title(self.shell, tab);
-        let button = match tab_icon(self.shell, tab, ui.ctx().theme()) {
-            Some(image) => Button::selectable(active, (image, title)),
-            None => Button::selectable(active, title),
+        // The PCB tab carries the "out of sync" badge while Sync changes are pending.
+        let pending = match tab {
+            TabKey::Document(uuid) if self.shell.is_pcb(*uuid) => self.shell.out_of_sync(),
+            _ => 0,
+        };
+        let badge = (pending > 0).then(|| {
+            egui::RichText::new(tr!("tab-out-of-sync-badge", count = pending))
+                .small()
+                .color(ui.visuals().warn_fg_color)
+        });
+        let icon = tab_icon(self.shell, tab, ui.ctx().theme());
+        let button = match (icon, badge) {
+            (Some(image), Some(badge)) => Button::selectable(active, (image, title.clone(), badge)),
+            (Some(image), None) => Button::selectable(active, (image, title.clone())),
+            (None, Some(badge)) => Button::selectable(active, (title.clone(), badge)),
+            (None, None) => Button::selectable(active, title.clone()),
         };
         let response = ui.add(button.sense(Sense::click_and_drag()));
+        if pending > 0 {
+            let name = tr!("tab-out-of-sync", tab = title.as_str(), count = pending);
+            response.widget_info(|| WidgetInfo::selected(Role::Button, true, active, name.clone()));
+            response
+                .clone()
+                .on_hover_text(tr!("status-out-of-sync", count = pending));
+        }
         if response.clicked() && !active {
             self.run("layout.tab.activate", json!({"tab": tab.to_string()}));
         }

@@ -38,6 +38,8 @@ pub enum Request {
     About,
     /// Show the Preferences dialog.
     Preferences,
+    /// Show the Change List dialog (Update PCB from Schematic).
+    ChangeList,
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -101,6 +103,8 @@ pub enum Dialog {
     CommandPalette,
     /// The About box, with the third-party licences.
     About,
+    /// The Change List dialog: Update PCB from Schematic.
+    ChangeList,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -150,6 +154,12 @@ impl Command for OpenDialog {
                 json!({"dialog": "command_palette"}),
             ),
             Preset::new("about", "About REDA", "about", json!({"dialog": "about"})),
+            Preset::new(
+                "change_list",
+                "Update PCB from Schematic…",
+                "sync",
+                json!({"dialog": "change_list"}),
+            ),
         ]
     }
 
@@ -160,6 +170,7 @@ impl Command for OpenDialog {
             Dialog::Preferences => Request::Preferences,
             Dialog::CommandPalette => Request::CommandPalette,
             Dialog::About => Request::About,
+            Dialog::ChangeList => Request::ChangeList,
         };
         request(cx, r)?;
         Ok(Done {})

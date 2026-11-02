@@ -13,6 +13,7 @@ pub mod bridge;
 pub mod canvas;
 pub mod command_dialog;
 pub mod crash;
+pub mod cross_probe;
 mod dialogs;
 mod docking;
 pub mod element_editor;

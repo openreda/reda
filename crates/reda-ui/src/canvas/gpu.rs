@@ -33,6 +33,9 @@ pub struct SceneHandle {
 pub struct SelectionHandle {
     pub generation: u64,
     pub objects: Arc<[Uuid]>,
+    /// Cross-probed or Net-highlighted objects: marked highlighted, and everything else
+    /// on a canvas that shows any of them dims.
+    pub highlighted: Arc<[Uuid]>,
 }
 
 impl Default for SelectionHandle {
@@ -40,6 +43,7 @@ impl Default for SelectionHandle {
         SelectionHandle {
             generation: 0,
             objects: Arc::from([]),
+            highlighted: Arc::from([]),
         }
     }
 }
@@ -256,6 +260,7 @@ impl CanvasResources {
         if gpu.selection != Some(marks) {
             let live = &frame.live;
             let unmarked = frame.selection.objects.is_empty()
+                && frame.selection.highlighted.is_empty()
                 && live.hovered.is_none()
                 && live.moving.is_empty()
                 && live.hidden.is_empty();
@@ -263,6 +268,10 @@ impl CanvasResources {
             if gpu.selection.is_some() || !unmarked {
                 let mut highlight = Highlight::new();
                 highlight.mark_all(frame.selection.objects.iter().copied(), Flags::SELECTED);
+                highlight.mark_all(
+                    frame.selection.highlighted.iter().copied(),
+                    Flags::HIGHLIGHTED,
+                );
                 highlight.mark_all(live.hovered, Flags::HOVERED);
                 highlight.mark_all(live.moving.iter().copied(), Flags::MOVING);
                 highlight.mark_all(live.hidden.iter().copied(), Flags::HIDDEN);
