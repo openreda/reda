@@ -917,7 +917,8 @@ output-job-close = Close
 output-job-busy = Another Output Job is running.
 message-output-job = { $job }: { $text }
 violation-board-outline-open = The Board Outline is missing or not closed
-violation-missing-footprint = { $designator } has no Footprint
+violation-missing-footprint = { $designator }'s Footprint is missing from the PCB
+violation-unassigned-footprint = { $designator } has no Footprint, so it is not on the PCB: assign one and Sync
 violation-erc-errors = ERC finds { $count } { $count ->
     [one] error
    *[other] errors

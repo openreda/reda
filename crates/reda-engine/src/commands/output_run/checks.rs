@@ -5,13 +5,13 @@ use std::collections::BTreeMap;
 
 use reda_command::Fonts;
 use reda_model::{
-    ComponentType, FabPreset, OutputJob, PcbDocument, Project, Severity, Uuid, Violation,
-    apply_waivers,
+    ComponentType, FabPreset, PcbDocument, Project, Severity, Uuid, Violation, apply_waivers,
 };
 
 /// The problems that stop a run, in a fixed order: duplicate Designators, an open Board
-/// Outline, then Components without a Footprint (only when the job writes a BOM or CPL).
-pub(crate) fn blockers(project: &Project, pcb: &PcbDocument, job: &OutputJob) -> Vec<Violation> {
+/// Outline, then Footprints the PCB cannot resolve. All read only the job's PCB, which is
+/// all the outputs read.
+pub(crate) fn blockers(pcb: &PcbDocument) -> Vec<Violation> {
     let mut found = duplicate_designators(pcb);
     let outline = pcb.outline();
     if outline.is_none_or(|o| reda_model::geom::check_contour(&o.vertices).is_err()) {
@@ -19,9 +19,7 @@ pub(crate) fn blockers(project: &Project, pcb: &PcbDocument, job: &OutputJob) ->
             Violation::new("board_outline_open", Severity::Error).objects(outline.map(|o| o.uuid)),
         );
     }
-    if job.outputs.bom || job.outputs.cpl {
-        found.extend(missing_footprints(project));
-    }
+    found.extend(missing_footprints(pcb));
     found
 }
 
@@ -54,11 +52,25 @@ fn duplicate_designators(pcb: &PcbDocument) -> Vec<Violation> {
         .collect()
 }
 
-/// One `missing_footprint` per fitted Standard Component with no Footprint chosen (the BOM
-/// and CPL leave Mechanical and Not Fitted Components out, so they need none). It reads the
-/// sheets: a Component without a Footprint never reaches the board, so the job's PCB, which
-/// the BOM and CPL read, cannot show what it lacks.
-fn missing_footprints(project: &Project) -> Vec<Violation> {
+/// One `missing_footprint` per Footprint on the PCB whose Footprint copy the PCB does not
+/// hold, so no output can draw or list it; objects are the Footprint. A committed Project
+/// never holds one (the PCB keeps its own copy of every Footprint it places), so this
+/// guards the writers, which would otherwise leave such a Footprint out silently.
+fn missing_footprints(pcb: &PcbDocument) -> Vec<Violation> {
+    pcb.footprints()
+        .filter(|f| pcb.footprint_copy(f.footprint).is_none())
+        .map(|f| {
+            Violation::new("missing_footprint", Severity::Error)
+                .arg("designator", f.designator.as_str())
+                .objects([f.uuid])
+        })
+        .collect()
+}
+
+/// One `unassigned_footprint` per fitted Standard Component on a sheet with no Footprint
+/// chosen: it never reaches the PCB, so no output shows it; objects are its Units. The fix
+/// is to assign a Footprint and Sync. Mechanical and Not Fitted Components need none.
+fn unassigned_footprints(project: &Project) -> Vec<Violation> {
     let mut by_component: BTreeMap<Uuid, (&str, Vec<Uuid>)> = BTreeMap::new();
     for document in project.documents() {
         if let Some(sheet) = project.schematic_sheet(document.uuid) {
@@ -81,15 +93,15 @@ fn missing_footprints(project: &Project) -> Vec<Violation> {
     found
         .into_iter()
         .map(|(designator, units)| {
-            Violation::new("missing_footprint", Severity::Error)
+            Violation::new("unassigned_footprint", Severity::Warning)
                 .arg("designator", designator)
                 .objects(units)
         })
         .collect()
 }
 
-/// The warnings of a run, in a fixed order: out of sync, ERC errors, DRC errors, rules
-/// looser than the preset's minimums, missing fonts.
+/// The warnings of a run, in a fixed order: out of sync, Components without a Footprint,
+/// ERC errors, DRC errors, rules looser than the preset's minimums, missing fonts.
 pub(crate) fn warnings(
     project: &Project,
     pcb: &PcbDocument,
@@ -104,6 +116,7 @@ pub(crate) fn warnings(
                 .arg("changes", i64::try_from(pending).unwrap_or(i64::MAX)),
         );
     }
+    found.extend(unassigned_footprints(project));
     let waivers = project
         .documents()
         .filter_map(|d| project.schematic_sheet(d.uuid))

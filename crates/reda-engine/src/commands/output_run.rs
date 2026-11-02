@@ -56,7 +56,8 @@ pub struct JobRunResult {
     /// Every file written, in zip order.
     pub files: Vec<WrittenFile>,
     /// What the run noticed but did not stop for, as Violations with severity `warning`:
-    /// `out_of_sync {changes}`, `erc_errors {count}`, `drc_errors {count}`,
+    /// `out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet
+    /// with no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,
     /// `rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`.
     pub warnings: Vec<Violation>,
 }
@@ -72,10 +73,12 @@ impl Command for JobRun {
                       job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions \
                       from the Placement Origin, else the Board Outline's lower-left) and their \
                       zip, `<project>-<job>.zip`, to the job's destination \
-                      (default `outputs/<job>/`), replacing the last run's files. Duplicate \
-                      Designators, an open Board Outline and, when the job writes a BOM or \
-                      CPL, Components without a Footprint block the run (`rejected`, \
-                      `details.blockers`); other problems are listed as `warnings`. \
+                      (default `outputs/<job>/`), replacing the last run's files. The checks \
+                      that block read only the job's PCB: duplicate Designators, an open \
+                      Board Outline and a Footprint the PCB cannot resolve block the run \
+                      (`rejected`, `details.blockers`). Other problems, such as an \
+                      out-of-sync PCB or a Component without a Footprint, are listed as \
+                      `warnings`. \
                       Long-running: reports progress and can be cancelled.",
         category: "output",
         icon: "output_run",
@@ -124,7 +127,7 @@ impl Command for JobRun {
             .map(|p| p.preset())
             .ok_or_else(|| CommandError::internal("the job's Fab Preset copy is missing"))?;
 
-        let blockers = checks::blockers(project, &pcb, &job);
+        let blockers = checks::blockers(&pcb);
         let warnings = checks::warnings(project, &pcb, &preset, &fonts);
         if !blockers.is_empty() {
             let mut err = CommandError::rejected(format!(
