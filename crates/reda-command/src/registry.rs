@@ -199,6 +199,20 @@ impl Registry {
         self.commands.get(command).map(|e| &e.params_schema)
     }
 
+    /// Whether `id` could run now with `params`: everything [`Registry::run`] checks
+    /// before the Command starts (known id, availability, params against the schema).
+    pub fn check(
+        &self,
+        id: &str,
+        params: &Value,
+        project: Option<&Project>,
+        headless: bool,
+    ) -> Result<(), CommandError> {
+        let Resolved { entry, params } = self.resolve(id, params.clone())?;
+        check_available(entry, (project, None), headless)?;
+        check_params(entry, &params)
+    }
+
     /// Runs one Command, or one Preset as `<id>:<preset>`, against the session.
     ///
     /// The params are checked against the Command's schema first; a misfit is

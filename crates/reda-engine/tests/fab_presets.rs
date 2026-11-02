@@ -49,6 +49,28 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
 }
 
 #[test]
+fn a_default_via_on_a_board_from_any_shipped_preset_has_enough_annular_ring() {
+    for preset in ["Generic", "JLCPCB", "PCBWay"] {
+        let dir = TempDir::new("fab-via");
+        let mut engine = test_engine();
+        new_project(
+            &mut engine,
+            &dir,
+            json!({"fab_preset": preset, "board": {"width": "20mm", "height": "20mm"}}),
+        );
+        engine.run_ok("pcb.via.add", json!({"at": {"x": "10mm", "y": "10mm"}}));
+        let drc = engine.run_ok("drc.run", json!({}));
+        let rings: Vec<_> = drc["violations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|v| v["check"] == "annular_ring")
+            .collect();
+        assert!(rings.is_empty(), "{preset}: {rings:?}");
+    }
+}
+
+#[test]
 fn the_generic_preset_is_conservative() {
     let dir = TempDir::new("fab-generic");
     let mut engine = test_engine();

@@ -42,17 +42,36 @@ pub struct ProjectSummary {
     /// `document.add {kind: pcb}` adds a new one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing: Vec<DocumentEntry>,
+    /// The Output Jobs, by name, for `output.job.run`; left out when there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub output_jobs: Vec<JobEntry>,
+}
+
+/// An Output Job as `project.new` and `project.open` list it.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct JobEntry {
+    pub uuid: Uuid,
+    pub name: String,
 }
 
 fn summary(session: &Session, missing: Vec<DocumentEntry>) -> ProjectSummary {
     let project = session.project.as_ref().expect("a Project is open");
     let folder = session.location.as_deref().unwrap_or(Path::new(""));
+    let mut output_jobs: Vec<JobEntry> = project
+        .output_jobs()
+        .map(|job| JobEntry {
+            uuid: job.uuid,
+            name: job.name.clone(),
+        })
+        .collect();
+    output_jobs.sort_by_key(|job| job.name.to_lowercase());
     ProjectSummary {
         uuid: project.uuid(),
         name: project.props().name.clone(),
         path: store::project_file_path(folder, &project.props().name),
         documents: project.documents().cloned().collect(),
         missing,
+        output_jobs,
     }
 }
 

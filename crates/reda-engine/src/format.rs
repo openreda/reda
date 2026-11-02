@@ -24,7 +24,11 @@ pub(crate) use project_file::{ProjectFile, write_project_file};
 pub use schema::schema;
 pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
 
-/// The format version REDA writes. Bump it together with a new [`MIGRATIONS`] step.
+/// The format version REDA writes. Bump it together with a new [`MIGRATIONS`] step, after
+/// freezing the old format's copies: the Demo Project under
+/// `crates/reda-engine/tests/golden/formats/v<old>/` and each reference Project under
+/// `tests/projects/formats/v<old>/<project>/` (see `tests/migrations.rs` and
+/// `tests/reference_projects.rs`).
 pub const FORMAT: u32 = 1;
 
 /// The kinds of file REDA reads and writes, each with one typed shape and one JSON Schema.

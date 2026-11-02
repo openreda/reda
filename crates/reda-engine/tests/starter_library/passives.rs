@@ -243,7 +243,11 @@ fn capacitors(s: &mut Script) {
                 },
             }),
         );
-        s.mark_pad_one(&fp);
+        let description = format!(
+            "Moulded polarised chip capacitor, {} metric, IPC-7351 Nominal",
+            &name[5..9]
+        );
+        s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
     for (diameter, pitch, pad, drill) in [(5.0, 2.0, 1.4, 0.8), (6.3, 2.5, 1.6, 0.8)] {

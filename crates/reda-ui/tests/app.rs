@@ -641,3 +641,126 @@ fn snapshot_of_the_footprint_editor() {
     h.run();
     h.snapshot("footprint_editor_dark");
 }
+
+/// Board Setup on `page`, on a board whose clearance differs from its Fab Preset, with
+/// the Default class's clearance override typed wrong so the flag shows.
+fn board_setup_snapshot(page: &str, name: &str) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    shell
+        .run("pcb.rules.set", json!({"clearance": "0.3mm"}))
+        .unwrap();
+    h.state_mut().open_board_setup();
+    h.run();
+    let field = "Default: Clearance";
+    h.get_by_role_and_label(Role::TextInput, field).click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, field)
+        .type_text("-1");
+    h.run();
+    h.get_by_label("Apply Generic Rules…").click();
+    h.run();
+    if page != "Clearance" {
+        h.get_by_role_and_label(Role::TreeItem, page).click();
+    }
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_board_setup_clearance_with_a_fab_preset_preview() {
+    board_setup_snapshot("Clearance", "board_setup_clearance_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_drc_severities() {
+    board_setup_snapshot("DRC", "board_setup_drc_dark");
+}
+
+/// A harness on a Project with no Board Outline, so its job's run is blocked.
+fn output_job_harness(name: &str) -> Option<(TempDir, Harness<'static, App>)> {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Jobs");
+    set_theme(home.path(), "dark");
+    let mut h = snapshot_harness(home.path())?;
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.run();
+    Some((home, h))
+}
+
+fn first_job(h: &Harness<'static, App>) -> reda_ui::engine::model::Uuid {
+    let project = h.state().shell().engine().project().unwrap();
+    project.output_jobs().next().unwrap().uuid
+}
+
+#[test]
+fn snapshot_of_the_output_job_dialog_with_a_flagged_destination() {
+    let Some((_home, mut h)) = output_job_harness("output_job_dialog_dark") else {
+        return;
+    };
+    let job = first_job(&h);
+    h.state_mut().open_output_job(job);
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Destination folder")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Destination folder")
+        .type_text("../fab");
+    h.run();
+    h.snapshot("output_job_dialog_dark");
+}
+
+#[test]
+fn snapshot_of_a_blocked_run_report() {
+    let Some((_home, mut h)) = output_job_harness("output_job_report_dark") else {
+        return;
+    };
+    let job = first_job(&h);
+    h.state_mut().open_output_job(job);
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Run").click();
+    let start = std::time::Instant::now();
+    while h.query_by_label_contains("did not run").is_none() {
+        assert!(start.elapsed().as_secs() < 20, "the run never ended");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        h.step();
+    }
+    h.run();
+    h.snapshot("output_job_report_dark");
+}
+
+/// The Preferences dialog on `page`, in the dark theme.
+fn preferences_snapshot(page: Option<reda_ui::preferences_dialog::PageId>, name: &str) {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    h.state_mut().open_preferences(page);
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_preferences_general_page() {
+    preferences_snapshot(None, "preferences_general_dark");
+}
+
+#[test]
+fn snapshot_of_the_keyboard_shortcuts_page() {
+    preferences_snapshot(
+        Some(reda_ui::preferences_dialog::PageId::KeyboardShortcuts),
+        "preferences_keyboard_shortcuts_dark",
+    );
+}

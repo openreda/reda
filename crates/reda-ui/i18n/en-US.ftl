@@ -36,6 +36,7 @@ bridge-connected = Connected now
 bridge-allowed = Allowed agents
 bridge-none-allowed = None yet
 bridge-forget = Forget
+bridge-settings = Agent Settings…
 bridge-error = The bridge could not start: { $error }
 bridge-ask-title = Allow this agent?
 bridge-ask-body = { $agent } ({ $source }) wants to read and edit the open Project. It can't save: its changes show here as unsaved, and you can undo them.
@@ -498,6 +499,90 @@ settings-library-blank = Give a folder.
 settings-library-invalid = { $reason }
 settings-library-duplicate = { $path } is listed already.
 
+## The Preferences dialog (#96). Setting labels are pref-<key> with . and _ written as -;
+## a setting without one shows its schema description.
+pref-title = Preferences
+pref-search = Search settings
+pref-search-hint = Search settings…
+pref-search-none = Nothing matches.
+pref-live = Changes apply at once.
+pref-close = Close
+pref-reset = Reset
+pref-reset-named = Reset { $setting } to default
+pref-remove = Remove
+pref-remove-named = Remove { $item }
+pref-add = Add
+pref-add-folder = Add Folder…
+pref-unlimited = Unlimited
+pref-not-a-count = Give a whole number of at least 1, or leave it blank.
+pref-not-a-number = Give a number.
+pref-blank-path = Give a folder.
+pref-duplicate-path = { $path } is listed already.
+pref-list-count = { $count ->
+    [one] 1 item
+   *[other] { $count } items
+}
+pref-page-general = General
+pref-page-schematic = Schematic
+pref-page-pcb = PCB
+pref-page-display = Display
+pref-page-libraries = Libraries
+pref-page-fab-presets = Fab Presets
+pref-page-agents = Agents
+pref-page-keyboard-shortcuts = Keyboard Shortcuts
+pref-general-theme = Theme
+pref-general-theme-follow-os = Follow the system
+pref-general-theme-dark = Dark
+pref-general-theme-light = Light
+pref-general-ui-scale = UI scale
+pref-general-reopen-last-project = Reopen the last Project on start
+pref-general-undo-depth = Undo depth
+pref-general-default-layout = Default Saved Layout for new Projects
+pref-schematic-default-units = Default units
+pref-schematic-default-units-mm = mm
+pref-schematic-default-units-mil = mil
+pref-schematic-repeat-placement = Repeat placement
+pref-schematic-electrical-snap = Electrical snap
+pref-schematic-auto-pan = Auto-pan at the canvas edge
+pref-pcb-default-units = Default units
+pref-pcb-default-units-mm = mm
+pref-pcb-default-units-mil = mil
+pref-pcb-repeat-placement = Repeat placement
+pref-pcb-electrical-snap = Electrical snap
+pref-pcb-auto-pan = Auto-pan at the canvas edge
+pref-display-cursor = Cursor
+pref-display-cursor-small = Small crosshair
+pref-display-cursor-full-screen = Full-screen crosshair
+pref-display-inactive-layer-mode = Inactive Layers in a new view
+pref-display-inactive-layer-mode-normal = Normal
+pref-display-inactive-layer-mode-dimmed = Dimmed
+pref-display-inactive-layer-mode-hidden = Hidden
+pref-display-layer-colors-dark = Layer colours, dark theme
+pref-display-layer-colors-light = Layer colours, light theme
+pref-libraries-paths = User Library folders
+pref-libraries-intro = Folders of your own Libraries, searched in every Project.
+pref-libraries-none = No folders yet.
+pref-library-path = Library folder
+pref-agents-bridge = Let agents connect
+pref-agents-none-connected = None
+pref-forget-named = Forget { $agent }
+pref-fab-presets-intro = Your Fab Presets, which new Projects can start from. Save one from a Project's settings with "Save as User Preset…".
+pref-fab-presets-none = You have no Fab Presets of your own yet.
+shortcuts-search = Search shortcuts
+shortcuts-search-hint = Search Commands or keys…
+shortcuts-open-folder = Open folder
+shortcuts-add = Add Key
+shortcuts-add-named = Add a key for { $command }
+shortcuts-remove-named = Remove { $key } from { $command }
+shortcuts-press-key = Press the key for { $command } (Escape cancels).
+shortcuts-recorded = { $key } for { $command }
+shortcuts-context = Applies in
+shortcuts-context-global = Everywhere
+shortcuts-assign = Assign
+shortcuts-conflict = { $key } runs { $command } in { $context } now; assigning replaces it there.
+shortcuts-no-key = Press a key first.
+shortcuts-no-folder = There is no per-user folder.
+shortcuts-write-failed = Could not save { $file }: { $error }
 # The form generated from a Command's params, and the Command Palette.
 form-run = Run
 form-fix-fields = Fix the flagged fields first.
@@ -562,3 +647,111 @@ footprint-layer-courtyard-top = Courtyard top
 footprint-layer-courtyard-bottom = Courtyard bottom
 footprint-layer-assembly-top = Assembly top
 footprint-layer-assembly-bottom = Assembly bottom
+
+## Board Setup
+
+board-setup-title = Board Setup
+board-setup-rules = Rules
+board-setup-page-clearance = Clearance
+board-setup-page-track-width = Track Width
+board-setup-page-via = Via
+board-setup-page-annular-ring = Annular Ring
+board-setup-page-hole-spacing = Hole Spacing
+board-setup-page-edge-clearance = Edge Clearance
+board-setup-page-net-classes = Net Classes
+board-setup-page-drc = DRC
+board-setup-clearance = Clearance
+board-setup-track-width = Track width
+board-setup-via-diameter = Via diameter
+board-setup-via-hole = Via hole
+board-setup-annular-ring = Annular ring
+board-setup-hole-to-hole = Hole-to-hole spacing
+board-setup-edge-clearance = Edge clearance
+board-setup-board-wide = Board-wide minimum { $rule } (mm)
+board-setup-overrides = Net Class overrides (mm)
+board-setup-override = { $class }: { $rule }
+board-setup-overrides-note = Leave an override empty to use the board-wide value. Where two Net Classes meet, the larger clearance applies.
+board-setup-no-overrides = Net Classes do not override this rule.
+board-setup-net-class = Net Class
+board-setup-severity = DRC severity of { $check }:
+board-setup-severity-choice = { $check }: { $severity }
+board-setup-units = Lengths are in mm unless you give a unit, such as 8mil.
+board-setup-fab-preset = Fab Preset rules:
+board-setup-apply-preset = Apply { $preset } Rules…
+board-setup-preset-preview = Applying the { $preset } rules changes:
+board-setup-preset-same = The rules already match { $preset }.
+board-setup-rule = Rule
+board-setup-now = Now
+board-setup-preset = Preset
+board-setup-use-preset = Use These Rules
+board-setup-no-pcb = The Project has no PCB Document.
+board-setup-negative = A length cannot be negative.
+board-setup-not-a-length = Not a length. Give mm, such as 0.2, or a unit, such as 8mil.
+board-setup-required = Give a length.
+board-setup-new-class = Class { $number }
+board-setup-class-blank = Give the Net Class a name.
+board-setup-class-duplicate = Another Net Class is called { $name }.
+board-setup-class-name = Net Class { $number } name
+board-setup-delete = Delete
+board-setup-delete-class = Delete Net Class { $number }
+board-setup-default-class = The Default Net Class cannot be deleted.
+board-setup-add-class = Add Net Class
+board-setup-nets = Nets
+board-setup-filter = Filter Nets
+board-setup-no-nets = The board has no Nets yet.
+board-setup-class-of = Net Class of { $net }
+
+## Output Job dialog and job runs
+
+output-job-title = Output Job: { $job }
+output-job-page = Job
+output-job-name = Name
+output-job-pcb = PCB Document
+output-job-pcb-missing = (missing)
+output-job-fab-preset = Fab Preset
+output-job-outputs = Outputs
+output-job-gerber = Gerber X2
+output-job-drill = Excellon drill
+output-job-bom = CSV BOM
+output-job-cpl = CSV CPL (pick and place)
+output-job-destination = Destination folder
+output-job-destination-default = Empty: { $folder }
+output-job-name-blank = Give the job a name.
+output-job-name-taken = Another job is already called { $name }.
+output-job-broken = This job's PCB Document is gone. Pick another to repair it.
+output-job-gone = This Output Job was deleted.
+output-job-destination-invalid = Give a /-separated folder inside the Project folder.
+output-job-run = Run
+output-job-run-hint = Applies your changes, then runs the job.
+output-job-broken-run = Output Job { $job } names a PCB Document that is gone: edit it to point it at another.
+output-job-broken-label = { $job } (broken)
+output-job-starting = Starting
+output-job-running = Running { $job }
+output-job-cancelling = Cancelling…
+output-job-done = { $job } finished
+output-job-blocked = { $job } did not run
+output-job-cancelled = { $job } was cancelled
+output-job-failed = { $job } failed
+output-job-written = Wrote { $count } { $count ->
+    [one] file
+   *[other] files
+} and their zip to { $folder }.
+output-job-nothing-written = Nothing was written.
+output-job-blockers = Blocking problems
+output-job-warnings = Warnings
+output-job-show-zip = Show Zip
+output-job-close = Close
+output-job-busy = Another Output Job is running.
+message-output-job = { $job }: { $text }
+violation-board-outline-open = The Board Outline is missing or not closed
+violation-missing-footprint = { $designator } has no Footprint
+violation-erc-errors = ERC finds { $count } { $count ->
+    [one] error
+   *[other] errors
+}
+violation-drc-errors = DRC finds { $count } { $count ->
+    [one] error
+   *[other] errors
+}
+violation-rule-below-preset = Board { $rule } { $board } is below { $preset }'s minimum { $minimum }
+violation-missing-font = Font “{ $font }” is not installed
