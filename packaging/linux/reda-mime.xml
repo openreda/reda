@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- REDA's file types for freedesktop shared-mime-info, installed to
+     /usr/share/mime/packages/reda.xml by the .deb. Each type's icon is the SVG installed as
+     /usr/share/icons/hicolor/scalable/mimetypes/<icon name>.svg.
+     The files are canonical JSON, one object per line (ADR-0005), so they are also text. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-reda-project">
+    <comment>REDA Project</comment>
+    <sub-class-of type="text/plain"/>
+    <icon name="application-x-reda-project"/>
+    <glob pattern="*.reda"/>
+  </mime-type>
+  <mime-type type="application/x-reda-schematic">
+    <comment>REDA Schematic Sheet</comment>
+    <sub-class-of type="text/plain"/>
+    <icon name="application-x-reda-schematic"/>
+    <glob pattern="*.redasch"/>
+  </mime-type>
+  <mime-type type="application/x-reda-pcb">
+    <comment>REDA PCB Document</comment>
+    <sub-class-of type="text/plain"/>
+    <icon name="application-x-reda-pcb"/>
+    <glob pattern="*.redapcb"/>
+  </mime-type>
+</mime-info>

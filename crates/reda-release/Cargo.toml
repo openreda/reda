@@ -1,6 +1,6 @@
 [package]
 name = "reda-release"
-description = "CI-only release tooling: picks the next version, stamps it into the workspace and writes the release notes."
+description = "CI-only release tooling: picks the next version, stamps it into the workspace, writes the release notes and renders the package icons."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

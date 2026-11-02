@@ -20,3 +20,100 @@ trash.workspace = true
 
 [lints]
 workspace = true
+
+# Packages built by cargo-packager in .github/workflows/release.yml
+# (docs/spec/v0.1/quality-and-release.md#packaging). cargo-packager reads this table, runs in
+# this crate's folder (so paths are relative to it) and takes the version from the workspace,
+# which the workflow has stamped from the release tag. To try it locally:
+#   cargo install cargo-packager --locked
+#   cargo packager --release -p reda-app --formats deb      # or appimage / dmg / nsis
+# Signing is off: v0.1 builds are unsigned (see README.md). The slots for it are
+# `macos.signingIdentity` (plus APPLE_* notarization variables) and `windows.signCommand`.
+[package.metadata.packager]
+productName = "REDA"
+identifier = "com.openreda.reda"
+publisher = "openreda"
+copyright = "Copyright (c) 2026 Michael Jensen. MIT licensed."
+description = "Electronic design automation: capture schematics, lay out PCBs and produce fab outputs."
+homepage = "https://openreda.com"
+# The .deb Maintainer field.
+authors = ["Michael Jensen"]
+category = "DeveloperTool"
+licenseFile = "../../LICENSE"
+outDir = "../../target/packages"
+# Both binaries ship in every package: the app, and the `reda` CLI beside it.
+binaries = [
+  { path = "reda-app", main = true },
+  { path = "reda", main = false },
+]
+beforePackagingCommand = "cargo build --release --locked -p reda-app -p reda-cli"
+icons = [
+  "../../packaging/icons/app/32x32.png",
+  "../../packaging/icons/app/128x128.png",
+  "../../packaging/icons/app/256x256.png",
+  "../../packaging/icons/app/512x512.png",
+  "../../packaging/icons/app/app.icns",
+  "../../packaging/icons/app/app.ico",
+]
+# The document icons sit at the top of the install folder (Contents/Resources on macOS),
+# where the Info.plist and the NSIS template look for them. Linux uses the SVGs (deb.files).
+resources = [
+  "../../packaging/icons/documents/*.icns",
+  "../../packaging/icons/documents/*.ico",
+]
+
+# Windows ProgIDs and the Linux desktop entry's MimeType come from here. macOS's document
+# types (with icons and UTIs) are in packaging/macos/Info.plist, which overrides these there.
+[[package.metadata.packager.fileAssociations]]
+extensions = ["reda"]
+mimeType = "application/x-reda-project"
+name = "REDA.Project"
+description = "REDA Project"
+role = "editor"
+
+[[package.metadata.packager.fileAssociations]]
+extensions = ["redasch"]
+mimeType = "application/x-reda-schematic"
+name = "REDA.Schematic"
+description = "REDA Schematic Sheet"
+role = "editor"
+
+[[package.metadata.packager.fileAssociations]]
+extensions = ["redapcb"]
+mimeType = "application/x-reda-pcb"
+name = "REDA.PCB"
+description = "REDA PCB Document"
+role = "editor"
+
+[package.metadata.packager.macos]
+minimumSystemVersion = "11.0"
+infoPlistPath = "../../packaging/macos/Info.plist"
+
+[package.metadata.packager.nsis]
+# Per-user install: no admin prompt.
+installMode = "currentUser"
+# cargo-packager's template plus REDA's changes (each marked `REDA:`): per-type document
+# icons and the optional "Add to PATH" component.
+template = "../../packaging/windows/installer.nsi"
+installerIcon = "../../packaging/icons/app/app.ico"
+
+[package.metadata.packager.deb]
+section = "electronics"
+# Libraries the window loads at run time (winit and wgpu open them with dlopen, so they are
+# not found by linking): the keyboard map, and Vulkan or EGL for the GPU.
+depends = ["libxkbcommon0", "libxkbcommon-x11-0", "libvulkan1 | libegl1"]
+
+# The `reda` CLI is installed to /usr/bin with the app (cargo-packager puts every binary there).
+[package.metadata.packager.deb.files]
+"../../packaging/linux/reda-mime.xml" = "usr/share/mime/packages/reda.xml"
+"../../packaging/icons/src/reda.svg" = "usr/share/icons/hicolor/scalable/mimetypes/application-x-reda-project.svg"
+"../../packaging/icons/src/redasch.svg" = "usr/share/icons/hicolor/scalable/mimetypes/application-x-reda-schematic.svg"
+"../../packaging/icons/src/redapcb.svg" = "usr/share/icons/hicolor/scalable/mimetypes/application-x-reda-pcb.svg"
+
+# An AppImage cannot register MIME types by itself; the same files ride along so desktop
+# integration tools (appimaged, Gear Lever) can install them.
+[package.metadata.packager.appimage.files]
+"../../packaging/linux/reda-mime.xml" = "usr/share/mime/packages/reda.xml"
+"../../packaging/icons/src/reda.svg" = "usr/share/icons/hicolor/scalable/mimetypes/application-x-reda-project.svg"
+"../../packaging/icons/src/redasch.svg" = "usr/share/icons/hicolor/scalable/mimetypes/application-x-reda-schematic.svg"
+"../../packaging/icons/src/redapcb.svg" = "usr/share/icons/hicolor/scalable/mimetypes/application-x-reda-pcb.svg"
