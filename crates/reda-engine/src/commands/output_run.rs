@@ -40,8 +40,9 @@ pub struct JobRunParams {
 pub struct WrittenFile {
     /// The file name, such as `Demo.GTL`.
     pub name: String,
-    /// What it holds: `copper_top`, `copper_bottom`, `profile`, `drill_plated`,
-    /// `drill_non_plated`, `bom` or `cpl`.
+    /// What it holds: `copper_top`, `copper_bottom`, `solder_mask_top`, `solder_mask_bottom`,
+    /// `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
+    /// `drill_plated`, `drill_non_plated`, `bom` or `cpl`.
     pub function: &'static str,
 }
 
@@ -65,12 +66,12 @@ impl Command for JobRun {
         id: "output.job.run",
         title: "Run Output Job",
         description: "Runs an Output Job: refills stale Zones, plots the Gerber X2 files \
-                      (top and bottom copper, the Board Outline as the Profile) and the \
-                      Excellon drill files (plated and non-plated) and writes them with \
-                      the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted \
-                      and Mechanical Parts left out; CPL positions from the Placement \
-                      Origin, else the Board Outline's lower-left) and their zip, \
-                      `<project>-<job>.zip`, to the job's destination \
+                      (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board \
+                      Outline as the Profile) and the Excellon drill files (plated and \
+                      non-plated) and writes them with the CSV BOM and CPL (columns from the \
+                      job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions \
+                      from the Placement Origin, else the Board Outline's lower-left) and their \
+                      zip, `<project>-<job>.zip`, to the job's destination \
                       (default `outputs/<job>/`), replacing the last run's files. Duplicate \
                       Designators, an open Board Outline and, when the job writes a BOM or \
                       CPL, Components without a Footprint block the run (`rejected`, \
@@ -158,6 +159,7 @@ impl Command for JobRun {
             pcb: &pcb,
             fills: &fills,
             gerber: preset.gerber,
+            fonts: &fonts,
             created,
         };
         let bom = reda_output::bom_file(project, &pcb, &preset.bom);

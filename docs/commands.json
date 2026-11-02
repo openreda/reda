@@ -15350,7 +15350,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions from the Placement Origin, else the Board Outline's lower-left) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Duplicate Designators, an open Board Outline and, when the job writes a BOM or CPL, Components without a Footprint block the run (`rejected`, `details.blockers`); other problems are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions from the Placement Origin, else the Board Outline's lower-left) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Duplicate Designators, an open Board Outline and, when the job writes a BOM or CPL, Components without a Footprint block the run (`rejected`, `details.blockers`); other problems are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -15441,7 +15441,7 @@
             "description": "One file the run wrote, also in the zip.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_bottom`, `profile`, `drill_plated`,\n`drill_non_plated`, `bom` or `cpl`.",
+                "description": "What it holds: `copper_top`, `copper_bottom`, `solder_mask_top`, `solder_mask_bottom`,\n`paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `bom` or `cpl`.",
                 "type": "string"
               },
               "name": {
