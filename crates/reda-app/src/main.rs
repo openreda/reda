@@ -22,7 +22,8 @@ fn main() -> ExitCode {
     for arg in std::env::args_os().skip(1) {
         match arg.to_str() {
             Some("--version" | "-V") => {
-                println!("reda-app {}", env!("CARGO_PKG_VERSION"));
+                // Set by the build script: `X.Y.Z` in a release, `X.Y.Z-dev+<git hash>` locally.
+                println!("reda-app {}", env!("REDA_VERSION"));
                 return ExitCode::SUCCESS;
             }
             Some("--help" | "-h") => {

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- A PCB Document (.redapcb): two pads joined by a copper track through a via. -->
+  <path d="M208 64 H640 L832 256 V928 A32 32 0 0 1 800 960 H208 A32 32 0 0 1 176 928 V96 A32 32 0 0 1 208 64 Z" fill="#ffffff" stroke="#5b6b7a" stroke-width="24"/>
+  <path d="M640 64 V224 A32 32 0 0 0 672 256 H832" fill="#dde3e9" stroke="#5b6b7a" stroke-width="24" stroke-linejoin="round"/>
+  <rect x="240" y="352" width="528" height="432" rx="24" fill="#1d6b3a"/>
+  <path d="M352 464 H512 L640 592 V672" fill="none" stroke="#e8a33d" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="296" y="416" width="96" height="96" rx="12" fill="#e8a33d"/>
+  <circle cx="640" cy="680" r="52" fill="#e8a33d"/>
+  <circle cx="640" cy="680" r="22" fill="#1d6b3a"/>
+  <rect x="176" y="832" width="656" height="96" fill="#1d6b3a"/>
+</svg>
