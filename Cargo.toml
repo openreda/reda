@@ -42,6 +42,8 @@ png = "0.18.1"
 egui = "0.37"
 eframe = { version = "0.37", default-features = false, features = ["wgpu", "accesskit", "default_fonts", "wayland", "x11", "clipboard", "links"] }
 egui-wgpu = "0.37"
+# SVG icons, rendered by resvg through egui's image loaders.
+egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
 egui_kittest = { version = "0.37", features = ["wgpu", "snapshot"] }
 # Native file dialogs (xdg-portal on Linux, no GTK).
 rfd = "0.17"

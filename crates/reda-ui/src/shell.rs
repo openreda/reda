@@ -78,6 +78,7 @@ impl Shell {
             engine.register(layout::register_all);
         }
         engine.view_mut().set(Layout::default());
+        crate::bars::install(&mut engine);
         let mut shell = Shell {
             engine,
             documents: Vec::new(),

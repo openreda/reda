@@ -5,14 +5,20 @@
 //! [`Frame::commands`], which the window runs after the frame, so the layout changes the
 //! same way from the mouse, the keyboard, scripts and MCP.
 
+use std::collections::BTreeMap;
+
 use egui::containers::menu::menu_style;
 use egui::{
     Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Role, Sense, SetOpenCommand, Ui,
     UiBuilder, Vec2, WidgetInfo,
 };
+use reda_engine::model::Uuid;
 use serde_json::{Value, json};
 
-use crate::canvas::canvas;
+use crate::bars;
+use crate::bars::draw::{self, Invocation};
+use crate::canvas::{canvas, canvas_id};
+use crate::icons;
 use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
@@ -22,7 +28,7 @@ use crate::{theme, tr};
 #[derive(Default)]
 pub struct Frame {
     /// Layout Commands to run, in order.
-    pub commands: Vec<(&'static str, Value)>,
+    pub commands: Vec<(String, Value)>,
     /// A Start page button, if one was clicked.
     pub start: Option<StartAction>,
 }
@@ -42,6 +48,24 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Layers => tr!("panel-layers"),
         PanelId::Journal => tr!("panel-journal"),
     }
+}
+
+/// A tab's 16 px icon: its Panel's, its Document type's, or the Start page's.
+fn tab_icon(shell: &Shell, tab: &TabKey, theme: egui::Theme) -> Option<egui::Image<'static>> {
+    let key = match tab {
+        TabKey::Start => icons::START_PAGE,
+        TabKey::Panel(panel) => icons::panel_icon(*panel),
+        TabKey::Document(uuid) => {
+            let kind = shell
+                .engine()
+                .project()?
+                .documents()
+                .find(|d| d.uuid == *uuid)?
+                .kind;
+            icons::document_icon(kind)
+        }
+    };
+    icons::image(key, icons::TAB, theme, true)
 }
 
 fn tab_title(shell: &Shell, tab: &TabKey) -> String {
@@ -96,7 +120,7 @@ struct Cx<'a> {
 
 impl Cx<'_> {
     fn run(&mut self, id: &'static str, params: Value) {
-        self.frame.commands.push((id, params));
+        self.frame.commands.push((id.to_owned(), params));
     }
 
     fn dock(&mut self, ui: &mut Ui, side: DockSide) {
@@ -159,8 +183,11 @@ impl Cx<'_> {
                 for tab in &group.tabs {
                     let title = tab_title(self.shell, tab);
                     let open = self.layout.flyout.as_ref() == Some(tab);
-                    let initial: String = title.chars().take(1).collect();
-                    let icon = ui.add(Button::selectable(open, initial));
+                    let button = match tab_icon(self.shell, tab, ui.ctx().theme()) {
+                        Some(image) => Button::selectable(open, image),
+                        None => Button::selectable(open, title.chars().take(1).collect::<String>()),
+                    };
+                    let icon = ui.add(button);
                     let name = title.clone();
                     icon.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
                     if icon.on_hover_text(title).clicked() {
@@ -179,6 +206,19 @@ impl Cx<'_> {
         } else {
             ui.vertical_centered(|ui| add(ui));
         }
+    }
+
+    /// The Active Bar over the canvas of `document`, for its Document type.
+    fn active_bar(&self, ui: &mut Ui, document: Uuid, id: Id, rect: Rect) -> Option<Invocation> {
+        let project = self.shell.engine().project()?;
+        let kind = project.documents().find(|d| d.uuid == document)?.kind;
+        let checked = BTreeMap::new();
+        let cx = draw::Cx {
+            shell: self.shell,
+            checked: &checked,
+            document: Some(document),
+        };
+        draw::active_bar(ui, &cx, bars::for_document(Some(kind.into())), id, rect)
     }
 
     fn flyout(&mut self, ui: &mut Ui, side: DockSide, strip: Rect, tab: &TabKey) {
@@ -248,7 +288,11 @@ impl Cx<'_> {
 
     fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) {
         let title = tab_title(self.shell, tab);
-        let response = ui.add(Button::selectable(active, title).sense(Sense::click()));
+        let button = match tab_icon(self.shell, tab, ui.ctx().theme()) {
+            Some(image) => Button::selectable(active, (image, title)),
+            None => Button::selectable(active, title),
+        };
+        let response = ui.add(button.sense(Sense::click()));
         if response.clicked() && !active {
             self.run("layout.tab.activate", json!({"tab": tab.to_string()}));
         }
@@ -344,8 +388,14 @@ impl Cx<'_> {
             }
             TabKey::Document(uuid) => {
                 let theme = theme::canvas_theme(ui.ctx().theme());
-                if let Some(doc) = self.shell.document_tab_mut(*uuid) {
-                    canvas(ui, doc, theme);
+                let rect = ui.available_rect_before_wrap();
+                let Some(doc) = self.shell.document_tab_mut(*uuid) else {
+                    return;
+                };
+                canvas(ui, doc, theme);
+                let id = canvas_id(doc);
+                if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
+                    self.frame.commands.push(clicked);
                 }
             }
             TabKey::Panel(_) => {

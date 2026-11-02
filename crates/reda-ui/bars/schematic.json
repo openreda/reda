@@ -1,0 +1,21 @@
+{
+  "menus": [
+    {
+      "id": "design",
+      "title": "menu-design",
+      "items": [
+        { "id": "design.erc", "command": "erc.run" },
+        { "id": "design.sync_preview", "command": "sync.preview" }
+      ]
+    }
+  ],
+  "toolbar": [
+    { "id": "toolbar.erc", "command": "erc.run" }
+  ],
+  "active_bar": [
+    { "id": "active_bar.undo", "command": "edit.undo", "params": { "document": "$active_document" } },
+    { "id": "active_bar.redo", "command": "edit.redo", "params": { "document": "$active_document" } },
+    "separator",
+    { "id": "active_bar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
+  ]
+}

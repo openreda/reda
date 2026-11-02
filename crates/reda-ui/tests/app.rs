@@ -94,7 +94,8 @@ fn the_new_project_form_creates_and_opens_a_project() {
     let mut h = harness(home.path());
     h.run();
 
-    h.get_by_label("New Project…").click();
+    // The toolbar's New Project button comes first; the Start page's last.
+    h.get_all_by_label("New Project…").last().unwrap().click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "Name")
         .set_text_value_accesskit("Blinky");
@@ -209,4 +210,73 @@ fn snapshot_of_a_schematic_sheet_on_the_canvas() {
         .unwrap();
     h.run();
     h.snapshot("schematic_canvas_dark");
+}
+
+/// A sheet of icons at the toolbar, menu and tab sizes, each row enabled then disabled.
+fn icon_sheet_snapshot(theme: egui::Theme) {
+    if let Some(why) = snapshot_skip_reason() {
+        if std::env::var_os("REDA_PNG_SNAPSHOTS").is_some() {
+            panic!("REDA_PNG_SNAPSHOTS is set but snapshots cannot run: {why}");
+        }
+        eprintln!("skipping snapshot: {why}");
+        return;
+    }
+    let render_state = egui_kittest::wgpu::create_render_state(
+        egui_kittest::wgpu::default_wgpu_setup(),
+        egui_wgpu::RendererOptions::PREDICTABLE,
+    );
+    let keys = [
+        "wire",
+        "net_label",
+        "power_port",
+        "track",
+        "via",
+        "zone",
+        "save",
+        "undo",
+        "zoom_fit",
+        "panel_layers",
+        "move",
+        "erc",
+    ];
+    let mut h = Harness::builder()
+        .with_size([400.0, 172.0])
+        .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
+            render_state,
+        ))
+        .build_ui(move |ui| {
+            reda_ui::theme::install(ui.ctx(), theme.into());
+            reda_ui::icons::install_loaders(ui.ctx());
+            egui::Frame::central_panel(ui.style()).show(ui, |ui| {
+                for size in [
+                    reda_ui::icons::TOOLBAR,
+                    reda_ui::icons::MENU,
+                    reda_ui::icons::TAB,
+                ] {
+                    for enabled in [true, false] {
+                        ui.horizontal(|ui| {
+                            for key in keys {
+                                ui.add(reda_ui::icons::image(key, size, theme, enabled).unwrap());
+                            }
+                        });
+                    }
+                }
+            });
+        });
+    h.run();
+    let name = match theme {
+        egui::Theme::Dark => "icons_dark",
+        egui::Theme::Light => "icons_light",
+    };
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_icons_on_the_dark_theme() {
+    icon_sheet_snapshot(egui::Theme::Dark);
+}
+
+#[test]
+fn snapshot_of_the_icons_on_the_light_theme() {
+    icon_sheet_snapshot(egui::Theme::Light);
 }
