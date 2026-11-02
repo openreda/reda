@@ -7,13 +7,14 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use reda_engine::model::Uuid;
 use reda_engine::render::gpu::{
     Blit, BlitSource, Canvas, Flags, GpuScene, Grid, GridSpec, Highlight, Renderer, Target, Writes,
     wgpu,
 };
-use reda_engine::render::{Composite, Palette, Scene, Theme, View};
+use reda_engine::render::{ColorKey, Composite, Palette, Rgba, Scene, Theme, View};
 
 /// A Scene shared with the paint callback. `generation` changes whenever the Scene does,
 /// so the GPU knows when to upload it again.
@@ -43,6 +44,71 @@ impl Default for SelectionHandle {
     }
 }
 
+/// What a Tool shows on a canvas this frame besides the selection: the object under the
+/// pointer, and what a move in flight draws at its offset or hides (Wires it redraws
+/// rubber-banded). `generation` changes whenever the marks do, so the GPU knows when to
+/// rewrite the flags; the offset itself is only a view write.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LiveHandle {
+    pub generation: u64,
+    pub hovered: Option<Uuid>,
+    pub moving: Arc<[Uuid]>,
+    pub hidden: Arc<[Uuid]>,
+}
+
+impl Default for LiveHandle {
+    fn default() -> LiveHandle {
+        LiveHandle {
+            generation: 0,
+            hovered: None,
+            moving: Arc::from([]),
+            hidden: Arc::from([]),
+        }
+    }
+}
+
+impl LiveHandle {
+    /// These marks, with a generation no other marks have had.
+    pub fn new(hovered: Option<Uuid>, moving: &[Uuid], hidden: &[Uuid]) -> LiveHandle {
+        static NEXT: AtomicU64 = AtomicU64::new(1);
+        LiveHandle {
+            generation: NEXT.fetch_add(1, Ordering::Relaxed),
+            hovered,
+            moving: Arc::from(moving),
+            hidden: Arc::from(hidden),
+        }
+    }
+
+    /// Whether these marks show the same as `hovered`, `moving` and `hidden`.
+    pub fn shows(&self, hovered: Option<Uuid>, moving: &[Uuid], hidden: &[Uuid]) -> bool {
+        self.hovered == hovered && self.moving[..] == *moving && self.hidden[..] == *hidden
+    }
+}
+
+/// Colour overrides (Preferences) shared with the paint callback, for both themes.
+/// `generation` changes whenever they do.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PaletteHandle {
+    pub generation: u64,
+    pub dark: Arc<[(ColorKey, Rgba)]>,
+    pub light: Arc<[(ColorKey, Rgba)]>,
+}
+
+impl PaletteHandle {
+    /// The shipped scheme of `theme` with this handle's overrides.
+    pub fn palette(&self, theme: Theme) -> Palette {
+        let mut palette = Palette::shipped(theme);
+        let overrides = match theme {
+            Theme::Dark => &self.dark,
+            Theme::Light => &self.light,
+        };
+        for (key, color) in overrides.iter() {
+            palette.set(*key, *color);
+        }
+        palette
+    }
+}
+
 /// Everything one frame of one canvas shows.
 #[derive(Clone)]
 pub struct CanvasFrame {
@@ -55,6 +121,12 @@ pub struct CanvasFrame {
     pub grid: Option<GridSpec>,
     /// The objects drawn selected.
     pub selection: SelectionHandle,
+    /// The hovered object and a move in flight.
+    pub live: LiveHandle,
+    /// How far (nm, y up) the objects in flight are drawn from where they are.
+    pub moving_offset: (f64, f64),
+    /// Colour overrides.
+    pub palette: PaletteHandle,
 }
 
 /// What a recorded frame depended on.
@@ -62,6 +134,9 @@ pub struct CanvasFrame {
 struct FrameKey {
     generation: u64,
     selection: u64,
+    live: u64,
+    moving_offset: (u64, u64),
+    palette: u64,
     theme: Theme,
     view: View,
     grid: Option<GridSpec>,
@@ -72,6 +147,12 @@ impl FrameKey {
         FrameKey {
             generation: frame.scene.generation,
             selection: frame.selection.generation,
+            live: frame.live.generation,
+            moving_offset: (
+                frame.moving_offset.0.to_bits(),
+                frame.moving_offset.1.to_bits(),
+            ),
+            palette: frame.palette.generation,
             theme: frame.theme,
             view: frame.view,
             grid: frame.grid,
@@ -83,10 +164,10 @@ impl FrameKey {
 pub struct CanvasGpu {
     scene: GpuScene,
     generation: u64,
-    /// The selection generation the flags were last written for.
-    selection: Option<u64>,
+    /// The (selection, live) generations the flags were last written for.
+    selection: Option<(u64, u64)>,
     canvas: Canvas,
-    theme: Option<Theme>,
+    theme: Option<(Theme, u64)>,
     grid: Grid,
     target: Option<(Target, BlitSource)>,
     last: Option<FrameKey>,
@@ -171,19 +252,29 @@ impl CanvasResources {
             // A new Scene starts with no marks.
             gpu.selection = None;
         }
-        if gpu.selection != Some(frame.selection.generation) {
-            // A Scene with no marks needs no write for an empty selection.
-            if gpu.selection.is_some() || !frame.selection.objects.is_empty() {
+        let marks = (frame.selection.generation, frame.live.generation);
+        if gpu.selection != Some(marks) {
+            let live = &frame.live;
+            let unmarked = frame.selection.objects.is_empty()
+                && live.hovered.is_none()
+                && live.moving.is_empty()
+                && live.hidden.is_empty();
+            // A Scene with no marks needs no write for no marks.
+            if gpu.selection.is_some() || !unmarked {
                 let mut highlight = Highlight::new();
                 highlight.mark_all(frame.selection.objects.iter().copied(), Flags::SELECTED);
+                highlight.mark_all(live.hovered, Flags::HOVERED);
+                highlight.mark_all(live.moving.iter().copied(), Flags::MOVING);
+                highlight.mark_all(live.hidden.iter().copied(), Flags::HIDDEN);
                 gpu.scene.set_highlight(queue, &highlight);
             }
-            gpu.selection = Some(frame.selection.generation);
+            gpu.selection = Some(marks);
         }
-        if gpu.theme != Some(frame.theme) {
+        let colors = (frame.theme, frame.palette.generation);
+        if gpu.theme != Some(colors) {
             gpu.canvas
-                .set_palette(queue, &Palette::shipped(frame.theme));
-            gpu.theme = Some(frame.theme);
+                .set_palette(queue, &frame.palette.palette(frame.theme));
+            gpu.theme = Some(colors);
         }
         let size = (frame.view.width.max(1), frame.view.height.max(1));
         if gpu.target.as_ref().map(|(t, _)| t.size()) != Some(size) {
@@ -191,6 +282,7 @@ impl CanvasResources {
             let source = self.blit.source(device, &target);
             gpu.target = Some((target, source));
         }
+        gpu.canvas.set_moving_offset(frame.moving_offset);
         gpu.canvas.set_view(queue, &gpu.scene, &frame.view);
         gpu.grid.set(queue, &frame.view, frame.grid.as_ref());
         let (target, _) = gpu.target.as_ref().expect("made above");

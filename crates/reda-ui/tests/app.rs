@@ -279,6 +279,110 @@ fn snapshot_of_a_schematic_sheet_on_the_canvas() {
     h.snapshot("schematic_canvas_dark");
 }
 
+#[test]
+fn snapshot_of_a_drag_in_flight() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("drag");
+    let file = make_project(&folder, "Drag");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().expect("a sheet tab").document;
+    shell
+        .run(
+            "schematic.wire.add",
+            json!({"document": sheet,
+                   "points": [{"x": "50mm", "y": "100mm"}, {"x": "150mm", "y": "100mm"},
+                              {"x": "150mm", "y": "60mm"}]}),
+        )
+        .unwrap();
+    // The Properties panel would show the Wire's UUID, which differs run to run.
+    shell
+        .run("layout.tab.close", json!({"tab": "properties"}))
+        .unwrap();
+    h.run();
+    // Grab the horizontal Wire and drag it up: it is drawn moved and selected, and the
+    // Wire down from its end is drawn rubber-banded, with nothing committed yet.
+    let rect = h.get_by_role(Role::Canvas).rect();
+    let camera = h
+        .state()
+        .shell()
+        .document_tab(sheet)
+        .unwrap()
+        .camera
+        .unwrap();
+    let grab = camera.screen_point(rect, (100e6, 100e6));
+    h.hover_at(grab);
+    h.run();
+    h.drag_at(grab);
+    h.run();
+    for step in 1..=4 {
+        h.hover_at(grab + egui::vec2(0.0, -10.0 * step as f32));
+        h.run();
+    }
+    assert!(
+        h.state()
+            .shell()
+            .document_tab(sheet)
+            .unwrap()
+            .moving_offset
+            .1
+            > 0.0
+    );
+    h.snapshot("schematic_drag_in_flight_dark");
+}
+
+/// A board with no Board Outline: Free Pads, a Track and a Via, one Pad selected, with
+/// the Layers panel open beside it and the outline hint above.
+#[test]
+fn snapshot_of_a_board_and_the_layers_panel() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("board");
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap();
+    let (pcb, top) = (pcb.uuid, pcb.copper_layers().next().unwrap().uuid);
+    let mut pads = Vec::new();
+    for x in ["0mm", "6mm"] {
+        let out = shell
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind": "smd", "at": {"x": x, "y": 0}, "width": "2mm", "height": "1.2mm"}),
+            )
+            .unwrap();
+        pads.push(out["result"]["uuid"].clone());
+    }
+    shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": top, "points": [{"x": "6mm", "y": 0}, {"x": "6mm", "y": "5mm"},
+                                            {"x": "12mm", "y": "5mm"}], "width": "0.3mm"}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.via.add", json!({"at": {"x": "12mm", "y": "5mm"}}))
+        .unwrap();
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+    shell.run("panel.show", json!({"panel": "layers"})).unwrap();
+    shell
+        .run("selection.set", json!({"objects": [pads[0]]}))
+        .unwrap();
+    h.run();
+    h.snapshot("board_layers_dark");
+}
+
 /// A sheet of icons at the toolbar, menu and tab sizes, each row enabled then disabled.
 fn icon_sheet_snapshot(theme: egui::Theme) {
     if let Some(why) = snapshot_skip_reason() {
@@ -414,6 +518,44 @@ fn snapshot_of_project_settings_with_an_invalid_value() {
 #[test]
 fn snapshot_of_project_settings_erc_with_the_pin_matrix() {
     project_settings_snapshot("ERC", "project_settings_erc_dark");
+}
+
+/// Opens the Command Palette with `query` typed into it.
+fn palette_with(h: &mut Harness<'static, App>, query: &str) {
+    h.run();
+    h.key_press_modifiers(
+        egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+        egui::Key::P,
+    );
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Command Palette")
+        .type_text(query);
+    h.run();
+}
+
+#[test]
+fn snapshot_of_the_command_palette() {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    palette_with(&mut h, "show");
+    h.snapshot("command_palette_dark");
+}
+
+#[test]
+fn snapshot_of_a_generated_params_form() {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    palette_with(&mut h, "split tab");
+    h.key_press(egui::Key::Enter);
+    h.run();
+    assert!(h.query_by_label("Split Tab").is_some());
+    h.snapshot("params_form_dark");
 }
 
 /// The Preferences dialog on `page`, in the dark theme.

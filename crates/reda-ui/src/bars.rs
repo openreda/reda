@@ -47,6 +47,26 @@ pub const ACTIVE_DOCUMENT: &str = "$active_document";
 /// use it, so they act on the same stack as Mod+Z.
 pub const UNDO_STACK: &str = "$undo_stack";
 
+/// The raw-params placeholder for the selected objects on the active Document, as an
+/// array of UUIDs. An item using it is greyed while nothing there is selected.
+pub const SELECTION: &str = "$selection";
+
+/// The raw-params placeholder for what the last copy or cut returned (Paste). An item
+/// using it is greyed while the clipboard is empty.
+pub const CLIPBOARD: &str = "$clipboard";
+
+/// The raw-params placeholder for the active Document's snap grid, in nm.
+pub const GRID: &str = "$grid";
+
+/// The raw-params placeholder for everything selectable on the active Document, as an
+/// array of UUIDs (Select All).
+pub const SELECTABLE: &str = "$selectable";
+
+/// The raw-params placeholder for where the pointer last was over the active Document's
+/// canvas, snapped to its grid, as `{x, y}` in nm (Paste puts things there). A field
+/// holding it is left out while the pointer has not been over the canvas.
+pub const CURSOR: &str = "$cursor";
+
 /// One clickable item.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Action {
@@ -244,10 +264,38 @@ pub fn resolve_in(
         Scope::Document(uuid) => uuid.to_string(),
         _ => "project".to_owned(),
     });
-    let filled = fill(&mut params, UNDO_STACK, undo.as_deref())
-        .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_deref()));
+    let undo = undo.map(Value::from);
+    let active = active.map(Value::from);
+    let grid = document.map(|d| json!(shell.grid(d).0));
+    let selectable = document.map(|d| json!(selectable_on(shell, d)));
+    let cursor = document.and_then(|d| {
+        let at = shell.document_tab(d)?.cursor?;
+        let at = crate::canvas::interact::snap_to_grid(at, shell.grid(d));
+        Some(json!({ "x": at.x.0, "y": at.y.0 }))
+    });
+    if cursor.is_none() {
+        drop_placeholder(&mut params, CURSOR);
+    }
+    let selected = document
+        .map(|d| selected_on(shell, d))
+        .filter(|s| !s.is_empty())
+        .map(|s| json!(s));
+    let filled = fill(&mut params, UNDO_STACK, undo.as_ref())
+        .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_ref()))
+        .and_then(|()| fill(&mut params, GRID, grid.as_ref()))
+        .and_then(|()| fill(&mut params, SELECTABLE, selectable.as_ref()))
+        .and_then(|()| fill(&mut params, CURSOR, cursor.as_ref()))
+        .map_err(|()| tr!("bars-no-active-document"))
+        .and_then(|()| {
+            fill(&mut params, SELECTION, selected.as_ref())
+                .map_err(|()| tr!("bars-nothing-selected"))
+        })
+        .and_then(|()| {
+            fill(&mut params, CLIPBOARD, shell.clipboard())
+                .map_err(|()| tr!("bars-clipboard-empty"))
+        });
     let run = match filled {
-        Err(()) => Err(tr!("bars-no-active-document")),
+        Err(reason) => Err(reason),
         Ok(()) => {
             // The window is never headless.
             match registry.available(&run_id, shell.engine().project(), false) {
@@ -269,12 +317,58 @@ pub fn resolve_in(
     }
 }
 
+/// The selected objects on `document`, in selection order.
+fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
+    let Some(project) = shell.engine().project() else {
+        return Vec::new();
+    };
+    shell
+        .selection()
+        .objects
+        .iter()
+        .copied()
+        .filter(|o| {
+            project
+                .object(*o)
+                .is_some_and(|o| o.scope() == Scope::Document(document))
+        })
+        .collect()
+}
+
+/// Everything selectable on `document`, sorted.
+fn selectable_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
+    let Some(project) = shell.engine().project() else {
+        return Vec::new();
+    };
+    let objects = project
+        .schematic_sheet(document)
+        .map(crate::schematic_editor::selectable)
+        .unwrap_or_default();
+    objects.into_iter().collect()
+}
+
+/// Removes every object field whose value is `placeholder`, for an optional one.
+fn drop_placeholder(params: &mut Value, placeholder: &str) {
+    match params {
+        Value::Array(items) => items
+            .iter_mut()
+            .for_each(|v| drop_placeholder(v, placeholder)),
+        Value::Object(map) => {
+            map.retain(|_, v| v.as_str() != Some(placeholder));
+            map.values_mut()
+                .for_each(|v| drop_placeholder(v, placeholder));
+        }
+        _ => {}
+    }
+}
+
 /// Replaces every `placeholder` string in `params` with `value`; `Err` when one is there
-/// but there is no value (no Document is active, or no Project is open).
-fn fill(params: &mut Value, placeholder: &str, value: Option<&str>) -> Result<(), ()> {
+/// but there is no value (no Document is active, nothing is selected, the clipboard is
+/// empty).
+fn fill(params: &mut Value, placeholder: &str, value: Option<&Value>) -> Result<(), ()> {
     match params {
         Value::String(s) if s == placeholder => {
-            *s = value.ok_or(())?.to_owned();
+            *params = value.ok_or(())?.clone();
             Ok(())
         }
         Value::Array(items) => items
@@ -304,7 +398,20 @@ fn summary(params: &Value) -> String {
 
 fn summary_map(map: &Map<String, Value>, value: fn(&Value) -> String) -> String {
     map.iter()
-        .filter(|(_, v)| !matches!(v.as_str(), Some(ACTIVE_DOCUMENT | UNDO_STACK)))
+        .filter(|(_, v)| {
+            !matches!(
+                v.as_str(),
+                Some(
+                    ACTIVE_DOCUMENT
+                        | UNDO_STACK
+                        | SELECTION
+                        | CLIPBOARD
+                        | GRID
+                        | SELECTABLE
+                        | CURSOR
+                )
+            )
+        })
         .map(|(k, v)| format!("{k}: {}", value(v)))
         .collect::<Vec<_>>()
         .join(", ")

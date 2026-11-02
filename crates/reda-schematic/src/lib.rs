@@ -30,8 +30,8 @@ pub use edit::{
     DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
     EditResult, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, Mirror,
     MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
-    RotateParams, ShiftParams, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
-    TextSetParams,
+    RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams,
+    TextResult, TextSet, TextSetParams, selectable, shift_preview,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{

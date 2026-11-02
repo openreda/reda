@@ -74,7 +74,8 @@ impl fmt::Display for Context {
 /// What is active now, which picks the contexts a key resolves in.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Active {
-    /// The active Tool's name (`wire` for the context `tool:wire`).
+    /// The active Tool's id ([`Tool::id`](crate::tools::Tool::id); `move` for the context
+    /// `tool:move`).
     pub tool: Option<String>,
     /// The active Document's type.
     pub document: Option<DocumentType>,
@@ -91,21 +92,25 @@ impl Active {
     }
 }
 
-/// The active Tool, in the engine's view state, so the Tool Commands (`tool.activate`…)
-/// can set it. The Shell installs it with no Tool.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct ActiveTool(pub Option<String>);
-
 /// What is active in `shell`: its Tool and its active Document's type.
 pub fn active(shell: &Shell) -> Active {
     Active {
-        tool: shell
-            .engine()
-            .view()
-            .get::<ActiveTool>()
-            .and_then(|t| t.0.clone()),
+        // One Tool is always active (Select at rest); its id names its context.
+        tool: Some(shell.tool().id().to_owned()),
         document: bars::active_type(shell),
     }
+}
+
+/// The shortcut of the Command or Preset `id` (`<command>:<preset>`) in what is active in
+/// `shell` now, labelled as on this OS: the Command Palette's lookup.
+pub fn shortcut_of(shell: &Shell, id: &str) -> Option<String> {
+    let binding = if id.contains(':') {
+        Binding::Preset(id.to_owned())
+    } else {
+        Binding::Command(id.to_owned())
+    };
+    let chord = shell.keymap().shortcut(&binding, &active(shell))?;
+    Some(chord.label(cfg!(target_os = "macos")))
 }
 
 /// What is active for the canvas of `document` (or, with `None`, for no Document): the

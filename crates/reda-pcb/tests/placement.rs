@@ -215,3 +215,58 @@ fn a_flipped_footprint_mirrors_its_pads_and_drawing_onto_the_bottom() {
     assert_eq!(pad(&engine, "1").at, a + Point::new(Nm(0), half));
     assert_eq!(pad(&engine, "1").rotation, Millideg::from_deg(90));
 }
+
+#[test]
+fn a_placement_preview_matches_the_commands_it_stands_for() {
+    use reda_model::Object;
+    use reda_pcb::PlacementOp;
+
+    let dir = TempDir::new("placement-preview");
+    let mut engine = engine(&dir);
+    let [r1, r2] = synced_resistors(&mut engine);
+    let anchor = reda_pcb::placement_anchor(pcb(&engine), &[r1, r2]).expect("placeable");
+    let ops = [
+        PlacementOp::Rotate(anchor, Millideg::from_deg(90)),
+        PlacementOp::Flip(anchor.x),
+        PlacementOp::Translate(mm(3, -2)),
+    ];
+    let journal = engine.journal().len();
+
+    let preview = reda_pcb::placement_preview(pcb(&engine), &[r1, r2], &ops).expect("allowed");
+    assert_eq!(engine.journal().len(), journal, "a preview runs nothing");
+
+    let c = json!({"x": anchor.x, "y": anchor.y});
+    engine.run_ok("pcb.rotate", json!({"objects": [r1, r2], "center": c}));
+    engine.run_ok("pcb.flip", json!({"objects": [r1, r2], "center": c}));
+    engine.run_ok(
+        "pcb.move",
+        json!({"objects": [r1, r2], "by": {"x": "3mm", "y": "-2mm"}}),
+    );
+    assert_eq!(preview.len(), 2);
+    for object in preview {
+        let Object::FootprintInstance(f) = object else {
+            panic!("only Footprints were placed");
+        };
+        let now = footprint(&engine, f.object.uuid);
+        assert_eq!(
+            (f.object.at, f.object.rotation, f.object.side),
+            (now.at, now.rotation, now.side)
+        );
+    }
+    assert_eq!(footprint(&engine, r1).side, Side::Bottom);
+}
+
+#[test]
+fn a_placement_preview_refuses_locked_footprints() {
+    let dir = TempDir::new("placement-preview-locked");
+    let mut engine = engine(&dir);
+    let [r1, _] = synced_resistors(&mut engine);
+    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    let err = reda_pcb::placement_preview(
+        pcb(&engine),
+        &[r1],
+        &[reda_pcb::PlacementOp::Translate(mm(1, 0))],
+    )
+    .unwrap_err();
+    assert_eq!(err.code, ErrorCode::Rejected);
+}

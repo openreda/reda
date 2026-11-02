@@ -326,3 +326,28 @@ fn the_schema_comes_from_the_preferences_type() {
     let theme = &schema["$defs"]["General"]["properties"]["theme"];
     assert!(theme.is_object(), "{schema:#}");
 }
+
+#[test]
+fn layer_colours_are_overridden_per_theme_and_layer_kind() {
+    let home = TempDir::new("prefs-layer-colours");
+    let mut engine = test_engine_in(home.path());
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "display.layer_colors.dark.copper_top", "value": "#ff8800"}),
+    );
+    assert_eq!(
+        get(home.path(), "display.layer_colors.dark.copper_top")["value"],
+        "#ff8800"
+    );
+    assert_eq!(
+        get(home.path(), "display.layer_colors.light.copper_top")["value"],
+        Value::Null
+    );
+    assert!(read_prefs(home.path()).contains("copper_top = \"#ff8800\""));
+
+    let err = engine.run_err(
+        "app.preferences.set",
+        json!({"key": "display.layer_colors.dark.silkscreen_bottom", "value": "orange"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+}

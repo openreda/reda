@@ -1,12 +1,15 @@
 //! `schematic.move` (detached) and `schematic.drag` (Wires rubber-band).
 
 use reda_command::{Command, CommandError, Context, Kind, Meta};
-use reda_model::Uuid;
+use std::collections::BTreeSet;
+
+use reda_model::geom::Point;
+use reda_model::{Object, Project, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::selection::{one_sheet, resolve};
-use super::transform::{Placement, place_anew};
+use super::transform::{Placement, place_anew, plan};
 use crate::component::At;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -67,6 +70,60 @@ impl Command for Drag {
     fn run(&self, cx: &mut Context<'_>, p: ShiftParams) -> Result<EditResult, CommandError> {
         shift(cx, p, true)
     }
+}
+
+/// What a move or drag in flight shows, before it is committed.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ShiftPreview {
+    /// Objects drawn whole at the offset: the selection, and the Net Labels, No-Connect
+    /// Markers, Ports and Power Ports that follow it. Sorted.
+    pub moved: Vec<Uuid>,
+    /// Unselected Wires a drag reshapes or folds away, drawn instead as [`wires`](Self::wires).
+    /// Sorted.
+    pub hidden: Vec<Uuid>,
+    /// The rubber-banded Wires as they would be, corners included, as (from, to).
+    pub wires: Vec<(Point, Point)>,
+}
+
+/// Works out what `schematic.drag` (with `keep_connections`) or `schematic.move` of
+/// `objects` by `by` would change, without changing anything. The same errors as the
+/// Commands.
+pub fn shift_preview(
+    project: &Project,
+    objects: &[Uuid],
+    by: Point,
+    keep_connections: bool,
+) -> Result<ShiftPreview, CommandError> {
+    let objects = resolve(project, objects, "/objects")?;
+    let document = one_sheet(&objects, "/objects")?;
+    let body = crate::sheet(project, document)?;
+    let how = Placement::Translate(by);
+    let moves: Vec<_> = objects.into_iter().map(|o| (o, how)).collect();
+    let plan = plan(body, &moves, keep_connections)?;
+    let mut preview = ShiftPreview::default();
+    let selected: BTreeSet<Uuid> = moves.iter().map(|(o, _)| o.uuid()).collect();
+    for object in plan.replaced {
+        match object {
+            Object::Wire(w) if !selected.contains(&w.uuid) => {
+                preview.hidden.push(w.uuid);
+                preview.wires.push((w.from, w.to));
+            }
+            other => preview.moved.push(other.uuid()),
+        }
+    }
+    for uuid in plan.removed {
+        if !selected.contains(&uuid) {
+            preview.hidden.push(uuid);
+        }
+    }
+    preview
+        .wires
+        .extend(plan.inserted.iter().map(|w| (w.from, w.to)));
+    preview.moved.sort();
+    preview.moved.dedup();
+    preview.hidden.sort();
+    preview.hidden.dedup();
+    Ok(preview)
 }
 
 fn shift(

@@ -20,6 +20,7 @@ document-area-empty = No Document open.
 status-ready = Ready
 status-dismiss = Dismiss
 status-panels = Panels
+status-grid = Grid: { $grid }
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
 status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
@@ -146,6 +147,35 @@ menu-view-theme = Theme
 menu-design = Design
 menu-library = Library
 bars-no-active-document = no Document is active
+bars-nothing-selected = nothing is selected
+bars-clipboard-empty = nothing has been copied
+menu-edit-cut = Cut
+menu-edit-copy = Copy
+menu-edit-paste = Paste
+menu-edit-duplicate = Duplicate
+menu-edit-delete = Delete
+menu-edit-rotate = Rotate
+menu-edit-mirror-x = Mirror Left to Right
+menu-edit-mirror-y = Mirror Top to Bottom
+menu-edit-align = Align
+menu-edit-align-left = Align Left
+menu-edit-align-right = Align Right
+menu-edit-align-top = Align Top
+menu-edit-align-bottom = Align Bottom
+menu-edit-align-center-x = Align Centres on a Vertical Line
+menu-edit-align-center-y = Align Centres on a Horizontal Line
+menu-edit-distribute-horizontal = Distribute Horizontally
+menu-edit-distribute-vertical = Distribute Vertically
+menu-edit-snap-to-grid = Snap to Grid
+menu-view-grid = Snap Grid
+menu-view-grid-10mil = 10 mil
+menu-view-grid-25mil = 25 mil
+menu-view-grid-50mil = 50 mil
+menu-view-grid-100mil = 100 mil
+menu-view-grid-0-25mm = 0.25 mm
+menu-view-grid-0-5mm = 0.5 mm
+menu-view-grid-1mm = 1 mm
+menu-view-grid-2-5mm = 2.5 mm
 bars-unknown-command = there is no Command { $command }
 
 # Command and Preset titles the UI shows instead of the engine's: command-<id>-title, with
@@ -201,6 +231,57 @@ properties-add-field = Add Field
 ## Canvas
 
 canvas-description = Schematic canvas: { $document }
+
+## Layers panel
+
+layers-no-pcb = The Project has no PCB Document.
+layers-inactive = Inactive Layers
+layers-inactive-normal = Normal
+layers-inactive-dimmed = Dimmed
+layers-inactive-hidden = Hidden
+layers-from-bottom = View from bottom
+layers-show = Show { $layer }
+layers-colour = Colour of { $layer }
+layers-objects = Objects
+layers-type-footprints = Footprints
+layers-type-tracks = Tracks
+layers-type-vias = Vias
+layers-type-zones = Zones
+layers-type-keepouts = Keepouts
+layers-type-free-pads = Free Pads
+layers-type-text = Text
+layers-type-graphics = Graphics
+layers-ratsnest = Ratsnest
+layers-ratsnest-nets = Ratsnest per Net
+layers-units = Units
+layers-grid = Snap grid
+layer-top = Top { $kind }
+layer-bottom = Bottom { $kind }
+layer-copper = Copper
+layer-silkscreen = Silkscreen
+layer-solder-mask = Solder Mask
+layer-paste = Paste
+layer-courtyard = Courtyard
+layer-assembly = Assembly
+layer-board-outline = Board Outline
+layer-mechanical = Mechanical
+layer-documentation = Documentation
+
+## PCB canvas
+
+pcb-cursor = X { $x }  Y { $y }  ·  grid { $grid }
+pcb-grid = Grid { $grid }
+pcb-no-outline = No Board Outline: draw one, or
+pcb-create-rect = Create rectangle…
+pcb-outline-title = Rectangular Board Outline
+pcb-outline-width = Width
+pcb-outline-height = Height
+pcb-outline-create = Create
+pcb-outline-cancel = Cancel
+pcb-rotate = Rotate
+pcb-flip = Flip Side
+pcb-lock = Lock
+pcb-unlock = Unlock
 
 ## Errors
 
@@ -484,3 +565,17 @@ shortcuts-conflict = { $key } runs { $command } in { $context } now; assigning r
 shortcuts-no-key = Press a key first.
 shortcuts-no-folder = There is no per-user folder.
 shortcuts-write-failed = Could not save { $file }: { $error }
+# The form generated from a Command's params, and the Command Palette.
+form-run = Run
+form-fix-fields = Fix the flagged fields first.
+form-required = Required
+form-whole-number = Enter a whole number
+form-bad-json = Not valid JSON: { $error }
+form-optional = { $label } (optional)
+form-default = (default)
+form-yes = Yes
+form-no = No
+form-choose = Choose…
+palette-title = Command Palette
+palette-hint = Type a Command…
+palette-nothing = No Command matches.

@@ -12,22 +12,24 @@ use reda_ui::App;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::shell::Shell;
+use reda_ui::tools::Tool;
 
-/// G is bound in every context, each to a different Panel.
+/// G is bound in every context, each to a different theme (showing a Panel would focus
+/// it, which takes the canvas's keys away).
 const LAYERED: &str = r#"
 [[bind]]
 key = "G"
-command = "panel.show:journal"
+command = "view.theme.set:follow_os"
 
 [[bind]]
 context = "schematic"
 key = "G"
-command = "panel.show:layers"
+command = "view.theme.set:dark"
 
 [[bind]]
-context = "tool:wire"
+context = "tool:move"
 key = "G"
-command = "panel.show:library"
+command = "view.theme.set:light"
 "#;
 
 fn engine_in(home: &Path) -> Engine {
@@ -76,7 +78,7 @@ fn the_most_specific_context_takes_the_key() {
     // The Start page: no Document, so the global binding.
     ran(&mut h, &mut seen);
     press(&mut h, Key::G);
-    assert_eq!(ran(&mut h, &mut seen), ["panel.show:journal"]);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:follow_os"]);
 
     // A schematic is the active Document: its type's binding.
     h.state_mut()
@@ -86,17 +88,27 @@ fn the_most_specific_context_takes_the_key() {
     h.run();
     ran(&mut h, &mut seen);
     press(&mut h, Key::G);
-    assert_eq!(ran(&mut h, &mut seen), ["panel.show:layers"]);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
 
-    // With the Wire Tool active, the Tool's binding.
-    h.state_mut().shell_mut().set_active_tool(Some("wire"));
+    // With the Move Tool active, the Tool's binding.
+    h.state_mut().shell_mut().set_active_tool(Tool::Move);
     press(&mut h, Key::G);
-    assert_eq!(ran(&mut h, &mut seen), ["panel.show:library"]);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
 
     // A Tool that does not bind G falls back to the Document type's.
-    h.state_mut().shell_mut().set_active_tool(Some("net_label"));
+    h.state_mut().shell_mut().set_active_tool(Tool::Drag);
     press(&mut h, Key::G);
-    assert_eq!(ran(&mut h, &mut seen), ["panel.show:layers"]);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
+
+    // A focused Panel takes the canvas's keys away: only global ones apply.
+    h.state_mut()
+        .shell_mut()
+        .run("panel.show:journal", serde_json::json!({}))
+        .unwrap();
+    h.run();
+    ran(&mut h, &mut seen);
+    press(&mut h, Key::G);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:follow_os"]);
 
     // Keys no context binds do nothing.
     press(&mut h, Key::J);
@@ -180,7 +192,7 @@ fn the_settings_dialog_is_a_project_dialog() {
 
     // Only global keys apply: G is the global binding, not the schematic's.
     press(&mut h, Key::G);
-    assert_eq!(ran(&mut h, &mut seen), ["panel.show:journal"]);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:follow_os"]);
 
     // Undo goes to the Project stack, whatever has focus.
     let before = h.state().shell().engine().journal().len();

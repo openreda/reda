@@ -787,3 +787,75 @@ fn ports_and_power_ports_copy_paste_and_duplicate_with_their_names() {
     assert_eq!(count(&mut engine, "port"), 2);
     assert_eq!(count(&mut engine, "power_port"), 2);
 }
+
+/// A previewed shift's Wires as `((x1, y1), (x2, y2))` in mil, ends sorted, sorted.
+fn preview_segments(preview: &reda_schematic::ShiftPreview) -> Vec<((i64, i64), (i64, i64))> {
+    let mil = |p: reda_model::geom::Point| (p.x.0 / 25_400, p.y.0 / 25_400);
+    let mut segments: Vec<_> = preview
+        .wires
+        .iter()
+        .map(|&(a, b)| (mil(a).min(mil(b)), mil(a).max(mil(b))))
+        .collect();
+    segments.sort();
+    segments
+}
+
+fn uuid(v: &Value) -> reda_model::Uuid {
+    v.as_str().unwrap().parse().unwrap()
+}
+
+fn mil(x: i64, y: i64) -> reda_model::geom::Point {
+    use reda_model::geom::{Nm, Point};
+    Point::new(Nm(x * 25_400), Nm(y * 25_400))
+}
+
+#[test]
+fn a_drag_preview_shows_the_rubber_banded_wires_the_drag_then_commits() {
+    let dir = TempDir::new("drag-preview");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let up = wire(&mut engine, &[(0, 150), (0, 500)]);
+    let vcc = label(&mut engine, "VCC", 0, -150);
+    let loose = wire(&mut engine, &[(2000, 0), (2500, 0)]);
+
+    let project = engine.project().unwrap().clone();
+    let preview = reda_schematic::shift_preview(&project, &[uuid(&r1)], mil(300, 0), true).unwrap();
+    // The Unit moves whole and the label on its Pin comes along; the attached Wire is
+    // drawn anew, bent round a corner; the loose Wire is untouched.
+    let mut moved = vec![uuid(&r1), uuid(&vcc)];
+    moved.sort();
+    assert_eq!(preview.moved, moved);
+    assert_eq!(preview.hidden, [uuid(&up[0])]);
+    assert_eq!(
+        preview_segments(&preview),
+        [((0, 150), (0, 500)), ((0, 150), (300, 150))]
+    );
+    assert!(!preview.moved.contains(&uuid(&loose[0])));
+
+    // Previewing commits nothing; the drag then makes what the preview showed.
+    assert!(engine.project().unwrap() == &project);
+    shift(&mut engine, "schematic.drag", &[&r1], 300, 0);
+    assert_eq!(
+        wire_segments(&mut engine),
+        [
+            ((0, 150), (0, 500)),
+            ((0, 150), (300, 150)),
+            ((2000, 0), (2500, 0))
+        ]
+    );
+}
+
+#[test]
+fn a_detached_move_preview_leaves_every_other_object_alone() {
+    let dir = TempDir::new("move-preview");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    wire(&mut engine, &[(0, 150), (0, 500)]);
+    label(&mut engine, "VCC", 0, -150);
+    let project = engine.project().unwrap().clone();
+    let preview =
+        reda_schematic::shift_preview(&project, &[uuid(&r1)], mil(300, 0), false).unwrap();
+    assert_eq!(preview.moved, [uuid(&r1)]);
+    assert!(preview.hidden.is_empty());
+    assert!(preview.wires.is_empty());
+}

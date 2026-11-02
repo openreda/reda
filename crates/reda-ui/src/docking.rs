@@ -15,17 +15,18 @@ use egui::{
     Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Role, Sense, SetOpenCommand, Ui,
     UiBuilder, Vec2, WidgetInfo,
 };
-use reda_engine::model::Uuid;
+use reda_engine::model::{DocumentKind, Uuid};
 use serde_json::{Value, json};
 
 use crate::bars;
 use crate::bars::draw::{self, Invocation};
-use crate::canvas::{canvas, canvas_id};
+use crate::canvas::{CanvasInputs, canvas_id, canvas_input, canvas_paint};
 use crate::icons;
 use crate::journal_panel::{self, JournalAction};
 use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
 use crate::panels;
 use crate::projects_panel::{self, ProjectsAction};
+use crate::schematic_editor;
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::{theme, tr};
@@ -235,11 +236,35 @@ impl Cx<'_> {
         }
     }
 
+    /// Runs the editor of `document`'s type on this frame's canvas input. Returns the
+    /// Commands to run. Keys reach it through the Keymap (`App::keys`).
+    fn edit(&mut self, document: Uuid, input: &CanvasInputs) -> Vec<(String, Value)> {
+        let kind = self
+            .shell
+            .engine()
+            .project()
+            .and_then(|p| p.document(document))
+            .map(|d| d.kind);
+        match kind {
+            Some(DocumentKind::Schematic) => {
+                let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
+                schematic_editor::pointer(self.shell, document, &input.events, scale)
+            }
+            // The PCB Tool runs its Commands itself.
+            Some(DocumentKind::Pcb) => {
+                crate::pcb::canvas::pointer(self.shell, document, input);
+                Vec::new()
+            }
+            None => Vec::new(),
+        }
+    }
+
     /// The Active Bar over the canvas of `document`, for its Document type.
     fn active_bar(&self, ui: &mut Ui, document: Uuid, id: Id, rect: Rect) -> Option<Invocation> {
         let project = self.shell.engine().project()?;
         let kind = project.documents().find(|d| d.uuid == document)?.kind;
-        let checked = BTreeMap::new();
+        let checked =
+            BTreeMap::from([("tool.activate", json!({ "tool": self.shell.tool().id() }))]);
         let cx = draw::Cx {
             shell: self.shell,
             checked: &checked,
@@ -431,7 +456,24 @@ impl Cx<'_> {
                 let Some(doc) = self.shell.document_tab_mut(*uuid) else {
                     return;
                 };
-                canvas(ui, doc, theme);
+                let input = canvas_input(ui, doc);
+                let commands = self.edit(*uuid, &input);
+                self.frame.commands.extend(commands);
+                let Some(doc) = self.shell.document_tab(*uuid) else {
+                    return;
+                };
+                canvas_paint(ui, &input, doc, theme);
+                if self
+                    .shell
+                    .engine()
+                    .project()
+                    .is_some_and(|p| p.pcb_document(*uuid).is_some())
+                {
+                    crate::pcb::canvas::decorate(ui, self.shell, &input);
+                }
+                let Some(doc) = self.shell.document_tab(*uuid) else {
+                    return;
+                };
                 let id = canvas_id(doc);
                 if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                     self.frame.commands.push(clicked);
@@ -458,6 +500,10 @@ impl Cx<'_> {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
                     self.frame.journal = Some(action);
                 }
+            }
+            TabKey::Panel(PanelId::Layers) => {
+                let commands = panels::layers::show(ui, self.shell);
+                self.frame.commands.extend(commands);
             }
             TabKey::Panel(PanelId::Messages) => {
                 let actions = panels::messages::show(ui, self.shell);

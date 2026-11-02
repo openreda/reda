@@ -4,12 +4,12 @@
 //! note (architecture.md#cli-and-control-port).
 //!
 //! Tools (#104 on) call [`Shell::begin_tool`] when their preview starts and
-//! [`Shell::end_tool`] when it commits or is abandoned, and check [`Shell::tool`] each
+//! [`Shell::end_tool`] when it commits or is abandoned, and check [`Shell::tool_preview`] each
 //! frame: `None` while they think they are active means a bridged edit cancelled them.
 //!
 //! [`Shell::begin_tool`]: crate::shell::Shell::begin_tool
 //! [`Shell::end_tool`]: crate::shell::Shell::end_tool
-//! [`Shell::tool`]: crate::shell::Shell::tool
+//! [`Shell::tool_preview`]: crate::shell::Shell::tool_preview
 
 use std::collections::BTreeSet;
 

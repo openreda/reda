@@ -13,6 +13,9 @@ struct View {
     // 1 when the target stores sRGB, so the shader must output linear colour.
     srgb: u32,
     _pad: u32,
+    // How far objects marked MOVING are drawn from where they are, in nm.
+    moving: vec2<f32>,
+    _pad2: vec2<f32>,
 }
 
 struct Palette {
@@ -32,6 +35,8 @@ const SELECTED: u32 = 1u;
 const HOVERED: u32 = 2u;
 const HIGHLIGHTED: u32 = 4u;
 const DIMMED: u32 = 8u;
+const MOVING: u32 = 16u;
+const HIDDEN: u32 = 32u;
 
 // The selection halo's width in pixels.
 const HALO_PX: f32 = 3.0;
@@ -116,7 +121,13 @@ fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> Varyings {
         }
     }
     var out: Varyings;
-    let ndc = (world - view.center) * view.scale / view.half_size;
+    // A moving object is drawn at the offset; the fragment stage still measures its shape
+    // against the unmoved geometry, as both are passed on unmoved.
+    var shift = vec2(0.0);
+    if (inst.flags & MOVING) != 0u {
+        shift = view.moving;
+    }
+    let ndc = (world + shift - view.center) * view.scale / view.half_size;
     out.position = vec4(ndc, 0.0, 1.0);
     out.world = world;
     out.p0 = inst.p0;
@@ -127,6 +138,9 @@ fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> Varyings {
     out.flags = inst.flags;
     // A view-only label below its minimum on-screen size is hidden.
     out.hidden = select(0u, 1u, inst.extra.x > 0.0 && inst.extra.x * px_per_nm() < MIN_LABEL_PX);
+    if (inst.flags & HIDDEN) != 0u {
+        out.hidden = 1u;
+    }
     return out;
 }
 

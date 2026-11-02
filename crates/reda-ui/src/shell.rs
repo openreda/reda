@@ -16,24 +16,29 @@ use std::time::Instant;
 
 use reda_engine::command::{CommandError, FontFace, Kind, Signals};
 use reda_engine::journal::Source;
-use reda_engine::model::geom::Point;
+use reda_engine::model::Project;
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{
-    DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Severity, Side, Uuid, Violation,
+    DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid, Violation,
 };
 use reda_engine::preferences::Preferences;
-use reda_engine::render::{self as render, board_composites};
 use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
-use crate::canvas::{Camera, SceneHandle, SelectionHandle};
-use crate::keymap::{self, ActiveTool, Keymap};
+use crate::canvas::{Camera, LiveHandle, Overlay, PaletteHandle, SceneHandle, SelectionHandle};
+use crate::grid::{self, Grids};
+use crate::keymap::{self, Keymap};
 use crate::layout::{self, Layout, TabKey, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
+use crate::pcb::snap::SnapKind;
+use crate::pcb::{self, BoardView};
 use crate::recovery::{self, Recorder};
+use crate::schematic_editor::Interaction;
 use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
+use crate::tools::{self, ActiveTool, Tool};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
@@ -74,6 +79,20 @@ pub struct DocumentTab {
     pub selection: SelectionHandle,
     /// The Violation markers the canvas draws over the Document.
     pub markers: Arc<[Marker]>,
+    /// The snap grid the canvas draws and Tools snap to.
+    pub grid: Nm,
+    /// What the editor has in flight on this canvas.
+    pub interaction: Interaction,
+    /// The hovered object and the objects in flight, as the canvas marks them.
+    pub live: LiveHandle,
+    /// How far (nm) the objects in flight are drawn from where they are.
+    pub moving_offset: (f64, f64),
+    /// What the editor draws over the canvas: Wires in flight, a selection box.
+    pub overlay: Overlay,
+    /// The pointer's last Document position (nm) over the canvas.
+    pub cursor: Option<(f64, f64)>,
+    /// The colour overrides the canvas draws with.
+    pub palette: PaletteHandle,
 }
 
 impl DocumentTab {
@@ -87,6 +106,13 @@ impl DocumentTab {
             zoom_to: None,
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
+            grid: grid::SCHEMATIC_DEFAULT,
+            interaction: Interaction::Idle,
+            live: LiveHandle::default(),
+            moving_offset: (0.0, 0.0),
+            overlay: Overlay::default(),
+            cursor: None,
+            palette: PaletteHandle::default(),
         }
     }
 }
@@ -122,6 +148,12 @@ pub struct Shell {
     keymap: Keymap,
     /// The Preferences as last read (see [`Shell::poll_preferences`]).
     preferences: Watched,
+    /// What `schematic.copy` or `schematic.cut` last returned, for `schematic.paste`.
+    clipboard: Option<Value>,
+    /// The PCB canvas's select-and-place Tool.
+    pcb_tool: pcb::Tool,
+    /// The colour overrides from the Preferences.
+    palette: PaletteHandle,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
     closed_views: BTreeMap<Uuid, DocumentView>,
     view_saves: Debounce,
@@ -140,9 +172,21 @@ impl Shell {
         if engine.registry().get("selection.set").is_none() {
             engine.register(selection::register_all);
         }
+        if engine.registry().get("tool.activate").is_none() {
+            engine.register(tools::register_all);
+        }
+        if engine.registry().get("view.grid.set").is_none() {
+            engine.register(grid::register_all);
+        }
+        if engine.registry().get("pcb.layer.show").is_none() {
+            engine.register(pcb::register_all);
+        }
+        let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
         engine.view_mut().set(ActiveTool::default());
+        engine.view_mut().set(Grids::default());
+        engine.view_mut().set(BoardView::new(units));
         crate::bars::install(&mut engine);
         let mut shell = Shell {
             engine,
@@ -157,12 +201,16 @@ impl Shell {
             marked: SelectionHandle::default(),
             keymap: Keymap::default(),
             preferences: Watched::default(),
+            clipboard: None,
+            pcb_tool: pcb::Tool::default(),
+            palette: PaletteHandle::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
             recorder: Recorder::new(),
         };
         shell.load_preference_warnings();
         shell.reload_keymap();
+        shell.palette = pcb::view::palette_handle(shell.preferences.values(), 0);
         if shell.engine.project().is_some() {
             shell.show_project();
             shell.recorder.opened(&shell.engine);
@@ -202,6 +250,147 @@ impl Shell {
             .view()
             .get::<Selection>()
             .expect("the Shell installs its Selection")
+    }
+
+    /// The active canvas Tool; it changes through `tool.activate`.
+    pub fn tool(&self) -> Tool {
+        self.engine
+            .view()
+            .get::<ActiveTool>()
+            .map(|t| t.0)
+            .unwrap_or_default()
+    }
+
+    /// `document`'s snap grid; it changes through `view.grid.set` and `view.grid.cycle`.
+    pub fn grid(&self, document: Uuid) -> Nm {
+        self.engine
+            .view()
+            .get::<Grids>()
+            .map(|g| g.of(self.engine.project(), document))
+            .unwrap_or(grid::SCHEMATIC_DEFAULT)
+    }
+
+    /// What the last copy or cut put on the clipboard, for `schematic.paste`.
+    pub fn clipboard(&self) -> Option<&Value> {
+        self.clipboard.as_ref()
+    }
+
+    /// The board's view: its Layer state, units and snap grid. It changes through the
+    /// PCB view Commands (`pcb.layer.show`, `view.grid.set`, ...).
+    pub fn board_view(&self) -> &BoardView {
+        self.engine
+            .view()
+            .get::<BoardView>()
+            .expect("the Shell installs its BoardView")
+    }
+
+    fn board_view_mut(&mut self) -> &mut BoardView {
+        self.engine
+            .view_mut()
+            .get_mut::<BoardView>()
+            .expect("the Shell installs its BoardView")
+    }
+
+    /// The Layer colour overrides the canvases draw with.
+    pub fn palette(&self) -> &PaletteHandle {
+        &self.palette
+    }
+
+    // ---- The PCB canvas Tool (see `pcb::tool`) ----
+
+    /// A button went down on the board at `at`; `toggle` is `Mod` held; `tolerance` is
+    /// how near counts as on an object.
+    pub fn pcb_press(&mut self, at: Point, toggle: bool, tolerance: Nm) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.press(self, at, toggle, tolerance);
+        self.pcb_tool = tool;
+    }
+
+    /// The pointer moved to `at` with the button down.
+    pub fn pcb_drag(&mut self, at: Point) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.drag(self, at);
+        self.pcb_tool = tool;
+    }
+
+    /// The button came up: selects, or runs the move in flight as one Command.
+    pub fn pcb_release(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.release(self);
+        self.pcb_tool = tool;
+    }
+
+    /// Esc: drops the move or rubber band in flight.
+    pub fn pcb_cancel(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.cancel(self);
+        self.pcb_tool = tool;
+    }
+
+    /// Space: turns the move in flight, or the selection, by 90°.
+    pub fn pcb_rotate(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.rotate(self);
+        self.pcb_tool = tool;
+    }
+
+    /// L: flips the move in flight, or the selection, to the other side.
+    pub fn pcb_flip(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.flip(self);
+        self.pcb_tool = tool;
+    }
+
+    /// The cursor is at `at` with no button down: where it snaps.
+    pub fn pcb_hover(&mut self, at: Point) -> (Point, SnapKind) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        let snapped = tool.hover(self, at);
+        self.pcb_tool = tool;
+        snapped
+    }
+
+    /// The PCB Tool, to read what it draws (snap marker, rubber band) and set its snap
+    /// radius from the zoom.
+    pub fn pcb_tool(&self) -> &pcb::Tool {
+        &self.pcb_tool
+    }
+
+    pub fn pcb_tool_mut(&mut self) -> &mut pcb::Tool {
+        &mut self.pcb_tool
+    }
+
+    /// Where the cursor last snapped.
+    pub fn pcb_snap(&self) -> Option<(Point, SnapKind)> {
+        self.pcb_tool.snap()
+    }
+
+    /// The rubber band's corners while one is drawn.
+    pub fn pcb_band(&self) -> Option<(Point, Point)> {
+        self.pcb_tool.band()
+    }
+
+    /// Whether the active Document is the board, whose Tool `tool.rotate` and
+    /// `tool.flip` turn.
+    fn board_is_active(&self) -> bool {
+        let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
+        pcb.is_some() && self.active_document().map(|d| d.document) == pcb
+    }
+
+    /// Draws `document` from `project` instead of the open Project: a preview of an edit
+    /// in flight. The next refresh (or [`Shell::redraw`]) draws the real one again.
+    pub fn show_preview(&mut self, document: Uuid, project: &Project) {
+        let scene = self.scene_from(project, document);
+        if let Some(tab) = self.document_tab_mut(document) {
+            tab.scene = scene;
+        }
+    }
+
+    /// Draws `document` from the open Project again, as after a dropped preview.
+    pub fn redraw(&mut self, document: Uuid) {
+        let scene = self.scene_of(document);
+        if let Some(tab) = self.document_tab_mut(document) {
+            tab.scene = scene;
+        }
     }
 
     /// The open Documents' tabs.
@@ -266,7 +455,7 @@ impl Shell {
     }
 
     /// The preview of the Tool in use; `None` once it ends or a bridged edit cancels it.
-    pub fn tool(&self) -> Option<&ToolPreview> {
+    pub fn tool_preview(&self) -> Option<&ToolPreview> {
         self.tool.as_ref()
     }
 
@@ -427,6 +616,9 @@ impl Shell {
                 },
             );
         }
+        if let Some(pcb) = project.pcb() {
+            documents.entry(pcb.uuid).or_default().layers = self.board_view().layers.clone();
+        }
         let file = ViewFile::new(self.layout().clone(), documents);
         Some((folder, file.encode()))
     }
@@ -498,7 +690,14 @@ impl Shell {
         if matches!(base, "project.open" | "project.new" | "project.close") {
             self.save_view();
         }
-        let out = self.engine.run(id, params)?;
+        let kind = self.engine.registry().get(base).map(|meta| meta.kind);
+        let out = self.engine.run(id, params);
+        if !matches!(kind, Some(Kind::View | Kind::Query)) {
+            // A move put down shows until its Command has run, whatever the outcome.
+            self.end_committed_moves();
+        }
+        let out = out?;
+        self.after_edit(base, &out);
         self.after_run(id);
         Ok(out)
     }
@@ -517,12 +716,13 @@ impl Shell {
                 _ => self.refresh(),
             },
         }
-        self.sync_selection();
-        if matches!(base, "project.open" | "project.new" | "project.save") {
-            self.remember_project();
-        }
         if matches!(base, "app.preferences.set" | "view.theme.set") {
             self.reload_preferences();
+        }
+        self.sync_selection();
+        self.sync_board_view();
+        if matches!(base, "project.open" | "project.new" | "project.save") {
+            self.remember_project();
         }
     }
 
@@ -782,12 +982,10 @@ impl Shell {
         &self.keymap
     }
 
-    /// Makes `tool` the active Tool (`None`: no Tool), whose `tool:<name>` Keymap context
-    /// then comes first. Tool Commands can set [`ActiveTool`] in the view state instead.
-    pub fn set_active_tool(&mut self, tool: Option<&str>) {
-        self.engine
-            .view_mut()
-            .set(ActiveTool(tool.map(str::to_owned)));
+    /// Makes `tool` the active Tool, whose `tool:<id>` Keymap context then comes first,
+    /// without the checks of `tool.activate` (which the window and agents use).
+    pub fn set_active_tool(&mut self, tool: Tool) {
+        self.engine.view_mut().set(ActiveTool(tool));
     }
 
     /// Reads the Keymap again (after `keymap.toml` or `keymap.base` changed) and lists its
@@ -838,13 +1036,22 @@ impl Shell {
     /// edit) and applies what changed. Returns whether the Preferences changed.
     pub fn poll_preferences(&mut self) -> bool {
         match self.engine.user_dirs() {
-            Some(dirs) if self.preferences.changed_on_disk(dirs) => self.reload_preferences(),
+            Some(dirs) if self.preferences.changed_on_disk(dirs) => {
+                let changed = self.reload_preferences();
+                if changed {
+                    // Layer colours and the Inactive-Layer mode are in the Scenes.
+                    self.refresh();
+                    self.sync_selection();
+                }
+                changed
+            }
             _ => false,
         }
     }
 
     /// Reads `preferences.toml` again and applies what changed: the undo depth, the base
-    /// Keymap and the warnings in Messages. Returns whether the Preferences changed.
+    /// Keymap, the Layer colours and the warnings in Messages. Returns whether the
+    /// Preferences changed.
     fn reload_preferences(&mut self) -> bool {
         let Some(dirs) = self.engine.user_dirs().cloned() else {
             return false;
@@ -859,6 +1066,8 @@ impl Shell {
         if now.keymap != reloaded.before.keymap {
             self.reload_keymap();
         }
+        self.generation += 1;
+        self.palette = pcb::view::palette_handle(&now, self.generation);
         self.set_preference_warnings(reloaded.warnings);
         true
     }
@@ -929,6 +1138,21 @@ impl Shell {
             }
             None => (self.default_layout(first_sheet), BTreeMap::new()),
         };
+        let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
+        let units = preferences::current(self.engine.user_dirs())
+            .pcb
+            .default_units;
+        let mut board = BoardView::new(units);
+        if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
+            board.layers = view.layers.clone();
+        }
+        *self.board_view_mut() = board;
+        // A board's grid starts at the middle preset of the units the Preference picks.
+        if let Some(pcb) = pcb
+            && let Some(grids) = self.engine.view_mut().get_mut::<Grids>()
+        {
+            grids.0.entry(pcb).or_insert(grid::pcb_default(units));
+        }
         self.documents.clear();
         let open: Vec<Uuid> = layout
             .groups()
@@ -1042,6 +1266,60 @@ impl Shell {
         self.sync_selection();
     }
 
+    /// Keeps the clipboard from a copy or cut, cancels what is in flight when the Tool
+    /// changes, selects what a paste or duplicate made and drops what a delete or cut
+    /// removed from the selection.
+    fn after_edit(&mut self, id: &str, out: &Value) {
+        match id {
+            "schematic.copy" => self.clipboard = Some(out.clone()),
+            "schematic.cut" => self.clipboard = Some(out["result"].clone()),
+            // Escape (and any Tool change) puts back what the canvases have in flight.
+            "tool.activate" => {
+                let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
+                for document in documents {
+                    crate::schematic_editor::cancel(self, document);
+                }
+                self.pcb_cancel();
+            }
+            "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
+            "tool.flip" if self.board_is_active() => self.pcb_flip(),
+            "schematic.paste" | "schematic.duplicate" => {
+                let objects = out["result"]["objects"].clone();
+                let _ = self
+                    .engine
+                    .run("selection.set", json!({ "objects": objects }));
+            }
+            _ => {}
+        }
+        let Some(project) = self.engine.project() else {
+            return;
+        };
+        let gone: Vec<Uuid> = self
+            .selection()
+            .objects
+            .iter()
+            .copied()
+            .filter(|o| project.object(*o).is_none())
+            .collect();
+        if !gone.is_empty()
+            && let Some(selection) = self.engine.view_mut().get_mut::<Selection>()
+        {
+            selection.objects.retain(|o| !gone.contains(o));
+        }
+    }
+
+    /// Drops the moves put down on every canvas, once their Command has run.
+    fn end_committed_moves(&mut self) {
+        for tab in &mut self.documents {
+            if matches!(&tab.interaction, Interaction::Flight(f) if f.committing) {
+                tab.interaction = Interaction::Idle;
+                tab.live = LiveHandle::default();
+                tab.moving_offset = (0.0, 0.0);
+                tab.overlay = Overlay::default();
+            }
+        }
+    }
+
     /// Hands every canvas the [`Selection`]'s objects to mark, with a new generation
     /// when they changed.
     fn sync_selection(&mut self) {
@@ -1053,10 +1331,36 @@ impl Shell {
                 objects,
             };
         }
+        let grids = self
+            .engine
+            .view()
+            .get::<Grids>()
+            .cloned()
+            .unwrap_or_default();
+        let project = self.engine.project();
         for tab in &mut self.documents {
             if tab.selection.generation != self.marked.generation {
                 tab.selection = self.marked.clone();
             }
+            tab.grid = grids.of(project, tab.document);
+            if tab.palette.generation != self.palette.generation {
+                tab.palette = self.palette.clone();
+            }
+        }
+    }
+
+    /// Hands the PCB tab the board's Layer state after a Command changed it, and redraws
+    /// the board with it.
+    fn sync_board_view(&mut self) {
+        let Some(pcb) = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid) else {
+            return;
+        };
+        let layers = self.board_view().layers.clone();
+        if self.document_tab(pcb).is_some_and(|t| t.layers != layers) {
+            let scene = self.scene_of(pcb);
+            let tab = self.document_tab_mut(pcb).expect("checked above");
+            tab.layers = layers;
+            tab.scene = scene;
         }
     }
 
@@ -1079,24 +1383,43 @@ impl Shell {
 
     fn scene_of(&mut self, document: Uuid) -> SceneHandle {
         self.generation += 1;
-        let scene = self.engine.document_scene(document).unwrap_or_default();
-        // Until the Layers panel and view state exist (#89-#92), a board shows every Layer
-        // with the top copper active and the Ratsnest visible.
-        let layers = self
-            .engine
-            .project()
-            .and_then(|p| p.pcb_document(document))
-            .map(|pcb| {
-                let set = pcb.layers();
-                let view = render::LayerView {
-                    active: set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid),
-                    ratsnest: true,
-                    ..render::LayerView::default()
-                };
-                board_composites(&set.layers, &view).into()
-            });
+        let handle = match self.engine.project() {
+            Some(project) => self.build_scene(project, document),
+            None => SceneHandle {
+                generation: 0,
+                scene: Arc::default(),
+                layers: None,
+            },
+        };
         SceneHandle {
             generation: self.generation,
+            ..handle
+        }
+    }
+
+    /// `document`'s Scene drawn from `project` (not necessarily the open one).
+    fn scene_from(&mut self, project: &Project, document: Uuid) -> SceneHandle {
+        self.generation += 1;
+        SceneHandle {
+            generation: self.generation,
+            ..self.build_scene(project, document)
+        }
+    }
+
+    /// The Scene of `document` in `project`, filtered and composited as the board view
+    /// asks for a PCB. Its generation is left for the caller to set.
+    fn build_scene(&self, project: &Project, document: Uuid) -> SceneHandle {
+        let mut scene =
+            reda_engine::document_scene(project, document, self.engine.fonts()).unwrap_or_default();
+        let board = self.board_view();
+        let layers = project.pcb_document(document).map(|pcb| {
+            board.filter_scene(project, &mut scene);
+            board
+                .composites(pcb, self.preferences.values().display.inactive_layer_mode)
+                .into()
+        });
+        SceneHandle {
+            generation: 0,
             scene: Arc::new(scene),
             layers,
         }

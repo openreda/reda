@@ -179,6 +179,36 @@ fn a_selected_object_is_lighter_and_haloed_without_new_geometry() {
 }
 
 #[test]
+fn moving_objects_are_drawn_at_the_offset_and_hidden_ones_not_at_all() {
+    let Some(gpu) = headless() else { return };
+    let scene = square_on_paper();
+    let palette = Palette::shipped(Theme::Dark);
+    let view = view_of(&scene, 100);
+    let wire = palette.color(ColorKey::Schematic(SchematicColor::Wire)).0;
+    let paper = palette.color(ColorKey::Schematic(SchematicColor::Paper)).0;
+    let mut gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    gs.set_highlight(gpu.queue(), Highlight::new().mark(id(2), Flags::MOVING));
+
+    // 30 mm right and 20 mm up: the square's centre goes from (50, 50) px to (80, 30) px.
+    cv.set_moving_offset((30_000_000.0, 20_000_000.0));
+    let img = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    assert_eq!(pixel(&img, 50, 50), paper);
+    assert_eq!(pixel(&img, 80, 30), wire);
+    // A new offset is only a view write.
+    let flags = gs.writes().flags;
+    cv.set_moving_offset((0.0, 0.0));
+    let img = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    assert_eq!(pixel(&img, 50, 50), wire);
+    assert_eq!(gs.writes().flags, flags);
+
+    gs.set_highlight(gpu.queue(), Highlight::new().mark(id(2), Flags::HIDDEN));
+    let img = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    assert_eq!(pixel(&img, 50, 50), paper);
+}
+
+#[test]
 fn highlighting_dims_everything_else_but_the_paper() {
     let Some(gpu) = headless() else { return };
     let mut scene = square_on_paper();
