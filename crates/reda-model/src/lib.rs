@@ -6,6 +6,7 @@
 
 mod change;
 mod check;
+mod derived;
 mod document;
 mod library;
 mod output;

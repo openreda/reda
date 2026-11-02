@@ -161,8 +161,6 @@ pub struct Router {
     /// The cursor, snapped.
     cursor: Option<(Point, SnapKind)>,
     radius: Option<Nm>,
-    /// The board's copper, and the Journal length it was built at.
-    copper: Option<(usize, Copper)>,
     /// What the path ahead (or the Via at the cursor) hits.
     hits: Vec<ClearanceHit>,
     keepouts: Vec<Uuid>,
@@ -489,19 +487,10 @@ impl Router {
         snapped.0
     }
 
-    /// The board's copper index, rebuilt when the Journal has moved on.
-    fn copper(&mut self, shell: &Shell) -> Option<&Copper> {
+    /// The board's copper index, kept in the Project between edits.
+    fn copper(&self, shell: &Shell) -> Option<std::sync::Arc<Copper>> {
         let (project, _) = board(shell)?;
-        let pcb = project.pcb()?;
-        let generation = shell.engine().journal().len();
-        if self.copper.as_ref().is_none_or(|(g, _)| *g != generation) {
-            let mut copper = Copper::build(pcb);
-            if let Some(fills) = project.zone_fills(pcb.uuid) {
-                copper.set_zone_fills(pcb, Some(fills));
-            }
-            self.copper = Some((generation, copper));
-        }
-        self.copper.as_ref().map(|(_, c)| c)
+        Copper::of(project)
     }
 
     /// Checks the path ahead to `at` (or, with the Via Tool, a Via at `at`).

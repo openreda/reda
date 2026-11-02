@@ -25,10 +25,7 @@ pub(crate) fn board_geometry(project: &Project, pcb: &PcbDocument, fonts: &Fonts
             .map(|t| board_text(t.uuid, t, text_geometry(t, fonts))),
     );
     let fills = project.zone_fills(pcb.uuid);
-    let mut copper = Copper::build(pcb);
-    if fills.is_some() {
-        copper.set_zone_fills(pcb, fills);
-    }
+    let copper = Copper::of(project).expect("the Project's PCB Document");
     out.ratsnest = copper
         .ratsnest()
         .into_iter()

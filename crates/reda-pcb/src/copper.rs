@@ -116,6 +116,21 @@ pub struct Copper {
 }
 
 impl Copper {
+    /// The copper of `project`'s PCB Document with the Zone fills the Project holds for it
+    /// (stale ones too: they stay copper until the next fill), or `None` without a PCB
+    /// Document. The index is kept in the Project and built again only after the board or
+    /// its fills change, so callers can ask for it on every query.
+    pub fn of(project: &reda_model::Project) -> Option<std::sync::Arc<Copper>> {
+        let pcb = project.pcb()?;
+        Some(project.derived(pcb.uuid, || {
+            let mut copper = Copper::build(pcb);
+            if let Some(fills) = project.zone_fills(pcb.uuid) {
+                copper.set_zone_fills(pcb, Some(fills));
+            }
+            copper
+        }))
+    }
+
     /// The copper of `pcb`, indexed from scratch.
     pub fn build(pcb: &PcbDocument) -> Copper {
         let mut copper = Copper {

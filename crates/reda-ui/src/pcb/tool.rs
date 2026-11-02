@@ -109,7 +109,7 @@ struct TrackDrag {
     normal: Option<(f64, f64)>,
     /// The drag so far.
     by: Point,
-    copper: Copper,
+    copper: std::sync::Arc<Copper>,
 }
 
 /// The kinds of object the Tool can move.
@@ -433,10 +433,9 @@ impl Tool {
             }
             TrackGeometry::Arc { .. } => None,
         };
-        let mut copper = Copper::build(pcb);
-        if let Some(fills) = project.zone_fills(pcb.uuid) {
-            copper.set_zone_fills(pcb, Some(fills));
-        }
+        let Some(copper) = Copper::of(project) else {
+            return;
+        };
         if shell.selection().objects != [track] {
             select(shell, vec![track]);
         }

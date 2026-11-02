@@ -222,10 +222,7 @@ impl Command for SelectConnected {
         let pcb = project
             .pcb()
             .ok_or_else(|| CommandError::unavailable("the Project has no PCB Document"))?;
-        let mut copper = Copper::build(pcb);
-        if let Some(fills) = project.zone_fills(pcb.uuid) {
-            copper.set_zone_fills(pcb, Some(fills));
-        }
+        let copper = Copper::of(project).expect("the Project has a PCB Document");
         let mut starts: Vec<Item> = Vec::new();
         for o in &selection.objects {
             if pcb.track(*o).is_some() {
