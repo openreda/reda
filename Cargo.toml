@@ -25,6 +25,9 @@ i_overlay = "9.1"
 # The spatial index behind PCB copper connectivity and clearance queries (reda-pcb).
 rstar = "0.13"
 toml_edit = "0.25"
+# The Output Job zip (reda-output). Default features pull in aes/bzip2/lzma/zstd and C code;
+# pure-Rust deflate is all a fab zip needs, and it builds on wasm.
+zip = { version = "9.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 directories = "6"
 # MCP: only reda-cli uses these (it is the only crate that depends on rmcp).
 rmcp = { version = "3.8", default-features = false, features = ["server", "transport-io"] }

@@ -59,10 +59,12 @@ reda-model -> serde
 reda-model -> serde_json [dev]
 reda-output -> reda-command
 reda-output -> reda-model
+reda-output -> reda-pcb
 reda-output -> reda-testkit [dev]
 reda-output -> schemars
 reda-output -> serde
 reda-output -> serde_json [dev]
+reda-output -> zip
 reda-pcb -> i_overlay
 reda-pcb -> i_triangle
 reda-pcb -> proptest [dev]

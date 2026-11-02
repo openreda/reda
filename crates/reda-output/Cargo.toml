@@ -1,6 +1,6 @@
 [package]
 name = "reda-output"
-description = "Manufacturing outputs: the shipped Fab Presets and Output Jobs."
+description = "Manufacturing outputs: the shipped Fab Presets, Output Jobs and the Gerber writer."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,8 +11,10 @@ publish.workspace = true
 [dependencies]
 reda-command = { path = "../reda-command" }
 reda-model = { path = "../reda-model" }
+reda-pcb = { path = "../reda-pcb" }
 schemars.workspace = true
 serde.workspace = true
+zip.workspace = true
 
 [dev-dependencies]
 reda-testkit = { path = "../reda-testkit" }
