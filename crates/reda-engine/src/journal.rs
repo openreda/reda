@@ -8,7 +8,7 @@
 
 mod replay;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use reda_command::CommandError;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -114,6 +114,15 @@ fn present<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Value>, D::Error> {
 /// params that name a path inside a replaced folder (`project.open` of the new Project,
 /// say) are moved along with it.
 pub fn relocate_new_projects(steps: &mut [ScriptEntry], dir: &Path) -> Vec<Value> {
+    move_new_projects(steps, |n| dir.join(n.to_string()))
+}
+
+/// Like [`relocate_new_projects`], with the folder for the `n`th `project.new` step
+/// (1-based) chosen by `folder`. `reda run --script --into <dir>` puts every one in `dir`.
+pub fn move_new_projects(
+    steps: &mut [ScriptEntry],
+    mut folder: impl FnMut(usize) -> PathBuf,
+) -> Vec<Value> {
     let mut replaced = vec![];
     for i in 0..steps.len() {
         if steps[i].id != "project.new" {
@@ -122,7 +131,7 @@ pub fn relocate_new_projects(steps: &mut [ScriptEntry], dir: &Path) -> Vec<Value
         let Some(params) = steps[i].params.as_object_mut() else {
             continue;
         };
-        let path = dir.join((replaced.len() + 1).to_string());
+        let path = folder(replaced.len() + 1);
         let old = params.insert("path".into(), Value::from(path.to_string_lossy().as_ref()));
         if let Some(old) = old.as_ref().and_then(Value::as_str) {
             for later in &mut steps[i + 1..] {

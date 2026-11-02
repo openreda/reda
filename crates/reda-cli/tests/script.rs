@@ -89,6 +89,55 @@ fn a_missing_script_exits_1() {
 }
 
 #[test]
+fn a_recorded_session_replays_into_another_folder_with_into() {
+    let dir = TempDir::new("cli-script-into");
+    let mut e = test_engine();
+    let recorded = dir.path().join("recorded");
+    e.run_ok("project.new", json!({"path": recorded, "name": "Demo"}));
+    let script = dir.path().join("journal.jsonl");
+    std::fs::write(&script, journal::export(e.journal())).unwrap();
+
+    // The recorded folder still holds the recorded Project.
+    let out = reda(&["run", "--script", path(&script)]);
+    assert_eq!(out.status.code(), Some(1));
+    let err: Value = serde_json::from_slice(&out.stderr).expect("stderr is JSON");
+    assert!(
+        err["message"].as_str().unwrap().contains("--into"),
+        "{err}"
+    );
+
+    let into = dir.path().join("replayed");
+    let out = reda(&["run", "--script", path(&script), "--into", path(&into)]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(into.join("Demo/Demo.reda").is_file());
+}
+
+#[test]
+fn a_reference_project_script_replays_end_to_end_with_random_uuids() {
+    let dir = TempDir::new("cli-script-reference");
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let script = repo.join("tests/scenarios/blinky_555.jsonl");
+    let out = Command::new(env!("CARGO_BIN_EXE_reda"))
+        .args(["run", "--script", path(&script), "--into", path(dir.path())])
+        .env("REDA_HOME", dir.path().join("home"))
+        .env("REDA_STARTER_LIBRARY", repo.join("library/starter"))
+        .output()
+        .expect("run reda");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let outputs = read_tree(&dir.path().join("Blinky/outputs/JLCPCB"));
+    assert!(outputs.contains_key("Blinky.GTL"), "{:?}", outputs.keys());
+    assert!(outputs.contains_key("Blinky-JLCPCB.zip"));
+}
+
+#[test]
 fn script_usage_errors_exit_2() {
     for args in [
         &["run", "--script"][..],
