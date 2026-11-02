@@ -14,10 +14,10 @@ reda-model = { path = "../reda-model" }
 reda-text = { path = "../reda-text" }
 schemars.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 reda-testkit = { path = "../reda-testkit" }
-serde_json.workspace = true
 
 [lints]
 workspace = true

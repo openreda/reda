@@ -204,6 +204,21 @@ impl<'c, 'e> Applier<'c, 'e> {
         }
 
         self.write(&pcb)?;
+        let free_pads: Vec<_> = self
+            .cx
+            .project()?
+            .pcb()
+            .into_iter()
+            .flat_map(|p| p.free_pads())
+            .filter(|p| p.net.is_some_and(|n| removed_nets.contains(&n)))
+            .cloned()
+            .collect();
+        for mut pad in free_pads {
+            pad.net = None;
+            self.cx
+                .tx()?
+                .replace(Object::FreePad(InDocument::new(self.pcb, pad)))?;
+        }
         for net in removed_nets {
             self.cx.tx()?.remove(net)?;
         }

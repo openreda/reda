@@ -66,7 +66,7 @@ reda-pcb -> reda-testkit [dev]
 reda-pcb -> reda-text
 reda-pcb -> schemars
 reda-pcb -> serde
-reda-pcb -> serde_json [dev]
+reda-pcb -> serde_json
 reda-render -> i_triangle
 reda-render -> reda-command
 reda-render -> reda-model
