@@ -20,6 +20,7 @@ use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
 use crate::canvas::{Camera, SceneHandle, SelectionHandle};
+use crate::keymap::{self, ActiveTool, Keymap};
 use crate::layout::{self, Layout, TabKey};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
@@ -99,6 +100,7 @@ pub struct Shell {
     messages: Messages,
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
+    keymap: Keymap,
 }
 
 impl Shell {
@@ -113,6 +115,7 @@ impl Shell {
         }
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
+        engine.view_mut().set(ActiveTool::default());
         crate::bars::install(&mut engine);
         let mut shell = Shell {
             engine,
@@ -123,8 +126,10 @@ impl Shell {
             message: None,
             messages: Messages::default(),
             marked: SelectionHandle::default(),
+            keymap: Keymap::default(),
         };
         shell.load_preference_warnings();
+        shell.reload_keymap();
         if shell.engine.project().is_some() {
             shell.show_project();
         }
@@ -557,6 +562,52 @@ impl Shell {
         }
     }
 
+    /// The Keymap in force: the base Keymap the Preferences pick, with the user's
+    /// `keymap.toml` laid over it.
+    pub fn keymap(&self) -> &Keymap {
+        &self.keymap
+    }
+
+    /// Makes `tool` the active Tool (`None`: no Tool), whose `tool:<name>` Keymap context
+    /// then comes first. Tool Commands can set [`ActiveTool`] in the view state instead.
+    pub fn set_active_tool(&mut self, tool: Option<&str>) {
+        self.engine
+            .view_mut()
+            .set(ActiveTool(tool.map(str::to_owned)));
+    }
+
+    /// Reads the Keymap again (after `keymap.toml` or `keymap.base` changed) and lists its
+    /// problems in Messages, replacing the earlier ones.
+    pub fn reload_keymap(&mut self) {
+        let dirs = self.engine.user_dirs();
+        let base = preferences::current(dirs).keymap.base;
+        let mut problems = Vec::new();
+        let user = dirs.and_then(|d| {
+            let path = d.config.join(keymap::USER_FILE);
+            match std::fs::read_to_string(&path) {
+                Ok(text) => Some(text),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(e) => {
+                    problems.push(tr!(
+                        "keymap-unreadable",
+                        file = keymap::USER_FILE,
+                        error = e.to_string()
+                    ));
+                    None
+                }
+            }
+        });
+        let (mut map, found) = Keymap::load(base, user.as_deref());
+        problems.extend(found);
+        problems.extend(map.check(self.engine.registry()));
+        self.keymap = map;
+        let problems = problems
+            .into_iter()
+            .map(|text| (Severity::Error, text))
+            .collect();
+        self.set_load_messages(KEYMAP, problems);
+    }
+
     /// Lists the warnings reading `preferences.toml` gave.
     fn load_preference_warnings(&mut self) {
         let Some(dirs) = self.engine.user_dirs() else {
@@ -771,6 +822,7 @@ fn document_file(path: &Path) -> Option<(String, DocumentKind)> {
 const FONTS: &str = "fonts";
 /// The `source` of Preference warnings.
 const PREFERENCES: &str = "preferences";
+const KEYMAP: &str = "keymap";
 
 /// The open Project's PCB Document; only called when there is one.
 fn pcb_of(engine: &Engine) -> &reda_engine::model::PcbDocument {

@@ -14,6 +14,7 @@ mod docking;
 pub mod i18n;
 pub mod icons;
 mod journal_panel;
+pub mod keymap;
 pub mod layout;
 pub mod messages;
 mod new_project;

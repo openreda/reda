@@ -1,0 +1,81 @@
+# REDA's default Keymap (docs/spec/v0.1/app.md#keymap), the `keymap.base` "reda".
+#
+# Each [[bind]] binds one key, written portably by logical key ("Mod+Shift+Z"; Mod is Cmd
+# on macOS and Ctrl elsewhere), in one context: global (the default), schematic, pcb,
+# symbol, footprint or tool:<name>. The most specific context wins: the active Tool, then
+# the active Document's type, then global. A key binds once per context.
+#
+# `command` names a Command or a Preset ("panel.show:projects"); `params` makes it a raw
+# {command, params} binding. "$active_document" stands for the active Document's UUID and
+# "$undo_stack" for the stack focus picks (a focused Document's, else the Project's).
+#
+# The user's keymap.toml uses this format too, plus [[unbind]] entries, and applies last.
+
+# File and edit: OS-standard shortcuts.
+
+[[bind]]
+key = "Mod+N"
+command = "app.dialog.open:new_project"
+
+[[bind]]
+key = "Mod+O"
+command = "app.dialog.open:open_project"
+
+[[bind]]
+key = "Mod+S"
+command = "project.save"
+
+[[bind]]
+key = "Mod+Z"
+command = "edit.undo"
+params = { document = "$undo_stack" }
+
+[[bind]]
+key = "Mod+Shift+Z"
+command = "edit.redo"
+params = { document = "$undo_stack" }
+
+[[bind]]
+key = "Mod+Y"
+command = "edit.redo"
+params = { document = "$undo_stack" }
+
+# Panels: only Projects, Properties and Messages have keys by default.
+
+[[bind]]
+key = "Alt+1"
+command = "panel.show:projects"
+
+[[bind]]
+key = "Alt+2"
+command = "panel.show:properties"
+
+[[bind]]
+key = "Alt+3"
+command = "panel.show:messages"
+
+# View: F zooms to fit on a canvas.
+
+[[bind]]
+context = "schematic"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
