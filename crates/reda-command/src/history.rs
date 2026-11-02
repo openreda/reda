@@ -140,6 +140,12 @@ impl History {
         self.stacks.remove(&scope);
     }
 
+    /// Names `scope`'s current state: it changes with every edit, undo and redo on that
+    /// stack, so a front end can tell which scopes changed since it last looked.
+    pub fn state(&self, scope: Scope) -> u64 {
+        self.stacks.get(&scope).map_or(0, Stack::state)
+    }
+
     /// Whether `scope` has changes not yet saved.
     pub fn is_dirty(&self, scope: Scope) -> bool {
         self.stacks.get(&scope).is_some_and(Stack::is_dirty)

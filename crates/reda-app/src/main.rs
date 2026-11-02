@@ -39,6 +39,10 @@ fn main() -> ExitCode {
     }
 
     let dirs = user_dirs::discover();
+    if let Some(dirs) = &dirs {
+        // A panic leaves a local Crash Report, offered on the next start; never uploaded.
+        reda_ui::crash::install(reda_ui::crash::reports_dir(dirs), env!("REDA_VERSION"));
+    }
     let prefs = preferences::current(dirs.as_ref());
     let engine = Engine::builder()
         .source(Source::Gui)

@@ -15,6 +15,7 @@ pub mod fs;
 pub mod journal;
 pub mod library;
 pub mod preferences;
+pub mod recovery;
 pub mod starter;
 pub mod state;
 pub mod store;

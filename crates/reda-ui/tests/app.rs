@@ -378,3 +378,40 @@ fn snapshot_of_a_tab_drag_the_layout_would_refuse() {
     // The Start page is alone in its group, so it cannot split from it.
     drag_snapshot("Start", "Drop Below", "drag_refused_dark");
 }
+
+/// Project Settings on `page`, with a Project whose board thickness is typed wrong so the
+/// flag shows.
+fn project_settings_snapshot(page: &str, name: &str) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Settings");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.state_mut().open_project_settings();
+    h.run();
+    let field = h.get_by_role_and_label(Role::TextInput, "Board thickness (mm)");
+    field.click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Board thickness (mm)")
+        .type_text("1.6x");
+    h.run();
+    if page != "Properties" {
+        h.get_by_role_and_label(Role::TreeItem, page).click();
+    }
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_project_settings_with_an_invalid_value() {
+    project_settings_snapshot("Properties", "project_settings_properties_dark");
+}
+
+#[test]
+fn snapshot_of_project_settings_erc_with_the_pin_matrix() {
+    project_settings_snapshot("ERC", "project_settings_erc_dark");
+}

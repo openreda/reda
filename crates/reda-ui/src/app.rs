@@ -3,8 +3,9 @@
 //! lives in [`Shell`].
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Instant;
 
 use egui::{Key, Modifiers, Panel, ThemePreference, Ui};
 use reda_engine::Engine;
@@ -21,29 +22,39 @@ use crate::layout::PanelId;
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
 use crate::projects_panel::{self, ProjectsAction};
+use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
+use crate::settings::{self, Outcome, SettingsDialog};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
-use crate::{theme, tr};
+use crate::{crash, theme, tr};
 
 /// The REDA window.
 pub struct App {
     shell: Shell,
     files: FileDialogs,
     new_project: Option<NewProjectForm>,
+    /// The open settings dialog (Project Settings), if any.
+    settings: Option<SettingsDialog>,
     window_title: String,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
+    /// A Crash Report from an earlier run, not yet offered.
+    crash_report: Option<PathBuf>,
 }
 
 impl App {
     /// The window on `shell`. REDA's theme is installed on the first frame, as the
     /// Preferences ask.
     pub fn new(shell: Shell) -> App {
+        let crash_report = (shell.engine().user_dirs())
+            .and_then(|dirs| crash::unseen(&crash::reports_dir(dirs)).pop());
         App {
+            crash_report,
             shell,
             files: FileDialogs::default(),
             new_project: None,
+            settings: None,
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
@@ -100,14 +111,17 @@ impl App {
                         .report(tr!("error-show-in-folder", error = e.to_string()));
                 }
             }
+            Some(ProjectsAction::ProjectSettings) => self.open_project_settings(),
             // The Output Job dialog is still to come.
             Some(ProjectsAction::EditJob(_)) | None => {}
         }
+        self.show_settings(&ctx);
         if let Some(JournalAction::Export) = frame.journal {
             self.files.start(&ctx, Pick::ExportJournal);
         }
         self.drop_closed_canvases();
         self.shell.save_view_if_due(std::time::Instant::now());
+        self.crash_recovery(&ctx);
 
         if let Some(form) = &mut self.new_project {
             match form.show(&ctx) {
@@ -126,6 +140,47 @@ impl App {
         }
     }
 
+    /// Takes due Recovery Snapshots, and shows the recovery prompt and the Crash Report
+    /// offer when there is one.
+    fn crash_recovery(&mut self, ctx: &egui::Context) {
+        if let Some(wait) = self.shell.tick_recovery(Instant::now()) {
+            ctx.request_repaint_after(wait);
+        }
+        if let Some(prompt) = self.shell.recovery_prompt() {
+            match recovery_dialog::recovery(ctx, prompt) {
+                Some(RecoveryAction::Restore(file)) => {
+                    let _ = self.shell.restore_snapshot(&file);
+                }
+                Some(RecoveryAction::Discard(file)) => self.shell.discard_snapshot(&file),
+                Some(RecoveryAction::RestoreAll) => self.shell.restore_all(),
+                Some(RecoveryAction::DiscardAll) => self.shell.discard_all(),
+                Some(RecoveryAction::ShowInFolder(dir)) => self.show_in_folder(&dir),
+                None => {}
+            }
+        } else if let Some(report) = self.crash_report.clone() {
+            let dir = report.parent().map(Path::to_path_buf).unwrap_or_default();
+            match recovery_dialog::crash(ctx, &report) {
+                Some(CrashAction::OpenFolder) => self.show_in_folder(&dir),
+                Some(CrashAction::ReportOnGitHub) => {
+                    let text = std::fs::read_to_string(&report).unwrap_or_default();
+                    ctx.open_url(egui::OpenUrl::new_tab(crash::issue_url(&text)));
+                }
+                Some(CrashAction::Dismiss) => {
+                    crash::mark_seen(&dir);
+                    self.crash_report = None;
+                }
+                None => {}
+            }
+        }
+    }
+
+    fn show_in_folder(&mut self, folder: &Path) {
+        if let Err(e) = os::show_in_folder(folder) {
+            self.shell
+                .report(tr!("error-show-in-folder", error = e.to_string()));
+        }
+    }
+
     /// Mod+Z undoes and Mod+Shift+Z (or Mod+Y) redoes, on the stack focus picks, unless a
     /// text field has the keyboard.
     fn undo_keys(&mut self, ctx: &egui::Context) {
@@ -138,8 +193,27 @@ impl App {
             (redo, i.consume_key(Modifiers::COMMAND, Key::Z))
         });
         if undo || redo {
-            let dialog = projects_panel::dialog_open(ctx);
+            let dialog = projects_panel::dialog_open(ctx) || self.settings.is_some();
             let _ = self.shell.undo(redo, dialog);
+        }
+    }
+
+    /// Opens the Project Settings dialog on the open Project, if there is one.
+    pub fn open_project_settings(&mut self) {
+        if let Some(project) = self.shell.engine().project() {
+            self.settings = Some(settings::project::dialog(project));
+        }
+    }
+
+    /// Draws the open settings dialog, and closes it or opens its folder picker as it asks.
+    fn show_settings(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.settings else {
+            return;
+        };
+        match dialog.show(ctx, &mut self.shell) {
+            Outcome::Open => {}
+            Outcome::Closed => self.settings = None,
+            Outcome::PickFolder => self.files.start(ctx, Pick::SettingsFolder),
         }
     }
 
@@ -169,6 +243,13 @@ impl App {
                     let _ = self
                         .shell
                         .run_reporting("project.library.add", json!({ "path": path }));
+                }
+            }
+            Some((Pick::SettingsFolder, path)) => {
+                if let (Some(folder), Some(dialog)) =
+                    (self.shell.engine().location(), &mut self.settings)
+                {
+                    dialog.picked_folder(&os::relative_path(folder, &path));
                 }
             }
             None => {}
@@ -304,8 +385,11 @@ impl eframe::App for App {
         App::ui(self, ui);
     }
 
+    /// The window closes cleanly: the view state is saved and the open Project's
+    /// Recovery Snapshots go.
     fn on_exit(&mut self) {
         self.shell.save_view();
+        self.shell.close_cleanly();
     }
 }
 

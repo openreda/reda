@@ -9,6 +9,7 @@
 mod app;
 pub mod bars;
 pub mod canvas;
+pub mod crash;
 mod dialogs;
 mod docking;
 pub mod i18n;
@@ -21,7 +22,10 @@ mod os;
 mod panels;
 mod projects_panel;
 pub mod properties;
+pub mod recovery;
+mod recovery_dialog;
 pub mod selection;
+pub mod settings;
 pub mod shell;
 mod start_page;
 pub mod theme;
