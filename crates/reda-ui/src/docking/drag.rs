@@ -7,13 +7,18 @@
 //! ([`Layout::plan_drop`]), so the preview, the refusal and the Command all come from the
 //! same dry run.
 
+use std::collections::HashMap;
+
 use egui::{
     Color32, Context, CursorIcon, Id, LayerId, Order, Pos2, Rect, RichText, Role, Sense, Stroke,
-    StrokeKind, Ui, UiBuilder, Vec2, WidgetInfo, vec2,
+    StrokeKind, Ui, UiBuilder, Vec2, ViewportCommand, ViewportId, WidgetInfo, vec2,
 };
 use serde_json::Value;
 
-use crate::layout::{DockSide, DropOutcome, DropTarget, GroupId, Layout, SplitSide, TabKey};
+use super::windows::{self, BlindDrop, Placements, Release, WindowView};
+use crate::layout::{
+    DockSide, DropOutcome, DropTarget, GroupId, Layout, SplitSide, TabKey, WindowId,
+};
 use crate::tr;
 
 /// The size of a drop-target button.
@@ -25,29 +30,53 @@ const EDGE: f32 = 22.0;
 /// The size of a Dock preview where the Dock is not shown yet.
 const DOCK_SIZE: f32 = 240.0;
 
-/// A tab being dragged, kept in egui's memory between frames.
+/// Where a new window's top-left corner goes from the pointer that dropped its tab, so
+/// the pointer lands on its tab strip.
+const GRAB: Vec2 = vec2(40.0, 12.0);
+
+/// A tab being dragged.
 #[derive(Clone)]
 struct Dragging {
     tab: TabKey,
-    /// The last pointer position seen: the release frame may not report one.
+    /// The viewport (OS window) the drag started in.
+    source: ViewportId,
+    /// The last pointer position seen there, in its coordinates and possibly outside it:
+    /// the release frame may not report one.
     pos: Option<Pos2>,
+}
+
+/// The drag state of every window, kept between frames in egui's memory, which all
+/// viewports share.
+#[derive(Clone, Default)]
+struct State {
+    dragging: Option<Dragging>,
+    blind: Option<BlindDrop>,
+    /// Each window as last drawn.
+    views: HashMap<ViewportId, WindowView>,
+    placements: Placements,
 }
 
 fn state_id() -> Id {
     Id::NULL.with("dock-drag")
 }
 
-/// Starts dragging `tab`.
+/// Starts dragging `tab` in the current viewport.
 pub(super) fn start(ctx: &Context, tab: &TabKey) {
     let dragging = Dragging {
         tab: tab.clone(),
+        source: ctx.viewport_id(),
         pos: ctx.pointer_latest_pos(),
     };
-    ctx.data_mut(|d| d.insert_temp(state_id(), dragging));
+    ctx.data_mut(|d| {
+        let state = d.get_temp_mut_or_default::<State>(state_id());
+        state.dragging = Some(dragging);
+        state.blind = None;
+    });
 }
 
 /// A tab group as drawn this frame: where drops on it land.
-pub(super) struct GroupZone {
+#[derive(Clone, Debug)]
+pub struct GroupZone {
     pub group: GroupId,
     pub rect: Rect,
     /// The tab strip: dropping there puts the tab among the group's tabs.
@@ -57,31 +86,44 @@ pub(super) struct GroupZone {
 }
 
 /// What this frame drew that a tab can be dropped on.
-pub(super) struct Zones {
+#[derive(Clone, Debug)]
+pub struct Zones {
     /// The whole docking area, inside which the Dock-edge buttons sit.
     pub area: Rect,
     /// In drawing order, so the last one under the pointer is on top.
     pub groups: Vec<GroupZone>,
     /// Each Dock's rect, where it is shown.
     pub docks: Vec<(DockSide, Rect)>,
+    /// Whether this window has Dock edges to drop on: only the main window does.
+    pub dock_edges: bool,
 }
 
 /// A drop-target button.
-struct Button {
+pub(super) struct Button {
     target: DropTarget,
     rect: Rect,
     label: String,
 }
 
 impl Zones {
+    /// No zones yet, in a floating window whose docking area is `area`.
+    pub fn empty(area: Rect) -> Zones {
+        Zones {
+            area,
+            groups: Vec::new(),
+            docks: Vec::new(),
+            dock_edges: false,
+        }
+    }
+
     /// The topmost group under `p`.
-    fn group_at(&self, p: Pos2) -> Option<&GroupZone> {
+    pub(super) fn group_at(&self, p: Pos2) -> Option<&GroupZone> {
         self.groups.iter().rev().find(|g| g.rect.contains(p))
     }
 
     /// The buttons shown with the pointer at `p`: the five of the group under the pointer,
     /// and the three Dock edges, less any edge button the group's buttons cover.
-    fn buttons(&self, p: Pos2) -> Vec<Button> {
+    pub(super) fn buttons(&self, p: Pos2) -> Vec<Button> {
         let mut out = Vec::new();
         if let Some(g) = self.group_at(p) {
             let body = Rect::from_min_max(Pos2::new(g.rect.left(), g.strip.bottom()), g.rect.max);
@@ -111,23 +153,29 @@ impl Zones {
             }
         }
         let a = self.area;
-        for (side, centre, label) in [
-            (
-                DockSide::Left,
-                Pos2::new(a.left() + EDGE, a.center().y),
-                tr!("drop-dock-left"),
-            ),
-            (
-                DockSide::Right,
-                Pos2::new(a.right() - EDGE, a.center().y),
-                tr!("drop-dock-right"),
-            ),
-            (
-                DockSide::Bottom,
-                Pos2::new(a.center().x, a.bottom() - EDGE),
-                tr!("drop-dock-bottom"),
-            ),
-        ] {
+        let edges = if self.dock_edges {
+            [
+                (
+                    DockSide::Left,
+                    Pos2::new(a.left() + EDGE, a.center().y),
+                    tr!("drop-dock-left"),
+                ),
+                (
+                    DockSide::Right,
+                    Pos2::new(a.right() - EDGE, a.center().y),
+                    tr!("drop-dock-right"),
+                ),
+                (
+                    DockSide::Bottom,
+                    Pos2::new(a.center().x, a.bottom() - EDGE),
+                    tr!("drop-dock-bottom"),
+                ),
+            ]
+            .to_vec()
+        } else {
+            Vec::new()
+        };
+        for (side, centre, label) in edges {
             let rect = Rect::from_center_size(centre, Vec2::splat(BUTTON));
             if !out.iter().any(|b| b.rect.intersects(rect)) {
                 out.push(Button {
@@ -141,7 +189,7 @@ impl Zones {
     }
 
     /// Where a drop at `p` lands: a button under it, else the tab strip under it.
-    fn target_at(&self, p: Pos2, buttons: &[Button]) -> Option<DropTarget> {
+    pub(super) fn target_at(&self, p: Pos2, buttons: &[Button]) -> Option<DropTarget> {
         if let Some(b) = buttons.iter().find(|b| b.rect.contains(p)) {
             return Some(b.target);
         }
@@ -185,33 +233,166 @@ impl Zones {
     }
 }
 
-/// Draws the drag in progress, if any, over everything else, and on release returns the
-/// layout Command the drop runs (`None` when it lands nowhere, changes nothing or would be
-/// refused).
+/// Draws the drag in progress in the window just drawn, `view`, over everything else, and
+/// returns the layout Commands to run: the drop's, on release in this window, or a blind
+/// drop's that this window takes or that times out.
+///
+/// The window the drag started in tracks the pointer and handles the release. Every other
+/// window works out from the screen positions whether the pointer is over it, and then
+/// shows the drop buttons and preview; without screen positions (Wayland) none can.
 pub(super) fn show(
     ctx: &Context,
     layout: &Layout,
-    zones: &Zones,
-    title: impl FnOnce(&TabKey) -> String,
-) -> Option<(&'static str, Value)> {
-    let mut dragging = ctx.data(|d| d.get_temp::<Dragging>(state_id()))?;
-    if let Some(p) = ctx.pointer_latest_pos() {
-        dragging.pos = Some(p);
+    view: WindowView,
+    title: impl Fn(&TabKey) -> String,
+) -> Vec<(String, Value)> {
+    let here = ctx.viewport_id();
+    let mut state = ctx.data(|d| d.get_temp::<State>(state_id()).unwrap_or_default());
+    state.views.insert(here, view.clone());
+    let mut commands = Vec::new();
+    let now = ctx.input(|i| i.time);
+
+    if let Some(blind) = state.blind.clone() {
+        // Keep checking until a window sees the pointer or the wait is over.
+        ctx.request_repaint_of(ViewportId::ROOT);
+        let seen = ctx.input(|i| {
+            i.events.iter().rev().find_map(|e| match e {
+                egui::Event::PointerMoved(p) => Some(*p),
+                _ => None,
+            })
+        });
+        let release = match seen.and_then(|p| blind.claim(layout, &view, p)) {
+            Some(release) => Some(release),
+            None if blind.expired(now) => Some(blind.expire(layout)),
+            None => None,
+        };
+        if let Some(release) = release {
+            state.blind = None;
+            act(ctx, &mut state, &blind.tab, release, &mut commands);
+        }
     }
-    let p = dragging.pos?;
+
+    if let Some(mut dragging) = state.dragging.clone() {
+        // Other OS windows draw only when the main one does, and must follow the pointer.
+        if !ctx.embed_viewports() {
+            ctx.request_repaint_of(ViewportId::ROOT);
+        }
+        if dragging.source == here {
+            if let Some(p) = ctx.pointer_latest_pos() {
+                dragging.pos = Some(p);
+            }
+            state.dragging = Some(dragging.clone());
+            if !ctx.input(|i| i.pointer.primary_down()) {
+                state.dragging = None;
+                if let Some(p) = dragging.pos {
+                    let views: Vec<WindowView> = state.views.values().cloned().collect();
+                    match windows::release(layout, &dragging.tab, &view, p, &views) {
+                        Release::Blind => {
+                            state.blind = Some(BlindDrop {
+                                tab: dragging.tab.clone(),
+                                since: now,
+                            });
+                        }
+                        release => act(ctx, &mut state, &dragging.tab, release, &mut commands),
+                    }
+                }
+            } else if let Some(p) = dragging.pos
+                && (view.rect.contains(p) || !shown_elsewhere(&state, here, &view, p))
+            {
+                overlay(ctx, layout, &view.zones, &dragging.tab, p, &title);
+            }
+        } else if let Some(source) = state.views.get(&dragging.source)
+            && let (Some(from), Some(to), Some(p)) = (source.origin, view.origin, dragging.pos)
+        {
+            let p = p + (from - to);
+            if view.rect.contains(p) {
+                overlay(ctx, layout, &view.zones, &dragging.tab, p, &title);
+            }
+        }
+    }
+    ctx.data_mut(|d| d.insert_temp(state_id(), state));
+    commands
+}
+
+/// Whether another window shows the drag, with the pointer at `p` in `view`'s
+/// coordinates.
+fn shown_elsewhere(state: &State, here: ViewportId, view: &WindowView, p: Pos2) -> bool {
+    let Some(origin) = view.origin else {
+        return false;
+    };
+    state
+        .views
+        .iter()
+        .any(|(id, w)| *id != here && w.origin.is_some_and(|o| w.rect.contains(p + (origin - o))))
+}
+
+/// Forgets the windows not drawn this frame, and a drag whose window has closed.
+pub(super) fn retain(ctx: &Context, live: &[ViewportId]) {
+    ctx.data_mut(|d| {
+        let state = d.get_temp_mut_or_default::<State>(state_id());
+        state.views.retain(|id, _| live.contains(id));
+        if state
+            .dragging
+            .as_ref()
+            .is_some_and(|g| !live.contains(&g.source))
+        {
+            state.dragging = None;
+        }
+    });
+}
+
+/// Where the new window `window` should open, if the drop that made it asked for a place.
+pub(super) fn placement(ctx: &Context, layout: &Layout, window: WindowId) -> Option<Pos2> {
+    ctx.data_mut(|d| {
+        d.get_temp_mut_or_default::<State>(state_id())
+            .placements
+            .take(layout, window)
+    })
+}
+
+/// The viewport (OS window) of the floating window `window`.
+pub(super) fn viewport_id(window: WindowId) -> ViewportId {
+    ViewportId::from_hash_of(("reda-window", window.0))
+}
+
+/// Carries out a release: queues its Command, or moves the window.
+fn act(
+    ctx: &Context,
+    state: &mut State,
+    tab: &TabKey,
+    release: Release,
+    commands: &mut Vec<(String, Value)>,
+) {
+    match release {
+        Release::Run(drop) => {
+            if let Some(at) = drop.new_window_at {
+                state.placements.insert(tab.clone(), at - GRAB);
+            }
+            commands.push((drop.command.to_owned(), drop.params));
+        }
+        Release::MoveWindow { window, to } => ctx.send_viewport_cmd_to(
+            viewport_id(window),
+            ViewportCommand::OuterPosition(to - GRAB),
+        ),
+        Release::Blind | Release::Nothing => {}
+    }
+}
+
+/// Draws, with the pointer at `p`, the drop buttons, a preview of the drop there (red with
+/// the reason when the layout would refuse it) and the dragged tab's title.
+fn overlay(
+    ctx: &Context,
+    layout: &Layout,
+    zones: &Zones,
+    tab: &TabKey,
+    p: Pos2,
+    title: &impl Fn(&TabKey) -> String,
+) {
+    ctx.set_cursor_icon(CursorIcon::Grabbing);
     let buttons = zones.buttons(p);
     let plan = zones
         .target_at(p, &buttons)
-        .map(|t| (t, layout.plan_drop(&dragging.tab, t)));
-
-    if !ctx.input(|i| i.pointer.primary_down()) {
-        ctx.data_mut(|d| d.remove::<Dragging>(state_id()));
-        return plan.and_then(|(_, plan)| {
-            (plan.outcome == DropOutcome::Moves).then_some((plan.command, plan.params))
-        });
-    }
-    ctx.data_mut(|d| d.insert_temp(state_id(), dragging.clone()));
-    ctx.set_cursor_icon(CursorIcon::Grabbing);
+        .map(|t| (t, layout.plan_drop(tab, t)));
 
     let layer = LayerId::new(Order::Foreground, Id::NULL.with("dock-drop-overlay"));
     let mut ui = Ui::new(
@@ -257,7 +438,7 @@ pub(super) fn show(
     }
     // The tab's title follows the pointer.
     let galley = ui.painter().layout_no_wrap(
-        title(&dragging.tab),
+        title(tab),
         egui::TextStyle::Button.resolve(ui.style()),
         ui.visuals().strong_text_color(),
     );
@@ -271,7 +452,6 @@ pub(super) fn show(
     );
     ui.painter()
         .galley(chip.min + vec2(6.0, 3.0), galley, Color32::PLACEHOLDER);
-    None
 }
 
 /// A drop-target button: a square with a mark for where the tab would go. It has an

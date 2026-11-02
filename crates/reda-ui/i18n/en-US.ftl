@@ -22,6 +22,7 @@ status-dismiss = Dismiss
 status-panels = Panels
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
+floating-window-title-tab = { $tab } – REDA
 
 ## Docking
 

@@ -176,6 +176,121 @@ fn drag_tab(h: &mut Harness<'_, App>, label: &str, to: egui::Pos2) {
     h.run();
 }
 
+// Tests run with no OS windows and no screen positions, as on Wayland: a tab released
+// outside the window is a blind drop.
+
+#[test]
+fn a_tab_dragged_out_of_the_window_floats_in_a_new_window_after_a_wait() {
+    let mut h = harness();
+    h.run();
+    let outside = egui::pos2(-60.0, 300.0);
+    drag_tab(&mut h, "Properties", outside);
+    h.drop_at(outside);
+    // Each step is 0.25 s. A quarter of a second after the release nothing has happened
+    // yet; after 0.7 s the tab floats in a window of its own.
+    h.step();
+    assert_eq!(
+        place(&h, PanelId::Properties),
+        Some(Area::Dock(DockSide::Right))
+    );
+    h.run_steps(3);
+    assert_eq!(
+        journal(&h),
+        [(
+            "layout.tab.move_to_new_window".to_owned(),
+            json!({"tab": "properties"})
+        )]
+    );
+    assert!(matches!(
+        place(&h, PanelId::Properties),
+        Some(Area::Window(_))
+    ));
+}
+
+#[test]
+fn the_first_window_to_see_the_pointer_after_a_blind_drop_takes_the_tab() {
+    let mut h = harness();
+    h.run();
+    let start = h.get_by_label("Start").rect();
+    let outside = egui::pos2(-60.0, 300.0);
+    drag_tab(&mut h, "Properties", outside);
+    h.drop_at(outside);
+    h.step();
+    // The pointer comes back over the centre's tab strip, after the Start tab.
+    h.hover_at(egui::pos2(start.right() + 30.0, start.center().y));
+    h.run_steps(2);
+    let layout = h.state().shell().layout();
+    let centre = layout.place(&TabKey::Start).unwrap().group;
+    assert_eq!(
+        journal(&h),
+        [(
+            "layout.tab.move_to_group".to_owned(),
+            json!({"tab": "properties", "group": centre, "index": 1})
+        )]
+    );
+    // No new window follows later.
+    h.run_steps(8);
+    assert_eq!(journal(&h).len(), 1);
+}
+
+#[test]
+fn menus_follow_the_document_last_pressed_on_in_any_window() {
+    let work = reda_testkit::TempDir::new("docking-work");
+    let mut shell = Shell::new(
+        Engine::builder()
+            .user_dirs(None)
+            .starter_library(None)
+            .headless(false)
+            .build(),
+    );
+    shell.new_project(work.path(), "Menus").unwrap();
+    let project = shell.engine().project().unwrap();
+    let kind = |k| project.documents().find(|d| d.kind == k).unwrap().uuid;
+    let (sheet, pcb) = (
+        kind(reda_ui::engine::model::DocumentKind::Schematic),
+        kind(reda_ui::engine::model::DocumentKind::Pcb),
+    );
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+    shell
+        .run(
+            "layout.tab.move_to_new_window",
+            json!({"tab": pcb.to_string()}),
+        )
+        .unwrap();
+    shell
+        .run("layout.tab.activate", json!({"tab": sheet.to_string()}))
+        .unwrap();
+    let pcb_title = shell
+        .document_title(&TabKey::Document(pcb))
+        .unwrap()
+        .to_owned();
+    let mut h = Harness::builder()
+        .with_size([1000.0, 640.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    // The sheet is active: the menus and toolbar are the schematic ones.
+    assert!(h.query_all_by_label("Run ERC").next().is_some());
+    assert_eq!(
+        reda_ui::bars::active_type(h.state().shell()),
+        Some(reda_ui::bars::DocumentType::Schematic)
+    );
+
+    // A press on the PCB's canvas, in its own window, makes it the active Document, and
+    // the main window's menus and toolbar follow.
+    let tab = h.get_by_role_and_label(Role::Button, &pcb_title).rect();
+    let canvas = egui::pos2(tab.center().x, tab.bottom() + 80.0);
+    h.drag_at(canvas);
+    h.drop_at(canvas);
+    h.run();
+    assert_eq!(h.state().shell().layout().active_document(), Some(pcb));
+    assert_eq!(
+        reda_ui::bars::active_type(h.state().shell()),
+        Some(reda_ui::bars::DocumentType::Pcb)
+    );
+}
+
 /// Moves the held drag onto the drop-target button `label`, then releases it there.
 fn drop_on_button(h: &mut Harness<'_, App>, label: &str) {
     let at = h.get_by_label(label).rect().center();
