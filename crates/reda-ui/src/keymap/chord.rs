@@ -74,6 +74,22 @@ impl Chord {
         Ok(chord)
     }
 
+    /// Whether the chord reaches the Keymap while a button or other widget has keyboard
+    /// focus: one with Mod, Ctrl or Alt, or a function key. Plain keys (Space, Enter, the
+    /// arrows, letters) stay with the widget.
+    pub fn passes_focused_widgets(&self) -> bool {
+        let function_key = match self.key {
+            KeyName::Key(key) => {
+                let name = key.name();
+                name.len() > 1
+                    && name.starts_with('F')
+                    && name[1..].chars().all(|c| c.is_ascii_digit())
+            }
+            KeyName::Char(_) => false,
+        };
+        self.command || self.ctrl || self.alt || function_key
+    }
+
     /// The portable form: modifiers in the order Mod, Ctrl, Alt, Shift, then the key.
     pub fn portable(&self) -> String {
         let mut out = String::new();

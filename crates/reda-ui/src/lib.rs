@@ -6,6 +6,7 @@
 //! `reda-app` builds the engine (with the OS trash and the machine's fonts) and hands it to
 //! [`run`].
 
+pub mod a11y;
 mod agents;
 mod app;
 pub mod bars;
@@ -43,6 +44,7 @@ pub mod settings;
 pub mod shell;
 mod start_page;
 pub mod symbol_editor;
+mod tab_switcher;
 pub mod theme;
 mod tool_preview;
 pub mod tools;

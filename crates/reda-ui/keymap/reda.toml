@@ -64,6 +64,26 @@ command = "panel.show:properties"
 key = "Alt+3"
 command = "panel.show:messages"
 
+# Focus: F6 / Shift+F6 visit the tab groups and Docks in layout order; Ctrl+Tab /
+# Ctrl+Shift+Tab switch tabs, most recently used first, through a popup that stays open
+# while Ctrl is held.
+
+[[bind]]
+key = "F6"
+command = "layout.focus.cycle:next"
+
+[[bind]]
+key = "Shift+F6"
+command = "layout.focus.cycle:previous"
+
+[[bind]]
+key = "Ctrl+Tab"
+command = "layout.tab.switch:next"
+
+[[bind]]
+key = "Ctrl+Shift+Tab"
+command = "layout.tab.switch:previous"
+
 # View: F zooms to fit on a canvas.
 
 [[bind]]
