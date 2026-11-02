@@ -5,7 +5,9 @@
 //! Editors read [`Shell::tool`](crate::shell::Shell::tool) and keep what a Tool has in
 //! flight themselves; a Tool that is no longer active drops it.
 
-use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Preset, Registry};
+use reda_engine::command::{
+    Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -43,9 +45,12 @@ impl Tool {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ActiveTool(pub Tool);
 
-/// Adds `tool.activate` to `registry`. The Shell does this for its engine.
+/// Adds `tool.activate`, `tool.rotate` and `tool.flip` to `registry`. The Shell does this
+/// for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(ToolActivate);
+    registry.add(ToolRotate);
+    registry.add(ToolFlip);
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -97,5 +102,55 @@ impl Command for ToolActivate {
         }
         cx.view::<ActiveTool>()?.0 = p.tool;
         Ok(ToolActivateResult { tool: p.tool })
+    }
+}
+
+/// What `tool.rotate` and `tool.flip` return.
+#[derive(Serialize, JsonSchema)]
+pub struct Turned {}
+
+/// `tool.rotate` (Space): turns what the active Tool carries by 90°, or else the
+/// selection. What a Tool carries lives in the window, so the window's Shell applies it
+/// after the Command runs (the PCB Tool: `Shell::pcb_rotate`); the Command records the
+/// request, so keys, menus and the Palette call it like any other.
+struct ToolRotate;
+
+impl Command for ToolRotate {
+    const META: Meta = Meta {
+        id: "tool.rotate",
+        title: "Rotate",
+        description: "Turns what the active Tool carries by 90°, or else the selection, on \
+                      the active board.",
+        category: "tool",
+        icon: "rotate",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = Turned;
+
+    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        Ok(Turned {})
+    }
+}
+
+/// `tool.flip` (L): flips what the active Tool carries, or else the selection, to the
+/// other side of the board; applied by the window's Shell as [`ToolRotate`] is.
+struct ToolFlip;
+
+impl Command for ToolFlip {
+    const META: Meta = Meta {
+        id: "tool.flip",
+        title: "Flip Side",
+        description: "Flips what the active Tool carries, or else the selection, to the \
+                      other side of the active board.",
+        category: "tool",
+        icon: "flip",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = Turned;
+
+    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        Ok(Turned {})
     }
 }

@@ -21,7 +21,9 @@ mod zone_fill;
 pub use drc::{SyncCheck, SyncState};
 pub use mechanical::{MechanicalSet, MechanicalSetParams};
 pub use outline::rect_outline;
-pub use placement::Placed;
+pub use placement::{
+    Op as PlacementOp, Placed, anchor as placement_anchor, preview as placement_preview,
+};
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,

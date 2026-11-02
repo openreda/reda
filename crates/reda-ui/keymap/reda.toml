@@ -149,3 +149,52 @@ command = "tool.activate:drag"
 context = "schematic"
 key = "Esc"
 command = "tool.activate:select"
+
+# The board canvas: Layers, the view, and the select-and-place Tool. Space and L turn or
+# flip what is being moved (else the selection); Esc drops it and returns to Select.
+
+[[bind]]
+context = "pcb"
+key = "+"
+command = "pcb.layer.step:next"
+
+[[bind]]
+context = "pcb"
+key = "-"
+command = "pcb.layer.step:previous"
+
+[[bind]]
+context = "pcb"
+key = "*"
+command = "pcb.layer.swap_side"
+
+[[bind]]
+context = "pcb"
+key = "Shift+S"
+command = "pcb.view.inactive_layers"
+
+[[bind]]
+context = "pcb"
+key = "Ctrl+Q"
+command = "view.units.toggle"
+
+[[bind]]
+context = "pcb"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Space"
+command = "tool.rotate"
+
+[[bind]]
+context = "pcb"
+key = "L"
+command = "tool.flip"
+
+[[bind]]
+context = "pcb"
+key = "Esc"
+command = "tool.activate:select"

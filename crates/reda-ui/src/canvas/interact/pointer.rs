@@ -4,6 +4,7 @@
 use egui::{Modifiers, PointerButton, Rect, Response, Ui};
 
 use crate::canvas::Camera;
+use crate::canvas::widget::mirror;
 
 /// A Document point in nm, y up.
 type P = (f64, f64);
@@ -28,9 +29,15 @@ pub enum Pointer {
 }
 
 /// The events of this frame's input on the canvas `response` laid out in `rect`, viewed
-/// through `camera`.
-pub fn pointer(ui: &Ui, response: &Response, camera: &Camera, rect: Rect) -> Vec<Pointer> {
-    let doc = |p: egui::Pos2| camera.document_point(rect, p);
+/// through `camera`, mirrored left to right when `mirrored` (a board seen from below).
+pub fn pointer(
+    ui: &Ui,
+    response: &Response,
+    camera: &Camera,
+    rect: Rect,
+    mirrored: bool,
+) -> Vec<Pointer> {
+    let doc = |p: egui::Pos2| camera.document_point(rect, mirror(rect, p, mirrored));
     let (modifiers, origin, latest) = ui.input(|i| {
         (
             i.modifiers,

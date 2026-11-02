@@ -9,7 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use reda_engine::model::Uuid;
+use reda_engine::model::{ObjectType, Uuid};
+use reda_engine::pcb::RatsnestVisibility;
 use reda_engine::preferences::InactiveLayerMode;
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +32,22 @@ pub struct LayerView {
     /// How Layers other than the active one are drawn; unset follows the Preference.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inactive_mode: Option<InactiveLayerMode>,
+    /// The Layer edited; unset is the top copper.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active: Option<Uuid>,
+    /// The board is seen from below: mirrored, with the physical Layer order reversed.
+    #[serde(skip_serializing_if = "is_default")]
+    pub from_bottom: bool,
+    /// The kinds of object not drawn, such as `track`.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub hidden_types: BTreeSet<ObjectType>,
+    /// Which Ratsnest lines show.
+    #[serde(skip_serializing_if = "is_default")]
+    pub ratsnest: RatsnestVisibility,
+}
+
+fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
 }
 
 /// What `view.json` keeps of one Document.

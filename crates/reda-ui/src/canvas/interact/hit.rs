@@ -1,13 +1,18 @@
 //! Picking objects in a Scene: by a point within a tolerance, or by a box.
 //!
-//! Distances are measured to each primitive's ink: a Wire's capsule, a filled or outlined
-//! rect (inside an outline counts as on it, so a click inside a Unit's body picks it), a
-//! ring as a disc, and text and triangles by their bounds. A linear scan is plenty for a
-//! sheet; a spatial index can replace it behind the same functions when boards need one.
+//! Distances are measured to each primitive's ink: a Wire's or Track's capsule, a filled
+//! or outlined rect (inside an outline counts as on it, so a click inside a Unit's body
+//! picks it), a ring as a disc, a triangle mesh by its triangles, and text by its bounds.
+//!
+//! A sheet picks across the whole Scene ([`hit_test`], [`box_select`]). A board picks
+//! through its composited Layers ([`hit_test_on`], [`box_select_on`]): only Layers drawn
+//! count, the topmost Layer with a hit wins, and the editor picks item by item (so it can
+//! leave out the Ratsnest). A linear scan is used; a spatial index (rstar) can replace it
+//! behind the same functions.
 
 use reda_engine::model::Uuid;
 use reda_engine::model::geom::Point;
-use reda_engine::render::{Item, Primitive, Scene};
+use reda_engine::render::{Composite, Item, Primitive, Scene, SceneLayer};
 
 /// A Document point in nm, y up.
 type P = (f64, f64);
@@ -40,15 +45,37 @@ pub fn hit_test(
     tolerance: f64,
     pickable: impl Fn(Uuid) -> bool,
 ) -> Option<Uuid> {
-    let mut best: Option<(f64, Uuid)> = None;
-    for item in &scene.items {
-        let d = distance(&item.primitive, at);
-        if d > tolerance || best.is_some_and(|(b, _)| d > b) || !pickable(item.object) {
-            continue;
+    hit_test_on(scene, None, at, tolerance, |item| pickable(item.object))
+}
+
+/// [`hit_test`] through the Layers drawn (`layers`, as composited bottom first; `None` =
+/// the whole Scene at once), picking item by item: on the topmost Layer with an item of
+/// `pick` within `tolerance` of `at`, the nearest one's object.
+pub fn hit_test_on(
+    scene: &Scene,
+    layers: Option<&[Composite]>,
+    at: P,
+    tolerance: f64,
+    pick: impl Fn(&Item) -> bool,
+) -> Option<Uuid> {
+    let nearest = |on: Option<SceneLayer>| {
+        let mut best: Option<(f64, Uuid)> = None;
+        for item in &scene.items {
+            if on.is_some_and(|layer| item.layer != layer) {
+                continue;
+            }
+            let d = distance(&item.primitive, at);
+            if d > tolerance || best.is_some_and(|(b, _)| d > b) || !pick(item) {
+                continue;
+            }
+            best = Some((d, item.object));
         }
-        best = Some((d, item.object));
+        best.map(|(_, uuid)| uuid)
+    };
+    match layers {
+        None => nearest(None),
+        Some(layers) => layers.iter().rev().find_map(|c| nearest(Some(c.layer))),
     }
-    best.map(|(_, uuid)| uuid)
 }
 
 /// The pickable objects the box between corners `a` and `b` picks, in Scene order.
@@ -59,19 +86,37 @@ pub fn box_select(
     mode: BoxMode,
     pickable: impl Fn(Uuid) -> bool,
 ) -> Vec<Uuid> {
+    box_select_on(scene, None, a, b, mode, |item| pickable(item.object))
+}
+
+/// [`box_select`] through the Layers drawn (`layers`; `None` = the whole Scene), counting
+/// only the items `pick` accepts: an object is picked by its items on those Layers.
+pub fn box_select_on(
+    scene: &Scene,
+    layers: Option<&[Composite]>,
+    a: P,
+    b: P,
+    mode: BoxMode,
+    pick: impl Fn(&Item) -> bool,
+) -> Vec<Uuid> {
     let lo = (a.0.min(b.0), a.1.min(b.1));
     let hi = (a.0.max(b.0), a.1.max(b.1));
+    let counts = |item: &Item| {
+        layers.is_none_or(|layers| layers.iter().any(|c| c.layer == item.layer)) && pick(item)
+    };
     let mut seen: Vec<Uuid> = Vec::new();
     let mut out: Vec<Uuid> = Vec::new();
     for item in &scene.items {
-        if seen.contains(&item.object) {
+        if seen.contains(&item.object) || !counts(item) {
             continue;
         }
         seen.push(item.object);
-        if !pickable(item.object) {
-            continue;
-        }
-        let items = || scene.items.iter().filter(|i| i.object == item.object);
+        let items = || {
+            scene
+                .items
+                .iter()
+                .filter(|i| i.object == item.object && counts(i))
+        };
         let picked = match mode {
             BoxMode::Enclose => items().all(|i| inside(i, lo, hi)),
             BoxMode::Touch => items().any(|i| touches(i, lo, hi)),
@@ -168,6 +213,14 @@ fn distance(primitive: &Primitive, at: P) -> f64 {
             let c = f(*center);
             ((at.0 - c.0).hypot(at.1 - c.1) - outer.0 as f64).max(0.0)
         }
+        Primitive::Triangles(mesh)
+            if mesh.indices.chunks_exact(3).any(|t| {
+                let corner = |i: u32| f(mesh.points[i as usize]);
+                in_triangle(at, corner(t[0]), corner(t[1]), corner(t[2]))
+            }) =>
+        {
+            0.0
+        }
         other => match other.bounds() {
             Some((lo, hi)) => {
                 let (lo, hi) = (f(lo), f(hi));
@@ -196,4 +249,13 @@ pub(super) fn closest_on_segment(p: P, a: P, b: P) -> P {
         0.0
     };
     (a.0 + dx * t, a.1 + dy * t)
+}
+
+/// Whether `p` lies in the triangle `a`, `b`, `c` (either winding).
+fn in_triangle(p: P, a: P, b: P, c: P) -> bool {
+    let cross = |o: P, u: P, v: P| (u.0 - o.0) * (v.1 - o.1) - (u.1 - o.1) * (v.0 - o.0);
+    let (d1, d2, d3) = (cross(p, a, b), cross(p, b, c), cross(p, c, a));
+    let neg = d1 < 0.0 || d2 < 0.0 || d3 < 0.0;
+    let pos = d1 > 0.0 || d2 > 0.0 || d3 > 0.0;
+    !(neg && pos)
 }

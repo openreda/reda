@@ -231,6 +231,57 @@ properties-add-field = Add Field
 
 canvas-description = Schematic canvas: { $document }
 
+## Layers panel
+
+layers-no-pcb = The Project has no PCB Document.
+layers-inactive = Inactive Layers
+layers-inactive-normal = Normal
+layers-inactive-dimmed = Dimmed
+layers-inactive-hidden = Hidden
+layers-from-bottom = View from bottom
+layers-show = Show { $layer }
+layers-colour = Colour of { $layer }
+layers-objects = Objects
+layers-type-footprints = Footprints
+layers-type-tracks = Tracks
+layers-type-vias = Vias
+layers-type-zones = Zones
+layers-type-keepouts = Keepouts
+layers-type-free-pads = Free Pads
+layers-type-text = Text
+layers-type-graphics = Graphics
+layers-ratsnest = Ratsnest
+layers-ratsnest-nets = Ratsnest per Net
+layers-units = Units
+layers-grid = Snap grid
+layer-top = Top { $kind }
+layer-bottom = Bottom { $kind }
+layer-copper = Copper
+layer-silkscreen = Silkscreen
+layer-solder-mask = Solder Mask
+layer-paste = Paste
+layer-courtyard = Courtyard
+layer-assembly = Assembly
+layer-board-outline = Board Outline
+layer-mechanical = Mechanical
+layer-documentation = Documentation
+
+## PCB canvas
+
+pcb-cursor = X { $x }  Y { $y }  ·  grid { $grid }
+pcb-grid = Grid { $grid }
+pcb-no-outline = No Board Outline: draw one, or
+pcb-create-rect = Create rectangle…
+pcb-outline-title = Rectangular Board Outline
+pcb-outline-width = Width
+pcb-outline-height = Height
+pcb-outline-create = Create
+pcb-outline-cancel = Cancel
+pcb-rotate = Rotate
+pcb-flip = Flip Side
+pcb-lock = Lock
+pcb-unlock = Unlock
+
 ## Errors
 
 error-command = { $error }

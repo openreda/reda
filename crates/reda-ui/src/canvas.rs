@@ -15,7 +15,8 @@ mod widget;
 
 pub use camera::{Camera, CanvasInput, grid_pitch};
 pub use gpu::{
-    CanvasFrame, CanvasGpu, CanvasResources, LiveHandle, SceneHandle, SelectionHandle, paint,
+    CanvasFrame, CanvasGpu, CanvasResources, LiveHandle, PaletteHandle, SceneHandle,
+    SelectionHandle, paint,
 };
 pub use widget::{
     CanvasInputs, Overlay, RubberBand, canvas, canvas_id, canvas_input, canvas_paint,

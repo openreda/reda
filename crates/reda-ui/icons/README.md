@@ -55,6 +55,12 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `home` | Lucide `house` |
 | `inspect` | Lucide `scan-search` |
 | `keepout` | Lucide `ban` |
+| `layer_active` | Lucide `pencil-line` |
+| `layer_next` | Lucide `chevron-down` |
+| `layer_previous` | Lucide `chevron-up` |
+| `layer_swap` | Lucide `arrow-up-down` |
+| `layer_visible` | Lucide `eye` |
+| `layers` | Lucide `layers-2` |
 | `layout` | Lucide `layout-dashboard` |
 | `layout_save` | Lucide `layout-template` |
 | `library_add` | Lucide `library-big` |
@@ -127,7 +133,9 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `track` | Tabler `route-2` (outline) |
 | `undo` | Lucide `undo-2` |
 | `unit_place` | Tabler `triangle-plus` (outline) |
+| `units` | Lucide `ruler` |
 | `via` | Lucide `circle-dot` |
+| `view_flip` | Lucide `flip-horizontal-2` |
 | `waive` | Lucide `shield-check` |
 | `window_new` | Lucide `app-window-mac` |
 | `wire` | Tabler `line` (outline) |

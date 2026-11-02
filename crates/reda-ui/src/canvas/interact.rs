@@ -3,7 +3,8 @@
 //!
 //! - [`hit_test`] and [`box_select`] run on the CPU against the Document's [`Scene`],
 //!   whose items are tagged with the object they draw; the editor says which objects can
-//!   be picked.
+//!   be picked. A board picks through its composited Layers with [`hit_test_on`] and
+//!   [`box_select_on`] (topmost Layer first, item by item).
 //! - [`Combine`] turns the pointer's modifiers into how a pick changes the selection
 //!   (Shift adds, Mod toggles), and [`combine`] applies it.
 //! - [`SnapTargets`] snaps a cursor to the grid, or onto a nearby electrical target.
@@ -14,7 +15,7 @@ mod hit;
 mod pointer;
 mod snap;
 
-pub use hit::{BoxMode, box_select, hit_test};
+pub use hit::{BoxMode, box_select, box_select_on, hit_test, hit_test_on};
 pub use pointer::{Pointer, pointer};
 pub use snap::{SnapTargets, Snapped, snap_to_grid};
 

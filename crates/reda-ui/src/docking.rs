@@ -245,11 +245,18 @@ impl Cx<'_> {
             .project()
             .and_then(|p| p.document(document))
             .map(|d| d.kind);
-        if kind != Some(DocumentKind::Schematic) {
-            return Vec::new();
+        match kind {
+            Some(DocumentKind::Schematic) => {
+                let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
+                schematic_editor::pointer(self.shell, document, &input.events, scale)
+            }
+            // The PCB Tool runs its Commands itself.
+            Some(DocumentKind::Pcb) => {
+                crate::pcb::canvas::pointer(self.shell, document, input);
+                Vec::new()
+            }
+            None => Vec::new(),
         }
-        let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
-        schematic_editor::pointer(self.shell, document, &input.events, scale)
     }
 
     /// The Active Bar over the canvas of `document`, for its Document type.
@@ -456,6 +463,17 @@ impl Cx<'_> {
                     return;
                 };
                 canvas_paint(ui, &input, doc, theme);
+                if self
+                    .shell
+                    .engine()
+                    .project()
+                    .is_some_and(|p| p.pcb_document(*uuid).is_some())
+                {
+                    crate::pcb::canvas::decorate(ui, self.shell, &input);
+                }
+                let Some(doc) = self.shell.document_tab(*uuid) else {
+                    return;
+                };
                 let id = canvas_id(doc);
                 if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                     self.frame.commands.push(clicked);
@@ -482,6 +500,10 @@ impl Cx<'_> {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
                     self.frame.journal = Some(action);
                 }
+            }
+            TabKey::Panel(PanelId::Layers) => {
+                let commands = panels::layers::show(ui, self.shell);
+                self.frame.commands.extend(commands);
             }
             TabKey::Panel(PanelId::Messages) => {
                 let actions = panels::messages::show(ui, self.shell);

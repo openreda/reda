@@ -26,6 +26,7 @@ mod new_project;
 mod os;
 pub mod palette;
 mod panels;
+pub mod pcb;
 mod projects_panel;
 pub mod properties;
 pub mod recovery;

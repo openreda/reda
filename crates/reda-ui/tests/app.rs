@@ -336,6 +336,53 @@ fn snapshot_of_a_drag_in_flight() {
     h.snapshot("schematic_drag_in_flight_dark");
 }
 
+/// A board with no Board Outline: Free Pads, a Track and a Via, one Pad selected, with
+/// the Layers panel open beside it and the outline hint above.
+#[test]
+fn snapshot_of_a_board_and_the_layers_panel() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("board");
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap();
+    let (pcb, top) = (pcb.uuid, pcb.copper_layers().next().unwrap().uuid);
+    let mut pads = Vec::new();
+    for x in ["0mm", "6mm"] {
+        let out = shell
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind": "smd", "at": {"x": x, "y": 0}, "width": "2mm", "height": "1.2mm"}),
+            )
+            .unwrap();
+        pads.push(out["result"]["uuid"].clone());
+    }
+    shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": top, "points": [{"x": "6mm", "y": 0}, {"x": "6mm", "y": "5mm"},
+                                            {"x": "12mm", "y": "5mm"}], "width": "0.3mm"}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.via.add", json!({"at": {"x": "12mm", "y": "5mm"}}))
+        .unwrap();
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+    shell.run("panel.show", json!({"panel": "layers"})).unwrap();
+    shell
+        .run("selection.set", json!({"objects": [pads[0]]}))
+        .unwrap();
+    h.run();
+    h.snapshot("board_layers_dark");
+}
+
 /// A sheet of icons at the toolbar, menu and tab sizes, each row enabled then disabled.
 fn icon_sheet_snapshot(theme: egui::Theme) {
     if let Some(why) = snapshot_skip_reason() {
