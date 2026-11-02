@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use reda_testkit::TempDir;
 use reda_ui::engine::command::{FontFace, UserDirs};
+use reda_ui::engine::model::{DocumentKind, Scope, Uuid};
 use reda_ui::engine::{Engine, state};
 use reda_ui::layout::{Node, TabKey};
 use reda_ui::shell::{InstalledFonts, Shell};
@@ -206,4 +207,116 @@ fn fonts_named_by_pcb_text_are_loaded_from_the_machine_once() {
     assert!(shell.engine().fonts().get("Nowhere Mono").is_none());
     // Each family is asked for once, and the built-in fonts never.
     assert_eq!(*fonts.asked.lock().unwrap(), ["Fancy Sans", "Nowhere Mono"]);
+}
+
+fn document_of_kind(shell: &Shell, kind: DocumentKind) -> Uuid {
+    let project = shell.engine().project().unwrap();
+    project.documents().find(|d| d.kind == kind).unwrap().uuid
+}
+
+#[test]
+fn focus_picks_the_undo_stack() {
+    let home = TempDir::new("shell-home");
+    let work = TempDir::new("shell-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    assert_eq!(shell.undo_scope(false), None, "no Project, no stack");
+    shell.new_project(work.path(), "Undo").unwrap();
+    let sheet = document_of_kind(&shell, DocumentKind::Schematic);
+    shell
+        .run(
+            "schematic.text.add",
+            json!({"document": sheet, "text": "hi", "at": {"x": 0, "y": 0}}),
+        )
+        .unwrap();
+    shell
+        .run("document.add", json!({"kind": "schematic"}))
+        .unwrap();
+    let count = |shell: &Shell| shell.engine().project().unwrap().documents().count();
+    let texts = |shell: &Shell| {
+        let project = shell.engine().project().unwrap();
+        project.schematic_sheet(sheet).unwrap().texts().count()
+    };
+
+    // The sheet's tab has focus: Mod+Z undoes on the sheet.
+    assert_eq!(shell.layout().focus, Some(TabKey::Document(sheet)));
+    assert_eq!(shell.undo_scope(false), Some(Scope::Document(sheet)));
+    shell.undo(false, false).unwrap();
+    assert_eq!((texts(&shell), count(&shell)), (0, 3));
+
+    // The Projects panel uses the Project stack.
+    shell
+        .run("layout.tab.activate", json!({"tab": "projects"}))
+        .unwrap();
+    assert_eq!(shell.undo_scope(false), Some(Scope::Project));
+    shell.undo(false, false).unwrap();
+    assert_eq!(count(&shell), 2);
+    shell.undo(true, false).unwrap();
+    assert_eq!(count(&shell), 3);
+
+    // So does a Project dialog, whatever tab has focus.
+    shell
+        .run("layout.tab.activate", json!({"tab": sheet.to_string()}))
+        .unwrap();
+    assert_eq!(shell.undo_scope(true), Some(Scope::Project));
+}
+
+#[test]
+fn saving_puts_the_project_back_at_the_top_of_the_recent_list() {
+    let home = TempDir::new("shell-home");
+    let work = TempDir::new("shell-work");
+    let dirs = UserDirs::under(home.path());
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.new_project(work.path(), "Kept").unwrap();
+    state::update(&dirs, |s| s.recent_projects.clear()).unwrap();
+
+    shell.run("project.save", json!({})).unwrap();
+    assert_eq!(shell.recent_projects()[0].name, "Kept");
+}
+
+#[test]
+fn project_open_run_as_a_command_shows_the_project_and_records_it() {
+    let home = TempDir::new("shell-home");
+    let work = TempDir::new("shell-work");
+    let file = make_project(work.path(), "Cmd");
+    let mut shell = Shell::new(engine_in(home.path()));
+
+    shell.run("project.open", json!({"path": file})).unwrap();
+    assert!(!centre_tabs(&shell).contains(&TabKey::Start));
+    assert_eq!(shell.document_tabs().len(), 1);
+    assert_eq!(shell.recent_projects()[0].name, "Cmd");
+}
+
+#[test]
+fn opening_another_project_replaces_the_open_one() {
+    let home = TempDir::new("shell-home");
+    let work = TempDir::new("shell-work");
+    let first = make_project(work.path(), "First");
+    let second = make_project(work.path(), "Second");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.open_project(&first).unwrap();
+    shell.open_project(&second).unwrap();
+
+    assert_eq!(shell.engine().project().unwrap().props().name, "Second");
+    let sheet = document_of_kind(&shell, DocumentKind::Schematic);
+    assert_eq!(centre_tabs(&shell), [TabKey::Document(sheet)]);
+    let names: Vec<_> = shell
+        .recent_projects()
+        .into_iter()
+        .map(|r| r.name)
+        .collect();
+    assert_eq!(names, ["Second", "First"]);
+}
+
+#[test]
+fn opening_a_document_file_opens_its_project_on_that_document() {
+    let home = TempDir::new("shell-home");
+    let work = TempDir::new("shell-work");
+    let file = make_project(work.path(), "Board");
+    let mut shell = Shell::new(engine_in(home.path()));
+
+    shell.open_project(&file.with_extension("redapcb")).unwrap();
+    let pcb = document_of_kind(&shell, DocumentKind::Pcb);
+    assert_eq!(shell.active_document().unwrap().document, pcb);
+    assert_eq!(shell.layout().focus, Some(TabKey::Document(pcb)));
+    assert_eq!(shell.recent_projects()[0].name, "Board");
 }
