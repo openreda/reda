@@ -7,6 +7,9 @@ use std::path::{Path, PathBuf};
 use reda_command::{
     CommandError, ElementLocation, FootprintCopyData, PartCopy, PartSource, Session, UserDirs,
 };
+/// The Footprint generators' Command ids, and the Footprint one would write, for a
+/// generator form's preview.
+pub use reda_library::generate::{GENERATORS, preview as preview_footprint};
 /// How `project.library.add` stores a Project Library path, for front ends that check a
 /// path before running it.
 pub use reda_library::normalise_library_path;

@@ -13,8 +13,10 @@
 //! - Save (`library.element.save`) and the Library check ([`check`]) act on the element;
 //!   the check's Violations go to the Messages panel.
 //!
-//! A new kind of element editor adds an arm to [`scene`], [`edit`], [`cancel`] and
-//! [`panels`].
+//! The Part editor has no canvas: its form ([`crate::part_editor`]) fills the tab.
+//!
+//! A new kind of element editor adds an arm to [`scene`], [`edit`], [`cancel`],
+//! [`panels`] and [`has_canvas`].
 
 use std::sync::Arc;
 
@@ -121,8 +123,18 @@ pub fn scene(
             Some((drawn.scene, Some(layers)))
         }
         LibraryElement::Symbol(_) => Some((crate::symbol_editor::scene(engine, uuid)?, None)),
-        LibraryElement::Part(_) => None,
+        // The Part editor draws no canvas.
+        LibraryElement::Part(_) => Some((Scene::default(), None)),
     }
+}
+
+/// Whether the element's tab has a canvas: a Symbol's or Footprint's does, a Part's is
+/// all form.
+pub fn has_canvas(engine: &Engine, uuid: Uuid) -> bool {
+    matches!(
+        engine.element(uuid),
+        Some(LibraryElement::Symbol(_) | LibraryElement::Footprint(_))
+    )
 }
 
 /// Whether `uuid` names a part of an open element that its editor can select: a Pad,
@@ -219,7 +231,8 @@ pub(crate) fn panels(ui: &mut egui::Ui, shell: &mut Shell, element: Uuid) -> Vec
                 .inner
         }
         Some(LibraryElement::Symbol(_)) => crate::symbol_editor::view::panels(ui, shell, element),
-        _ => Vec::new(),
+        Some(LibraryElement::Part(_)) => crate::part_editor::view::show(ui, shell, element),
+        None => Vec::new(),
     }
 }
 
@@ -246,29 +259,75 @@ pub(crate) fn check_after_save(shell: &mut Shell) {
 /// in the Messages panel, replacing the last check's lines.
 pub fn check(shell: &mut Shell, element: Uuid) -> Result<(), CommandError> {
     let out = shell.run_reporting("library.check", json!({ "element": element }))?;
-    let violations: Vec<Violation> =
-        serde_json::from_value(out["violations"].clone()).unwrap_or_default();
     let name = shell
         .engine()
         .element(element)
         .map(|e| e.name().to_owned())
         .unwrap_or_default();
+    report(shell, Some(element), &name, &out["violations"]);
+    Ok(())
+}
+
+/// Lists the Library check that Import part or a Footprint generator ran (its result
+/// `out`) in the Messages panel, as [`check`] does.
+pub(crate) fn report_created(shell: &mut Shell, out: &Value) {
+    // A generator names its Footprint; an import names its files, the Part's last.
+    let name = out["name"].as_str().map(str::to_owned).or_else(|| {
+        let part = out["files"].as_array()?.last()?.as_str()?;
+        let stem = std::path::Path::new(part).file_stem()?;
+        Some(stem.to_string_lossy().into_owned())
+    });
+    report(shell, None, &name.unwrap_or_default(), &out["violations"]);
+}
+
+/// Replaces the Library check's lines in Messages with `violations` (a JSON list) found
+/// in `name`, or says in the status bar that there were none.
+fn report(shell: &mut Shell, element: Option<Uuid>, name: &str, violations: &Value) {
+    let violations: Vec<Violation> = serde_json::from_value(violations.clone()).unwrap_or_default();
     let notes: Vec<Note> = violations
         .iter()
         .map(|v| Note {
             source: LIBRARY_CHECK.to_owned(),
-            document: Some(element),
+            document: element,
             severity: v.severity,
             text: tr!(
                 "library-check-line",
-                element = name.as_str(),
+                element = name,
                 text = messages::violation_text(v)
             ),
         })
         .collect();
     if notes.is_empty() {
-        shell.set_note(tr!("library-check-clean", element = name.as_str()));
+        shell.set_note(tr!("library-check-clean", element = name));
     }
     shell.set_notes(LIBRARY_CHECK, notes);
-    Ok(())
+}
+
+/// A text field `width` points wide holding a draft of `current`, announced as `label`;
+/// returns the trimmed text once committed (Enter or focus left) and changed.
+pub(crate) fn text_field(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    label: &str,
+    current: &str,
+    width: f32,
+) -> Option<String> {
+    let mut draft = ui
+        .data(|d| d.get_temp::<String>(id))
+        .unwrap_or_else(|| current.to_owned());
+    let response = ui.add(
+        egui::TextEdit::singleline(&mut draft)
+            .id(id)
+            .desired_width(width),
+    );
+    let name = label.to_owned();
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, name.clone()));
+    let committed = response.lost_focus()
+        || (response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)));
+    if response.has_focus() && !committed {
+        ui.data_mut(|d| d.insert_temp(id, draft));
+        return None;
+    }
+    ui.data_mut(|d| d.remove::<String>(id));
+    (committed && draft.trim() != current).then(|| draft.trim().to_owned())
 }

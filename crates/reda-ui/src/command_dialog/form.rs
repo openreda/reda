@@ -128,7 +128,7 @@ impl ParamForm {
         self.fields.iter().find(|f| f.name == name)
     }
 
-    pub(super) fn fields_mut(&mut self) -> &mut [Field] {
+    pub(crate) fn fields_mut(&mut self) -> &mut [Field] {
         &mut self.fields
     }
 

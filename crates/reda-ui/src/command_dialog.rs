@@ -17,6 +17,7 @@ use serde_json::Value;
 
 use crate::shell::Shell;
 
+pub(crate) use draw::row as form_row;
 pub use form::{Field, Input, ParamForm};
 
 /// A dialog that collects a Command's params.

@@ -765,6 +765,105 @@ fn snapshot_of_the_footprint_editor() {
     h.snapshot("footprint_editor_dark");
 }
 
+/// An engine with the starter Library and an empty user Library "Mine" (UUID `MINE`)
+/// registered, its theme dark.
+fn library_engine(home: &Path) -> Engine {
+    let lib = home.join("lib");
+    std::fs::create_dir_all(&lib).unwrap();
+    let info = reda_ui::engine::model::LibraryInfo {
+        uuid: MINE.parse().unwrap(),
+        name: "Mine".into(),
+        description: String::new(),
+    };
+    std::fs::write(
+        lib.join("Mine.redalib"),
+        reda_ui::engine::format::library::write_library_info(&info).unwrap(),
+    )
+    .unwrap();
+    let dirs = UserDirs::under(home);
+    preferences::set(&dirs, "libraries.paths", json!([lib])).unwrap();
+    set_theme(home, "dark");
+    let starter = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter");
+    Engine::builder()
+        .user_dirs(Some(dirs))
+        .starter_library(Some(starter))
+        .headless(false)
+        .build()
+}
+
+const MINE: &str = "000000aa-0000-4000-8000-000000000000";
+
+#[test]
+fn snapshot_of_the_part_editor() {
+    let home = TempDir::new("app-home");
+    let Some(mut h) = snapshot_harness_on(library_engine(home.path())) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    let out = shell
+        .run(
+            "library.element.new",
+            json!({"library": MINE, "kind": "part", "name": "Divider_10k"}),
+        )
+        .unwrap();
+    let part = out["element"].clone();
+    for (id, params) in [
+        (
+            "library.part.symbol.set",
+            json!({"part": part, "symbol": "06c71621-e7e4-49a4-9b90-88485bb936b5"}),
+        ),
+        (
+            "library.part.footprints.set",
+            json!({"part": part, "footprints": [
+                "0691e5e7-9eb6-49f3-9f3e-d4159258693e",
+                "cece716c-4fd0-42c8-900c-0f3bc3c14225"]}),
+        ),
+        (
+            "library.part.pin_map.set",
+            json!({"part": part, "pins": [{"pin": "2", "pads": ["2", "3"]}]}),
+        ),
+        (
+            "library.part.fields.set",
+            json!({"part": part, "value": "10k", "mpn": "RC0603FR-0710KL",
+                   "manufacturer": "Generic",
+                   "custom": [{"name": "LCSC", "value": "C25804"}]}),
+        ),
+    ] {
+        shell.run(id, params).unwrap();
+    }
+    h.run();
+    h.run();
+    h.snapshot("part_editor_dark");
+}
+
+#[test]
+fn snapshot_of_a_footprint_generator_form() {
+    let home = TempDir::new("app-home");
+    let Some(mut h) = snapshot_harness_on(library_engine(home.path())) else {
+        return;
+    };
+    h.run();
+    h.state_mut()
+        .shell_mut()
+        .run("panel.show", json!({"panel": "library"}))
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "New…").click();
+    h.run();
+    h.get_by_label("Generate Footprint").click();
+    h.run();
+    h.get_by_label("Generate Chip Footprint…").click();
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Size (optional)")
+        .click();
+    h.run();
+    h.get_by_label("0805").click();
+    h.run();
+    h.get_by_label("2 Pads");
+    h.snapshot("generate_footprint_dark");
+}
+
 /// Board Setup on `page`, on a board whose clearance differs from its Fab Preset, with
 /// the Default class's clearance override typed wrong so the flag shows.
 fn board_setup_snapshot(page: &str, name: &str) {

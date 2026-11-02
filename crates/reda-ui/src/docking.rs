@@ -637,8 +637,14 @@ impl Cx<'_> {
             TabKey::Document(uuid) => {
                 let start = self.frame.commands.len();
                 if crate::element_editor::is_element(self.shell.engine(), *uuid) {
+                    let rect = ui.available_rect_before_wrap();
                     let commands = crate::element_editor::panels(ui, self.shell, *uuid);
                     self.frame.commands.extend(commands);
+                    // A Part's form fills its tab: there is no canvas.
+                    if !crate::element_editor::has_canvas(self.shell.engine(), *uuid) {
+                        self.focus_on_press(ui, rect, tab, start);
+                        return;
+                    }
                 }
                 let rect = ui.available_rect_before_wrap();
                 let theme = theme::canvas_theme(ui.ctx().theme());

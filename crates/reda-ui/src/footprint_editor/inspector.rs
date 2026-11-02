@@ -3,7 +3,7 @@
 //! the Footprint become `library.footprint.*` Commands; the Tools' settings are view
 //! state and change at once.
 
-use egui::{ComboBox, Grid, Id, Key, Role, TextEdit, Ui, WidgetInfo};
+use egui::{ComboBox, Grid, Id, Role, Ui, WidgetInfo};
 use reda_engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
@@ -466,23 +466,8 @@ fn combo<T: Copy + PartialEq>(
         .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
 }
 
-/// A text field holding a draft; returns the text once committed (Enter or focus left)
-/// and changed.
 fn text_field(ui: &mut Ui, id: Id, label: &str, current: &str) -> Option<String> {
-    let mut draft = ui
-        .data(|d| d.get_temp::<String>(id))
-        .unwrap_or_else(|| current.to_owned());
-    let response = ui.add(TextEdit::singleline(&mut draft).id(id).desired_width(110.0));
-    let name = label.to_owned();
-    response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, name.clone()));
-    let committed =
-        response.lost_focus() || (response.has_focus() && ui.input(|i| i.key_pressed(Key::Enter)));
-    if response.has_focus() && !committed {
-        ui.data_mut(|d| d.insert_temp(id, draft));
-        return None;
-    }
-    ui.data_mut(|d| d.remove::<String>(id));
-    (committed && draft.trim() != current).then(|| draft.trim().to_owned())
+    element_editor::text_field(ui, id, label, current, 110.0)
 }
 
 /// A length field shown in mm. Returns the committed value when it changed: `Some(None)`
