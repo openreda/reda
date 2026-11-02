@@ -5,11 +5,12 @@
 //! Free Pads and the Placement Origin.
 //!
 //! Copper connectivity and the Ratsnest are in [`copper`], the per-Net rules in
-//! [`net_rules`], Zone fill in [`zone`]. DRC joins here in a later ticket.
+//! [`net_rules`], Zone fill in [`zone`], the design rules check in [`drc`].
 
 mod board;
 mod commands;
 pub mod copper;
+pub mod drc;
 pub mod net_rules;
 pub mod placed;
 mod text;
