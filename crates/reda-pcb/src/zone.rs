@@ -83,23 +83,23 @@ pub fn inputs_hash(pcb: &PcbDocument) -> String {
     let keepouts: Vec<_> = pcb.keepouts().collect();
     let cutouts: Vec<_> = pcb.cutouts().collect();
     let setup = pcb.setup();
-    reda_model::fingerprint(&[
-        &FILL_VERSION,
-        pcb.layers(),
-        &setup.rules,
-        &setup.default_net_class,
-        &pcb.outline(),
-        &cutouts,
-        &classes,
-        &nets,
-        &copies,
-        &footprints,
-        &tracks,
-        &vias,
-        &free_pads,
-        &zones,
-        &keepouts,
-    ])
+    let mut f = reda_command::Fingerprint::new();
+    f.add(&FILL_VERSION);
+    f.add(pcb.layers());
+    f.add(&setup.rules);
+    f.add(&setup.default_net_class);
+    f.add(&pcb.outline());
+    f.add(&cutouts);
+    f.add(&classes);
+    f.add(&nets);
+    f.add(&copies);
+    f.add(&footprints);
+    f.add(&tracks);
+    f.add(&vias);
+    f.add(&free_pads);
+    f.add(&zones);
+    f.add(&keepouts);
+    f.finish()
 }
 
 /// Where a PCB Document's stored fills stand.

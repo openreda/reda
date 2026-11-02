@@ -30,7 +30,8 @@ use crate::chrome;
 use crate::icons;
 use crate::journal_panel::{self, JournalAction};
 use crate::layout::{
-    Area, Axis, DockSide, FloatingWindow, Group, Layout, Node, PanelId, SplitSide, TabKey, WindowId,
+    Area, Axis, DockSide, FloatingWindow, Group, Layout, Node, PanelId, SplitSide, TabKey,
+    WindowId, WindowRect,
 };
 use crate::panels;
 use crate::projects_panel::{self, ProjectsAction};
@@ -56,6 +57,9 @@ pub struct Frame {
     pub messages: Vec<panels::messages::Action>,
     /// Commands to call from the GUI, which ask for params they lack in a dialog.
     pub calls: Vec<(String, Value)>,
+    /// What the keys pressed in windows of their own bind, resolved: the main window's
+    /// keys are the App's.
+    pub keys: Vec<(String, Value)>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -253,11 +257,15 @@ impl Cx<'_> {
     /// viewport. Closing the OS window closes the window's tabs.
     fn native_window(&mut self, ctx: &egui::Context, window: &FloatingWindow) -> ViewportId {
         let viewport = drag::viewport_id(window.id);
+        let size = window
+            .rect
+            .map_or(WINDOW, |r| egui::vec2(r.width as f32, r.height as f32));
         let mut builder = ViewportBuilder::default()
             .with_title(window_title(self.shell, self.layout, window.id))
-            .with_inner_size(WINDOW)
+            .with_inner_size(size)
             .with_min_inner_size([240.0, 160.0]);
-        if let Some(at) = drag::placement(ctx, self.layout, window.id) {
+        let saved = window.rect.map(|r| egui::pos2(r.x as f32, r.y as f32));
+        if let Some(at) = drag::placement(ctx, self.layout, window.id).or(saved) {
             builder = builder.with_position(at);
         }
         ctx.show_viewport_immediate(viewport, builder, |ui, _| {
@@ -273,6 +281,27 @@ impl Cx<'_> {
                 .inner;
             if ctx.input(|i| i.viewport().close_requested()) {
                 self.run("layout.window.close", json!({"window": window.id}));
+            }
+            if !ctx.text_edit_focused() {
+                let keys = crate::keymap::resolve_keys(&ctx, self.shell, None);
+                self.frame.keys.extend(keys);
+            }
+            // Keep where the user put the window, once the OS reports it.
+            let (outer, inner) = ctx.input(|i| (i.viewport().outer_rect, i.viewport().inner_rect));
+            if let (Some(outer), Some(inner)) = (outer, inner) {
+                let now = WindowRect {
+                    x: outer.min.x.round() as i32,
+                    y: outer.min.y.round() as i32,
+                    width: inner.width().round() as u32,
+                    height: inner.height().round() as u32,
+                };
+                if window.rect != Some(now) {
+                    self.run(
+                        "layout.window.place",
+                        json!({"window": window.id, "x": now.x, "y": now.y,
+                               "width": now.width, "height": now.height}),
+                    );
+                }
             }
             let mut zones = std::mem::replace(&mut self.zones, Zones::empty(Rect::NOTHING));
             zones.area = area;

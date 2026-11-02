@@ -1,13 +1,16 @@
 //! `app.update.check` (docs/spec/v0.1/quality-and-release.md#packaging): asks for the newest
-//! release only when it runs, and links to it when it is newer. The release source here is
-//! a fake; no test reaches the network.
+//! release only when it runs, off the UI thread, and links to it when it is newer. Only the
+//! user runs it. The release source here is a fake; no test reaches the network.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
-use reda_ui::engine::command::{ErrorCode, UserDirs};
+use reda_ui::engine::command::{ErrorCode, Signals, UserDirs};
+use reda_ui::engine::journal::Source;
 use reda_ui::help::{self, Release, ReleaseSource, UpdateCheck};
 use reda_ui::shell::Shell;
 use serde_json::json;
@@ -60,9 +63,39 @@ fn shell_with(home: &TempDir, version: &str, source: Arc<FakeReleases>) -> Shell
     Shell::new(engine)
 }
 
+/// Runs the check and waits for what it found.
 fn check(shell: &mut Shell) -> UpdateCheck {
-    let out = shell.run("app.update.check", json!({})).unwrap();
-    serde_json::from_value(out).unwrap()
+    finish(shell).unwrap()
+}
+
+/// Runs the check, which returns at once, and waits for its outcome.
+fn finish(shell: &mut Shell) -> Result<UpdateCheck, String> {
+    shell.run("app.update.check", json!({})).unwrap();
+    wait_for_check(shell)
+}
+
+fn wait_for_check(shell: &Shell) -> Result<UpdateCheck, String> {
+    let start = Instant::now();
+    loop {
+        if let Some(found) = help::take_checks(shell.engine()).pop() {
+            return found;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "the check never finished"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// Answers only once the test lets it.
+struct HeldReleases(Mutex<mpsc::Receiver<()>>);
+
+impl ReleaseSource for HeldReleases {
+    fn latest(&self) -> Result<Release, String> {
+        self.0.lock().unwrap().recv().ok();
+        Ok(release("0.2.0"))
+    }
 }
 
 #[test]
@@ -148,12 +181,42 @@ fn a_failed_check_reports_why() {
     let home = TempDir::new("updates");
     let source = FakeReleases::new(Err("could not resolve api.github.com".into()));
     let mut shell = shell_with(&home, "0.1.0", source);
-    let e = shell.run("app.update.check", json!({})).unwrap_err();
-    assert!(
-        e.message.contains("could not resolve api.github.com"),
-        "{}",
-        e.message
+    let why = finish(&mut shell).unwrap_err();
+    assert!(why.contains("could not resolve api.github.com"), "{why}");
+}
+
+#[test]
+fn the_check_does_not_hold_up_the_window() {
+    let home = TempDir::new("updates");
+    let (release_now, held) = mpsc::channel();
+    let mut engine = engine_in(&home);
+    help::configure(
+        &mut engine,
+        "0.1.3",
+        Some(Arc::new(HeldReleases(Mutex::new(held)))),
     );
+    let mut shell = Shell::new(engine);
+    // The source has not answered yet, and the Command has returned anyway.
+    shell.run("app.update.check", json!({})).unwrap();
+    assert!(help::take_checks(shell.engine()).is_empty());
+
+    release_now.send(()).unwrap();
+    assert!(wait_for_check(&shell).unwrap().newer);
+}
+
+#[test]
+fn an_agent_cannot_make_reda_go_online() {
+    let home = TempDir::new("updates");
+    let source = FakeReleases::new(Ok(release("0.2.0")));
+    let mut shell = shell_with(&home, "0.1.3", source.clone());
+    for agent in [Source::Mcp, Source::Cli] {
+        let e = shell
+            .run_bridged(agent, "app.update.check", json!({}), &Signals::default())
+            .unwrap_err();
+        assert_eq!(e.code, ErrorCode::Rejected);
+    }
+    std::thread::sleep(Duration::from_millis(20));
+    assert_eq!(source.calls(), 0);
 }
 
 #[test]
@@ -161,8 +224,8 @@ fn the_window_is_handed_each_check_once() {
     let home = TempDir::new("updates");
     let source = FakeReleases::new(Ok(release("0.2.0")));
     let mut shell = shell_with(&home, "0.1.0", source);
-    let found = check(&mut shell);
-    assert_eq!(help::take_checks(shell.engine()), [found]);
+    shell.run("app.update.check", json!({})).unwrap();
+    wait_for_check(&shell).unwrap();
     assert!(help::take_checks(shell.engine()).is_empty());
 }
 

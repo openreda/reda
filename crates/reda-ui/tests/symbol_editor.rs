@@ -412,8 +412,8 @@ fn undo_with_no_project_open_uses_the_focused_symbol_tab() {
         .run("layout.tab.activate", json!({"tab": symbol.to_string()}))
         .unwrap();
     // The tab's stack is named by the element's UUID, as a Document's is.
-    assert_eq!(f.shell.undo_scope(false), Some(Scope::Document(symbol)));
-    f.shell.undo(false, false).unwrap();
+    assert_eq!(f.shell.undo_scope(None), Some(Scope::Document(symbol)));
+    f.shell.undo(false, None).unwrap();
     assert!(f.symbol(symbol).pins.is_empty());
 }
 

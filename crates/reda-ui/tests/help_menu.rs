@@ -46,6 +46,19 @@ fn open_help_item(h: &mut Harness<'_, App>, item: &str) {
     h.run();
 }
 
+/// Draws frames until `label` shows: the check answers on its own thread.
+fn wait_for_label(h: &mut Harness<'_, App>, label: &str) {
+    let start = std::time::Instant::now();
+    while h.query_by_label(label).is_none() {
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(10),
+            "{label:?} never showed"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        h.run();
+    }
+}
+
 fn journal_ids(h: &Harness<'_, App>) -> Vec<String> {
     h.state()
         .shell()
@@ -83,7 +96,7 @@ fn check_for_updates_links_to_a_newer_release() {
     h.run();
     open_help_item(&mut h, "Check for Updates…");
     assert_eq!(journal_ids(&h), ["app.update.check"]);
-    h.get_by_label("REDA 0.2.0 is available. This is 0.1.3.");
+    wait_for_label(&mut h, "REDA 0.2.0 is available. This is 0.1.3.");
     let link = h.get_by_role_and_label(Role::Link, "Open the release page");
     assert!(!link.accesskit_node().is_disabled());
 }
@@ -94,7 +107,7 @@ fn check_for_updates_says_when_reda_is_up_to_date() {
     let mut h = harness(home.path(), "0.1.3");
     h.run();
     open_help_item(&mut h, "Check for Updates…");
-    h.get_by_label("REDA 0.1.3 is the newest release.");
+    wait_for_label(&mut h, "REDA 0.1.3 is the newest release.");
     assert!(h.query_by_role(Role::Link).is_none());
     h.get_by_label("Close").click();
     h.run();

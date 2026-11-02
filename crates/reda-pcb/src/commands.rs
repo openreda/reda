@@ -79,14 +79,10 @@ fn pcb<'c>(cx: &'c Context<'_>) -> Result<&'c PcbDocument, CommandError> {
 }
 
 /// The board's copper index, with the Zone fills the Project holds for it (stale ones
-/// too: they stay copper until the next fill).
-fn board_copper(cx: &Context<'_>) -> Result<crate::Copper, CommandError> {
-    let pcb = pcb(cx)?;
-    let mut copper = crate::Copper::build(pcb);
-    if let Some(fills) = cx.project()?.zone_fills(pcb.uuid) {
-        copper.set_zone_fills(pcb, Some(fills));
-    }
-    Ok(copper)
+/// too: they stay copper until the next fill), kept in the Project between edits.
+fn board_copper(cx: &Context<'_>) -> Result<std::sync::Arc<crate::Copper>, CommandError> {
+    pcb(cx)?;
+    crate::Copper::of(cx.project()?).ok_or_else(|| CommandError::unavailable(NO_PCB))
 }
 
 /// What a Command that creates one object returns.

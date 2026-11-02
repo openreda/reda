@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 use super::gull_wing::{self, GullWing, GullWingDimensions};
 use super::ipc::{Termination, Tol};
-use super::{FootprintFamily, LandPattern, Target};
+use super::{FootprintFamily, FootprintPlan, Target};
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -127,13 +127,13 @@ const TSSOP: Standard = Standard {
     ],
 };
 
-/// The land pattern of a `pins`-lead package: a standard body, or `dimensions`.
+/// The Footprint of a `pins`-lead package: a standard body, or `dimensions`.
 fn small_outline(
     standard: &Standard,
     prefix: &str,
     pins: usize,
     dimensions: Option<GullWingDimensions>,
-) -> Result<LandPattern, CommandError> {
+) -> Result<FootprintPlan, CommandError> {
     if pins < 4 || !pins.is_multiple_of(2) {
         return Err(CommandError::invalid_params(
             "/pins",
@@ -171,7 +171,7 @@ fn small_outline(
         standard.title,
         dims.pitch.0 as f64 / 1e6
     );
-    gull_wing::land_pattern(&dims, &leads, Termination::GullWing, name, description)
+    gull_wing::plan(&dims, &leads, Termination::GullWing, name, description)
 }
 
 pub struct Soic;
@@ -196,7 +196,7 @@ impl FootprintFamily for Soic {
         }
     }
 
-    fn land_pattern(p: &SoicParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &SoicParams) -> Result<FootprintPlan, CommandError> {
         let standard = if p.wide { &SOIC_WIDE } else { &SOIC_NARROW };
         small_outline(standard, "SOIC", p.pins, p.dimensions)
     }
@@ -224,7 +224,7 @@ impl FootprintFamily for Ssop {
         }
     }
 
-    fn land_pattern(p: &SmallOutlineParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
         small_outline(&SSOP, "SOP", p.pins, p.dimensions)
     }
 }
@@ -251,7 +251,7 @@ impl FootprintFamily for Tssop {
         }
     }
 
-    fn land_pattern(p: &SmallOutlineParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
         small_outline(&TSSOP, "SOP", p.pins, p.dimensions)
     }
 }

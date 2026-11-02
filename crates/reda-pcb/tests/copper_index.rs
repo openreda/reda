@@ -190,3 +190,33 @@ fn fp_pads(fp: &Uuid, engine: &TestEngine) -> Vec<Item> {
         })
         .collect()
 }
+
+#[test]
+fn the_projects_index_is_built_once_and_rebuilt_after_an_edit_or_undo() {
+    let dir = TempDir::new("copper-cached");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let first = Copper::of(engine.project().unwrap()).unwrap();
+    let again = Copper::of(engine.project().unwrap()).unwrap();
+    assert!(std::sync::Arc::ptr_eq(&first, &again), "built once");
+
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "width": "0.2mm",
+               "points": [{"x": 0, "y": 0}, {"x": 1_000_000, "y": 0}]}),
+    );
+    let after = Copper::of(engine.project().unwrap()).unwrap();
+    assert!(
+        !std::sync::Arc::ptr_eq(&first, &after),
+        "rebuilt after the edit"
+    );
+    assert_eq!(
+        *after,
+        Copper::build(engine.project().unwrap().pcb().unwrap())
+    );
+
+    let doc = engine.project().unwrap().pcb().unwrap().uuid;
+    engine.run_ok("edit.undo", json!({"document": doc.to_string()}));
+    let undone = Copper::of(engine.project().unwrap()).unwrap();
+    assert_eq!(*undone, *first);
+}

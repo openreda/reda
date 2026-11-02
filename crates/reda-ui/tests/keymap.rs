@@ -73,6 +73,7 @@ fn active(tool: Option<&str>, document: Option<DocumentType>) -> Active {
     Active {
         tool: tool.map(str::to_owned),
         document,
+        part: false,
     }
 }
 
@@ -153,7 +154,7 @@ fn every_default_binding_names_a_command_or_preset_and_fits_its_params() {
         shell.open_project(&file).unwrap();
         // The library editors' keys act on the active element tab: open a new one.
         let context = b.context.to_string();
-        if matches!(context.as_str(), "footprint" | "symbol") {
+        if matches!(context.as_str(), "footprint" | "symbol" | "part") {
             new_element(&mut shell, work.path(), &context);
         }
         let item = bars::resolve(&shell, &b.action);

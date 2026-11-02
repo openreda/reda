@@ -1,4 +1,4 @@
-//! A generated land pattern before it has UUIDs, and turning it into a Footprint: the
+//! A generated Footprint before it has UUIDs, and turning it into a Footprint: the
 //! courtyard, the Assembly outline and the text placement are derived here, the same way
 //! for every family.
 
@@ -18,12 +18,12 @@ pub const ASSEMBLY_WIDTH: Nm = Nm(100_000);
 pub const SILKSCREEN_WIDTH: Nm = Nm(120_000);
 /// The gap kept between Silkscreen lines and copper.
 pub const SILKSCREEN_CLEARANCE: Nm = Nm(200_000);
-/// The largest corner radius of a land.
+/// The largest corner radius of a Pad.
 const MAX_CORNER_RADIUS: Nm = Nm(250_000);
 
-/// One land at rotation 0.
+/// One Pad at rotation 0.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Land {
+pub struct PadSpec {
     pub number: String,
     pub at: Point,
     /// Along x.
@@ -33,7 +33,7 @@ pub struct Land {
     pub kind: LandKind,
 }
 
-/// What kind of Pad a land becomes.
+/// What kind of Pad a Pad becomes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LandKind {
     /// An SMD Pad, a rounded rectangle.
@@ -43,10 +43,10 @@ pub enum LandKind {
     ThroughHole { drill: Nm, square: bool },
 }
 
-impl Land {
-    /// An SMD land.
-    pub fn smd(number: impl Into<String>, at: Point, width: Nm, height: Nm) -> Land {
-        Land {
+impl PadSpec {
+    /// An SMD Pad.
+    pub fn smd(number: impl Into<String>, at: Point, width: Nm, height: Nm) -> PadSpec {
+        PadSpec {
             number: number.into(),
             at,
             width,
@@ -55,12 +55,12 @@ impl Land {
         }
     }
 
-    /// The highest y the land's copper reaches.
+    /// The highest y the Pad's copper reaches.
     pub fn top(&self) -> Nm {
         Nm(self.at.y.0 + self.height.0 / 2)
     }
 
-    /// The land's copper as `(x min, y min, x max, y max)`.
+    /// The Pad's copper as `(x min, y min, x max, y max)`.
     fn bounds(&self) -> (i64, i64, i64, i64) {
         let (x, y) = (self.at.x.0, self.at.y.0);
         let (w, h) = (self.width.0 / 2, self.height.0 / 2);
@@ -108,9 +108,9 @@ impl Land {
 }
 
 /// The parts of the axis-parallel Silkscreen `lines` that keep [`SILKSCREEN_CLEARANCE`]
-/// from every land's copper, measured from the line's edge; pieces no longer than the
+/// from every Pad's copper, measured from the line's edge; pieces no longer than the
 /// line width are dropped.
-pub fn clip_silkscreen(lines: &[(Point, Point)], lands: &[Land]) -> Vec<(Point, Point)> {
+pub fn clip_silkscreen(lines: &[(Point, Point)], pad_specs: &[PadSpec]) -> Vec<(Point, Point)> {
     let keep = SILKSCREEN_CLEARANCE.0 + SILKSCREEN_WIDTH.0 / 2;
     let mut out = vec![];
     for (start, end) in lines {
@@ -122,8 +122,8 @@ pub fn clip_silkscreen(lines: &[(Point, Point)], lands: &[Land]) -> Vec<(Point, 
             (start.x.0, start.y.0.min(end.y.0), start.y.0.max(end.y.0))
         };
         let mut pieces = vec![(a, b)];
-        for land in lands {
-            let (x0, y0, x1, y1) = land.bounds();
+        for spec in pad_specs {
+            let (x0, y0, x1, y1) = spec.bounds();
             let (along, near) = if horizontal {
                 ((x0 - keep, x1 + keep), (y0 - keep, y1 + keep))
             } else {
@@ -187,25 +187,25 @@ pub struct Body {
 /// left (chips) or at the upper left (packages with rows of leads), the IPC-7351 zero
 /// orientation.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LandPattern {
+pub struct FootprintPlan {
     /// The IPC-7351 name, used unless the caller names the Footprint.
     pub name: String,
     pub description: String,
-    pub lands: Vec<Land>,
+    pub pad_specs: Vec<PadSpec>,
     pub body: Body,
     /// Silkscreen lines, as start and end points.
     pub silkscreen: Vec<(Point, Point)>,
-    /// The courtyard excess around the lands and body.
+    /// The courtyard excess around the Pads and body.
     pub courtyard_excess: Nm,
 }
 
-impl LandPattern {
+impl FootprintPlan {
     /// The courtyard rectangle's upper-right corner; it is symmetric about the origin.
     fn courtyard_corner(&self) -> Point {
         let (mut x, mut y) = (self.body.max.0.0 / 2, self.body.max.1.0 / 2);
-        for land in &self.lands {
-            x = x.max(land.at.x.0.abs() + land.width.0 / 2);
-            y = y.max(land.at.y.0.abs() + land.height.0 / 2);
+        for spec in &self.pad_specs {
+            x = x.max(spec.at.x.0.abs() + spec.width.0 / 2);
+            y = y.max(spec.at.y.0.abs() + spec.height.0 / 2);
         }
         let excess = self.courtyard_excess.0;
         Point::new(
@@ -217,7 +217,11 @@ impl LandPattern {
     /// The Footprint called `name`, taking UUIDs from `new_id` in a fixed order.
     pub fn into_footprint(self, name: String, mut new_id: impl FnMut() -> Uuid) -> Footprint {
         let uuid = new_id();
-        let pads: Vec<Pad> = self.lands.iter().map(|land| land.pad(new_id())).collect();
+        let pads: Vec<Pad> = self
+            .pad_specs
+            .iter()
+            .map(|spec| spec.pad(new_id()))
+            .collect();
         let corner = self.courtyard_corner();
         let mut graphics = vec![FootprintGraphic {
             uuid: new_id(),
@@ -275,9 +279,9 @@ impl LandPattern {
     }
 }
 
-/// A quarter of the land's shorter side, at most 0.25 mm.
-fn corner_radius(land: &Land) -> Nm {
-    Nm((land.width.0.min(land.height.0) / 4).min(MAX_CORNER_RADIUS.0))
+/// A quarter of the Pad's shorter side, at most 0.25 mm.
+fn corner_radius(spec: &PadSpec) -> Nm {
+    Nm((spec.width.0.min(spec.height.0) / 4).min(MAX_CORNER_RADIUS.0))
 }
 
 /// The nominal body outline; a polarised body has its upper-left corner chamfered by a

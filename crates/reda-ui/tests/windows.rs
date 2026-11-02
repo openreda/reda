@@ -363,3 +363,32 @@ fn a_new_window_opens_where_its_tab_was_dropped_once() {
     );
     assert_eq!(placements.take(s.shell.layout(), new), None::<Pos2>);
 }
+
+#[test]
+fn a_window_keeps_where_it_was_put_through_save_and_open() {
+    let mut s = setup();
+    s.shell
+        .run(
+            "layout.window.place",
+            json!({"window": s.window, "x": 1200, "y": 100, "width": 400, "height": 300}),
+        )
+        .unwrap();
+    let rect = s.shell.layout().windows[0].rect.unwrap();
+    assert_eq!(
+        (rect.x, rect.y, rect.width, rect.height),
+        (1200, 100, 400, 300)
+    );
+    let err = s
+        .shell
+        .run(
+            "layout.window.place",
+            json!({"window": 999, "x": 0, "y": 0, "width": 400, "height": 300}),
+        )
+        .unwrap_err();
+    assert_eq!(err.code, reda_ui::engine::command::ErrorCode::NotFound);
+
+    // The layout, and so view.json, keeps it.
+    let json = serde_json::to_value(s.shell.layout()).unwrap();
+    let back: reda_ui::layout::Layout = serde_json::from_value(json).unwrap();
+    assert_eq!(back.windows[0].rect, Some(rect));
+}

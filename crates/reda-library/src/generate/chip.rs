@@ -9,8 +9,8 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::ipc::{self, Goals, Tol};
-use super::{FootprintFamily, LandPattern, Target, TolParam, hundredths};
-use crate::generate::pattern::{Body, Land};
+use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
+use crate::generate::pattern::{Body, PadSpec};
 
 pub struct Chip;
 
@@ -227,7 +227,7 @@ impl FootprintFamily for Chip {
         }
     }
 
-    fn land_pattern(p: &ChipParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &ChipParams) -> Result<FootprintPlan, CommandError> {
         let (length, width, terminal, height, size) = match (p.size, p.dimensions) {
             (Some(size), None) => {
                 let s = size.standard();
@@ -260,14 +260,14 @@ impl FootprintFamily for Chip {
         };
         let span = ipc::span(length, terminal, goals)
             .map_err(|why| CommandError::invalid_params("/dimensions/terminal", why))?;
-        let land_width = ipc::land_width(width, goals);
-        let offset = span.land_offset();
-        let land = |number: &str, x: i64| {
-            Land::smd(
+        let pad_width = ipc::pad_width(width, goals);
+        let offset = span.pad_offset();
+        let spec = |number: &str, x: i64| {
+            PadSpec::smd(
                 number,
                 Point::new(Nm(x), Nm(0)),
-                span.land_length(),
-                land_width,
+                span.pad_length(),
+                pad_width,
             )
         };
         let code = match &size {
@@ -288,10 +288,10 @@ impl FootprintFamily for Chip {
             ),
             None => format!("{}, {code} metric, IPC-7351 Nominal", p.class.noun()),
         };
-        Ok(LandPattern {
+        Ok(FootprintPlan {
             name,
             description,
-            lands: vec![land("1", -offset.0), land("2", offset.0)],
+            pad_specs: vec![spec("1", -offset.0), spec("2", offset.0)],
             body: Body {
                 nominal: (length.nominal(), width.nominal()),
                 max: (length.max, width.max),

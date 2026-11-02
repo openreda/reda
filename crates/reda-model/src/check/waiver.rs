@@ -95,26 +95,3 @@ pub fn apply_waivers<'a>(
     out.unmatched.sort();
     out
 }
-
-/// A short fingerprint of the design data a check reads, for telling whether its results
-/// are stale: equal data gives an equal fingerprint within one build of REDA. It hashes the
-/// values' `Debug` output (64-bit FNV-1a), which for the model's ordered tables is
-/// deterministic.
-pub fn fingerprint(parts: &[&dyn std::fmt::Debug]) -> String {
-    use std::fmt::Write;
-    struct Fnv(u64);
-    impl Write for Fnv {
-        fn write_str(&mut self, s: &str) -> std::fmt::Result {
-            for b in s.bytes() {
-                self.0 ^= u64::from(b);
-                self.0 = self.0.wrapping_mul(0x0000_0100_0000_01b3);
-            }
-            Ok(())
-        }
-    }
-    let mut hash = Fnv(0xcbf2_9ce4_8422_2325);
-    for part in parts {
-        write!(hash, "{part:?}\u{1f}").expect("hashing never fails");
-    }
-    format!("{:016x}", hash.0)
-}

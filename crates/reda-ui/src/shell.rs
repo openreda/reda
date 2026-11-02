@@ -160,7 +160,7 @@ pub struct Shell {
     /// What `schematic.copy` or `schematic.cut` last returned, for `schematic.paste`.
     clipboard: Option<Value>,
     /// The PCB canvas's select-and-place Tool.
-    pcb_tool: pcb::Tool,
+    pcb_tool: pcb::SelectTool,
     /// The board's routing and Via Tools.
     router: pcb::Router,
     /// The PCB drawing Tools' state (see `pcb::draw`).
@@ -223,6 +223,12 @@ impl Shell {
         if engine.registry().get("library.symbol.unit.show").is_none() {
             engine.register(crate::symbol_editor::register_all);
         }
+        if engine.registry().get("view.footprint_tool.set").is_none() {
+            engine.register(crate::footprint_editor::register_all);
+        }
+        if engine.registry().get("view.messages.show_waived").is_none() {
+            engine.register(messages::register_all);
+        }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
@@ -233,10 +239,14 @@ impl Shell {
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
         engine.view_mut().set(CrossProbe::default());
+        engine.view_mut().set(messages::ShowWaived::default());
+        engine
+            .view_mut()
+            .set(crate::footprint_editor::FootprintEditorState::default());
         engine.view_mut().set(BoardView::new(units));
         engine
             .view_mut()
-            .set(crate::symbol_editor::EditorState::default());
+            .set(crate::symbol_editor::SymbolEditorState::default());
         engine.view_mut().set(layout::focus::Focus::default());
         crate::bars::install(&mut engine);
         crate::help::install(&mut engine);
@@ -256,7 +266,7 @@ impl Shell {
             keymap: Keymap::default(),
             preferences: Watched::default(),
             clipboard: None,
-            pcb_tool: pcb::Tool::default(),
+            pcb_tool: pcb::SelectTool::default(),
             router: pcb::Router::default(),
             pcb_draw: pcb::draw::Draw::default(),
             zones_stale: false,
@@ -502,14 +512,14 @@ impl Shell {
     }
 
     /// Space: turns the move in flight, or the selection, by 90°.
-    pub fn pcb_rotate(&mut self) {
+    pub(crate) fn pcb_rotate(&mut self) {
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.rotate(self);
         self.pcb_tool = tool;
     }
 
     /// L: flips the move in flight, or the selection, to the other side.
-    pub fn pcb_flip(&mut self) {
+    pub(crate) fn pcb_flip(&mut self) {
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.flip(self);
         self.pcb_tool = tool;
@@ -531,11 +541,11 @@ impl Shell {
 
     /// The PCB Tool, to read what it draws (snap marker, rubber band) and set its snap
     /// radius from the zoom.
-    pub fn pcb_tool(&self) -> &pcb::Tool {
+    pub fn pcb_tool(&self) -> &pcb::SelectTool {
         &self.pcb_tool
     }
 
-    pub fn pcb_tool_mut(&mut self) -> &mut pcb::Tool {
+    pub fn pcb_tool_mut(&mut self) -> &mut pcb::SelectTool {
         &mut self.pcb_tool
     }
 
@@ -770,6 +780,11 @@ impl Shell {
         params: Value,
         signals: &Signals,
     ) -> Result<Value, CommandError> {
+        if crate::help::USER_ONLY.contains(&id) {
+            return Err(CommandError::rejected(format!(
+                "only the user can run {id}, from the app"
+            )));
+        }
         let out = self.engine.run_from(source, id, params, signals)?;
         self.after_run(id);
         if let Some(tool) = &self.tool
@@ -909,11 +924,14 @@ impl Shell {
                 DocumentView {
                     camera: tab.camera,
                     layers: tab.layers.clone(),
+                    user_origin: None,
                 },
             );
         }
         if let Some(pcb) = project.pcb() {
-            documents.entry(pcb.uuid).or_default().layers = self.board_view().layers.clone();
+            let view = documents.entry(pcb.uuid).or_default();
+            view.layers = self.board_view().layers.clone();
+            view.user_origin = self.board_view().origin;
         }
         let file = ViewFile::new(self.layout().clone(), documents);
         Some((folder, file.encode()))
@@ -958,18 +976,19 @@ impl Shell {
     /// The Fab Presets a new Project can start from (shipped, then the user's) and the
     /// default pick: the last one used, else Generic.
     pub fn fab_preset_choices(&mut self) -> (Vec<String>, String) {
+        use reda_engine::commands::fab_preset::PresetListResult;
         let list = self
             .engine
             .run("fab_preset.list", json!({}))
-            .unwrap_or_default();
-        let names = list["presets"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|p| p["preset"]["name"].as_str().map(str::to_owned))
-            .collect();
-        let default = list["default"].as_str().unwrap_or("Generic").to_owned();
-        (names, default)
+            .ok()
+            .and_then(|v| serde_json::from_value::<PresetListResult>(v).ok());
+        match list {
+            Some(list) => (
+                list.presets.into_iter().map(|p| p.preset.name).collect(),
+                list.default,
+            ),
+            None => (Vec::new(), "Generic".to_owned()),
+        }
     }
 
     /// Creates the Project `name` in a new folder inside `folder`, and opens it.
@@ -1068,18 +1087,30 @@ impl Shell {
             self.reload_preferences();
         }
         self.sync_selection();
+        self.sync_show_waived();
         self.sync_board_view();
+        if base.starts_with("app.preferences.") {
+            self.follow_grid_preferences();
+        }
         self.note_focus();
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
     }
 
+    /// Starts new views on the snap grids the Preferences now pick.
+    fn follow_grid_preferences(&mut self) {
+        let prefs = preferences::current(self.engine.user_dirs());
+        if let Some(grids) = self.engine.view_mut().get_mut::<Grids>() {
+            grids.follow(&prefs);
+        }
+    }
+
     /// The Undo stack `Mod+Z` uses: a focused Document tab's own, else the Project's.
     /// The Projects panel (and any Panel that is not about one Document) uses the
-    /// Project stack, and so do the Project dialogs, which the window says by
-    /// `project_dialog`.
-    pub fn undo_scope(&self, project_dialog: bool) -> Option<Scope> {
+    /// Project stack. An open dialog names the stack its changes go on (`dialog`): the
+    /// Project's for Project Settings, the PCB Document's for Board Setup.
+    pub fn undo_scope(&self, dialog: Option<Scope>) -> Option<Scope> {
         if self.engine.project().is_none() {
             // With no Project open, only open Library elements have stacks.
             return match &self.layout().focus {
@@ -1092,8 +1123,8 @@ impl Shell {
                     .map(|t| Scope::Document(t.document)),
             };
         }
-        if project_dialog {
-            return Some(Scope::Project);
+        if dialog.is_some() {
+            return dialog;
         }
         match &self.layout().focus {
             Some(TabKey::Document(uuid)) => Some(Scope::Document(*uuid)),
@@ -1102,8 +1133,8 @@ impl Shell {
     }
 
     /// Undoes (or with `redo`, redoes) on the stack [`Shell::undo_scope`] picks.
-    pub fn undo(&mut self, redo: bool, project_dialog: bool) -> Result<Value, CommandError> {
-        let Some(scope) = self.undo_scope(project_dialog) else {
+    pub fn undo(&mut self, redo: bool, dialog: Option<Scope>) -> Result<Value, CommandError> {
+        let Some(scope) = self.undo_scope(dialog) else {
             return Err(CommandError::unavailable("no Project is open"));
         };
         let document = match scope {
@@ -1176,10 +1207,22 @@ impl Shell {
         Ok(())
     }
 
-    /// Lists waived Violations too, or hides them again.
-    pub fn set_show_waived(&mut self, show: bool) {
-        self.messages.set_show_waived(show);
-        self.update_markers();
+    /// Lists waived Violations too, or hides them again (`view.messages.show_waived`).
+    pub fn set_show_waived(&mut self, show: bool) -> Result<Value, CommandError> {
+        self.run_reporting("view.messages.show_waived", json!({ "show": show }))
+    }
+
+    /// Follows `view.messages.show_waived` into the Messages panel and the markers.
+    fn sync_show_waived(&mut self) {
+        let show = self
+            .engine
+            .view()
+            .get::<messages::ShowWaived>()
+            .is_some_and(|s| s.0);
+        if show != self.messages.show_waived() {
+            self.messages.set_show_waived(show);
+            self.update_markers();
+        }
     }
 
     /// Goes to a line's Violation: opens its Document (`document.open`), zooms to it and
@@ -1359,12 +1402,6 @@ impl Shell {
         &self.keymap
     }
 
-    /// Makes `tool` the active Tool, whose `tool:<id>` Keymap context then comes first,
-    /// without the checks of `tool.activate` (which the window and agents use).
-    pub fn set_active_tool(&mut self, tool: Tool) {
-        self.engine.view_mut().set(ActiveTool(tool));
-    }
-
     /// Reads the Keymap again (after `keymap.toml` or `keymap.base` changed) and lists its
     /// problems in Messages, replacing the earlier ones.
     pub fn reload_keymap(&mut self) {
@@ -1516,19 +1553,17 @@ impl Shell {
             None => (self.default_layout(first_sheet), BTreeMap::new()),
         };
         let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
-        let units = preferences::current(self.engine.user_dirs())
-            .pcb
-            .default_units;
+        let prefs = preferences::current(self.engine.user_dirs());
+        let units = prefs.pcb.default_units;
         let mut board = BoardView::new(units);
         if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
             board.layers = view.layers.clone();
+            board.origin = view.user_origin;
         }
         *self.board_view_mut() = board;
-        // A board's grid starts at the middle preset of the units the Preference picks.
-        if let Some(pcb) = pcb
-            && let Some(grids) = self.engine.view_mut().get_mut::<Grids>()
-        {
-            grids.0.entry(pcb).or_insert(grid::pcb_default(units));
+        // Views start on the grids the Preferences pick.
+        if let Some(grids) = self.engine.view_mut().get_mut::<Grids>() {
+            grids.follow(&prefs);
         }
         self.documents.clear();
         let open: Vec<Uuid> = layout
@@ -1713,7 +1748,19 @@ impl Shell {
                     }
                 }
             }
-            "tool.cycle_corner" => self.with_router(|r, shell| r.cycle_corner(shell)),
+            "tool.cycle_corner" if self.tool() == Tool::Route => {
+                self.with_router(|r, shell| r.cycle_corner(shell))
+            }
+            "tool.cycle_corner" | "tool.undo_segment"
+                if self.tool() == Tool::Wire && self.active_sheet().is_some() =>
+            {
+                let sheet = self.active_sheet().expect("checked above");
+                if id == "tool.cycle_corner" {
+                    crate::schematic_editor::corner(self, sheet);
+                } else {
+                    crate::schematic_editor::remove_last(self, sheet);
+                }
+            }
             "tool.undo_segment" | "tool.finish" if self.sheet_drawing().is_some() => {
                 let sheet = self.sheet_drawing().expect("checked above");
                 if id == "tool.finish" {
@@ -1749,13 +1796,9 @@ impl Shell {
                 crate::placement::refresh(self);
             }
             "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
-            "tool.rotate" | "tool.mirror" | "tool.corner" | "tool.remove_last" => {
+            "tool.rotate" | "tool.mirror" => {
                 if let Some(sheet) = self.active_sheet() {
                     match (id, out["axis"].as_str()) {
-                        ("tool.corner", _) => crate::schematic_editor::corner(self, sheet),
-                        ("tool.remove_last", _) => {
-                            crate::schematic_editor::remove_last(self, sheet)
-                        }
                         ("tool.mirror", Some("x")) => self.sheet_turn(sheet, Turn::MirrorX),
                         ("tool.mirror", _) => self.sheet_turn(sheet, Turn::MirrorY),
                         _ => self.sheet_turn(sheet, Turn::Rotate),
@@ -1921,6 +1964,7 @@ impl Shell {
             let view = DocumentView {
                 camera: tab.camera,
                 layers: tab.layers,
+                user_origin: None,
             };
             self.closed_views.insert(tab.document, view);
         }

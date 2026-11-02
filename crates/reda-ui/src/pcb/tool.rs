@@ -35,7 +35,7 @@ pub const DEFAULT_SNAP_RADIUS: Nm = Nm::from_um(500);
 
 /// The Tool's state between events.
 #[derive(Debug, Default)]
-pub struct Tool {
+pub struct SelectTool {
     state: State,
     /// Where the cursor last snapped, for the snap marker.
     snap: Option<(Point, SnapKind)>,
@@ -109,7 +109,7 @@ struct TrackDrag {
     normal: Option<(f64, f64)>,
     /// The drag so far.
     by: Point,
-    copper: Copper,
+    copper: std::sync::Arc<Copper>,
 }
 
 /// The kinds of object the Tool can move.
@@ -126,7 +126,7 @@ fn board(shell: &Shell) -> Option<(&Project, Uuid)> {
     Some((project, project.pcb()?.uuid))
 }
 
-impl Tool {
+impl SelectTool {
     /// Sets how far electrical points catch the cursor (a few pixels at the zoom).
     pub fn set_snap_radius(&mut self, radius: Nm) {
         self.radius = Some(radius);
@@ -411,7 +411,7 @@ impl Tool {
     }
 }
 
-impl Tool {
+impl SelectTool {
     fn start_track_drag(
         &mut self,
         shell: &mut Shell,
@@ -433,10 +433,9 @@ impl Tool {
             }
             TrackGeometry::Arc { .. } => None,
         };
-        let mut copper = Copper::build(pcb);
-        if let Some(fills) = project.zone_fills(pcb.uuid) {
-            copper.set_zone_fills(pcb, Some(fills));
-        }
+        let Some(copper) = Copper::of(project) else {
+            return;
+        };
         if shell.selection().objects != [track] {
             select(shell, vec![track]);
         }

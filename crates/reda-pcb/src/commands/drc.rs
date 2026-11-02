@@ -64,7 +64,10 @@ struct Checked {
 
 /// The fingerprint of the board and of the Change List pending against it.
 fn fingerprint(pcb: &reda_model::PcbDocument, changes: &str) -> String {
-    reda_model::fingerprint(&[&design_fingerprint(pcb), &changes])
+    reda_command::Fingerprint::new()
+        .add(&design_fingerprint(pcb))
+        .add(changes)
+        .finish()
 }
 
 pub struct DrcRun {

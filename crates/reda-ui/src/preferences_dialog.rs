@@ -243,6 +243,36 @@ impl PreferencesDialog {
         self.set(shell, LIBRARY_PATHS, json!(paths))
     }
 
+    /// Renames the user Fab Preset `name` (`fab_preset.rename_user`); a refusal shows
+    /// beside its name field.
+    pub fn rename_fab_preset(&mut self, shell: &mut Shell, name: &str, new_name: &str) {
+        let key = format!("fab_presets/{name}");
+        let params = json!({"name": name, "new_name": new_name});
+        match shell.run("fab_preset.rename_user", params) {
+            Ok(_) => {
+                self.texts.remove(&key);
+                self.problems.remove(&key);
+            }
+            Err(e) => {
+                self.problems.insert(key, e.message);
+            }
+        }
+    }
+
+    /// Moves the user Fab Preset `name` to the trash (`fab_preset.delete_user`).
+    pub fn delete_fab_preset(&mut self, shell: &mut Shell, name: &str) {
+        let key = format!("fab_presets/{name}");
+        match shell.run("fab_preset.delete_user", json!({"name": name})) {
+            Ok(_) => {
+                self.texts.remove(&key);
+                self.problems.remove(&key);
+            }
+            Err(e) => {
+                self.problems.insert(key, e.message);
+            }
+        }
+    }
+
     /// Removes the user Library folder at `index`.
     pub fn remove_library_path(
         &mut self,

@@ -31,6 +31,12 @@ pub trait ParamsDialog: Any {
     /// The params from [`Outcome::Run`] failed; the dialog stays open and may say why.
     fn failed(&mut self, _error: &CommandError) {}
 
+    /// The params from [`Outcome::Run`] succeeded with `result`: a Command the window
+    /// runs next, such as registering a Library the dialog just created.
+    fn then(&mut self, _result: &Value) -> Option<(String, Value)> {
+        None
+    }
+
     /// The dialog itself, for tests that look inside.
     fn as_any(&self) -> &dyn Any;
 }

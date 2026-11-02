@@ -1,10 +1,10 @@
-//! The IPC-7351B land-pattern equations at Nominal density.
+//! The IPC-7351B Pad equations at Nominal density.
 //!
 //! For a part with two opposite rows of terminations:
 //!
-//! - `Z = Lmin + 2·Jt + √(CL² + F² + P²)`, the distance over the outer (toe) land edges
-//! - `G = Smax − 2·Jh − √(CS² + F² + P²)`, the distance between the inner (heel) land edges
-//! - `X = Wmin + 2·Js + √(CW² + F² + P²)`, the land width
+//! - `Z = Lmin + 2·Jt + √(CL² + F² + P²)`, the distance over the outer (toe) Pad edges
+//! - `G = Smax − 2·Jh − √(CS² + F² + P²)`, the distance between the inner (heel) Pad edges
+//! - `X = Wmin + 2·Js + √(CW² + F² + P²)`, the Pad width
 //!
 //! where `L` is the terminal-to-terminal span, `S = L − 2T` the span between the inner
 //! terminal ends, `W` the terminal width, `C` each dimension's tolerance, `F` the board
@@ -19,7 +19,7 @@ use reda_model::geom::Nm;
 pub const FABRICATION: Nm = Nm(50_000);
 /// The placement tolerance `P`.
 pub const PLACEMENT: Nm = Nm(25_000);
-/// Land sizes and spacings are rounded to this grid.
+/// Pad sizes and spacings are rounded to this grid.
 pub const ROUND_OFF: Nm = Nm(50_000);
 /// The courtyard is rounded outwards to this grid.
 pub const COURTYARD_GRID: Nm = Nm(50_000);
@@ -115,23 +115,23 @@ impl Termination {
     }
 }
 
-/// The land span of one pair of opposite terminations, rounded.
+/// The Pad span of one pair of opposite terminations, rounded.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
-    /// `Z`: over the outer land edges.
+    /// `Z`: over the outer Pad edges.
     pub outer: Nm,
-    /// `G`: between the inner land edges.
+    /// `G`: between the inner Pad edges.
     pub inner: Nm,
 }
 
 impl Span {
-    /// The land length, from heel to toe.
-    pub fn land_length(self) -> Nm {
+    /// The Pad length, from heel to toe.
+    pub fn pad_length(self) -> Nm {
         Nm((self.outer.0 - self.inner.0) / 2)
     }
 
-    /// The distance from the part's centre to each land's centre.
-    pub fn land_offset(self) -> Nm {
+    /// The distance from the part's centre to each Pad's centre.
+    pub fn pad_offset(self) -> Nm {
         Nm((self.outer.0 + self.inner.0) / 4)
     }
 }
@@ -166,7 +166,7 @@ pub fn span(span: Tol, terminal: Tol, goals: Goals) -> Result<Span, String> {
         inner: round(inner, ROUND_OFF, false),
     };
     if span.inner.0 <= 0 {
-        return Err("the terminals are too long for the span: the lands would meet".into());
+        return Err("the terminals are too long for the span: the Pads would meet".into());
     }
     Ok(span)
 }
@@ -182,7 +182,7 @@ pub fn round_down(value: Nm) -> Nm {
 }
 
 /// `X` for a termination `width` wide.
-pub fn land_width(width: Tol, goals: Goals) -> Nm {
+pub fn pad_width(width: Tol, goals: Goals) -> Nm {
     let x = width.min.0 as f64 + 2.0 * goals.side.0 as f64 + rss(width.tolerance());
     round(x, ROUND_OFF, true)
 }

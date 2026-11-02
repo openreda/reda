@@ -13,6 +13,7 @@ getrandom.workspace = true
 reda-engine = { path = "../reda-engine" }
 serde.workspace = true
 serde_json.workspace = true
+trash.workspace = true
 
 [dev-dependencies]
 reda-testkit = { path = "../reda-testkit" }

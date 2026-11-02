@@ -22,7 +22,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
-use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{Nm, Point};
 use reda_model::{ComponentRef, Pin, Project, SchematicSheet, UnitInstance, Uuid, Wire};
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -387,23 +387,7 @@ pub fn pin_position(unit: &UnitInstance, pin: &Pin) -> Point {
     Point::new(unit.at.x + Nm(x), unit.at.y + Nm(y))
 }
 
-pub(crate) fn rotate(x: i64, y: i64, angle: Millideg) -> (i64, i64) {
-    match angle.normalized().0 {
-        0 => (x, y),
-        90_000 => (-y, x),
-        180_000 => (-x, -y),
-        270_000 => (y, -x),
-        a => {
-            let rad = (a as f64 / 1000.0).to_radians();
-            let (sin, cos) = rad.sin_cos();
-            let (fx, fy) = (x as f64, y as f64);
-            (
-                (fx * cos - fy * sin).round() as i64,
-                (fx * sin + fy * cos).round() as i64,
-            )
-        }
-    }
-}
+pub(crate) use reda_model::geom::rotate;
 
 /// Whether `p` lies on the Wire strictly between its ends.
 pub fn in_interior(wire: &Wire, p: Point) -> bool {

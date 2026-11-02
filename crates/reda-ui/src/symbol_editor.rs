@@ -96,7 +96,7 @@ pub struct Canvas {
 
 /// The Symbol editor's view state: each Symbol tab's canvas.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct EditorState {
+pub struct SymbolEditorState {
     pub canvases: BTreeMap<Uuid, Canvas>,
 }
 
@@ -114,7 +114,7 @@ pub fn canvas(shell: &Shell, symbol: Uuid) -> Canvas {
 fn canvas_in(engine: &Engine, symbol: Uuid) -> Canvas {
     engine
         .view()
-        .get::<EditorState>()
+        .get::<SymbolEditorState>()
         .and_then(|s| s.canvases.get(&symbol))
         .cloned()
         .unwrap_or_default()
@@ -122,10 +122,10 @@ fn canvas_in(engine: &Engine, symbol: Uuid) -> Canvas {
 
 fn canvas_mut(shell: &mut Shell, symbol: Uuid) -> &mut Canvas {
     let view = shell.engine.view_mut();
-    if view.get::<EditorState>().is_none() {
-        view.set(EditorState::default());
+    if view.get::<SymbolEditorState>().is_none() {
+        view.set(SymbolEditorState::default());
     }
-    let state = view.get_mut::<EditorState>().expect("just set");
+    let state = view.get_mut::<SymbolEditorState>().expect("just set");
     state.canvases.entry(symbol).or_default()
 }
 
@@ -846,7 +846,7 @@ impl Command for UnitShow {
             )));
         }
         let canvas = cx
-            .view::<EditorState>()?
+            .view::<SymbolEditorState>()?
             .canvases
             .entry(p.symbol)
             .or_default();

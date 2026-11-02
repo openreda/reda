@@ -6,13 +6,14 @@
 use std::path::{Path, PathBuf};
 
 use reda_testkit::TempDir;
-use reda_ui::element_editor;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::model::{ComponentType, Field, LibraryElement, Part, PinPads, Uuid};
+use reda_ui::keymap::{self, Chord};
 use reda_ui::layout::TabKey;
 use reda_ui::part_editor::{self, FootprintMove, PinRow};
 use reda_ui::shell::Shell;
+use reda_ui::{bars, element_editor};
 use serde_json::{Value, json};
 
 const LIBRARY: &str = "000000aa-0000-4000-8000-000000000000";
@@ -122,6 +123,20 @@ fn a_part_opens_in_a_tab_with_no_canvas() {
         .unwrap();
     let symbol = out["element"].as_str().unwrap().parse().unwrap();
     assert!(element_editor::has_canvas(shell.engine(), symbol));
+}
+
+#[test]
+fn mod_s_on_a_part_tab_saves_the_part() {
+    let home = TempDir::new("part-save-key");
+    let mut shell = shell(&home);
+    let uuid = new_part(&mut shell);
+    let active = keymap::active(&shell);
+    let key = Chord::parse("Mod+S").unwrap();
+    let action = shell.keymap().lookup(&key, &active).unwrap().clone();
+    let (id, params) = bars::resolve_for(&shell, &action, Some(uuid)).run.unwrap();
+    assert_eq!(id, "library.element.save");
+    assert_eq!(params["element"], json!(uuid));
+    shell.run(&id, params).unwrap();
 }
 
 #[test]

@@ -210,7 +210,9 @@ fn a_waived_violation_is_hidden_until_waived_ones_are_shown() {
     assert_eq!(lines.len(), 2, "{lines:?}");
     assert!(!d.shell.messages().run(CheckKind::Erc).unwrap().stale);
 
-    d.shell.set_show_waived(true);
+    d.shell.set_show_waived(true).unwrap();
+    let last = d.shell.engine().journal().last().unwrap().id.clone();
+    assert_eq!(last, "view.messages.show_waived");
     let groups = d.shell.message_groups();
     let waived: Vec<&str> = groups
         .iter()
@@ -222,7 +224,7 @@ fn a_waived_violation_is_hidden_until_waived_ones_are_shown() {
 
     let key = groups[0].lines[0].key;
     d.shell.unwaive(key).unwrap();
-    d.shell.set_show_waived(false);
+    d.shell.set_show_waived(false).unwrap();
     assert_eq!(violation_lines(&d.shell).len(), 3);
     let _ = d.label;
 }

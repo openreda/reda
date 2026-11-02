@@ -166,7 +166,7 @@ fn a_wire_run_previews_toggles_its_corner_and_commits_once_on_reaching_a_wire() 
         [(pt(1000, 0), pt(1500, 0)), (pt(1500, 0), pt(1500, 500))]
     );
     // `/` turns the corner the other way.
-    assert_eq!(press(&mut shell, "/"), ["tool.corner"]);
+    assert_eq!(press(&mut shell, "/"), ["tool.cycle_corner"]);
     assert_eq!(
         overlay(&shell),
         [(pt(1000, 0), pt(1000, 500)), (pt(1000, 500), pt(1500, 500))]
@@ -181,7 +181,11 @@ fn a_wire_run_previews_toggles_its_corner_and_commits_once_on_reaching_a_wire() 
     assert_eq!(ran, ["schematic.wire.add"]);
     assert_eq!(
         journal_since(&shell, before),
-        ["tool.activate:wire", "tool.corner", "schematic.wire.add"]
+        [
+            "tool.activate:wire",
+            "tool.cycle_corner",
+            "schematic.wire.add"
+        ]
     );
     assert_eq!(
         wires(&shell),
@@ -222,7 +226,7 @@ fn backspace_takes_the_last_segment_off_and_a_run_ends_on_a_pin() {
         [pt(1000, 1000), pt(1000, 500), pt(500, 500)]
     );
 
-    assert_eq!(press(&mut shell, "Backspace"), ["tool.remove_last"]);
+    assert_eq!(press(&mut shell, "Backspace"), ["tool.undo_segment"]);
     assert_eq!(run_points(&shell), [pt(1000, 1000), pt(1000, 500)]);
     // The run now goes on from (1000, 500), along x first.
     assert_eq!(
@@ -249,7 +253,7 @@ fn backspace_takes_the_last_segment_off_and_a_run_ends_on_a_pin() {
         journal_since(&shell, before),
         [
             "tool.activate:wire",
-            "tool.remove_last",
+            "tool.undo_segment",
             "schematic.wire.add"
         ]
     );

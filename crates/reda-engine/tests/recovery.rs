@@ -263,3 +263,34 @@ fn starter_library_elements_never_get_snapshots() {
         .unwrap();
     assert!(found(&dir, &folder).is_empty());
 }
+
+#[test]
+fn a_deleted_sheet_file_opens_as_an_unsaved_empty_sheet_and_restores() {
+    let tmp = TempDir::new("recovery-deleted-sheet");
+    let (mut engine, folder) = project(tmp.path());
+    add_wire(&mut engine);
+    let dir = recovery::project_dir(&folder);
+    snapshot_dirty(&engine, &dir);
+    std::fs::remove_file(folder.join("Demo.redasch")).unwrap();
+
+    let mut after = test_engine();
+    let out = after.run_ok("project.open", json!({"path": folder}));
+    assert_eq!(out["missing"][0]["uuid"], SHEET);
+    let project = after.project().unwrap();
+    assert!(
+        project.document(sheet()).is_some(),
+        "the sheet is recreated"
+    );
+    assert_eq!(wires(&after), 0);
+    assert!(after.dirty_scopes().contains(&Scope::Document(sheet())));
+
+    let rows = found(&dir, &folder);
+    assert!(rows[0].missing);
+    after.run_ok(
+        "recovery.restore",
+        json!({"snapshots": [rows[0].snapshot.file.clone()]}),
+    );
+    assert_eq!(wires(&after), 1);
+    after.run_ok("project.save", json!({}));
+    assert!(folder.join("Demo.redasch").is_file());
+}

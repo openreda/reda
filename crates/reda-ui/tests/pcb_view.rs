@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{SeededIds, UserDirs};
-use reda_ui::engine::model::geom::Nm;
-use reda_ui::engine::model::{LayerKind, ObjectType, Side, Uuid};
+use reda_ui::engine::model::geom::{Nm, Point};
+use reda_ui::engine::model::{DocumentKind, LayerKind, ObjectType, Side, Uuid};
 use reda_ui::engine::preferences::{InactiveLayerMode, Units};
 use reda_ui::engine::render::{DIMMED_OPACITY, SceneLayer};
 use reda_ui::shell::Shell;
@@ -109,6 +109,25 @@ fn drawn(b: &Board, layer: Uuid) -> bool {
     composites(b)
         .iter()
         .any(|(l, _)| *l == SceneLayer::Board(layer))
+}
+
+#[test]
+fn view_json_keeps_the_user_origin() {
+    let b = board();
+    let mut shell = b.shell;
+    run(&mut shell, "project.save", json!({}));
+    run(
+        &mut shell,
+        "pcb.view.origin.set",
+        json!({"at": {"x": "5mm", "y": "-2mm"}}),
+    );
+    shell.save_view();
+    let mut again = Shell::new(engine_in(b._home.path()));
+    again.open_project(&b.project).unwrap();
+    assert_eq!(
+        again.board_view().origin,
+        Some(Point::new(Nm::from_mm(5), Nm::from_mm(-2)))
+    );
 }
 
 #[test]
@@ -330,6 +349,43 @@ fn the_ratsnest_hides_per_net_and_as_a_whole() {
     assert!(!composited(&b));
     run(&mut b.shell, "pcb.ratsnest.show", json!({}));
     assert!(composited(&b));
+}
+
+#[test]
+fn documents_start_on_the_preferred_snap_grid() {
+    let home = TempDir::new("pcb-view-home");
+    let work = TempDir::new("pcb-view-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    for (key, value) in [
+        ("schematic.default_grid", "100mil"),
+        ("pcb.default_grid", "1mm"),
+    ] {
+        run(
+            &mut shell,
+            "app.preferences.set",
+            json!({"key": key, "value": value}),
+        );
+    }
+    shell.new_project(work.path(), "Board").unwrap();
+    let project = shell.engine().project().unwrap();
+    let pcb = project.pcb().unwrap().uuid;
+    let sheet = project
+        .documents()
+        .find(|d| d.kind == DocumentKind::Schematic)
+        .unwrap()
+        .uuid;
+    assert_eq!(shell.grid(pcb), Nm::from_mm(1));
+    assert_eq!(shell.grid(sheet), Nm(100 * 25_400));
+
+    // A length that is not one of the type's presets is not used.
+    run(
+        &mut shell,
+        "app.preferences.set",
+        json!({"key": "pcb.default_grid", "value": "0.3mm"}),
+    );
+    let mut again = Shell::new(engine_in(home.path()));
+    again.open_project(&work.path().join("Board")).unwrap();
+    assert_eq!(again.grid(pcb), Nm::from_um(500));
 }
 
 #[test]

@@ -16,12 +16,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::selection::{PadRef, Selection};
+use crate::selection::{PadRef, Selection, SelectionSetResult};
 use crate::tools::{ActiveTool, Tool};
 
 /// Adds the routing Commands to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
-    registry.add(CycleCorner);
     registry.add(AddVia);
     registry.add(Finish);
     registry.add(Width);
@@ -82,14 +81,6 @@ macro_rules! route_key {
     };
 }
 
-route_key!(
-    CycleCorner,
-    "tool.cycle_corner",
-    "Cycle Corner Mode",
-    "Switches the route's corners between straight-then-45°, 45°-then-straight, \
-     horizontal-then-vertical and vertical-then-horizontal.",
-    "line"
-);
 route_key!(
     AddVia,
     "pcb.route.add_via",
@@ -189,12 +180,6 @@ impl Command for Width {
     }
 }
 
-/// How many things are now selected.
-#[derive(Serialize, JsonSchema)]
-pub struct Selected {
-    pub count: usize,
-}
-
 /// `pcb.selection.connected`: adds to the selection all copper physically connected to
 /// the selected copper.
 struct SelectConnected;
@@ -210,22 +195,19 @@ impl Command for SelectConnected {
         kind: Kind::View,
     };
     type Params = NoParams;
-    type Output = Selected;
+    type Output = SelectionSetResult;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Selected, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<SelectionSetResult, CommandError> {
         let mut selection = cx.view::<Selection>()?.clone();
         let project = cx.project()?;
         let pcb = project
             .pcb()
             .ok_or_else(|| CommandError::unavailable("the Project has no PCB Document"))?;
-        let mut copper = Copper::build(pcb);
-        if let Some(fills) = project.zone_fills(pcb.uuid) {
-            copper.set_zone_fills(pcb, Some(fills));
-        }
+        let copper = Copper::of(project).expect("the Project has a PCB Document");
         let mut starts: Vec<Item> = Vec::new();
         for o in &selection.objects {
             if pcb.track(*o).is_some() {
@@ -261,8 +243,8 @@ impl Command for SelectConnected {
                 }
             }
         }
-        let count = selection.objects.len() + selection.pads.len() + selection.nets.len();
+        let count = selection.len();
         *cx.view::<Selection>()? = selection;
-        Ok(Selected { count })
+        Ok(SelectionSetResult { count })
     }
 }

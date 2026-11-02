@@ -1,43 +1,11 @@
 //! The extent of selected objects on their sheet, for aligning, distributing and choosing a
 //! centre to turn about.
 
+pub(crate) use reda_model::geom::Bounds;
 use reda_model::geom::{Nm, Point};
 use reda_model::{Object, SchematicSheet, Shape, UnitInstance};
 
 use crate::connectivity::rotate;
-
-/// An axis-aligned box, corners included.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Bounds {
-    pub min: Point,
-    pub max: Point,
-}
-
-impl Bounds {
-    fn of(points: impl IntoIterator<Item = Point>) -> Option<Bounds> {
-        points.into_iter().fold(None, |acc, p| {
-            Some(match acc {
-                None => Bounds { min: p, max: p },
-                Some(b) => b.union(Bounds { min: p, max: p }),
-            })
-        })
-    }
-
-    pub fn union(self, other: Bounds) -> Bounds {
-        Bounds {
-            min: Point::new(self.min.x.min(other.min.x), self.min.y.min(other.min.y)),
-            max: Point::new(self.max.x.max(other.max.x), self.max.y.max(other.max.y)),
-        }
-    }
-
-    /// The centre, rounded down to whole nanometres.
-    pub fn center(self) -> Point {
-        Point::new(
-            Nm((self.min.x.0 + self.max.x.0).div_euclid(2)),
-            Nm((self.min.y.0 + self.max.y.0).div_euclid(2)),
-        )
-    }
-}
 
 /// Where `object` sits: a Unit's origin, a label's, marker's, Port's, Power Port's or text's
 /// point, or the middle of a Wire or graphic. A lone object turns and flips about it.
@@ -70,7 +38,7 @@ pub(crate) fn bounds(body: &SchematicSheet, object: &Object) -> Bounds {
         }
         _ => vec![],
     };
-    Bounds::of(points).expect("a selectable object has at least one point")
+    Bounds::of_points(points).expect("a selectable object has at least one point")
 }
 
 /// The union of the boxes of `objects`.

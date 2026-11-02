@@ -23,7 +23,7 @@ pub mod tool;
 pub mod view;
 
 pub use route::Router;
-pub use tool::Tool;
+pub use tool::SelectTool;
 
 /// Adds the PCB view Commands, the routing Tool's and the drawing Tools' Commands to
 /// `registry`. The Shell does this for its engine.

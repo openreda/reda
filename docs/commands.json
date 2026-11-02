@@ -1748,6 +1748,44 @@
     },
     {
       "category": "output",
+      "description": "Moves one of the user's Fab Presets, its `.redafab` file, to the OS trash. Project copies of it stay.",
+      "icon": "delete",
+      "id": "fab_preset.delete_user",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The user preset's name (case does not matter).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PresetDeleteUserParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The `.redafab` file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PresetSaveUserResult",
+        "type": "object"
+      },
+      "title": "Delete User Fab Preset"
+    },
+    {
+      "category": "output",
       "description": "Lists the Fab Presets a new Project or a job can use: the shipped Generic, JLCPCB and PCBWay, then the user's `.redafab` presets. `default` is the last one used for a new Project, else Generic.",
       "icon": "fab_preset",
       "id": "fab_preset.list",
@@ -2035,6 +2073,49 @@
         "type": "object"
       },
       "title": "List Fab Presets"
+    },
+    {
+      "category": "output",
+      "description": "Renames one of the user's Fab Presets and its `.redafab` file. Project copies keep the old name, so they no longer update from it.",
+      "icon": "rename",
+      "id": "fab_preset.rename_user",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The user preset's name (case does not matter).",
+            "type": "string"
+          },
+          "new_name": {
+            "description": "Its new name: a file name, and not a shipped preset's or another user preset's.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "new_name"
+        ],
+        "title": "PresetRenameUserParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The `.redafab` file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PresetSaveUserResult",
+        "type": "object"
+      },
+      "title": "Rename User Fab Preset"
     },
     {
       "category": "output",
@@ -2396,6 +2477,90 @@
         "type": "object"
       },
       "title": "Check Library"
+    },
+    {
+      "category": "library",
+      "description": "Creates an empty Library by writing `<name>.redalib` into the folder `path` (absolute, or relative to the Project folder). `register: user` also adds it to the user's Libraries in Preferences; for a Project Library, run `project.library.add` with the returned `project_path`.",
+      "icon": "library_add",
+      "id": "library.create",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "Register": {
+            "description": "Where a new Library is registered.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not registered. For a Project Library, run `project.library.add` with the result's\n`project_path` next, which is undoable on the Project's stack.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "Added to the user's Libraries in Preferences (`libraries.paths`).",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "type": "string"
+          },
+          "name": {
+            "description": "The Library's name, which is also the stem of its `.redalib` file.",
+            "type": "string"
+          },
+          "path": {
+            "description": "The Library folder: absolute, or relative to the open Project's folder. It may\nexist already, but must not hold a Library yet.",
+            "type": "string"
+          },
+          "register": {
+            "$ref": "#/$defs/Register"
+          }
+        },
+        "required": [
+          "path",
+          "name"
+        ],
+        "title": "CreateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "library": {
+            "description": "The new Library's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The Library folder.",
+            "type": "string"
+          },
+          "project_path": {
+            "description": "The folder relative to the open Project's folder, in the form\n`project.library.add` stores, when it lies inside that folder or was given\nrelative to it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "library",
+          "name",
+          "path"
+        ],
+        "title": "CreateResult",
+        "type": "object"
+      },
+      "title": "New Library"
     },
     {
       "category": "library",
@@ -3469,7 +3634,7 @@
           },
           "socket": {
             "default": false,
-            "description": "A socket (female) rather than a pin header (male). The land pattern is the same.",
+            "description": "A socket (female) rather than a pin header (male). The Footprint is the same.",
             "type": "boolean"
           }
         },
@@ -22058,7 +22223,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject; left out when there are none. Only a PCB Document can be missing;\n`document.add {kind: pcb}` adds a new one.",
+            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. A missing PCB Document is left out of the open Project (`document.add {kind:\npcb}` adds a new one); a missing Schematic Sheet is recreated empty and unsaved.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },
@@ -22096,7 +22261,7 @@
     },
     {
       "category": "project",
-      "description": "Opens the Project at `path`: its `.reda` file or its folder. Any Project already open is closed without saving. A missing PCB Document file is reported in `missing` and left out, which dirties the Project file.",
+      "description": "Opens the Project at `path`: its `.reda` file or its folder. Any Project already open is closed without saving. Missing Document files are reported in `missing`: a PCB Document is left out, which dirties the Project file; a Schematic Sheet is recreated empty and unsaved.",
       "icon": "project_open",
       "id": "project.open",
       "kind": "file",
@@ -22183,7 +22348,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject; left out when there are none. Only a PCB Document can be missing;\n`document.add {kind: pcb}` adds a new one.",
+            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. A missing PCB Document is left out of the open Project (`document.add {kind:\npcb}` adds a new one); a missing Schematic Sheet is recreated empty and unsaved.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },

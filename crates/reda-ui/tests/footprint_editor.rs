@@ -165,7 +165,10 @@ fn the_pad_tool_places_pads_from_its_settings_with_the_next_number() {
             paste_margin: None,
             ..PadTemplate::default()
         },
-    );
+    )
+    .unwrap();
+    let last = shell.engine().journal().last().unwrap().id.clone();
+    assert_eq!(last, "view.footprint_tool.set");
     // Clicks snap to the 0.5 mm grid.
     feed(&mut shell, fp, &[click(mm(0.1, 0.1)), click(mm(2.6, -0.1))]);
     let f = footprint(&shell, fp);
@@ -190,7 +193,7 @@ fn the_pad_tool_places_pads_from_its_settings_with_the_next_number() {
     assert_eq!(pad.mask_margin.map(|m| m.0), Some(50_000));
 
     // Undo takes back one Pad: each placement is one step on the element's stack.
-    shell.undo(false, false).unwrap();
+    shell.undo(false, None).unwrap();
     assert_eq!(footprint(&shell, fp).pads.len(), 1);
 }
 
@@ -204,7 +207,7 @@ fn graphics_are_drawn_on_the_chosen_layer_top_or_bottom() {
         ("rect", FootprintLayer::CourtyardBottom),
         ("circle", FootprintLayer::AssemblyTop),
     ] {
-        footprint_editor::set_layer(&mut shell, layer);
+        footprint_editor::set_layer(&mut shell, layer).unwrap();
         shell
             .run(&format!("tool.activate:{tool}"), json!({}))
             .unwrap();

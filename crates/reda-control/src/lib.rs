@@ -14,8 +14,11 @@
 
 pub mod client;
 pub mod headless;
+mod os_trash;
 pub mod protocol;
 mod server;
+
+pub use os_trash::OsTrash;
 
 use std::path::{Path, PathBuf};
 

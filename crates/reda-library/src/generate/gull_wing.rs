@@ -1,5 +1,5 @@
 //! Packages with two opposite columns of leads: SOT-23, SOT-223, SOIC, SSOP and TSSOP
-//! (gull-wing) and DFN (no-lead) share this land pattern.
+//! (gull-wing) and DFN (no-lead) share this Footprint.
 //!
 //! Zero orientation: the lead columns run along y, pin 1 at the upper left, numbered down
 //! the left column and back up the right one.
@@ -10,7 +10,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::ipc::{self, Termination, Tol};
-use super::pattern::{Body, Land, LandPattern, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH};
+use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH};
 use super::{TolParam, hundredths};
 
 /// A gull-wing package's dimensions, with the JEDEC letters in brackets.
@@ -156,11 +156,11 @@ pub fn dual_row(pins: usize, pitch: Nm, width: Tol) -> Vec<Lead> {
         .collect()
 }
 
-/// `span` with its heel edges held back so that each land reaches under the body by at
+/// `span` with its heel edges held back so that each Pad reaches under the body by at
 /// most a quarter of the body's greatest width `body`.
 ///
 /// IPC-7351 sizes the heel from the lead's foot alone. Where the span tolerance is wide
-/// next to a narrow body, as on SOT-23 (TO-236), that runs most of each land under the
+/// next to a narrow body, as on SOT-23 (TO-236), that runs most of each Pad under the
 /// body, where no heel fillet forms; the middle half of the body is kept free of copper
 /// instead.
 pub(crate) fn keep_body_middle_clear(span: ipc::Span, body: Nm) -> Result<ipc::Span, CommandError> {
@@ -168,46 +168,46 @@ pub(crate) fn keep_body_middle_clear(span: ipc::Span, body: Nm) -> Result<ipc::S
     if inner >= span.outer {
         return Err(CommandError::invalid_params(
             "/dimensions/lead_span",
-            "the lead span leaves no room for lands outside the body",
+            "the lead span leaves no room for Pads outside the body",
         ));
     }
     Ok(ipc::Span { inner, ..span })
 }
 
-/// The land pattern for `leads` of a package with dimensions `dims`, terminated as
+/// The Footprint for `leads` of a package with dimensions `dims`, terminated as
 /// `termination`. Silkscreen lines run along the body's top and bottom edges; the top one
 /// reaches out over pin 1 when it clears the copper.
-pub fn land_pattern(
+pub fn plan(
     dims: &GullWing,
     leads: &[Lead],
     termination: Termination,
     name: String,
     description: String,
-) -> Result<LandPattern, CommandError> {
+) -> Result<FootprintPlan, CommandError> {
     let goals = termination.goals(dims.pitch);
     let mut span = ipc::span(dims.lead_span, dims.lead_length, goals)
         .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
     if termination == Termination::GullWing {
         span = keep_body_middle_clear(span, dims.body_width.max)?;
     }
-    let offset = span.land_offset();
-    let lands: Vec<Land> = leads
+    let offset = span.pad_offset();
+    let pad_specs: Vec<PadSpec> = leads
         .iter()
         .map(|lead| {
             let x = match lead.side {
                 Side::Left => Nm(-offset.0),
                 Side::Right => offset,
             };
-            Land::smd(
+            PadSpec::smd(
                 lead.number.clone(),
                 Point::new(x, lead.y),
-                span.land_length(),
-                ipc::land_width(lead.width, goals),
+                span.pad_length(),
+                ipc::pad_width(lead.width, goals),
             )
         })
         .collect();
     let line_y = dims.body_length.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2;
-    let copper_top = lands.iter().map(|l| l.top().0).max().unwrap_or(0);
+    let copper_top = pad_specs.iter().map(|l| l.top().0).max().unwrap_or(0);
     let clear = line_y - SILKSCREEN_WIDTH.0 / 2 - SILKSCREEN_CLEARANCE.0 >= copper_top;
     let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
     let silkscreen = if clear {
@@ -227,10 +227,10 @@ pub fn land_pattern(
             vec![]
         }
     };
-    Ok(LandPattern {
+    Ok(FootprintPlan {
         name,
         description,
-        lands,
+        pad_specs,
         body: Body {
             nominal: (dims.body_width.nominal(), dims.body_length.nominal()),
             max: (dims.body_width.max, dims.body_length.max),

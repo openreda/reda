@@ -9,6 +9,7 @@ use std::time::Instant;
 
 use egui::{Panel, ThemePreference, Ui, UiBuilder};
 use reda_engine::Engine;
+use reda_engine::model::Scope;
 use reda_engine::preferences;
 use serde_json::json;
 
@@ -22,7 +23,7 @@ use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
 use crate::job_run::JobRuns;
 use crate::journal_panel::JournalAction;
-use crate::layout::{PanelId, TabKey};
+use crate::layout::PanelId;
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
 use crate::palette::{self, Palette, PaletteOutcome};
@@ -226,6 +227,12 @@ impl App {
         for (id, params) in frame.commands {
             let _ = self.shell.run_reporting(&id, params);
         }
+        // Keys pressed in a window of its own, unless a dialog here has the keys.
+        if !self.dialog_has_keys() && self.settings.is_none() {
+            for (id, params) in frame.keys {
+                let _ = self.shell.run_reporting(&id, params);
+            }
+        }
         for (id, params) in frame.calls {
             self.call(&id, params);
         }
@@ -334,15 +341,10 @@ impl App {
         }
     }
 
-    /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs
-    /// take keys first: nothing runs while a text field has the keyboard or the New Project
-    /// dialog is open, and while a Project dialog is open only global keys apply, with
-    /// undo on the Project stack. A focused button keeps the plain keys (Space presses
-    /// it), but chords with a modifier and the function keys (F6, Ctrl+Tab) still apply.
-    fn keys(&mut self, ctx: &egui::Context) {
-        // The Preferences dialog takes every key: its Keyboard Shortcuts page records them.
-        if ctx.text_edit_focused()
-            || self.new_project.is_some()
+    /// Whether an open dialog takes every key. The Preferences dialog does: its Keyboard
+    /// Shortcuts page records them.
+    fn dialog_has_keys(&self) -> bool {
+        self.new_project.is_some()
             || self.preferences.is_some()
             || self.palette.is_some()
             || self.params_dialog.is_some()
@@ -350,34 +352,26 @@ impl App {
                 self.schematic_dialog,
                 Some(ref d) if !matches!(d, SchematicDialog::Find(_))
             )
-        {
+    }
+
+    /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs
+    /// take keys first: nothing runs while a text field has the keyboard or the New Project
+    /// dialog is open, and while a Project dialog is open only global keys apply, with
+    /// undo on the Project stack. A focused button keeps the plain keys (Space presses
+    /// it), but chords with a modifier and the function keys (F6, Ctrl+Tab) still apply.
+    fn keys(&mut self, ctx: &egui::Context) {
+        if ctx.text_edit_focused() || self.dialog_has_keys() {
             return;
         }
         // The Project dialogs: the Projects panel's and the settings dialog.
-        let dialog = projects_panel::dialog_open(ctx) || self.settings.is_some();
-        let active = if dialog {
-            keymap::Active::default()
-        } else {
-            let mut active = keymap::active(&self.shell);
-            // A focused Panel keeps the canvas's keys (Del, Mod+C, the Tools') off it.
-            if matches!(self.shell.layout().focus, Some(TabKey::Panel(_))) {
-                active = keymap::Active::default();
-            }
-            active
+        let dialog = match &self.settings {
+            Some(settings) => Some(settings.undo_scope()),
+            None => projects_panel::dialog_open(ctx).then_some(Scope::Project),
         };
         // Escape and Enter go to the tab switcher while it is open.
         tab_switcher::keys(ctx, &mut self.shell);
-        let widget_focused = ctx.egui_wants_keyboard_input();
-        let actions = ctx.input_mut(|i| {
-            let wanted = |chord: &keymap::Chord| !widget_focused || chord.passes_focused_widgets();
-            self.shell.keymap().take_where(i, &active, wanted)
-        });
-        let document = self.shell.active_document().map(|d| d.document);
-        for action in actions {
-            // A key whose Command cannot run now does nothing, as its greyed menu item.
-            if let Ok((id, params)) = bars::resolve_in(&self.shell, &action, document, dialog).run {
-                let _ = self.shell.run_reporting(&id, params);
-            }
+        for (id, params) in keymap::resolve_keys(ctx, &self.shell, dialog) {
+            let _ = self.shell.run_reporting(&id, params);
         }
     }
 
@@ -519,7 +513,11 @@ impl App {
             command_dialog::Outcome::Run(params) => {
                 let id = dialog.command().to_owned();
                 match self.shell.run_reporting(&id, params) {
-                    Ok(_) => {
+                    Ok(out) => {
+                        if let Some((next, params)) = dialog.then(&out) {
+                            // Errors reach the status bar; the first Command's work stays.
+                            let _ = self.shell.run_reporting(&next, params);
+                        }
                         self.params_dialog = None;
                         self.handle_requests(ctx);
                     }
@@ -657,6 +655,9 @@ impl App {
                     if let Some(tab) = self.shell.document_tab_mut(document) {
                         tab.camera = None;
                     }
+                }
+                Request::ZoomSelection(document) => {
+                    self.shell.zoom_to_selection(document);
                 }
                 Request::Preferences => self.open_preferences(None),
                 Request::Theme(choice) => ctx.set_theme(match choice {

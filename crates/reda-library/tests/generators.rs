@@ -1,4 +1,4 @@
-//! Footprint generators: Commands that compute IPC-7351 Nominal land patterns and write
+//! Footprint generators: Commands that compute IPC-7351 Nominal Footprints and write
 //! the Footprint into a chosen Library, then run the Library check on it.
 
 use std::path::{Path, PathBuf};
@@ -39,7 +39,7 @@ fn golden(name: &str) -> PathBuf {
 }
 
 #[test]
-fn a_0603_chip_resistor_gets_ipc_7351_nominal_lands() {
+fn a_0603_chip_resistor_gets_ipc_7351_nominal_pads() {
     let dir = TempDir::new("gen-chip-0603");
     let mut e = engine_with_library(&dir);
     let out = e.run_ok(
@@ -56,7 +56,7 @@ fn a_0603_chip_resistor_gets_ipc_7351_nominal_lands() {
     // Worked by hand from IPC-7351B with L 1.45–1.75, W 0.65–0.95, T 0.10–0.50 mm,
     // toe 0.35, heel 0, side 0, F 0.05, P 0.025, rounded to 0.05 mm:
     // Z 2.455 → 2.50, G 0.678 → 0.65, X 0.955 → 1.00.
-    let mut lands: Vec<_> = pads
+    let mut pad_specs: Vec<_> = pads
         .iter()
         .map(|p| {
             (
@@ -68,9 +68,9 @@ fn a_0603_chip_resistor_gets_ipc_7351_nominal_lands() {
             )
         })
         .collect();
-    lands.sort();
+    pad_specs.sort();
     assert_eq!(
-        lands,
+        pad_specs,
         [
             ("1".to_owned(), -787_500, 0, 925_000, 1_000_000),
             ("2".to_owned(), 787_500, 0, 925_000, 1_000_000),
@@ -438,7 +438,7 @@ fn a_preview_computes_the_footprint_a_generator_would_write_without_writing_it()
         .map(|p| (p.number.clone(), p.at.x.0, p.width.0))
         .collect();
     pads.sort();
-    // The same lands as the written Footprint above.
+    // The same Pads as the written Footprint above.
     assert_eq!(
         pads,
         [
@@ -496,7 +496,7 @@ fn sot_23_3_lands_stop_short_of_the_middle_of_the_body() {
     );
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
     // TO-236: E 2.10–2.64, L 0.40–0.60, b 0.30–0.50, E1 1.20–1.40 mm. IPC-7351 gives
-    // Z 3.35 and G 0.35, which would put 0.525 mm of each land under a 0.70 mm half-body;
+    // Z 3.35 and G 0.35, which would put 0.525 mm of each Pad under a 0.70 mm half-body;
     // the heel edge is held back to a quarter of E1 max from the body edge: G 0.70.
     let (x, y, w, h) = (1_012_500, 950_000, 1_325_000, 600_000);
     assert_eq!(
@@ -561,7 +561,7 @@ fn gull_wing_lands_reach_under_the_body_by_at_most_a_quarter_of_its_width() {
         let out = e.run_ok(id, params);
         let file = read_json(Path::new(out["file"].as_str().unwrap()));
         for (number, x, y, w, h) in pad_boxes(&file) {
-            // Measured towards the body's centre from the side the land is on.
+            // Measured towards the body's centre from the side the Pad is on.
             let reach = if x.abs() >= y.abs() {
                 body / 2 - (x.abs() - w / 2)
             } else {
@@ -569,7 +569,7 @@ fn gull_wing_lands_reach_under_the_body_by_at_most_a_quarter_of_its_width() {
             };
             assert!(
                 reach <= body / 4,
-                "{}: land {number} reaches {reach} nm under the body",
+                "{}: spec {number} reaches {reach} nm under the body",
                 out["name"]
             );
         }
@@ -590,7 +590,7 @@ fn a_dfn_10_gets_no_lead_lands_and_an_exposed_pad() {
     // By hand, 3 × 3 mm body: D and E 2.90–3.10, L 0.30–0.50, b 0.18–0.30 mm, exposed
     // pad 2.30–2.50 × 1.55–1.75; no-lead toe 0.30, heel 0, side −0.04:
     // Z 3.708 → 3.75, G 2.022 → 2.00, X 0.232 → 0.25. The exposed pad keeps 0.2 mm from
-    // the lands, so it narrows from 1.65 to 1.60.
+    // the Pads, so it narrows from 1.65 to 1.60.
     let (x, w, h) = (1_437_500, 875_000, 250_000);
     let mut expected: Vec<(String, i64, i64, i64, i64)> = vec![];
     for (i, y) in [1_000_000, 500_000, 0, -500_000, -1_000_000]
@@ -716,7 +716,7 @@ fn a_dip_8_gets_through_hole_pads_with_a_square_pin_1() {
     assert_eq!(out["violations"], json!([]));
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
     // MS-001 leads 0.36–0.56 × 0.20–0.36 mm: diagonal 0.666, hole + 0.20 → 0.90,
-    // land + 0.50 → 1.40.
+    // Pad + 0.50 → 1.40.
     let (x, y1, y2, d, h) = (3_810_000, 3_810_000, 1_270_000, 1_400_000, 900_000);
     let pad = |n: &str, x: i64, y: i64, shape: &str| (n.to_owned(), x, y, d, shape.to_owned(), h);
     assert_eq!(
@@ -750,7 +750,7 @@ fn headers_number_across_the_rows_and_sockets_share_the_land_pattern() {
     assert_eq!(out["name"], "HDR254P2X3");
     assert_eq!(out["violations"], json!([]));
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
-    // 0.64 mm square posts: diagonal 0.905, hole + 0.20 → 1.15, land + 0.50 → 1.65.
+    // 0.64 mm square posts: diagonal 0.905, hole + 0.20 → 1.15, Pad + 0.50 → 1.65.
     let (x, y, d, h) = (1_270_000, 2_540_000, 1_650_000, 1_150_000);
     let pad = |n: &str, x: i64, y: i64, shape: &str| (n.to_owned(), x, y, d, shape.to_owned(), h);
     assert_eq!(
@@ -773,7 +773,7 @@ fn headers_number_across_the_rows_and_sockets_share_the_land_pattern() {
     assert_eq!(out["name"], "SKT127P1X3");
     assert_eq!(out["violations"], json!([]));
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
-    // 0.40 mm square posts: diagonal 0.566, hole + 0.20 → 0.80; the land would be 1.30
+    // 0.40 mm square posts: diagonal 0.566, hole + 0.20 → 0.80; the Pad would be 1.30
     // but keeps 0.25 mm between neighbours at 1.27 mm pitch: 1.00.
     let (y, d, h) = (1_270_000, 1_000_000, 800_000);
     let pad = |n: &str, y: i64, shape: &str| (n.to_owned(), 0, y, d, shape.to_owned(), h);

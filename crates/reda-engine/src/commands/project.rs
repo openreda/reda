@@ -37,9 +37,9 @@ pub struct ProjectSummary {
     pub path: PathBuf,
     /// In Project order.
     pub documents: Vec<DocumentEntry>,
-    /// Documents the Project file lists whose files are missing, left out of the open
-    /// Project; left out when there are none. Only a PCB Document can be missing;
-    /// `document.add {kind: pcb}` adds a new one.
+    /// Documents the Project file lists whose files are missing; left out when there are
+    /// none. A missing PCB Document is left out of the open Project (`document.add {kind:
+    /// pcb}` adds a new one); a missing Schematic Sheet is recreated empty and unsaved.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing: Vec<DocumentEntry>,
     /// The Output Jobs, by name, for `output.job.run`; left out when there are none.
@@ -234,9 +234,9 @@ impl Command for ProjectOpen {
         id: "project.open",
         title: "Open Project",
         description: "Opens the Project at `path`: its `.reda` file or its folder. Any \
-                      Project already open is closed without saving. A missing PCB Document \
-                      file is reported in `missing` and left out, which dirties the Project \
-                      file.",
+                      Project already open is closed without saving. Missing Document files \
+                      are reported in `missing`: a PCB Document is left out, which dirties \
+                      the Project file; a Schematic Sheet is recreated empty and unsaved.",
         category: "project",
         icon: "project_open",
         kind: Kind::File,
@@ -257,9 +257,15 @@ impl Command for ProjectOpen {
         session.project = Some(opened.project);
         session.location = Some(opened.folder);
         session.history.clear();
-        if !opened.missing.is_empty() {
-            // The open Project no longer lists what the Project file on disk lists.
-            session.history.mark_unsaved(Scope::Project);
+        for entry in &opened.missing {
+            let project = session.project.as_ref().expect("just opened");
+            if project.document(entry.uuid).is_some() {
+                // A recreated sheet: saving writes its file again.
+                session.history.mark_unsaved(Scope::Document(entry.uuid));
+            } else {
+                // The open Project no longer lists what the Project file on disk lists.
+                session.history.mark_unsaved(Scope::Project);
+            }
         }
         Ok(summary(session, opened.missing))
     }

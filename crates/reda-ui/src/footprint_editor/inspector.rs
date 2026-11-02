@@ -11,7 +11,7 @@ use reda_engine::model::{
 };
 use serde_json::{Value, json};
 
-use super::{Options, PadTemplate, options, set_layer, set_pad_template};
+use super::{PadTemplate, ToolSettings, tool_settings};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
 use crate::tr;
@@ -88,11 +88,14 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
             }
         });
         ui.separator();
-        let mut opts = options(shell);
-        tool_settings(ui, id, &mut opts);
-        if opts != options(shell) {
-            set_pad_template(shell, opts.pad.clone());
-            set_layer(shell, opts.layer);
+        let before = tool_settings(shell);
+        let mut settings = before.clone();
+        tool_settings_ui(ui, id, &mut settings);
+        if settings != before {
+            out.push(cmd(
+                "view.footprint_tool.set",
+                json!({ "pad": settings.pad, "layer": settings.layer }),
+            ));
         }
         ui.separator();
         if !read_only {
@@ -109,7 +112,7 @@ fn cmd(id: &str, params: Value) -> Invocation {
     (id.to_owned(), params)
 }
 
-fn tool_settings(ui: &mut Ui, id: Id, opts: &mut Options) {
+fn tool_settings_ui(ui: &mut Ui, id: Id, opts: &mut ToolSettings) {
     ui.strong(tr!("footprint-pad-tool"));
     let pad = &mut opts.pad;
     Grid::new(id.with("pad-tool"))

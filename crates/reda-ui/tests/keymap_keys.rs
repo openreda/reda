@@ -90,13 +90,33 @@ fn the_most_specific_context_takes_the_key() {
     press(&mut h, Key::G);
     assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
 
-    // With the Move Tool active, the Tool's binding.
-    h.state_mut().shell_mut().set_active_tool(Tool::Move);
+    // With the Move Tool active (it needs a selection), the Tool's binding.
+    let shell = h.state_mut().shell_mut();
+    let sheet = shell.active_document().unwrap().document;
+    let wire = shell
+        .run(
+            "schematic.wire.add",
+            serde_json::json!({"document": sheet, "points": [{"x": 0, "y": 0}, {"x": 2_540_000, "y": 0}]}),
+        )
+        .unwrap()["result"]["wires"][0]
+        .clone();
+    shell
+        .run("selection.set", serde_json::json!({ "objects": [wire] }))
+        .unwrap();
+    shell
+        .run("tool.activate:move", serde_json::json!({}))
+        .unwrap();
+    assert_eq!(shell.tool(), Tool::Move);
+    ran(&mut h, &mut seen);
     press(&mut h, Key::G);
     assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
 
     // A Tool that does not bind G falls back to the Document type's.
-    h.state_mut().shell_mut().set_active_tool(Tool::Drag);
+    h.state_mut()
+        .shell_mut()
+        .run("tool.activate:drag", serde_json::json!({}))
+        .unwrap();
+    ran(&mut h, &mut seen);
     press(&mut h, Key::G);
     assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
 

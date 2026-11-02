@@ -237,6 +237,7 @@ update-available = REDA { $latest } is available. This is { $current }.
 update-current = REDA { $latest } is the newest release.
 update-current-dev = This build ({ $current }) is newer than the newest release, { $latest }.
 update-open-release = Open the release page
+update-failed = REDA could not check for updates: { $why }
 
 ## Properties panel
 
@@ -285,6 +286,16 @@ library-new-part = New Part…
 library-new-symbol = New Symbol…
 library-new-footprint = New Footprint…
 library-import-part = Import Part…
+library-new-library = New Library…
+new-library-title = New Library
+new-library-name = Name
+new-library-for = For
+new-library-for-project = This Project
+new-library-for-user = Me (all Projects)
+new-library-folder = Folder
+new-library-folder-project-hint = in the Project folder
+new-library-description = Description
+new-library-create = Create
 library-generate = Generate Footprint
 library-refresh = Refresh
 
@@ -557,6 +568,9 @@ settings-libraries-note = Folders relative to the Project folder, so they move w
 settings-library-path = Library folder { $number }
 settings-library-remove = Remove Library folder { $number }
 settings-library-add-path = Add Path
+settings-library-new = New Library
+settings-library-new-name = New Library name
+settings-library-created = Created { $path }; Apply to add it.
 settings-library-blank = Give a folder.
 settings-library-invalid = { $reason }
 settings-library-duplicate = { $path } is listed already.
@@ -630,6 +644,9 @@ pref-agents-none-connected = None
 pref-forget-named = Forget { $agent }
 pref-fab-presets-intro = Your Fab Presets, which new Projects can start from. Save one from a Project's settings with "Save as User Preset…".
 pref-fab-presets-none = You have no Fab Presets of your own yet.
+pref-fab-preset-name = Name of { $name }
+pref-delete = Delete
+pref-delete-named = Delete { $item }
 shortcuts-search = Search shortcuts
 shortcuts-search-hint = Search Commands or keys…
 shortcuts-open-folder = Open folder

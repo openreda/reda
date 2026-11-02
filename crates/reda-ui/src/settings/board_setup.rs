@@ -11,7 +11,7 @@
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
-use reda_engine::model::{DrcCheck, Project};
+use reda_engine::model::{DrcCheck, Project, Scope};
 
 use super::{Page, PageCx, Problem, SettingsDialog, Step};
 use crate::tr;
@@ -257,5 +257,9 @@ pub fn dialog(project: &Project) -> SettingsDialog {
         .collect();
     pages.push(Box::new(NetClassesPage { view: view(false) }));
     pages.push(Box::new(DrcPage { view: view(false) }));
-    SettingsDialog::new(tr!("board-setup-title"), pages, project)
+    let dialog = SettingsDialog::new(tr!("board-setup-title"), pages, project);
+    match project.pcb() {
+        Some(pcb) => dialog.on_stack(Scope::Document(pcb.uuid)),
+        None => dialog,
+    }
 }

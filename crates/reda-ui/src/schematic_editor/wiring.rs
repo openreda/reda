@@ -4,7 +4,7 @@
 //! A run in flight touches neither the Project nor the Journal: each click fixes a corner,
 //! and the run ends, as ONE `schematic.wire.add`, when a click lands on a Pin or a Wire (or
 //! on the run's last corner again, as a double-click does). `/` turns the corner the other
-//! way and Backspace takes the last segment off (`tool.corner`, `tool.remove_last`).
+//! way and Backspace takes the last segment off (`tool.cycle_corner`, `tool.undo_segment`).
 
 use reda_engine::model::geom::Nm;
 use reda_engine::model::geom::{Millideg, Point};

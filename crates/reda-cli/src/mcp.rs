@@ -77,7 +77,7 @@ pub fn execute(args: McpArgs) -> ExitCode {
         None => writer::spawn(|| {
             Engine::builder()
                 .source(Source::Mcp)
-                .trash(crate::os_trash::OsTrash)
+                .trash(reda_control::OsTrash)
                 .build()
         }),
     };

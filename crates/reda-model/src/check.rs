@@ -17,7 +17,7 @@ mod pin_matrix;
 mod waiver;
 
 pub use pin_matrix::pin_conflict;
-pub use waiver::{Waived, Waiver, apply_waivers, fingerprint};
+pub use waiver::{Waived, Waiver, apply_waivers};
 
 // A check set to `Off` does not run, so it reports nothing. (Kept out of the doc comment,
 // which is the file schemas' description.)
