@@ -185,6 +185,65 @@ pub struct NetLabel {
     pub rotation: Millideg,
 }
 
+/// Free text drawn on a sheet. It has no electrical meaning.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SheetText {
+    pub uuid: Uuid,
+    /// The text; `\n` starts a new line.
+    pub text: String,
+    /// The left end of the first baseline.
+    pub at: Point,
+    /// The capital height.
+    pub height: Nm,
+    /// Counter-clockwise about `at`.
+    pub rotation: Millideg,
+}
+
+/// A free line or rectangle drawn on a sheet. It has no electrical meaning.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SheetGraphic {
+    pub uuid: Uuid,
+    pub shape: SheetShape,
+}
+
+/// What a [`SheetGraphic`] draws.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SheetShape {
+    /// A straight line, at any angle.
+    Line { from: Point, to: Point },
+    /// An axis-aligned rectangle between two opposite corners.
+    Rect {
+        from: Point,
+        to: Point,
+        #[serde(default, skip_serializing_if = "is_false")]
+        filled: bool,
+    },
+}
+
+impl SheetShape {
+    /// Its two defining points: a line's ends or a rectangle's opposite corners.
+    pub fn ends(&self) -> (Point, Point) {
+        match self {
+            SheetShape::Line { from, to } | SheetShape::Rect { from, to, .. } => (*from, *to),
+        }
+    }
+
+    /// The same shape through two other defining points.
+    pub fn with_ends(&self, a: Point, b: Point) -> SheetShape {
+        match self {
+            SheetShape::Line { .. } => SheetShape::Line { from: a, to: b },
+            SheetShape::Rect { filled, .. } => SheetShape::Rect {
+                from: a,
+                to: b,
+                filled: *filled,
+            },
+        }
+    }
+}
+
 /// A mark on the Pin under `at` stating that it is deliberately left unconnected.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -208,6 +267,8 @@ pub struct SchematicSheet {
     pub(crate) wires: BTreeMap<Uuid, Wire>,
     pub(crate) net_labels: BTreeMap<Uuid, NetLabel>,
     pub(crate) no_connects: BTreeMap<Uuid, NoConnect>,
+    pub(crate) texts: BTreeMap<Uuid, SheetText>,
+    pub(crate) graphics: BTreeMap<Uuid, SheetGraphic>,
 }
 
 impl SchematicSheet {
@@ -221,6 +282,8 @@ impl SchematicSheet {
             wires: BTreeMap::new(),
             net_labels: BTreeMap::new(),
             no_connects: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            graphics: BTreeMap::new(),
         }
     }
 
@@ -302,6 +365,24 @@ impl SchematicSheet {
         self.no_connects.get(&uuid)
     }
 
+    /// The free texts, sorted by UUID.
+    pub fn texts(&self) -> impl Iterator<Item = &SheetText> {
+        self.texts.values()
+    }
+
+    pub fn text(&self, uuid: Uuid) -> Option<&SheetText> {
+        self.texts.get(&uuid)
+    }
+
+    /// The free lines and rectangles, sorted by UUID.
+    pub fn graphics(&self) -> impl Iterator<Item = &SheetGraphic> {
+        self.graphics.values()
+    }
+
+    pub fn graphic(&self, uuid: Uuid) -> Option<&SheetGraphic> {
+        self.graphics.get(&uuid)
+    }
+
     /// The object with this UUID, if this sheet holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -320,7 +401,9 @@ impl SchematicSheet {
             units => Unit,
             wires => Wire,
             net_labels => NetLabel,
-            no_connects => NoConnect
+            no_connects => NoConnect,
+            texts => SheetText,
+            graphics => SheetGraphic
         )
     }
 
@@ -344,7 +427,9 @@ impl SchematicSheet {
             units => Unit,
             wires => Wire,
             net_labels => NetLabel,
-            no_connects => NoConnect
+            no_connects => NoConnect,
+            texts => SheetText,
+            graphics => SheetGraphic
         );
         out
     }
@@ -358,6 +443,8 @@ impl SchematicSheet {
         self.wires.remove(&uuid);
         self.net_labels.remove(&uuid);
         self.no_connects.remove(&uuid);
+        self.texts.remove(&uuid);
+        self.graphics.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -368,6 +455,8 @@ impl SchematicSheet {
             && self.wires.is_empty()
             && self.net_labels.is_empty()
             && self.no_connects.is_empty()
+            && self.texts.is_empty()
+            && self.graphics.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -454,6 +543,24 @@ impl SchematicSheet {
         for label in self.net_labels.values() {
             if label.name.trim().is_empty() {
                 return Err(format!("Net Label {} has no name", label.uuid));
+            }
+        }
+        for text in self.texts.values() {
+            if text.text.trim().is_empty() || text.height <= Nm::ZERO {
+                return Err(format!(
+                    "text {} needs some text and a positive height",
+                    text.uuid
+                ));
+            }
+        }
+        for graphic in self.graphics.values() {
+            let (a, b) = graphic.shape.ends();
+            let empty = match graphic.shape {
+                SheetShape::Line { .. } => a == b,
+                SheetShape::Rect { .. } => a.x == b.x || a.y == b.y,
+            };
+            if empty {
+                return Err(format!("graphic {} is empty", graphic.uuid));
             }
         }
         Ok(())

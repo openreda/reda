@@ -217,6 +217,8 @@ impl Project {
             Object::Wire(o) => return self.check_sheet(o.document),
             Object::NetLabel(o) => return self.check_sheet(o.document),
             Object::NoConnect(o) => return self.check_sheet(o.document),
+            Object::SheetText(o) => return self.check_sheet(o.document),
+            Object::SheetGraphic(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
             _ => return Ok(()),
@@ -344,6 +346,12 @@ impl Project {
                 self.sheet_mut(o.document)
                     .no_connects
                     .insert(uuid, o.object);
+            }
+            Some(Object::SheetText(o)) => {
+                self.sheet_mut(o.document).texts.insert(uuid, o.object);
+            }
+            Some(Object::SheetGraphic(o)) => {
+                self.sheet_mut(o.document).graphics.insert(uuid, o.object);
             }
             Some(Object::PcbText(o)) => {
                 self.pcb_mut(o.document).texts.insert(uuid, o.object);
