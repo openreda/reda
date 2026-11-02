@@ -366,6 +366,30 @@ impl Copper {
             })
     }
 
+    /// The copper of `item`, one shape per Layer it is on.
+    pub(crate) fn item_pieces(&self, item: Item) -> Vec<(Uuid, &Shape)> {
+        self.slots
+            .get(&item)
+            .into_iter()
+            .flatten()
+            .map(|&slot| {
+                let piece = self.piece(slot);
+                (piece.layer, &piece.shape)
+            })
+            .collect()
+    }
+
+    /// Whether `item`'s copper on `layer` touches any other copper there.
+    pub(crate) fn touches_on(&self, item: Item, layer: Uuid) -> bool {
+        self.item_pieces(item)
+            .into_iter()
+            .filter(|(l, _)| *l == layer)
+            .any(|(_, shape)| {
+                self.candidates(layer, shape.envelope())
+                    .any(|other| other.item != item && other.shape.touches(shape))
+            })
+    }
+
     fn piece(&self, slot: usize) -> &Piece {
         self.pieces[slot].as_ref().expect("an indexed slot")
     }

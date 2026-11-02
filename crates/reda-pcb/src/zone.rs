@@ -13,10 +13,12 @@ use reda_model::{PcbDocument, Uuid, Zone, ZoneFills};
 
 mod cache;
 mod fill;
+mod merge;
 mod poly;
 
 pub use cache::{decode, encode};
 pub(crate) use fill::shape_copper;
+pub use merge::{LayerFill, layer_fills};
 
 use crate::copper::shape::Shape;
 use crate::copper::{Copper, Proposal};
@@ -177,14 +179,26 @@ pub fn keepouts_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
             true,
         ),
     };
-    let copper = poly::union(poly::grown(&shape, 0));
+    keepouts_entered(pcb, &shape, &layers, is_via)
+}
+
+/// The Keepouts that copper `shape` on `layers` enters, sorted: those forbidding copper on
+/// any of the Layers, and for a Via (`is_via`) also those forbidding Vias.
+pub(crate) fn keepouts_entered(
+    pcb: &PcbDocument,
+    shape: &Shape,
+    layers: &[Uuid],
+    is_via: bool,
+) -> Vec<Uuid> {
+    let mut copper = None;
     pcb.keepouts()
         .filter(|k| {
             let forbids =
                 (k.copper || (is_via && k.vias)) && k.layers.iter().any(|l| layers.contains(l));
             forbids && {
+                let copper = copper.get_or_insert_with(|| poly::union(poly::grown(shape, 0)));
                 let area = poly::polygon(poly::contour(&k.vertices));
-                poly::overlaps(&area, &copper)
+                poly::overlaps(&area, copper)
             }
         })
         .map(|k| k.uuid)
