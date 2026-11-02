@@ -1088,9 +1088,20 @@ impl Shell {
         self.sync_selection();
         self.sync_show_waived();
         self.sync_board_view();
+        if base.starts_with("app.preferences.") {
+            self.follow_grid_preferences();
+        }
         self.note_focus();
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
+        }
+    }
+
+    /// Starts new views on the snap grids the Preferences now pick.
+    fn follow_grid_preferences(&mut self) {
+        let prefs = preferences::current(self.engine.user_dirs());
+        if let Some(grids) = self.engine.view_mut().get_mut::<Grids>() {
+            grids.follow(&prefs);
         }
     }
 
@@ -1541,20 +1552,17 @@ impl Shell {
             None => (self.default_layout(first_sheet), BTreeMap::new()),
         };
         let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
-        let units = preferences::current(self.engine.user_dirs())
-            .pcb
-            .default_units;
+        let prefs = preferences::current(self.engine.user_dirs());
+        let units = prefs.pcb.default_units;
         let mut board = BoardView::new(units);
         if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
             board.layers = view.layers.clone();
             board.origin = view.user_origin;
         }
         *self.board_view_mut() = board;
-        // A board's grid starts at the middle preset of the units the Preference picks.
-        if let Some(pcb) = pcb
-            && let Some(grids) = self.engine.view_mut().get_mut::<Grids>()
-        {
-            grids.0.entry(pcb).or_insert(grid::pcb_default(units));
+        // Views start on the grids the Preferences pick.
+        if let Some(grids) = self.engine.view_mut().get_mut::<Grids>() {
+            grids.follow(&prefs);
         }
         self.documents.clear();
         let open: Vec<Uuid> = layout

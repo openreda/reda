@@ -4,7 +4,8 @@
 //!
 //! Sheets offer 10, 25, 50 and 100 mil and the metric 0.25, 0.5, 1 and 2.5 mm, starting at
 //! 50 mil. Boards offer 0.1, 0.25, 0.5 and 1 mm and 5, 10, 25 and 50 mil, starting at the
-//! middle preset of the `pcb.default_units` Preference. Cycling steps through the presets
+//! middle preset of the `pcb.default_units` Preference. The `schematic.default_grid` and
+//! `pcb.default_grid` Preferences pick another starting preset. Cycling steps through the presets
 //! of the current one's unit. On a board the grid's unit is also the unit lengths show in
 //! (`view.units.toggle` switches both).
 
@@ -13,7 +14,7 @@ use std::collections::BTreeMap;
 use reda_engine::command::{Command, CommandError, Context, Kind, Length, Meta, Registry};
 use reda_engine::model::geom::Nm;
 use reda_engine::model::{DocumentKind, Project, Uuid};
-use reda_engine::preferences::Units;
+use reda_engine::preferences::{Preferences, Units};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -99,22 +100,68 @@ pub fn label(pitch: Nm) -> String {
     }
 }
 
-/// The grids picked so far, per Document, in the engine's view state.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Grids(pub BTreeMap<Uuid, Nm>);
+/// The grids picked so far, per Document, in the engine's view state, and the grids a
+/// sheet and a board start on (from the Preferences).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Grids {
+    pub picked: BTreeMap<Uuid, Nm>,
+    pub schematic: Nm,
+    pub pcb: Nm,
+}
+
+impl Default for Grids {
+    fn default() -> Grids {
+        Grids {
+            picked: BTreeMap::new(),
+            schematic: SCHEMATIC_DEFAULT,
+            pcb: pcb_default(Units::Mm),
+        }
+    }
+}
+
+/// The grid a Document type starts on under `preferences`: its `default_grid` when that
+/// is one of the type's presets, else the type's default (a board's in its default
+/// units).
+pub fn preferred(kind: DocumentKind, preferences: &Preferences) -> Nm {
+    let editing = match kind {
+        DocumentKind::Schematic => &preferences.schematic,
+        DocumentKind::Pcb => &preferences.pcb,
+    };
+    match editing.default_grid {
+        Some(grid) if presets(kind).contains(&grid.nm()) => grid.nm(),
+        _ => match kind {
+            DocumentKind::Schematic => SCHEMATIC_DEFAULT,
+            DocumentKind::Pcb => pcb_default(editing.default_units),
+        },
+    }
+}
 
 impl Grids {
+    /// Starts new views on the grids `preferences` picks.
+    pub fn follow(&mut self, preferences: &Preferences) {
+        self.schematic = preferred(DocumentKind::Schematic, preferences);
+        self.pcb = preferred(DocumentKind::Pcb, preferences);
+    }
+
+    /// The grid a Document of `kind` starts on.
+    pub fn start(&self, kind: DocumentKind) -> Nm {
+        match kind {
+            DocumentKind::Schematic => self.schematic,
+            DocumentKind::Pcb => self.pcb,
+        }
+    }
+
     /// `document`'s grid: the one picked, else its type's default. `document` may also be
     /// an open Library element, whose editor's grids follow its kind.
     pub fn of(&self, project: Option<&Project>, document: Uuid) -> Nm {
-        if let Some(grid) = self.0.get(&document) {
+        if let Some(grid) = self.picked.get(&document) {
             return *grid;
         }
         let Some(project) = project else {
             return SCHEMATIC_DEFAULT;
         };
         match project.document(document) {
-            Some(d) => default_grid(d.kind),
+            Some(d) => self.start(d.kind),
             None => project
                 .element(document)
                 .and_then(crate::element_editor::grid_presets)
@@ -155,7 +202,7 @@ pub struct GridResult {
 /// Makes `grid` `document`'s grid; on a board, lengths then show in the grid's unit.
 fn put(cx: &mut Context<'_>, document: Uuid, grid: Nm) -> Result<(), CommandError> {
     let board = cx.project()?.pcb().is_some_and(|pcb| pcb.uuid == document);
-    cx.view::<Grids>()?.0.insert(document, grid);
+    cx.view::<Grids>()?.picked.insert(document, grid);
     if board && let Ok(view) = cx.view::<BoardView>() {
         view.units = if is_imperial(grid) {
             Units::Mil
@@ -172,6 +219,7 @@ fn document_presets(
     document: Uuid,
 ) -> Result<(Nm, &'static [Nm]), CommandError> {
     let project = cx.project()?;
+    let kind_of = project.document(document).map(|e| e.kind);
     let (presets, default) = match project.document(document) {
         Some(entry) => (presets(entry.kind), default_grid(entry.kind)),
         None => project
@@ -184,7 +232,12 @@ fn document_presets(
             "this Document type has no grid presets yet",
         ));
     }
-    let current = cx.view::<Grids>()?.0.get(&document).copied();
+    let grids = cx.view::<Grids>()?;
+    let current = grids.picked.get(&document).copied();
+    let default = match kind_of {
+        Some(kind) => grids.start(kind),
+        None => default,
+    };
     Ok((current.unwrap_or(default), presets))
 }
 
