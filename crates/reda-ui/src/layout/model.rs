@@ -801,6 +801,97 @@ impl Layout {
         })
     }
 
+    /// Every group in layout order, the order focus moves in: the left Dock, the centre,
+    /// the right Dock, the bottom Dock, then the floating windows.
+    pub fn groups_in_layout_order(&self) -> Vec<(Area, &Group)> {
+        let mut out: Vec<(Area, &Group)> = Vec::new();
+        let dock = |side: DockSide| {
+            self.dock(side)
+                .groups
+                .iter()
+                .map(move |g| (Area::Dock(side), g))
+        };
+        out.extend(dock(DockSide::Left));
+        let mut centre = Vec::new();
+        self.centre.groups(&mut centre);
+        out.extend(centre.into_iter().map(|g| (Area::Centre, g)));
+        out.extend(dock(DockSide::Right));
+        out.extend(dock(DockSide::Bottom));
+        for w in &self.windows {
+            let mut groups = Vec::new();
+            w.root.groups(&mut groups);
+            out.extend(groups.into_iter().map(|g| (Area::Window(w.id), g)));
+        }
+        out
+    }
+
+    /// The stops F6 visits, in layout order: each group with tabs, except that a
+    /// collapsed Dock is one stop, its first group.
+    pub fn focus_stops(&self) -> Vec<GroupId> {
+        let mut stops = Vec::new();
+        let mut last_area = None;
+        for (area, group) in self.groups_in_layout_order() {
+            if group.tabs.is_empty() {
+                continue;
+            }
+            let collapsed = matches!(area, Area::Dock(side) if self.dock(side).collapsed);
+            if collapsed && last_area == Some(area) {
+                continue;
+            }
+            last_area = Some(area);
+            stops.push(group.id);
+        }
+        stops
+    }
+
+    /// Every open tab, groups in layout order, each group's tabs in strip order.
+    pub fn tabs_in_order(&self) -> Vec<TabKey> {
+        self.groups_in_layout_order()
+            .into_iter()
+            .flat_map(|(_, g)| g.tabs.iter().cloned())
+            .collect()
+    }
+
+    /// Moves focus to the next (`forward`) or previous stop of [`Layout::focus_stops`],
+    /// wrapping, and activates the tab shown there; returns its group. With no focus, the
+    /// first (or last) stop.
+    pub fn cycle_focus(&mut self, forward: bool) -> Result<GroupId, CommandError> {
+        self.apply(|l| {
+            let stops = l.focus_stops();
+            if stops.is_empty() {
+                return Err(CommandError::not_found("no tab group holds a tab"));
+            }
+            let current = l.focus.as_ref().and_then(|tab| l.stop_of(tab, &stops));
+            let n = stops.len();
+            let next = match (current, forward) {
+                (Some(i), true) => (i + 1) % n,
+                (Some(i), false) => (i + n - 1) % n,
+                (None, true) => 0,
+                (None, false) => n - 1,
+            };
+            let group = l.group(stops[next]).expect("a stop is a group");
+            let tab = group.active_tab().expect("a stop has tabs").clone();
+            Ok(l.activate_in_place(&tab))
+        })
+    }
+
+    /// The index in `stops` of the stop holding `tab`: its group's, or for a tab of a
+    /// collapsed Dock, the Dock's.
+    fn stop_of(&self, tab: &TabKey, stops: &[GroupId]) -> Option<usize> {
+        let place = self.place(tab)?;
+        let group = match place.area {
+            Area::Dock(side) if self.dock(side).collapsed => {
+                self.dock(side)
+                    .groups
+                    .iter()
+                    .find(|g| !g.tabs.is_empty())?
+                    .id
+            }
+            _ => place.group,
+        };
+        stops.iter().position(|s| *s == group)
+    }
+
     // ---- Helpers for the actions. ----
 
     fn find(&self, tab: &TabKey) -> Result<Place, CommandError> {

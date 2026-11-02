@@ -87,6 +87,14 @@ const LIGHT: Colors = Colors {
     error: Color32::from_rgb(0xc6, 0x28, 0x28),
 };
 
+/// The theme's one accent colour: selections, focus and links.
+pub fn accent(theme: Theme) -> Color32 {
+    match theme {
+        Theme::Dark => DARK.accent,
+        Theme::Light => LIGHT.accent,
+    }
+}
+
 /// The egui visuals of REDA's theme.
 pub fn visuals(theme: Theme) -> Visuals {
     let (c, mut v) = match theme {
