@@ -219,8 +219,12 @@ impl Registry {
                 Ok(envelope(&changes, result))
             }
             Kind::Query | Kind::View => {
+                let access = match entry.meta.kind {
+                    Kind::View => Access::View(session.project.as_ref(), &mut session.view),
+                    _ => Access::Read(session.project.as_ref()),
+                };
                 let mut cx = Context {
-                    access: Access::Read(session.project.as_ref()),
+                    access,
                     ids: &mut *env.ids,
                     clock: env.clock,
                     parts: env.parts,

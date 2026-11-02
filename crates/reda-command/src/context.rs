@@ -10,7 +10,7 @@ use reda_model::{Project, Scope, Transaction, Uuid};
 use crate::command::NO_PROJECT;
 use crate::{
     Clock, CommandError, ElementLocation, Fonts, History, IdSource, PartCopy, PartSource, Signals,
-    Timestamp, Trash, UserDirs,
+    Timestamp, Trash, UserDirs, ViewState,
 };
 
 /// The engine's mutable state between Commands.
@@ -33,6 +33,8 @@ pub struct Session {
     pub files_on_disk: BTreeMap<Uuid, String>,
     /// Where deleted Documents' files go on save; `None` leaves them on disk.
     pub trash: Option<Arc<dyn Trash>>,
+    /// The front end's GUI state, which view Commands change. Empty headless.
+    pub view: ViewState,
 }
 
 /// The injected inputs a Command run needs besides the session.
@@ -52,6 +54,8 @@ pub(crate) enum Access<'a> {
     /// A query step inside a batch: it reads the transaction's Project but cannot edit it.
     ReadInEdit(Transaction<'a>),
     Read(Option<&'a Project>),
+    /// A view Command: it reads the Project and changes the front end's view state.
+    View(Option<&'a Project>, &'a mut ViewState),
     File(&'a mut Session),
 }
 
@@ -83,7 +87,7 @@ impl<'a> Context<'a> {
     pub fn project(&self) -> Result<&Project, CommandError> {
         let project = match &self.access {
             Access::Edit(tx, _) | Access::ReadInEdit(tx) => Some(tx.project()),
-            Access::Read(project) => *project,
+            Access::Read(project) | Access::View(project, _) => *project,
             Access::File(session) => session.project.as_ref(),
         };
         project.ok_or_else(|| CommandError::unavailable(NO_PROJECT))
@@ -105,6 +109,19 @@ impl<'a> Context<'a> {
             Access::File(session) => Ok(session),
             _ => Err(CommandError::internal(
                 "only file Commands can open, close or save a Project",
+            )),
+        }
+    }
+
+    /// The front end's view state of type `T`, such as the app's docking Layout. Only view
+    /// Commands get it. A session without one (an engine with no app) is `unavailable`.
+    pub fn view<T: std::any::Any + Send>(&mut self) -> Result<&mut T, CommandError> {
+        match &mut self.access {
+            Access::View(_, view) => view
+                .get_mut::<T>()
+                .ok_or_else(|| CommandError::unavailable("requires the REDA app")),
+            _ => Err(CommandError::internal(
+                "only view Commands can change the view state",
             )),
         }
     }

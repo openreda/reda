@@ -5,7 +5,7 @@ mod support;
 use reda_command::{Clock, CommandError, ErrorCode, FixedClock, Kind, Registry};
 use reda_model::Scope;
 use serde_json::json;
-use support::{Harness, Name, pointer};
+use support::{Harness, Name, ZoomLevel, pointer};
 
 #[test]
 fn edit_returns_the_change_envelope_and_dirties_its_scope() {
@@ -83,6 +83,31 @@ fn unknown_command_is_not_found() {
 fn view_commands_are_unavailable_headless() {
     let mut h = Harness::with_project();
     let err = h.run("test.view.zoom", json!({"level": 100})).unwrap_err();
+    assert_eq!(err.code, ErrorCode::Unavailable);
+    assert_eq!(err.message, "requires the REDA app");
+}
+
+#[test]
+fn a_view_command_changes_the_view_state_the_app_keeps_in_the_session() {
+    let mut h = Harness::new();
+    h.headless = false;
+    h.session.view.set(ZoomLevel(100));
+    assert_eq!(
+        h.run("test.view.zoom", json!({"level": 150})).unwrap(),
+        json!(150)
+    );
+    assert_eq!(h.session.view.get::<ZoomLevel>(), Some(&ZoomLevel(150)));
+
+    let err = h.run("test.view.zoom", json!({"level": 0})).unwrap_err();
+    assert_eq!(err.code, ErrorCode::Rejected);
+    assert_eq!(h.session.view.get::<ZoomLevel>(), Some(&ZoomLevel(150)));
+}
+
+#[test]
+fn a_view_command_without_its_view_state_is_unavailable() {
+    let mut h = Harness::new();
+    h.headless = false;
+    let err = h.run("test.view.zoom", json!({"level": 150})).unwrap_err();
     assert_eq!(err.code, ErrorCode::Unavailable);
     assert_eq!(err.message, "requires the REDA app");
 }

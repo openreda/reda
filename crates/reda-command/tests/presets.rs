@@ -4,7 +4,7 @@ mod support;
 
 use reda_command::{Command, CommandError, Context, ErrorCode, Kind, Meta, Preset, Registry};
 use serde_json::json;
-use support::{Harness, RenameParams, pointer};
+use support::{Harness, RenameParams, ZoomLevel, pointer};
 
 #[test]
 fn a_preset_runs_its_command_with_its_fixed_params() {
@@ -40,6 +40,7 @@ fn a_view_preset_is_unavailable_headless_and_runs_in_the_app() {
     assert_eq!(err.code, ErrorCode::Unavailable);
     assert_eq!(err.message, "requires the REDA app");
     h.headless = false;
+    h.session.view.set(ZoomLevel(100));
     assert_eq!(
         h.run("test.view.zoom:double", json!({})).unwrap(),
         json!(200)
