@@ -28,6 +28,7 @@ mod os;
 pub mod palette;
 mod panels;
 pub mod pcb;
+pub mod placement;
 mod projects_panel;
 pub mod properties;
 pub mod recovery;

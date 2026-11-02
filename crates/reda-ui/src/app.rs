@@ -165,6 +165,9 @@ impl App {
         for (id, params) in frame.commands {
             let _ = self.shell.run_reporting(&id, params);
         }
+        for (id, params) in frame.calls {
+            self.call(&id, params);
+        }
         self.handle_requests(&ctx);
         self.help.show(&ctx, self.shell.engine());
         for action in frame.messages {

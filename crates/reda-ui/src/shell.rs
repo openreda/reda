@@ -158,6 +158,11 @@ pub struct Shell {
     view_saves: Debounce,
     /// Recovery Snapshots and the Journal mirror (see [`crate::recovery`]).
     pub(crate) recorder: Recorder,
+    /// Counts the Commands that may have changed the registered Libraries, so the
+    /// Library panel knows when to scan them again.
+    library_generation: u64,
+    /// The Library panel's filters, chosen Part and scan.
+    library_panel: crate::panels::library::LibraryPanel,
 }
 
 impl Shell {
@@ -174,6 +179,9 @@ impl Shell {
         if engine.registry().get("tool.activate").is_none() {
             engine.register(tools::register_all);
         }
+        if engine.registry().get("tool.place").is_none() {
+            engine.register(crate::placement::register_all);
+        }
         if engine.registry().get("view.grid.set").is_none() {
             engine.register(grid::register_all);
         }
@@ -184,6 +192,9 @@ impl Shell {
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
         engine.view_mut().set(ActiveTool::default());
+        engine
+            .view_mut()
+            .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
         engine.view_mut().set(BoardView::new(units));
         crate::bars::install(&mut engine);
@@ -207,6 +218,8 @@ impl Shell {
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
             recorder: Recorder::new(),
+            library_generation: 0,
+            library_panel: Default::default(),
         };
         shell.load_preference_warnings();
         shell.reload_keymap();
@@ -295,6 +308,17 @@ impl Shell {
     /// The Layer colour overrides the canvases draw with.
     pub fn palette(&self) -> &PaletteHandle {
         &self.palette
+    }
+
+    /// Counts the Commands that may have changed the registered Libraries (Library
+    /// element and Project Commands, Preferences): a Library panel scan made at an older
+    /// count may be stale.
+    pub fn library_generation(&self) -> u64 {
+        self.library_generation
+    }
+
+    pub(crate) fn library_panel_mut(&mut self) -> &mut crate::panels::library::LibraryPanel {
+        &mut self.library_panel
     }
 
     /// The Preferences as last read.
@@ -721,6 +745,12 @@ impl Shell {
                 Some(Kind::View) => self.sync_document_tabs(),
                 _ => self.refresh(),
             },
+        }
+        if base.starts_with("library.")
+            || base.starts_with("project.")
+            || base == "app.preferences.set"
+        {
+            self.library_generation += 1;
         }
         if base == "app.preferences.set" {
             self.prefs = preferences::current(self.engine.user_dirs());
@@ -1232,6 +1262,12 @@ impl Shell {
                     crate::schematic_editor::cancel(self, document);
                 }
                 self.pcb_cancel();
+                crate::placement::refresh(self);
+            }
+            // What the placement Tool carries turned in the Command; draw it anew.
+            "tool.place" | "tool.mirror" | "tool.place.set" => crate::placement::refresh(self),
+            "tool.rotate" | "tool.flip" if crate::placement::placing(self).is_some() => {
+                crate::placement::refresh(self);
             }
             "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
             "tool.flip" if self.board_is_active() => self.pcb_flip(),

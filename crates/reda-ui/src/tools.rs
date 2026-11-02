@@ -12,6 +12,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::placement::commands::edit_placing;
+use crate::placement::{Placement, Placing};
 use crate::selection::Selection;
 
 /// A canvas Tool.
@@ -28,6 +30,8 @@ pub enum Tool {
     /// The selection follows the pointer with its Wires rubber-banding, until a click puts
     /// it down (D).
     Drag,
+    /// A Library Part follows the pointer until a click places it (`tool.place`).
+    Place,
 }
 
 impl Tool {
@@ -37,6 +41,7 @@ impl Tool {
             Tool::Select => "select",
             Tool::Move => "move",
             Tool::Drag => "drag",
+            Tool::Place => "place",
         }
     }
 }
@@ -95,12 +100,19 @@ impl Command for ToolActivate {
         cx: &mut Context<'_>,
         p: ToolActivateParams,
     ) -> Result<ToolActivateResult, CommandError> {
+        if p.tool == Tool::Place {
+            return Err(CommandError::rejected(
+                "pick the Part to place in the Library panel (tool.place)",
+            ));
+        }
         if p.tool != Tool::Select && cx.view::<Selection>()?.objects.is_empty() {
             return Err(CommandError::rejected(
                 "nothing is selected: select what to move first",
             ));
         }
         cx.view::<ActiveTool>()?.0 = p.tool;
+        // Another Tool ends a placement.
+        cx.view::<Placement>()?.placing = None;
         Ok(ToolActivateResult { tool: p.tool })
     }
 }
@@ -128,7 +140,8 @@ impl Command for ToolRotate {
     type Params = NoParams;
     type Output = Turned;
 
-    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        edit_placing(cx, Placing::rotate)?;
         Ok(Turned {})
     }
 }
@@ -150,7 +163,8 @@ impl Command for ToolFlip {
     type Params = NoParams;
     type Output = Turned;
 
-    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        edit_placing(cx, Placing::flip)?;
         Ok(Turned {})
     }
 }

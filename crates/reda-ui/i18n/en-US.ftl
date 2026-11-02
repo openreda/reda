@@ -243,6 +243,29 @@ properties-net-class = Net Class
 properties-new-field-name = New field
 properties-new-field-value = Value of the new field
 properties-add-field = Add Field
+properties-placing = Placing { $part }: edits apply to this and later placements.
+
+# The Library panel.
+library-search = Search Parts
+library-filter-library = Library
+library-filter-type = Component Type
+library-all-libraries = All Libraries
+library-all-types = All Types
+library-type-standard = Standard
+library-type-mechanical = Mechanical
+library-sheet-parts = Parts with a Symbol, to place on the sheet
+library-board-parts = Mechanical Parts, to place on the board
+library-no-document = Open a sheet or the PCB to place Parts.
+library-no-parts = No Parts match.
+library-no-symbol = No Symbol
+library-in = In { $library }
+library-unit = Unit { $unit }
+library-footprint = Alternate Footprint
+library-symbol-preview = Symbol preview
+library-footprint-preview = Footprint preview
+library-edit = Edit Part
+library-new = New Part…
+library-refresh = Refresh
 
 ## Canvas
 
