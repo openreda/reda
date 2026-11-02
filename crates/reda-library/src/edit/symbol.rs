@@ -25,6 +25,8 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(SymbolGraphicAdd);
     registry.add(SymbolGraphicEdit);
     registry.add(SymbolGraphicRemove);
+    registry.add(SymbolMove);
+    registry.add(SymbolDelete);
 }
 
 /// The default Pin length: 100 mil.
@@ -603,6 +605,94 @@ impl Command for SymbolGraphicRemove {
     fn run(&self, cx: &mut Context<'_>, p: SymbolGraphicParams) -> Result<(), CommandError> {
         edit_symbol(cx, p.symbol, |s| {
             remove(&mut s.graphics, p.graphic, |g| g.uuid, "graphic").map(drop)
+        })
+    }
+}
+
+pub struct SymbolMove;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SymbolMoveParams {
+    /// The open Symbol.
+    pub symbol: Uuid,
+    /// Pins and graphics by UUID.
+    pub objects: Vec<Uuid>,
+    pub by: PointParam,
+}
+
+impl Command for SymbolMove {
+    const META: Meta = meta(
+        "library.symbol.move",
+        "Move in Symbol",
+        "Moves any mix of an open Symbol's Pins and graphics by `by`, in one step.",
+    );
+    type Params = SymbolMoveParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: SymbolMoveParams) -> Result<(), CommandError> {
+        let by = p.by.point();
+        edit_symbol(cx, p.symbol, |s| {
+            for (i, uuid) in p.objects.iter().enumerate() {
+                if let Some(pin) = s.pins.iter_mut().find(|pin| pin.uuid == *uuid) {
+                    pin.at = pin.at + by;
+                } else if let Some(g) = s.graphics.iter_mut().find(|g| g.uuid == *uuid) {
+                    g.shape = g.shape.translated(by);
+                } else {
+                    return Err(not_in_symbol(i, *uuid));
+                }
+            }
+            Ok(())
+        })
+    }
+}
+
+fn not_in_symbol(index: usize, uuid: Uuid) -> CommandError {
+    CommandError::not_found(format!(
+        "objects/{index}: the Symbol has no Pin or graphic {uuid}"
+    ))
+}
+
+pub struct SymbolDelete;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SymbolDeleteParams {
+    /// The open Symbol.
+    pub symbol: Uuid,
+    /// Pins and graphics by UUID.
+    pub objects: Vec<Uuid>,
+}
+
+impl Command for SymbolDelete {
+    const META: Meta = meta(
+        "library.symbol.delete",
+        "Delete in Symbol",
+        "Removes any mix of an open Symbol's Pins and graphics in one step.",
+    );
+    type Params = SymbolDeleteParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: SymbolDeleteParams) -> Result<(), CommandError> {
+        edit_symbol(cx, p.symbol, |s| {
+            for (i, uuid) in p.objects.iter().enumerate() {
+                if s.pins.iter().any(|pin| pin.uuid == *uuid) {
+                    s.pins.retain(|pin| pin.uuid != *uuid);
+                } else if s.graphics.iter().any(|g| g.uuid == *uuid) {
+                    s.graphics.retain(|g| g.uuid != *uuid);
+                } else {
+                    return Err(not_in_symbol(i, *uuid));
+                }
+            }
+            Ok(())
         })
     }
 }
