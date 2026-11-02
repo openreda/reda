@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"fedd1974-aa81-4047-b2a7-0a9bebcb8278","name":"Ferrite_Bead","designator_prefix":"FB","description":"Ferrite bead"},
+  "units": [
+    {"uuid":"a61bf5b0-f49a-4df9-8356-dda888ef0009","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"aef57222-3c38-481c-9f4f-8d20b4c4ae41","unit":"a61bf5b0-f49a-4df9-8356-dda888ef0009","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":1778000,"name_visible":false,"number_visible":false},
+    {"uuid":"f3fc1231-f9f7-435a-aa16-78111cbf2f1b","unit":"a61bf5b0-f49a-4df9-8356-dda888ef0009","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1778000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"1b7a261e-2564-484e-9f1d-947562b712b8","unit":"a61bf5b0-f49a-4df9-8356-dda888ef0009","shape":{"kind":"polygon","points":[{"x":-1524000,"y":762000},{"x":0,"y":2032000},{"x":1524000,"y":-762000},{"x":0,"y":-2032000}]},"width":254000}
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"fdb702da-85e5-4425-9155-369e83063697","name":"PNP","designator_prefix":"Q","description":"PNP bipolar transistor"},
+  "units": [
+    {"uuid":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"247f8fa0-3964-4ff9-8dcf-b39c9d277ca4","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","name":"E","number":"2","electrical_type":"passive","at":{"x":2540000,"y":-5080000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"5ad3c562-bb32-4d09-854f-ddee94bc131a","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","name":"B","number":"1","electrical_type":"input","at":{"x":-5080000,"y":0},"rotation":0,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"f4ef3099-5c73-4dcf-8c84-af5f960a079e","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","name":"C","number":"3","electrical_type":"passive","at":{"x":2540000,"y":5080000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"160da3b5-329c-47e1-ab34-f2dfa04c3911","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","shape":{"kind":"circle","center":{"x":762000,"y":0},"radius":3302000},"width":254000},
+    {"uuid":"47a666e8-507e-4092-88d6-4db9d7815658","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","shape":{"kind":"polygon","points":[{"x":254000,"y":-1397000},{"x":1193800,"y":-1447800},{"x":838200,"y":-2108200}]},"width":254000,"fill":true},
+    {"uuid":"625ad278-21a4-44f5-a440-ca87e1e8fa66","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","shape":{"kind":"line","start":{"x":-2540000,"y":0},"end":{"x":-762000,"y":0}},"width":254000},
+    {"uuid":"6b97acd9-7ff4-461c-8964-c78a9b856469","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","shape":{"kind":"line","start":{"x":-762000,"y":889000},"end":{"x":2540000,"y":2540000}},"width":254000},
+    {"uuid":"760313b5-d546-4422-af55-cc20bf7c1ac9","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","shape":{"kind":"line","start":{"x":-762000,"y":-1905000},"end":{"x":-762000,"y":1905000}},"width":254000},
+    {"uuid":"c63ce254-51b3-4390-a29c-f147ec78415d","unit":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","shape":{"kind":"line","start":{"x":-762000,"y":-889000},"end":{"x":2540000,"y":-2540000}},"width":254000}
+  ]
+}

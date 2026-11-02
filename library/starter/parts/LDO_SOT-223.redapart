@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"625b953b-31e3-41bd-8ac2-68f5b35f3140","name":"LDO_SOT-223","component_type":"standard","symbol":"19d1ebee-1ef7-4886-a492-7aba5ba4b452"},
+  "footprints": [
+    "29bd1760-af17-4842-97db-7d25d557604a"
+  ],
+  "fields": {"value":"3.3V","description":"Fixed-output LDO regulator, SOT-223, GND-VOUT-VIN with VOUT on the tab","keywords":"U regulator LDO linear voltage"},
+  "pin_map": {"pins":[{"pin":"2","pads":["2","4"]}]}
+}

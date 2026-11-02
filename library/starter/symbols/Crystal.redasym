@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"8fcb03df-c1bf-43e6-b1e5-7975262989c7","name":"Crystal","designator_prefix":"Y","description":"Quartz crystal"},
+  "units": [
+    {"uuid":"6530efcb-367e-4b9f-a019-31ebd84d1599","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"10557656-e0dc-435f-a8fd-432cee469d1d","unit":"6530efcb-367e-4b9f-a019-31ebd84d1599","name":"~","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":0},"rotation":0,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"9848b366-4a78-4698-8c1b-2b6bb8314408","unit":"6530efcb-367e-4b9f-a019-31ebd84d1599","name":"~","number":"2","electrical_type":"passive","at":{"x":5080000,"y":0},"rotation":180000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"05545713-5c79-4272-b63b-8277e2eb3c8c","unit":"6530efcb-367e-4b9f-a019-31ebd84d1599","shape":{"kind":"line","start":{"x":1524000,"y":-1270000},"end":{"x":1524000,"y":1270000}},"width":254000},
+    {"uuid":"0a50bb67-8557-4011-a427-49022b8541b2","unit":"6530efcb-367e-4b9f-a019-31ebd84d1599","shape":{"kind":"line","start":{"x":1524000,"y":0},"end":{"x":2540000,"y":0}},"width":254000},
+    {"uuid":"26abd70a-f42f-48ac-b506-adb020b771a5","unit":"6530efcb-367e-4b9f-a019-31ebd84d1599","shape":{"kind":"line","start":{"x":-1524000,"y":-1270000},"end":{"x":-1524000,"y":1270000}},"width":254000},
+    {"uuid":"95272b2c-9aa0-42a6-8381-294aded4e66e","unit":"6530efcb-367e-4b9f-a019-31ebd84d1599","shape":{"kind":"rect","start":{"x":-762000,"y":-1778000},"end":{"x":762000,"y":1778000}},"width":254000},
+    {"uuid":"98cb34b1-fb72-4018-892a-5e9c383ef960","unit":"6530efcb-367e-4b9f-a019-31ebd84d1599","shape":{"kind":"line","start":{"x":-2540000,"y":0},"end":{"x":-1524000,"y":0}},"width":254000}
+  ]
+}

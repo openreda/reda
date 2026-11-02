@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"c32e253a-9f3a-4883-8831-a6310230d186","name":"Socket_1x08","component_type":"standard","symbol":"e8c3bdb4-e23e-4fb9-b8cf-ba3138ef0a3e"},
+  "footprints": [
+    "fa3b5724-9312-4476-9902-5aa362a1696c",
+    "5706422f-57c0-447b-b592-15bb2e9803d9"
+  ],
+  "fields": {"value":"Socket 1x8","description":"1 × 8 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},
+  "pin_map": {}
+}

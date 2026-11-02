@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"80873169-1c54-48b1-a67e-240cbf5ea927","name":"PMOS","component_type":"standard","symbol":"0e644f21-6432-456f-a5a2-ca83fb776142"},
+  "footprints": [
+    "43ca8637-7f8d-4597-866a-d91d359dd6bb"
+  ],
+  "fields": {"value":"BSS84","description":"P-channel enhancement MOSFET","keywords":"Q transistor MOSFET FET"},
+  "pin_map": {}
+}

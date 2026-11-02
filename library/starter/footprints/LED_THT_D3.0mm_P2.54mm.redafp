@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart"},
+  "text": {"designator":{"at":{"x":0,"y":3610000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"4f5b333c-5a38-48c1-a05d-1fc8b2f53f93","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"6a99ad72-426c-478c-b3f3-067cf1f78846","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}}
+  ],
+  "graphics": [
+    {"uuid":"5fb9b982-8c9d-4d86-ace6-12dfc9dfd84d","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":120000},
+    {"uuid":"cf86bc5f-9203-4149-9c67-dd6852644f96","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2810000,"y":-2810000},"end":{"x":2810000,"y":2810000}},"width":50000},
+    {"uuid":"f0bbb8ef-024c-462a-9de5-7faf95d15725","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1500000},"width":100000}
+  ]
+}

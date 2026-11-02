@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"d8eb0edb-4a4b-45e0-a9f0-99e897f2aad1","name":"HDR254P1X8","description":"Pin header, 1 × 8, 2.54 mm pitch"},
+  "text": {"designator":{"at":{"x":0,"y":11150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"2f289199-b691-4ab9-b649-696b63ed3c5f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"36df114f-4a60-4f97-a7a7-1d4589d7d69a","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"3b346688-2387-41f4-a59b-c0ef6ea8059a","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"7975ec43-6b54-4c9d-b6da-1064783d0850","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"82293c90-5ea4-4985-97b5-1cc5fba51e51","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"97306e80-e57b-4a9b-ae85-f3815909e240","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"ae85a369-2907-4df2-af1e-569b4525ecfc","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"af2383e4-8550-4bbb-aa73-131054093324","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"27757483-d268-459c-b1df-0194cbb32cdf","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-10220000},"end":{"x":1330000,"y":-10220000}},"width":120000},
+    {"uuid":"67bb6e90-9e61-4124-b430-2601b2690438","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":10160000},{"x":1270000,"y":10160000},{"x":1270000,"y":-10160000},{"x":-1270000,"y":-10160000},{"x":-1270000,"y":9525000}]},"width":100000},
+    {"uuid":"6b1b2501-5cdd-4cdc-95c5-320fb236d1c5","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-10220000},"end":{"x":1330000,"y":10220000}},"width":120000},
+    {"uuid":"880c75e3-2880-436b-b7b9-cb3f5e6184c5","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":10220000},"end":{"x":1330000,"y":10220000}},"width":120000},
+    {"uuid":"8ce8ec75-d980-43fd-96ae-d55056da97bd","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-10450000},"end":{"x":1550000,"y":10450000}},"width":50000},
+    {"uuid":"a6cf58d3-389b-4049-b997-826c4ec1f67c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-10220000},"end":{"x":-1330000,"y":10220000}},"width":120000}
+  ]
+}

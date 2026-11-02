@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"994846c1-6dfb-48a2-babf-ae60f86398b2","name":"DIO_SOD-123","description":"Diode, SOD-123, 2.7 × 1.6 mm body"},
+  "text": {"designator":{"at":{"x":0,"y":1970000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"f4ab1a0e-b100-400b-a9a0-69c041c6604b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1600000,"y":0},"rotation":0,"width":1000000,"height":900000,"corner_radius":225000},
+    {"uuid":"fb70f03b-f8f6-4a85-a0c0-d27dce85e8e2","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1600000,"y":0},"rotation":0,"width":1000000,"height":900000,"corner_radius":225000}
+  ],
+  "graphics": [
+    {"uuid":"a3950371-cf48-4b24-8785-4f656e358b7d","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2360000,"y":860000},"end":{"x":1350000,"y":860000}},"width":120000},
+    {"uuid":"beecdd15-e7b9-49a1-b08e-92bd1807ae7f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2360000,"y":-860000},"end":{"x":-2360000,"y":860000}},"width":120000},
+    {"uuid":"c90fdd17-de7e-4992-a9a2-6bb9c85aeed7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2670000,"y":-1170000},"end":{"x":2670000,"y":1170000}},"width":50000},
+    {"uuid":"df287dd6-4cf8-4ba7-ada7-565c469515a0","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1350000,"y":-800000},"end":{"x":1350000,"y":800000}},"width":100000},
+    {"uuid":"fef14b42-f10f-4b01-b2fe-d29c2d2ef13f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2360000,"y":-860000},"end":{"x":1350000,"y":-860000}},"width":120000}
+  ]
+}

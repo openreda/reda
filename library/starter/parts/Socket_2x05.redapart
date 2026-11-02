@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"566c7857-9300-4913-a7f3-b33842dccdb6","name":"Socket_2x05","component_type":"standard","symbol":"a9d8be65-99c1-4050-ae5a-2800ba0079ca"},
+  "footprints": [
+    "d383b026-d7f2-4b1d-8a1d-423e82cb65aa",
+    "60838c2a-ee1e-4050-9c35-db5a1227b503"
+  ],
+  "fields": {"value":"Socket 2x5","description":"2 × 5 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},
+  "pin_map": {}
+}

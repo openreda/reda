@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"ec6ea5e4-2d3b-4247-9629-311d27ea0c7b","name":"MountingHole_M2","component_type":"mechanical"},
+  "footprints": [
+    "fa52c198-bd89-43fa-8c5c-25cd76d48bdf"
+  ],
+  "fields": {"value":"M2","description":"Mounting hole for M2, 2.2 mm, not plated","keywords":"H mounting hole screw mechanical"},
+  "pin_map": {}
+}
