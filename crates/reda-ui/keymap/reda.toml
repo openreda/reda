@@ -390,6 +390,91 @@ context = "footprint"
 key = "Esc"
 command = "tool.activate:select"
 
+# The Symbol editor. "$selection" is what is selected on the shown Unit: Pins and
+# graphics. Tools: P places Pins (Space turns the next one), L, R, A, C, O and T draw
+# lines, rectangles, arcs, circles, polygons and text. While a polygon is being drawn,
+# Backspace takes back the last corner and Enter closes it. Mod+S saves the Symbol to its
+# Library.
+
+[[bind]]
+context = "symbol"
+key = "Mod+S"
+command = "library.element.save"
+params = { element = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Del"
+command = "library.symbol.delete"
+params = { symbol = "$active_document", objects = "$selection" }
+
+[[bind]]
+context = "symbol"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }
+
+[[bind]]
+context = "symbol"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "P"
+command = "tool.activate:pin"
+
+[[bind]]
+context = "symbol"
+key = "Space"
+command = "tool.rotate"
+
+[[bind]]
+context = "symbol"
+key = "L"
+command = "tool.activate:line"
+
+[[bind]]
+context = "symbol"
+key = "R"
+command = "tool.activate:rect"
+
+[[bind]]
+context = "symbol"
+key = "A"
+command = "tool.activate:arc"
+
+[[bind]]
+context = "symbol"
+key = "C"
+command = "tool.activate:circle"
+
+[[bind]]
+context = "symbol"
+key = "O"
+command = "tool.activate:polygon"
+
+[[bind]]
+context = "symbol"
+key = "T"
+command = "tool.activate:text"
+
+[[bind]]
+context = "symbol"
+key = "Esc"
+command = "tool.activate:select"
+
+[[bind]]
+context = "tool:polygon"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:polygon"
+key = "Enter"
+command = "tool.finish"
+
 # The board's drawing Tools: Z draws a Zone, K a Keepout. While a polygon or an arc is
 # being drawn, Backspace takes back the last corner and Enter finishes the shape.
 

@@ -232,7 +232,10 @@ impl Recorder {
     /// The Project closes cleanly: everything in its recovery folder goes, the Journal
     /// mirror included.
     pub fn close_cleanly(&mut self) {
-        if let Some(dir) = self.dir.take() {
+        // Snapshots still offered and not yet answered stay for the next time: opening a
+        // Project over the per-user folder's prompt must not lose them.
+        let offered = self.prompt.as_ref().map(|p| p.dir.clone());
+        if let Some(dir) = self.dir.take().filter(|d| Some(d) != offered.as_ref()) {
             self.worker.send(Job::Clear(dir));
         }
         self.written.clear();
