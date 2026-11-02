@@ -65,7 +65,7 @@ Source: [How is REDA tested?](https://github.com/openreda/reda/issues/29).
   - Agents work on branches and open PRs. Nothing is pushed straight to `main`.
   - Every CI job must be green on all three OSes.
   - Every blessed golden diff is explained in the PR body and reviewed by the maintainer.
-  - A **Command coverage test** fails if any Command id in `docs/commands.json` is not run by at least one test. There is no line-coverage threshold.
+  - A **Command coverage test** fails if any Command id in `docs/commands.json`, or any Command the app registers itself, is not run by at least one test. There is no line-coverage threshold.
 
 ## Packaging
 

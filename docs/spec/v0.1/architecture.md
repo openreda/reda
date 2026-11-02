@@ -171,6 +171,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 - **Catalogue:**
   - `reda commands --json` dumps the registry, including Presets.
   - A generated `docs/commands.json` is checked in and verified by a test.
+  - The app registers its own view Commands on top of the engine's: the layout Commands (`layout.tab.*`, `layout.dock.collapse`) and `panel.show`. They are not in the engine's registry, so `reda commands` and `docs/commands.json` leave them out. An app-side test holds them to the Command coverage rule.
 
 ### Tools and dialogs
 - **Tools are not Commands.** A Tool (place, Wire, route, drag-move…) is a GUI-side state machine:
