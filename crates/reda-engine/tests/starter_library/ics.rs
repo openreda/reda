@@ -1,4 +1,5 @@
-//! A generic dual op-amp, a 555 timer, an LDO regulator and a generic USB microcontroller.
+//! A generic dual op-amp, a 555 timer, an LDO regulator and the STM32F042F6P6 USB
+//! microcontroller.
 
 use serde_json::json;
 
@@ -111,44 +112,64 @@ fn ldo(s: &mut Script) {
     });
 }
 
-/// A vendor-neutral USB microcontroller in TSSOP-20, so examples and the reference
-/// Projects can show an MCU board without shipping a vendor's Part. Its pinout is REDA's
-/// own: supplies, reset, boot, SWD and USB on fixed Pins, the rest general-purpose I/O.
+/// The STMicroelectronics STM32F042F6P6: a Cortex-M0 with crystal-less USB in TSSOP-20,
+/// so examples and the reference Projects can show a USB MCU board.
+///
+/// Pinout from the STM32F042x4/x6 datasheet (DocID025832), Figure 9 "TSSOP20 20-pin
+/// package (top view)" and Table 13 "STM32F042xx pin definitions", TSSOP20 column. Pins
+/// 17 and 18 are PA9 and PA10, or PA11 (USB_DM) and PA12 (USB_DP) once SYSCFG_CFGR1
+/// remaps them; VSSA is bonded to VSS and VDDIO2 to VDD inside this package. The
+/// footprint is the generated TSSOP-20 (JEDEC MO-153, 4.4 mm body, 0.65 mm pitch), as in
+/// the datasheet's Figure 44 and Table 72.
 fn mcu(s: &mut Script) {
     let tssop20 = s.generate("tssop", json!({"pins": 20}));
     let sym = s.symbol(
-        "MCU_USB",
+        "STM32F042F6P6",
         "U",
-        "Generic microcontroller with USB device, SWD and 11 I/O Pins",
+        "STM32F042F6P6 Cortex-M0 microcontroller with USB, TSSOP-20 pinout",
     );
-    s.pin(&sym, top("VDD", "11", "power_in", -100, 650));
+    s.pin(&sym, top("VDD", "16", "power_in", -100, 650));
     s.pin(&sym, top("VDDA", "5", "power_in", 100, 650));
-    s.pin(&sym, bottom("VSS", "8", "power_in", 0, -650));
-    s.pin(&sym, left("BOOT0", "1", "input", -500, 300));
-    s.pin(&sym, left("NRST", "4", "input", -500, 200));
-    s.pin(&sym, left("SWDIO", "19", "bidirectional", -500, 0));
-    s.pin(&sym, left("SWCLK", "18", "input", -500, -100));
-    s.pin(&sym, left("USB_DP", "10", "bidirectional", -500, -300));
-    s.pin(&sym, left("USB_DM", "9", "bidirectional", -500, -400));
-    let io = ["2", "3", "6", "7", "12", "13", "14", "15", "16", "17", "20"];
-    for (i, number) in io.iter().enumerate() {
-        let name = format!("P{i}");
+    s.pin(&sym, bottom("VSS", "15", "power_in", 0, -650));
+    s.pin(&sym, left("PB8/BOOT0", "1", "bidirectional", -600, 300));
+    s.pin(&sym, left("NRST", "4", "bidirectional", -600, 200));
+    s.pin(&sym, left("PA13/SWDIO", "19", "bidirectional", -600, 0));
+    s.pin(&sym, left("PA14/SWCLK", "20", "bidirectional", -600, -100));
+    s.pin(&sym, left("PA10/PA12", "18", "bidirectional", -600, -300));
+    s.pin(&sym, left("PA9/PA11", "17", "bidirectional", -600, -400));
+    let io = [
+        ("PA0", "6"),
+        ("PA1", "7"),
+        ("PA2", "8"),
+        ("PA3", "9"),
+        ("PA4", "10"),
+        ("PA5", "11"),
+        ("PA6", "12"),
+        ("PA7", "13"),
+        ("PB1", "14"),
+        ("PF0/OSC_IN", "2"),
+        ("PF1/OSC_OUT", "3"),
+    ];
+    for (i, (name, number)) in io.iter().enumerate() {
         let y = 500 - 100 * i as i64;
-        s.pin(&sym, right(&name, number, "bidirectional", 500, y));
+        s.pin(&sym, right(name, number, "bidirectional", 600, y));
     }
-    s.draw(&sym, rect(mil(-400), mil(-550), mil(400), mil(550)), false);
-    s.draw(&sym, text(0, mil(-450), "MCU", mil(50)), false);
+    s.draw(&sym, rect(mil(-500), mil(-550), mil(500), mil(550)), false);
+    s.draw(&sym, text(0, mil(-450), "STM32F042", mil(50)), false);
     let sym = s.finish_symbol(sym);
     s.part(PartSpec {
-        name: "MCU_USB_TSSOP-20",
+        name: "STM32F042F6P6",
         symbol: Some(&sym),
         footprints: vec![tssop20],
-        fields: fields(
-            "MCU",
-            "Generic USB microcontroller, TSSOP-20: a vendor-neutral stand-in for examples; \
-             use your own Library or Import part for a real MCU",
-            "U microcontroller MCU USB",
-        ),
+        fields: json!({
+            "value": "STM32F042F6P6",
+            "description": "Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. \
+                            Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)",
+            "datasheet": "STM32F042x4/x6 datasheet, DocID025832",
+            "manufacturer": "STMicroelectronics",
+            "mpn": "STM32F042F6P6",
+            "keywords": "U microcontroller MCU USB STM32 Cortex-M0",
+        }),
         pin_map: None,
         mechanical: false,
     });

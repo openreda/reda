@@ -382,17 +382,21 @@ fn crystals(s: &mut Script) {
     s.draw(&sym, line(mil(60), 0, mil(100), 0), false);
     let sym = s.finish_symbol(sym);
 
-    // A 3.2 × 2.5 mm ceramic package: the crystal between Pads 1 and 3, Pads 2 and 4 to
-    // the lid.
+    // Abracon ABM8 datasheet (3.2 × 2.5 × 0.8 mm ceramic SMD crystal, revised 07-29-20),
+    // Outline drawing and Recommended land pattern: 1.3 × 1.05 mm pads, 1.0 mm apart across
+    // and 0.7 mm apart along, so centres ±1.15 × ±0.875 mm; body 3.2 × 2.5 mm. Top view:
+    // Pad 1 bottom left, counting anticlockwise; the crystal between Pads 1 and 3, Pads 2
+    // and 4 to the lid.
     let fp = s.footprint(
         "XTAL_SMD_3225_4Pad",
-        "SMD crystal, 3.2 × 2.5 mm ceramic package, 4 pads",
+        "SMD crystal, 3.2 × 2.5 mm ceramic package, 4 pads. \
+         Lands per Abracon ABM8 datasheet, Recommended land pattern",
     );
     for (number, x, y) in [
-        ("1", -1.1, 0.8),
-        ("2", 1.1, 0.8),
-        ("3", 1.1, -0.8),
-        ("4", -1.1, -0.8),
+        ("1", -1.15, -0.875),
+        ("2", 1.15, -0.875),
+        ("3", 1.15, 0.875),
+        ("4", -1.15, 0.875),
     ] {
         s.pad(
             &fp,
@@ -401,8 +405,8 @@ fn crystals(s: &mut Script) {
                 "kind": "smd",
                 "shape": "rounded_rect",
                 "at": {"x": mm(x), "y": mm(y)},
-                "width": mm(1.4),
-                "height": mm(1.15),
+                "width": mm(1.3),
+                "height": mm(1.05),
             }),
         );
     }
@@ -412,25 +416,26 @@ fn crystals(s: &mut Script) {
         rect(mm(-1.6), mm(-1.25), mm(1.6), mm(1.25)),
         mm(0.1),
     );
+    // A corner mark by Pad 1, 0.2 mm clear of the copper (which reaches ±1.8 × ±1.4 mm).
     s.fp_draw(
         &fp,
         "silkscreen_top",
-        line(mm(-2.2), mm(-0.2), mm(-2.2), mm(1.6)),
+        line(mm(-2.06), mm(0.2), mm(-2.06), mm(-1.66)),
         mm(0.12),
     );
     s.fp_draw(
         &fp,
         "silkscreen_top",
-        line(mm(-2.2), mm(1.6), mm(0.2), mm(1.6)),
+        line(mm(-2.06), mm(-1.66), mm(-0.2), mm(-1.66)),
         mm(0.12),
     );
     s.fp_draw(
         &fp,
         "courtyard_top",
-        rect(mm(-2.1), mm(-1.65), mm(2.1), mm(1.65)),
+        rect(mm(-2.15), mm(-1.75), mm(2.15), mm(1.75)),
         mm(0.05),
     );
-    let smd = s.finish_footprint(&fp, mm(1.65));
+    let smd = s.finish_footprint(&fp, mm(1.75));
     s.part(PartSpec {
         name: "Crystal_SMD",
         symbol: Some(&sym),
@@ -444,27 +449,31 @@ fn crystals(s: &mut Script) {
         mechanical: false,
     });
 
+    // Abracon ABL series datasheet (HC49/US (AT49) crystal), Mechanical Dimensions:
+    // leads Ø0.457 mm, 4.88 ± 0.20 mm apart; body 11.5 × 5.0 mm max. The 0.8 mm hole is
+    // IPC-2222 Level B (0.66 mm) with room for the lead-spacing tolerance.
     let hc49 = tht_two(
         s,
         Tht {
             name: "XTAL_HC-49US_P4.88mm",
-            description: "Crystal, HC-49/US low-profile can, leads 4.88 mm apart",
+            description: "Crystal, HC-49/US low-profile can, leads 4.88 mm apart. \
+                          Per Abracon ABL datasheet, Mechanical Dimensions",
             pitch: 4.88,
             pad: 1.5,
             drill: 0.8,
-            extent: (5.5, 2.33),
+            extent: (5.75, 2.5),
         },
         |s, fp| {
             s.fp_draw(
                 fp,
                 "assembly_top",
-                rect(mm(-5.5), mm(-2.33), mm(5.5), mm(2.33)),
+                rect(mm(-5.75), mm(-2.5), mm(5.75), mm(2.5)),
                 mm(0.1),
             );
             s.fp_draw(
                 fp,
                 "silkscreen_top",
-                rect(mm(-5.56), mm(-2.39), mm(5.56), mm(2.39)),
+                rect(mm(-5.81), mm(-2.56), mm(5.81), mm(2.56)),
                 mm(0.12),
             );
         },
@@ -481,6 +490,14 @@ fn crystals(s: &mut Script) {
 
 /// A 6 × 6 mm tactile switch: the two Pads numbered 1 are joined inside, as are the two
 /// numbered 2; pressing joins 1 and 2.
+///
+/// Through-hole: Omron B3F datasheet, B3F-1000 Dimensions, PCB Processing Dimensions and
+/// Terminal Arrangement/Internal Connections: four Ø1.0 mm holes on 6.5 × 4.5 mm, the
+/// terminals 6.5 mm apart joined inside; body 6 × 6 mm.
+///
+/// SMD: Omron B3FS datasheet, B3FS-1000P Dimensions, PCB Pad and Terminal
+/// Arrangement/Internal Connection: pads 1.6 × 1.4 mm spanning 6.4 to 9.6 mm across and
+/// 3.1 to 5.9 mm along (centres ±4.0 × ±2.25 mm), the terminals across joined inside.
 fn button(s: &mut Script) {
     let sym = horizontal_two_pin(s, "Button", "SW", "Push button, normally open");
     for x in [-80, 80] {
@@ -496,11 +513,16 @@ fn button(s: &mut Script) {
         let (name, description, x) = if tht {
             (
                 "SW_Push_6x6mm_THT",
-                "Tactile switch, 6 × 6 mm, through-hole",
+                "Tactile switch, 6 × 6 mm, through-hole. Per Omron B3F datasheet, \
+                 PCB Processing Dimensions",
                 3.25,
             )
         } else {
-            ("SW_Push_6x6mm_SMD", "Tactile switch, 6 × 6 mm, SMD", 3.975)
+            (
+                "SW_Push_6x6mm_SMD",
+                "Tactile switch, 6 × 6 mm, SMD. Lands per Omron B3FS datasheet, PCB Pad",
+                4.0,
+            )
         };
         let fp = s.footprint(name, description);
         for (number, y) in [("1", 2.25), ("2", -2.25)] {
@@ -513,7 +535,7 @@ fn button(s: &mut Script) {
                 } else {
                     json!({
                         "kind": "smd", "shape": "rounded_rect",
-                        "width": mm(1.55), "height": mm(1.3),
+                        "width": mm(1.6), "height": mm(1.4),
                     })
                 };
                 let mut pad = pad;
@@ -546,7 +568,7 @@ fn button(s: &mut Script) {
                 mm(0.12),
             );
         }
-        let (cx, cy) = if tht { (4.4, 3.4) } else { (5.0, 3.25) };
+        let (cx, cy) = if tht { (4.4, 3.4) } else { (5.05, 3.25) };
         s.fp_draw(
             &fp,
             "courtyard_top",
