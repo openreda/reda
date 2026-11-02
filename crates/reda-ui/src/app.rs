@@ -189,8 +189,15 @@ impl App {
     /// files. Returns the item clicked, if any.
     fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
-        let checked =
+        let mut checked =
             BTreeMap::from([("view.theme.set", json!({ "theme": theme_value(ui.ctx()) }))]);
+        if let Some(document) = self.shell.active_document().map(|d| d.document) {
+            let grid = self.shell.grid(document).0;
+            checked.insert(
+                "view.grid.set",
+                json!({ "document": document.to_string(), "grid": grid }),
+            );
+        }
         let cx = draw::Cx {
             shell: &self.shell,
             checked: &checked,
@@ -230,6 +237,10 @@ impl App {
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panels_button(ui);
+                if let Some(document) = self.shell.active_document().map(|d| d.document) {
+                    let grid = crate::grid::label(self.shell.grid(document));
+                    ui.label(tr!("status-grid", grid = grid));
+                }
                 ui.with_layout(
                     egui::Layout::left_to_right(egui::Align::Center),
                     |ui| match self.shell.message() {

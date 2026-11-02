@@ -391,12 +391,32 @@ fn toolbar_and_active_bar_buttons_run_their_commands() {
     h.run();
     h.state_mut().shell_mut().open_project(&file).unwrap();
     h.run();
-    // Undo, Redo and Zoom to Fit are on the toolbar and on the canvas's Active Bar.
-    assert_eq!(h.get_all_by_label("Zoom to Fit").count(), 2);
-    // The Active Bar's button is drawn last.
-    h.get_all_by_label("Zoom to Fit").last().unwrap().click();
+    h.get_by_label("Zoom to Fit").click();
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "view.zoom_fit");
+    // The sheet's Active Bar holds its Tools.
+    h.get_by_label("Select").click();
+    h.run();
+    assert_eq!(journal_ids(&h).last().unwrap(), "tool.activate:select");
+    let sheet = h.state().shell().active_document().unwrap().document;
+    let wire = h
+        .state_mut()
+        .shell_mut()
+        .run(
+            "schematic.wire.add",
+            json!({"document": sheet, "points": [{"x": 0, "y": 0}, {"x": 2_540_000, "y": 0}]}),
+        )
+        .unwrap()["result"]["wires"][0]
+        .clone();
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("selection.set", json!({ "objects": [wire] }))
+        .unwrap();
+    h.run();
+    h.get_by_label("Drag").click();
+    h.run();
+    assert_eq!(journal_ids(&h).last().unwrap(), "tool.activate:drag");
+    assert_eq!(h.state().shell().tool(), reda_ui::tools::Tool::Drag);
     h.get_all_by_label("Run ERC").next().unwrap().click();
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "erc.run");

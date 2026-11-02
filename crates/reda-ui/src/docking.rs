@@ -12,17 +12,18 @@ use egui::{
     Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Role, Sense, SetOpenCommand, Ui,
     UiBuilder, Vec2, WidgetInfo,
 };
-use reda_engine::model::Uuid;
+use reda_engine::model::{DocumentKind, Uuid};
 use serde_json::{Value, json};
 
 use crate::bars;
 use crate::bars::draw::{self, Invocation};
-use crate::canvas::{canvas, canvas_id};
+use crate::canvas::{CanvasInputs, canvas_id, canvas_input, canvas_paint};
 use crate::icons;
 use crate::journal_panel::{self, JournalAction};
 use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
 use crate::panels;
 use crate::projects_panel::{self, ProjectsAction};
+use crate::schematic_editor;
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::{theme, tr};
@@ -217,11 +218,38 @@ impl Cx<'_> {
         }
     }
 
+    /// Runs the editor of `document`'s type on this frame's canvas input, and its keys
+    /// when the canvas has the keyboard. Returns the Commands to run.
+    fn edit(&mut self, ui: &Ui, document: Uuid, input: &CanvasInputs) -> Vec<(String, Value)> {
+        let kind = self
+            .shell
+            .engine()
+            .project()
+            .and_then(|p| p.document(document))
+            .map(|d| d.kind);
+        if kind != Some(DocumentKind::Schematic) {
+            return Vec::new();
+        }
+        let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
+        let mut commands = schematic_editor::pointer(self.shell, document, &input.events, scale);
+        let has_keys = match &self.layout.focus {
+            Some(TabKey::Document(focused)) => *focused == document,
+            Some(_) => false,
+            None => self.layout.active_document() == Some(document),
+        };
+        if has_keys {
+            let keys = schematic_editor::keys::take(ui.ctx());
+            commands.extend(schematic_editor::keys::run(self.shell, document, &keys));
+        }
+        commands
+    }
+
     /// The Active Bar over the canvas of `document`, for its Document type.
     fn active_bar(&self, ui: &mut Ui, document: Uuid, id: Id, rect: Rect) -> Option<Invocation> {
         let project = self.shell.engine().project()?;
         let kind = project.documents().find(|d| d.uuid == document)?.kind;
-        let checked = BTreeMap::new();
+        let checked =
+            BTreeMap::from([("tool.activate", json!({ "tool": self.shell.tool().id() }))]);
         let cx = draw::Cx {
             shell: self.shell,
             checked: &checked,
@@ -401,7 +429,13 @@ impl Cx<'_> {
                 let Some(doc) = self.shell.document_tab_mut(*uuid) else {
                     return;
                 };
-                canvas(ui, doc, theme);
+                let input = canvas_input(ui, doc);
+                let commands = self.edit(ui, *uuid, &input);
+                self.frame.commands.extend(commands);
+                let Some(doc) = self.shell.document_tab(*uuid) else {
+                    return;
+                };
+                canvas_paint(ui, &input, doc, theme);
                 let id = canvas_id(doc);
                 if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                     self.frame.commands.push(clicked);

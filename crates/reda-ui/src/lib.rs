@@ -11,6 +11,7 @@ pub mod bars;
 pub mod canvas;
 mod dialogs;
 mod docking;
+pub mod grid;
 pub mod i18n;
 pub mod icons;
 mod journal_panel;
@@ -21,10 +22,12 @@ mod os;
 mod panels;
 mod projects_panel;
 pub mod properties;
+pub mod schematic_editor;
 pub mod selection;
 pub mod shell;
 mod start_page;
 pub mod theme;
+pub mod tools;
 
 pub use app::{App, install_canvas, run};
 /// The engine, re-exported so the app depends only on the UI.

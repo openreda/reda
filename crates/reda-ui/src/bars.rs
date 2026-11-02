@@ -47,6 +47,17 @@ pub const ACTIVE_DOCUMENT: &str = "$active_document";
 /// use it, so they act on the same stack as Mod+Z.
 pub const UNDO_STACK: &str = "$undo_stack";
 
+/// The raw-params placeholder for the selected objects on the active Document, as an
+/// array of UUIDs. An item using it is greyed while nothing there is selected.
+pub const SELECTION: &str = "$selection";
+
+/// The raw-params placeholder for what the last copy or cut returned (Paste). An item
+/// using it is greyed while the clipboard is empty.
+pub const CLIPBOARD: &str = "$clipboard";
+
+/// The raw-params placeholder for the active Document's snap grid, in nm.
+pub const GRID: &str = "$grid";
+
 /// One clickable item.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Action {
@@ -233,10 +244,27 @@ pub fn resolve_for(shell: &Shell, action: &Action, document: Option<Uuid>) -> Re
         Scope::Document(uuid) => uuid.to_string(),
         _ => "project".to_owned(),
     });
-    let filled = fill(&mut params, UNDO_STACK, undo.as_deref())
-        .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_deref()));
+    let undo = undo.map(Value::from);
+    let active = active.map(Value::from);
+    let grid = document.map(|d| json!(shell.grid(d).0));
+    let selected = document
+        .map(|d| selected_on(shell, d))
+        .filter(|s| !s.is_empty())
+        .map(|s| json!(s));
+    let filled = fill(&mut params, UNDO_STACK, undo.as_ref())
+        .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_ref()))
+        .and_then(|()| fill(&mut params, GRID, grid.as_ref()))
+        .map_err(|()| tr!("bars-no-active-document"))
+        .and_then(|()| {
+            fill(&mut params, SELECTION, selected.as_ref())
+                .map_err(|()| tr!("bars-nothing-selected"))
+        })
+        .and_then(|()| {
+            fill(&mut params, CLIPBOARD, shell.clipboard())
+                .map_err(|()| tr!("bars-clipboard-empty"))
+        });
     let run = match filled {
-        Err(()) => Err(tr!("bars-no-active-document")),
+        Err(reason) => Err(reason),
         Ok(()) => {
             // The window is never headless.
             match registry.available(&run_id, shell.engine().project(), false) {
@@ -258,12 +286,31 @@ pub fn resolve_for(shell: &Shell, action: &Action, document: Option<Uuid>) -> Re
     }
 }
 
+/// The selected objects on `document`, in selection order.
+fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
+    let Some(project) = shell.engine().project() else {
+        return Vec::new();
+    };
+    shell
+        .selection()
+        .objects
+        .iter()
+        .copied()
+        .filter(|o| {
+            project
+                .object(*o)
+                .is_some_and(|o| o.scope() == Scope::Document(document))
+        })
+        .collect()
+}
+
 /// Replaces every `placeholder` string in `params` with `value`; `Err` when one is there
-/// but there is no value (no Document is active, or no Project is open).
-fn fill(params: &mut Value, placeholder: &str, value: Option<&str>) -> Result<(), ()> {
+/// but there is no value (no Document is active, nothing is selected, the clipboard is
+/// empty).
+fn fill(params: &mut Value, placeholder: &str, value: Option<&Value>) -> Result<(), ()> {
     match params {
         Value::String(s) if s == placeholder => {
-            *s = value.ok_or(())?.to_owned();
+            *params = value.ok_or(())?.clone();
             Ok(())
         }
         Value::Array(items) => items
@@ -293,7 +340,12 @@ fn summary(params: &Value) -> String {
 
 fn summary_map(map: &Map<String, Value>, value: fn(&Value) -> String) -> String {
     map.iter()
-        .filter(|(_, v)| !matches!(v.as_str(), Some(ACTIVE_DOCUMENT | UNDO_STACK)))
+        .filter(|(_, v)| {
+            !matches!(
+                v.as_str(),
+                Some(ACTIVE_DOCUMENT | UNDO_STACK | SELECTION | CLIPBOARD | GRID)
+            )
+        })
         .map(|(k, v)| format!("{k}: {}", value(v)))
         .collect::<Vec<_>>()
         .join(", ")
