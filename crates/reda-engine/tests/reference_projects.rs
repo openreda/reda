@@ -167,7 +167,12 @@ fn erc_drc_and_sync_preview_match_their_goldens() {
             ("drc.run", "drc.json"),
             ("sync.preview", "sync.json"),
         ] {
-            let result = engine.run_ok(id, json!({}));
+            let mut result = engine.run_ok(id, json!({}));
+            // The staleness fingerprint hashes the model's Debug output, so it is only
+            // stable within one build.
+            if let Some(map) = result.as_object_mut() {
+                map.remove("design");
+            }
             assert_golden(goldens(dir).join(golden), &pretty(&result));
         }
     }
