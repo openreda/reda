@@ -111,3 +111,39 @@ fn null_params_mean_no_params() {
     let mut h = Harness::with_project();
     assert!(h.run("test.project.name", json!(null)).is_ok());
 }
+
+#[test]
+fn one_param_can_be_checked_alone_for_a_form_to_flag_it() {
+    let h = Harness::new();
+    let r = &h.registry;
+    assert!(
+        r.check_param("test.measure", "width", &json!("1.27mm"))
+            .is_ok()
+    );
+    let err = r
+        .check_param("test.measure", "width", &json!("1ft"))
+        .unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    assert_eq!(pointer(&err), "/width");
+    let err = r
+        .check_param("test.measure", "points", &json!([{"x": 1, "y": true}]))
+        .unwrap_err();
+    assert_eq!(pointer(&err), "/points/0/y");
+    let err = r
+        .check_param("test.measure", "nope", &json!(1))
+        .unwrap_err();
+    assert_eq!(pointer(&err), "/nope");
+    assert_eq!(
+        r.check_param("no.such", "x", &json!(1)).unwrap_err().code,
+        ErrorCode::NotFound
+    );
+}
+
+#[test]
+fn whole_params_can_be_checked_without_running() {
+    let h = Harness::new();
+    let r = &h.registry;
+    assert!(r.check_params("test.measure", &json!({"width": 3})).is_ok());
+    let err = r.check_params("test.measure", &json!({})).unwrap_err();
+    assert_eq!(pointer(&err), "/width");
+}

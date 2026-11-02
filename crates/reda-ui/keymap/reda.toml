@@ -40,6 +40,12 @@ key = "Mod+Y"
 command = "edit.redo"
 params = { document = "$undo_stack" }
 
+# The Command Palette.
+
+[[bind]]
+key = "Mod+Shift+P"
+command = "app.dialog.open:command_palette"
+
 # Panels: only Projects, Properties and Messages have keys by default.
 
 [[bind]]

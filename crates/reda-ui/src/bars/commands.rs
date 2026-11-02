@@ -26,6 +26,8 @@ pub enum Request {
     NewProject,
     /// Show the OS dialog to pick a Project to open.
     OpenProject,
+    /// Show the Command Palette.
+    CommandPalette,
     /// Close the window.
     Quit,
     /// Fit this Document's canvas to the Document.
@@ -89,6 +91,8 @@ pub enum Dialog {
     NewProject,
     /// The OS dialog that picks a Project to open.
     OpenProject,
+    /// The Command Palette.
+    CommandPalette,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -125,6 +129,12 @@ impl Command for OpenDialog {
                 "project_open",
                 json!({"dialog": "open_project"}),
             ),
+            Preset::new(
+                "command_palette",
+                "Command Palette…",
+                "find",
+                json!({"dialog": "command_palette"}),
+            ),
         ]
     }
 
@@ -132,6 +142,7 @@ impl Command for OpenDialog {
         let r = match p.dialog {
             Dialog::NewProject => Request::NewProject,
             Dialog::OpenProject => Request::OpenProject,
+            Dialog::CommandPalette => Request::CommandPalette,
         };
         request(cx, r)?;
         Ok(Done {})

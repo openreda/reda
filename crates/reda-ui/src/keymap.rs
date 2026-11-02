@@ -101,6 +101,18 @@ pub fn active(shell: &Shell) -> Active {
     }
 }
 
+/// The shortcut of the Command or Preset `id` (`<command>:<preset>`) in what is active in
+/// `shell` now, labelled as on this OS: the Command Palette's lookup.
+pub fn shortcut_of(shell: &Shell, id: &str) -> Option<String> {
+    let binding = if id.contains(':') {
+        Binding::Preset(id.to_owned())
+    } else {
+        Binding::Command(id.to_owned())
+    };
+    let chord = shell.keymap().shortcut(&binding, &active(shell))?;
+    Some(chord.label(cfg!(target_os = "macos")))
+}
+
 /// What is active for the canvas of `document` (or, with `None`, for no Document): the
 /// active Tool and that Document's type. An Active Bar shows its own canvas's shortcuts.
 pub fn active_for(shell: &Shell, document: Option<Uuid>) -> Active {

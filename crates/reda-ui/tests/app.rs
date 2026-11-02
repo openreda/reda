@@ -472,3 +472,41 @@ fn snapshot_of_project_settings_with_an_invalid_value() {
 fn snapshot_of_project_settings_erc_with_the_pin_matrix() {
     project_settings_snapshot("ERC", "project_settings_erc_dark");
 }
+
+/// Opens the Command Palette with `query` typed into it.
+fn palette_with(h: &mut Harness<'static, App>, query: &str) {
+    h.run();
+    h.key_press_modifiers(
+        egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+        egui::Key::P,
+    );
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Command Palette")
+        .type_text(query);
+    h.run();
+}
+
+#[test]
+fn snapshot_of_the_command_palette() {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    palette_with(&mut h, "show");
+    h.snapshot("command_palette_dark");
+}
+
+#[test]
+fn snapshot_of_a_generated_params_form() {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    palette_with(&mut h, "split tab");
+    h.key_press(egui::Key::Enter);
+    h.run();
+    assert!(h.query_by_label("Split Tab").is_some());
+    h.snapshot("params_form_dark");
+}

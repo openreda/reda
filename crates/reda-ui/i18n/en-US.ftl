@@ -428,3 +428,18 @@ settings-library-add-path = Add Path
 settings-library-blank = Give a folder.
 settings-library-invalid = { $reason }
 settings-library-duplicate = { $path } is listed already.
+
+# The form generated from a Command's params, and the Command Palette.
+form-run = Run
+form-fix-fields = Fix the flagged fields first.
+form-required = Required
+form-whole-number = Enter a whole number
+form-bad-json = Not valid JSON: { $error }
+form-optional = { $label } (optional)
+form-default = (default)
+form-yes = Yes
+form-no = No
+form-choose = Choose…
+palette-title = Command Palette
+palette-hint = Type a Command…
+palette-nothing = No Command matches.

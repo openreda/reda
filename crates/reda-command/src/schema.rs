@@ -46,6 +46,17 @@ pub(crate) fn check(root: &Value, value: &Value) -> Result<(), Mismatch> {
     Checker { root }.check(root, value, &mut Vec::new())
 }
 
+/// Checks `value` as the top-level property `name` of params fitting the root schema
+/// `root`, without the rest of the params. Pointers start at `/<name>`.
+pub(crate) fn check_property(root: &Value, name: &str, value: &Value) -> Result<(), Mismatch> {
+    let checker = Checker { root };
+    let mut path = vec![name.to_owned()];
+    match root.get("properties").and_then(|p| p.get(name)) {
+        Some(schema) => checker.check(schema, value, &mut path),
+        None => Checker::fail(&path, format!("unknown field {name}")),
+    }
+}
+
 /// Escapes one JSON pointer token (RFC 6901).
 fn escape(token: &str) -> String {
     token.replace('~', "~0").replace('/', "~1")

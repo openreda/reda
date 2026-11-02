@@ -17,12 +17,14 @@ use crate::bars::draw::{self, Invocation};
 use crate::bars::{self, Request};
 use crate::bridge::Bridge;
 use crate::canvas::{CanvasResources, canvas_id};
+use crate::command_dialog::{self, Call, Dialogs, ParamsDialog};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
 use crate::journal_panel::JournalAction;
 use crate::layout::{PanelId, TabKey};
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
+use crate::palette::{self, Palette, PaletteOutcome};
 use crate::projects_panel::{self, ProjectsAction};
 use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
 use crate::settings::{self, Outcome, SettingsDialog};
@@ -46,6 +48,14 @@ pub struct App {
     /// The control port, for agents.
     bridge: Bridge,
     bridge_waker_set: bool,
+    /// The open Command Palette.
+    palette: Option<Palette>,
+    /// The hand-written dialogs that replace generated params forms.
+    dialogs: Dialogs,
+    /// The dialog asking for a Command's missing params.
+    params_dialog: Option<Box<dyn ParamsDialog>>,
+    /// The shortcut of a Command or Preset id, for the Palette (the Keymap's lookup).
+    shortcuts: palette::ShortcutLookup,
 }
 
 impl App {
@@ -63,6 +73,10 @@ impl App {
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
+            palette: None,
+            dialogs: Dialogs::new(),
+            params_dialog: None,
+            shortcuts: Box::new(|_, _| None),
             bridge: Bridge::off(),
             bridge_waker_set: false,
         }
@@ -101,6 +115,22 @@ impl App {
         self
     }
 
+    /// Shows each Command's shortcut from `lookup` (by Command or Preset id) in the
+    /// Command Palette.
+    pub fn with_shortcuts(
+        mut self,
+        lookup: impl Fn(&Shell, &str) -> Option<String> + 'static,
+    ) -> App {
+        self.shortcuts = Box::new(lookup);
+        self
+    }
+
+    /// The hand-written dialogs that replace generated params forms; register one with
+    /// [`Dialogs::register`].
+    pub fn dialogs_mut(&mut self) -> &mut Dialogs {
+        &mut self.dialogs
+    }
+
     pub fn shell(&self) -> &Shell {
         &self.shell
     }
@@ -126,7 +156,11 @@ impl App {
         let clicked = self.bars(ui);
         Panel::bottom("status-bar").show(ui, |ui| self.status_bar(ui));
         let frame = docking::show(ui, &mut self.shell);
-        for (id, params) in clicked.into_iter().chain(frame.commands) {
+        // A menu or toolbar item that lacks params asks for them.
+        if let Some((id, params)) = clicked {
+            self.call(&id, params);
+        }
+        for (id, params) in frame.commands {
             let _ = self.shell.run_reporting(&id, params);
         }
         self.handle_requests(&ctx);
@@ -158,6 +192,8 @@ impl App {
         bridge_ui::ask(&ctx, &mut self.bridge, &mut self.shell);
         self.shell.save_view_if_due(std::time::Instant::now());
         self.crash_recovery(&ctx);
+        self.show_palette(&ctx);
+        self.show_params_dialog(&ctx);
 
         if let Some(form) = &mut self.new_project {
             match form.show(&ctx) {
@@ -222,7 +258,11 @@ impl App {
     /// dialog is open, and while a Project dialog is open only global keys apply, with
     /// undo on the Project stack.
     fn keys(&mut self, ctx: &egui::Context) {
-        if ctx.egui_wants_keyboard_input() || self.new_project.is_some() {
+        if ctx.egui_wants_keyboard_input()
+            || self.new_project.is_some()
+            || self.palette.is_some()
+            || self.params_dialog.is_some()
+        {
             return;
         }
         // The Project dialogs: the Projects panel's and the settings dialog.
@@ -263,6 +303,56 @@ impl App {
             Outcome::Open => {}
             Outcome::Closed => self.settings = None,
             Outcome::PickFolder => self.files.start(ctx, Pick::SettingsFolder),
+        }
+    }
+
+    fn open_palette(&mut self) {
+        let shell = &self.shell;
+        let shortcut = |id: &str| (self.shortcuts)(shell, id);
+        let entries = palette::entries(shell, &shortcut);
+        self.palette = Some(Palette::new(entries));
+    }
+
+    fn show_palette(&mut self, ctx: &egui::Context) {
+        let Some(open) = &mut self.palette else {
+            return;
+        };
+        match open.show(ctx) {
+            PaletteOutcome::Open => {}
+            PaletteOutcome::Close => self.palette = None,
+            PaletteOutcome::Run(id) => {
+                self.palette = None;
+                self.call(&id, json!({}));
+                self.handle_requests(ctx);
+            }
+        }
+    }
+
+    /// Calls a Command from the GUI: it runs when its params are complete, else its
+    /// params dialog opens.
+    fn call(&mut self, id: &str, params: serde_json::Value) {
+        if let Call::Dialog(dialog) = self.dialogs.call(&mut self.shell, id, params) {
+            self.params_dialog = Some(dialog);
+        }
+    }
+
+    fn show_params_dialog(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.params_dialog else {
+            return;
+        };
+        match dialog.show(ctx, &mut self.shell) {
+            command_dialog::Outcome::Open => {}
+            command_dialog::Outcome::Cancel => self.params_dialog = None,
+            command_dialog::Outcome::Run(params) => {
+                let id = dialog.command().to_owned();
+                match self.shell.run_reporting(&id, params) {
+                    Ok(_) => {
+                        self.params_dialog = None;
+                        self.handle_requests(ctx);
+                    }
+                    Err(e) => dialog.failed(&e),
+                }
+            }
         }
     }
 
@@ -348,6 +438,7 @@ impl App {
         for request in bars::take_requests(self.shell.engine()) {
             match request {
                 Request::NewProject => self.open_new_project(),
+                Request::CommandPalette => self.open_palette(),
                 Request::OpenProject => self.files.start(ctx, Pick::OpenProject),
                 Request::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
                 Request::ZoomFit(document) => {
@@ -521,7 +612,8 @@ pub fn run(
             Ok(Box::new(
                 App::new(shell)
                     .with_render_state(render_state.clone())
-                    .with_bridge(bridge),
+                    .with_bridge(bridge)
+                    .with_shortcuts(keymap::shortcut_of),
             ))
         }),
     )
