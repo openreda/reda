@@ -366,3 +366,44 @@ fn a_pin_violation_is_marked_on_its_pin() {
     assert_eq!(markers, pins);
     assert_ne!(pins[0], pins[1]);
 }
+
+#[test]
+fn a_drc_run_lists_its_violations_under_the_pcb_and_goes_stale_after_an_edit() {
+    let home = TempDir::new("messages-home");
+    let work = TempDir::new("messages-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.new_project(work.path(), "Demo").unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    let out = shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "width": "0.25mm",
+                   "points": [{"x": "10mm", "y": "10mm"}, {"x": "15mm", "y": "10mm"}]}),
+        )
+        .unwrap();
+    let track = out["result"]["tracks"][0].as_str().unwrap().to_owned();
+    shell.run_check(CheckKind::Drc).unwrap();
+
+    let groups = shell.message_groups();
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].document, Some(pcb));
+    let texts: Vec<&str> = groups[0].lines.iter().map(|l| l.text.as_str()).collect();
+    assert_eq!(
+        texts,
+        [
+            "Copper with no Net",
+            "Unconnected end at (10mm, 10mm)",
+            "Unconnected end at (15mm, 10mm)",
+        ]
+    );
+
+    shell.go_to(groups[0].lines[0].key);
+    assert_eq!(shell.layout().active_document(), Some(pcb));
+    let ids: Vec<String> = shell.selection().iter().map(|u| u.to_string()).collect();
+    assert_eq!(ids, std::slice::from_ref(&track));
+
+    shell
+        .run("pcb.track.delete", json!({"tracks": [track]}))
+        .unwrap();
+    assert!(shell.messages().run(CheckKind::Drc).unwrap().stale);
+}

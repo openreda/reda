@@ -447,8 +447,12 @@ impl Shell {
             return;
         };
         let erc = reda_engine::schematic::erc::design_fingerprint(project);
+        let drc = project.pcb().map(reda_engine::pcb::drc::design_fingerprint);
         if let Some(run) = self.messages.run_mut(CheckKind::Erc) {
             run.stale = run.design != erc;
+        }
+        if let Some(run) = self.messages.run_mut(CheckKind::Drc) {
+            run.stale = drc.as_ref() != Some(&run.design);
         }
     }
 
