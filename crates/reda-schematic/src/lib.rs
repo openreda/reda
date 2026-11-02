@@ -6,12 +6,14 @@ mod component;
 pub mod connectivity;
 mod edit;
 mod find;
+mod library_element;
 mod natural;
 mod pins;
 mod properties;
 mod sheet;
 mod similar;
 mod unit_move;
+mod update;
 mod wiring;
 
 use reda_command::{CommandError, Registry};
@@ -30,6 +32,9 @@ pub use edit::{
     TextSetParams,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
+pub use library_element::{
+    ElementFile, LibraryElement, LibraryElementParams, LibraryElementResult,
+};
 pub use natural::natural_cmp;
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
@@ -42,6 +47,10 @@ pub use similar::{
     select_similar,
 };
 pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
+pub use update::{
+    ComponentUpdate, FootprintChange, Outdated, OutdatedComponent, OutdatedResult, PartChange,
+    UpdateFromLibrary, UpdateParams, UpdatePreview, UpdateResult,
+};
 pub use wiring::{
     NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
     NoConnectAddParams, NoConnectAddResult, SchematicNets, WireAdd, WireAddParams, WireAddResult,
@@ -55,6 +64,10 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ComponentPinsQuery);
     registry.add(Find);
     registry.add(SelectSimilar);
+    registry.add(Outdated);
+    registry.add(UpdatePreview);
+    registry.add(UpdateFromLibrary);
+    registry.add(LibraryElement);
     registry.add(SheetSetSize);
     registry.add(SheetTitleBlock);
     registry.add(WireAdd);

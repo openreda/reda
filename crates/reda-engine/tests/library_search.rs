@@ -51,6 +51,7 @@ fn write_library(folder: &Path, n: u128, part_name: &str, value: &str) {
             ..Fields::default()
         },
         pin_map: PinMap::default(),
+        provenance: None,
     };
     std::fs::write(
         folder.join("parts").join(format!("{part_name}.redapart")),

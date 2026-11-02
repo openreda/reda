@@ -7,8 +7,8 @@ use reda_model::{Project, Scope, Transaction, Uuid};
 
 use crate::command::NO_PROJECT;
 use crate::{
-    Clock, CommandError, Fonts, History, IdSource, PartCopy, PartSource, Signals, Timestamp,
-    UserDirs,
+    Clock, CommandError, ElementLocation, Fonts, History, IdSource, PartCopy, PartSource, Signals,
+    Timestamp, UserDirs,
 };
 
 /// The engine's mutable state between Commands.
@@ -154,6 +154,18 @@ impl<'a> Context<'a> {
     /// Footprints, or `not_found`.
     pub fn library_part(&self, uuid: Uuid) -> Result<PartCopy, CommandError> {
         self.parts.part(uuid)
+    }
+
+    /// Each of these Parts, as [`Context::library_part`] would give it, in the same order,
+    /// reading the Libraries once.
+    pub fn library_parts(&self, uuids: &[Uuid]) -> Vec<Result<PartCopy, CommandError>> {
+        self.parts.parts(uuids)
+    }
+
+    /// Where each of these Library elements is on disk, in the same order; `None` for one
+    /// no registered Library holds.
+    pub fn library_locations(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {
+        self.parts.locate(elements)
     }
 
     /// The time from the injected `Clock`.

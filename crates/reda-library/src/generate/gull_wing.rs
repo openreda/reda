@@ -1,5 +1,5 @@
-//! Packages with two opposite columns of gull-wing leads: SOT-23, SOT-223, SOIC, SSOP and
-//! TSSOP share this land pattern.
+//! Packages with two opposite columns of leads: SOT-23, SOT-223, SOIC, SSOP and TSSOP
+//! (gull-wing) and DFN (no-lead) share this land pattern.
 //!
 //! Zero orientation: the lead columns run along y, pin 1 at the upper left, numbered down
 //! the left column and back up the right one.
@@ -9,7 +9,7 @@ use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use super::ipc::{self, Goals, Tol};
+use super::ipc::{self, Termination, Tol};
 use super::pattern::{Body, Land, LandPattern, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH};
 use super::{TolParam, hundredths};
 
@@ -156,32 +156,54 @@ pub fn dual_row(pins: usize, pitch: Nm, width: Tol) -> Vec<Lead> {
         .collect()
 }
 
-/// The land pattern for `leads` of a package with dimensions `dims`. Silkscreen lines run
-/// along the body's top and bottom edges; the top one reaches out over pin 1 when it
-/// clears the copper.
+/// `span` with its heel edges held back so that each land reaches under the body by at
+/// most a quarter of the body's greatest width `body`.
+///
+/// IPC-7351 sizes the heel from the lead's foot alone. Where the span tolerance is wide
+/// next to a narrow body, as on SOT-23 (TO-236), that runs most of each land under the
+/// body, where no heel fillet forms; the middle half of the body is kept free of copper
+/// instead.
+pub(crate) fn keep_body_middle_clear(span: ipc::Span, body: Nm) -> Result<ipc::Span, CommandError> {
+    let inner = ipc::round_up(Nm(body.0 / 2)).max(span.inner);
+    if inner >= span.outer {
+        return Err(CommandError::invalid_params(
+            "/dimensions/lead_span",
+            "the lead span leaves no room for lands outside the body",
+        ));
+    }
+    Ok(ipc::Span { inner, ..span })
+}
+
+/// The land pattern for `leads` of a package with dimensions `dims`, terminated as
+/// `termination`. Silkscreen lines run along the body's top and bottom edges; the top one
+/// reaches out over pin 1 when it clears the copper.
 pub fn land_pattern(
     dims: &GullWing,
     leads: &[Lead],
+    termination: Termination,
     name: String,
     description: String,
 ) -> Result<LandPattern, CommandError> {
-    let goals = Goals::gull_wing(dims.pitch);
-    let span = ipc::span(dims.lead_span, dims.lead_length, goals)
+    let goals = termination.goals(dims.pitch);
+    let mut span = ipc::span(dims.lead_span, dims.lead_length, goals)
         .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
+    if termination == Termination::GullWing {
+        span = keep_body_middle_clear(span, dims.body_width.max)?;
+    }
     let offset = span.land_offset();
     let lands: Vec<Land> = leads
         .iter()
-        .map(|lead| Land {
-            number: lead.number.clone(),
-            at: Point::new(
-                match lead.side {
-                    Side::Left => Nm(-offset.0),
-                    Side::Right => offset,
-                },
-                lead.y,
-            ),
-            width: span.land_length(),
-            height: ipc::land_width(lead.width, goals),
+        .map(|lead| {
+            let x = match lead.side {
+                Side::Left => Nm(-offset.0),
+                Side::Right => offset,
+            };
+            Land::smd(
+                lead.number.clone(),
+                Point::new(x, lead.y),
+                span.land_length(),
+                ipc::land_width(lead.width, goals),
+            )
         })
         .collect();
     let line_y = dims.body_length.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2;

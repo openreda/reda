@@ -5,12 +5,14 @@ pub mod document;
 pub mod elements;
 pub mod fab_preset;
 pub mod history;
+pub mod import_part;
 pub mod library;
 pub mod library_check;
 pub mod preferences;
 pub mod project;
 pub mod properties;
 pub mod query;
+pub mod reannotate;
 
 use reda_command::Registry;
 use reda_model::{Scope, Uuid};
@@ -22,12 +24,14 @@ pub fn register_all(registry: &mut Registry) {
     fab_preset::register_all(registry);
     elements::register_all(registry);
     history::register_all(registry);
+    import_part::register_all(registry);
     library::register_all(registry);
     library_check::register_all(registry);
     preferences::register_all(registry);
     project::register_all(registry);
     properties::register_all(registry);
     query::register_all(registry);
+    reannotate::register_all(registry);
 }
 
 /// A param naming one file of the Project: `"project"` for the Project file, or a

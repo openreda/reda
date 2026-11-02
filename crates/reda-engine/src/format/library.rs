@@ -24,7 +24,7 @@ use std::path::Path;
 
 use reda_model::{
     ComponentType, Fields, Footprint, FootprintGraphic, FootprintText, LibraryInfo, Pad, Part, Pin,
-    PinMap, Symbol, SymbolGraphic, Unit, Uuid,
+    PinMap, Provenance, Symbol, SymbolGraphic, Unit, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -55,6 +55,10 @@ pub(crate) struct SymbolFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     symbol: SymbolRow,
+    /// Where an imported element came from: the service, its terms and any copyright
+    /// lines. Elements made in REDA have none.
+    #[serde(default)]
+    provenance: Option<Box<Provenance>>,
     /// The Units in order (A, B, C…). A single-unit Symbol has exactly one.
     units: Vec<Unit>,
     /// Every Pin of every Unit, sorted by UUID.
@@ -85,6 +89,10 @@ pub(crate) struct FootprintFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     footprint: FootprintRow,
+    /// Where an imported element came from: the service, its terms and any copyright
+    /// lines. Elements made in REDA have none.
+    #[serde(default)]
+    provenance: Option<Box<Provenance>>,
     /// Where the Designator and value text go.
     #[serde(default)]
     text: FootprintTexts,
@@ -139,6 +147,10 @@ pub(crate) struct PartFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     part: PartRow,
+    /// Where an imported element came from: the service, its terms and any copyright
+    /// lines. Elements made in REDA have none.
+    #[serde(default)]
+    provenance: Option<Box<Provenance>>,
     /// The alternate Footprints by UUID, in order; the first is the default.
     footprints: Vec<Uuid>,
     /// The default fields, copied onto each Component placed from the Part.
@@ -187,6 +199,7 @@ impl SymbolRow {
         units: Vec<Unit>,
         mut pins: Vec<Pin>,
         mut graphics: Vec<SymbolGraphic>,
+        provenance: Option<Box<Provenance>>,
     ) -> Result<Symbol, String> {
         if units.is_empty() {
             return Err("a Symbol needs at least one Unit".into());
@@ -216,6 +229,7 @@ impl SymbolRow {
             units,
             pins,
             graphics,
+            provenance,
         })
     }
 }
@@ -223,6 +237,7 @@ impl SymbolRow {
 pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("symbol", &SymbolRow::of(symbol))?;
+    write_provenance(&mut w, &symbol.provenance)?;
     w.list("units", &symbol.units)?;
     w.table("pins", &symbol.pins, |p| p.uuid)?;
     w.table("graphics", &symbol.graphics, |g| g.uuid)?;
@@ -233,7 +248,7 @@ pub fn read_symbol(path: &Path, bytes: &[u8]) -> Result<Symbol, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: SymbolFile = parse(FileKind::Symbol, path, bytes)?;
     file.symbol
-        .into_symbol(file.units, file.pins, file.graphics)
+        .into_symbol(file.units, file.pins, file.graphics, file.provenance)
         .map_err(invalid)
 }
 
@@ -253,6 +268,7 @@ impl FootprintRow {
         text: FootprintTexts,
         mut pads: Vec<Pad>,
         mut graphics: Vec<FootprintGraphic>,
+        provenance: Option<Box<Provenance>>,
     ) -> Result<Footprint, String> {
         unique(pads.iter().map(|p| p.uuid), "Pad")?;
         unique(graphics.iter().map(|g| g.uuid), "graphic")?;
@@ -266,6 +282,7 @@ impl FootprintRow {
             graphics,
             designator: text.designator,
             value: text.value,
+            provenance,
         })
     }
 }
@@ -273,6 +290,7 @@ impl FootprintRow {
 pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("footprint", &FootprintRow::of(footprint))?;
+    write_provenance(&mut w, &footprint.provenance)?;
     w.field("text", &FootprintTexts::of(footprint))?;
     w.table("pads", &footprint.pads, |p| p.uuid)?;
     w.table("graphics", &footprint.graphics, |g| g.uuid)?;
@@ -283,7 +301,7 @@ pub fn read_footprint(path: &Path, bytes: &[u8]) -> Result<Footprint, LoadError>
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: FootprintFile = parse(FileKind::Footprint, path, bytes)?;
     file.footprint
-        .into_footprint(file.text, file.pads, file.graphics)
+        .into_footprint(file.text, file.pads, file.graphics, file.provenance)
         .map_err(invalid)
 }
 
@@ -298,7 +316,13 @@ impl PartRow {
     }
 
     /// The Part with these alternates, fields and pin map, the map in canonical order.
-    pub(crate) fn into_part(self, footprints: Vec<Uuid>, fields: Fields, pin_map: &PinMap) -> Part {
+    pub(crate) fn into_part(
+        self,
+        footprints: Vec<Uuid>,
+        fields: Fields,
+        pin_map: &PinMap,
+        provenance: Option<Box<Provenance>>,
+    ) -> Part {
         Part {
             uuid: self.uuid,
             name: self.name,
@@ -307,6 +331,7 @@ impl PartRow {
             footprints,
             fields,
             pin_map: sorted(pin_map),
+            provenance,
         }
     }
 }
@@ -314,6 +339,7 @@ impl PartRow {
 pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("part", &PartRow::of(part))?;
+    write_provenance(&mut w, &part.provenance)?;
     w.list("footprints", &part.footprints)?;
     w.field("fields", &part.fields)?;
     w.field("pin_map", &sorted(&part.pin_map))?;
@@ -324,7 +350,18 @@ pub fn read_part(path: &Path, bytes: &[u8]) -> Result<Part, LoadError> {
     let file: PartFile = parse(FileKind::Part, path, bytes)?;
     Ok(file
         .part
-        .into_part(file.footprints, file.fields, &file.pin_map))
+        .into_part(file.footprints, file.fields, &file.pin_map, file.provenance))
+}
+
+/// The `provenance` line, written only for imported elements.
+fn write_provenance(
+    w: &mut CanonicalWriter,
+    provenance: &Option<Box<Provenance>>,
+) -> Result<(), CanonicalError> {
+    match provenance {
+        Some(p) => w.field("provenance", p),
+        None => Ok(()),
+    }
 }
 
 /// The pin map in its canonical order: overrides by Pin number, unconnected Pads sorted.

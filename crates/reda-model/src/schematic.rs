@@ -123,6 +123,9 @@ pub struct UnitInstance {
     #[serde(default, skip_serializing_if = "is_false")]
     pub mirror: bool,
     pub designator: String,
+    /// Locked against Re-annotate, which then leaves the Designator as it is.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub designator_locked: bool,
     /// The value is `fields.value`.
     pub fields: Fields,
     /// The chosen Footprint: the UUID of one of the Part's alternates, if it has any.
