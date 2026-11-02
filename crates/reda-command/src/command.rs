@@ -76,7 +76,8 @@ pub trait Command: Send + Sync + 'static {
     }
 
     /// Named sets of fixed params, run as `<id>:<name>`. Menus, shortcuts and the Palette
-    /// bind to them like Commands. Read once, when the Command is registered.
+    /// bind to them like Commands. Asked each time they are listed or run, so they may
+    /// change while REDA runs; those present at registration are checked then.
     fn presets(&self) -> Vec<Preset> {
         Vec::new()
     }

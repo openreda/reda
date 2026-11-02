@@ -16,6 +16,7 @@ use crate::{Clock, Command, CommandError, Fonts, IdSource, Kind, Meta, Signals, 
 /// The object-safe face of a [`Command`].
 trait Erased: Send + Sync {
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable>;
+    fn presets(&self) -> Vec<Preset>;
     /// Deserialises params that already passed the schema check, and runs.
     fn invoke(&self, cx: &mut Context<'_>, params: Value) -> Result<Value, CommandError>;
 }
@@ -23,6 +24,10 @@ trait Erased: Send + Sync {
 impl<C: Command> Erased for C {
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         Command::available(self, cx)
+    }
+
+    fn presets(&self) -> Vec<Preset> {
+        Command::presets(self)
     }
 
     fn invoke(&self, cx: &mut Context<'_>, params: Value) -> Result<Value, CommandError> {
@@ -46,7 +51,17 @@ struct Registered {
     runner: Runner,
     params_schema: Value,
     result_schema: Value,
-    presets: Vec<Preset>,
+}
+
+impl Registered {
+    /// The Command's Presets, asked of it each time: some, such as Saved Layouts, change
+    /// while REDA runs.
+    fn presets(&self) -> Vec<Preset> {
+        match &self.runner {
+            Runner::Command(command) => command.presets(),
+            Runner::Batch => Vec::new(),
+        }
+    }
 }
 
 /// Every registered Command, keyed by id. It always holds the built-in `batch`.
@@ -64,7 +79,6 @@ impl Default for Registry {
                 runner: Runner::Batch,
                 params_schema: schema::params_schema::<BatchParams>(),
                 result_schema: schema::result_schema::<Vec<Value>>(),
-                presets: Vec::new(),
             },
         );
         Registry { commands }
@@ -89,8 +103,9 @@ impl Registry {
         let id = meta.id;
         check_id(id);
         let params_schema = schema::params_schema::<C::Params>();
-        let presets = command.presets();
-        for preset in &presets {
+        // The Presets the Command has now are checked here; later ones are checked against
+        // the schema when they run, like any params.
+        for preset in &command.presets() {
             check_id(&preset.name);
             assert!(
                 !preset.name.contains('.'),
@@ -109,7 +124,6 @@ impl Registry {
             runner: Runner::Command(Box::new(command)),
             params_schema,
             result_schema: schema::result_schema::<C::Output>(),
-            presets,
         };
         if self.commands.insert(id, entry).is_some() {
             panic!("Command {id} is registered twice");
@@ -323,8 +337,8 @@ impl Registry {
             return Ok(Resolved { entry, params });
         };
         let preset = entry
-            .presets
-            .iter()
+            .presets()
+            .into_iter()
             .find(|p| p.name == preset)
             .ok_or_else(|| {
                 CommandError::not_found(format!("{command_id} has no Preset {preset}"))
@@ -337,7 +351,7 @@ impl Registry {
         }
         Ok(Resolved {
             entry,
-            params: preset.params.clone(),
+            params: preset.params,
         })
     }
 }
@@ -437,7 +451,7 @@ fn check_id(id: &str) {
 fn describe(entry: &Registered) -> Value {
     let meta = entry.meta;
     let presets: Vec<Value> = entry
-        .presets
+        .presets()
         .iter()
         .map(|p| {
             json!({
