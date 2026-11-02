@@ -40,6 +40,7 @@ reda-engine -> schemars
 reda-engine -> serde
 reda-engine -> serde_json
 reda-engine -> toml_edit
+reda-engine -> zip [dev]
 reda-geom -> schemars
 reda-geom -> serde
 reda-geom -> serde_json [dev]
