@@ -22,6 +22,10 @@ key = "Mod+O"
 command = "app.dialog.open:open_project"
 
 [[bind]]
+key = "Mod+,"
+command = "app.dialog.open:preferences"
+
+[[bind]]
 key = "Mod+S"
 command = "project.save"
 

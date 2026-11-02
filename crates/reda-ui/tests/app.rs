@@ -415,3 +415,29 @@ fn snapshot_of_project_settings_with_an_invalid_value() {
 fn snapshot_of_project_settings_erc_with_the_pin_matrix() {
     project_settings_snapshot("ERC", "project_settings_erc_dark");
 }
+
+/// The Preferences dialog on `page`, in the dark theme.
+fn preferences_snapshot(page: Option<reda_ui::preferences_dialog::PageId>, name: &str) {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    h.state_mut().open_preferences(page);
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_preferences_general_page() {
+    preferences_snapshot(None, "preferences_general_dark");
+}
+
+#[test]
+fn snapshot_of_the_keyboard_shortcuts_page() {
+    preferences_snapshot(
+        Some(reda_ui::preferences_dialog::PageId::KeyboardShortcuts),
+        "preferences_keyboard_shortcuts_dark",
+    );
+}

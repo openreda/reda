@@ -32,6 +32,8 @@ pub enum Request {
     ZoomFit(Uuid),
     /// Show the window in this theme.
     Theme(Theme),
+    /// Show the Preferences dialog.
+    Preferences,
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -89,6 +91,8 @@ pub enum Dialog {
     NewProject,
     /// The OS dialog that picks a Project to open.
     OpenProject,
+    /// The Preferences dialog.
+    Preferences,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -125,6 +129,12 @@ impl Command for OpenDialog {
                 "project_open",
                 json!({"dialog": "open_project"}),
             ),
+            Preset::new(
+                "preferences",
+                "Preferences…",
+                "preferences",
+                json!({"dialog": "preferences"}),
+            ),
         ]
     }
 
@@ -132,6 +142,7 @@ impl Command for OpenDialog {
         let r = match p.dialog {
             Dialog::NewProject => Request::NewProject,
             Dialog::OpenProject => Request::OpenProject,
+            Dialog::Preferences => Request::Preferences,
         };
         request(cx, r)?;
         Ok(Done {})
