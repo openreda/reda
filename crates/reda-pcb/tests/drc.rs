@@ -438,6 +438,11 @@ fn track_ends_and_vias_that_connect_nothing_dangle() {
 fn stale_and_unfilled_zones_are_refilled_before_checking() {
     let dir = TempDir::new("drc-refill");
     let mut engine = engine(&dir);
+    // The test Nets are on no schematic, so Sync would remove them.
+    engine.run_ok(
+        "drc.set_severity",
+        json!({"check": "out_of_sync", "severity": "off"}),
+    );
     let gnd = net(&mut engine, "GND");
     let sig = net(&mut engine, "SIG");
     test_point(&mut engine, "2mm", Some(gnd));
