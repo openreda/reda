@@ -134,6 +134,14 @@ impl Palette {
         }
     }
 
+    /// The canvas grid's dots.
+    pub fn grid(&self) -> Rgba {
+        match self.theme {
+            Theme::Dark => Rgba([0xb4, 0xb8, 0xc0, 0x80]),
+            Theme::Light => Rgba([0x40, 0x44, 0x4c, 0x80]),
+        }
+    }
+
     /// Overrides one colour.
     pub fn set(&mut self, key: ColorKey, color: Rgba) {
         self.overrides.retain(|(k, _)| *k != key);

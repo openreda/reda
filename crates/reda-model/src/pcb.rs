@@ -18,11 +18,13 @@ use crate::{FootprintCopy, Object, Severity, Uuid};
 mod copper;
 mod footprint;
 mod graphics;
+mod placement;
 mod zone;
 
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 
 pub use footprint::{FootprintInstance, PadNet};
+pub use placement::{FreePad, PlacementOrigin};
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
@@ -253,6 +255,8 @@ pub struct PcbDocument {
     pub(crate) vias: BTreeMap<Uuid, Via>,
     pub(crate) zones: BTreeMap<Uuid, Zone>,
     pub(crate) keepouts: BTreeMap<Uuid, Keepout>,
+    pub(crate) free_pads: BTreeMap<Uuid, FreePad>,
+    pub(crate) placement_origins: BTreeMap<Uuid, PlacementOrigin>,
 }
 
 impl PcbDocument {
@@ -273,6 +277,8 @@ impl PcbDocument {
             vias: BTreeMap::new(),
             zones: BTreeMap::new(),
             keepouts: BTreeMap::new(),
+            free_pads: BTreeMap::new(),
+            placement_origins: BTreeMap::new(),
         }
     }
 
@@ -427,6 +433,20 @@ impl PcbDocument {
         copper[a.min(b)..=a.max(b)].to_vec()
     }
 
+    /// The Free Pads, sorted by UUID.
+    pub fn free_pads(&self) -> impl Iterator<Item = &FreePad> {
+        self.free_pads.values()
+    }
+
+    pub fn free_pad(&self, uuid: Uuid) -> Option<&FreePad> {
+        self.free_pads.get(&uuid)
+    }
+
+    /// The Placement Origin, if the user has set one.
+    pub fn placement_origin(&self) -> Option<&PlacementOrigin> {
+        self.placement_origins.values().next()
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -452,7 +472,9 @@ impl PcbDocument {
             tracks => Track,
             vias => Via,
             zones => Zone,
-            keepouts => Keepout
+            keepouts => Keepout,
+            free_pads => FreePad,
+            placement_origins => PlacementOrigin
         )
     }
 
@@ -483,7 +505,9 @@ impl PcbDocument {
             tracks => Track,
             vias => Via,
             zones => Zone,
-            keepouts => Keepout
+            keepouts => Keepout,
+            free_pads => FreePad,
+            placement_origins => PlacementOrigin
         );
         out
     }
@@ -504,6 +528,8 @@ impl PcbDocument {
         self.vias.remove(&uuid);
         self.zones.remove(&uuid);
         self.keepouts.remove(&uuid);
+        self.free_pads.remove(&uuid);
+        self.placement_origins.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -521,6 +547,8 @@ impl PcbDocument {
             && self.vias.is_empty()
             && self.zones.is_empty()
             && self.keepouts.is_empty()
+            && self.free_pads.is_empty()
+            && self.placement_origins.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -539,6 +567,11 @@ impl PcbDocument {
         if self.outlines.len() > 1 {
             return Err(format!(
                 "PCB Document {doc} has more than one Board Outline"
+            ));
+        }
+        if self.placement_origins.len() > 1 {
+            return Err(format!(
+                "PCB Document {doc} has more than one Placement Origin"
             ));
         }
         let mut layers = std::collections::BTreeSet::new();
@@ -581,7 +614,8 @@ impl PcbDocument {
             }
         }
         self.check_footprints()?;
-        self.check_copper()
+        self.check_copper()?;
+        self.check_free_pads()
     }
 
     fn check_copper(&self) -> Result<(), String> {
@@ -651,6 +685,23 @@ impl PcbDocument {
             }
             reda_geom::check_contour(&keepout.vertices)
                 .map_err(|e| format!("Keepout {uuid}: {e}"))?;
+        }
+        Ok(())
+    }
+
+    fn check_free_pads(&self) -> Result<(), String> {
+        for pad in self.free_pads.values() {
+            if let Some(problem) = pad.problem() {
+                return Err(format!("Free Pad {}: {problem}", pad.uuid));
+            }
+            if let Some(net) = pad.net
+                && !self.nets.contains_key(&net)
+            {
+                return Err(format!(
+                    "Free Pad {} is on Net {net}, which does not exist",
+                    pad.uuid
+                ));
+            }
         }
         Ok(())
     }

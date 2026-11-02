@@ -27,7 +27,7 @@ pub struct Connected;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ConnectedParams {
-    /// A Track, a Via, or a Footprint instance.
+    /// A Track, a Via, a Free Pad, or a Footprint instance.
     pub object: Uuid,
     /// With a Footprint instance: one of its Pads. Left out, the copper connected to any
     /// of its Pads.
@@ -45,7 +45,7 @@ impl Command for Connected {
     const META: Meta = Meta {
         id: "pcb.copper.connected",
         title: "Select Connected Copper",
-        description: "The copper physically connected to a Track, Via or Pad: everything \
+        description: "The copper physically connected to a Track, Via, Pad or Free Pad: everything \
                       reachable through touching copper on any Layer and through Vias and \
                       plated holes, whatever its Net.",
         category: "pcb",
@@ -70,6 +70,8 @@ impl Command for Connected {
             vec![Item::Track { uuid: p.object }]
         } else if pcb.via(p.object).is_some() {
             vec![Item::Via { uuid: p.object }]
+        } else if pcb.free_pad(p.object).is_some() {
+            vec![Item::FreePad { uuid: p.object }]
         } else if let Some(instance) = pcb.footprint(p.object) {
             let pads: Vec<Uuid> = match p.pad {
                 Some(pad) if instance.pads.iter().any(|q| q.pad == pad) => vec![pad],
@@ -90,7 +92,7 @@ impl Command for Connected {
         } else {
             return Err(CommandError::invalid_params(
                 "/object",
-                format!("{} is not a Track, Via or Footprint", p.object),
+                format!("{} is not a Track, Via, Free Pad or Footprint", p.object),
             ));
         };
         let mut items: Vec<Item> = starts

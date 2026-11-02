@@ -3,7 +3,7 @@
 //! thermal spokes or solidly, with unconnected islands dropped.
 
 use reda_model::geom::Millideg;
-use reda_model::{FillShape, PadConnection, PcbDocument, Side, Uuid, Zone};
+use reda_model::{FillShape, PadConnection, PadKind, PcbDocument, Side, Uuid, Zone};
 
 use super::poly::{
     self, Area, Contour, bounds, difference, dilated, edge_band, grown, intersection, ip, opened,
@@ -51,10 +51,10 @@ pub(super) fn fill_zone(
         if same_net(net) {
             connectors.push(shape);
             if zone.pad_connection == PadConnection::Thermal
-                && let Item::Pad { footprint, pad } = item
+                && let Some(frame) = pad_frame(pcb, item)
             {
                 gaps.extend(grown(shape, zone.thermal_gap.0));
-                thermal_pads.push((footprint, pad));
+                thermal_pads.push(frame);
             }
             continue;
         }
@@ -63,6 +63,12 @@ pub(super) fn fill_zone(
             continue;
         }
         others.extend(grown(shape, clearance.0));
+    }
+    // Bare (non-plated) holes are no copper, but the fill keeps its clearance from them.
+    for hole in bare_holes(pcb) {
+        if near(&hole, zone.clearance.0, lo, hi) {
+            others.extend(grown(&hole, zone.clearance.0));
+        }
     }
     for prior in before {
         if same_net(prior.zone.net) {
@@ -85,8 +91,7 @@ pub(super) fn fill_zone(
 
     let spokes: Vec<Vec<Contour>> = thermal_pads
         .iter()
-        .filter_map(|(footprint, pad)| spokes(pcb, zone, *footprint, *pad))
-        .flatten()
+        .flat_map(|frame| spokes(zone, frame))
         .map(|c| vec![c])
         .collect();
     let mut kept = Vec::new();
@@ -151,38 +156,86 @@ fn within_board(pcb: &PcbDocument, mut area: Area) -> Area {
     }
 }
 
+/// Where a Pad sits on the board: its centre, its turn and its half sizes.
+struct PadFrame {
+    centre: P,
+    angle: Millideg,
+    half: (i64, i64),
+}
+
+/// The frame of a Pad or Free Pad item; `None` for other copper.
+fn pad_frame(pcb: &PcbDocument, item: Item) -> Option<PadFrame> {
+    match item {
+        Item::Pad { footprint, pad } => {
+            let instance = pcb.footprint(footprint)?;
+            let copy = pcb.footprint_copy(instance.footprint)?;
+            let pad = copy.footprint.pads.iter().find(|p| p.uuid == pad)?;
+            let angle = match instance.side {
+                Side::Top => instance.rotation + pad.rotation,
+                Side::Bottom => instance.rotation + Millideg(-pad.rotation.0),
+            };
+            Some(PadFrame {
+                centre: copper_shape::board_point(instance, [pad.at.x.0, pad.at.y.0]),
+                angle,
+                half: (pad.width.0 / 2, pad.height.0 / 2),
+            })
+        }
+        Item::FreePad { uuid } => {
+            let pad = pcb.free_pad(uuid)?;
+            Some(PadFrame {
+                centre: [pad.at.x.0, pad.at.y.0],
+                angle: pad.rotation,
+                half: (pad.width.0 / 2, pad.height.0 / 2),
+            })
+        }
+        _ => None,
+    }
+}
+
+/// The outlines of the non-plated Pads (Footprint and Free), which have no copper.
+fn bare_holes(pcb: &PcbDocument) -> Vec<Shape> {
+    let mut holes = Vec::new();
+    for instance in pcb.footprints() {
+        if let Some(copy) = pcb.footprint_copy(instance.footprint) {
+            holes.extend(
+                copy.footprint
+                    .pads
+                    .iter()
+                    .filter(|p| p.kind == PadKind::NonPlated)
+                    .map(|p| Shape::pad(instance, p)),
+            );
+        }
+    }
+    holes.extend(
+        pcb.free_pads()
+            .filter(|p| p.kind == PadKind::NonPlated)
+            .map(Shape::free_pad),
+    );
+    holes
+}
+
 /// The four thermal spokes of a Pad: bars of the spoke width from its centre along its
 /// own axes, out past the thermal gap into the fill.
-fn spokes(pcb: &PcbDocument, zone: &Zone, footprint: Uuid, pad: Uuid) -> Option<Vec<Contour>> {
-    let instance = pcb.footprint(footprint)?;
-    let copy = pcb.footprint_copy(instance.footprint)?;
-    let pad = copy.footprint.pads.iter().find(|p| p.uuid == pad)?;
-    let centre = copper_shape::board_point(instance, [pad.at.x.0, pad.at.y.0]);
-    let angle = match instance.side {
-        Side::Top => instance.rotation + pad.rotation,
-        Side::Bottom => instance.rotation + Millideg(-pad.rotation.0),
-    };
+fn spokes(zone: &Zone, frame: &PadFrame) -> Vec<Contour> {
     let reach = zone.thermal_gap.0 + zone.min_width.0.max(zone.thermal_spoke_width.0);
     let half = zone.thermal_spoke_width.0 / 2;
-    let (hw, hh) = (pad.width.0 / 2 + reach, pad.height.0 / 2 + reach);
+    let (hw, hh) = (frame.half.0 + reach, frame.half.1 + reach);
     let bars = [
         [[0, -half], [hw, -half], [hw, half], [0, half]],
         [[-hw, -half], [0, -half], [0, half], [-hw, half]],
         [[-half, 0], [half, 0], [half, hh], [-half, hh]],
         [[-half, -hh], [half, -hh], [half, 0], [-half, 0]],
     ];
-    Some(
-        bars.iter()
-            .map(|bar| {
-                bar.iter()
-                    .map(|p| {
-                        let p = copper_shape::rotate(*p, angle);
-                        ip([p[0] + centre[0], p[1] + centre[1]])
-                    })
-                    .collect()
-            })
-            .collect(),
-    )
+    bars.iter()
+        .map(|bar| {
+            bar.iter()
+                .map(|p| {
+                    let p = copper_shape::rotate(*p, frame.angle);
+                    ip([p[0] + frame.centre[0], p[1] + frame.centre[1]])
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// The fill as stored shapes.

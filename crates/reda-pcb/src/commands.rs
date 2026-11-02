@@ -2,10 +2,13 @@
 //! the Project has none.
 
 mod copper;
+mod free_pad;
 mod graphic;
 mod layer;
+mod mechanical;
 mod net_class;
 mod outline;
+mod placement;
 mod rules;
 mod text;
 mod text_geometry;
@@ -14,7 +17,9 @@ mod via;
 mod zone;
 mod zone_fill;
 
+pub use mechanical::{MechanicalSet, MechanicalSetParams};
 pub use outline::rect_outline;
+pub use placement::Placed;
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
@@ -37,6 +42,9 @@ pub fn register_all(registry: &mut Registry) {
     copper::register_all(registry);
     zone::register_all(registry);
     zone_fill::register_all(registry);
+    placement::register_all(registry);
+    mechanical::register_all(registry);
+    free_pad::register_all(registry);
 }
 
 /// Why a PCB Command cannot run in a Project without a PCB Document.

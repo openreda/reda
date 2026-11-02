@@ -34,9 +34,9 @@ pub use output::{
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, FillShape, FootprintInstance,
-    GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan,
-    NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PcbDocument, PcbGraphic, PcbText, Rules,
-    Side, Track, TrackGeometry, Via, Zone, ZoneFills,
+    FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind, LayerSet,
+    LayerSpan, NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PcbDocument, PcbGraphic,
+    PcbText, PlacementOrigin, Rules, Side, Track, TrackGeometry, Via, Zone, ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

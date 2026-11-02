@@ -572,3 +572,37 @@ fn the_index_follows_zone_changes_with_the_fills_it_holds() {
     );
     assert_eq!(net, None, "a deleted Zone's fill is no copper");
 }
+
+#[test]
+fn free_pads_get_thermal_relief_and_bare_holes_keep_their_clearance() {
+    let dir = TempDir::new("fill-free-pads");
+    let mut engine = engine_with_pcb(&dir);
+    let gnd = add_net(&mut engine, "GND");
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 20.0, 10.0),
+        json!({"thermal_gap": "0.5mm", "thermal_spoke_width": "0.3mm"}),
+    );
+    let before = reda_pcb::zone::inputs_hash(pcb(&engine));
+    // A 2 mm GND test point at (5, 5) and a 3 mm bare mounting hole at (15, 5).
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "at": {"x": mm(5.0), "y": mm(5.0)}, "width": mm(2.0),
+               "shape": "rect", "net": gnd.to_string()}),
+    );
+    assert_ne!(reda_pcb::zone::inputs_hash(pcb(&engine)), before);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "non_plated", "at": {"x": mm(15.0), "y": mm(5.0)}, "width": mm(3.0),
+               "hole": {"width": mm(3.0)}}),
+    );
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert_eq!(s.len(), 1, "the test point keeps the fill");
+    assert!(filled(s, at(6.25, 5.0)), "spoke");
+    assert!(!filled(s, at(6.25, 5.5)), "gap");
+    assert!(!filled(s, at(15.0, 5.0)), "hole");
+    assert!(!filled(s, at(16.9, 5.0)), "0.5 mm clear of the hole");
+    assert!(filled(s, at(17.1, 5.0)));
+}

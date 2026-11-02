@@ -1,0 +1,215 @@
+//! The window, driven through AccessKit with `egui_kittest`: the Start page, opening and
+//! creating Projects, and image snapshots of both themes and the schematic canvas.
+//!
+//! Snapshots are drawn by Mesa's llvmpipe and compared on Linux only; elsewhere, or on
+//! another adapter, they are skipped with a message (`REDA_PNG_SNAPSHOTS=1` makes skipping
+//! a failure, as in CI). Run them locally with
+//! `LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl REDA_PNG_SNAPSHOTS=1 cargo test -p reda-ui
+//! --test app`, and add `UPDATE_SNAPSHOTS=1` to rewrite `tests/snapshots/*.png`.
+
+use std::path::{Path, PathBuf};
+
+use egui::accesskit::Role;
+use egui_kittest::kittest::{NodeT, Queryable};
+use egui_kittest::{Harness, HarnessBuilder};
+use reda_testkit::TempDir;
+use reda_ui::App;
+use reda_ui::engine::command::UserDirs;
+use reda_ui::engine::{Engine, preferences, state};
+use reda_ui::shell::Shell;
+use serde_json::json;
+
+fn engine_in(home: &Path) -> Engine {
+    Engine::builder()
+        .user_dirs(Some(UserDirs::under(home)))
+        .starter_library(None)
+        .headless(false)
+        .build()
+}
+
+/// Creates a Project named `name` in `folder`; returns its `.reda` file.
+fn make_project(folder: &Path, name: &str) -> PathBuf {
+    let mut engine = Engine::builder()
+        .user_dirs(None)
+        .starter_library(None)
+        .build();
+    engine
+        .run("project.new", json!({"path": folder, "name": name}))
+        .unwrap();
+    std::fs::canonicalize(folder.join(name).join(format!("{name}.reda"))).unwrap()
+}
+
+fn set_recent(home: &Path, recent: &[&Path]) {
+    state::update(&UserDirs::under(home), |s| {
+        s.recent_projects = recent.iter().map(|p| p.to_path_buf()).collect();
+    })
+    .unwrap();
+}
+
+fn builder() -> HarnessBuilder<App> {
+    Harness::builder().with_size([900.0, 560.0])
+}
+
+fn harness(home: &Path) -> Harness<'static, App> {
+    let app = App::new(Shell::new(engine_in(home)));
+    builder().build_ui_state(|ui, app: &mut App| app.ui(ui), app)
+}
+
+#[test]
+fn the_start_page_greys_missing_projects_removes_and_opens_them() {
+    let home = TempDir::new("app-home");
+    let work = TempDir::new("app-work");
+    let alpha = make_project(work.path(), "Alpha");
+    let gone = work.path().join("Gone/Gone.reda");
+    set_recent(home.path(), &[&alpha, &gone]);
+    let mut h = harness(home.path());
+    h.run();
+
+    assert!(!h.get_by_label("Alpha").accesskit_node().is_disabled());
+    assert!(h.get_by_label("Gone").accesskit_node().is_disabled());
+
+    h.get_by_label("Remove Gone from recent Projects").click();
+    h.run();
+    assert!(h.query_by_label("Gone").is_none());
+    let recent = state::read(&UserDirs::under(home.path())).recent_projects;
+    assert_eq!(recent, std::slice::from_ref(&alpha));
+
+    h.get_by_label("Alpha").click();
+    h.run();
+    // The Start page closed; the first sheet shows in a tab, drawn by the canvas.
+    assert!(h.query_by_label("Start").is_none());
+    assert!(h.query_by_label("Welcome to REDA").is_none());
+    h.get_by_label("Sheet 1");
+    h.get_by_role_and_label(Role::Canvas, "Schematic canvas: Sheet 1");
+    assert_eq!(
+        h.state().shell().engine().project().unwrap().props().name,
+        "Alpha"
+    );
+}
+
+#[test]
+fn the_new_project_form_creates_and_opens_a_project() {
+    let home = TempDir::new("app-home");
+    let work = TempDir::new("app-work");
+    let mut h = harness(home.path());
+    h.run();
+
+    h.get_by_label("New Project…").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Name")
+        .set_text_value_accesskit("Blinky");
+    h.get_by_role_and_label(Role::TextInput, "Location")
+        .set_text_value_accesskit(&work.path().display().to_string());
+    h.run();
+    h.get_by_label("Create").click();
+    h.run();
+
+    assert!(work.path().join("Blinky/Blinky.reda").is_file());
+    h.get_by_role_and_label(Role::Canvas, "Schematic canvas: Sheet 1");
+    assert!(h.query_by_label("New Project").is_none(), "the form closed");
+}
+
+/// Why snapshots cannot be compared here, if they cannot.
+fn snapshot_skip_reason() -> Option<String> {
+    if !cfg!(target_os = "linux") {
+        return Some("theme snapshots are compared on Linux only".into());
+    }
+    match reda_ui::engine::render::gpu::Headless::new() {
+        Ok(h) if h.adapter().name.contains("llvmpipe") => None,
+        Ok(h) => Some(format!(
+            "the adapter is {:?}, not Mesa's llvmpipe that drew the snapshots",
+            h.adapter().name
+        )),
+        Err(e) => Some(e.to_string()),
+    }
+}
+
+/// A harness that renders through wgpu with the canvas installed, or `None` (after a
+/// message) when snapshots cannot be compared on this machine.
+fn snapshot_harness(home: &Path) -> Option<Harness<'static, App>> {
+    if let Some(why) = snapshot_skip_reason() {
+        if std::env::var_os("REDA_PNG_SNAPSHOTS").is_some() {
+            panic!("REDA_PNG_SNAPSHOTS is set but snapshots cannot run: {why}");
+        }
+        eprintln!("skipping snapshot: {why}");
+        return None;
+    }
+    let render_state = egui_kittest::wgpu::create_render_state(
+        egui_kittest::wgpu::default_wgpu_setup(),
+        egui_wgpu::RendererOptions::PREDICTABLE,
+    );
+    reda_ui::install_canvas(&render_state, 1);
+    let app = App::new(Shell::new(engine_in(home)));
+    Some(
+        builder()
+            .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
+                render_state,
+            ))
+            .build_ui_state(|ui, app: &mut App| app.ui(ui), app),
+    )
+}
+
+fn set_theme(home: &Path, theme: &str) {
+    preferences::set(&UserDirs::under(home), "general.theme", json!(theme)).unwrap();
+}
+
+/// A fixed folder for Projects that snapshots show, so their paths are the same on every
+/// machine (the snapshots run on Linux only).
+fn snapshot_folder(name: &str) -> PathBuf {
+    let dir = PathBuf::from("/tmp/reda-ui-snapshots").join(name);
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn start_page_snapshot(theme: &str) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(&format!("start-{theme}"));
+    let alpha = make_project(&folder, "Alpha");
+    let gone = folder.join("Gone/Gone.reda");
+    set_recent(home.path(), &[&alpha, &gone]);
+    set_theme(home.path(), theme);
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    h.snapshot(format!("start_page_{theme}"));
+}
+
+#[test]
+fn snapshot_of_the_dark_theme() {
+    start_page_snapshot("dark");
+}
+
+#[test]
+fn snapshot_of_the_light_theme() {
+    start_page_snapshot("light");
+}
+
+#[test]
+fn snapshot_of_a_schematic_sheet_on_the_canvas() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("canvas");
+    let file = make_project(&folder, "Canvas");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let Some(reda_ui::shell::Tab::Document(tab)) = shell.active() else {
+        panic!("no sheet tab");
+    };
+    let sheet = tab.document;
+    shell
+        .run(
+            "schematic.wire.add",
+            json!({"document": sheet,
+                   "points": [{"x": "50mm", "y": "100mm"}, {"x": "150mm", "y": "100mm"},
+                              {"x": "150mm", "y": "60mm"}]}),
+        )
+        .unwrap();
+    h.run();
+    h.snapshot("schematic_canvas_dark");
+}

@@ -61,7 +61,7 @@ pub fn fill(pcb: &PcbDocument, step: &mut dyn FnMut(usize, usize) -> bool) -> Op
 }
 
 /// The hash of everything on `pcb` that Zone fills depend on: Layers, rules, the board
-/// edge, Net Classes and Nets, Footprints, Tracks, Vias, Zones and Keepouts. Text and
+/// edge, Net Classes and Nets, Footprints, Free Pads, Tracks, Vias, Zones and Keepouts. Text and
 /// graphics are left out.
 pub fn inputs_hash(pcb: &PcbDocument) -> String {
     let nets: Vec<_> = pcb.nets().map(|n| (n.uuid, n.class)).collect();
@@ -76,6 +76,7 @@ pub fn inputs_hash(pcb: &PcbDocument) -> String {
         .collect();
     let tracks: Vec<_> = pcb.tracks().collect();
     let vias: Vec<_> = pcb.vias().collect();
+    let free_pads: Vec<_> = pcb.free_pads().collect();
     let zones: Vec<_> = pcb.zones().collect();
     let keepouts: Vec<_> = pcb.keepouts().collect();
     let cutouts: Vec<_> = pcb.cutouts().collect();
@@ -93,6 +94,7 @@ pub fn inputs_hash(pcb: &PcbDocument) -> String {
         &footprints,
         &tracks,
         &vias,
+        &free_pads,
         &zones,
         &keepouts,
     ])

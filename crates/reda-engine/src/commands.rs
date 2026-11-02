@@ -15,6 +15,7 @@ pub mod properties;
 pub mod query;
 pub mod reannotate;
 pub mod sync;
+pub mod write_through;
 pub mod zone_fill;
 
 use reda_command::Registry;
@@ -38,6 +39,7 @@ pub fn register_all(registry: &mut Registry) {
     reannotate::register_all(registry);
     sync::register_all(registry);
     zone_fill::register_all(registry);
+    write_through::register_all(registry);
 }
 
 /// A param naming one file of the Project: `"project"` for the Project file, or a

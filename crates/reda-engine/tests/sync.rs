@@ -656,3 +656,329 @@ fn applying_is_one_undo_entry_on_the_pcb_document() {
     assert!(nets(&mut engine).is_empty());
     assert_eq!(preview(&mut engine)["count"], 5);
 }
+
+#[test]
+fn removing_a_component_deletes_its_footprint_but_leaves_its_copper() {
+    let dir = TempDir::new("sync-remove-copper");
+    let mut engine = demo(&dir);
+    // R1–R3 on SIG through their pin 2s; R3 is then deleted, SIG lives on.
+    for x in [0, 10, 20] {
+        place(&mut engine, R_10K, x, 0);
+    }
+    wire(&mut engine, &[(0.0, -3.81), (20.0, -3.81)]);
+    label(&mut engine, "SIG", 5.0, -3.81);
+    sync(&mut engine);
+    let sig = nets(&mut engine)
+        .into_iter()
+        .find(|n| n["name"] == "SIG")
+        .unwrap()["uuid"]
+        .clone();
+    let r3 = instances(&mut engine)
+        .into_iter()
+        .find(|i| i["designator"] == "R3")
+        .unwrap();
+    // Copper routed up to R3's Footprint.
+    let at = &r3["at"];
+    let track = engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": sig, "points": [
+            {"x": at["x"], "y": at["y"]}, {"x": at["x"], "y": 50_000_000}]}),
+    )["result"]["tracks"][0]
+        .clone();
+    let via = engine.run_ok(
+        "pcb.via.add",
+        json!({"at": {"x": at["x"], "y": 50_000_000}, "net": sig}),
+    )["result"]["uuid"]
+        .clone();
+
+    let unit = engine.run_ok("objects.query", json!({"type": "unit"}))["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|u| u["object"]["designator"] == "R3")
+        .unwrap()["object"]["uuid"]
+        .clone();
+    engine.run_ok("schematic.delete", json!({"objects": [unit]}));
+    let list = preview(&mut engine);
+    assert_eq!(of_kind(&list, "remove_component").len(), 1);
+    assert!(of_kind(&list, "remove_net").is_empty(), "{list}");
+
+    sync(&mut engine);
+    let left: Vec<Value> = instances(&mut engine)
+        .iter()
+        .map(|i| i["designator"].clone())
+        .collect();
+    assert_eq!(left, ["R1", "R2"]);
+    let gone = engine.run_err("object.get", json!({"uuid": r3["uuid"]}));
+    assert_eq!(gone.code, ErrorCode::NotFound);
+    for object in [track, via] {
+        let got = engine.run_ok("object.get", json!({"uuid": object}));
+        assert_eq!(got["object"]["net"], sig, "attached copper stays: {got}");
+    }
+}
+
+#[test]
+fn duplicate_designators_do_not_block_sync() {
+    let dir = TempDir::new("sync-duplicates");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let r2 = place(&mut engine, R_10K, 10, 0);
+    wire(&mut engine, &[(0.0, -3.81), (10.0, -3.81)]);
+    label(&mut engine, "SIG", 5.0, -3.81);
+    // Two Components named R1, as a hand edit or a merge would leave them.
+    let mut engine = hand_edit_sheet(&mut engine, &dir, |text| {
+        text.replace("\"designator\":\"R2\"", "\"designator\":\"R1\"")
+    });
+
+    let list = preview(&mut engine);
+    assert_eq!(of_kind(&list, "add_component").len(), 2);
+    sync(&mut engine);
+    let placed = instances(&mut engine);
+    let mut components: Vec<&str> = placed
+        .iter()
+        .map(|i| i["component"]["uuid"].as_str().unwrap())
+        .collect();
+    components.sort_unstable();
+    let mut expected = [r1.as_str(), r2.as_str()];
+    expected.sort_unstable();
+    assert_eq!(components, expected);
+    assert!(placed.iter().all(|i| i["designator"] == "R1"));
+    assert_eq!(nets(&mut engine).len(), 1);
+    assert_eq!(preview(&mut engine)["count"], 0);
+}
+
+/// BIG on R1–R3 and SMALL on R4–R5, synced; returns (BIG, SMALL). Wiring R3 to R4 then
+/// merges SMALL into BIG.
+fn big_and_small(engine: &mut TestEngine) -> (Value, Value) {
+    for x in [0, 10, 20, 30, 40] {
+        place(engine, R_10K, x, 0);
+    }
+    wire(engine, &[(0.0, -3.81), (20.0, -3.81)]);
+    label(engine, "BIG", 5.0, -3.81);
+    wire(engine, &[(30.0, -3.81), (40.0, -3.81)]);
+    label(engine, "SMALL", 35.0, -3.81);
+    sync(engine);
+    let nets = nets(engine);
+    let uuid = |name: &str| nets.iter().find(|n| n["name"] == name).unwrap()["uuid"].clone();
+    (uuid("BIG"), uuid("SMALL"))
+}
+
+/// A Mechanical Part (no Component link) with one Pad on `net`; returns (instance, Pad).
+fn mechanical(engine: &mut TestEngine, net: &Value) -> (Value, Value) {
+    let added = engine.run_ok(
+        "test.footprint.add",
+        json!({"at": {"x": "200mm", "y": 0}, "pads": [
+            {"at": {"x": 0, "y": 0}, "width": "1mm", "height": "1mm", "net": net}]}),
+    )["result"]
+        .clone();
+    (added["footprint"].clone(), added["pads"][0].clone())
+}
+
+fn pad_net(engine: &mut TestEngine, instance: &Value, pad: &Value) -> Value {
+    let got = engine.run_ok("object.get", json!({"uuid": instance}));
+    got["object"]["pads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pad"] == *pad)
+        .unwrap()
+        .get("net")
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+/// Like [`demo`], plus the test-only Commands (`test.footprint.add`).
+fn demo_with_test_commands(dir: &TempDir) -> TestEngine {
+    let mut engine = TestEngine(
+        reda_engine::Engine::builder()
+            .ids(reda_engine::command::SeededIds::new(0))
+            .clock(reda_engine::command::FixedClock::EPOCH)
+            .user_dirs(None)
+            .starter_library(Some(library()))
+            .commands(reda_testkit::probe_commands)
+            .build(),
+    );
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    engine
+}
+
+#[test]
+fn sync_leaves_mechanical_parts_alone_but_moves_their_pads_with_a_merge() {
+    let dir = TempDir::new("sync-mechanical");
+    let mut engine = demo_with_test_commands(&dir);
+    let (big, small) = big_and_small(&mut engine);
+    let (part, pad) = mechanical(&mut engine, &small);
+    // A Mechanical Part has no Component, so Sync proposes nothing for it.
+    assert_eq!(preview(&mut engine)["count"], 0);
+
+    wire(&mut engine, &[(20.0, -3.81), (30.0, -3.81)]);
+    let list = preview(&mut engine);
+    assert!(of_kind(&list, "remove_component").is_empty(), "{list}");
+    let removed = &of_kind(&list, "remove_net")[0];
+    assert_eq!(removed["net"], small);
+    assert_eq!(removed["requires"].as_array().unwrap().len(), 2, "{list}");
+
+    sync(&mut engine);
+    assert_eq!(pad_net(&mut engine, &part, &pad), big);
+    assert_eq!(instances(&mut engine).len(), 6);
+}
+
+#[test]
+fn free_pads_follow_a_merge_and_lose_a_net_with_no_merge_target() {
+    let dir = TempDir::new("sync-free-pads");
+    let mut engine = demo(&dir);
+    let (big, small) = big_and_small(&mut engine);
+    let free_pad = |engine: &mut TestEngine, net: &Value| {
+        engine.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind": "smd", "at": {"x": "200mm", "y": 0}, "width": "1mm", "net": net}),
+        )["result"]["uuid"]
+            .clone()
+    };
+    let on_small = free_pad(&mut engine, &small);
+    let on_big = free_pad(&mut engine, &big);
+    let net_of = |engine: &mut TestEngine, pad: &Value| {
+        let got = engine.run_ok("object.get", json!({"uuid": pad}));
+        got["object"].get("net").cloned().unwrap_or(Value::Null)
+    };
+
+    // SMALL merges into BIG.
+    wire(&mut engine, &[(20.0, -3.81), (30.0, -3.81)]);
+    sync(&mut engine);
+    assert_eq!(net_of(&mut engine, &on_small), big);
+
+    // BIG goes with no merge target once every Resistor is deleted.
+    let units: Vec<Value> = engine.run_ok("objects.query", json!({"type": "unit"}))["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|u| u["object"]["uuid"].clone())
+        .collect();
+    engine.run_ok("schematic.delete", json!({"objects": units}));
+    let list = preview(&mut engine);
+    assert!(of_kind(&list, "remove_net")[0].get("merge_into").is_none());
+    sync(&mut engine);
+    assert_eq!(net_of(&mut engine, &on_small), Value::Null);
+    assert_eq!(net_of(&mut engine, &on_big), Value::Null);
+}
+
+#[test]
+fn a_footprint_swap_keeps_placement_lock_and_designator_text() {
+    let dir = TempDir::new("sync-swap-placement");
+    let mut engine = demo(&dir);
+    let shunt = place(&mut engine, R_SHUNT, 0, 0);
+    sync(&mut engine);
+    let r1 = instances(&mut engine)[0]["uuid"].clone();
+    engine.run_ok(
+        "pcb.move",
+        json!({"objects": [r1], "by": {"x": "12mm", "y": "-7mm"}}),
+    );
+    engine.run_ok("pcb.rotate", json!({"objects": [r1], "angle": "90deg"}));
+    engine.run_ok("pcb.flip", json!({"objects": [r1]}));
+    engine.run_ok(
+        "pcb.designator_text.set",
+        json!({"footprint": r1, "at": {"x": "20mm", "y": "-3mm"}, "size": "1.5mm"}),
+    );
+    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    let before = instances(&mut engine)[0].clone();
+    assert_eq!(before["side"], "bottom");
+    assert_eq!(before["locked"], true);
+    assert!(before.get("designator_text").is_some(), "{before}");
+
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [shunt], "footprint": R_KELVIN}),
+    );
+    assert_eq!(of_kind(&preview(&mut engine), "change_footprint").len(), 1);
+    sync(&mut engine);
+
+    let after = instances(&mut engine)[0].clone();
+    assert_ne!(after["footprint"], before["footprint"]);
+    for key in [
+        "uuid",
+        "at",
+        "rotation",
+        "side",
+        "locked",
+        "designator_text",
+    ] {
+        assert_eq!(after[key], before[key], "{key} is kept");
+    }
+    assert_eq!(after["pads"].as_array().unwrap().len(), 4);
+}
+
+#[test]
+fn copper_on_a_removed_net_with_no_merge_target_becomes_unassigned() {
+    let dir = TempDir::new("sync-unassigned");
+    let mut engine = demo_with_test_commands(&dir);
+    let (_, small) = big_and_small(&mut engine);
+    let (part, pad) = mechanical(&mut engine, &small);
+    let track = engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": small, "points": [
+            {"x": "100mm", "y": 0}, {"x": "110mm", "y": 0}]}),
+    )["result"]["tracks"][0]
+        .clone();
+    let via = engine.run_ok(
+        "pcb.via.add",
+        json!({"at": {"x": "110mm", "y": 0}, "net": small}),
+    )["result"]["uuid"]
+        .clone();
+    let zone = engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_bottom", "net": small, "vertices": [
+            {"x": "100mm", "y": 0}, {"x": "110mm", "y": 0}, {"x": "110mm", "y": "10mm"}]}),
+    )["result"]["uuid"]
+        .clone();
+
+    // SMALL's label and Wire go: its Pads are left on no Net, so nothing absorbs it.
+    for object in engine.run_ok("objects.query", json!({"type": "wire"}))["objects"]
+        .as_array()
+        .unwrap()
+        .clone()
+    {
+        if object["object"]["from"]["x"].as_i64().unwrap() >= 30_000_000 {
+            engine.run_ok(
+                "schematic.delete",
+                json!({"objects": [object["object"]["uuid"]]}),
+            );
+        }
+    }
+    let list = preview(&mut engine);
+    let removed = &of_kind(&list, "remove_net")[0];
+    assert_eq!(removed["net"], small);
+    assert!(removed.get("merge_into").is_none(), "{list}");
+
+    sync(&mut engine);
+    assert_eq!(pad_net(&mut engine, &part, &pad), Value::Null);
+    for object in [track, via, zone] {
+        let got = engine.run_ok("object.get", json!({"uuid": object}));
+        assert!(got["object"].get("net").is_none(), "{got}");
+    }
+}
+
+/// Saves, rewrites the sheet file with `edit` and opens the Project in a new engine whose
+/// UUIDs do not collide with the first one's.
+fn hand_edit_sheet(
+    engine: &mut TestEngine,
+    dir: &TempDir,
+    edit: impl Fn(String) -> String,
+) -> TestEngine {
+    engine.run_ok("project.save", json!({}));
+    let (rel, bytes) = reda_testkit::read_tree(dir.path())
+        .into_iter()
+        .find(|(path, _)| path.ends_with(".redasch"))
+        .unwrap();
+    let text = String::from_utf8(bytes).unwrap();
+    std::fs::write(dir.path().join(rel), edit(text)).unwrap();
+    let mut reopened = TestEngine(
+        reda_engine::Engine::builder()
+            .ids(reda_engine::command::SeededIds::new(1))
+            .clock(reda_engine::command::FixedClock::EPOCH)
+            .user_dirs(None)
+            .starter_library(Some(library()))
+            .build(),
+    );
+    reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    reopened
+}
