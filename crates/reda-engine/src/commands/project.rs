@@ -132,9 +132,21 @@ impl Command for ProjectNew {
             let _ = state::update(dirs, |s| s.last_fab_preset = name);
         }
         session.files_on_disk = files_of(&project);
+        let mut project = project;
+        take_open_elements(session, &mut project);
         session.project = Some(project);
         session.location = Some(folder);
         Ok(summary(session, vec![]))
+    }
+}
+
+/// Moves the Library elements open in the old Project, or on the workbench, into
+/// `project`: they stay open, with their undo stacks, while Projects come and go.
+fn take_open_elements(session: &mut Session, project: &mut Project) {
+    let old = session.project.take().or(session.workbench.take());
+    for (source, element) in old.iter().flat_map(|p| p.elements()) {
+        // A Project fresh from disk has no open elements, so this cannot clash.
+        let _ = project.open_element(source, element.clone());
     }
 }
 
@@ -222,6 +234,7 @@ impl Command for ProjectOpen {
         super::zone_fill::load_caches(&mut opened.project, &opened.folder);
         let session = cx.session()?;
         session.files_on_disk = files_of(&opened.project);
+        take_open_elements(session, &mut opened.project);
         session.project = Some(opened.project);
         session.location = Some(opened.folder);
         session.history.clear();

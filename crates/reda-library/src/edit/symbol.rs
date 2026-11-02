@@ -1,6 +1,9 @@
 //! The Symbol editor's Commands: the Symbol's own properties, its Units, Pins and graphics.
 
-use reda_command::{Angle, Command, CommandError, Context, Kind, Length, Meta, Registry};
+use reda_command::{
+    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
+    Unavailable,
+};
 use reda_model::geom::{Millideg, Nm};
 use reda_model::{Pin, PinType, Symbol, SymbolGraphic, Unit, Uuid};
 use schemars::JsonSchema;
@@ -63,6 +66,10 @@ impl Command for SymbolEdit {
     type Params = SymbolEditParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: SymbolEditParams) -> Result<(), CommandError> {
         if let Some(name) = &p.name {
             check_element_name(name).map_err(invalid("/name"))?;
@@ -114,6 +121,10 @@ impl Command for UnitAdd {
     );
     type Params = UnitAddParams;
     type Output = UnitResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: UnitAddParams) -> Result<UnitResult, CommandError> {
         let uuid = cx.new_id();
@@ -183,6 +194,10 @@ impl Command for UnitEdit {
     type Params = UnitEditParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: UnitEditParams) -> Result<(), CommandError> {
         edit_symbol(cx, p.symbol, |s| {
             check_unit_name(s, &p.name, Some(p.unit))?;
@@ -210,6 +225,10 @@ impl Command for UnitRemove {
     );
     type Params = UnitParams;
     type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: UnitParams) -> Result<(), CommandError> {
         edit_symbol(cx, p.symbol, |s| {
@@ -269,6 +288,10 @@ impl Command for PinAdd {
     );
     type Params = PinAddParams;
     type Output = PinResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: PinAddParams) -> Result<PinResult, CommandError> {
         let uuid = cx.new_id();
@@ -359,6 +382,10 @@ impl Command for PinEdit {
     type Params = PinEditParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: PinEditParams) -> Result<(), CommandError> {
         edit_symbol(cx, p.symbol, |s| {
             let mut pin = find_mut(&mut s.pins, p.pin, |pin| pin.uuid, "Pin")?.clone();
@@ -415,6 +442,10 @@ impl Command for PinRemove {
     type Params = PinParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: PinParams) -> Result<(), CommandError> {
         edit_symbol(cx, p.symbol, |s| {
             remove(&mut s.pins, p.pin, |pin| pin.uuid, "Pin").map(drop)
@@ -446,6 +477,10 @@ impl Command for SymbolGraphicAdd {
     );
     type Params = SymbolGraphicAddParams;
     type Output = GraphicResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(
         &self,
@@ -511,6 +546,10 @@ impl Command for SymbolGraphicEdit {
     type Params = SymbolGraphicEditParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: SymbolGraphicEditParams) -> Result<(), CommandError> {
         let shape = p
             .shape
@@ -556,6 +595,10 @@ impl Command for SymbolGraphicRemove {
     );
     type Params = SymbolGraphicParams;
     type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: SymbolGraphicParams) -> Result<(), CommandError> {
         edit_symbol(cx, p.symbol, |s| {

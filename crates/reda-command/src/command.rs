@@ -48,7 +48,27 @@ pub struct Unavailable {
 #[derive(Clone, Copy, Debug)]
 pub struct AvailabilityContext<'a> {
     pub project: Option<&'a Project>,
+    /// The open Library elements' holder while no Project is open
+    /// ([`crate::Session::workbench`]).
+    pub workbench: Option<&'a Project>,
 }
+
+impl AvailabilityContext<'_> {
+    /// Available when a Project or the workbench holds open Library elements to work on:
+    /// for Commands that only touch open elements.
+    pub fn elements(&self) -> Result<(), Unavailable> {
+        match self.project.or(self.workbench) {
+            Some(_) => Ok(()),
+            None => Err(Unavailable {
+                reason: NO_ELEMENTS.into(),
+            }),
+        }
+    }
+}
+
+/// The reason given when an element Command runs with neither a Project nor a Library
+/// element open.
+pub const NO_ELEMENTS: &str = "no Project or Library element is open";
 
 /// The reason given when an edit or query runs with no Project open.
 pub const NO_PROJECT: &str = "no Project is open";

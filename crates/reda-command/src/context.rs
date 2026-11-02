@@ -18,6 +18,9 @@ use crate::{
 pub struct Session {
     /// The open Project, if any.
     pub project: Option<Project>,
+    /// The Library elements open for editing while no Project is open, held in a blank
+    /// Project that nothing else sees. Opening a Project takes them over.
+    pub workbench: Option<Project>,
     /// The Project folder on disk, once the Project has one.
     pub location: Option<PathBuf>,
     /// The undo stacks and dirty state of the open Project.
@@ -35,6 +38,19 @@ pub struct Session {
     pub trash: Option<Arc<dyn Trash>>,
     /// The front end's GUI state, which view Commands change. Empty headless.
     pub view: ViewState,
+}
+
+impl Session {
+    /// The Project holding the open Library elements: the open Project, else the
+    /// workbench.
+    pub fn elements(&self) -> Option<&Project> {
+        self.project.as_ref().or(self.workbench.as_ref())
+    }
+
+    /// [`Session::elements`], to open or close an element in.
+    pub fn elements_mut(&mut self) -> Option<&mut Project> {
+        self.project.as_mut().or(self.workbench.as_mut())
+    }
 }
 
 /// The injected inputs a Command run needs besides the session.

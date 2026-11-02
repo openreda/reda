@@ -160,8 +160,20 @@ impl Registry {
         project: Option<&Project>,
         headless: bool,
     ) -> Result<(), CommandError> {
+        self.available_with(id, project, None, headless)
+    }
+
+    /// [`Registry::available`] with the workbench of Library elements open while no
+    /// Project is ([`Session::workbench`]).
+    pub fn available_with(
+        &self,
+        id: &str,
+        project: Option<&Project>,
+        workbench: Option<&Project>,
+        headless: bool,
+    ) -> Result<(), CommandError> {
         let resolved = self.resolve(id, Value::Null)?;
-        check_available(resolved.entry, project, headless)
+        check_available(resolved.entry, (project, workbench), headless)
     }
 
     /// Checks params for a Command or Preset id against its schema without running it:
@@ -215,7 +227,8 @@ impl Registry {
         signals: &Signals,
     ) -> Result<Value, CommandError> {
         let Resolved { entry, params } = self.resolve(id, params)?;
-        check_available(entry, session.project.as_ref(), env.headless)?;
+        let open = (session.project.as_ref(), session.workbench.as_ref());
+        check_available(entry, open, env.headless)?;
         check_params(entry, &params)?;
 
         let command = match &entry.runner {
@@ -227,6 +240,7 @@ impl Registry {
                 let project = session
                     .project
                     .as_mut()
+                    .or(session.workbench.as_mut())
                     .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
                 // The Context reads the stacks while the transaction holds the Project; they
                 // move only once it has committed.
@@ -256,9 +270,10 @@ impl Registry {
                 Ok(envelope(&changes, result))
             }
             Kind::Query | Kind::View => {
+                let project = session.project.as_ref().or(session.workbench.as_ref());
                 let access = match entry.meta.kind {
-                    Kind::View => Access::View(session.project.as_ref(), &mut session.view),
-                    _ => Access::Read(session.project.as_ref()),
+                    Kind::View => Access::View(project, &mut session.view),
+                    _ => Access::Read(project),
                 };
                 let mut cx = Context {
                     access,
@@ -299,9 +314,11 @@ impl Registry {
     ) -> Result<Value, CommandError> {
         let params: BatchParams = serde_json::from_value(params)
             .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
+        let on_workbench = session.project.is_none();
         let project = session
             .project
             .as_mut()
+            .or(session.workbench.as_mut())
             .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
         let history = &session.history;
         let user_dirs = session.user_dirs.as_ref();
@@ -316,7 +333,11 @@ impl Registry {
                 (Runner::Command(command), Kind::Edit | Kind::Query) => command,
                 (_, kind) => return Err(at(batch::refused_step(entry.meta.id, kind))),
             };
-            check_available(entry, Some(tx.project()), env.headless).map_err(at)?;
+            let open = match on_workbench {
+                true => (None, Some(tx.project())),
+                false => (Some(tx.project()), None),
+            };
+            check_available(entry, open, env.headless).map_err(at)?;
             check_params(entry, &params).map_err(at)?;
             let run = invoke_in(
                 command.as_ref(),
@@ -430,16 +451,16 @@ fn invoke_in<'a>(
 
 fn check_available(
     entry: &Registered,
-    project: Option<&Project>,
+    (project, workbench): (Option<&Project>, Option<&Project>),
     headless: bool,
 ) -> Result<(), CommandError> {
     if entry.meta.kind == Kind::View && headless {
         return Err(CommandError::unavailable("requires the REDA app"));
     }
-    let cx = AvailabilityContext { project };
+    let cx = AvailabilityContext { project, workbench };
     let available = match &entry.runner {
         Runner::Command(command) => command.available(&cx),
-        Runner::Batch => match project {
+        Runner::Batch => match project.or(workbench) {
             Some(_) => Ok(()),
             None => Err(Unavailable {
                 reason: NO_PROJECT.into(),
