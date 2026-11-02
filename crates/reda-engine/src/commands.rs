@@ -9,6 +9,7 @@ pub mod history;
 pub mod import_part;
 pub mod library;
 pub mod library_check;
+pub mod output_run;
 pub mod preferences;
 pub mod project;
 pub mod properties;
@@ -32,6 +33,7 @@ pub fn register_all(registry: &mut Registry) {
     import_part::register_all(registry);
     library::register_all(registry);
     library_check::register_all(registry);
+    output_run::register_all(registry);
     preferences::register_all(registry);
     project::register_all(registry);
     properties::register_all(registry);

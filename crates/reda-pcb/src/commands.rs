@@ -2,6 +2,7 @@
 //! the Project has none.
 
 mod copper;
+mod drc;
 mod free_pad;
 mod graphic;
 mod layer;
@@ -40,6 +41,7 @@ pub fn register_all(registry: &mut Registry) {
     track::register_all(registry);
     via::register_all(registry);
     copper::register_all(registry);
+    drc::register_all(registry);
     zone::register_all(registry);
     zone_fill::register_all(registry);
     placement::register_all(registry);

@@ -109,6 +109,71 @@ impl Copper {
     }
 }
 
+/// Two pieces of stored copper closer than the clearance rules allow, without touching.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Gap {
+    /// The lesser item of the pair.
+    pub a: Item,
+    pub b: Item,
+    /// The clearance the rules require: the larger of the two Net Classes'.
+    pub required: Nm,
+    /// The smallest gap on any Layer they share, floored to the nanometre.
+    pub actual: Nm,
+}
+
+impl Copper {
+    /// Every pair of copper pieces of different Nets (or on no Net) that comes closer than
+    /// the clearance rules allow but does not touch, sorted by pair. Touching copper is a
+    /// short (different Nets) or a connection, never a clearance breach. Zone fills are
+    /// left out: a current fill keeps its clearance by construction.
+    pub(crate) fn gaps(&self, pcb: &PcbDocument) -> Vec<Gap> {
+        let reach = max_clearance(pcb).0;
+        let mut found: std::collections::BTreeMap<(Item, Item), Gap> = Default::default();
+        for (&layer, tree) in &self.index {
+            for entry in tree.iter() {
+                let piece = self.piece(entry.slot);
+                if matches!(piece.item, Item::Zone { .. }) {
+                    continue;
+                }
+                let (lo, hi) = (entry.envelope.lower(), entry.envelope.upper());
+                let search = AABB::from_corners(
+                    [lo[0] - reach, lo[1] - reach],
+                    [hi[0] + reach, hi[1] + reach],
+                );
+                for other in self.candidates(layer, search) {
+                    if other.item <= piece.item || matches!(other.item, Item::Zone { .. }) {
+                        continue;
+                    }
+                    let (na, nb) = (self.net(piece.item), self.net(other.item));
+                    if na.is_some() && na == nb {
+                        continue;
+                    }
+                    if piece.shape.touches(&other.shape) {
+                        continue;
+                    }
+                    let required = clearance_between(pcb, na, nb);
+                    let gap = piece.shape.distance(&other.shape);
+                    if gap >= required.0 as f64 {
+                        continue;
+                    }
+                    let actual = Nm(gap.max(0.0).floor() as i64);
+                    let gap = Gap {
+                        a: piece.item,
+                        b: other.item,
+                        required,
+                        actual,
+                    };
+                    found
+                        .entry((piece.item, other.item))
+                        .and_modify(|g| g.actual = g.actual.min(actual))
+                        .or_insert(gap);
+                }
+            }
+        }
+        found.into_values().collect()
+    }
+}
+
 /// The largest clearance any Net Class asks for.
 fn max_clearance(pcb: &PcbDocument) -> Nm {
     pcb.net_classes()

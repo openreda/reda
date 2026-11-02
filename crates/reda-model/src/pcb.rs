@@ -13,7 +13,7 @@ use reda_geom::{Nm, Vertex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{FootprintCopy, Object, Severity, Uuid};
+use crate::{FootprintCopy, Object, Severity, Uuid, Waiver};
 
 mod copper;
 mod footprint;
@@ -257,6 +257,7 @@ pub struct PcbDocument {
     pub(crate) keepouts: BTreeMap<Uuid, Keepout>,
     pub(crate) free_pads: BTreeMap<Uuid, FreePad>,
     pub(crate) placement_origins: BTreeMap<Uuid, PlacementOrigin>,
+    pub(crate) waivers: BTreeMap<Uuid, Waiver>,
 }
 
 impl PcbDocument {
@@ -279,6 +280,7 @@ impl PcbDocument {
             keepouts: BTreeMap::new(),
             free_pads: BTreeMap::new(),
             placement_origins: BTreeMap::new(),
+            waivers: BTreeMap::new(),
         }
     }
 
@@ -447,6 +449,15 @@ impl PcbDocument {
         self.placement_origins.values().next()
     }
 
+    /// The Waivers of DRC Violations, sorted by UUID.
+    pub fn waivers(&self) -> impl Iterator<Item = &Waiver> {
+        self.waivers.values()
+    }
+
+    pub fn waiver(&self, uuid: Uuid) -> Option<&Waiver> {
+        self.waivers.get(&uuid)
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -474,7 +485,8 @@ impl PcbDocument {
             zones => Zone,
             keepouts => Keepout,
             free_pads => FreePad,
-            placement_origins => PlacementOrigin
+            placement_origins => PlacementOrigin,
+            waivers => Waiver
         )
     }
 
@@ -507,7 +519,8 @@ impl PcbDocument {
             zones => Zone,
             keepouts => Keepout,
             free_pads => FreePad,
-            placement_origins => PlacementOrigin
+            placement_origins => PlacementOrigin,
+            waivers => Waiver
         );
         out
     }
@@ -530,6 +543,7 @@ impl PcbDocument {
         self.keepouts.remove(&uuid);
         self.free_pads.remove(&uuid);
         self.placement_origins.remove(&uuid);
+        self.waivers.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -549,6 +563,7 @@ impl PcbDocument {
             && self.keepouts.is_empty()
             && self.free_pads.is_empty()
             && self.placement_origins.is_empty()
+            && self.waivers.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.

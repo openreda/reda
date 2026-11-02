@@ -439,6 +439,21 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                     vias: !bottom,
                 },
             )));
+            let mut waived = vec![id(), layer];
+            waived.sort();
+            objects.push(Object::Waiver(InDocument::new(
+                doc,
+                Waiver {
+                    uuid: id(),
+                    check: "keepout".into(),
+                    objects: waived,
+                    comment: if bottom {
+                        "fixture".into()
+                    } else {
+                        String::new()
+                    },
+                },
+            )));
         }
     }
     for (layer, width, shape) in seed.graphics {

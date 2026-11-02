@@ -31,6 +31,7 @@ reda-render = { path = "../reda-render", features = ["gpu"] }
 [dev-dependencies]
 proptest.workspace = true
 reda-testkit = { path = "../reda-testkit" }
+zip.workspace = true
 
 [lints]
 workspace = true
