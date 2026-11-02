@@ -118,6 +118,7 @@ fn lists_the_generic_tools_and_the_query_commands() {
             "project.overview",
             "objects.query",
             "object.get",
+            "sync.preview",
         ]
     );
     let overview = &tools[3];
