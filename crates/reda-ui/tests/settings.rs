@@ -170,6 +170,22 @@ fn syncing_keeps_pending_edits_and_refreshes_the_rest() {
 }
 
 #[test]
+fn an_undo_under_pending_library_edits_does_not_bring_back_what_it_undid() {
+    let (home, work) = (TempDir::new("settings-home"), TempDir::new("settings-work"));
+    let mut shell = shell_with_project(&home, &work);
+    let mut d = dialog(&shell);
+    d.page_mut::<LibrariesPage>().unwrap().add("parts");
+    d.apply(&mut shell).unwrap();
+    // A pending edit, then the add is undone.
+    d.page_mut::<LibrariesPage>().unwrap().add("more");
+    shell.undo(false, Some(Scope::Project)).unwrap();
+    d.sync(shell.engine().project().unwrap());
+    assert_eq!(d.page::<LibrariesPage>().unwrap().rows(), ["more"]);
+    let ids: Vec<_> = d.steps().into_iter().map(|s| s.params).collect();
+    assert_eq!(ids, [json!({"path": "more"})]);
+}
+
+#[test]
 fn a_cleared_board_thickness_is_unset() {
     let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
     let mut shell = shell_with_project(&home, &work);

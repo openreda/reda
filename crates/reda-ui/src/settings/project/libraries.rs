@@ -82,7 +82,26 @@ impl Page for LibrariesPage {
     }
 
     fn load(&mut self, project: &Project, reset: bool) {
-        self.rows.load(project.props().libraries.clone(), reset);
+        let fresh = project.props().libraries.clone();
+        if reset || !self.rows.changed() {
+            self.rows.load(fresh, reset);
+            return;
+        }
+        // Keep the user's pending adds and removes, made on top of the Project's list
+        // now: a change made elsewhere (an undo) stays as made.
+        let (base, value) = (self.rows.base().clone(), self.rows.value().clone());
+        let mut rows: Vec<String> = fresh
+            .iter()
+            .filter(|p| !base.contains(p) || value.contains(p))
+            .cloned()
+            .collect();
+        for path in value.iter().filter(|p| !base.contains(p)) {
+            if !rows.contains(path) {
+                rows.push(path.clone());
+            }
+        }
+        self.rows = Draft::new(fresh);
+        *self.rows.value_mut() = rows;
     }
 
     fn steps(&self) -> Vec<Step> {
