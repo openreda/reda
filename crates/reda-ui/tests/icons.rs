@@ -115,12 +115,22 @@ fn disabled_icons_are_a_greyscale_copy_that_the_disabled_button_fades_once() {
 
 #[test]
 fn icons_load_for_both_themes_and_states() {
-    // `about` is still a placeholder, drawn in white; `save` is REDA's own art.
-    let dark = String::from_utf8(icons::svg("about", Theme::Dark, true).unwrap().to_vec()).unwrap();
-    let light =
-        String::from_utf8(icons::svg("about", Theme::Light, true).unwrap().to_vec()).unwrap();
-    assert!(dark.contains("#fff"));
-    assert!(light.contains("#1f2329") && !light.contains("#fff"));
+    // A placeholder, while any is left, is drawn in white; `save` is REDA's own art.
+    let sources = std::fs::read_to_string(icons_dir().join("sources.txt")).unwrap();
+    let placeholder = sources
+        .lines()
+        .find(|l| !l.trim().is_empty() && !l.starts_with('#'))
+        .and_then(|l| l.split_whitespace().next());
+    if let Some(key) = placeholder {
+        let dark = String::from_utf8(icons::svg(key, Theme::Dark, true).unwrap().to_vec()).unwrap();
+        let light =
+            String::from_utf8(icons::svg(key, Theme::Light, true).unwrap().to_vec()).unwrap();
+        assert!(dark.contains("#fff"), "{key}: {dark}");
+        assert!(
+            light.contains("#1f2329") && !light.contains("#fff"),
+            "{key}: {light}"
+        );
+    }
     let save = String::from_utf8(icons::svg("save", Theme::Light, true).unwrap().to_vec()).unwrap();
     assert!(
         save.contains("#347dbc") && !save.contains("#3d8fd6"),
