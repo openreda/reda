@@ -4,7 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use reda_command::{CommandError, Context};
 use reda_model::geom::{Millideg, Point};
-use reda_model::{FootprintCopy, FootprintInstance, InDocument, Net, Object, PadNet, Side, Uuid};
+use reda_model::{
+    ComponentRef, FootprintCopy, FootprintInstance, InDocument, Net, Object, PadNet, Side, Uuid,
+};
 
 use super::components::SchComponent;
 use super::nets::Target;
@@ -17,6 +19,19 @@ pub struct Applied {
     pub applied: Vec<String>,
     /// The ids left out: those unticked and those depending on them, in list order.
     pub left_out: Vec<String>,
+    /// What the apply created.
+    pub created: Created,
+}
+
+/// The Footprint instances and Nets an apply created, so a caller (and a Journal replay,
+/// which pairs the UUIDs it finds in results) can name them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Created {
+    /// Each added Footprint instance with its Component, in the order they were placed
+    /// (sheet, then Designator).
+    pub footprints: Vec<(ComponentRef, Uuid)>,
+    /// Each added Net with its name, in Change List order.
+    pub nets: Vec<(String, Uuid)>,
 }
 
 /// Applies the pending Change List, leaving out `unticked` and every change that depends
@@ -44,7 +59,7 @@ pub fn apply(
         }
     }
     let left_out = plan.list.cascade(&unticked.iter().cloned().collect());
-    carry_out(cx, &plan, &left_out)?;
+    let created = carry_out(cx, &plan, &left_out)?;
     let (left, applied): (Vec<_>, Vec<_>) = plan
         .list
         .changes()
@@ -53,6 +68,7 @@ pub fn apply(
     Ok(Applied {
         applied,
         left_out: left,
+        created,
     })
 }
 
@@ -62,7 +78,7 @@ pub(super) fn carry_out(
     cx: &mut Context<'_>,
     plan: &Plan,
     left_out: &BTreeSet<String>,
-) -> Result<(), CommandError> {
+) -> Result<Created, CommandError> {
     Applier::new(cx)?.run(plan, left_out)
 }
 
@@ -97,7 +113,8 @@ impl<'c, 'e> Applier<'c, 'e> {
         })
     }
 
-    fn run(mut self, plan: &Plan, left_out: &BTreeSet<String>) -> Result<(), CommandError> {
+    fn run(mut self, plan: &Plan, left_out: &BTreeSet<String>) -> Result<Created, CommandError> {
+        let mut created = Created::default();
         let list: &ChangeList = &plan.list;
         let included = || list.changes().filter(|c| !left_out.contains(&c.id));
         let doc = self.pcb;
@@ -120,6 +137,7 @@ impl<'c, 'e> Applier<'c, 'e> {
                         class: default_class,
                     };
                     new_nets.insert(change.id.clone(), net.uuid);
+                    created.nets.push((name.clone(), net.uuid));
                     self.cx
                         .tx()?
                         .insert(Object::Net(InDocument::new(doc, net)))?;
@@ -176,7 +194,8 @@ impl<'c, 'e> Applier<'c, 'e> {
         let pcb = self.cx.project()?.pcb().expect("a PCB").clone();
         let positions = placement::place(&pcb, &adds);
         for (c, at) in adds.into_iter().zip(positions) {
-            self.add(c, at)?;
+            let uuid = self.add(c, at)?;
+            created.footprints.push((c.key.clone(), uuid));
         }
 
         for change in included() {
@@ -222,7 +241,8 @@ impl<'c, 'e> Applier<'c, 'e> {
         for &net in merges.0.keys() {
             self.cx.tx()?.remove(net)?;
         }
-        self.prune_copies()
+        self.prune_copies()?;
+        Ok(created)
     }
 
     /// Sync never deletes copper: the copper on a removed Net that Sync does not manage
@@ -305,7 +325,7 @@ impl<'c, 'e> Applier<'c, 'e> {
         Ok(copy)
     }
 
-    fn add(&mut self, c: &SchComponent, at: Point) -> Result<(), CommandError> {
+    fn add(&mut self, c: &SchComponent, at: Point) -> Result<Uuid, CommandError> {
         let copy = self.ensure_copy(&c.copy)?;
         let instance = FootprintInstance {
             uuid: self.cx.new_id(),
@@ -321,10 +341,10 @@ impl<'c, 'e> Applier<'c, 'e> {
             designator_text: None,
             pads: blank_pads(&copy),
         };
-        self.by_component
-            .insert(super::component_key(&c.key), instance.uuid);
-        self.instances.insert(instance.uuid, instance);
-        Ok(())
+        let uuid = instance.uuid;
+        self.by_component.insert(super::component_key(&c.key), uuid);
+        self.instances.insert(uuid, instance);
+        Ok(uuid)
     }
 
     /// Writes every instance that changed, and removes the removed ones.

@@ -341,10 +341,15 @@ impl Script {
     }
 
     /// Adds a Silkscreen bar just outside Pad 1's outer edge, marking a cathode or the
-    /// positive end of a generated two-terminal Footprint.
-    pub fn mark_pad_one(&mut self, footprint: &str) {
+    /// positive end of a generated two-terminal Footprint, and gives it `description`
+    /// (the chip generator only knows resistors, capacitors and inductors).
+    pub fn mark_pad_one(&mut self, footprint: &str, description: &str) {
         self.ids.set(&format!("mark/{footprint}"));
         self.run("library.element.open", json!({ "element": footprint }));
+        self.edit(
+            "library.footprint.edit",
+            json!({"footprint": footprint, "description": description}),
+        );
         let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
         let pad = object["pads"]
             .as_array()

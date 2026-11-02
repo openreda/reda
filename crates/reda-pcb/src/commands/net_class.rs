@@ -96,6 +96,9 @@ pub struct NetClassAddParams {
     /// Via hole.
     #[serde(default)]
     pub via_hole: Option<Length>,
+    /// Nets to move into the new class.
+    #[serde(default)]
+    pub nets: Vec<Uuid>,
 }
 
 impl Command for NetClassAdd {
@@ -103,7 +106,8 @@ impl Command for NetClassAdd {
         id: "pcb.net_class.add",
         title: "Add Net Class",
         description: "Adds a Net Class called `name`, optionally overriding the board-wide \
-                      `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets.",
+                      `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets, \
+                      and moves `nets` into it.",
         category: "pcb",
         icon: "net_class_add",
         kind: Kind::Edit,
@@ -119,6 +123,7 @@ impl Command for NetClassAdd {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let name = free_name(pcb, &p.name, None)?;
+        let mut nets = moved_nets(pcb, &p.nets, Uuid::default())?;
         let mut class = NetClass {
             uuid: cx.new_id(),
             name,
@@ -129,8 +134,14 @@ impl Command for NetClassAdd {
         };
         overrides!(p).apply(&mut class)?;
         let uuid = class.uuid;
-        cx.tx()?
-            .insert(Object::NetClass(InDocument::new(document, class)))?;
+        for net in &mut nets {
+            net.class = uuid;
+        }
+        let tx = cx.tx()?;
+        tx.insert(Object::NetClass(InDocument::new(document, class)))?;
+        for net in nets {
+            tx.replace(Object::Net(InDocument::new(document, net)))?;
+        }
         Ok(Created { uuid })
     }
 }
@@ -302,24 +313,27 @@ impl Command for NetSetClass {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         class(pcb, p.class)?;
-        let nets = p
-            .nets
-            .iter()
-            .enumerate()
-            .map(|(i, uuid)| {
-                let net = pcb.net(*uuid).ok_or_else(|| {
-                    CommandError::not_found(format!("no Net has UUID {uuid} (`nets[{i}]`)"))
-                })?;
-                Ok(Net {
-                    class: p.class,
-                    ..net.clone()
-                })
-            })
-            .collect::<Result<Vec<_>, CommandError>>()?;
+        let nets = moved_nets(pcb, &p.nets, p.class)?;
         let tx = cx.tx()?;
         for net in nets {
             tx.replace(Object::Net(InDocument::new(document, net)))?;
         }
         Ok(())
     }
+}
+
+/// `nets` as they are once moved into `class`; an unknown Net is `not_found`.
+fn moved_nets(pcb: &PcbDocument, nets: &[Uuid], class: Uuid) -> Result<Vec<Net>, CommandError> {
+    nets.iter()
+        .enumerate()
+        .map(|(i, uuid)| {
+            let net = pcb.net(*uuid).ok_or_else(|| {
+                CommandError::not_found(format!("no Net has UUID {uuid} (`nets[{i}]`)"))
+            })?;
+            Ok(Net {
+                class,
+                ..net.clone()
+            })
+        })
+        .collect()
 }

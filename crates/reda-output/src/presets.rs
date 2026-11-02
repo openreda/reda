@@ -78,7 +78,10 @@ fn jlcpcb() -> FabPreset {
         rules: Rules {
             clearance: Nm::from_um(100),
             track_width: Nm::from_um(100),
-            via_diameter: Nm::from_um(250),
+            // A 0.15 mm drill with the 0.18 mm ring the rule asks of every hole. JLCPCB's
+            // own Via minimum (0.25 mm, a 0.05 mm ring) would fail that rule, so the
+            // default Via would fail DRC on a fresh board.
+            via_diameter: Nm::from_um(510),
             via_hole: Nm::from_um(150),
             annular_ring: Nm::from_um(180),
             hole_to_hole: Nm::from_um(450),
