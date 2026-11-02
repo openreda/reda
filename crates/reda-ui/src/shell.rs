@@ -18,6 +18,7 @@ use serde_json::{Value, json};
 
 use crate::canvas::{Camera, SceneHandle};
 use crate::layout::{self, Layout, TabKey};
+use crate::selection::{self, Selection};
 use crate::tr;
 
 /// Where the engine gets the bytes of fonts installed on the machine. The app scans the
@@ -78,7 +79,11 @@ impl Shell {
         if engine.registry().get("panel.show").is_none() {
             engine.register(layout::register_all);
         }
+        if engine.registry().get("selection.set").is_none() {
+            engine.register(selection::register_all);
+        }
         engine.view_mut().set(Layout::default());
+        engine.view_mut().set(Selection::default());
         let mut shell = Shell {
             engine,
             documents: Vec::new(),
@@ -117,6 +122,14 @@ impl Shell {
             .view_mut()
             .get_mut::<Layout>()
             .expect("the Shell installs its Layout")
+    }
+
+    /// What is selected; it changes through `selection.set`.
+    pub fn selection(&self) -> &Selection {
+        self.engine
+            .view()
+            .get::<Selection>()
+            .expect("the Shell installs its Selection")
     }
 
     /// The open Documents' tabs.
@@ -263,6 +276,7 @@ impl Shell {
             });
         }
         *self.layout_mut() = layout;
+        self.engine.view_mut().set(Selection::default());
         self.load_fonts();
     }
 
