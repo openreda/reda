@@ -512,3 +512,9 @@ form-choose = Choose…
 palette-title = Command Palette
 palette-hint = Type a Command…
 palette-nothing = No Command matches.
+
+## Routing (pcb::route)
+tool-route = Route
+tool-drag-track = Drag Track
+route-blocked = Too close to other copper: { $actual } where { $required } is needed
+route-keepout = That would put copper in a Keepout

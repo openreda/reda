@@ -198,3 +198,65 @@ command = "tool.flip"
 context = "pcb"
 key = "Esc"
 command = "tool.activate:select"
+
+# Routing: T routes Tracks and V places stitching Vias. While routing, `/` cycles the
+# corner mode, Backspace takes back the last corner, V drops a Via and switches Layer,
+# W / Shift+W step the width and Enter finishes. Del deletes the selected Tracks and Vias
+# (Shift+Del whole Tracks) and U selects the copper connected to the selection.
+
+[[bind]]
+context = "pcb"
+key = "T"
+command = "tool.activate:route"
+
+[[bind]]
+context = "pcb"
+key = "V"
+command = "tool.activate:via"
+
+[[bind]]
+context = "tool:route"
+key = "/"
+command = "tool.cycle_corner"
+
+[[bind]]
+context = "tool:route"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:route"
+key = "V"
+command = "pcb.route.add_via"
+
+[[bind]]
+context = "tool:route"
+key = "Enter"
+command = "pcb.route.finish"
+
+[[bind]]
+context = "tool:route"
+key = "W"
+command = "pcb.route.width:next"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+W"
+command = "pcb.route.width:previous"
+
+[[bind]]
+context = "pcb"
+key = "Del"
+command = "pcb.copper.delete"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Del"
+command = "pcb.copper.delete"
+params = { objects = "$selection", whole = true }
+
+[[bind]]
+context = "pcb"
+key = "U"
+command = "pcb.selection.connected"

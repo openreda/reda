@@ -7,6 +7,9 @@
 //!   selection when it is selected). The move is drawn from a preview of the board
 //!   (`reda_pcb::placement_preview`) and runs nothing until release, when it becomes one
 //!   Command (`pcb.move`), or one `batch` when it was also turned or flipped in flight.
+//! - Dragging a Track segment moves it across itself, its neighbours stretching to stay
+//!   attached (`Mod`+drag moves it freely, detached), drawn from the same plan as
+//!   `pcb.track.drag` (`reda_pcb::track_drag_plan`) and run as that one Command on release.
 //! - Dragging from nothing draws a rubber band that selects what lies wholly inside.
 //! - Space turns by 90° and L flips to the other side: in flight they join the move,
 //!   otherwise they run `pcb.rotate` / `pcb.flip` on the selection.
@@ -17,14 +20,14 @@
 //! canvas and the tests drive it the same way.
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{Object, ObjectType, Project, Uuid};
-use reda_engine::pcb::{PlacementOp, placement_anchor, placement_preview};
+use reda_engine::model::{InDocument, Object, ObjectType, Project, TrackGeometry, Uuid};
+use reda_engine::pcb::{Copper, PlacementOp, placement_anchor, placement_preview, track_drag_plan};
 use reda_engine::render::{Item, SceneLayer};
 use serde_json::{Value, json};
 
 use super::snap::{self, SnapKind, Target};
 use crate::canvas::interact::{BoxMode, box_select_on, hit_test_on};
-use crate::shell::Shell;
+use crate::shell::{Shell, ToolPreview};
 
 /// How far from the cursor electrical points still catch it when the canvas gives no
 /// zoom: 0.5 mm.
@@ -55,6 +58,7 @@ enum State {
         to: Point,
     },
     Moving(Move),
+    TrackDrag(TrackDrag),
     /// The press can do nothing more until release (a refused move, a cancel).
     Spent,
 }
@@ -91,6 +95,21 @@ impl Move {
         self.ops = self.all_ops();
         self.base = self.current;
     }
+}
+
+/// A Track segment being dragged.
+#[derive(Debug)]
+struct TrackDrag {
+    document: Uuid,
+    track: Uuid,
+    /// The press, on the grid.
+    grab: Point,
+    detach: bool,
+    /// The unit normal of a straight segment, which a plain drag moves along.
+    normal: Option<(f64, f64)>,
+    /// The drag so far.
+    by: Point,
+    copper: Copper,
 }
 
 /// The kinds of object the Tool can move.
@@ -169,8 +188,15 @@ impl Tool {
         match std::mem::take(&mut self.state) {
             State::Pressed { at, hit, toggle } => match hit {
                 None => self.state = State::Band { from: at, to },
+                Some(object) if is_track(shell, object) => {
+                    self.start_track_drag(shell, at, object, toggle, to)
+                }
                 Some(object) => self.start_move(shell, at, object, toggle, to),
             },
+            State::TrackDrag(mut d) => {
+                follow(shell, &mut d, to);
+                self.state = State::TrackDrag(d);
+            }
             State::Band { from, .. } => self.state = State::Band { from, to },
             State::Moving(mut m) => {
                 self.track(shell, &mut m, to);
@@ -235,6 +261,18 @@ impl Tool {
                     }
                 }
             }
+            State::TrackDrag(d) => {
+                shell.end_tool();
+                if d.by == Point::default() {
+                    shell.redraw(d.document);
+                } else {
+                    let by = json!({"x": d.by.x, "y": d.by.y});
+                    let params = json!({"track": d.track, "by": by, "detach": d.detach});
+                    if shell.run_reporting("pcb.track.drag", params).is_err() {
+                        shell.redraw(d.document);
+                    }
+                }
+            }
             State::Idle | State::Spent => {}
         }
     }
@@ -243,6 +281,10 @@ impl Tool {
     pub fn cancel(&mut self, shell: &mut Shell) {
         if let State::Moving(m) = &self.state {
             shell.redraw(m.document);
+        }
+        if let State::TrackDrag(d) = &self.state {
+            shell.end_tool();
+            shell.redraw(d.document);
         }
         if !matches!(self.state, State::Idle) {
             self.state = State::Spent;
@@ -367,6 +409,122 @@ impl Tool {
             preview(shell, m.document, &m.objects, &ops);
         }
     }
+}
+
+impl Tool {
+    fn start_track_drag(
+        &mut self,
+        shell: &mut Shell,
+        at: Point,
+        track: Uuid,
+        detach: bool,
+        to: Point,
+    ) {
+        let Some((project, document)) = board(shell) else {
+            return;
+        };
+        let pcb = project.pcb().expect("a board");
+        let geometry = pcb.track(track).expect("a Track").geometry;
+        let normal = match geometry {
+            TrackGeometry::Line { from, to } => {
+                let (dx, dy) = ((to.x.0 - from.x.0) as f64, (to.y.0 - from.y.0) as f64);
+                let len = (dx * dx + dy * dy).sqrt();
+                (len > 0.0).then(|| (-dy / len, dx / len))
+            }
+            TrackGeometry::Arc { .. } => None,
+        };
+        let mut copper = Copper::build(pcb);
+        if let Some(fills) = project.zone_fills(pcb.uuid) {
+            copper.set_zone_fills(pcb, Some(fills));
+        }
+        if shell.selection().objects != [track] {
+            select(shell, vec![track]);
+        }
+        shell.begin_tool(ToolPreview::new(crate::tr!("tool-drag-track"), [track]));
+        let mut d = TrackDrag {
+            document,
+            track,
+            grab: snap::to_grid(at, board_grid(shell)),
+            detach,
+            normal,
+            by: Point::default(),
+            copper,
+        };
+        follow(shell, &mut d, to);
+        self.state = State::TrackDrag(d);
+    }
+}
+
+/// Whether `object` is a Track of the board.
+fn is_track(shell: &Shell, object: Uuid) -> bool {
+    board(shell)
+        .and_then(|(p, _)| p.pcb())
+        .is_some_and(|pcb| pcb.track(object).is_some())
+}
+
+/// Follows the cursor at `to` with the segment drag `d`, redrawing the preview when the
+/// drag changed. A plain drag of a straight segment moves it across itself only.
+fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
+    let raw = snap::to_grid(to, board_grid(shell)) - d.grab;
+    let by = match (d.detach, d.normal) {
+        (false, Some((nx, ny))) => {
+            let along = raw.x.0 as f64 * nx + raw.y.0 as f64 * ny;
+            Point::new(
+                Nm((along * nx).round() as i64),
+                Nm((along * ny).round() as i64),
+            )
+        }
+        _ => raw,
+    };
+    if by == d.by {
+        return;
+    }
+    d.by = by;
+    if by == Point::default() {
+        shell.redraw(d.document);
+        return;
+    }
+    let Some(project) = shell.engine().project() else {
+        return;
+    };
+    let Some(pcb) = project.pcb() else {
+        return;
+    };
+    let mut n = 0u128;
+    let Ok(plan) = track_drag_plan(pcb, &d.copper, d.track, by, d.detach, || {
+        n += 1;
+        Uuid::v4_from_bits(u128::MAX - n)
+    }) else {
+        return;
+    };
+    let mut project = project.clone();
+    let mut tx = project.transaction();
+    let document = d.document;
+    for track in plan.modified {
+        if tx
+            .replace(Object::Track(InDocument::new(document, track)))
+            .is_err()
+        {
+            return;
+        }
+    }
+    for track in plan.created {
+        if tx
+            .insert(Object::Track(InDocument::new(document, track)))
+            .is_err()
+        {
+            return;
+        }
+    }
+    for uuid in plan.deleted {
+        if tx.remove(uuid).is_err() {
+            return;
+        }
+    }
+    if tx.commit().is_err() {
+        return;
+    }
+    shell.show_preview(document, &project);
 }
 
 /// `p` as the shared canvas functions take it: nm, y up.
