@@ -206,11 +206,11 @@ fn each_drc_check_has_its_own_severity() {
     let dir = TempDir::new("severity");
     let mut engine = engine_with_pcb(&dir);
     engine.run_ok(
-        "pcb.drc.set_severity",
+        "drc.set_severity",
         json!({"check": "courtyard_overlap", "severity": "off"}),
     );
     engine.run_ok(
-        "pcb.drc.set_severity",
+        "drc.set_severity",
         json!({"check": "unrouted", "severity": "warning"}),
     );
     let severities = pcb(&engine).setup().severities;
@@ -218,7 +218,7 @@ fn each_drc_check_has_its_own_severity() {
     assert_eq!(severities.get(DrcCheck::Unrouted), Severity::Warning);
     assert_eq!(severities.get(DrcCheck::Clearance), Severity::Error);
     let err = engine.run_err(
-        "pcb.drc.set_severity",
+        "drc.set_severity",
         json!({"check": "no_such_check", "severity": "off"}),
     );
     assert_eq!(err.code, reda_command::ErrorCode::InvalidParams);

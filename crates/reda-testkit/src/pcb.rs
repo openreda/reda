@@ -3,8 +3,8 @@
 use reda_engine::command::{Angle, Command, CommandError, Context, Kind, Length, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Point};
 use reda_engine::model::{
-    Fields, Footprint, FootprintCopy, FootprintInstance, FootprintText, InDocument, Net, Object,
-    Pad, PadKind, PadNet, PadShape, Side, Uuid,
+    Fields, Footprint, FootprintCopy, FootprintInstance, FootprintText, Hole, InDocument, Net,
+    Object, Pad, PadKind, PadNet, PadShape, Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ pub(crate) fn register_all(registry: &mut Registry) {
 }
 
 /// `test.footprint.add {at, rotation?, side?, pads: [{at, width, height, shape?, kind?,
-/// rotation?, corner_radius?, net?}]}`: places a Footprint instance with its own one-off
+/// rotation?, corner_radius?, net?, hole?}]}`: places a Footprint instance with its own one-off
 /// Footprint copy (Pads numbered 1, 2, … in param order), as Sync will, so copper tests
 /// need no Library. Pads default to rectangular SMD Pads.
 struct FootprintAdd;
@@ -49,6 +49,9 @@ struct PadParams {
     corner_radius: Option<Length>,
     #[serde(default)]
     net: Option<Uuid>,
+    /// `{width, height}` in nm.
+    #[serde(default)]
+    hole: Option<Hole>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -105,7 +108,7 @@ impl Command for FootprintAdd {
                 width: pad.width.nm(),
                 height: pad.height.nm(),
                 corner_radius: pad.corner_radius.map(|r| r.nm()),
-                hole: None,
+                hole: pad.hole,
                 mask_margin: None,
                 paste_margin: None,
             });

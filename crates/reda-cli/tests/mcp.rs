@@ -119,6 +119,7 @@ fn lists_the_generic_tools_and_the_query_commands() {
             "objects.query",
             "object.get",
             "erc.run",
+            "drc.run",
             "sync.preview",
             "document.render",
             "pcb.copper.connected",
@@ -130,6 +131,7 @@ fn lists_the_generic_tools_and_the_query_commands() {
         ]
     );
     for id in [
+        "drc.run",
         "pcb.copper.connected",
         "pcb.ratsnest",
         "pcb.clearance.track",
