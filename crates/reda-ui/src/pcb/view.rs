@@ -3,12 +3,17 @@
 //! view state; the Shell hands it to the PCB tab.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use reda_engine::model::geom::Nm;
 use reda_engine::model::{LayerKind, ObjectType, PcbDocument, Project, Side, Uuid};
-use reda_engine::preferences::{InactiveLayerMode, Units};
-use reda_engine::render::{self, Composite, InactiveLayers, Scene, SceneLayer, board_composites};
+use reda_engine::preferences::{InactiveLayerMode, Preferences, Units};
+use reda_engine::render::{
+    self, BoardColor, ColorKey, Composite, InactiveLayers, Rgba, Scene, SceneLayer,
+    board_composites,
+};
 
+use crate::canvas::PaletteHandle;
 use crate::view_state::LayerView;
 
 /// The metric snap-grid presets: 0.1, 0.25, 0.5 and 1 mm.
@@ -149,6 +154,91 @@ impl BoardView {
         });
     }
 }
+
+/// `length` in `units` with up to 4 decimals (mm) or 2 (mil), trailing zeros dropped,
+/// and the unit: `12.5 mm`, `492.13 mil`.
+pub fn format_length(length: Nm, units: Units) -> String {
+    let (value, decimals, unit) = match units {
+        Units::Mm => (length.0 as f64 / 1e6, 4, "mm"),
+        Units::Mil => (length.0 as f64 / 25_400.0, 2, "mil"),
+    };
+    let mut text = format!("{value:.decimals$}");
+    if text.contains('.') {
+        text = text.trim_end_matches('0').trim_end_matches('.').to_owned();
+    }
+    if text == "-0" {
+        text = "0".to_owned();
+    }
+    format!("{text} {unit}")
+}
+
+/// The `display.layer_colors.<theme>.<key>` key of a Layer's colour: its kind and side,
+/// such as `copper_top` or `board_outline`.
+pub fn color_key(kind: LayerKind, side: Option<Side>) -> String {
+    let kind = serde_json::to_value(kind)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_default();
+    match side {
+        Some(Side::Top) => format!("{kind}_top"),
+        Some(Side::Bottom) => format!("{kind}_bottom"),
+        None => kind,
+    }
+}
+
+/// `#rrggbb` as a colour.
+pub fn parse_hex(text: &str) -> Option<Rgba> {
+    if !reda_engine::preferences::is_hex_color(text) {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&text[i..i + 2], 16).ok();
+    Some(Rgba::rgb(byte(1)?, byte(3)?, byte(5)?))
+}
+
+/// A colour as `#rrggbb`.
+pub fn to_hex(color: Rgba) -> String {
+    let [r, g, b, _] = color.0;
+    format!("#{r:02x}{g:02x}{b:02x}")
+}
+
+/// The Layer colour overrides in `prefs`, for the canvas.
+pub fn palette_handle(prefs: &Preferences, generation: u64) -> PaletteHandle {
+    let overrides = |colors: &reda_engine::preferences::LayerColors| -> Arc<[(ColorKey, Rgba)]> {
+        let mut out = Vec::new();
+        for (key, text) in colors.overrides() {
+            let Some(color) = parse_hex(text) else {
+                continue;
+            };
+            for kind in LAYER_KINDS {
+                for side in [Some(Side::Top), Some(Side::Bottom), None] {
+                    if color_key(kind, side) == key {
+                        out.push((ColorKey::Board(BoardColor::layer(kind, side)), color));
+                    }
+                }
+            }
+        }
+        out.into()
+    };
+    let colors = &prefs.display.layer_colors;
+    PaletteHandle {
+        generation,
+        dark: overrides(&colors.dark),
+        light: overrides(&colors.light),
+    }
+}
+
+/// Every Layer kind.
+const LAYER_KINDS: [LayerKind; 9] = [
+    LayerKind::Copper,
+    LayerKind::Silkscreen,
+    LayerKind::SolderMask,
+    LayerKind::Paste,
+    LayerKind::Courtyard,
+    LayerKind::Assembly,
+    LayerKind::BoardOutline,
+    LayerKind::Mechanical,
+    LayerKind::Documentation,
+];
 
 /// The renderer's Inactive-Layer mode for a Preference value.
 pub fn inactive_layers(mode: InactiveLayerMode) -> InactiveLayers {

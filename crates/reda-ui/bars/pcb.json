@@ -1,6 +1,21 @@
 {
   "menus": [
     {
+      "id": "view",
+      "title": "menu-view",
+      "items": [
+        { "id": "view.units_toggle", "command": "view.units.toggle" },
+        { "id": "view.grid_cycle", "command": "view.grid.set" },
+        "separator",
+        { "id": "view.layer_next", "command": "pcb.layer.step:next" },
+        { "id": "view.layer_previous", "command": "pcb.layer.step:previous" },
+        { "id": "view.layer_swap_side", "command": "pcb.layer.swap_side" },
+        { "id": "view.inactive_layers", "command": "pcb.view.inactive_layers" },
+        { "id": "view.from_bottom", "command": "pcb.view.from_bottom" },
+        { "id": "view.ratsnest", "command": "pcb.ratsnest.show" }
+      ]
+    },
+    {
       "id": "design",
       "title": "menu-design",
       "items": [
@@ -19,6 +34,9 @@
     { "id": "active_bar.redo", "command": "edit.redo", "params": { "document": "$active_document" } },
     "separator",
     { "id": "active_bar.zone_fill", "command": "pcb.zone.fill" },
+    { "id": "active_bar.layers", "command": "panel.show:layers" },
+    { "id": "active_bar.from_bottom", "command": "pcb.view.from_bottom" },
+    { "id": "active_bar.units", "command": "view.units.toggle" },
     { "id": "active_bar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
   ]
 }

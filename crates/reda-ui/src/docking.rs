@@ -398,10 +398,19 @@ impl Cx<'_> {
             TabKey::Document(uuid) => {
                 let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
                 let theme = theme::canvas_theme(ui.ctx().theme());
-                let Some(doc) = self.shell.document_tab_mut(*uuid) else {
+                let is_pcb = self
+                    .shell
+                    .engine()
+                    .project()
+                    .is_some_and(|p| p.pcb_document(*uuid).is_some());
+                if is_pcb {
+                    crate::pcb::canvas::show(ui, self.shell, *uuid, theme);
+                } else if let Some(doc) = self.shell.document_tab_mut(*uuid) {
+                    canvas(ui, doc, theme, None);
+                }
+                let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;
                 };
-                canvas(ui, doc, theme);
                 let id = canvas_id(doc);
                 if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                     self.frame.commands.push(clicked);
@@ -428,6 +437,10 @@ impl Cx<'_> {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
                     self.frame.journal = Some(action);
                 }
+            }
+            TabKey::Panel(PanelId::Layers) => {
+                let commands = panels::layers::show(ui, self.shell);
+                self.frame.commands.extend(commands);
             }
             TabKey::Panel(PanelId::Messages) => {
                 let actions = panels::messages::show(ui, self.shell);

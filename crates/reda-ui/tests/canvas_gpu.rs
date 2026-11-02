@@ -48,6 +48,7 @@ fn frame(generation: u64, scene: &Arc<Scene>) -> CanvasFrame {
             height: 80,
             mirrored: false,
         },
+        palette: Default::default(),
         grid: Some(GridSpec {
             origin: (0.0, 0.0),
             pitch: 1_270_000.0,

@@ -117,6 +117,79 @@ pub struct Display {
     pub cursor: Cursor,
     /// How Layers other than the active one are drawn in a new view.
     pub inactive_layer_mode: InactiveLayerMode,
+    /// Board Layer colours that replace the shipped ones, per theme.
+    pub layer_colors: ThemeLayerColors,
+}
+
+/// Board Layer colour overrides for each theme.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct ThemeLayerColors {
+    /// With the dark theme.
+    pub dark: LayerColors,
+    /// With the light theme.
+    pub light: LayerColors,
+}
+
+macro_rules! layer_colors {
+    ($($(#[$doc:meta])* $name:ident,)*) => {
+        /// A colour per Layer kind and side, written `#rrggbb`; unset keeps the shipped
+        /// colour.
+        #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+        #[serde(default, deny_unknown_fields)]
+        pub struct LayerColors {
+            $($(#[$doc])* pub $name: Option<String>,)*
+        }
+
+        impl LayerColors {
+            /// Every override set, as (key, colour), such as `("copper_top", "#ff8800")`.
+            pub fn overrides(&self) -> Vec<(&'static str, &str)> {
+                let mut out = Vec::new();
+                $(if let Some(c) = &self.$name {
+                    out.push((stringify!($name), c.as_str()));
+                })*
+                out
+            }
+        }
+    };
+}
+
+layer_colors! {
+    /// Top Copper.
+    copper_top,
+    /// Bottom Copper.
+    copper_bottom,
+    /// Top Silkscreen.
+    silkscreen_top,
+    /// Bottom Silkscreen.
+    silkscreen_bottom,
+    /// Top Solder Mask.
+    solder_mask_top,
+    /// Bottom Solder Mask.
+    solder_mask_bottom,
+    /// Top Paste.
+    paste_top,
+    /// Bottom Paste.
+    paste_bottom,
+    /// Top Courtyard.
+    courtyard_top,
+    /// Bottom Courtyard.
+    courtyard_bottom,
+    /// Top Assembly.
+    assembly_top,
+    /// Bottom Assembly.
+    assembly_bottom,
+    /// The Board Outline.
+    board_outline,
+    /// The Mechanical Layer.
+    mechanical,
+    /// The Documentation Layer.
+    documentation,
+}
+
+/// Whether `text` is a colour written `#rrggbb`.
+pub fn is_hex_color(text: &str) -> bool {
+    text.len() == 7 && text.starts_with('#') && text[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -181,6 +254,21 @@ impl Preferences {
         let scale = self.general.ui_scale;
         if !(0.5..=3.0).contains(&scale) {
             return Err(("general.ui_scale", format!("{scale} is outside 0.5 to 3")));
+        }
+        let themes = &self.display.layer_colors;
+        for (theme, colors) in [("dark", &themes.dark), ("light", &themes.light)] {
+            for (_, color) in colors.overrides() {
+                if !is_hex_color(color) {
+                    return Err((
+                        if theme == "dark" {
+                            "display.layer_colors.dark"
+                        } else {
+                            "display.layer_colors.light"
+                        },
+                        format!("{color} is not a colour written #rrggbb"),
+                    ));
+                }
+            }
         }
         Ok(())
     }

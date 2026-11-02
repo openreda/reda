@@ -44,6 +44,14 @@ grid lucide:grid-3x3
 home lucide:house
 inspect lucide:scan-search
 keepout lucide:ban
+layer_active lucide:pencil-line
+layer_next lucide:chevron-down
+layer_previous lucide:chevron-up
+layer_swap lucide:arrow-up-down
+layer_visible lucide:eye
+layers lucide:layers-2
+layout lucide:layout-dashboard
+layout_save lucide:layout-template
 library_add lucide:library-big
 library_edit lucide:book-open
 library_element_new lucide:book-plus
@@ -114,7 +122,9 @@ title_block tabler:table
 track tabler:route-2
 undo lucide:undo-2
 unit_place tabler:triangle-plus
+units lucide:ruler
 via lucide:circle-dot
+view_flip lucide:flip-horizontal-2
 waive lucide:shield-check
 window_new lucide:app-window-mac
 wire tabler:line

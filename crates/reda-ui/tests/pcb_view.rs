@@ -372,3 +372,33 @@ fn ctrl_q_toggles_units_and_g_cycles_the_grid_presets() {
         .unwrap_err();
     assert_eq!(err.details.unwrap()["pointer"], "/grid");
 }
+
+#[test]
+fn a_layer_colour_preference_reaches_the_canvas() {
+    use reda_ui::engine::render::{BoardColor, ColorKey, Rgba, Theme};
+    let mut b = board();
+    let key = ColorKey::Board(BoardColor::CopperTop);
+    let before = b.shell.document_tab(b.pcb).unwrap().palette.clone();
+    assert_ne!(
+        before.palette(Theme::Dark).color(key),
+        Rgba::rgb(0x12, 0x34, 0x56)
+    );
+
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key": "display.layer_colors.dark.copper_top", "value": "#123456"}),
+    );
+
+    let palette = b.shell.document_tab(b.pcb).unwrap().palette.clone();
+    assert_ne!(palette.generation, before.generation);
+    assert_eq!(
+        palette.palette(Theme::Dark).color(key),
+        Rgba::rgb(0x12, 0x34, 0x56)
+    );
+    assert_eq!(
+        palette.palette(Theme::Light).color(key),
+        before.palette(Theme::Light).color(key),
+        "per theme"
+    );
+}

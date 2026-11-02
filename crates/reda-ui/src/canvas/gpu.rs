@@ -13,7 +13,7 @@ use reda_engine::render::gpu::{
     Blit, BlitSource, Canvas, Flags, GpuScene, Grid, GridSpec, Highlight, Renderer, Target, Writes,
     wgpu,
 };
-use reda_engine::render::{Composite, Palette, Scene, Theme, View};
+use reda_engine::render::{ColorKey, Composite, Palette, Rgba, Scene, Theme, View};
 
 /// A Scene shared with the paint callback. `generation` changes whenever the Scene does,
 /// so the GPU knows when to upload it again.
@@ -43,6 +43,30 @@ impl Default for SelectionHandle {
     }
 }
 
+/// Colour overrides (Preferences) shared with the paint callback, for both themes.
+/// `generation` changes whenever they do.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PaletteHandle {
+    pub generation: u64,
+    pub dark: Arc<[(ColorKey, Rgba)]>,
+    pub light: Arc<[(ColorKey, Rgba)]>,
+}
+
+impl PaletteHandle {
+    /// The shipped scheme of `theme` with this handle's overrides.
+    pub fn palette(&self, theme: Theme) -> Palette {
+        let mut palette = Palette::shipped(theme);
+        let overrides = match theme {
+            Theme::Dark => &self.dark,
+            Theme::Light => &self.light,
+        };
+        for (key, color) in overrides.iter() {
+            palette.set(*key, *color);
+        }
+        palette
+    }
+}
+
 /// Everything one frame of one canvas shows.
 #[derive(Clone)]
 pub struct CanvasFrame {
@@ -55,6 +79,8 @@ pub struct CanvasFrame {
     pub grid: Option<GridSpec>,
     /// The objects drawn selected.
     pub selection: SelectionHandle,
+    /// Colour overrides.
+    pub palette: PaletteHandle,
 }
 
 /// What a recorded frame depended on.
@@ -62,6 +88,7 @@ pub struct CanvasFrame {
 struct FrameKey {
     generation: u64,
     selection: u64,
+    palette: u64,
     theme: Theme,
     view: View,
     grid: Option<GridSpec>,
@@ -72,6 +99,7 @@ impl FrameKey {
         FrameKey {
             generation: frame.scene.generation,
             selection: frame.selection.generation,
+            palette: frame.palette.generation,
             theme: frame.theme,
             view: frame.view,
             grid: frame.grid,
@@ -86,7 +114,7 @@ pub struct CanvasGpu {
     /// The selection generation the flags were last written for.
     selection: Option<u64>,
     canvas: Canvas,
-    theme: Option<Theme>,
+    theme: Option<(Theme, u64)>,
     grid: Grid,
     target: Option<(Target, BlitSource)>,
     last: Option<FrameKey>,
@@ -180,10 +208,11 @@ impl CanvasResources {
             }
             gpu.selection = Some(frame.selection.generation);
         }
-        if gpu.theme != Some(frame.theme) {
+        let colors = (frame.theme, frame.palette.generation);
+        if gpu.theme != Some(colors) {
             gpu.canvas
-                .set_palette(queue, &Palette::shipped(frame.theme));
-            gpu.theme = Some(frame.theme);
+                .set_palette(queue, &frame.palette.palette(frame.theme));
+            gpu.theme = Some(colors);
         }
         let size = (frame.view.width.max(1), frame.view.height.max(1));
         if gpu.target.as_ref().map(|(t, _)| t.size()) != Some(size) {

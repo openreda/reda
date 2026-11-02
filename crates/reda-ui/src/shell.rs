@@ -25,7 +25,7 @@ use reda_engine::preferences::Preferences;
 use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
-use crate::canvas::{Camera, SceneHandle, SelectionHandle};
+use crate::canvas::{Camera, PaletteHandle, SceneHandle, SelectionHandle};
 use crate::layout::{self, Layout, TabKey, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
@@ -72,6 +72,8 @@ pub struct DocumentTab {
     pub selection: SelectionHandle,
     /// The Violation markers the canvas draws over the Document.
     pub markers: Arc<[Marker]>,
+    /// The colour overrides the canvas draws with.
+    pub palette: PaletteHandle,
 }
 
 impl DocumentTab {
@@ -85,6 +87,7 @@ impl DocumentTab {
             zoom_to: None,
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
+            palette: PaletteHandle::default(),
         }
     }
 }
@@ -117,6 +120,8 @@ pub struct Shell {
     prefs: Preferences,
     /// The PCB canvas's select-and-place Tool.
     pcb_tool: pcb::Tool,
+    /// The colour overrides from the Preferences.
+    palette: PaletteHandle,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
     closed_views: BTreeMap<Uuid, DocumentView>,
     view_saves: Debounce,
@@ -152,11 +157,13 @@ impl Shell {
             marked: SelectionHandle::default(),
             prefs: Preferences::default(),
             pcb_tool: pcb::Tool::default(),
+            palette: PaletteHandle::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
         };
         shell.load_preference_warnings();
         shell.prefs = preferences::current(shell.engine.user_dirs());
+        shell.palette = pcb::view::palette_handle(&shell.prefs, 0);
         if shell.engine.project().is_some() {
             shell.show_project();
         }
@@ -211,6 +218,11 @@ impl Shell {
             .view_mut()
             .get_mut::<BoardView>()
             .expect("the Shell installs its BoardView")
+    }
+
+    /// The Layer colour overrides the canvases draw with.
+    pub fn palette(&self) -> &PaletteHandle {
+        &self.palette
     }
 
     /// The Preferences as last read.
@@ -515,11 +527,13 @@ impl Shell {
                 _ => self.refresh(),
             },
         }
-        self.sync_selection();
-        self.sync_board_view();
         if base == "app.preferences.set" {
             self.prefs = preferences::current(self.engine.user_dirs());
+            self.generation += 1;
+            self.palette = pcb::view::palette_handle(&self.prefs, self.generation);
         }
+        self.sync_selection();
+        self.sync_board_view();
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
@@ -969,6 +983,9 @@ impl Shell {
         for tab in &mut self.documents {
             if tab.selection.generation != self.marked.generation {
                 tab.selection = self.marked.clone();
+            }
+            if tab.palette.generation != self.palette.generation {
+                tab.palette = self.palette.clone();
             }
         }
     }

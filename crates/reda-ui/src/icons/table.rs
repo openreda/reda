@@ -111,6 +111,32 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ("inspect", egui::include_image!("../../icons/inspect.svg")),
     ("keepout", egui::include_image!("../../icons/keepout.svg")),
     (
+        "layer_active",
+        egui::include_image!("../../icons/layer_active.svg"),
+    ),
+    (
+        "layer_next",
+        egui::include_image!("../../icons/layer_next.svg"),
+    ),
+    (
+        "layer_previous",
+        egui::include_image!("../../icons/layer_previous.svg"),
+    ),
+    (
+        "layer_swap",
+        egui::include_image!("../../icons/layer_swap.svg"),
+    ),
+    (
+        "layer_visible",
+        egui::include_image!("../../icons/layer_visible.svg"),
+    ),
+    ("layers", egui::include_image!("../../icons/layers.svg")),
+    ("layout", egui::include_image!("../../icons/layout.svg")),
+    (
+        "layout_save",
+        egui::include_image!("../../icons/layout_save.svg"),
+    ),
+    (
         "library_add",
         egui::include_image!("../../icons/library_add.svg"),
     ),
@@ -291,7 +317,12 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
         "unit_place",
         egui::include_image!("../../icons/unit_place.svg"),
     ),
+    ("units", egui::include_image!("../../icons/units.svg")),
     ("via", egui::include_image!("../../icons/via.svg")),
+    (
+        "view_flip",
+        egui::include_image!("../../icons/view_flip.svg"),
+    ),
     ("waive", egui::include_image!("../../icons/waive.svg")),
     (
         "window_new",
