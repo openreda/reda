@@ -2562,7 +2562,7 @@
     },
     {
       "category": "library",
-      "description": "Opens a Symbol, Footprint or Part of a registered Library for editing on its own undo stack, keyed by its UUID. Starter Library elements open read-only. Opening an element that is already open returns it unchanged.",
+      "description": "Opens a Symbol, Footprint or Part of a registered Library for editing on its own undo stack, keyed by its UUID. Starter Library elements open read-only. Opening an element that is already open returns it unchanged. No Project needs to be open; elements open then stay open when a Project opens.",
       "icon": "library_element_open",
       "id": "library.element.open",
       "kind": "file",
@@ -2674,6 +2674,45 @@
         "type": "object"
       },
       "title": "Save Library Element"
+    },
+    {
+      "category": "library",
+      "description": "Removes any mix of an open Footprint's Pads and graphics in one step. The Designator and value text cannot be removed, so they are hidden.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "objects": {
+            "description": "Pads and graphics by UUID, and the Designator and value text (as for\n`library.footprint.move`), which are hidden rather than removed.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "objects"
+        ],
+        "title": "FootprintDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete in Footprint"
     },
     {
       "category": "library",
@@ -5504,6 +5543,82 @@
         "type": "null"
       },
       "title": "Remove Footprint Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Moves any mix of an open Footprint's Pads, graphics and Designator and value text by `by`, in one step.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "objects": {
+            "description": "Pads and graphics by UUID, and the Designator and value text as\n`fd000000-0000-4000-8000-000000000001` and `…0002`.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "objects",
+          "by"
+        ],
+        "title": "FootprintMoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Move in Footprint"
     },
     {
       "category": "library",

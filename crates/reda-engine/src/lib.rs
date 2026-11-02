@@ -10,6 +10,7 @@ pub mod canonical;
 pub mod commands;
 mod engine;
 pub mod fab_presets;
+pub mod footprint_scene;
 pub mod format;
 pub mod fs;
 pub mod journal;
@@ -23,6 +24,7 @@ pub mod sync;
 pub mod user_dirs;
 
 pub use engine::{Engine, EngineBuilder, document_scene, registry};
+pub use footprint_scene::{FootprintScene, footprint_scene};
 pub use journal::{JournalEntry, Source};
 
 /// The Command system, re-exported so front ends depend only on the engine.

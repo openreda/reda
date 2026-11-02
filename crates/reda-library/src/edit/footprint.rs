@@ -1,7 +1,10 @@
 //! The Footprint editor's Commands: the Footprint's own properties, its Pads, graphics,
 //! Designator and value text, and its origin.
 
-use reda_command::{Angle, Command, CommandError, Context, Kind, Length, Meta, Registry};
+use reda_command::{
+    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
+    Unavailable,
+};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{Footprint, FootprintGraphic, FootprintLayer, Hole, Pad, PadKind, PadShape, Uuid};
 use schemars::JsonSchema;
@@ -22,7 +25,15 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FootprintGraphicRemove);
     registry.add(FootprintTextSet);
     registry.add(FootprintOriginSet);
+    registry.add(FootprintMove);
+    registry.add(FootprintDelete);
 }
+
+/// What the Footprint editor (and [`FootprintMove`] / [`FootprintDelete`]) calls the
+/// Designator text of a Footprint, which has no UUID of its own.
+pub const DESIGNATOR_TEXT: Uuid = Uuid::from_u128(0xfd00_0000_0000_4000_8000_0000_0000_0001);
+/// What the Footprint editor calls the value text of a Footprint.
+pub const VALUE_TEXT: Uuid = Uuid::from_u128(0xfd00_0000_0000_4000_8000_0000_0000_0002);
 
 const fn meta(id: &'static str, title: &'static str, description: &'static str) -> Meta {
     Meta {
@@ -64,6 +75,10 @@ impl Command for FootprintEdit {
     );
     type Params = FootprintEditParams;
     type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: FootprintEditParams) -> Result<(), CommandError> {
         if let Some(name) = &p.name {
@@ -142,6 +157,10 @@ impl Command for PadAdd {
     );
     type Params = PadAddParams;
     type Output = PadResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: PadAddParams) -> Result<PadResult, CommandError> {
         let uuid = cx.new_id();
@@ -262,6 +281,10 @@ impl Command for PadEdit {
     type Params = PadEditParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: PadEditParams) -> Result<(), CommandError> {
         edit_footprint(cx, p.footprint, |f| {
             let mut pad = find_mut(&mut f.pads, p.pad, |pad| pad.uuid, "Pad")?.clone();
@@ -328,6 +351,10 @@ impl Command for PadRemove {
     type Params = PadParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: PadParams) -> Result<(), CommandError> {
         edit_footprint(cx, p.footprint, |f| {
             remove(&mut f.pads, p.pad, |pad| pad.uuid, "Pad").map(drop)
@@ -360,6 +387,10 @@ impl Command for FootprintGraphicAdd {
     );
     type Params = FootprintGraphicAddParams;
     type Output = GraphicResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(
         &self,
@@ -418,6 +449,10 @@ impl Command for FootprintGraphicEdit {
     type Params = FootprintGraphicEditParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: FootprintGraphicEditParams) -> Result<(), CommandError> {
         let shape = p
             .shape
@@ -465,6 +500,10 @@ impl Command for FootprintGraphicRemove {
     type Params = FootprintGraphicParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: FootprintGraphicParams) -> Result<(), CommandError> {
         edit_footprint(cx, p.footprint, |f| {
             remove(&mut f.graphics, p.graphic, |g| g.uuid, "graphic").map(drop)
@@ -506,6 +545,10 @@ impl Command for FootprintTextSet {
     );
     type Params = FootprintTextSetParams;
     type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: FootprintTextSetParams) -> Result<(), CommandError> {
         if let Some(size) = p.size {
@@ -557,6 +600,10 @@ impl Command for FootprintOriginSet {
     type Params = FootprintOriginSetParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: FootprintOriginSetParams) -> Result<(), CommandError> {
         let at = p.at.point();
         edit_footprint(cx, p.footprint, |f| {
@@ -575,4 +622,104 @@ fn shift(f: &mut Footprint, by: Point) {
     }
     f.designator.at = f.designator.at + by;
     f.value.at = f.value.at + by;
+}
+
+pub struct FootprintMove;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintMoveParams {
+    /// The open Footprint.
+    pub footprint: Uuid,
+    /// Pads and graphics by UUID, and the Designator and value text as
+    /// `fd000000-0000-4000-8000-000000000001` and `…0002`.
+    pub objects: Vec<Uuid>,
+    pub by: PointParam,
+}
+
+impl Command for FootprintMove {
+    const META: Meta = meta(
+        "library.footprint.move",
+        "Move in Footprint",
+        "Moves any mix of an open Footprint's Pads, graphics and Designator and value text \
+         by `by`, in one step.",
+    );
+    type Params = FootprintMoveParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: FootprintMoveParams) -> Result<(), CommandError> {
+        let by = p.by.point();
+        edit_footprint(cx, p.footprint, |f| {
+            for (i, uuid) in p.objects.iter().enumerate() {
+                if *uuid == DESIGNATOR_TEXT {
+                    f.designator.at = f.designator.at + by;
+                } else if *uuid == VALUE_TEXT {
+                    f.value.at = f.value.at + by;
+                } else if let Some(pad) = f.pads.iter_mut().find(|pad| pad.uuid == *uuid) {
+                    pad.at = pad.at + by;
+                } else if let Some(g) = f.graphics.iter_mut().find(|g| g.uuid == *uuid) {
+                    g.shape = g.shape.translated(by);
+                } else {
+                    return Err(not_in_footprint(i, *uuid));
+                }
+            }
+            Ok(())
+        })
+    }
+}
+
+fn not_in_footprint(index: usize, uuid: Uuid) -> CommandError {
+    CommandError::not_found(format!(
+        "objects/{index}: the Footprint has no Pad or graphic {uuid}"
+    ))
+}
+
+pub struct FootprintDelete;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintDeleteParams {
+    /// The open Footprint.
+    pub footprint: Uuid,
+    /// Pads and graphics by UUID, and the Designator and value text (as for
+    /// `library.footprint.move`), which are hidden rather than removed.
+    pub objects: Vec<Uuid>,
+}
+
+impl Command for FootprintDelete {
+    const META: Meta = meta(
+        "library.footprint.delete",
+        "Delete in Footprint",
+        "Removes any mix of an open Footprint's Pads and graphics in one step. The \
+         Designator and value text cannot be removed, so they are hidden.",
+    );
+    type Params = FootprintDeleteParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: FootprintDeleteParams) -> Result<(), CommandError> {
+        edit_footprint(cx, p.footprint, |f| {
+            for (i, uuid) in p.objects.iter().enumerate() {
+                if *uuid == DESIGNATOR_TEXT {
+                    f.designator.visible = false;
+                } else if *uuid == VALUE_TEXT {
+                    f.value.visible = false;
+                } else if f.pads.iter().any(|pad| pad.uuid == *uuid) {
+                    f.pads.retain(|pad| pad.uuid != *uuid);
+                } else if f.graphics.iter().any(|g| g.uuid == *uuid) {
+                    f.graphics.retain(|g| g.uuid != *uuid);
+                } else {
+                    return Err(not_in_footprint(i, *uuid));
+                }
+            }
+            Ok(())
+        })
+    }
 }

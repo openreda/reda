@@ -6,8 +6,8 @@
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    FootprintInstance, FootprintLayer, FootprintText, HERSHEY_FONT, LayerKind, PcbDocument,
-    PcbText, Shape, Side, Uuid,
+    Footprint, FootprintInstance, FootprintLayer, FootprintText, HERSHEY_FONT, LayerKind,
+    PcbDocument, PcbText, Shape, Side, Uuid,
 };
 
 use crate::placed::{self, Bounds, Frame};
@@ -80,6 +80,67 @@ pub fn footprint_texts(
     out
 }
 
+/// Which of a Footprint's texts an [`element_texts`] entry is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ElementText {
+    /// A text shape of its drawing.
+    Graphic(Uuid),
+    Designator,
+    Value,
+}
+
+/// Every text a Footprint draws as the Footprint editor shows it, unplaced (at its own
+/// origin, top side), on the board Layers of `pcb`: its drawing's text shapes, then its
+/// Designator and value as `designator` and `value`, laid out exactly as on a board.
+/// Each PCB text's `uuid` is the Footprint's.
+pub fn element_texts(
+    pcb: &PcbDocument,
+    footprint: &Footprint,
+    (designator, value): (&str, &str),
+    fonts: &Fonts,
+) -> Vec<(ElementText, PcbText)> {
+    let object = footprint.uuid;
+    let mut out = Vec::new();
+    for g in &footprint.graphics {
+        let Shape::Text {
+            at,
+            text,
+            size,
+            rotation,
+        } = &g.shape
+        else {
+            continue;
+        };
+        if let Some(layer) = board_layer(pcb, g.layer) {
+            let mirrored = is_bottom(g.layer);
+            let t = pcb_text(object, layer, text, *at, *size, *rotation, mirrored);
+            out.push((ElementText::Graphic(g.uuid), t));
+        }
+    }
+    let texts = [
+        (ElementText::Designator, &footprint.designator, designator),
+        (ElementText::Value, &footprint.value, value),
+    ];
+    for (which, placement, text) in texts {
+        if !placement.visible || text.is_empty() {
+            continue;
+        }
+        if let Some(t) = centred_text(pcb, object, text, placement, fonts) {
+            out.push((which, t));
+        }
+    }
+    out
+}
+
+fn is_bottom(layer: FootprintLayer) -> bool {
+    matches!(
+        layer,
+        FootprintLayer::SilkscreenBottom
+            | FootprintLayer::CourtyardBottom
+            | FootprintLayer::AssemblyBottom
+    )
+}
+
 /// Hershey text of a Footprint, pen [`FOOTPRINT_TEXT_PEN`] of its height.
 fn pcb_text(
     object: Uuid,
@@ -114,12 +175,7 @@ fn centred_text(
     fonts: &Fonts,
 ) -> Option<PcbText> {
     let layer = board_layer(pcb, placement.layer)?;
-    let mirrored = matches!(
-        placement.layer,
-        FootprintLayer::SilkscreenBottom
-            | FootprintLayer::CourtyardBottom
-            | FootprintLayer::AssemblyBottom
-    );
+    let mirrored = is_bottom(placement.layer);
     let size = placement.size;
     // Lay it out upright at the origin to find its centre, then move that onto `at`.
     let probe = pcb_text(
