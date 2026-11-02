@@ -642,6 +642,114 @@
       ],
       "type": "object"
     },
+    "Port": {
+      "additionalProperties": false,
+      "description": "A named, directional marker that joins the Wire (or Pin) under `at` to every Port of\nthe same name on any Schematic Sheet of the Project.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The connection point."
+        },
+        "direction": {
+          "$ref": "#/$defs/PortDirection"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rotation": {
+          "description": "Counter-clockwise; only how the Port is drawn.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "direction",
+        "at",
+        "rotation"
+      ],
+      "type": "object"
+    },
+    "PortDirection": {
+      "description": "Which way a Port's signal flows. It only changes how the Port is drawn and checked;\nevery direction connects the same way.",
+      "enum": [
+        "in",
+        "out",
+        "bidirectional"
+      ],
+      "type": "string"
+    },
+    "PowerPort": {
+      "additionalProperties": false,
+      "description": "A named symbol, such as GND or 3V3, that joins the Wire (or Pin) under `at` to the\nProject-wide Net of that name on every Schematic Sheet.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The connection point."
+        },
+        "name": {
+          "type": "string"
+        },
+        "rotation": {
+          "description": "Counter-clockwise; only how the symbol is drawn.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "style": {
+          "$ref": "#/$defs/PowerPortStyle"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "style",
+        "at",
+        "rotation"
+      ],
+      "type": "object"
+    },
+    "PowerPortStyle": {
+      "description": "The fixed, built-in look of a Power Port.",
+      "oneOf": [
+        {
+          "enum": [
+            "arrow",
+            "circle",
+            "wave"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "bar",
+          "description": "A horizontal bar, for positive rails.",
+          "type": "string"
+        },
+        {
+          "const": "ground",
+          "description": "Three shrinking bars.",
+          "type": "string"
+        },
+        {
+          "const": "signal_ground",
+          "description": "A downward triangle.",
+          "type": "string"
+        },
+        {
+          "const": "earth",
+          "description": "Ground bars with diagonal strokes.",
+          "type": "string"
+        }
+      ]
+    },
     "Shape": {
       "description": "A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.",
       "oneOf": [
@@ -1070,6 +1178,22 @@
       "description": "The part table: one copied Part with its Symbol per entry, sorted by UUID.",
       "items": {
         "$ref": "#/$defs/PartEntryRow"
+      },
+      "type": "array"
+    },
+    "ports": {
+      "default": [],
+      "description": "The Ports, which join Nets across sheets, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/Port"
+      },
+      "type": "array"
+    },
+    "power_ports": {
+      "default": [],
+      "description": "The Power Ports, which join Nets across the Project, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/PowerPort"
       },
       "type": "array"
     },

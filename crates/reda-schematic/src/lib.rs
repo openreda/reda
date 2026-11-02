@@ -7,6 +7,7 @@ pub mod connectivity;
 mod find;
 mod natural;
 mod pins;
+mod ports;
 mod properties;
 mod sheet;
 mod similar;
@@ -23,6 +24,10 @@ pub use component::{
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use natural::natural_cmp;
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
+pub use ports::{
+    PortAdd, PortAddParams, PortAddResult, PowerPortAdd, PowerPortAddParams, PowerPortAddResult,
+    ProjectNets, ProjectNetsResult,
+};
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
 pub use sheet::{
     SheetFrameView, SheetRef, SheetSetSize, SheetSetSizeParams, SheetTitleBlock, TitleBlock,
@@ -53,6 +58,9 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(UnitMove);
     registry.add(NoConnectAdd);
     registry.add(SchematicNets);
+    registry.add(PortAdd);
+    registry.add(PowerPortAdd);
+    registry.add(ProjectNets);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

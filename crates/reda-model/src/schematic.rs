@@ -185,6 +185,63 @@ pub struct NetLabel {
     pub rotation: Millideg,
 }
 
+/// Which way a Port's signal flows. It only changes how the Port is drawn and checked;
+/// every direction connects the same way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PortDirection {
+    In,
+    Out,
+    #[default]
+    Bidirectional,
+}
+
+/// A named, directional marker that joins the Wire (or Pin) under `at` to every Port of
+/// the same name on any Schematic Sheet of the Project.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Port {
+    pub uuid: Uuid,
+    pub name: String,
+    pub direction: PortDirection,
+    /// The connection point.
+    pub at: Point,
+    /// Counter-clockwise; only how the Port is drawn.
+    pub rotation: Millideg,
+}
+
+/// The fixed, built-in look of a Power Port.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PowerPortStyle {
+    /// A horizontal bar, for positive rails.
+    #[default]
+    Bar,
+    Arrow,
+    Circle,
+    Wave,
+    /// Three shrinking bars.
+    Ground,
+    /// A downward triangle.
+    SignalGround,
+    /// Ground bars with diagonal strokes.
+    Earth,
+}
+
+/// A named symbol, such as GND or 3V3, that joins the Wire (or Pin) under `at` to the
+/// Project-wide Net of that name on every Schematic Sheet.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PowerPort {
+    pub uuid: Uuid,
+    pub name: String,
+    pub style: PowerPortStyle,
+    /// The connection point.
+    pub at: Point,
+    /// Counter-clockwise; only how the symbol is drawn.
+    pub rotation: Millideg,
+}
+
 /// A mark on the Pin under `at` stating that it is deliberately left unconnected.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -208,6 +265,8 @@ pub struct SchematicSheet {
     pub(crate) wires: BTreeMap<Uuid, Wire>,
     pub(crate) net_labels: BTreeMap<Uuid, NetLabel>,
     pub(crate) no_connects: BTreeMap<Uuid, NoConnect>,
+    pub(crate) ports: BTreeMap<Uuid, Port>,
+    pub(crate) power_ports: BTreeMap<Uuid, PowerPort>,
 }
 
 impl SchematicSheet {
@@ -221,6 +280,8 @@ impl SchematicSheet {
             wires: BTreeMap::new(),
             net_labels: BTreeMap::new(),
             no_connects: BTreeMap::new(),
+            ports: BTreeMap::new(),
+            power_ports: BTreeMap::new(),
         }
     }
 
@@ -302,6 +363,24 @@ impl SchematicSheet {
         self.no_connects.get(&uuid)
     }
 
+    /// The Ports, sorted by UUID.
+    pub fn ports(&self) -> impl Iterator<Item = &Port> {
+        self.ports.values()
+    }
+
+    pub fn port(&self, uuid: Uuid) -> Option<&Port> {
+        self.ports.get(&uuid)
+    }
+
+    /// The Power Ports, sorted by UUID.
+    pub fn power_ports(&self) -> impl Iterator<Item = &PowerPort> {
+        self.power_ports.values()
+    }
+
+    pub fn power_port(&self, uuid: Uuid) -> Option<&PowerPort> {
+        self.power_ports.get(&uuid)
+    }
+
     /// The object with this UUID, if this sheet holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -320,7 +399,9 @@ impl SchematicSheet {
             units => Unit,
             wires => Wire,
             net_labels => NetLabel,
-            no_connects => NoConnect
+            no_connects => NoConnect,
+            ports => Port,
+            power_ports => PowerPort
         )
     }
 
@@ -344,7 +425,9 @@ impl SchematicSheet {
             units => Unit,
             wires => Wire,
             net_labels => NetLabel,
-            no_connects => NoConnect
+            no_connects => NoConnect,
+            ports => Port,
+            power_ports => PowerPort
         );
         out
     }
@@ -358,6 +441,8 @@ impl SchematicSheet {
         self.wires.remove(&uuid);
         self.net_labels.remove(&uuid);
         self.no_connects.remove(&uuid);
+        self.ports.remove(&uuid);
+        self.power_ports.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -368,6 +453,8 @@ impl SchematicSheet {
             && self.wires.is_empty()
             && self.net_labels.is_empty()
             && self.no_connects.is_empty()
+            && self.ports.is_empty()
+            && self.power_ports.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -454,6 +541,16 @@ impl SchematicSheet {
         for label in self.net_labels.values() {
             if label.name.trim().is_empty() {
                 return Err(format!("Net Label {} has no name", label.uuid));
+            }
+        }
+        for port in self.ports.values() {
+            if port.name.trim().is_empty() {
+                return Err(format!("Port {} has no name", port.uuid));
+            }
+        }
+        for port in self.power_ports.values() {
+            if port.name.trim().is_empty() {
+                return Err(format!("Power Port {} has no name", port.uuid));
             }
         }
         Ok(())

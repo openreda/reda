@@ -217,6 +217,8 @@ impl Project {
             Object::Wire(o) => return self.check_sheet(o.document),
             Object::NetLabel(o) => return self.check_sheet(o.document),
             Object::NoConnect(o) => return self.check_sheet(o.document),
+            Object::Port(o) => return self.check_sheet(o.document),
+            Object::PowerPort(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
             _ => return Ok(()),
@@ -339,6 +341,14 @@ impl Project {
             }
             Some(Object::NetLabel(o)) => {
                 self.sheet_mut(o.document).net_labels.insert(uuid, o.object);
+            }
+            Some(Object::Port(o)) => {
+                self.sheet_mut(o.document).ports.insert(uuid, o.object);
+            }
+            Some(Object::PowerPort(o)) => {
+                self.sheet_mut(o.document)
+                    .power_ports
+                    .insert(uuid, o.object);
             }
             Some(Object::NoConnect(o)) => {
                 self.sheet_mut(o.document)
