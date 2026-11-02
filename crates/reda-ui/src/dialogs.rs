@@ -1,12 +1,10 @@
-//! Dialogs: native file pickers (off the UI thread) and the New Project form.
+//! Native file pickers, run off the UI thread.
 
 use std::path::PathBuf;
 use std::pin::pin;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::task::{Context, Poll, Wake, Waker};
-
-use egui::{Id, Modal, Ui};
 
 use crate::tr;
 
@@ -17,6 +15,8 @@ pub enum Pick {
     OpenProject,
     /// The folder a new Project is created in.
     NewProjectLocation,
+    /// A folder to add as a Project Library.
+    LibraryFolder,
 }
 
 /// Native file pickers. Each runs on its own thread, so the window keeps drawing; the
@@ -46,11 +46,14 @@ impl FileDialogs {
             Pick::NewProjectLocation => {
                 rfd::AsyncFileDialog::new().set_title(tr!("dialog-location-title"))
             }
+            Pick::LibraryFolder => {
+                rfd::AsyncFileDialog::new().set_title(tr!("dialog-library-folder-title"))
+            }
         };
         std::thread::spawn(move || {
             let picked = match pick {
                 Pick::OpenProject => block_on(dialog.pick_file()),
-                Pick::NewProjectLocation => block_on(dialog.pick_folder()),
+                Pick::NewProjectLocation | Pick::LibraryFolder => block_on(dialog.pick_folder()),
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();
@@ -93,79 +96,4 @@ fn block_on<F: Future>(future: F) -> F::Output {
             Poll::Pending => std::thread::park(),
         }
     }
-}
-
-/// The New Project form: a name and the folder to create it in.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct NewProjectForm {
-    pub name: String,
-    pub location: String,
-}
-
-/// What the user did with the New Project form this frame.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FormAction {
-    None,
-    Browse,
-    Create,
-    Cancel,
-}
-
-impl NewProjectForm {
-    /// A form with a suggested name, in the user's home folder.
-    pub fn new() -> NewProjectForm {
-        NewProjectForm {
-            name: tr!("new-project-default-name"),
-            location: std::env::home_dir()
-                .map(|p| p.display().to_string())
-                .unwrap_or_default(),
-        }
-    }
-
-    /// Shows the form as a modal dialog.
-    pub fn show(&mut self, ctx: &egui::Context) -> FormAction {
-        let mut action = FormAction::None;
-        let modal = Modal::new(Id::NULL.with("new-project")).show(ctx, |ui| {
-            ui.set_width(360.0);
-            ui.heading(tr!("new-project-title"));
-            ui.add_space(6.0);
-            egui::Grid::new("new-project-fields")
-                .num_columns(2)
-                .spacing([8.0, 6.0])
-                .show(ui, |ui| {
-                    labelled_field(ui, &tr!("new-project-name"), &mut self.name);
-                    ui.end_row();
-                    labelled_field(ui, &tr!("new-project-location"), &mut self.location);
-                    ui.end_row();
-                    ui.label("");
-                    if ui.button(tr!("new-project-browse")).clicked() {
-                        action = FormAction::Browse;
-                    }
-                    ui.end_row();
-                });
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                let ready = !self.name.trim().is_empty() && !self.location.trim().is_empty();
-                if ui
-                    .add_enabled(ready, egui::Button::new(tr!("new-project-create")))
-                    .clicked()
-                {
-                    action = FormAction::Create;
-                }
-                if ui.button(tr!("dialog-cancel")).clicked() {
-                    action = FormAction::Cancel;
-                }
-            });
-        });
-        if modal.should_close() && action == FormAction::None {
-            action = FormAction::Cancel;
-        }
-        action
-    }
-}
-
-fn labelled_field(ui: &mut Ui, label: &str, value: &mut String) -> egui::Response {
-    let label = ui.label(label);
-    ui.add(egui::TextEdit::singleline(value).desired_width(260.0))
-        .labelled_by(label.id)
 }
