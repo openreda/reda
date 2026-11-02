@@ -51,7 +51,7 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
 /// The fingerprint of everything DRC reads: the PCB Document, its rules, severities and
 /// Waivers included. Zone fills are derived from it, so they need no part of their own.
 pub fn design_fingerprint(pcb: &PcbDocument) -> String {
-    reda_model::fingerprint(&[pcb])
+    reda_command::Fingerprint::new().add(pcb).finish()
 }
 
 /// The board under check: the Document and its copper index, Zone fills included.
