@@ -26,7 +26,7 @@ pub use error::{CommandError, ErrorCode};
 pub use fonts::{FontFace, Fonts};
 pub use history::{Entry, History};
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock, Timestamp};
-pub use library::{FootprintCopyData, NoLibraries, PartCopy, PartSource};
+pub use library::{ElementLocation, FootprintCopyData, NoLibraries, PartCopy, PartSource};
 pub use registry::{Registry, scope_key};
 pub use signals::{CancelToken, Progress, Signals};
 pub use units::{Angle, Length};

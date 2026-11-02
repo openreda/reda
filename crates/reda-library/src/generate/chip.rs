@@ -262,11 +262,13 @@ impl FootprintFamily for Chip {
             .map_err(|why| CommandError::invalid_params("/dimensions/terminal", why))?;
         let land_width = ipc::land_width(width, goals);
         let offset = span.land_offset();
-        let land = |number: &str, x: i64| Land {
-            number: number.into(),
-            at: Point::new(Nm(x), Nm(0)),
-            width: span.land_length(),
-            height: land_width,
+        let land = |number: &str, x: i64| {
+            Land::smd(
+                number,
+                Point::new(Nm(x), Nm(0)),
+                span.land_length(),
+                land_width,
+            )
         };
         let code = match &size {
             Some(s) => s.metric.to_owned(),

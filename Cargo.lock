@@ -582,6 +582,7 @@ dependencies = [
  "directories",
  "proptest",
  "reda-command",
+ "reda-import-kicad",
  "reda-library",
  "reda-model",
  "reda-output",
@@ -601,6 +602,16 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "reda-import-kicad"
+version = "0.0.0"
+dependencies = [
+ "reda-library",
+ "reda-model",
+ "schemars",
+ "serde",
 ]
 
 [[package]]

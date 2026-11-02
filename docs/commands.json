@@ -1609,6 +1609,1047 @@
     },
     {
       "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a DFN (SON) with two rows of terminals and an exposed pad, from a standard body or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.dfn",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ExposedPadDimensions": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body length (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body width (E2)."
+              }
+            },
+            "required": [
+              "length",
+              "width"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "NoLeadDimensions": {
+            "additionalProperties": false,
+            "description": "A no-lead package's dimensions from a datasheet.",
+            "properties": {
+              "body_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body length along the side pin 1 is on (D)."
+              },
+              "body_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body width across it (E)."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadDimensions"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The exposed pad. Omitted, the package has none."
+              },
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest height (A)."
+              },
+              "lead_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The terminal length, in from the body edge (L)."
+              },
+              "lead_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The terminal width (b)."
+              },
+              "pitch": {
+                "$ref": "#/$defs/Length",
+                "description": "The terminal pitch (e)."
+              }
+            },
+            "required": [
+              "pitch",
+              "body_length",
+              "body_width",
+              "lead_width",
+              "lead_length",
+              "height"
+            ],
+            "type": "object"
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NoLeadDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`QFN50P500X500X100-33N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "The number of terminals, not counting the exposed pad: one of the standard counts,\nor any count that fits the package with `dimensions`.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "library",
+          "pins"
+        ],
+        "title": "NoLeadParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate DFN Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates an IPC-7251 Nominal through-hole Footprint for a 2.54 mm pitch DIP with rows 7.62 or 15.24 mm apart, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.dip",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`DIP254P762X533-8`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "The number of leads: even, 4 to 64.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "wide": {
+            "default": false,
+            "description": "Rows 15.24 mm (600 mil, JEDEC MS-011) apart instead of 7.62 mm (300 mil, MS-001).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "library",
+          "pins"
+        ],
+        "title": "DipParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate DIP Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates a through-hole Footprint for a straight 1×N or 2×N pin header or socket at 2.54 or 1.27 mm pitch, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.header",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "HeaderPitch": {
+            "oneOf": [
+              {
+                "const": "2.54",
+                "description": "2.54 mm (0.1 in), with 0.64 mm square posts.",
+                "type": "string"
+              },
+              {
+                "const": "1.27",
+                "description": "1.27 mm (0.05 in), with 0.40 mm square posts.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it is `HDR<pitch>P<rows>X<pins per row>`, such as\n`HDR254P2X5`, or `SKT…` for a socket.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins_per_row": {
+            "description": "The pins in each row, 1 to 50.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pitch": {
+            "$ref": "#/$defs/HeaderPitch"
+          },
+          "rows": {
+            "description": "1 or 2 rows.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "socket": {
+            "default": false,
+            "description": "A socket (female) rather than a pin header (male). The land pattern is the same.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "library",
+          "rows",
+          "pins_per_row",
+          "pitch"
+        ],
+        "title": "HeaderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate Header Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a QFN with terminals on four sides and an exposed pad, from a standard body or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.qfn",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ExposedPadDimensions": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body length (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body width (E2)."
+              }
+            },
+            "required": [
+              "length",
+              "width"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "NoLeadDimensions": {
+            "additionalProperties": false,
+            "description": "A no-lead package's dimensions from a datasheet.",
+            "properties": {
+              "body_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body length along the side pin 1 is on (D)."
+              },
+              "body_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body width across it (E)."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadDimensions"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The exposed pad. Omitted, the package has none."
+              },
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest height (A)."
+              },
+              "lead_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The terminal length, in from the body edge (L)."
+              },
+              "lead_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The terminal width (b)."
+              },
+              "pitch": {
+                "$ref": "#/$defs/Length",
+                "description": "The terminal pitch (e)."
+              }
+            },
+            "required": [
+              "pitch",
+              "body_length",
+              "body_width",
+              "lead_width",
+              "lead_length",
+              "height"
+            ],
+            "type": "object"
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NoLeadDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`QFN50P500X500X100-33N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "The number of terminals, not counting the exposed pad: one of the standard counts,\nor any count that fits the package with `dimensions`.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "library",
+          "pins"
+        ],
+        "title": "NoLeadParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate QFN Footprint"
+    },
+    {
+      "category": "library",
+      "description": "Generates an IPC-7351 Nominal Footprint for a QFP with the same number of gull-wing leads on each side, from a standard LQFP body or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.qfp",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "QfpDimensions": {
+            "additionalProperties": false,
+            "description": "A QFP's dimensions from a datasheet, with the JEDEC letters in brackets.",
+            "properties": {
+              "body_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body length along the side pin 1 is on, without the leads (D1)."
+              },
+              "body_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body width across it, without the leads (E1)."
+              },
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest height (A)."
+              },
+              "lead_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The length of the lead's flat foot (L)."
+              },
+              "lead_span_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The span over the lead tips along the body length (D)."
+              },
+              "lead_span_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The span over the lead tips along the body width (E)."
+              },
+              "lead_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The lead width (b)."
+              },
+              "pitch": {
+                "$ref": "#/$defs/Length",
+                "description": "The lead pitch (e)."
+              }
+            },
+            "required": [
+              "pitch",
+              "body_length",
+              "body_width",
+              "lead_span_length",
+              "lead_span_width",
+              "lead_width",
+              "lead_length",
+              "height"
+            ],
+            "type": "object"
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/QfpDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`QFP50P900X900X160-48N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pins": {
+            "description": "The number of leads, the same on each side: 32 or 44 (0.8 mm pitch), 48, 64, 80,\n100 or 144 (0.5 mm pitch) for the standard LQFP bodies, or any multiple of 4 with\n`dimensions`.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "library",
+          "pins"
+        ],
+        "title": "QfpParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate QFP Footprint"
+    },
+    {
+      "category": "library",
       "description": "Generates an IPC-7351 Nominal Footprint for a 1.27 mm pitch SOIC with a narrow or wide standard body, or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.soic",
@@ -3731,6 +4772,245 @@
     },
     {
       "category": "library",
+      "description": "Imports one KiCad 6+ symbol (`.kicad_sym`) and footprint (`.kicad_mod`), as vendor download services provide them, into a registered Library as a Symbol, a Footprint and a Part. Pins bind to Pads by number; MPN, manufacturer, datasheet and supplier properties map onto the Part's fields, and other properties become free-form fields. 3D models are ignored. Each element records the source service, its terms URL and any copyright lines. Existing files are never overwritten. The Library check runs on the result.",
+      "icon": "library_import",
+      "id": "library.import_part",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "Service": {
+            "description": "A part download service.",
+            "oneOf": [
+              {
+                "enum": [
+                  "ultra_librarian"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "snapmagic",
+                "description": "SnapMagic, formerly SnapEDA.",
+                "type": "string"
+              },
+              {
+                "const": "samacsys",
+                "description": "SamacSys, the Component Search Engine.",
+                "type": "string"
+              },
+              {
+                "const": "easyeda",
+                "description": "EasyEDA / LCSC parts, converted to KiCad by a third-party tool.",
+                "type": "string"
+              },
+              {
+                "const": "unknown",
+                "description": "Not recognised.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint_file": {
+            "description": "The KiCad footprint (`.kicad_mod`), in the `(footprint …)` or legacy `(module …)`\nsyntax.",
+            "type": "string"
+          },
+          "library": {
+            "description": "The registered Library to write the elements into. The starter Library is\nread-only.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "The Part's name; by default the symbol's.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Service"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The service the files came from; recognised from their contents when left out."
+          },
+          "symbol": {
+            "default": null,
+            "description": "Which symbol to import when the `.kicad_sym` holds several.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "symbol_file": {
+            "description": "The KiCad 6 or later symbol library (`.kicad_sym`, version 20210619 or later).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "library",
+          "symbol_file",
+          "footprint_file"
+        ],
+        "title": "ImportPartParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Provenance": {
+            "additionalProperties": false,
+            "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+            "properties": {
+              "copyright": {
+                "description": "Copyright lines found in the imported files, kept verbatim.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "service": {
+                "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+                "type": "string"
+              },
+              "terms_url": {
+                "description": "The service's terms of use, when known.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
+            ],
+            "type": "object"
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "files": {
+            "description": "The files written, in the order above.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "footprint": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "notice": {
+            "description": "The vendor-terms notice, included the first time this user imports a part (always,\nwhen REDA has no per-user folders to remember it in).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "part": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/$defs/Provenance",
+            "description": "What every imported element records about where it came from."
+          },
+          "symbol": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "violations": {
+            "description": "The Library check on the imported Symbol, Footprint and Part.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "description": "What could not be carried over exactly, such as a custom pad shape.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "symbol",
+          "footprint",
+          "part",
+          "files",
+          "provenance",
+          "warnings",
+          "violations"
+        ],
+        "title": "ImportPartResult",
+        "type": "object"
+      },
+      "title": "Import Part"
+    },
+    {
+      "category": "library",
       "description": "Changes an open Part's name or Component Type. Omitted fields keep their value.",
       "icon": "part_edit",
       "id": "library.part.edit",
@@ -5711,6 +6991,17 @@
                 },
                 "type": "array"
               },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Footprint came from. Elements made in REDA have none."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -5963,6 +7254,10 @@
               },
               "designator": {
                 "type": "string"
+              },
+              "designator_locked": {
+                "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
+                "type": "boolean"
               },
               "fields": {
                 "$ref": "#/$defs/Fields",
@@ -7003,6 +8298,17 @@
               "pin_map": {
                 "$ref": "#/$defs/PinMap"
               },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Part came from. Elements made in REDA have none."
+              },
               "symbol": {
                 "description": "Mechanical Parts may have none; Standard Parts need one.",
                 "format": "uuid",
@@ -7195,6 +8501,31 @@
               "date",
               "author",
               "company"
+            ],
+            "type": "object"
+          },
+          "Provenance": {
+            "additionalProperties": false,
+            "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+            "properties": {
+              "copyright": {
+                "description": "Copyright lines found in the imported files, kept verbatim.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "service": {
+                "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+                "type": "string"
+              },
+              "terms_url": {
+                "description": "The service's terms of use, when known.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
             ],
             "type": "object"
           },
@@ -7460,6 +8791,17 @@
                   "$ref": "#/$defs/Pin"
                 },
                 "type": "array"
+              },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Symbol came from. Elements made in REDA have none."
               },
               "units": {
                 "description": "In order: A, B, C… A single-unit Symbol has exactly one.",
@@ -8045,6 +9387,17 @@
                 },
                 "type": "array"
               },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Footprint came from. Elements made in REDA have none."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -8297,6 +9650,10 @@
               },
               "designator": {
                 "type": "string"
+              },
+              "designator_locked": {
+                "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
+                "type": "boolean"
               },
               "fields": {
                 "$ref": "#/$defs/Fields",
@@ -9358,6 +10715,17 @@
               "pin_map": {
                 "$ref": "#/$defs/PinMap"
               },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Part came from. Elements made in REDA have none."
+              },
               "symbol": {
                 "description": "Mechanical Parts may have none; Standard Parts need one.",
                 "format": "uuid",
@@ -9550,6 +10918,31 @@
               "date",
               "author",
               "company"
+            ],
+            "type": "object"
+          },
+          "Provenance": {
+            "additionalProperties": false,
+            "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+            "properties": {
+              "copyright": {
+                "description": "Copyright lines found in the imported files, kept verbatim.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "service": {
+                "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+                "type": "string"
+              },
+              "terms_url": {
+                "description": "The service's terms of use, when known.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
             ],
             "type": "object"
           },
@@ -9815,6 +11208,17 @@
                   "$ref": "#/$defs/Pin"
                 },
                 "type": "array"
+              },
+              "provenance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Provenance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where an imported Symbol came from. Elements made in REDA have none."
               },
               "units": {
                 "description": "In order: A, B, C… A single-unit Symbol has exactly one.",
@@ -12909,6 +14313,171 @@
     },
     {
       "category": "schematic",
+      "description": "Finds the Library elements a placed Component came from, for Edit in Library: the files of its Part, the Part's Symbol and the Component's Footprint in the registered Libraries, and whether each Library is read-only. `not_found` when no registered Library holds the Part.",
+      "icon": "library_edit",
+      "id": "schematic.component.library_element",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "description": "The placed Component, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component"
+        ],
+        "title": "LibraryElementParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementFile": {
+            "description": "One Library element on disk.",
+            "properties": {
+              "element": {
+                "description": "The element's UUID, to open with `library.element.open`.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "library": {
+                "description": "The UUID of the Library that holds it.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "path": {
+                "description": "The element's file.",
+                "type": "string"
+              },
+              "read_only": {
+                "description": "Whether its Library is read-only (the starter Library).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "element",
+              "library",
+              "path",
+              "read_only"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "footprint": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ElementFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Component's chosen Footprint; omitted when it has none or no registered\nLibrary holds it."
+          },
+          "part": {
+            "$ref": "#/$defs/ElementFile",
+            "description": "The Component's Part."
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ElementFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Part's Symbol; omitted when no registered Library holds it."
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "title": "LibraryElementResult",
+        "type": "object"
+      },
+      "title": "Find Library Element"
+    },
+    {
+      "category": "schematic",
+      "description": "Lists the Components marked \"library has a newer version\": those whose Library Part, with its Symbol and Footprints, no longer matches the copy in the part table. Components whose Part no registered Library holds are not listed. Preview an update with `schematic.component.update_preview`.",
+      "icon": "library_update",
+      "id": "schematic.component.outdated",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "OutdatedComponent": {
+            "description": "A Component whose Library Part has a newer version.",
+            "properties": {
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "library_hash": {
+                "description": "The content hash of the Part in the Library now.",
+                "type": "string"
+              },
+              "part": {
+                "description": "The Library Part, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "part_name": {
+                "type": "string"
+              },
+              "placed_hash": {
+                "description": "The content hash of the copy in the part table.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "part",
+              "part_name",
+              "placed_hash",
+              "library_hash"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "By Designator, in natural order.",
+            "items": {
+              "$ref": "#/$defs/OutdatedComponent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "OutdatedResult",
+        "type": "object"
+      },
+      "title": "List Outdated Components"
+    },
+    {
+      "category": "schematic",
       "description": "Lists a Component's Pins with the Pad number(s) each reaches on the Component's current Footprint, through the Part's pin map.",
       "icon": "pin",
       "id": "schematic.component.pins",
@@ -13195,6 +14764,13 @@
               "null"
             ]
           },
+          "designator_locked": {
+            "description": "Whether the Designator is locked against Re-annotate.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "fields": {
             "additionalProperties": {
               "type": [
@@ -13264,6 +14840,598 @@
         "type": "object"
       },
       "title": "Edit Component Properties"
+    },
+    {
+      "category": "schematic",
+      "description": "Updates outdated Components to their Library Part as it is now, exactly as `schematic.component.update_preview` shows: each sheet gets a copy of the new Part (unused old copies are removed), fields the Component has not edited take the new defaults, and a Footprint that is no longer an alternate moves to the new default. Refused when a placed Unit is gone from the Symbol. The PCB is not touched: Sync carries Footprint changes there.",
+      "icon": "library_update",
+      "id": "schematic.component.update_from_library",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "description": "The Components to update, by UUID; every outdated Component by default. Listed\nComponents that are up to date are left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "UpdateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
+          "ComponentUpdate": {
+            "description": "What an update changes on one Component.",
+            "properties": {
+              "blocked": {
+                "description": "Whether a change (a placed Unit gone from the Symbol) stops this Component's\nupdate. Omitted when false.",
+                "type": "boolean"
+              },
+              "changes": {
+                "description": "The differences, Part first, then Symbol, then Footprints.",
+                "items": {
+                  "$ref": "#/$defs/PartChange"
+                },
+                "type": "array"
+              },
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "library_hash": {
+                "type": "string"
+              },
+              "part": {
+                "description": "The Library Part, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "placed_hash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "part",
+              "placed_hash",
+              "library_hash",
+              "changes"
+            ],
+            "type": "object"
+          },
+          "FootprintChange": {
+            "enum": [
+              "added",
+              "removed",
+              "modified"
+            ],
+            "type": "string"
+          },
+          "PartChange": {
+            "description": "One difference between the placed copy and the Library Part.",
+            "oneOf": [
+              {
+                "description": "The Part was renamed.",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "name",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's Component Type changed. `edited` when the Component has its own\nComponent Type, which it keeps.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/ComponentType"
+                  },
+                  "kind": {
+                    "const": "component_type",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/ComponentType"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, which it keeps; otherwise it takes the new default.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "field",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's pin-pad map overrides changed.",
+                "properties": {
+                  "kind": {
+                    "const": "pin_map",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Symbol changed (pins, graphics, Units or names); `name` is its name now.",
+                "properties": {
+                  "kind": {
+                    "const": "symbol",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Unit of the Component that is placed no longer exists in the Symbol. The\nComponent cannot be updated until that Unit is deleted.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_removed",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "An alternate Footprint was added, removed or changed. The PCB gets a Footprint\nchange through Sync, not through the update.",
+                "properties": {
+                  "change": {
+                    "$ref": "#/$defs/FootprintChange"
+                  },
+                  "footprint": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "name",
+                  "change"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The alternates are in a new order; the first is the default.",
+                "properties": {
+                  "kind": {
+                    "const": "footprint_order",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Component's Footprint is no longer an alternate, so it moves to the new\ndefault (`null` when the Part has none).",
+                "properties": {
+                  "from": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint_choice",
+                    "type": "string"
+                  },
+                  "to": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "By Designator, in natural order.",
+            "items": {
+              "$ref": "#/$defs/ComponentUpdate"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "UpdateResult",
+        "type": "object"
+      },
+      "title": "Update from Library"
+    },
+    {
+      "category": "schematic",
+      "description": "Shows what Update from Library would change on outdated Components, without changing anything: the Part's name, Component Type, default fields and pin-pad map, the Symbol and each alternate Footprint. A Component keeps field values it has edited. Apply it with `schematic.component.update_from_library`.",
+      "icon": "library_update",
+      "id": "schematic.component.update_preview",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "description": "The Components to update, by UUID; every outdated Component by default. Listed\nComponents that are up to date are left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "UpdateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentType": {
+            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+            "enum": [
+              "standard",
+              "mechanical"
+            ],
+            "type": "string"
+          },
+          "ComponentUpdate": {
+            "description": "What an update changes on one Component.",
+            "properties": {
+              "blocked": {
+                "description": "Whether a change (a placed Unit gone from the Symbol) stops this Component's\nupdate. Omitted when false.",
+                "type": "boolean"
+              },
+              "changes": {
+                "description": "The differences, Part first, then Symbol, then Footprints.",
+                "items": {
+                  "$ref": "#/$defs/PartChange"
+                },
+                "type": "array"
+              },
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "library_hash": {
+                "type": "string"
+              },
+              "part": {
+                "description": "The Library Part, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "placed_hash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "part",
+              "placed_hash",
+              "library_hash",
+              "changes"
+            ],
+            "type": "object"
+          },
+          "FootprintChange": {
+            "enum": [
+              "added",
+              "removed",
+              "modified"
+            ],
+            "type": "string"
+          },
+          "PartChange": {
+            "description": "One difference between the placed copy and the Library Part.",
+            "oneOf": [
+              {
+                "description": "The Part was renamed.",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "name",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's Component Type changed. `edited` when the Component has its own\nComponent Type, which it keeps.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/ComponentType"
+                  },
+                  "kind": {
+                    "const": "component_type",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/ComponentType"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, which it keeps; otherwise it takes the new default.",
+                "properties": {
+                  "edited": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "field",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Part's pin-pad map overrides changed.",
+                "properties": {
+                  "kind": {
+                    "const": "pin_map",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Symbol changed (pins, graphics, Units or names); `name` is its name now.",
+                "properties": {
+                  "kind": {
+                    "const": "symbol",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Unit of the Component that is placed no longer exists in the Symbol. The\nComponent cannot be updated until that Unit is deleted.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_removed",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "An alternate Footprint was added, removed or changed. The PCB gets a Footprint\nchange through Sync, not through the update.",
+                "properties": {
+                  "change": {
+                    "$ref": "#/$defs/FootprintChange"
+                  },
+                  "footprint": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "name",
+                  "change"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The alternates are in a new order; the first is the default.",
+                "properties": {
+                  "kind": {
+                    "const": "footprint_order",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Component's Footprint is no longer an alternate, so it moves to the new\ndefault (`null` when the Part has none).",
+                "properties": {
+                  "from": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint_choice",
+                    "type": "string"
+                  },
+                  "to": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "By Designator, in natural order.",
+            "items": {
+              "$ref": "#/$defs/ComponentUpdate"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "UpdateResult",
+        "type": "object"
+      },
+      "title": "Preview Update from Library"
     },
     {
       "category": "schematic",
@@ -13798,6 +15966,274 @@
         "type": "object"
       },
       "title": "Add No-Connect Marker"
+    },
+    {
+      "category": "schematic",
+      "description": "Renumbers Designators in a processing order (across then down, across then up, down then across, up then across; sheets in Document order). Each Component in the scope that is not Designator-locked gets the smallest free number for its prefix; locked and out-of-scope Components keep theirs. Every Unit of a Component gets the same Designator.",
+      "icon": "annotate",
+      "id": "schematic.reannotate",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Order": {
+            "description": "The processing orders a Re-annotate can take. Sheets are always numbered in Document\norder; within a sheet, these say how to walk it. Sheet y grows upwards, so \"down\"\nstarts at the top of the sheet.",
+            "oneOf": [
+              {
+                "const": "across_then_down",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "across_then_up",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "down_then_across",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "up_then_across",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              }
+            ]
+          },
+          "ReannotateScope": {
+            "description": "Which Components to renumber.",
+            "oneOf": [
+              {
+                "const": "project",
+                "description": "Every Component in the Project.",
+                "type": "string"
+              },
+              {
+                "const": "sheet",
+                "description": "Every Component with a Unit on the sheet `document`.",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "description": "The Components or Units listed in `selection`.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet, for scope `sheet`.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order": {
+            "$ref": "#/$defs/Order",
+            "description": "The order to number the Components in."
+          },
+          "scope": {
+            "$ref": "#/$defs/ReannotateScope"
+          },
+          "selection": {
+            "description": "Component or Unit UUIDs, for scope `selection`. A Unit stands for its Component.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "order",
+          "scope"
+        ],
+        "title": "ReannotateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Rename": {
+            "description": "One Component's Designator before and after.",
+            "properties": {
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "new": {
+                "type": "string"
+              },
+              "old": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "old",
+              "new"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Old → new for every Component renumbered, in processing order. Locked Components are\nleft out; a Component whose number comes out the same is listed with `old` = `new`.",
+        "properties": {
+          "designators": {
+            "items": {
+              "$ref": "#/$defs/Rename"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "designators"
+        ],
+        "title": "ReannotateResult",
+        "type": "object"
+      },
+      "title": "Re-annotate"
+    },
+    {
+      "category": "schematic",
+      "description": "Shows old → new for what `schematic.reannotate` would do with the same params, without changing anything.",
+      "icon": "annotate",
+      "id": "schematic.reannotate.preview",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "Order": {
+            "description": "The processing orders a Re-annotate can take. Sheets are always numbered in Document\norder; within a sheet, these say how to walk it. Sheet y grows upwards, so \"down\"\nstarts at the top of the sheet.",
+            "oneOf": [
+              {
+                "const": "across_then_down",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "across_then_up",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "down_then_across",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "up_then_across",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              }
+            ]
+          },
+          "ReannotateScope": {
+            "description": "Which Components to renumber.",
+            "oneOf": [
+              {
+                "const": "project",
+                "description": "Every Component in the Project.",
+                "type": "string"
+              },
+              {
+                "const": "sheet",
+                "description": "Every Component with a Unit on the sheet `document`.",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "description": "The Components or Units listed in `selection`.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Schematic Sheet, for scope `sheet`.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order": {
+            "$ref": "#/$defs/Order",
+            "description": "The order to number the Components in."
+          },
+          "scope": {
+            "$ref": "#/$defs/ReannotateScope"
+          },
+          "selection": {
+            "description": "Component or Unit UUIDs, for scope `selection`. A Unit stands for its Component.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "order",
+          "scope"
+        ],
+        "title": "ReannotateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Rename": {
+            "description": "One Component's Designator before and after.",
+            "properties": {
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "new": {
+                "type": "string"
+              },
+              "old": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "old",
+              "new"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Old → new for every Component renumbered, in processing order. Locked Components are\nleft out; a Component whose number comes out the same is listed with `old` = `new`.",
+        "properties": {
+          "designators": {
+            "items": {
+              "$ref": "#/$defs/Rename"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "designators"
+        ],
+        "title": "ReannotateResult",
+        "type": "object"
+      },
+      "title": "Preview Re-annotate"
     },
     {
       "category": "schematic",

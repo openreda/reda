@@ -5,6 +5,8 @@
 //! [`PartSource`] into every run, and a Command such as `schematic.component.place` asks it
 //! for a ready [`PartCopy`].
 
+use std::path::PathBuf;
+
 use reda_model::{Footprint, Part, Symbol, Uuid};
 
 use crate::CommandError;
@@ -34,6 +36,29 @@ pub trait PartSource {
     /// The Part with this UUID from whichever registered Library holds it, or
     /// `not_found` when none does or an element it names is missing.
     fn part(&self, uuid: Uuid) -> Result<PartCopy, CommandError>;
+
+    /// Each of these Parts, as [`PartSource::part`] would give it, in the same order. A
+    /// source that has to scan its Libraries overrides it to scan once.
+    fn parts(&self, uuids: &[Uuid]) -> Vec<Result<PartCopy, CommandError>> {
+        uuids.iter().map(|&uuid| self.part(uuid)).collect()
+    }
+
+    /// Where each of these Library elements (any kind) is on disk, in the same order:
+    /// `None` for one no registered Library holds.
+    fn locate(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {
+        vec![None; elements.len()]
+    }
+}
+
+/// Where a Library element is on disk, for Edit in Library.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ElementLocation {
+    /// The UUID of the Library that holds it.
+    pub library: Uuid,
+    /// The element's file.
+    pub path: PathBuf,
+    /// Whether its Library is read-only (the starter Library).
+    pub read_only: bool,
 }
 
 /// A [`PartSource`] with no Libraries, for runs that have none.

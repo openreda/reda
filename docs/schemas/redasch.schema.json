@@ -102,6 +102,17 @@
           },
           "type": "array"
         },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where the Footprint was imported from, as in a `.redafp` file."
+        },
         "text": {
           "$ref": "#/$defs/FootprintTexts"
         },
@@ -447,8 +458,30 @@
           },
           "type": "array"
         },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where the Part was imported from, as in a `.redapart` file."
+        },
         "symbol": {
           "$ref": "#/$defs/SymbolRow"
+        },
+        "symbol_provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where the Symbol was imported from, as in a `.redasym` file."
         },
         "units": {
           "items": {
@@ -639,6 +672,31 @@
       "required": [
         "x",
         "y"
+      ],
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+      "properties": {
+        "copyright": {
+          "description": "Copyright lines found in the imported files, kept verbatim.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "service": {
+          "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+          "type": "string"
+        },
+        "terms_url": {
+          "description": "The service's terms of use, when known.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
       ],
       "type": "object"
     },
@@ -936,6 +994,10 @@
         },
         "designator": {
           "type": "string"
+        },
+        "designator_locked": {
+          "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
+          "type": "boolean"
         },
         "fields": {
           "$ref": "#/$defs/Fields",
