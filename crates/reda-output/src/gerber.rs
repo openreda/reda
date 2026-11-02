@@ -119,7 +119,7 @@ fn half_mm(nm: i64) -> String {
 }
 
 /// An angle as degrees in `[0, 360)` with three decimals: `45.000`.
-fn degrees(angle: Millideg) -> String {
+pub(crate) fn degrees(angle: Millideg) -> String {
     let a = angle.0.rem_euclid(360_000);
     format!("{}.{:03}", a / 1000, a % 1000)
 }

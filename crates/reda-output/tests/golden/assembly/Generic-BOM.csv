@@ -1,0 +1,4 @@
+Designator,Quantity,Value,Footprint,Manufacturer,MPN
+J1,1,Header 1x2,HDR254P1X2,,
+"R1, R2",2,10k,RESC1608X55N,Yageo,RC0603FR-0710KL
+R3,1,4k7,RESC1608X55N,,

@@ -881,7 +881,7 @@
     },
     {
       "category": "pcb",
-      "description": "Tells whether the PCB, its rules, its DRC severities or its Waivers changed since the `drc.run` that returned `design`.",
+      "description": "Tells whether the PCB, its rules, its DRC severities, its Waivers or the changes pending from the schematic changed since the `drc.run` that returned `design`.",
       "icon": "drc",
       "id": "drc.stale",
       "kind": "query",
@@ -15350,7 +15350,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, the Board Outline as the Profile) and writes them with their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Duplicate Designators, an open Board Outline and, when the job writes a BOM or CPL, Components without a Footprint block the run (`rejected`, `details.blockers`); other problems are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions from the Placement Origin, else the Board Outline's lower-left) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Duplicate Designators, an open Board Outline and, when the job writes a BOM or CPL, Components without a Footprint block the run (`rejected`, `details.blockers`); other problems are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -15441,7 +15441,7 @@
             "description": "One file the run wrote, also in the zip.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_bottom` or `profile`.",
+                "description": "What it holds: `copper_top`, `copper_bottom`, `profile`, `drill_plated`,\n`drill_non_plated`, `bom` or `cpl`.",
                 "type": "string"
               },
               "name": {
@@ -15471,7 +15471,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `erc_errors {count}`, `drc_errors {count}`,\n`rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`,\n`output_not_built {output}`.",
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `erc_errors {count}`, `drc_errors {count}`,\n`rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`.",
             "items": {
               "$ref": "#/$defs/Violation"
             },

@@ -17,8 +17,12 @@ mod text;
 pub mod zone;
 
 pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board};
-pub use commands::{MechanicalSet, MechanicalSetParams, Placed, rect_outline, register_all};
+pub use commands::placement::arrange::natural_cmp;
+pub use commands::{
+    MechanicalSet, MechanicalSetParams, Placed, SyncCheck, SyncState, rect_outline, register_all,
+};
 pub use copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility};
 pub use text::{
-    Fill, LINE_PITCH, PlacedText, Stroke, font_is_missing, missing_fonts, text_geometry,
+    FOOTPRINT_TEXT_PEN, Fill, LINE_PITCH, PlacedText, Stroke, font_is_missing,
+    footprint_text_geometry, missing_fonts, text_geometry,
 };
