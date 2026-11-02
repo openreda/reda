@@ -11,6 +11,9 @@
 
 use std::path::{Path, PathBuf};
 
+mod common;
+
+use reda_model::{LayerKind, Side};
 use reda_render::gpu::{Headless, Image};
 use reda_testkit::{TempDir, TestEngine, test_engine_with_library};
 use serde_json::{Value, json};
@@ -240,5 +243,45 @@ fn a_zoomed_view_in_the_dark_theme_with_a_highlight() {
         &mut engine,
         json!({"document": SHEET, "theme": "dark", "size": 640, "highlight": [r1_unit],
                "view": {"rect": {"min": at(1500, 4200), "max": at(6000, 6300)}}}),
+    );
+}
+
+#[test]
+fn a_board_from_the_top_with_its_layers_composited() {
+    let dir = TempDir::new("png-board-top");
+    let mut engine = common::demo(&dir);
+    let board = common::sample_board(&mut engine);
+    snapshot(
+        "board_top_dark",
+        &mut engine,
+        json!({"document": board.pcb.to_string(), "size": 600}),
+    );
+}
+
+#[test]
+fn a_board_from_the_bottom_with_the_others_dimmed() {
+    let dir = TempDir::new("png-board-bottom");
+    let mut engine = common::demo(&dir);
+    let board = common::sample_board(&mut engine);
+    let bottom = common::layer(&engine, LayerKind::Copper, Some(Side::Bottom));
+    snapshot(
+        "board_bottom_light_dimmed",
+        &mut engine,
+        json!({"document": board.pcb.to_string(), "size": 600, "theme": "light",
+               "from_bottom": true, "active_layer": bottom.to_string(),
+               "inactive_layers": "dimmed"}),
+    );
+}
+
+#[test]
+fn a_zoomed_board_shows_pad_labels() {
+    let dir = TempDir::new("png-board-labels");
+    let mut engine = common::demo(&dir);
+    let board = common::sample_board(&mut engine);
+    snapshot(
+        "board_labels_zoomed",
+        &mut engine,
+        json!({"document": board.pcb.to_string(), "size": 600,
+               "view": {"objects": [board.fp1.to_string()]}}),
     );
 }

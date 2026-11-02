@@ -8,7 +8,8 @@ use reda_render::gpu::{
     Canvas, Flags, GpuScene, Grid, GridSpec, Headless, Highlight, Image, RenderError, Writes,
 };
 use reda_render::{
-    ColorKey, Palette, Primitive, Rgba, Scene, SceneLayer, SceneSource, SchematicColor, Theme, View,
+    Align, BoardColor, ColorKey, Composite, GlyphRun, Palette, Primitive, Rgba, Scene, SceneLayer,
+    SceneSource, SchematicColor, Theme, View,
 };
 
 fn headless() -> Option<Headless> {
@@ -267,4 +268,164 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
         .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
         .unwrap();
     assert_eq!(pixel(&img, 20, 70), paper);
+}
+
+fn push_board(scene: &mut Scene, layer: u128, color: BoardColor, primitive: Primitive) {
+    scene.items.push(reda_render::Item {
+        object: id(100 + layer),
+        layer: SceneLayer::Board(id(layer)),
+        color: ColorKey::Board(color),
+        primitive,
+    });
+}
+
+/// How far each channel of `a` is from `b`, at most.
+fn distance(a: [u8; 4], b: [u8; 4]) -> u8 {
+    (0..3).map(|i| a[i].abs_diff(b[i])).max().unwrap()
+}
+
+fn mix(under: [u8; 4], over: [u8; 4], opacity: f32) -> [u8; 4] {
+    let m = |a: u8, b: u8| (f32::from(a) + (f32::from(b) - f32::from(a)) * opacity).round() as u8;
+    [
+        m(under[0], over[0]),
+        m(under[1], over[1]),
+        m(under[2], over[2]),
+        255,
+    ]
+}
+
+#[test]
+fn a_layer_is_drawn_opaque_then_blended_at_its_opacity() {
+    let Some(gpu) = headless() else { return };
+    // Layer 1: a 60 mm bottom copper square. Layer 2: two overlapping top copper squares,
+    // composited at half opacity: where they overlap it is no darker than where they don't.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = |x, y| Point::new(mm(x), mm(y));
+    push_board(
+        &mut scene,
+        1,
+        BoardColor::CopperBottom,
+        filled_rect(c(50, 50), 60, 60),
+    );
+    push_board(
+        &mut scene,
+        2,
+        BoardColor::CopperTop,
+        filled_rect(c(40, 50), 30, 30),
+    );
+    push_board(
+        &mut scene,
+        2,
+        BoardColor::CopperTop,
+        filled_rect(c(60, 50), 30, 30),
+    );
+    push_board(
+        &mut scene,
+        1,
+        BoardColor::CopperBottom,
+        filled_rect(c(0, 0), 1, 1),
+    );
+    push_board(
+        &mut scene,
+        1,
+        BoardColor::CopperBottom,
+        filled_rect(c(100, 100), 1, 1),
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let layers = [
+        Composite::opaque(SceneLayer::Board(id(1))),
+        Composite {
+            layer: SceneLayer::Board(id(2)),
+            opacity: 0.5,
+        },
+    ];
+    let view = view_of(&scene, 100);
+    let img = gpu
+        .render_layers(&scene, &view, &palette, &Highlight::new(), Some(&layers))
+        .unwrap();
+    let bottom = rgb(palette.color(ColorKey::Board(BoardColor::CopperBottom)));
+    let top = rgb(palette.color(ColorKey::Board(BoardColor::CopperTop)));
+    let blended = mix(bottom, top, 0.5);
+    // Inside only the left square, inside both, and inside only the right one.
+    for x in [33, 50, 67] {
+        let p = pixel(&img, x, 50);
+        assert!(distance(p, blended) <= 3, "x={x}: {p:?} vs {blended:?}");
+    }
+    // The bottom copper alone, and the background around it.
+    assert!(distance(pixel(&img, 50, 25), bottom) <= 1);
+    assert!(distance(pixel(&img, 10, 50), rgb(palette.background())) <= 1);
+
+    // Swapping the order draws the bottom copper on top, opaque.
+    let swapped = [layers[1], layers[0]];
+    let img = gpu
+        .render_layers(&scene, &view, &palette, &Highlight::new(), Some(&swapped))
+        .unwrap();
+    assert!(distance(pixel(&img, 50, 50), bottom) <= 1);
+    // A Layer left out is not drawn.
+    let img = gpu
+        .render_layers(
+            &scene,
+            &view,
+            &palette,
+            &Highlight::new(),
+            Some(&layers[1..]),
+        )
+        .unwrap();
+    let over_bg = mix(rgb(palette.background()), top, 0.5);
+    assert!(distance(pixel(&img, 50, 50), over_bg) <= 3);
+    assert!(distance(pixel(&img, 50, 25), rgb(palette.background())) <= 1);
+}
+
+#[test]
+fn view_only_labels_hide_below_their_minimum_size_on_screen() {
+    let Some(gpu) = headless() else { return };
+    // A 1 mm high Pad number in the middle of a 100 mm square of bottom copper.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push_board(
+        &mut scene,
+        1,
+        BoardColor::CopperBottom,
+        filled_rect(c, 100, 100),
+    );
+    let label = GlyphRun {
+        text: "1".into(),
+        at: c,
+        height: mm(1),
+        rotation: Millideg(0),
+        align: Align::default(),
+        view_label: true,
+        strokes: vec![reda_render::Segment::new(
+            Point::new(mm(50), mm(49)),
+            Point::new(mm(50), mm(51)),
+        )],
+        stroke_width: mm(1),
+        fill: Default::default(),
+    };
+    push_board(
+        &mut scene,
+        1,
+        BoardColor::PadNumber,
+        Primitive::Glyphs(label),
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let white = rgb(palette.color(ColorKey::Board(BoardColor::PadNumber)));
+    let copper = rgb(palette.color(ColorKey::Board(BoardColor::CopperBottom)));
+    // Fitted, 1 mm is 1 px: hidden.
+    let img = gpu
+        .render(&scene, &view_of(&scene, 100), &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(pixel(&img, 50, 50), copper);
+    // At 10 px per mm it shows.
+    let zoomed = View::fit_into(
+        Point::new(mm(45), mm(45)),
+        Point::new(mm(55), mm(55)),
+        100,
+        100,
+        0.0,
+    );
+    let img = gpu
+        .render(&scene, &zoomed, &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(pixel(&img, 50, 50), white);
 }

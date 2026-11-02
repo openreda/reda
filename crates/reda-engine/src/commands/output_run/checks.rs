@@ -97,8 +97,8 @@ fn missing_footprints(project: &Project) -> Vec<Violation> {
         .collect()
 }
 
-/// The warnings of a run, in a fixed order: out of sync, ERC errors, rules looser than the
-/// preset's minimums, missing fonts.
+/// The warnings of a run, in a fixed order: out of sync, ERC errors, DRC errors, rules
+/// looser than the preset's minimums, missing fonts.
 pub(crate) fn warnings(
     project: &Project,
     pcb: &PcbDocument,
@@ -126,6 +126,19 @@ pub(crate) fn warnings(
     if errors > 0 {
         found.push(
             Violation::new("erc_errors", Severity::Warning)
+                .arg("count", i64::try_from(errors).unwrap_or(i64::MAX)),
+        );
+    }
+    let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
+    let drc = apply_waivers(reda_pcb::drc::check(pcb, &fills), pcb.waivers(), false);
+    let errors = drc
+        .violations
+        .iter()
+        .filter(|v| v.severity == Severity::Error)
+        .count();
+    if errors > 0 {
+        found.push(
+            Violation::new("drc_errors", Severity::Warning)
                 .arg("count", i64::try_from(errors).unwrap_or(i64::MAX)),
         );
     }

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use reda_engine::render::gpu::{
     Blit, BlitSource, Canvas, GpuScene, Grid, GridSpec, Renderer, Target, Writes, wgpu,
 };
-use reda_engine::render::{Palette, Scene, Theme, View};
+use reda_engine::render::{Composite, Palette, Scene, Theme, View};
 
 /// A Scene shared with the paint callback. `generation` changes whenever the Scene does,
 /// so the GPU knows when to upload it again.
@@ -19,6 +19,9 @@ use reda_engine::render::{Palette, Scene, Theme, View};
 pub struct SceneHandle {
     pub generation: u64,
     pub scene: Arc<Scene>,
+    /// For a PCB: the Layers to composite, bottom first, at their opacity. `None` draws
+    /// every Layer opaque in Scene order (a sheet).
+    pub layers: Option<Arc<[Composite]>>,
 }
 
 /// Everything one frame of one canvas shows.
@@ -155,9 +158,16 @@ impl CanvasResources {
         gpu.grid.set(queue, &frame.view, frame.grid.as_ref());
         let (target, _) = gpu.target.as_ref().expect("made above");
         let grid = &gpu.grid;
-        target.record_with(encoder, renderer, &gpu.canvas, &gpu.scene, None, |pass| {
-            grid.draw(pass)
-        });
+        match &frame.scene.layers {
+            None => target.record_with(encoder, renderer, &gpu.canvas, &gpu.scene, None, |pass| {
+                grid.draw(pass)
+            }),
+            Some(layers) => {
+                target.record_layers(encoder, renderer, &gpu.canvas, &gpu.scene, layers, |pass| {
+                    grid.draw(pass)
+                })
+            }
+        }
         gpu.last = Some(key);
         gpu.recorded += 1;
         true

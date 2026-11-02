@@ -55,9 +55,9 @@ pub struct JobRunResult {
     /// Every file written, in zip order.
     pub files: Vec<WrittenFile>,
     /// What the run noticed but did not stop for, as Violations with severity `warning`:
-    /// `out_of_sync {changes}`, `erc_errors {count}`, `rule_below_preset {rule, board,
-    /// minimum, preset, net_class?}`, `missing_font {font}`, `output_not_built {output}`
-    /// (BOM or CPL).
+    /// `out_of_sync {changes}`, `erc_errors {count}`, `drc_errors {count}`,
+    /// `rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`,
+    /// `output_not_built {output}` (BOM or CPL).
     pub warnings: Vec<Violation>,
 }
 

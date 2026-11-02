@@ -11,12 +11,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use reda_engine::command::{CommandError, FontFace, Kind};
-use reda_engine::model::{DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Uuid};
+use reda_engine::model::{DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Side, Uuid};
+use reda_engine::render::{LayerView, board_composites};
 use reda_engine::{Engine, state, store};
 use serde_json::{Value, json};
 
 use crate::canvas::{Camera, SceneHandle};
 use crate::layout::{self, Layout, TabKey};
+use crate::selection::{self, Selection};
 use crate::tr;
 
 /// Where the engine gets the bytes of fonts installed on the machine. The app scans the
@@ -77,7 +79,11 @@ impl Shell {
         if engine.registry().get("panel.show").is_none() {
             engine.register(layout::register_all);
         }
+        if engine.registry().get("selection.set").is_none() {
+            engine.register(selection::register_all);
+        }
         engine.view_mut().set(Layout::default());
+        engine.view_mut().set(Selection::default());
         let mut shell = Shell {
             engine,
             documents: Vec::new(),
@@ -116,6 +122,14 @@ impl Shell {
             .view_mut()
             .get_mut::<Layout>()
             .expect("the Shell installs its Layout")
+    }
+
+    /// What is selected; it changes through `selection.set`.
+    pub fn selection(&self) -> &Selection {
+        self.engine
+            .view()
+            .get::<Selection>()
+            .expect("the Shell installs its Selection")
     }
 
     /// The open Documents' tabs.
@@ -262,6 +276,7 @@ impl Shell {
             });
         }
         *self.layout_mut() = layout;
+        self.engine.view_mut().set(Selection::default());
         self.load_fonts();
     }
 
@@ -303,14 +318,26 @@ impl Shell {
 
     fn scene_of(&mut self, document: Uuid) -> SceneHandle {
         self.generation += 1;
-        let scene = self
+        let scene = self.engine.document_scene(document).unwrap_or_default();
+        // Until the Layers panel and view state exist (#89-#92), a board shows every Layer
+        // with the top copper active and the Ratsnest visible.
+        let layers = self
             .engine
             .project()
-            .and_then(|p| reda_engine::document_scene(p, document).ok())
-            .unwrap_or_default();
+            .and_then(|p| p.pcb_document(document))
+            .map(|pcb| {
+                let set = pcb.layers();
+                let view = LayerView {
+                    active: set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid),
+                    ratsnest: true,
+                    ..LayerView::default()
+                };
+                board_composites(&set.layers, &view).into()
+            });
         SceneHandle {
             generation: self.generation,
             scene: Arc::new(scene),
+            layers,
         }
     }
 

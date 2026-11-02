@@ -303,6 +303,29 @@ fn components_without_a_footprint_block_a_run_that_writes_a_bom_or_cpl() {
 }
 
 #[test]
+fn drc_errors_only_warn() {
+    let dir = TempDir::new("output-drc");
+    let mut engine = board(&dir);
+    let gnd = engine.run_ok("test.net.add", json!({"name": "GND"}))["result"]["uuid"].clone();
+    // Two Pads on GND with nothing joining them: an unrouted connection.
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(5.0, 10.0), "pads": [
+            {"at": pt(0.0, 0.0), "width": "1mm", "height": "1mm", "net": gnd},
+            {"at": pt(15.0, 0.0), "width": "1mm", "height": "1mm", "net": gnd}]}),
+    );
+    let out = run(&mut engine);
+    let drc = out["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|w| w["check"] == "drc_errors")
+        .unwrap_or_else(|| panic!("no drc_errors in {out}"));
+    assert_eq!(drc["severity"], "warning");
+    assert!(drc["args"]["count"].as_i64().unwrap() >= 1);
+}
+
+#[test]
 fn rules_looser_than_the_preset_and_missing_fonts_only_warn() {
     let dir = TempDir::new("output-warnings");
     let mut engine = board(&dir);
