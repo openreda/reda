@@ -91,6 +91,18 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: "1"
           REDA_PNG_SNAPSHOTS: "1"
         run: cargo test --locked -p reda-ui --test app --test canvas_gpu
+      # The website (pages.yml deploys it from main): draw its screenshots with the app and
+      # assemble it, so a change that breaks either shows here first. Nothing is deployed.
+      - name: Build the website
+        run: |
+          cargo xtask showcase --out target/showcase
+          cargo xtask site --screenshots target/showcase --out target/site
+      - name: Upload the website preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-preview
+          path: target/site
+          retention-days: 7
       - name: Upload the differing images
         if: failure()
         uses: actions/upload-artifact@v4
