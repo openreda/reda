@@ -14,6 +14,7 @@ mod dialogs;
 mod docking;
 pub mod i18n;
 pub mod icons;
+pub mod job_run;
 mod journal_panel;
 pub mod layout;
 pub mod messages;

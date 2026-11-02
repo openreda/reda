@@ -415,3 +415,57 @@ fn snapshot_of_project_settings_with_an_invalid_value() {
 fn snapshot_of_project_settings_erc_with_the_pin_matrix() {
     project_settings_snapshot("ERC", "project_settings_erc_dark");
 }
+
+/// A harness on a Project with no Board Outline, so its job's run is blocked.
+fn output_job_harness(name: &str) -> Option<(TempDir, Harness<'static, App>)> {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Jobs");
+    set_theme(home.path(), "dark");
+    let mut h = snapshot_harness(home.path())?;
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.run();
+    Some((home, h))
+}
+
+fn first_job(h: &Harness<'static, App>) -> reda_ui::engine::model::Uuid {
+    let project = h.state().shell().engine().project().unwrap();
+    project.output_jobs().next().unwrap().uuid
+}
+
+#[test]
+fn snapshot_of_the_output_job_dialog_with_a_flagged_destination() {
+    let Some((_home, mut h)) = output_job_harness("output_job_dialog_dark") else {
+        return;
+    };
+    let job = first_job(&h);
+    h.state_mut().open_output_job(job);
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Destination folder")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Destination folder")
+        .type_text("../fab");
+    h.run();
+    h.snapshot("output_job_dialog_dark");
+}
+
+#[test]
+fn snapshot_of_a_blocked_run_report() {
+    let Some((_home, mut h)) = output_job_harness("output_job_report_dark") else {
+        return;
+    };
+    let job = first_job(&h);
+    h.state_mut().open_output_job(job);
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Run").click();
+    let start = std::time::Instant::now();
+    while h.query_by_label_contains("did not run").is_none() {
+        assert!(start.elapsed().as_secs() < 20, "the run never ended");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        h.step();
+    }
+    h.run();
+    h.snapshot("output_job_report_dark");
+}

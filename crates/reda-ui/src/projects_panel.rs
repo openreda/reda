@@ -24,6 +24,8 @@ pub enum ProjectsAction {
     ShowInFolder(PathBuf),
     /// Open an Output Job's dialog.
     EditJob(Uuid),
+    /// Run an Output Job.
+    RunJob(Uuid),
     /// Open the Project Settings dialog.
     ProjectSettings,
 }
@@ -351,14 +353,27 @@ impl Tree<'_> {
     }
 
     fn job(&mut self, ui: &mut Ui, job: Uuid, name: &str) {
-        let row = tree_item(ui, false, name, Sense::click());
+        let broken = crate::settings::output_job::broken(self.project, job);
+        let label = if broken {
+            tr!("output-job-broken-label", job = name)
+        } else {
+            name.to_owned()
+        };
+        let mut row = tree_item(ui, false, &label, Sense::click());
+        if broken {
+            row = row.on_hover_text(tr!("output-job-broken"));
+        }
         if row.double_clicked() {
             self.action = Some(ProjectsAction::EditJob(job));
         }
         row.context_menu(|ui| {
-            item(ui, tr!("projects-run-job"), Some(tr!("projects-not-yet")));
-            // The Output Job dialog is still to come; until then Edit is greyed out.
-            item(ui, tr!("projects-edit-job"), Some(tr!("projects-not-yet")));
+            let refused = broken.then(|| tr!("output-job-broken"));
+            if item(ui, tr!("projects-run-job"), refused) {
+                self.action = Some(ProjectsAction::RunJob(job));
+            }
+            if item(ui, tr!("projects-edit-job"), None) {
+                self.action = Some(ProjectsAction::EditJob(job));
+            }
             if item(ui, tr!("projects-duplicate"), None) {
                 self.run("output.job.duplicate", json!({"job": job}));
             }

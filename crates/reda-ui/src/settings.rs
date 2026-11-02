@@ -21,6 +21,7 @@ use serde_json::{Value, json};
 use crate::shell::Shell;
 
 mod draw;
+pub mod output_job;
 pub mod project;
 
 pub use draw::{Outcome, PageCx, field, problem_label};
