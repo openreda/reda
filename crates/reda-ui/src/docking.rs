@@ -560,8 +560,15 @@ impl Cx<'_> {
                     return;
                 };
                 let input = canvas_input(ui, doc);
-                let commands = self.edit(*uuid, &input);
-                self.frame.commands.extend(commands);
+                // A Command still lacking params (text's words) asks for them in a dialog.
+                for (id, params) in self.edit(*uuid, &input) {
+                    let registry = self.shell.engine().registry();
+                    if crate::command_dialog::lacks_required(registry, &id, &params) {
+                        self.frame.calls.push((id, params));
+                    } else {
+                        self.frame.commands.push((id, params));
+                    }
+                }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;
                 };

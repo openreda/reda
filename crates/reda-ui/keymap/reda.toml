@@ -193,6 +193,47 @@ context = "tool:wire"
 key = "Backspace"
 command = "tool.remove_last"
 
+# Find (Mod+F) searches every sheet by Designator, value or Net name.
+
+[[bind]]
+context = "schematic"
+key = "Mod+F"
+command = "schematic.dialog.open:find"
+
+# The sheet's graphics Tools: T places free text (Space turns it before the click), L draws
+# a polyline (Backspace takes back the last point, Enter or a click on the last point again
+# finishes it) and R a rectangle between two corners.
+
+[[bind]]
+context = "schematic"
+key = "T"
+command = "tool.activate:text"
+
+[[bind]]
+context = "schematic"
+key = "L"
+command = "tool.activate:line"
+
+[[bind]]
+context = "schematic"
+key = "R"
+command = "tool.activate:rect"
+
+[[bind]]
+context = "tool:line"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:line"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:rect"
+key = "Backspace"
+command = "tool.undo_segment"
+
 # Space turns, X and Y mirror what is in flight on the sheet (a move or drag, a label or
 # Port being placed), else the selection.
 

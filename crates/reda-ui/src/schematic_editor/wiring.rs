@@ -6,9 +6,11 @@
 //! on the run's last corner again, as a double-click does). `/` turns the corner the other
 //! way and Backspace takes the last segment off (`tool.corner`, `tool.remove_last`).
 
+use reda_engine::model::geom::Nm;
 use reda_engine::model::geom::{Millideg, Point};
 use reda_engine::model::{
-    InDocument, NetLabel, NoConnect, Object, Port, PortDirection, PowerPort, Project, Uuid,
+    InDocument, NetLabel, NoConnect, Object, Port, PortDirection, PowerPort, Project, SheetText,
+    Uuid,
 };
 use reda_engine::schematic::connectivity::{on_segment, placed_pins};
 use reda_engine::schematic::default_power_port_style;
@@ -89,7 +91,8 @@ fn push(path: &mut Vec<Point>, p: Point) {
     path.push(p);
 }
 
-/// A Tool that places one object per click: Net Label, Port, Power Port or No-Connect.
+/// A Tool that places one object per click: Net Label, Port, Power Port, No-Connect or
+/// Text (whose words the window then asks for).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Placing {
     pub tool: Tool,
@@ -97,7 +100,8 @@ pub struct Placing {
     pub at: Point,
     /// Counter-clockwise; Space turns it, X and Y flip it.
     pub rotation: Millideg,
-    /// The Net name the next object gets (none for a No-Connect Marker).
+    /// The Net name the next object gets (none for a No-Connect Marker; for Text, the
+    /// words the preview shows).
     pub name: String,
     /// What the canvas shows: the preview drawn for (at, rotation, name), and the Scene
     /// generation it was drawn as.
@@ -139,6 +143,16 @@ impl Placing {
                 },
             )),
             Tool::NoConnect => Object::NoConnect(InDocument::new(document, NoConnect { uuid, at })),
+            Tool::Text => Object::SheetText(InDocument::new(
+                document,
+                SheetText {
+                    uuid,
+                    text: name,
+                    at,
+                    height: Nm::from_mil(50),
+                    rotation,
+                },
+            )),
             _ => return None,
         })
     }
@@ -164,6 +178,7 @@ fn next_name(project: Option<&Project>, tool: Tool, name: Option<&str>) -> Strin
         Tool::NetLabel => "NET",
         Tool::Port => "PORT",
         Tool::PowerPort => return name.unwrap_or("GND").to_owned(),
+        Tool::Text => return crate::tr!("schematic-text-preview"),
         _ => return String::new(),
     };
     let mut used = std::collections::BTreeSet::new();
@@ -193,7 +208,7 @@ impl Cx<'_> {
             .unwrap_or_default()
     }
 
-    fn snap(&self, at: P) -> Point {
+    pub(super) fn snap(&self, at: P) -> Point {
         self.all_targets().snap(at, self.grid(), self.scale.snap).at
     }
 
@@ -205,7 +220,8 @@ impl Cx<'_> {
                 at: self.snap(at),
                 ..Wiring::default()
             })),
-            Tool::NetLabel | Tool::Port | Tool::PowerPort | Tool::NoConnect => {
+            Tool::Line | Tool::Rect => Some(Interaction::Drawing(self.start_drawing(tool, at))),
+            Tool::NetLabel | Tool::Port | Tool::PowerPort | Tool::NoConnect | Tool::Text => {
                 Some(Interaction::Placing(Placing {
                     tool,
                     at: self.snap(at),
@@ -320,6 +336,11 @@ impl Cx<'_> {
             Tool::NoConnect => (
                 "schematic.no_connect.add",
                 json!({"document": document, "at": at}),
+            ),
+            // The words are left out: the window asks for them.
+            Tool::Text => (
+                "schematic.text.add",
+                json!({"document": document, "at": at, "rotation": rotation}),
             ),
             _ => return,
         };

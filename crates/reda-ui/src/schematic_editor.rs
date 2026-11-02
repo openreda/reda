@@ -12,13 +12,14 @@
 //! Picking, box selection and snapping are the shared [`interact`](crate::canvas::interact)
 //! functions; this module only says what on a sheet can be picked and snapped to.
 
+mod graphics;
 mod wiring;
 
 use std::collections::BTreeSet;
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{SchematicSheet, Uuid};
-use reda_engine::schematic::connectivity::{on_segment, placed_pins};
+use reda_engine::schematic::connectivity::{net_at, on_segment, placed_pins};
 use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
 use serde_json::{Value, json};
 
@@ -30,6 +31,7 @@ use crate::shell::{Shell, ToolPreview};
 use crate::tools::Tool;
 use crate::tr;
 
+pub use graphics::Drawing;
 pub use wiring::{Corner, Placing, Wiring};
 
 /// A Command for the window to run after the frame.
@@ -60,6 +62,8 @@ pub enum Interaction {
     Wiring(Wiring),
     /// A Tool placing one object per click follows the pointer.
     Placing(Placing),
+    /// The Line or Rect Tool, with or without a shape in flight.
+    Drawing(Drawing),
 }
 
 impl Interaction {
@@ -255,6 +259,49 @@ pub fn remove_last(shell: &mut Shell, document: Uuid) {
     }
 }
 
+/// Backspace: takes the last point back from the line or rectangle being drawn on
+/// `document`'s canvas. Returns `false` when nothing is being drawn there.
+pub fn undo_point(shell: &mut Shell, document: Uuid) -> bool {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return false;
+    };
+    let Interaction::Drawing(d) = &mut tab.interaction else {
+        return false;
+    };
+    d.undo_point();
+    restate(shell, document);
+    true
+}
+
+/// Enter: finishes the polyline being drawn on `document`'s canvas. Returns the Command
+/// to run, if there is a line to draw.
+pub fn finish(shell: &mut Shell, document: Uuid) -> Vec<Invocation> {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return Vec::new();
+    };
+    let Interaction::Drawing(mut d) = std::mem::take(&mut tab.interaction) else {
+        return Vec::new();
+    };
+    let (hovered, cursor) = (tab.live.hovered, tab.cursor);
+    let mut cx = Cx {
+        shell,
+        document,
+        scale: Scale::at(1.0),
+        commands: Vec::new(),
+    };
+    cx.finish_line(&mut d);
+    let commands = cx.commands;
+    show(
+        shell,
+        document,
+        Interaction::Drawing(d),
+        hovered,
+        cursor,
+        false,
+    );
+    commands
+}
+
 /// Shows the tab's state again after a key changed it.
 fn restate(shell: &mut Shell, document: Uuid) {
     let Some(tab) = shell.document_tab_mut(document) else {
@@ -280,6 +327,11 @@ pub(crate) fn end_commit(tab: &mut crate::shell::DocumentTab) -> bool {
         Interaction::Wiring(w) if !w.committed.is_empty() => {
             w.committed.clear();
             tab.overlay.wires = w.segments().into();
+            true
+        }
+        Interaction::Drawing(d) if !d.committed.is_empty() => {
+            d.committed.clear();
+            tab.overlay.wires = d.segments().into();
             true
         }
         _ => false,
@@ -364,6 +416,20 @@ fn show(
                 ..Overlay::default()
             },
         ),
+        Interaction::Drawing(d) => {
+            let mut wires = d.committed.clone();
+            wires.extend(d.segments());
+            (
+                Vec::new(),
+                Vec::new(),
+                (0.0, 0.0),
+                Overlay {
+                    wires: wires.into(),
+                    cursor: Some(d.at),
+                    ..Overlay::default()
+                },
+            )
+        }
     };
     if !tab.live.shows(hovered, &moving, &hidden) {
         tab.live = LiveHandle::new(hovered, &moving, &hidden);
@@ -527,6 +593,7 @@ impl Cx<'_> {
         match state {
             Interaction::Wiring(_) if self.shell.tool() != Tool::Wire => Interaction::Idle,
             Interaction::Placing(p) if self.shell.tool() != p.tool => Interaction::Idle,
+            Interaction::Drawing(d) if self.shell.tool() != d.tool => Interaction::Idle,
             Interaction::Flight(f) if f.by_tool && !f.committing => {
                 let wanted = if f.keep_connections {
                     Tool::Drag
@@ -674,6 +741,7 @@ impl Cx<'_> {
         match (state, event) {
             (Interaction::Wiring(w), event) => Interaction::Wiring(self.wire_step(w, event)),
             (Interaction::Placing(p), event) => Interaction::Placing(self.place_step(p, event)),
+            (Interaction::Drawing(d), event) => Interaction::Drawing(self.draw_step(d, event)),
             // A released move keeps showing until its Command has run.
             (Interaction::Flight(f), _) if f.committing => Interaction::Flight(f),
             (Interaction::Flight(f), Pointer::Hover(at) | Pointer::Drag(at)) => {
@@ -725,6 +793,10 @@ impl Cx<'_> {
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
+            (Interaction::Idle, Pointer::Click { at, modifiers }) if modifiers.alt => {
+                self.highlight_net(at);
+                Interaction::Idle
+            }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
                 let how = Combine::of(modifiers);
                 let current = self.shell.selection().objects.clone();
@@ -767,6 +839,20 @@ impl Cx<'_> {
         }
     }
 
+    /// Alt+click: highlights the Net under the pointer on every sheet, or clears the
+    /// highlight when there is none.
+    fn highlight_net(&mut self, at: P) {
+        let net = self.hit(at).and_then(|object| {
+            let project = self.shell.engine().project()?;
+            net_at(project, self.document, object, point(at))
+        });
+        let params = match net {
+            Some(net) => json!({"net": net.name, "objects": net.objects}),
+            None => json!({}),
+        };
+        self.commands.push(("view.highlight".to_owned(), params));
+    }
+
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
         let Some(tab) = self.shell.document_tab(self.document) else {
             return;
@@ -782,6 +868,11 @@ impl Cx<'_> {
         let current = self.shell.selection().objects.clone();
         self.select(combine(&current, &picked, Combine::of(modifiers)));
     }
+}
+
+/// The sheet point nearest the Document point `at`.
+fn point((x, y): P) -> Point {
+    Point::new(Nm(x.round() as i64), Nm(y.round() as i64))
 }
 
 /// Everything on `sheet` that can be selected.

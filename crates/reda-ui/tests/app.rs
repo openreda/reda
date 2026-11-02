@@ -342,6 +342,40 @@ fn snapshot_of_a_drag_in_flight() {
 }
 
 #[test]
+fn snapshot_of_a_highlighted_net() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("highlight");
+    let file = make_project(&folder, "Highlight");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().expect("a sheet tab").document;
+    for y in ["100mm", "60mm"] {
+        shell
+            .run(
+                "schematic.wire.add",
+                json!({"document": sheet,
+                       "points": [{"x": "50mm", "y": y}, {"x": "150mm", "y": y}]}),
+            )
+            .unwrap();
+    }
+    shell
+        .run(
+            "schematic.net_label.add",
+            json!({"document": sheet, "name": "SDA", "at": {"x": "50mm", "y": "100mm"}}),
+        )
+        .unwrap();
+    // The upper Wire and its label stay lit; the lower Wire and the frame dim.
+    shell.run("view.highlight", json!({"net": "SDA"})).unwrap();
+    h.run();
+    h.snapshot("schematic_net_highlight_dark");
+}
+
+#[test]
 fn snapshot_of_the_library_panel_placing_a_part() {
     let home = TempDir::new("app-home");
     let folder = snapshot_folder("library");
