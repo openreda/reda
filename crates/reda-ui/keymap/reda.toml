@@ -79,3 +79,67 @@ context = "footprint"
 key = "F"
 command = "view.zoom_fit"
 params = { document = "$active_document" }
+
+# The schematic canvas. "$selection" is what is selected on the sheet, "$selectable"
+# everything that can be, "$clipboard" what was last copied or cut, and "$cursor" where the
+# pointer last was over the sheet, on its grid.
+
+[[bind]]
+context = "schematic"
+key = "Del"
+command = "schematic.delete"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+X"
+command = "schematic.cut"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+C"
+command = "schematic.copy"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+V"
+command = "schematic.paste"
+params = { document = "$active_document", clipboard = "$clipboard", at = "$cursor" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+D"
+command = "schematic.duplicate"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }
+
+[[bind]]
+context = "schematic"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+# Move (detach) and Drag pick the selection up; Esc puts back what is in flight and returns
+# to Select, from any Tool.
+
+[[bind]]
+context = "schematic"
+key = "M"
+command = "tool.activate:move"
+
+[[bind]]
+context = "schematic"
+key = "D"
+command = "tool.activate:drag"
+
+[[bind]]
+context = "schematic"
+key = "Esc"
+command = "tool.activate:select"

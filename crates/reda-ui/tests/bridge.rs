@@ -239,7 +239,7 @@ fn a_bridged_edit_to_a_tools_objects_cancels_its_preview_with_a_note() {
     // An edit that leaves the Tool's objects alone leaves the Tool be.
     let untouched = bridged("project.properties.set", json!({"title": "Amp"}));
     as_agent(&mut shell, &mut bridge, untouched).unwrap();
-    assert_eq!(shell.tool().map(|t| t.title.as_str()), Some("Move"));
+    assert_eq!(shell.tool_preview().map(|t| t.title.as_str()), Some("Move"));
     assert_eq!(shell.note(), None);
 
     let touching = bridged(
@@ -247,7 +247,7 @@ fn a_bridged_edit_to_a_tools_objects_cancels_its_preview_with_a_note() {
         json!({"document": sheet, "size": "a2"}),
     );
     as_agent(&mut shell, &mut bridge, touching).unwrap();
-    assert!(shell.tool().is_none(), "the preview is cancelled");
+    assert!(shell.tool_preview().is_none(), "the preview is cancelled");
     let note = shell.note().expect("a status-bar note");
     assert!(note.contains("Move"), "{note}");
     bridge.stop();

@@ -42,7 +42,7 @@ pub use wgpu;
 /// The MSAA sample count every canvas pass uses (4× is guaranteed on WebGPU).
 pub const SAMPLE_COUNT: u32 = 4;
 
-const VIEW_SIZE: u64 = 32;
+const VIEW_SIZE: u64 = 48;
 const PALETTE_SIZE: u64 = 16 * (1 + ColorKey::SLOTS as u64);
 
 /// The canvas pipeline for one target format.
@@ -341,6 +341,7 @@ pub struct Canvas {
     bind_group: wgpu::BindGroup,
     srgb: bool,
     background: Rgba,
+    moving: (f64, f64),
     writes: Writes,
 }
 
@@ -376,6 +377,7 @@ impl Canvas {
             bind_group,
             srgb: renderer.format.is_srgb(),
             background: Rgba::rgb(0, 0, 0),
+            moving: (0.0, 0.0),
             writes: Writes::default(),
         }
     }
@@ -395,8 +397,18 @@ impl Canvas {
         let mut bytes: Vec<u8> = floats.iter().flat_map(|f| f.to_le_bytes()).collect();
         bytes.extend_from_slice(&u32::from(self.srgb).to_le_bytes());
         bytes.extend_from_slice(&0u32.to_le_bytes());
+        for f in [self.moving.0 as f32, self.moving.1 as f32, 0.0, 0.0] {
+            bytes.extend_from_slice(&f.to_le_bytes());
+        }
         queue.write_buffer(&self.view, 0, &bytes);
         self.writes.view += 1;
+    }
+
+    /// Sets how far (nm, y up) objects marked [`Flags::MOVING`] are drawn from where they
+    /// are: a drag in flight. It goes to the GPU with the next [`set_view`](Self::set_view),
+    /// so moving the pointer writes nothing more than the view.
+    pub fn set_moving_offset(&mut self, offset: (f64, f64)) {
+        self.moving = offset;
     }
 
     /// Writes the palette: on theme change or a colour override.

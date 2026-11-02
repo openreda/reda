@@ -134,6 +134,10 @@ impl Chord {
                     _ => return Vec::new(),
                 }
             }
+            // The OS turns Mod+X/C/V into clipboard events before they are keys.
+            Event::Cut => (KeyName::Key(Key::X), Modifiers::COMMAND),
+            Event::Copy => (KeyName::Key(Key::C), Modifiers::COMMAND),
+            Event::Paste(_) => (KeyName::Key(Key::V), Modifiers::COMMAND),
             _ => return Vec::new(),
         };
         let chord = Chord {

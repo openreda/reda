@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use reda_ui::canvas::{CanvasFrame, CanvasResources, SceneHandle, SelectionHandle};
+use reda_ui::canvas::{CanvasFrame, CanvasResources, LiveHandle, SceneHandle, SelectionHandle};
 use reda_ui::engine::model::Uuid;
 use reda_ui::engine::model::geom::{Millideg, Nm, Point};
 use reda_ui::engine::render::gpu::{GridSpec, Headless, wgpu};
@@ -55,6 +55,8 @@ fn frame(generation: u64, scene: &Arc<Scene>) -> CanvasFrame {
             color: Rgba([255, 255, 255, 128]),
         }),
         selection: SelectionHandle::default(),
+        live: LiveHandle::default(),
+        moving_offset: (0.0, 0.0),
     }
 }
 

@@ -20,7 +20,7 @@ use crate::canvas::{CanvasResources, canvas_id};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
 use crate::journal_panel::JournalAction;
-use crate::layout::PanelId;
+use crate::layout::{PanelId, TabKey};
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
 use crate::projects_panel::{self, ProjectsAction};
@@ -230,7 +230,12 @@ impl App {
         let active = if dialog {
             keymap::Active::default()
         } else {
-            keymap::active(&self.shell)
+            let mut active = keymap::active(&self.shell);
+            // A focused Panel keeps the canvas's keys (Del, Mod+C, the Tools') off it.
+            if matches!(self.shell.layout().focus, Some(TabKey::Panel(_))) {
+                active = keymap::Active::default();
+            }
+            active
         };
         let actions = ctx.input_mut(|i| self.shell.keymap().take(i, &active));
         let document = self.shell.active_document().map(|d| d.document);
@@ -315,8 +320,15 @@ impl App {
     /// files. Returns the item clicked, if any.
     fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
-        let checked =
+        let mut checked =
             BTreeMap::from([("view.theme.set", json!({ "theme": theme_value(ui.ctx()) }))]);
+        if let Some(document) = self.shell.active_document().map(|d| d.document) {
+            let grid = self.shell.grid(document).0;
+            checked.insert(
+                "view.grid.set",
+                json!({ "document": document.to_string(), "grid": grid }),
+            );
+        }
         let cx = draw::Cx {
             shell: &self.shell,
             checked: &checked,
@@ -357,6 +369,10 @@ impl App {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panels_button(ui);
                 bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell);
+                if let Some(document) = self.shell.active_document().map(|d| d.document) {
+                    let grid = crate::grid::label(self.shell.grid(document));
+                    ui.label(tr!("status-grid", grid = grid));
+                }
                 ui.with_layout(
                     egui::Layout::left_to_right(egui::Align::Center),
                     |ui| match (self.shell.message(), self.shell.note()) {

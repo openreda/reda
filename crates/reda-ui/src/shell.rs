@@ -16,7 +16,7 @@ use std::time::Instant;
 
 use reda_engine::command::{CommandError, FontFace, Kind, Signals};
 use reda_engine::journal::Source;
-use reda_engine::model::geom::Point;
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{
     DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Severity, Side, Uuid, Violation,
 };
@@ -24,15 +24,18 @@ use reda_engine::render::{self as render, board_composites};
 use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
-use crate::canvas::{Camera, SceneHandle, SelectionHandle};
-use crate::keymap::{self, ActiveTool, Keymap};
+use crate::canvas::{Camera, LiveHandle, Overlay, SceneHandle, SelectionHandle};
+use crate::grid::{self, Grids};
+use crate::keymap::{self, Keymap};
 use crate::layout::{self, Layout, TabKey, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
 use crate::recovery::{self, Recorder};
+use crate::schematic_editor::Interaction;
 use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
+use crate::tools::{self, ActiveTool, Tool};
 use crate::tr;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
 
@@ -72,6 +75,18 @@ pub struct DocumentTab {
     pub selection: SelectionHandle,
     /// The Violation markers the canvas draws over the Document.
     pub markers: Arc<[Marker]>,
+    /// The snap grid the canvas draws and Tools snap to.
+    pub grid: Nm,
+    /// What the editor has in flight on this canvas.
+    pub interaction: Interaction,
+    /// The hovered object and the objects in flight, as the canvas marks them.
+    pub live: LiveHandle,
+    /// How far (nm) the objects in flight are drawn from where they are.
+    pub moving_offset: (f64, f64),
+    /// What the editor draws over the canvas: Wires in flight, a selection box.
+    pub overlay: Overlay,
+    /// The pointer's last Document position (nm) over the canvas.
+    pub cursor: Option<(f64, f64)>,
 }
 
 impl DocumentTab {
@@ -85,6 +100,12 @@ impl DocumentTab {
             zoom_to: None,
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
+            grid: grid::SCHEMATIC_DEFAULT,
+            interaction: Interaction::Idle,
+            live: LiveHandle::default(),
+            moving_offset: (0.0, 0.0),
+            overlay: Overlay::default(),
+            cursor: None,
         }
     }
 }
@@ -118,6 +139,8 @@ pub struct Shell {
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
     keymap: Keymap,
+    /// What `schematic.copy` or `schematic.cut` last returned, for `schematic.paste`.
+    clipboard: Option<Value>,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
     closed_views: BTreeMap<Uuid, DocumentView>,
     view_saves: Debounce,
@@ -136,9 +159,16 @@ impl Shell {
         if engine.registry().get("selection.set").is_none() {
             engine.register(selection::register_all);
         }
+        if engine.registry().get("tool.activate").is_none() {
+            engine.register(tools::register_all);
+        }
+        if engine.registry().get("view.grid.set").is_none() {
+            engine.register(grid::register_all);
+        }
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
         engine.view_mut().set(ActiveTool::default());
+        engine.view_mut().set(Grids::default());
         crate::bars::install(&mut engine);
         let mut shell = Shell {
             engine,
@@ -152,6 +182,7 @@ impl Shell {
             messages: Messages::default(),
             marked: SelectionHandle::default(),
             keymap: Keymap::default(),
+            clipboard: None,
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
             recorder: Recorder::new(),
@@ -197,6 +228,29 @@ impl Shell {
             .view()
             .get::<Selection>()
             .expect("the Shell installs its Selection")
+    }
+
+    /// The active canvas Tool; it changes through `tool.activate`.
+    pub fn tool(&self) -> Tool {
+        self.engine
+            .view()
+            .get::<ActiveTool>()
+            .map(|t| t.0)
+            .unwrap_or_default()
+    }
+
+    /// `document`'s snap grid; it changes through `view.grid.set` and `view.grid.cycle`.
+    pub fn grid(&self, document: Uuid) -> Nm {
+        self.engine
+            .view()
+            .get::<Grids>()
+            .map(|g| g.of(self.engine.project(), document))
+            .unwrap_or(grid::SCHEMATIC_DEFAULT)
+    }
+
+    /// What the last copy or cut put on the clipboard, for `schematic.paste`.
+    pub fn clipboard(&self) -> Option<&Value> {
+        self.clipboard.as_ref()
     }
 
     /// The open Documents' tabs.
@@ -261,7 +315,7 @@ impl Shell {
     }
 
     /// The preview of the Tool in use; `None` once it ends or a bridged edit cancels it.
-    pub fn tool(&self) -> Option<&ToolPreview> {
+    pub fn tool_preview(&self) -> Option<&ToolPreview> {
         self.tool.as_ref()
     }
 
@@ -493,7 +547,14 @@ impl Shell {
         if matches!(base, "project.open" | "project.new" | "project.close") {
             self.save_view();
         }
-        let out = self.engine.run(id, params)?;
+        let kind = self.engine.registry().get(base).map(|meta| meta.kind);
+        let out = self.engine.run(id, params);
+        if !matches!(kind, Some(Kind::View | Kind::Query)) {
+            // A move put down shows until its Command has run, whatever the outcome.
+            self.end_committed_moves();
+        }
+        let out = out?;
+        self.after_edit(base, &out);
         self.after_run(id);
         Ok(out)
     }
@@ -774,12 +835,10 @@ impl Shell {
         &self.keymap
     }
 
-    /// Makes `tool` the active Tool (`None`: no Tool), whose `tool:<name>` Keymap context
-    /// then comes first. Tool Commands can set [`ActiveTool`] in the view state instead.
-    pub fn set_active_tool(&mut self, tool: Option<&str>) {
-        self.engine
-            .view_mut()
-            .set(ActiveTool(tool.map(str::to_owned)));
+    /// Makes `tool` the active Tool, whose `tool:<id>` Keymap context then comes first,
+    /// without the checks of `tool.activate` (which the window and agents use).
+    pub fn set_active_tool(&mut self, tool: Tool) {
+        self.engine.view_mut().set(ActiveTool(tool));
     }
 
     /// Reads the Keymap again (after `keymap.toml` or `keymap.base` changed) and lists its
@@ -989,6 +1048,57 @@ impl Shell {
         self.sync_selection();
     }
 
+    /// Keeps the clipboard from a copy or cut, cancels what is in flight when the Tool
+    /// changes, selects what a paste or duplicate made and drops what a delete or cut
+    /// removed from the selection.
+    fn after_edit(&mut self, id: &str, out: &Value) {
+        match id {
+            "schematic.copy" => self.clipboard = Some(out.clone()),
+            "schematic.cut" => self.clipboard = Some(out["result"].clone()),
+            // Escape (and any Tool change) puts back what the canvases have in flight.
+            "tool.activate" => {
+                let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
+                for document in documents {
+                    crate::schematic_editor::cancel(self, document);
+                }
+            }
+            "schematic.paste" | "schematic.duplicate" => {
+                let objects = out["result"]["objects"].clone();
+                let _ = self
+                    .engine
+                    .run("selection.set", json!({ "objects": objects }));
+            }
+            _ => {}
+        }
+        let Some(project) = self.engine.project() else {
+            return;
+        };
+        let gone: Vec<Uuid> = self
+            .selection()
+            .objects
+            .iter()
+            .copied()
+            .filter(|o| project.object(*o).is_none())
+            .collect();
+        if !gone.is_empty()
+            && let Some(selection) = self.engine.view_mut().get_mut::<Selection>()
+        {
+            selection.objects.retain(|o| !gone.contains(o));
+        }
+    }
+
+    /// Drops the moves put down on every canvas, once their Command has run.
+    fn end_committed_moves(&mut self) {
+        for tab in &mut self.documents {
+            if matches!(&tab.interaction, Interaction::Flight(f) if f.committing) {
+                tab.interaction = Interaction::Idle;
+                tab.live = LiveHandle::default();
+                tab.moving_offset = (0.0, 0.0);
+                tab.overlay = Overlay::default();
+            }
+        }
+    }
+
     /// Hands every canvas the [`Selection`]'s objects to mark, with a new generation
     /// when they changed.
     fn sync_selection(&mut self) {
@@ -1000,10 +1110,18 @@ impl Shell {
                 objects,
             };
         }
+        let grids = self
+            .engine
+            .view()
+            .get::<Grids>()
+            .cloned()
+            .unwrap_or_default();
+        let project = self.engine.project();
         for tab in &mut self.documents {
             if tab.selection.generation != self.marked.generation {
                 tab.selection = self.marked.clone();
             }
+            tab.grid = grids.of(project, tab.document);
         }
     }
 
