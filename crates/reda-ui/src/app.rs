@@ -16,6 +16,7 @@ use crate::bars::{self, Request};
 use crate::canvas::{CanvasResources, canvas_id};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
+use crate::journal_panel::JournalAction;
 use crate::layout::PanelId;
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
@@ -99,6 +100,9 @@ impl App {
             // The Output Job dialog is still to come.
             Some(ProjectsAction::EditJob(_)) | None => {}
         }
+        if let Some(JournalAction::Export) = frame.journal {
+            self.files.start(&ctx, Pick::ExportJournal);
+        }
         self.drop_closed_canvases();
 
         if let Some(form) = &mut self.new_project {
@@ -145,6 +149,9 @@ impl App {
             Some((Pick::OpenProject, path)) => {
                 let _ = self.shell.open_project(&path);
                 self.drop_closed_canvases();
+            }
+            Some((Pick::ExportJournal, path)) => {
+                let _ = self.shell.export_journal(&path);
             }
             Some((Pick::NewProjectLocation, path)) => {
                 if let Some(form) = &mut self.new_project {

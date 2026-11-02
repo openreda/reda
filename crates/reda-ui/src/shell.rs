@@ -314,6 +314,18 @@ impl Shell {
         out
     }
 
+    /// Saves the session's Journal to `path` as a script that `reda run --script`
+    /// replays. View Commands are left out: only the app can run them. A failure is also
+    /// kept as the message the status bar shows.
+    pub fn export_journal(&mut self, path: &Path) -> std::io::Result<()> {
+        let script = crate::journal_panel::script(&self.engine);
+        let out = reda_engine::fs::write_atomic(path, script.as_bytes());
+        if let Err(e) = &out {
+            self.message = Some(tr!("journal-export-failed", error = e.to_string()));
+        }
+        out
+    }
+
     /// Puts the open Project at the top of the recent Projects in `state.json`.
     fn remember_project(&mut self) {
         if let (Some(dirs), Some(file)) = (self.engine.user_dirs(), self.project_file())

@@ -19,6 +19,7 @@ use crate::bars;
 use crate::bars::draw::{self, Invocation};
 use crate::canvas::{canvas, canvas_id};
 use crate::icons;
+use crate::journal_panel::{self, JournalAction};
 use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
 use crate::panels;
 use crate::projects_panel::{self, ProjectsAction};
@@ -35,6 +36,8 @@ pub struct Frame {
     pub start: Option<StartAction>,
     /// What the Projects panel asks of the window, if anything.
     pub projects: Option<ProjectsAction>,
+    /// A Journal panel button, if one was clicked.
+    pub journal: Option<JournalAction>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -418,6 +421,11 @@ impl Cx<'_> {
                 let commands = panels::properties::show(ui, self.shell);
                 let commands = commands.into_iter().map(|(id, p)| (id.to_owned(), p));
                 self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Journal) => {
+                if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
+                    self.frame.journal = Some(action);
+                }
             }
             TabKey::Panel(_) => {
                 ui.add_space(8.0);
