@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::pcb::InDocument;
-use crate::{ComponentType, Fields, Footprint, Object, Part, Symbol, Uuid};
+use crate::{ComponentType, Fields, Footprint, Object, Part, Symbol, Uuid, Waiver};
 
 /// A sheet's paper size. Sheets are landscape.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -343,6 +343,7 @@ pub struct SchematicSheet {
     pub(crate) power_ports: BTreeMap<Uuid, PowerPort>,
     pub(crate) texts: BTreeMap<Uuid, SheetText>,
     pub(crate) graphics: BTreeMap<Uuid, SheetGraphic>,
+    pub(crate) waivers: BTreeMap<Uuid, Waiver>,
 }
 
 impl SchematicSheet {
@@ -360,6 +361,7 @@ impl SchematicSheet {
             power_ports: BTreeMap::new(),
             texts: BTreeMap::new(),
             graphics: BTreeMap::new(),
+            waivers: BTreeMap::new(),
         }
     }
 
@@ -477,6 +479,15 @@ impl SchematicSheet {
         self.graphics.get(&uuid)
     }
 
+    /// The Waivers of Violations whose objects this sheet holds, sorted by UUID.
+    pub fn waivers(&self) -> impl Iterator<Item = &Waiver> {
+        self.waivers.values()
+    }
+
+    pub fn waiver(&self, uuid: Uuid) -> Option<&Waiver> {
+        self.waivers.get(&uuid)
+    }
+
     /// The object with this UUID, if this sheet holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -499,7 +510,8 @@ impl SchematicSheet {
             ports => Port,
             power_ports => PowerPort,
             texts => SheetText,
-            graphics => SheetGraphic
+            graphics => SheetGraphic,
+            waivers => Waiver
         )
     }
 
@@ -527,7 +539,8 @@ impl SchematicSheet {
             ports => Port,
             power_ports => PowerPort,
             texts => SheetText,
-            graphics => SheetGraphic
+            graphics => SheetGraphic,
+            waivers => Waiver
         );
         out
     }
@@ -545,6 +558,7 @@ impl SchematicSheet {
         self.power_ports.remove(&uuid);
         self.texts.remove(&uuid);
         self.graphics.remove(&uuid);
+        self.waivers.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -559,6 +573,7 @@ impl SchematicSheet {
             && self.power_ports.is_empty()
             && self.texts.is_empty()
             && self.graphics.is_empty()
+            && self.waivers.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.

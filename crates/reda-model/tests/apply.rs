@@ -13,6 +13,7 @@ fn empty_project() -> Project {
         documents: vec![],
         libraries: vec![],
         properties: Default::default(),
+        erc: Default::default(),
     })
 }
 

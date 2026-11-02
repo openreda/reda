@@ -51,7 +51,10 @@ fn object_get_returns_any_object_with_its_document() {
             "object": {"type": "document", "uuid": SHEET, "kind": "schematic", "name": "Demo", "title": "Sheet 1"}
         })
     );
-    let project = engine.run_ok("object.get", json!({"uuid": PROJECT}));
+    let mut project = engine.run_ok("object.get", json!({"uuid": PROJECT}));
+    // The ERC severities ride along; erc.rs in reda-schematic tests them.
+    let erc = project["object"].as_object_mut().unwrap().remove("erc");
+    assert_eq!(erc.unwrap()["unconnected_input"], "error");
     assert_eq!(
         project["object"],
         json!({"type": "project", "uuid": PROJECT, "name": "Demo", "documents": [SHEET, PCB],

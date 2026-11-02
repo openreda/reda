@@ -10,12 +10,12 @@ use reda_engine::format::library::{read_footprint, read_part, read_symbol};
 use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
-    DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, FabPreset, FileNaming, FootprintCopy,
-    GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, NetLabel,
-    NoConnect, Object, OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Port, PortDirection,
-    PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules,
-    Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, UnitInstance, Uuid,
-    Wire,
+    DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck, ErcSeverities, FabPreset,
+    FileNaming, FootprintCopy, GerberSettings, GraphicShape, InDocument, Layer, LayerKind,
+    LayerSet, Net, NetClass, NetLabel, NoConnect, Object, OutputJob, Outputs, PartEntry,
+    PcbGraphic, PcbText, Port, PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset,
+    ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetGraphic, SheetShape,
+    SheetSize, SheetText, Side, UnitInstance, Uuid, Waiver, Wire,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -516,6 +516,23 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 },
             },
         )));
+        objects.push(Object::Waiver(InDocument::new(
+            sheet,
+            Waiver {
+                uuid: id(13),
+                check: "unconnected_pin".into(),
+                objects: {
+                    let mut o = vec![id(10), id(11)];
+                    o.sort();
+                    o
+                },
+                comment: if len.0 % 2 == 0 {
+                    String::new()
+                } else {
+                    format!("{name} \"ok\"")
+                },
+            },
+        )));
     }
     objects
 }
@@ -529,10 +546,16 @@ prop_compose! {
         libraries in prop::collection::vec(any::<String>(), 0..3),
         settings in prop::option::of(settings()),
         properties in prop::collection::vec(any::<String>(), 5),
+        erc in prop::collection::vec((0..ErcCheck::ALL.len(), 0..3u8), 0..4),
     ) -> Project {
+        let mut severities = ErcSeverities::DEFAULT;
+        for (check, severity) in erc {
+            let severity = [Severity::Error, Severity::Warning, Severity::Off][severity as usize];
+            severities.set(ErcCheck::ALL[check], severity);
+        }
         let [title, revision, date, author, company] = <[String; 5]>::try_from(properties).unwrap();
         let properties = ProjectProperties { title, revision, date, author, company };
-        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties });
+        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities });
         let mut tx = project.transaction();
         let mut order = vec![];
         let mut names = std::collections::BTreeSet::new();
@@ -650,6 +673,7 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         documents: vec![],
         libraries: vec![],
         properties: Default::default(),
+        erc: Default::default(),
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
 }

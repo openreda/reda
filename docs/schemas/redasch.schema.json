@@ -1273,6 +1273,38 @@
       ],
       "type": "object"
     },
+    "Waiver": {
+      "additionalProperties": false,
+      "description": "A recorded acceptance that one Violation is intentional, so checks stop reporting it.\n\nIt is stored in the Document that holds the objects involved, and matches a Violation\nof the same check whose objects are exactly these, in any order. Once those objects no\nlonger break the check together, it matches nothing.",
+      "properties": {
+        "check": {
+          "description": "The check id of the waived Violation, such as `unconnected_pin` or `clearance`.",
+          "type": "string"
+        },
+        "comment": {
+          "description": "Why it is waived. Left out when empty.",
+          "type": "string"
+        },
+        "objects": {
+          "description": "The UUIDs of the objects involved, sorted.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "check",
+        "objects"
+      ],
+      "type": "object"
+    },
     "Wire": {
       "additionalProperties": false,
       "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
@@ -1390,6 +1422,14 @@
       "description": "The placed Units, sorted by UUID.",
       "items": {
         "$ref": "#/$defs/UnitInstance"
+      },
+      "type": "array"
+    },
+    "waivers": {
+      "default": [],
+      "description": "The Waivers of ERC Violations whose objects are on this sheet, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/Waiver"
       },
       "type": "array"
     },

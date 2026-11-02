@@ -101,52 +101,11 @@ pub struct Rules {
     pub edge_clearance: Nm,
 }
 
-macro_rules! drc_checks {
-    ($($(#[$doc:meta])* $field:ident => $variant:ident = $default:ident,)*) => {
-        /// One DRC check, named as in [`DrcSeverities`].
-        #[derive(
-            Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-            JsonSchema,
-        )]
-        #[serde(rename_all = "snake_case")]
-        pub enum DrcCheck {
-            $($(#[$doc])* $variant,)*
-        }
-
-        impl DrcCheck {
-            /// Every check, in the order of the DRC table.
-            pub const ALL: &[DrcCheck] = &[$(DrcCheck::$variant,)*];
-        }
-
-        /// The severity of every DRC check, stored next to the rules.
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-        #[serde(deny_unknown_fields)]
-        pub struct DrcSeverities {
-            $($(#[$doc])* pub $field: Severity,)*
-        }
-
-        impl DrcSeverities {
-            /// The defaults of the DRC table.
-            pub const DEFAULT: DrcSeverities = DrcSeverities {
-                $($field: Severity::$default,)*
-            };
-
-            pub fn get(&self, check: DrcCheck) -> Severity {
-                match check {
-                    $(DrcCheck::$variant => self.$field,)*
-                }
-            }
-
-            pub fn set(&mut self, check: DrcCheck, severity: Severity) {
-                match check {
-                    $(DrcCheck::$variant => self.$field = severity,)*
-                }
-            }
-        }
-    };
-}
-
-drc_checks! {
+crate::check::severities! {
+    /// One DRC check, named as in [`DrcSeverities`].
+    enum DrcCheck;
+    /// The severity of every DRC check, stored next to the rules.
+    struct DrcSeverities;
     /// Clearance between copper of different Nets.
     clearance => Clearance = Error,
     /// Different Nets touching.
@@ -177,12 +136,6 @@ drc_checks! {
     silkscreen_over_pads => SilkscreenOverPads = Warning,
     /// The PCB out of sync with the schematic.
     out_of_sync => OutOfSync = Warning,
-}
-
-impl Default for DrcSeverities {
-    fn default() -> DrcSeverities {
-        DrcSeverities::DEFAULT
-    }
 }
 
 /// The board's own settings: its design rules, DRC severities and Default Net Class.

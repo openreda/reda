@@ -110,6 +110,83 @@
       ],
       "type": "object"
     },
+    "ErcSeverities": {
+      "additionalProperties": false,
+      "description": "The severity of every ERC check, stored in the Project. A check left out has its\ndefault.",
+      "properties": {
+        "dangling_wire": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Wire end that touches nothing."
+        },
+        "duplicate_designator": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Several Components with the same Designator."
+        },
+        "multiple_net_names": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "One Net with several names."
+        },
+        "no_connect_connected": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A No-Connect Marker on a Pin that is connected."
+        },
+        "pin_conflict": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Drivers fighting on a Net: Output and Power Out Pins together."
+        },
+        "pin_conflict_mixed": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Pin types that should not mix on a Net, such as Tri-state and Output."
+        },
+        "single_pin_net": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A wired Net with only one Pin."
+        },
+        "single_sheet_port": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Port whose name no other sheet has."
+        },
+        "unattached_label": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Net Label or Port attached to nothing."
+        },
+        "unconnected_input": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "An Input or Power In Pin connected to nothing."
+        },
+        "unconnected_pin": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt."
+        },
+        "undriven_power": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Net with Power In Pins and no Power Out Pin or Power Port."
+        },
+        "unit_data_mismatch": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Units of one Component whose Component data differ."
+        },
+        "unplaced_units": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Units of a placed multi-unit Component left unplaced."
+        }
+      },
+      "type": "object"
+    },
     "FileNaming": {
       "description": "How the Gerber and drill files of a job are named.",
       "oneOf": [
@@ -342,6 +419,15 @@
         "edge_clearance"
       ],
       "type": "object"
+    },
+    "Severity": {
+      "description": "How a check's Violations are reported.",
+      "enum": [
+        "error",
+        "warning",
+        "off"
+      ],
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -354,6 +440,26 @@
         "$ref": "#/$defs/DocumentRow"
       },
       "type": "array"
+    },
+    "erc": {
+      "$ref": "#/$defs/ErcSeverities",
+      "default": {
+        "dangling_wire": "warning",
+        "duplicate_designator": "error",
+        "multiple_net_names": "warning",
+        "no_connect_connected": "warning",
+        "pin_conflict": "error",
+        "pin_conflict_mixed": "warning",
+        "single_pin_net": "warning",
+        "single_sheet_port": "warning",
+        "unattached_label": "warning",
+        "unconnected_input": "error",
+        "unconnected_pin": "warning",
+        "undriven_power": "warning",
+        "unit_data_mismatch": "error",
+        "unplaced_units": "warning"
+      },
+      "description": "The ERC severities, `error`, `warning` or `off` per check. Written only when any\ndiffers from its default; a check left out has its default."
     },
     "fab_presets": {
       "default": [],
