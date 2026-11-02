@@ -15305,7 +15305,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, the Board Outline as the Profile) and writes them with their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Duplicate Designators, an open Board Outline and, when the job writes a BOM or CPL, Components without a Footprint block the run (`rejected`, `details.blockers`); other problems are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Duplicate Designators, an open Board Outline and, when the job writes a BOM or CPL, Components without a Footprint block the run (`rejected`, `details.blockers`); other problems are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -15396,7 +15396,7 @@
             "description": "One file the run wrote, also in the zip.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_bottom` or `profile`.",
+                "description": "What it holds: `copper_top`, `copper_bottom`, `profile`, `drill_plated` or\n`drill_non_plated`.",
                 "type": "string"
               },
               "name": {
@@ -15426,7 +15426,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `erc_errors {count}`, `rule_below_preset {rule, board,\nminimum, preset, net_class?}`, `missing_font {font}`, `output_not_built {output}`.",
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `erc_errors {count}`, `rule_below_preset {rule, board,\nminimum, preset, net_class?}`, `missing_font {font}`, `output_not_built {output}`\n(BOM or CPL).",
             "items": {
               "$ref": "#/$defs/Violation"
             },

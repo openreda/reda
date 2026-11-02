@@ -40,7 +40,8 @@ pub struct JobRunParams {
 pub struct WrittenFile {
     /// The file name, such as `Demo.GTL`.
     pub name: String,
-    /// What it holds: `copper_top`, `copper_bottom` or `profile`.
+    /// What it holds: `copper_top`, `copper_bottom`, `profile`, `drill_plated` or
+    /// `drill_non_plated`.
     pub function: &'static str,
 }
 
@@ -55,7 +56,8 @@ pub struct JobRunResult {
     pub files: Vec<WrittenFile>,
     /// What the run noticed but did not stop for, as Violations with severity `warning`:
     /// `out_of_sync {changes}`, `erc_errors {count}`, `rule_below_preset {rule, board,
-    /// minimum, preset, net_class?}`, `missing_font {font}`, `output_not_built {output}`.
+    /// minimum, preset, net_class?}`, `missing_font {font}`, `output_not_built {output}`
+    /// (BOM or CPL).
     pub warnings: Vec<Violation>,
 }
 
@@ -64,8 +66,9 @@ impl Command for JobRun {
         id: "output.job.run",
         title: "Run Output Job",
         description: "Runs an Output Job: refills stale Zones, plots the Gerber X2 files \
-                      (top and bottom copper, the Board Outline as the Profile) and writes \
-                      them with their zip, `<project>-<job>.zip`, to the job's destination \
+                      (top and bottom copper, the Board Outline as the Profile) and the \
+                      Excellon drill files (plated and non-plated) and writes them with \
+                      their zip, `<project>-<job>.zip`, to the job's destination \
                       (default `outputs/<job>/`), replacing the last run's files. Duplicate \
                       Designators, an open Board Outline and, when the job writes a BOM or \
                       CPL, Components without a Footprint block the run (`rejected`, \
@@ -120,11 +123,7 @@ impl Command for JobRun {
 
         let blockers = checks::blockers(project, &pcb, &job);
         let mut warnings = checks::warnings(project, &pcb, &preset, &fonts);
-        for (on, output) in [
-            (job.outputs.drill, "drill"),
-            (job.outputs.bom, "bom"),
-            (job.outputs.cpl, "cpl"),
-        ] {
+        for (on, output) in [(job.outputs.bom, "bom"), (job.outputs.cpl, "cpl")] {
             if on {
                 warnings.push(
                     Violation::new("output_not_built", reda_model::Severity::Warning)
@@ -152,7 +151,7 @@ impl Command for JobRun {
             project.set_zone_fills(pcb.uuid, Some(fills.clone()));
         }
 
-        cx.progress(2.0, Some(STEPS), "Plotting Gerber files");
+        cx.progress(2.0, Some(STEPS), "Plotting Gerber and drill files");
         cx.check_cancelled()?;
         let project = cx
             .session()?
@@ -160,19 +159,24 @@ impl Command for JobRun {
             .as_ref()
             .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
         let name = project.props().name.clone();
-        let every_gerber = reda_output::gerber_files(&Plot {
+        let plot = Plot {
             project,
             pcb: &pcb,
             fills: &fills,
             gerber: preset.gerber,
             created,
-        });
-        let known: Vec<String> = every_gerber.iter().map(|f| f.name.clone()).collect();
-        let files: Vec<OutputFile> = if job.outputs.gerber {
-            every_gerber
-        } else {
-            Vec::new()
         };
+        let mut known: Vec<String> = Vec::new();
+        let mut files: Vec<OutputFile> = Vec::new();
+        for (on, every) in [
+            (job.outputs.gerber, reda_output::gerber_files(&plot)),
+            (job.outputs.drill, reda_output::drill_files(&plot)),
+        ] {
+            known.extend(every.iter().map(|f| f.name.clone()));
+            if on {
+                files.extend(every);
+            }
+        }
 
         cx.progress(3.0, Some(STEPS), "Zipping");
         cx.check_cancelled()?;
