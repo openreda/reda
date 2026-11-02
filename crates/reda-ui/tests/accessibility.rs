@@ -275,3 +275,45 @@ fn the_canvas_is_one_element_that_describes_its_document_and_selection() {
     let node = h.get_by_role(Role::Canvas);
     assert_eq!(node.accesskit_node().children().count(), 0);
 }
+
+/// The buttons in the tree with no name, by where they are.
+fn unnamed_buttons(h: &Harness<'_, App>) -> Vec<String> {
+    h.query_all_by_role(Role::Button)
+        .filter(|b| {
+            let node = b.accesskit_node();
+            node.label().unwrap_or_default().trim().is_empty()
+                && node.value().unwrap_or_default().trim().is_empty()
+        })
+        .map(|b| format!("{:?}", b.accesskit_node().raw_bounds()))
+        .collect()
+}
+
+#[test]
+fn every_button_has_a_name_on_a_sheet_and_on_the_board() {
+    let work = TempDir::new("a11y-names");
+    let mut shell = Shell::new(engine());
+    shell.new_project(work.path(), "Names").unwrap();
+    let project = shell.engine().project().unwrap();
+    let pcb = project
+        .documents()
+        .find(|d| d.kind == DocumentKind::Pcb)
+        .map(|d| d.uuid);
+    let mut h = harness_on(shell);
+    h.run();
+    assert!(h.query_all_by_role(Role::Button).count() > 10);
+    assert_eq!(unnamed_buttons(&h), Vec::<String>::new(), "on the sheet");
+    if let Some(pcb) = pcb {
+        h.state_mut()
+            .shell_mut()
+            .run("document.open", json!({"document": pcb}))
+            .unwrap();
+        h.run();
+        assert_eq!(unnamed_buttons(&h), Vec::<String>::new(), "on the board");
+    }
+    for panel in PanelId::ALL {
+        let id = format!("panel.show:{}", panel.id());
+        h.state_mut().shell_mut().run(&id, json!({})).unwrap();
+        h.run();
+        assert_eq!(unnamed_buttons(&h), Vec::<String>::new(), "with {id}");
+    }
+}
