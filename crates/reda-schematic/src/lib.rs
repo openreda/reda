@@ -22,10 +22,11 @@ pub use component::{
     next_free_designator,
 };
 pub use edit::{
-    Align, AlignParams, AlignTo, Axis, Delete, DeleteParams, DeleteResult, Direction, Distribute,
-    DistributeParams, Drag, EditResult, GraphicResult, GraphicSet, GraphicSetParams, LineAdd,
-    LineAddParams, Mirror, MirrorParams, Move, RectAdd, RectAddParams, Rotate, RotateParams,
-    ShiftParams, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
+    Align, AlignParams, AlignTo, Axis, Clipboard, Copy, CopyParams, Cut, Delete, DeleteParams,
+    DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
+    EditResult, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, Mirror,
+    MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
+    RotateParams, ShiftParams, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
     TextSetParams,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
@@ -62,6 +63,10 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(NoConnectAdd);
     registry.add(SchematicNets);
     registry.add(Delete);
+    registry.add(Copy);
+    registry.add(Cut);
+    registry.add(Paste);
+    registry.add(Duplicate);
     registry.add(Move);
     registry.add(Drag);
     registry.add(Rotate);

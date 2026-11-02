@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
 const R_10K: &str = "a0000000-0000-4000-8000-000000000100";
 const C_100N: &str = "a0000000-0000-4000-8000-000000000110";
+const LM358: &str = "a0000000-0000-4000-8000-000000000120";
 
 fn library() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/library/Test")
@@ -547,4 +548,144 @@ fn lines_and_rectangles_can_be_added_edited_and_moved() {
         object(&mut engine, &rect)["shape"],
         json!({"kind": "rect", "from": point(0, 0), "to": point(-400, 600)})
     );
+}
+
+/// The Designators of the Units on `document`, sorted.
+fn designators(engine: &mut TestEngine, document: &str) -> Vec<String> {
+    let mut out: Vec<String> = objects(engine, document, "unit")
+        .iter()
+        .map(|u| u["designator"].as_str().unwrap().to_owned())
+        .collect();
+    out.sort();
+    out
+}
+
+#[test]
+fn copy_and_paste_across_sheets_brings_the_part_table_and_fresh_designators() {
+    let dir = TempDir::new("paste-sheets");
+    let mut engine = demo(&dir);
+    let other = add_sheet(&mut engine);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let c1 = place(&mut engine, C_100N, 1000, 0);
+    let w = wire(&mut engine, &[(0, 150), (1000, 150)]);
+    let vcc = label(&mut engine, "VCC", 500, 150);
+    let text = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Filter", "at": at(0, 500)}),
+    )["result"]["text"]
+        .clone();
+    let clipboard = engine.run_ok(
+        "schematic.copy",
+        json!({"objects": [r1, c1, w[0], vcc, text]}),
+    );
+    // Pasting puts the extent's lower-left corner (0, -150) at `at`.
+    let out = engine.run_ok(
+        "schematic.paste",
+        json!({"document": other, "clipboard": clipboard, "at": at(2000, 1000)}),
+    );
+    let pasted = out["result"]["objects"].as_array().unwrap().clone();
+    assert_eq!(pasted.len(), 5);
+    assert_eq!(designators(&mut engine, &other), ["C2", "R2"]);
+    assert_eq!(objects(&mut engine, &other, "part_entry").len(), 2);
+    assert_eq!(objects(&mut engine, &other, "footprint_copy").len(), 2);
+    let r2 = objects(&mut engine, &other, "unit")
+        .into_iter()
+        .find(|u| u["designator"] == "R2")
+        .unwrap();
+    assert_eq!(r2["at"], point(2000, 1150));
+    assert_ne!(
+        r2["component"]["uuid"],
+        object(&mut engine, &r1)["component"]["uuid"]
+    );
+    let labels = objects(&mut engine, &other, "net_label");
+    assert_eq!(labels[0]["at"], point(2500, 1300));
+    // The pasted drawing is connected as the original was.
+    let nets = engine.run_ok("schematic.nets", json!({"document": other}));
+    let vcc_net = nets["nets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["name"] == "VCC")
+        .unwrap()
+        .clone();
+    assert_eq!(vcc_net["pins"].as_array().unwrap().len(), 2);
+    // Pasting again on the same sheet reuses its part-table entries.
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": other, "clipboard": clipboard, "at": at(5000, 1000)}),
+    );
+    assert_eq!(designators(&mut engine, &other), ["C2", "C3", "R2", "R3"]);
+    assert_eq!(objects(&mut engine, &other, "part_entry").len(), 2);
+    // Without `at`, objects land where they were copied from.
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard}),
+    );
+    assert_eq!(designators(&mut engine, SHEET), ["C1", "C4", "R1", "R4"]);
+}
+
+#[test]
+fn units_of_one_component_stay_one_component_when_pasted() {
+    let dir = TempDir::new("paste-units");
+    let mut engine = demo(&dir);
+    let a = place_on(&mut engine, SHEET, LM358, 0, 0);
+    let b = engine.run_ok(
+        "schematic.unit.place",
+        json!({"document": SHEET, "component": a["component"]["uuid"], "at": at(2000, 0)}),
+    )["result"]["unit"]
+        .clone();
+    let clipboard = engine.run_ok("schematic.copy", json!({"objects": [a["unit"], b]}));
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(0, 3000)}),
+    );
+    assert_eq!(designators(&mut engine, SHEET), ["U1", "U1", "U2", "U2"]);
+    let units = objects(&mut engine, SHEET, "unit");
+    let copies: Vec<_> = units.iter().filter(|u| u["designator"] == "U2").collect();
+    assert_eq!(copies[0]["component"], copies[1]["component"]);
+    assert_ne!(copies[0]["unit"], copies[1]["unit"]);
+}
+
+#[test]
+fn cut_removes_the_selection_and_returns_what_paste_needs() {
+    let dir = TempDir::new("cut");
+    let mut engine = demo(&dir);
+    let other = add_sheet(&mut engine);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let w = wire(&mut engine, &[(0, 150), (0, 500)]);
+    let out = engine.run_ok("schematic.cut", json!({"objects": [r1, w[0]]}));
+    assert_eq!(count(&mut engine, "unit"), 0);
+    assert_eq!(count(&mut engine, "part_entry"), 0);
+    assert_eq!(count(&mut engine, "wire"), 0);
+    let clipboard = out["result"].clone();
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": other, "clipboard": clipboard}),
+    );
+    // R1 is free again once it is cut, so the pasted resistor takes it.
+    assert_eq!(designators(&mut engine, &other), ["R1"]);
+    assert_eq!(objects(&mut engine, &other, "wire").len(), 1);
+}
+
+#[test]
+fn duplicate_pastes_a_copy_offset_on_the_same_sheet() {
+    let dir = TempDir::new("duplicate");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let vcc = label(&mut engine, "VCC", 0, 150);
+    let out = engine.run_ok(
+        "schematic.duplicate",
+        json!({"objects": [r1, vcc], "offset": at(500, 0)}),
+    );
+    let pasted = out["result"]["objects"].as_array().unwrap().clone();
+    assert_eq!(pasted.len(), 2);
+    assert_eq!(designators(&mut engine, SHEET), ["R1", "R2"]);
+    assert_eq!(at_mil(&mut engine, &pasted[0]), (500, 0));
+    assert_eq!(at_mil(&mut engine, &pasted[1]), (500, 150));
+    assert_eq!(count(&mut engine, "part_entry"), 1);
+    // 100 mil right and 100 mil down by default; one undo step each.
+    engine.run_ok("schematic.duplicate", json!({"objects": [r1]}));
+    assert_eq!(designators(&mut engine, SHEET), ["R1", "R2", "R3"]);
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    assert_eq!(designators(&mut engine, SHEET), ["R1", "R2"]);
 }

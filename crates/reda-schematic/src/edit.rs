@@ -4,6 +4,7 @@
 
 mod arrange;
 mod bounds;
+mod clipboard;
 mod delete;
 mod graphics;
 mod moving;
@@ -13,6 +14,9 @@ mod turn;
 
 pub use arrange::{
     Align, AlignParams, AlignTo, Direction, Distribute, DistributeParams, SnapParams, SnapToGrid,
+};
+pub use clipboard::{
+    Clipboard, Copy, CopyParams, Cut, Duplicate, DuplicateParams, Paste, PasteParams, PasteResult,
 };
 pub use delete::{Delete, DeleteParams, DeleteResult};
 pub use graphics::{

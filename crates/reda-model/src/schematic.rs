@@ -61,7 +61,8 @@ pub struct SheetFrame {
 /// placed once per sheet and shared by every Unit placed from it. It is keyed by the
 /// Part's UUID ([`Part::uuid`]) plus [`PartEntry::hash`]: a sheet never holds two entries
 /// with the same pair, and a changed Part gets an entry of its own.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PartEntry {
     /// The entry's own UUID, which Units point at.
     pub uuid: Uuid,
@@ -75,7 +76,8 @@ pub struct PartEntry {
 
 /// A copy of a Library Footprint on a sheet, shared by every part-table entry that lists
 /// it. Keyed by the Footprint's UUID plus [`FootprintCopy::hash`].
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct FootprintCopy {
     pub uuid: Uuid,
     /// The content hash of the Footprint, as copied.
