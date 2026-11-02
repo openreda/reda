@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use egui::containers::menu::menu_style;
 use egui::{
     Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Role, Sense, SetOpenCommand, Ui,
-    UiBuilder, Vec2, ViewportBuilder, ViewportId, WidgetInfo,
+    UiBuilder, Vec2, ViewportBuilder, ViewportId,
 };
 use reda_engine::model::{DocumentKind, Uuid};
 use serde_json::{Value, json};
@@ -36,6 +36,7 @@ use crate::projects_panel::{self, ProjectsAction};
 use crate::schematic_editor;
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
+use crate::{a11y, keymap};
 use crate::{theme, tr};
 use windows::{WindowView, Zones};
 
@@ -76,7 +77,11 @@ pub fn panel_title(panel: PanelId) -> String {
 }
 
 /// A tab's 16 px icon: its Panel's, its Document type's, or the Start page's.
-fn tab_icon(shell: &Shell, tab: &TabKey, theme: egui::Theme) -> Option<egui::Image<'static>> {
+pub(crate) fn tab_icon(
+    shell: &Shell,
+    tab: &TabKey,
+    theme: egui::Theme,
+) -> Option<egui::Image<'static>> {
     let key = match tab {
         TabKey::Start => icons::START_PAGE,
         TabKey::Panel(panel) => icons::panel_icon(*panel),
@@ -93,7 +98,15 @@ fn tab_icon(shell: &Shell, tab: &TabKey, theme: egui::Theme) -> Option<egui::Ima
     icons::image(key, icons::TAB, theme, true)
 }
 
-fn tab_title(shell: &Shell, tab: &TabKey) -> String {
+/// The key that shows `tab`: a Panel's show Preset's, as the platform writes it.
+fn tab_shortcut(shell: &Shell, tab: &TabKey) -> Option<String> {
+    match tab {
+        TabKey::Panel(panel) => keymap::shortcut_of(shell, &format!("panel.show:{}", panel.id())),
+        _ => None,
+    }
+}
+
+pub(crate) fn tab_title(shell: &Shell, tab: &TabKey) -> String {
     match tab {
         TabKey::Start => tr!("start-page-title"),
         TabKey::Panel(panel) => panel_title(*panel),
@@ -110,6 +123,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
     } else {
         Vec::new()
     };
+    let focus_request = shell.take_focus_request();
     let mut cx = Cx {
         shell,
         layout: &layout,
@@ -121,14 +135,31 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
             docks: Vec::new(),
             dock_edges: true,
         },
+        focus_request,
     };
-    // The bottom Dock spans the window, so it goes first.
+    // Space for the Docks and the centre is set aside first, the bottom Dock first since
+    // it spans the window. What is in them is drawn after, in layout order (left Dock,
+    // centre, right Dock, bottom Dock), which is the order Tab moves keyboard focus in.
+    let mut docks = Vec::new();
     for side in [DockSide::Bottom, DockSide::Left, DockSide::Right] {
-        cx.dock(ui, side);
+        if let Some(rect) = cx.reserve_dock(ui, side) {
+            docks.push((side, rect));
+        }
     }
-    egui::CentralPanel::default()
+    let centre = egui::CentralPanel::default()
         .frame(egui::Frame::central_panel(ui.style()).inner_margin(0))
-        .show(ui, |ui| cx.node(ui, &layout.centre, Area::Centre));
+        .show(ui, reserve)
+        .inner;
+    let dock_at = |side| docks.iter().find(|(s, _)| *s == side).map(|(_, r)| *r);
+    if let Some(rect) = dock_at(DockSide::Left) {
+        cx.dock(ui, DockSide::Left, rect);
+    }
+    cx.node_at(ui, centre, &layout.centre, Area::Centre);
+    for side in [DockSide::Right, DockSide::Bottom] {
+        if let Some(rect) = dock_at(side) {
+            cx.dock(ui, side, rect);
+        }
+    }
     let ctx = ui.ctx().clone();
     // Where egui cannot open OS windows (as in tests), floating windows float inside the
     // main window and share its drop zones.
@@ -187,6 +218,17 @@ struct Cx<'a> {
     frame: Frame,
     /// Where a dragged tab can be dropped, as drawn this frame.
     zones: Zones,
+    /// The tab whose button takes the keyboard focus this frame, after F6 or the tab
+    /// switcher moved focus to it.
+    focus_request: Option<TabKey>,
+}
+
+/// Sets aside all the space left in `ui` for contents drawn later; returns it. A Dock
+/// keeps its size (its default, or as the user dragged it) whatever its contents take.
+fn reserve(ui: &mut Ui) -> Rect {
+    let rect = ui.available_rect_before_wrap();
+    ui.advance_cursor_after_rect(rect);
+    rect
 }
 
 impl Cx<'_> {
@@ -235,10 +277,12 @@ impl Cx<'_> {
         viewport
     }
 
-    fn dock(&mut self, ui: &mut Ui, side: DockSide) {
+    /// Sets aside the space of the Dock on `side`, if it holds anything; returns the
+    /// rect its contents go in.
+    fn reserve_dock(&mut self, ui: &mut Ui, side: DockSide) -> Option<Rect> {
         let dock = self.layout.dock(side);
         if dock.groups.is_empty() {
-            return;
+            return None;
         }
         let id = format!("dock-{side}");
         let panel = match side {
@@ -246,48 +290,57 @@ impl Cx<'_> {
             DockSide::Right => egui::Panel::right(id),
             DockSide::Bottom => egui::Panel::bottom(id),
         };
+        let shown = if dock.collapsed {
+            panel.resizable(false).exact_size(STRIP).show(ui, reserve)
+        } else {
+            let default = if side == DockSide::Bottom {
+                160.0
+            } else {
+                240.0
+            };
+            panel
+                .resizable(true)
+                .default_size(default)
+                .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(0))
+                .show(ui, reserve)
+        };
+        self.zones.docks.push((side, shown.response.rect));
+        Some(shown.inner)
+    }
+
+    /// Draws the Dock on `side` into `rect`, which [`Cx::reserve_dock`] set aside: its
+    /// groups, or as an icon strip with any flyout.
+    fn dock(&mut self, ui: &mut Ui, side: DockSide, rect: Rect) {
+        let dock = self.layout.dock(side);
         if dock.collapsed {
-            let strip = panel
-                .resizable(false)
-                .exact_size(STRIP)
-                .show(ui, |ui| self.icon_strip(ui, side));
-            self.zones.docks.push((side, strip.response.rect));
+            let builder = UiBuilder::new()
+                .max_rect(rect)
+                .id_salt(("dock-strip", side.to_string()));
+            let strip = ui.scope_builder(builder, |ui| self.icon_strip(ui, side));
+            let strip = strip.response.rect.union(rect);
             if let Some(tab) = &self.layout.flyout
                 && let Some(place) = self.layout.place(tab)
                 && place.area == Area::Dock(side)
             {
-                self.flyout(ui, side, strip.response.rect, tab);
+                self.flyout(ui, side, strip, tab);
             }
             return;
         }
-        let default = if side == DockSide::Bottom {
-            160.0
-        } else {
-            240.0
-        };
-        let shown = panel
-            .resizable(true)
-            .default_size(default)
-            .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(0))
-            .show(ui, |ui| {
-                let groups = &dock.groups;
-                let rects = split_rect(
-                    ui.available_rect_before_wrap(),
-                    Axis::Vertical,
-                    groups.len(),
-                );
-                for (group, rect) in groups.iter().zip(rects) {
-                    self.group_at(ui, rect, group, Area::Dock(side));
-                }
-            });
-        self.zones.docks.push((side, shown.response.rect));
+        let groups = &dock.groups;
+        for (group, part) in groups
+            .iter()
+            .zip(split_rect(rect, Axis::Vertical, groups.len()))
+        {
+            self.group_at(ui, part, group, Area::Dock(side));
+        }
     }
 
     fn icon_strip(&mut self, ui: &mut Ui, side: DockSide) {
         let mut add = |ui: &mut Ui| {
             let expand = ui.add(Button::new("»").small().frame(false));
-            expand.widget_info(|| WidgetInfo::labeled(Role::Button, true, tr!("dock-expand")));
-            if expand.on_hover_text(tr!("dock-expand")).clicked() {
+            let expand = expand.on_hover_text(tr!("dock-expand"));
+            a11y::name(&expand, Role::Button, true, &tr!("dock-expand"), None, None);
+            if expand.clicked() {
                 self.run(
                     "layout.dock.collapse",
                     json!({"dock": side, "collapsed": false}),
@@ -302,9 +355,13 @@ impl Cx<'_> {
                         None => Button::selectable(open, title.chars().take(1).collect::<String>()),
                     };
                     let icon = ui.add(button);
-                    let name = title.clone();
-                    icon.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
-                    if icon.on_hover_text(title).clicked() {
+                    if self.focus_request.as_ref() == Some(tab) {
+                        icon.request_focus();
+                    }
+                    let icon = icon.on_hover_text(&title);
+                    let shortcut = tab_shortcut(self.shell, tab);
+                    a11y::name(&icon, Role::Button, true, &title, None, shortcut.as_deref());
+                    if icon.clicked() {
                         if open {
                             // A second click dismisses the flyout.
                             self.run("layout.dock.collapse", json!({"dock": side}));
@@ -443,7 +500,20 @@ impl Cx<'_> {
             None => Button::selectable(active, title),
         };
         let response = ui.add(button.sense(Sense::click_and_drag()));
-        if response.clicked() && !active {
+        let shortcut = tab_shortcut(self.shell, tab);
+        a11y::name(
+            &response,
+            Role::Tab,
+            true,
+            &tab_title(self.shell, tab),
+            Some(active),
+            shortcut.as_deref(),
+        );
+        if self.focus_request.as_ref() == Some(tab) {
+            response.request_focus();
+        }
+        // A click on a tab focuses it, even when it is already shown.
+        if response.clicked() && (!active || self.layout.focus.as_ref() != Some(tab)) {
             self.run("layout.tab.activate", json!({"tab": tab.to_string()}));
         }
         if response.drag_started() {
@@ -543,23 +613,17 @@ impl Cx<'_> {
             TabKey::Document(uuid) => {
                 let start = self.frame.commands.len();
                 if crate::element_editor::is_element(self.shell.engine(), *uuid) {
-                    let id = Id::NULL.with(("element-side-panel", *uuid));
-                    let panel = egui::Panel::right(id)
-                        .resizable(false)
-                        .exact_size(crate::footprint_editor::inspector::WIDTH);
-                    let commands = panel
-                        .show(ui, |ui| {
-                            crate::element_editor::side_panel(ui, self.shell, *uuid)
-                        })
-                        .inner;
+                    let commands = crate::element_editor::panels(ui, self.shell, *uuid);
                     self.frame.commands.extend(commands);
                 }
                 let rect = ui.available_rect_before_wrap();
                 let theme = theme::canvas_theme(ui.ctx().theme());
+                let kind = bars::document_type(self.shell, *uuid);
+                let kind = kind.unwrap_or(bars::DocumentType::Schematic);
                 let Some(doc) = self.shell.document_tab_mut(*uuid) else {
                     return;
                 };
-                let input = canvas_input(ui, doc);
+                let input = canvas_input(ui, doc, kind);
                 // A Command still lacking params (text's words) asks for them in a dialog.
                 for (id, params) in self.edit(*uuid, &input) {
                     let registry = self.shell.engine().registry();

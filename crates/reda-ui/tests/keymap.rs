@@ -23,10 +23,10 @@ fn engine_in(home: &Path) -> Engine {
         .build()
 }
 
-/// Registers a user Library under `folder` and opens a new Footprint in it.
-fn new_footprint(shell: &mut Shell, folder: &Path) {
+/// Registers a user Library under `folder` and opens a new element of `kind` in it.
+fn new_element(shell: &mut Shell, folder: &Path, kind: &str) {
     let lib = folder.join("lib");
-    // A fresh Library each time: an earlier binding may have saved the Footprint.
+    // A fresh Library each time: an earlier binding may have saved the element.
     let _ = std::fs::remove_dir_all(&lib);
     std::fs::create_dir_all(&lib).unwrap();
     let uuid = "000000aa-0000-4000-8000-000000000000";
@@ -49,7 +49,7 @@ fn new_footprint(shell: &mut Shell, folder: &Path) {
     shell
         .run(
             "library.element.new",
-            json!({"library": uuid, "kind": "footprint", "name": "Bound"}),
+            json!({"library": uuid, "kind": kind, "name": "Bound"}),
         )
         .unwrap();
 }
@@ -151,9 +151,10 @@ fn every_default_binding_names_a_command_or_preset_and_fits_its_params() {
     for b in keymap.bindings() {
         let mut shell = Shell::new(engine_in(home.path()));
         shell.open_project(&file).unwrap();
-        if b.context.to_string() == "footprint" {
-            // Footprint keys act on the active footprint tab: open a new one.
-            new_footprint(&mut shell, work.path());
+        // The library editors' keys act on the active element tab: open a new one.
+        let context = b.context.to_string();
+        if matches!(context.as_str(), "footprint" | "symbol") {
+            new_element(&mut shell, work.path(), &context);
         }
         let item = bars::resolve(&shell, &b.action);
         assert!(!item.title.is_empty());

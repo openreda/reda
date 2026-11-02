@@ -269,13 +269,23 @@ library-unit = Unit { $unit }
 library-footprint = Alternate Footprint
 library-symbol-preview = Symbol preview
 library-footprint-preview = Footprint preview
-library-edit = Edit Part
-library-new = New Part…
+library-edit = Edit Symbol
+library-new = New…
+library-new-hover = A new Symbol, opened in the Symbol editor
 library-refresh = Refresh
 
 ## Canvas
 
-canvas-description = Schematic canvas: { $document }
+tab-switcher-title = Switch Tab
+canvas-name-schematic = Schematic canvas: { $document }
+canvas-name-pcb = PCB canvas: { $document }
+canvas-name-symbol = Symbol canvas: { $document }
+canvas-name-footprint = Footprint canvas: { $document }
+canvas-nothing-selected = Nothing selected
+canvas-selected = { $count ->
+    [one] 1 object selected
+   *[other] { $count } objects selected
+}
 
 ## Layers panel
 
@@ -652,6 +662,26 @@ violation-pin-without-pad = Pin { $pin } has no Pad in { $footprint }
 violation-unmapped-pad = Pad { $pad } of { $footprint } is mapped to no Pin
 violation-missing-courtyard = The Footprint has no courtyard
 violation-broken-reference = Broken { $kind } reference { $reference }
+
+# The Symbol editor.
+symbol-read-only = Read-only: this Symbol is in the starter Library.
+error-edit-in-library-nothing = Select a placed Component to edit it in its Library.
+symbol-unit-tab = Unit { $unit }
+symbol-unit-add = Add Unit
+symbol-text-hint = Text; Enter places it
+pin-table-number = Number
+pin-table-name = Name
+pin-table-type = Type
+pin-table-x = X (mil)
+pin-table-y = Y (mil)
+pin-table-rotation = Rotation
+pin-table-length = Length (mil)
+pin-table-name-visible = Name shown
+pin-table-number-visible = Number shown
+pin-table-paste = Paste Pins
+pin-table-paste-hint = Paste rows here: number, name, type, x, y, rotation, length (bare numbers are mil)
+pin-table-paste-error = Pasted Pins: { $error }
+pin-table-paste-empty = there are no rows to paste
 
 # The Footprint editor.
 footprint-read-only = Read-only: this Footprint is in the starter Library.

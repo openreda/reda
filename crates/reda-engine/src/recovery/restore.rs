@@ -17,6 +17,60 @@ use crate::builders::add_document;
 use crate::format::{LoadError, read_bytes, read_pcb_file, read_sheet_file};
 use crate::store;
 
+/// Restores Library element snapshots from the per-user recovery folder `dir`, with no
+/// Project open: each element opens on the workbench (or, already open, changes) as
+/// unsaved changes. Snapshots of anything else are refused.
+pub(crate) fn restore_elements(
+    session: &mut Session,
+    dir: &Path,
+    files: &[String],
+) -> Result<Vec<Scope>, CommandError> {
+    let rows = manifest_rows(dir).map_err(CommandError::rejected)?;
+    let mut elements = Vec::new();
+    for file in files {
+        let row: &Snapshot = rows.get(file).ok_or_else(|| {
+            CommandError::not_found(format!("the recovery folder has no snapshot {file:?}"))
+        })?;
+        let snapshot = parse_snapshot(dir, row)
+            .map_err(|why| CommandError::rejected(format!("{file} cannot be restored: {why}")))?;
+        match (snapshot, &row.target) {
+            (Parsed::Element(uuid, element), super::Target::Element { library, .. }) => {
+                elements.push((uuid, *library, *element));
+            }
+            _ => {
+                return Err(CommandError::rejected(format!(
+                    "{file} belongs to a Project; open that Project to restore it"
+                )));
+            }
+        }
+    }
+    let mut restored = Vec::new();
+    for (uuid, library, element) in elements {
+        let holder = crate::commands::elements::holder(session);
+        if holder.element(uuid).is_some() {
+            let mut tx = holder.transaction();
+            tx.replace(element.into())
+                .map_err(|e| CommandError::internal(e.to_string()))?;
+            let changes = tx
+                .commit()
+                .map_err(|e| CommandError::internal(e.to_string()))?;
+            session.history.record(LABEL, &changes);
+        } else {
+            let source = ElementSource {
+                library,
+                read_only: false,
+            };
+            holder
+                .open_element(source, element)
+                .map_err(CommandError::conflict)?;
+            session.history.forget(Scope::Element(uuid));
+            session.history.mark_unsaved(Scope::Element(uuid));
+        }
+        restored.push(Scope::Element(uuid));
+    }
+    Ok(restored)
+}
+
 /// The undo label of a restore.
 const LABEL: &str = "Restore Recovery Snapshot";
 

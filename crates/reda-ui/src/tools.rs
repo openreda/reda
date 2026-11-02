@@ -81,6 +81,10 @@ pub enum Tool {
     Circle,
     /// Footprint editor: a click moves the Footprint's origin there, then Select is back.
     Origin,
+    /// Symbol editor: each click places a Pin on the 50 mil grid, numbered on (P).
+    Pin,
+    /// Symbol editor: clicks add corners; a click on the first, or Enter, closes it (O).
+    Polygon,
 }
 
 impl Tool {
@@ -114,6 +118,8 @@ impl Tool {
             Tool::Pad => "pad",
             Tool::Circle => "circle",
             Tool::Origin => "origin",
+            Tool::Pin => "pin",
+            Tool::Polygon => "polygon",
         }
     }
 
@@ -194,7 +200,8 @@ impl Command for ToolActivate {
                       Power Port and No-Connect place one object per click; Select (also \
                       what Escape returns to) cancels a Tool in flight. On a Footprint, Pad \
                       places Pads, Line, Rect and Circle draw on the drawing Layer and \
-                      Origin moves the origin.",
+                      Origin moves the origin. On a Symbol, Pin places Pins and Line, Rect, \
+                      Arc, Circle, Polygon and Text draw on the shown Unit.",
         category: "tool",
         icon: "select",
         kind: Kind::View,
@@ -232,6 +239,13 @@ impl Command for ToolActivate {
             Preset::new("pad", "Place Pad", "pad", json!({"tool": "pad"})),
             Preset::new("circle", "Draw Circle", "circle", json!({"tool": "circle"})),
             Preset::new("origin", "Set Origin", "origin", json!({"tool": "origin"})),
+            Preset::new("pin", "Place Pin", "pin", json!({"tool": "pin"})),
+            Preset::new(
+                "polygon",
+                "Draw Polygon",
+                "polygon",
+                json!({"tool": "polygon"}),
+            ),
         ];
         for (tool, title, icon) in BOARD_TOOLS {
             let id = tool.id();

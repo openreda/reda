@@ -26,8 +26,8 @@ fn engine_in(home: &Path) -> Engine {
         .build()
 }
 
-/// Registers a user Library under `folder` and opens a new Footprint in it.
-fn new_footprint(shell: &mut Shell, folder: &Path) {
+/// Registers a user Library under `folder` and opens a new element of `kind` in it.
+fn new_element(shell: &mut Shell, folder: &Path, kind: &str) {
     let lib = folder.join("lib");
     std::fs::create_dir_all(&lib).unwrap();
     let uuid = "000000aa-0000-4000-8000-000000000000";
@@ -50,7 +50,7 @@ fn new_footprint(shell: &mut Shell, folder: &Path) {
     shell
         .run(
             "library.element.new",
-            json!({"library": uuid, "kind": "footprint", "name": "Bound"}),
+            json!({"library": uuid, "kind": kind, "name": "Bound"}),
         )
         .unwrap();
 }
@@ -247,9 +247,11 @@ fn every_binding_names_a_command_or_preset_and_fits_its_params() {
     for context in every_context() {
         let mut shell = Shell::new(engine_in(home.path()));
         shell.open_project(&file).unwrap();
-        if context == Some(DocumentType::Footprint) {
-            // The footprint bar acts on the active footprint tab: open a new one.
-            new_footprint(&mut shell, work.path());
+        // The library editors' bars act on the active element tab: open a new one.
+        match context {
+            Some(DocumentType::Footprint) => new_element(&mut shell, work.path(), "footprint"),
+            Some(DocumentType::Symbol) => new_element(&mut shell, work.path(), "symbol"),
+            _ => {}
         }
         for action in actions(bars::for_document(context)) {
             let item = bars::resolve(&shell, action);

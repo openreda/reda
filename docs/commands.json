@@ -7114,6 +7114,45 @@
     },
     {
       "category": "library",
+      "description": "Removes any mix of an open Symbol's Pins and graphics in one step.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "Pins and graphics by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "objects"
+        ],
+        "title": "SymbolDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete in Symbol"
+    },
+    {
+      "category": "library",
       "description": "Changes an open Symbol's name, description or Designator prefix. Omitted fields keep their value.",
       "icon": "symbol_edit",
       "id": "library.symbol.edit",
@@ -7723,6 +7762,82 @@
         "type": "null"
       },
       "title": "Remove Symbol Graphic"
+    },
+    {
+      "category": "library",
+      "description": "Moves any mix of an open Symbol's Pins and graphics by `by`, in one step.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "objects": {
+            "description": "Pins and graphics by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "objects",
+          "by"
+        ],
+        "title": "SymbolMoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Move in Symbol"
     },
     {
       "category": "library",
@@ -22424,7 +22539,7 @@
     },
     {
       "category": "project",
-      "description": "Loads Recovery Snapshots from the open Project's `.reda/recovery/` folder as unsaved changes on top of their files, in one step that undoes like an edit. A snapshot whose Document is gone recreates it as an unsaved Document. An unreadable snapshot is refused. The snapshot files are left in place for the app to delete.",
+      "description": "Loads Recovery Snapshots from the open Project's `.reda/recovery/` folder as unsaved changes on top of their files, in one step that undoes like an edit. A snapshot whose Document is gone recreates it as an unsaved Document. An unreadable snapshot is refused. The snapshot files are left in place for the app to delete. With no Project open it restores Library element snapshots from the per-user `recovery/` folder, each as an open element with unsaved changes.",
       "icon": "project_open",
       "id": "recovery.restore",
       "kind": "file",
@@ -22433,7 +22548,7 @@
         "additionalProperties": false,
         "properties": {
           "snapshots": {
-            "description": "Snapshot file names in the Project's `.reda/recovery/` folder, as its\n`manifest.json` lists them.",
+            "description": "Snapshot file names in the Project's `.reda/recovery/` folder (with no Project\nopen, the per-user `recovery/` folder), as its `manifest.json` lists them.",
             "items": {
               "type": "string"
             },

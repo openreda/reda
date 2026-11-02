@@ -9,6 +9,7 @@
 
 mod commands;
 mod drop;
+pub mod focus;
 mod model;
 pub mod saved;
 

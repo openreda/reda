@@ -99,6 +99,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `part_edit` | Lucide `package` |
 | `paste` | Lucide `clipboard-paste` |
 | `pin` | Tabler `point` (outline) |
+| `polygon` | Lucide `pentagon` |
 | `port` | Tabler `arrow-big-right` (outline) |
 | `power_port` | Tabler `bolt` (outline) |
 | `preferences` | Lucide `settings` |

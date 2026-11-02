@@ -58,7 +58,7 @@ pub fn arg<'a>(value: impl Into<FluentValue<'a>>) -> FluentValue<'a> {
 }
 
 /// Looks a UI string up in the catalogue: `tr!("start-page-title")`, or with arguments
-/// `tr!("canvas-description", document = name)`.
+/// `tr!("canvas-name-schematic", document = name)`.
 #[macro_export]
 macro_rules! tr {
     ($key:literal) => {

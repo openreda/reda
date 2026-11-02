@@ -12,11 +12,12 @@ use egui::{Color32, PointerButton, Rect, Role, Sense, Stroke, Ui, WidgetInfo};
 use reda_engine::model::Severity;
 use reda_engine::model::geom::Point;
 use reda_engine::render::gpu::GridSpec;
-use reda_engine::render::{ColorKey, Palette, SchematicColor, Theme};
+use reda_engine::render::{ColorKey, Palette, SceneSource, SchematicColor, Theme};
 
 use super::camera::{Camera, CanvasInput, grid_pitch};
 use super::gpu::{CanvasFrame, paint};
 use super::interact::{BoxMode, Pointer, pointer};
+use crate::bars::DocumentType;
 use crate::shell::DocumentTab;
 use crate::tr;
 
@@ -77,6 +78,21 @@ impl CanvasInputs {
 }
 
 /// `pos` reflected about the vertical centre line of `rect` when `mirrored`.
+/// How many of the selected objects `tab`'s canvas draws.
+fn selected_on_canvas(tab: &DocumentTab) -> usize {
+    let selected = &tab.selection.objects;
+    if selected.is_empty() {
+        return 0;
+    }
+    let mut drawn: Vec<_> = (tab.scene.scene.items.iter())
+        .map(|item| item.object)
+        .filter(|object| selected.contains(object))
+        .collect();
+    drawn.sort_unstable();
+    drawn.dedup();
+    drawn.len()
+}
+
 pub(crate) fn mirror(rect: Rect, pos: egui::Pos2, mirrored: bool) -> egui::Pos2 {
     if mirrored {
         egui::pos2(2.0 * rect.center().x - pos.x, pos.y)
@@ -87,21 +103,36 @@ pub(crate) fn mirror(rect: Rect, pos: egui::Pos2, mirrored: bool) -> egui::Pos2 
 
 /// Shows `tab`'s canvas filling the space left in `ui`, with no Tools.
 pub fn canvas(ui: &mut Ui, tab: &mut DocumentTab, theme: Theme) {
-    let input = canvas_input(ui, tab);
+    let kind = match tab.scene.scene.source {
+        SceneSource::Pcb(_) => DocumentType::Pcb,
+        _ => DocumentType::Schematic,
+    };
+    let input = canvas_input(ui, tab, kind);
     canvas_paint(ui, &input, tab, theme);
 }
 
-/// Lays out `tab`'s canvas filling the space left in `ui`, moves its camera, and returns
-/// the frame's pointer events.
-pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab) -> CanvasInputs {
+/// Lays out `tab`'s canvas, a Document of type `kind`, filling the space left in `ui`;
+/// moves its camera, and returns the frame's pointer events.
+///
+/// The canvas is one accessible element: it names the Document and describes how many of
+/// its objects are selected.
+pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> CanvasInputs {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
-    let title = tab.title.clone();
-    response.widget_info(|| {
-        WidgetInfo::labeled(
-            Role::Canvas,
-            true,
-            tr!("canvas-description", document = title.as_str()),
-        )
+    let title = tab.title.as_str();
+    let name = match kind {
+        DocumentType::Schematic => tr!("canvas-name-schematic", document = title),
+        DocumentType::Pcb => tr!("canvas-name-pcb", document = title),
+        DocumentType::Symbol => tr!("canvas-name-symbol", document = title),
+        DocumentType::Footprint => tr!("canvas-name-footprint", document = title),
+    };
+    let selected = selected_on_canvas(tab);
+    let description = match selected {
+        0 => tr!("canvas-nothing-selected"),
+        count => tr!("canvas-selected", count = count),
+    };
+    response.widget_info(|| WidgetInfo::labeled(Role::Canvas, true, name.as_str()));
+    ui.ctx().accesskit_node_builder(response.id, |node| {
+        node.set_description(description);
     });
 
     if let Some((lo, hi)) = tab.zoom_to.take() {
