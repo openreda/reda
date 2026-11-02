@@ -3,8 +3,9 @@
 use reda_engine::command::{Angle, Command, CommandError, Context, Kind, Length, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Point};
 use reda_engine::model::{
-    Fields, Footprint, FootprintCopy, FootprintInstance, FootprintText, Hole, InDocument, Net,
-    Object, Pad, PadKind, PadNet, PadShape, Side, Uuid,
+    Fields, Footprint, FootprintCopy, FootprintGraphic, FootprintInstance, FootprintLayer,
+    FootprintText, Hole, InDocument, Net, Object, Pad, PadKind, PadNet, PadShape, Shape, Side,
+    Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -14,8 +15,9 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(FootprintAdd);
 }
 
-/// `test.footprint.add {at, rotation?, side?, pads: [{at, width, height, shape?, kind?,
-/// rotation?, corner_radius?, net?, hole?}]}`: places a Footprint instance with its own one-off
+/// `test.footprint.add {at, rotation?, side?, designator?, graphics?: [{layer, shape, width,
+/// fill?}], pads: [{at, width, height, shape?, kind?, rotation?, corner_radius?, net?, hole?,
+/// mask_margin?, paste_margin?}]}`: places a Footprint instance with its own one-off
 /// Footprint copy (Pads numbered 1, 2, … in param order), as Sync will, so copper tests
 /// need no Library. Pads default to rectangular SMD Pads.
 struct FootprintAdd;
@@ -52,6 +54,21 @@ struct PadParams {
     /// `{width, height}` in nm.
     #[serde(default)]
     hole: Option<Hole>,
+    #[serde(default)]
+    mask_margin: Option<Length>,
+    #[serde(default)]
+    paste_margin: Option<Length>,
+}
+
+/// A drawing shape of the Footprint, in nm.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct GraphicParams {
+    layer: FootprintLayer,
+    shape: Shape,
+    width: Length,
+    #[serde(default)]
+    fill: bool,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -62,6 +79,11 @@ struct FootprintAddParams {
     rotation: Option<Angle>,
     #[serde(default)]
     side: Option<Side>,
+    /// Defaults to `TP`.
+    #[serde(default)]
+    designator: Option<String>,
+    #[serde(default)]
+    graphics: Vec<GraphicParams>,
     pads: Vec<PadParams>,
 }
 
@@ -109,8 +131,8 @@ impl Command for FootprintAdd {
                 height: pad.height.nm(),
                 corner_radius: pad.corner_radius.map(|r| r.nm()),
                 hole: pad.hole,
-                mask_margin: None,
-                paste_margin: None,
+                mask_margin: pad.mask_margin.map(|m| m.nm()),
+                paste_margin: pad.paste_margin.map(|m| m.nm()),
             });
             nets.push(PadNet {
                 pad: uuid,
@@ -120,12 +142,24 @@ impl Command for FootprintAdd {
         let order: Vec<Uuid> = pads.iter().map(|p| p.uuid).collect();
         pads.sort_by_key(|p| p.uuid);
         nets.sort_by_key(|p| p.pad);
+        let mut graphics: Vec<FootprintGraphic> = p
+            .graphics
+            .into_iter()
+            .map(|g| FootprintGraphic {
+                uuid: cx.new_id(),
+                layer: g.layer,
+                shape: g.shape,
+                width: g.width.nm(),
+                fill: g.fill,
+            })
+            .collect();
+        graphics.sort_by_key(|g| g.uuid);
         let footprint = Footprint {
             uuid: cx.new_id(),
             name: "Test".into(),
             description: String::new(),
             pads,
-            graphics: Vec::new(),
+            graphics,
             designator: FootprintText::DESIGNATOR,
             value: FootprintText::VALUE,
             provenance: None,
@@ -143,7 +177,7 @@ impl Command for FootprintAdd {
             rotation: p.rotation.map_or(Millideg::ZERO, |r| r.millideg()),
             side: p.side.unwrap_or(Side::Top),
             locked: false,
-            designator: "TP".into(),
+            designator: p.designator.unwrap_or_else(|| "TP".into()),
             fields: Fields::default(),
             not_fitted: false,
             designator_text: None,
