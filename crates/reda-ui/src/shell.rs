@@ -17,9 +17,9 @@ use std::time::Instant;
 use reda_engine::command::{CommandError, FontFace, Kind};
 use reda_engine::model::geom::Point;
 use reda_engine::model::{
-    DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Severity, Side, Uuid, Violation,
+    DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid, Violation,
 };
-use reda_engine::render::{self, board_composites};
+use reda_engine::preferences::InactiveLayerMode;
 use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
@@ -28,6 +28,7 @@ use crate::layout::{self, Layout, TabKey, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
+use crate::pcb::{self, BoardView};
 use crate::selection::{self, Selection};
 use crate::tr;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
@@ -109,6 +110,8 @@ pub struct Shell {
     messages: Messages,
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
+    /// How inactive Layers draw while a board's view has no mode of its own (Preference).
+    inactive_default: InactiveLayerMode,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
     closed_views: BTreeMap<Uuid, DocumentView>,
     view_saves: Debounce,
@@ -125,8 +128,13 @@ impl Shell {
         if engine.registry().get("selection.set").is_none() {
             engine.register(selection::register_all);
         }
+        if engine.registry().get("pcb.layer.show").is_none() {
+            engine.register(pcb::register_all);
+        }
+        let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
+        engine.view_mut().set(BoardView::new(units));
         crate::bars::install(&mut engine);
         let mut shell = Shell {
             engine,
@@ -137,10 +145,14 @@ impl Shell {
             message: None,
             messages: Messages::default(),
             marked: SelectionHandle::default(),
+            inactive_default: InactiveLayerMode::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
         };
         shell.load_preference_warnings();
+        shell.inactive_default = preferences::current(shell.engine.user_dirs())
+            .display
+            .inactive_layer_mode;
         if shell.engine.project().is_some() {
             shell.show_project();
         }
@@ -179,6 +191,22 @@ impl Shell {
             .view()
             .get::<Selection>()
             .expect("the Shell installs its Selection")
+    }
+
+    /// The board's view: its Layer state, units and snap grid. It changes through the
+    /// PCB view Commands (`pcb.layer.show`, `view.grid.set`, ...).
+    pub fn board_view(&self) -> &BoardView {
+        self.engine
+            .view()
+            .get::<BoardView>()
+            .expect("the Shell installs its BoardView")
+    }
+
+    fn board_view_mut(&mut self) -> &mut BoardView {
+        self.engine
+            .view_mut()
+            .get_mut::<BoardView>()
+            .expect("the Shell installs its BoardView")
     }
 
     /// The open Documents' tabs.
@@ -318,6 +346,9 @@ impl Shell {
                 },
             );
         }
+        if let Some(pcb) = project.pcb() {
+            documents.entry(pcb.uuid).or_default().layers = self.board_view().layers.clone();
+        }
         let file = ViewFile::new(self.layout().clone(), documents);
         Some((folder, file.encode()))
     }
@@ -386,6 +417,7 @@ impl Shell {
             },
         }
         self.sync_selection();
+        self.sync_board_view();
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
@@ -704,6 +736,15 @@ impl Shell {
             }
             None => (self.default_layout(first_sheet), BTreeMap::new()),
         };
+        let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
+        let units = preferences::current(self.engine.user_dirs())
+            .pcb
+            .default_units;
+        let mut board = BoardView::new(units);
+        if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
+            board.layers = view.layers.clone();
+        }
+        *self.board_view_mut() = board;
         self.documents.clear();
         let open: Vec<Uuid> = layout
             .groups()
@@ -830,6 +871,21 @@ impl Shell {
         }
     }
 
+    /// Hands the PCB tab the board's Layer state after a Command changed it, and redraws
+    /// the board with it.
+    fn sync_board_view(&mut self) {
+        let Some(pcb) = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid) else {
+            return;
+        };
+        let layers = self.board_view().layers.clone();
+        if self.document_tab(pcb).is_some_and(|t| t.layers != layers) {
+            let scene = self.scene_of(pcb);
+            let tab = self.document_tab_mut(pcb).expect("checked above");
+            tab.layers = layers;
+            tab.scene = scene;
+        }
+    }
+
     /// Drops the tab state of Documents whose tabs the layout no longer has.
     fn forget_closed_documents(&mut self) {
         let mut documents = std::mem::take(&mut self.documents);
@@ -839,22 +895,13 @@ impl Shell {
 
     fn scene_of(&mut self, document: Uuid) -> SceneHandle {
         self.generation += 1;
-        let scene = self.engine.document_scene(document).unwrap_or_default();
-        // Until the Layers panel and view state exist (#89-#92), a board shows every Layer
-        // with the top copper active and the Ratsnest visible.
-        let layers = self
-            .engine
-            .project()
-            .and_then(|p| p.pcb_document(document))
-            .map(|pcb| {
-                let set = pcb.layers();
-                let view = render::LayerView {
-                    active: set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid),
-                    ratsnest: true,
-                    ..render::LayerView::default()
-                };
-                board_composites(&set.layers, &view).into()
-            });
+        let mut scene = self.engine.document_scene(document).unwrap_or_default();
+        let board = self.board_view();
+        let layers = self.engine.project().and_then(|project| {
+            let pcb = project.pcb_document(document)?;
+            board.filter_scene(project, &mut scene);
+            Some(board.composites(pcb, self.inactive_default).into())
+        });
         SceneHandle {
             generation: self.generation,
             scene: Arc::new(scene),

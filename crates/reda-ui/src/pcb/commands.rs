@@ -1,0 +1,608 @@
+//! The PCB view Commands: view Commands (no undo, never dirty) that change the
+//! [`BoardView`] in the engine's view state. The Layers panel and the view keys run them,
+//! so scripts and agents change the view the same way.
+
+use reda_engine::command::{
+    AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams, Preset,
+    Registry, Unavailable,
+};
+use reda_engine::model::{LayerKind, LayerSet, ObjectType, Side, Uuid};
+use reda_engine::preferences::{InactiveLayerMode, Units};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+use super::view::{BoardView, MIL_GRIDS, MM_GRIDS, VIEW_TYPES, grids};
+
+/// Adds the PCB view Commands to `registry`. The Shell does this for its engine.
+pub fn register_all(registry: &mut Registry) {
+    registry.add(LayerShow);
+    registry.add(LayerActivate);
+    registry.add(LayerStep);
+    registry.add(LayerSwapSide);
+    registry.add(InactiveLayersSet);
+    registry.add(FromBottom);
+    registry.add(ObjectTypeShow);
+    registry.add(RatsnestShow);
+    registry.add(UnitsToggle);
+    registry.add(GridSet);
+}
+
+fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+    match cx.project {
+        Some(p) if p.pcb().is_some() => Ok(()),
+        Some(_) => Err(Unavailable {
+            reason: "the Project has no PCB Document".into(),
+        }),
+        None => Err(Unavailable {
+            reason: "no Project is open".into(),
+        }),
+    }
+}
+
+/// The board's Layer set.
+fn layer_set(cx: &Context<'_>) -> Result<LayerSet, CommandError> {
+    let project = cx.project()?;
+    let pcb = project
+        .pcb()
+        .ok_or_else(|| CommandError::unavailable("the Project has no PCB Document"))?;
+    Ok(pcb.layers().clone())
+}
+
+fn board_view<'c>(cx: &'c mut Context<'_>) -> Result<&'c mut BoardView, CommandError> {
+    cx.view::<BoardView>()
+}
+
+fn check_layer(set: &LayerSet, layer: Uuid) -> Result<(), CommandError> {
+    match set.layer(layer) {
+        Some(_) => Ok(()),
+        None => Err(CommandError::invalid_params(
+            "/layer",
+            format!("{layer} is not a Layer of the board"),
+        )),
+    }
+}
+
+/// The Layer that is active now (the chosen one, else the top copper).
+fn active(set: &LayerSet, view: &BoardView) -> Option<Uuid> {
+    view.layers
+        .active
+        .filter(|l| set.layer(*l).is_some())
+        .or_else(|| set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid))
+}
+
+/// The Layer now active.
+#[derive(Serialize, JsonSchema)]
+pub struct ActiveLayer {
+    pub layer: Option<Uuid>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LayerShowParams {
+    /// The Layer, by UUID.
+    layer: Uuid,
+    /// Show or hide it; left out, it toggles.
+    #[serde(default)]
+    visible: Option<bool>,
+}
+
+/// Whether the thing is now shown.
+#[derive(Serialize, JsonSchema)]
+pub struct Shown {
+    pub visible: bool,
+}
+
+struct LayerShow;
+
+impl Command for LayerShow {
+    const META: Meta = Meta {
+        id: "pcb.layer.show",
+        title: "Show Layer",
+        description: "Shows or hides one board Layer on the PCB canvas; with `visible` left \
+                      out it toggles.",
+        category: "pcb_view",
+        icon: "layer_visible",
+        kind: Kind::View,
+    };
+    type Params = LayerShowParams;
+    type Output = Shown;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: LayerShowParams) -> Result<Shown, CommandError> {
+        check_layer(&layer_set(cx)?, p.layer)?;
+        let hidden = &mut board_view(cx)?.layers.hidden;
+        let visible = p.visible.unwrap_or(hidden.contains(&p.layer));
+        if visible {
+            hidden.remove(&p.layer);
+        } else {
+            hidden.insert(p.layer);
+        }
+        Ok(Shown { visible })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LayerActivateParams {
+    /// The Layer to edit on, by UUID.
+    layer: Uuid,
+}
+
+struct LayerActivate;
+
+impl Command for LayerActivate {
+    const META: Meta = Meta {
+        id: "pcb.layer.activate",
+        title: "Set Active Layer",
+        description: "Makes a Layer the active one: drawn last at full opacity, and where new \
+                      Tracks and text go. A hidden Layer is shown.",
+        category: "pcb_view",
+        icon: "layer_active",
+        kind: Kind::View,
+    };
+    type Params = LayerActivateParams;
+    type Output = ActiveLayer;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: LayerActivateParams,
+    ) -> Result<ActiveLayer, CommandError> {
+        check_layer(&layer_set(cx)?, p.layer)?;
+        let view = board_view(cx)?;
+        view.layers.active = Some(p.layer);
+        view.layers.hidden.remove(&p.layer);
+        Ok(ActiveLayer {
+            layer: Some(p.layer),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Direction {
+    /// The copper Layer below, wrapping to the top.
+    Next,
+    /// The copper Layer above, wrapping to the bottom.
+    Previous,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LayerStepParams {
+    direction: Direction,
+}
+
+struct LayerStep;
+
+impl Command for LayerStep {
+    const META: Meta = Meta {
+        id: "pcb.layer.step",
+        title: "Step Copper Layer",
+        description: "Makes the next or previous copper Layer active, wrapping around. From a \
+                      Layer that is not copper, it starts at the top copper.",
+        category: "pcb_view",
+        icon: "layer_active",
+        kind: Kind::View,
+    };
+    type Params = LayerStepParams;
+    type Output = ActiveLayer;
+
+    fn presets(&self) -> Vec<Preset> {
+        vec![
+            Preset::new(
+                "next",
+                "Next Copper Layer",
+                "layer_next",
+                json!({"direction": "next"}),
+            ),
+            Preset::new(
+                "previous",
+                "Previous Copper Layer",
+                "layer_previous",
+                json!({"direction": "previous"}),
+            ),
+        ]
+    }
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: LayerStepParams) -> Result<ActiveLayer, CommandError> {
+        let set = layer_set(cx)?;
+        let copper: Vec<Uuid> = set
+            .layers
+            .iter()
+            .filter(|l| l.kind == LayerKind::Copper)
+            .map(|l| l.uuid)
+            .collect();
+        let view = board_view(cx)?;
+        let current = active(&set, view).and_then(|a| copper.iter().position(|c| *c == a));
+        let n = copper.len();
+        let next = match (current, p.direction) {
+            (_, _) if n == 0 => return Ok(ActiveLayer { layer: None }),
+            (None, _) => 0,
+            (Some(i), Direction::Next) => (i + 1) % n,
+            (Some(i), Direction::Previous) => (i + n - 1) % n,
+        };
+        view.layers.active = Some(copper[next]);
+        view.layers.hidden.remove(&copper[next]);
+        Ok(ActiveLayer {
+            layer: Some(copper[next]),
+        })
+    }
+}
+
+struct LayerSwapSide;
+
+impl Command for LayerSwapSide {
+    const META: Meta = Meta {
+        id: "pcb.layer.swap_side",
+        title: "Swap Active Layer Side",
+        description: "Makes the twin of the active Layer on the other face active: top copper \
+                      and bottom copper, top and bottom silkscreen, and so on. A Layer with no \
+                      side stays.",
+        category: "pcb_view",
+        icon: "layer_swap",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = ActiveLayer;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<ActiveLayer, CommandError> {
+        let set = layer_set(cx)?;
+        let view = board_view(cx)?;
+        let Some(current) = active(&set, view).and_then(|a| set.layer(a)) else {
+            return Ok(ActiveLayer { layer: None });
+        };
+        let twin = match current.side {
+            Some(Side::Top) => set.find(current.kind, Some(Side::Bottom)),
+            Some(Side::Bottom) => set.find(current.kind, Some(Side::Top)),
+            None => Some(current),
+        }
+        .map(|l| l.uuid);
+        if let Some(twin) = twin {
+            view.layers.active = Some(twin);
+            view.layers.hidden.remove(&twin);
+        }
+        Ok(ActiveLayer { layer: twin })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InactiveLayersParams {
+    /// The mode; left out, it cycles Normal, Dimmed, Hidden.
+    #[serde(default)]
+    mode: Option<InactiveLayerMode>,
+}
+
+/// The Inactive-Layer mode now in force.
+#[derive(Serialize, JsonSchema)]
+pub struct Mode {
+    pub mode: InactiveLayerMode,
+}
+
+struct InactiveLayersSet;
+
+impl Command for InactiveLayersSet {
+    const META: Meta = Meta {
+        id: "pcb.view.inactive_layers",
+        title: "Inactive Layers",
+        description: "Sets how Layers other than the active one are drawn: normal, dimmed, or \
+                      hidden (single-Layer mode). With `mode` left out it cycles through the \
+                      three.",
+        category: "pcb_view",
+        icon: "layers",
+        kind: Kind::View,
+    };
+    type Params = InactiveLayersParams;
+    type Output = Mode;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: InactiveLayersParams) -> Result<Mode, CommandError> {
+        let default = cx
+            .user_dirs()
+            .map(|d| {
+                reda_engine::preferences::current(Some(d))
+                    .display
+                    .inactive_layer_mode
+            })
+            .unwrap_or_default();
+        let view = board_view(cx)?;
+        let mode = p
+            .mode
+            .unwrap_or_else(|| match view.layers.inactive_mode.unwrap_or(default) {
+                InactiveLayerMode::Normal => InactiveLayerMode::Dimmed,
+                InactiveLayerMode::Dimmed => InactiveLayerMode::Hidden,
+                InactiveLayerMode::Hidden => InactiveLayerMode::Normal,
+            });
+        view.layers.inactive_mode = Some(mode);
+        Ok(Mode { mode })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FromBottomParams {
+    /// See the board from below; left out, it toggles.
+    #[serde(default)]
+    from_bottom: Option<bool>,
+}
+
+/// Whether the board is now seen from below.
+#[derive(Serialize, JsonSchema)]
+pub struct Flipped {
+    pub from_bottom: bool,
+}
+
+struct FromBottom;
+
+impl Command for FromBottom {
+    const META: Meta = Meta {
+        id: "pcb.view.from_bottom",
+        title: "View from Bottom",
+        description: "Shows the board as seen from below: mirrored left-right, with the \
+                      physical Layers drawn in reverse order. With `from_bottom` left out it \
+                      toggles.",
+        category: "pcb_view",
+        icon: "view_flip",
+        kind: Kind::View,
+    };
+    type Params = FromBottomParams;
+    type Output = Flipped;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: FromBottomParams) -> Result<Flipped, CommandError> {
+        let layers = &mut board_view(cx)?.layers;
+        layers.from_bottom = p.from_bottom.unwrap_or(!layers.from_bottom);
+        Ok(Flipped {
+            from_bottom: layers.from_bottom,
+        })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectTypeShowParams {
+    /// The kind of object: footprint_instance, track, via, zone, keepout, free_pad,
+    /// pcb_text or pcb_graphic.
+    #[serde(rename = "type")]
+    kind: ObjectType,
+    /// Show or hide them; left out, it toggles.
+    #[serde(default)]
+    visible: Option<bool>,
+}
+
+struct ObjectTypeShow;
+
+impl Command for ObjectTypeShow {
+    const META: Meta = Meta {
+        id: "pcb.view.object_type.show",
+        title: "Show Object Type",
+        description: "Shows or hides every object of one kind on the PCB canvas, such as all \
+                      Tracks; with `visible` left out it toggles.",
+        category: "pcb_view",
+        icon: "layer_visible",
+        kind: Kind::View,
+    };
+    type Params = ObjectTypeShowParams;
+    type Output = Shown;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: ObjectTypeShowParams) -> Result<Shown, CommandError> {
+        if !VIEW_TYPES.contains(&p.kind) {
+            return Err(CommandError::invalid_params(
+                "/type",
+                "only board objects can be hidden by kind",
+            ));
+        }
+        let hidden = &mut board_view(cx)?.layers.hidden_types;
+        let visible = p.visible.unwrap_or(hidden.contains(&p.kind));
+        if visible {
+            hidden.remove(&p.kind);
+        } else {
+            hidden.insert(p.kind);
+        }
+        Ok(Shown { visible })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RatsnestShowParams {
+    /// One Net's lines, by UUID; left out, the whole Ratsnest.
+    #[serde(default)]
+    net: Option<Uuid>,
+    /// Show or hide; left out, it toggles.
+    #[serde(default)]
+    visible: Option<bool>,
+}
+
+struct RatsnestShow;
+
+impl Command for RatsnestShow {
+    const META: Meta = Meta {
+        id: "pcb.ratsnest.show",
+        title: "Show Ratsnest",
+        description: "Shows or hides the Ratsnest, or one Net's lines in it; with `visible` \
+                      left out it toggles.",
+        category: "pcb_view",
+        icon: "ratsnest",
+        kind: Kind::View,
+    };
+    type Params = RatsnestShowParams;
+    type Output = Shown;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: RatsnestShowParams) -> Result<Shown, CommandError> {
+        if let Some(net) = p.net {
+            let project = cx.project()?;
+            if project.pcb().and_then(|pcb| pcb.net(net)).is_none() {
+                return Err(CommandError::invalid_params(
+                    "/net",
+                    format!("{net} is not a Net of the board"),
+                ));
+            }
+        }
+        let ratsnest = &mut board_view(cx)?.layers.ratsnest;
+        let visible = match p.net {
+            Some(net) => {
+                let visible = p.visible.unwrap_or(ratsnest.hidden_nets.contains(&net));
+                ratsnest.set_net(net, visible);
+                visible
+            }
+            None => {
+                ratsnest.hidden = !p.visible.unwrap_or(ratsnest.hidden);
+                !ratsnest.hidden
+            }
+        };
+        Ok(Shown { visible })
+    }
+}
+
+/// The units now in force.
+#[derive(Serialize, JsonSchema)]
+pub struct UnitsNow {
+    pub units: Units,
+    pub grid: reda_engine::model::geom::Nm,
+}
+
+struct UnitsToggle;
+
+impl Command for UnitsToggle {
+    const META: Meta = Meta {
+        id: "view.units.toggle",
+        title: "Toggle mm/mil",
+        description: "Switches the units lengths show in between mm and mil. The snap grid \
+                      moves to the matching preset in the other units.",
+        category: "pcb_view",
+        icon: "units",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = UnitsNow;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<UnitsNow, CommandError> {
+        let view = board_view(cx)?;
+        let other = match view.units {
+            Units::Mm => Units::Mil,
+            Units::Mil => Units::Mm,
+        };
+        view.set_units(other);
+        Ok(UnitsNow {
+            units: view.units,
+            grid: view.grid,
+        })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GridSetParams {
+    /// One of the presets: 0.1, 0.25, 0.5 or 1 mm, or 5, 10, 25 or 50 mil. Left out, it
+    /// steps to the next preset of the current units.
+    #[serde(default)]
+    grid: Option<Length>,
+}
+
+struct GridSet;
+
+impl Command for GridSet {
+    const META: Meta = Meta {
+        id: "view.grid.set",
+        title: "Snap Grid",
+        description: "Sets the snap grid to one of its presets (0.1, 0.25, 0.5, 1 mm; 5, 10, \
+                      25, 50 mil), switching units to match; with `grid` left out it cycles \
+                      the presets of the current units.",
+        category: "pcb_view",
+        icon: "grid",
+        kind: Kind::View,
+    };
+    type Params = GridSetParams;
+    type Output = UnitsNow;
+
+    fn presets(&self) -> Vec<Preset> {
+        let mm = MM_GRIDS
+            .iter()
+            .zip(["0_1mm", "0_25mm", "0_5mm", "1mm"])
+            .map(|(g, name)| (*g, name));
+        let mil = MIL_GRIDS
+            .iter()
+            .zip(["5mil", "10mil", "25mil", "50mil"])
+            .map(|(g, name)| (*g, name));
+        mm.chain(mil)
+            .map(|(grid, name)| {
+                Preset::new(
+                    name,
+                    format!(
+                        "Snap Grid {}",
+                        name.replace('_', ".")
+                            .replace("mm", " mm")
+                            .replace("mil", " mil")
+                    ),
+                    "grid",
+                    json!({ "grid": grid }),
+                )
+            })
+            .collect()
+    }
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: GridSetParams) -> Result<UnitsNow, CommandError> {
+        let view = board_view(cx)?;
+        match p.grid.map(Length::nm) {
+            None => view.cycle_grid(),
+            Some(grid) => {
+                let units = [Units::Mm, Units::Mil]
+                    .into_iter()
+                    .find(|u| grids(*u).contains(&grid))
+                    .ok_or_else(|| {
+                        CommandError::invalid_params(
+                            "/grid",
+                            "not a snap-grid preset: use 0.1, 0.25, 0.5 or 1 mm, or 5, 10, \
+                             25 or 50 mil",
+                        )
+                    })?;
+                view.units = units;
+                view.grid = grid;
+            }
+        }
+        Ok(UnitsNow {
+            units: view.units,
+            grid: view.grid,
+        })
+    }
+}

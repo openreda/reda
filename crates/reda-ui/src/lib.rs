@@ -19,6 +19,7 @@ pub mod messages;
 mod new_project;
 mod os;
 mod panels;
+pub mod pcb;
 mod projects_panel;
 pub mod properties;
 pub mod selection;
