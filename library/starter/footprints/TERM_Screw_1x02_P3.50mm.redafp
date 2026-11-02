@@ -1,14 +1,14 @@
 {
   "format": 1,
-  "footprint": {"uuid":"df89425e-24b7-466d-a207-2644c9443b67","name":"TERM_Screw_1x02_P3.50mm","description":"Screw terminal block, 2 positions, 3.5 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":5370000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"df89425e-24b7-466d-a207-2644c9443b67","name":"TERM_Screw_1x02_P3.50mm","description":"Screw terminal block, 2 positions, 3.5 mm pitch. Per Würth Elektronik 691214110002 datasheet"},
+  "text": {"designator":{"at":{"x":0,"y":4570000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"2928f8e3-5d42-4aee-b758-827095b66f92","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1750000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}},
-    {"uuid":"8146d47b-be82-4659-8a05-689c7763e82d","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1750000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}}
+    {"uuid":"2928f8e3-5d42-4aee-b758-827095b66f92","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1750000,"y":0},"rotation":0,"width":2300000,"height":2300000,"hole":{"width":1300000,"height":1300000}},
+    {"uuid":"8146d47b-be82-4659-8a05-689c7763e82d","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1750000,"y":0},"rotation":0,"width":2300000,"height":2300000,"hole":{"width":1300000,"height":1300000}}
   ],
   "graphics": [
-    {"uuid":"6d3c83d9-9433-477a-adda-2ccbf0d9e5eb","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3500000,"y":-2800000},"end":{"x":3500000,"y":4200000}},"width":100000},
-    {"uuid":"eef01647-856f-4b85-9033-07cfef567aad","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-3560000,"y":-2860000},"end":{"x":3560000,"y":4260000}},"width":120000},
-    {"uuid":"faf5df47-a81c-400b-ae95-565d0799b8de","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3870000,"y":-3170000},"end":{"x":3870000,"y":4570000}},"width":50000}
+    {"uuid":"6d3c83d9-9433-477a-adda-2ccbf0d9e5eb","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3525000,"y":-4000000},"end":{"x":3525000,"y":3400000}},"width":100000},
+    {"uuid":"eef01647-856f-4b85-9033-07cfef567aad","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-3585000,"y":-4060000},"end":{"x":3585000,"y":3460000}},"width":120000},
+    {"uuid":"faf5df47-a81c-400b-ae95-565d0799b8de","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3895000,"y":-4370000},"end":{"x":3895000,"y":3770000}},"width":50000}
   ]
 }

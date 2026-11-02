@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated"},
+  "footprint": {"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762"},
   "text": {"designator":{"at":{"x":0,"y":3200000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
     {"uuid":"f893fe43-ee4e-4802-956e-a06d76158c74","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2200000,"height":2200000,"hole":{"width":2200000,"height":2200000}}

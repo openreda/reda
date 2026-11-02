@@ -1,9 +1,0 @@
-{
-  "format": 1,
-  "part": {"uuid":"a1818efb-dfa5-45f6-92e9-b024b4a70c53","name":"MCU_USB_TSSOP-20","component_type":"standard","symbol":"faa7f0fe-5417-4916-8649-1eeda9447b53"},
-  "footprints": [
-    "5082bf81-7326-4bbd-8274-54c43985cd53"
-  ],
-  "fields": {"value":"MCU","description":"Generic USB microcontroller, TSSOP-20: a vendor-neutral stand-in for examples; use your own Library or Import part for a real MCU","keywords":"U microcontroller MCU USB"},
-  "pin_map": {}
-}

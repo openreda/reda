@@ -7,7 +7,9 @@ use crate::passives::fields;
 use crate::script::{PartSpec, Script, circle, mm};
 
 pub fn build(s: &mut Script) {
-    // Screw size, clearance hole, screw head diameter.
+    // Screw size, clearance hole, screw head diameter: the hole is ISO 273's fine
+    // clearance hole (M2 2.2, M2.5 2.7, M3 3.2 mm), the head ISO 4762's largest socket
+    // head (M2 3.8, M2.5 4.5, M3 5.5 mm).
     for (screw, hole, head) in [("M2", 2.2, 3.8), ("M2.5", 2.7, 4.5), ("M3", 3.2, 5.5)] {
         mounting_hole(s, screw, hole, head, false);
     }
@@ -25,7 +27,10 @@ fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool
     } else {
         format!("Mounting hole for {screw}, {hole} mm, not plated")
     };
-    let fp = s.footprint(&name, &description);
+    let fp = s.footprint(
+        &name,
+        &format!("{description}. Hole per ISO 273 fine, head per ISO 4762"),
+    );
     let size = if plated { head } else { hole };
     s.pad(
         &fp,

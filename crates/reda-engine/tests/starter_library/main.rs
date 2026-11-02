@@ -4,8 +4,13 @@
 //! `REDA_BLESS=1 cargo test -p reda-engine --test starter_library` after changing the
 //! script, and review the diff.
 //!
-//! Keep UUIDs stable for users who placed starter Parts: an element's UUIDs come from its
-//! name (see [`script::KeyedIds`]), so renaming an element gives it new UUIDs.
+//! Keep UUIDs stable for users who placed starter Parts: they are frozen in `uuids.tsv`
+//! (see [`script::Uuids`]), so renaming an element means renaming its key there too.
+//!
+//! The hand-drawn Footprints are checked against a named datasheet drawing or IPC
+//! nominal, cited in a comment beside each and in its description. Through-hole lands
+//! follow IPC-2222 Level B unless the datasheet recommends a hole: hole = largest lead
+//! (or lead diagonal) + 0.20 mm, pad = hole + 0.60 mm at least.
 
 mod connectors;
 mod ics;
@@ -20,29 +25,38 @@ use std::path::{Path, PathBuf};
 use reda_testkit::{TempDir, read_tree, test_engine_with_library};
 use serde_json::{Value, json};
 
-use script::{LIBRARY, Script};
+use script::{LIBRARY, Script, Uuids};
 
 /// The checked-in starter Library.
 fn starter() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter")
 }
 
-/// Runs the whole script into a new Library under `dir` and returns its folder.
-fn build(dir: &Path) -> PathBuf {
+/// Runs the whole script into a new Library under `dir` and returns its folder and the
+/// UUIDs its elements drew.
+fn build(dir: &Path) -> (PathBuf, Uuids) {
     let mut s = Script::new(dir);
     passives::build(&mut s);
     semis::build(&mut s);
     ics::build(&mut s);
     connectors::build(&mut s);
     mechanical::build(&mut s);
-    s.library().to_owned()
+    (s.library().to_owned(), s.uuids())
 }
 
 #[test]
 fn the_checked_in_library_is_what_the_script_builds() {
     let dir = TempDir::new("starter-library");
-    let built = read_tree(&build(dir.path()));
+    let (library, uuids) = build(dir.path());
+    let built = read_tree(&library);
     let target = starter();
+    let unused = Uuids::checked_in().unused_keys(&uuids);
+    assert!(
+        unused.is_empty(),
+        "uuids.tsv has keys no element drew from: {unused:?}. If you renamed an element, \
+         rename its key in uuids.tsv so Projects that placed it keep finding it; if you \
+         removed it, delete its lines."
+    );
     if std::env::var_os("REDA_BLESS").is_some() {
         let _ = std::fs::remove_dir_all(&target);
         for (rel, bytes) in &built {
@@ -50,8 +64,14 @@ fn the_checked_in_library_is_what_the_script_builds() {
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, bytes).unwrap();
         }
+        std::fs::write(script::uuids_path(), uuids.to_text()).unwrap();
         return;
     }
+    assert!(
+        uuids == Uuids::checked_in(),
+        "uuids.tsv is not the UUIDs the script draws; run REDA_BLESS=1 cargo test -p \
+         reda-engine --test starter_library and review the diff"
+    );
     let checked_in = read_tree(&target);
     let mut problems = vec![];
     for (rel, bytes) in &built {
@@ -70,6 +90,171 @@ fn the_checked_in_library_is_what_the_script_builds() {
          reda-engine --test starter_library and review the diff:\n{}",
         problems.join("\n")
     );
+}
+
+/// Makes a one-Unit Symbol and a Part on it, both called `name`, and returns the UUIDs a
+/// user's Project would hold on to: the Symbol, its Unit and the Part.
+fn symbol_and_part(s: &mut Script, name: &str) -> [String; 3] {
+    let sym = s.symbol(name, "U", "A test Symbol");
+    s.pin(&sym, script::left("A", "1", "passive", -200, 0));
+    let unit = sym.unit.clone();
+    let symbol = s.finish_symbol(sym);
+    let part = s.part(script::PartSpec {
+        name,
+        symbol: Some(&symbol),
+        footprints: vec![],
+        fields: json!({"value": name}),
+        pin_map: None,
+        mechanical: false,
+    });
+    [symbol, unit, part]
+}
+
+#[test]
+fn renaming_an_element_keeps_its_uuids_once_its_key_is_renamed_in_the_uuid_table() {
+    let dir = TempDir::new("starter-uuids-before");
+    let mut s = Script::with_uuids(dir.path(), Uuids::default());
+    let before = symbol_and_part(&mut s, "Widget");
+    // The rename, as a maintainer makes it in uuids.tsv.
+    let table = s
+        .uuids()
+        .to_text()
+        .replace("symbol/Widget\t", "symbol/Gadget\t")
+        .replace("part/Widget\t", "part/Gadget\t");
+
+    let dir = TempDir::new("starter-uuids-after");
+    let mut s = Script::with_uuids(dir.path(), Uuids::parse(&table));
+    let after = symbol_and_part(&mut s, "Gadget");
+    assert_eq!(after, before);
+    assert_eq!(s.uuids().to_text(), table);
+}
+
+#[test]
+fn a_new_element_gets_fresh_uuids_and_an_entry_in_the_uuid_table() {
+    let dir = TempDir::new("starter-uuids-new");
+    let mut s = Script::with_uuids(dir.path(), Uuids::default());
+    let first = symbol_and_part(&mut s, "Widget");
+    let second = symbol_and_part(&mut s, "Gadget");
+    for (a, b) in first.iter().zip(&second) {
+        assert_ne!(a, b);
+    }
+    let table = s.uuids().to_text();
+    assert!(
+        table.contains(&format!("part/Gadget\t{}\n", second[2])),
+        "{table}"
+    );
+}
+
+/// The gap kept between Silkscreen and copper, as the Footprint generators keep it.
+const SILKSCREEN_CLEARANCE_MM: f64 = 0.2;
+
+/// Points every 0.02 mm along a Footprint graphic's outline, in millimetres.
+fn outline_points(shape: &Value) -> Vec<(f64, f64)> {
+    let mm = |v: &Value| v.as_f64().unwrap() / 1e6;
+    let p = |v: &Value| (mm(&v["x"]), mm(&v["y"]));
+    let segment = |a: (f64, f64), b: (f64, f64)| {
+        let n = ((b.0 - a.0).hypot(b.1 - a.1) / 0.02).ceil().max(1.0) as usize;
+        (0..=n)
+            .map(|i| {
+                let t = i as f64 / n as f64;
+                (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)
+            })
+            .collect::<Vec<_>>()
+    };
+    let around = |c: (f64, f64), r: f64, from: f64, sweep: f64| {
+        let n = ((r * sweep.abs()) / 0.02).ceil().max(1.0) as usize;
+        (0..=n)
+            .map(|i| {
+                let a = from + sweep * i as f64 / n as f64;
+                (c.0 + r * a.cos(), c.1 + r * a.sin())
+            })
+            .collect::<Vec<_>>()
+    };
+    match shape["kind"].as_str().unwrap() {
+        "line" => segment(p(&shape["start"]), p(&shape["end"])),
+        "rect" => {
+            let (a, b) = (p(&shape["start"]), p(&shape["end"]));
+            let corners = [a, (b.0, a.1), b, (a.0, b.1), a];
+            corners
+                .windows(2)
+                .flat_map(|w| segment(w[0], w[1]))
+                .collect()
+        }
+        "polygon" => {
+            let mut points: Vec<(f64, f64)> =
+                shape["points"].as_array().unwrap().iter().map(p).collect();
+            points.push(points[0]);
+            points
+                .windows(2)
+                .flat_map(|w| segment(w[0], w[1]))
+                .collect()
+        }
+        "circle" => around(
+            p(&shape["center"]),
+            mm(&shape["radius"]),
+            0.0,
+            std::f64::consts::TAU,
+        ),
+        "arc" => {
+            let (c, s) = (p(&shape["center"]), p(&shape["start"]));
+            let sweep = (shape["sweep"].as_f64().unwrap() / 1000.0).to_radians();
+            around(
+                c,
+                (s.0 - c.0).hypot(s.1 - c.1),
+                (s.1 - c.1).atan2(s.0 - c.0),
+                sweep,
+            )
+        }
+        _ => vec![],
+    }
+}
+
+/// How far `point` is from a Pad's copper, in millimetres (0 inside). Rounded
+/// rectangles count as their full rectangle.
+fn distance_to_pad(pad: &Value, (x, y): (f64, f64)) -> f64 {
+    let mm = |v: &Value| v.as_f64().unwrap() / 1e6;
+    let (cx, cy) = (mm(&pad["at"]["x"]), mm(&pad["at"]["y"]));
+    let (mut w, mut h) = (mm(&pad["width"]), mm(&pad["height"]));
+    match pad["rotation"].as_i64().unwrap_or(0) {
+        0 | 180_000 => {}
+        90_000 | 270_000 => std::mem::swap(&mut w, &mut h),
+        other => panic!("Pad rotated {other} millidegrees"),
+    }
+    let (dx, dy) = ((x - cx).abs(), (y - cy).abs());
+    match pad["shape"].as_str().unwrap() {
+        "circle" => ((dx).hypot(dy) - w / 2.0).max(0.0),
+        "oval" => {
+            // A stadium: a segment along the long side, widened by the short half-width.
+            let r = w.min(h) / 2.0;
+            let (sx, sy) = ((w / 2.0 - r).max(0.0), (h / 2.0 - r).max(0.0));
+            ((dx - sx).max(0.0).hypot((dy - sy).max(0.0)) - r).max(0.0)
+        }
+        _ => (dx - w / 2.0).max(0.0).hypot((dy - h / 2.0).max(0.0)),
+    }
+}
+
+#[test]
+fn silkscreen_stays_clear_of_every_pad() {
+    let mut problems = vec![];
+    for (rel, bytes) in read_tree(&starter().join("footprints")) {
+        let footprint: Value = serde_json::from_slice(&bytes).unwrap();
+        let pads = footprint["pads"].as_array().unwrap();
+        for graphic in footprint["graphics"].as_array().unwrap() {
+            if !graphic["layer"].as_str().unwrap().starts_with("silkscreen") {
+                continue;
+            }
+            let half_width = graphic["width"].as_f64().unwrap() / 2e6;
+            let gap = outline_points(&graphic["shape"])
+                .into_iter()
+                .flat_map(|point| pads.iter().map(move |pad| distance_to_pad(pad, point)))
+                .fold(f64::INFINITY, f64::min)
+                - half_width;
+            if gap < SILKSCREEN_CLEARANCE_MM - 1e-3 {
+                problems.push(format!("{rel}: Silkscreen {gap:.3} mm from a Pad"));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
 /// Every Part of the checked-in Library, by name.
@@ -150,7 +335,7 @@ fn generic_passives_and_discretes_have_footprint_alternates() {
         "Crystal_HC-49US",
         "Timer_555",
         "LDO_SOT-223",
-        "MCU_USB_TSSOP-20",
+        "STM32F042F6P6",
         "USB_C_Receptacle_USB2.0",
     ] {
         let part = &parts[name];
