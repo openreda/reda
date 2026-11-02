@@ -1,6 +1,7 @@
 //! The text a placed Footprint draws: text in its drawing, its Designator and its value,
-//! as PCB text objects on board Layers. The canvas and the Gerber silkscreen both lay these
-//! out with [`text_geometry`](super::text_geometry), so they agree glyph for glyph.
+//! as PCB text objects on board Layers. The canvas, the Gerber silkscreen and DRC's
+//! silkscreen check all lay these out with [`text_geometry`](super::text_geometry), so they
+//! agree glyph for glyph.
 
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
@@ -11,8 +12,9 @@ use reda_model::{
 
 use crate::placed::{self, Bounds, Frame};
 
-/// Footprint text pens are this share of the text height.
-const PEN: (i64, i64) = (3, 20);
+/// The pen width of Footprint text (Designators, values and text in a Footprint's
+/// drawing), as a fraction of its height (`.0 / .1`).
+pub const FOOTPRINT_TEXT_PEN: (i64, i64) = (3, 20);
 
 /// The board Layer a Footprint drawing Layer is, if the board has it.
 pub fn board_layer(pcb: &PcbDocument, layer: FootprintLayer) -> Option<Uuid> {
@@ -78,7 +80,7 @@ pub fn footprint_texts(
     out
 }
 
-/// Hershey text of a Footprint, pen `PEN` of its height.
+/// Hershey text of a Footprint, pen [`FOOTPRINT_TEXT_PEN`] of its height.
 fn pcb_text(
     object: Uuid,
     layer: Uuid,
@@ -95,7 +97,7 @@ fn pcb_text(
         font: HERSHEY_FONT.to_owned(),
         position,
         height,
-        thickness: Nm(height.0 * PEN.0 / PEN.1),
+        thickness: Nm(height.0 * FOOTPRINT_TEXT_PEN.0 / FOOTPRINT_TEXT_PEN.1),
         rotation,
         mirrored,
     }
@@ -103,7 +105,7 @@ fn pcb_text(
 
 /// A Designator or value text centred on its placement, mirrored on a bottom Layer: the
 /// centre of the glyphs' box (strokes and fill) lands on `at`. This is the one place the
-/// canvas and the Gerber silkscreen centre Footprint text; DRC must centre it the same way.
+/// canvas, the Gerber silkscreen and DRC centre Footprint text.
 fn centred_text(
     pcb: &PcbDocument,
     object: Uuid,

@@ -378,3 +378,114 @@ fn copper_text_and_drawing_plot_on_their_copper_layer_as_non_conductor() {
     let silk = layer(&files, "Demo.GTO");
     assert_eq!(silk.draws().count(), 0, "nothing on the silkscreen");
 }
+
+/// DRC's silkscreen check, the canvas and the Gerber silkscreen share one layout of
+/// Footprint text ([`reda_pcb::footprint_texts`]): on a rotated Footprint flipped to the
+/// bottom, the Gerber draws exactly that layout, and DRC finds the silkscreen right where
+/// the Gerber draws it. Text in a Footprint's drawing is anchored at the start of its
+/// baseline, the Designator centred on its placement.
+#[test]
+fn drc_and_the_gerber_silkscreen_agree_on_a_rotated_flipped_footprint() {
+    let dir = TempDir::new("gerber-silk-drc");
+    let mut engine = board(&dir);
+    let footprint = engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(15.0, 10.0), "rotation": "30deg", "side": "bottom",
+               "designator": "U9", "graphics": [
+            {"layer": "silkscreen_top", "width": "0.1mm",
+             "shape": {"kind": "text", "at": pt(1.0, 1.0), "text": "AB", "size": mm(1.0),
+                       "rotation": 90_000}}],
+            "pads": [{"at": pt(-4.0, -4.0), "width": "0.5mm", "height": "0.5mm"}]}),
+    )["result"]["footprint"]
+        .clone();
+    let uuid: Uuid = footprint.as_str().unwrap().parse().unwrap();
+    let files = plot(&engine);
+    let bottom = draws(&layer(&files, "Demo.GBO"));
+
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let fonts = Fonts::default();
+    let instance = pcb.footprints().find(|f| f.uuid == uuid).unwrap();
+    let texts = reda_pcb::footprint_texts(pcb, instance, &fonts);
+    assert_eq!(texts.len(), 2, "the drawing text and the Designator");
+    let mut expected = strokes(&texts);
+    expected.sort();
+    assert_eq!(bottom, expected, "the Gerber draws the shared layout");
+
+    // The drawing text starts at its placed anchor (the start of its baseline), not
+    // centred on it.
+    let drawing = &texts[0];
+    assert!(drawing.mirrored);
+    let frame = reda_pcb::placed::Frame::of(instance);
+    let anchor = frame.point(reda_model::geom::Point::new(Nm(mm(1.0)), Nm(mm(1.0))));
+    assert_eq!(drawing.position, anchor);
+
+    // A small bottom Pad on the middle of each drawing-text stroke the Gerber draws: DRC
+    // sees silkscreen over every one. Where the text would be had it been centred on its
+    // anchor, clear of every stroke drawn, DRC sees none.
+    let silk_hits = |engine: &mut TestEngine, at: (i64, i64)| {
+        let pad = engine.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind": "smd", "side": "bottom", "width": "0.05mm",
+                   "at": {"x": at.0, "y": at.1}}),
+        )["result"]["uuid"]
+            .clone();
+        let project = engine.project().unwrap();
+        let pcb = project.pcb().unwrap();
+        let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
+        let hits = reda_pcb::drc::check(pcb, &fills, &Fonts::default())
+            .into_iter()
+            .filter(|v| v.check == "silkscreen_over_pads" && v.objects.contains(&uuid))
+            .count();
+        engine.run_ok("pcb.free_pad.delete", json!({"pads": [pad]}));
+        hits
+    };
+    let mid = |(a, b, _): &Draw| ((a.0 + b.0) / 2, (a.1 + b.1) / 2);
+    let drawn = strokes(std::slice::from_ref(drawing));
+    for stroke in &drawn {
+        assert_eq!(silk_hits(&mut engine, mid(stroke)), 1, "under {stroke:?}");
+    }
+    let xs = drawn.iter().flat_map(|(a, b, _)| [a.0, b.0]);
+    let ys = drawn.iter().flat_map(|(a, b, _)| [a.1, b.1]);
+    let centre = (
+        (xs.clone().min().unwrap() + xs.max().unwrap()) / 2,
+        (ys.clone().min().unwrap() + ys.max().unwrap()) / 2,
+    );
+    let shift = (anchor.x.0 - centre.0, anchor.y.0 - centre.1);
+    let clear = |p: (i64, i64)| {
+        expected
+            .iter()
+            .all(|s| distance(p, s.0, s.1) > (s.2 / 2 + mm(0.1)) as f64)
+    };
+    let centred: Vec<(i64, i64)> = drawn
+        .iter()
+        .map(mid)
+        .map(|(x, y)| (x + shift.0, y + shift.1))
+        .filter(|&p| clear(p))
+        .collect();
+    assert!(
+        !centred.is_empty(),
+        "centring would move the text clear of itself"
+    );
+    for p in centred {
+        assert_eq!(
+            silk_hits(&mut engine, p),
+            0,
+            "where centred text would be: {p:?}"
+        );
+    }
+}
+
+/// The distance from `p` to the segment `a`–`b`.
+fn distance(p: (i64, i64), a: (i64, i64), b: (i64, i64)) -> f64 {
+    let (px, py) = (p.0 as f64, p.1 as f64);
+    let (ax, ay, bx, by) = (a.0 as f64, a.1 as f64, b.0 as f64, b.1 as f64);
+    let (dx, dy) = (bx - ax, by - ay);
+    let len2 = dx * dx + dy * dy;
+    let t = if len2 == 0.0 {
+        0.0
+    } else {
+        (((px - ax) * dx + (py - ay) * dy) / len2).clamp(0.0, 1.0)
+    };
+    (px - ax - t * dx).hypot(py - ay - t * dy)
+}
