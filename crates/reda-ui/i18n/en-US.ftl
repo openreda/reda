@@ -44,6 +44,28 @@ tab-menu-close = Close
 tab-menu-collapse-dock = Collapse Dock
 tab-menu-not-in-dock = This tab is not in a Dock.
 
+## Journal panel
+
+journal-export = Export…
+journal-export-hint = Save this session's Commands as JSON lines that `reda run --script` replays. Layout and Panel Commands are left out.
+journal-export-title = Export the Journal
+journal-export-filter = Journal script
+journal-count = { $count ->
+    [one] 1 Command
+   *[other] { $count } Commands
+}
+journal-empty = No Commands run yet.
+journal-column-number = #
+journal-column-command = Command
+journal-column-source = Source
+journal-column-result = Result
+journal-ok = OK
+journal-error = { $code }: { $message }
+journal-source-gui = App
+journal-source-cli = CLI
+journal-source-mcp = MCP
+journal-export-failed = Could not export the Journal: { $error }
+
 ## Projects panel
 
 projects-none = No Project is open.
@@ -83,19 +105,24 @@ projects-no-libraries = No Library folders.
 projects-add-folder = Add Folder…
 projects-remove = Remove
 
-## Menus
+## Menus, toolbars and the Active Bar
 
+# Menu and submenu titles, named by the bar data files in crates/reda-ui/bars.
 menu-file = File
-menu-file-new-project = New Project…
-menu-file-open-project = Open Project…
-menu-file-save-all = Save All
-menu-file-quit = Quit
+menu-edit = Edit
 menu-view = View
-menu-view-zoom-fit = Zoom to Fit
+menu-view-panels = Panels
 menu-view-theme = Theme
-theme-follow-os = Follow the System
-theme-dark = Dark
-theme-light = Light
+menu-design = Design
+menu-library = Library
+bars-no-active-document = no Document is active
+bars-unknown-command = there is no Command { $command }
+
+# Command and Preset titles the UI shows instead of the engine's: command-<id>-title, with
+# the id's dots and colon written as dashes.
+command-view-theme-set-follow_os-title = Follow the System
+command-view-theme-set-dark-title = Dark
+command-view-theme-set-light-title = Light
 
 ## Dialogs
 
