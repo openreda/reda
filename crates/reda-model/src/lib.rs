@@ -20,7 +20,7 @@ mod uuid;
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use check::{
     ErcCheck, ErcSeverities, Severity, Violation, ViolationArg, Waived, Waiver, apply_waivers,
-    fingerprint,
+    fingerprint, pin_conflict,
 };
 pub use document::{DocumentEntry, DocumentKind};
 pub use library::{

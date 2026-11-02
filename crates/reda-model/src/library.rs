@@ -111,6 +111,22 @@ pub enum PinType {
     NotConnected,
 }
 
+impl PinType {
+    /// Every Pin type, in the order the pin-type matrix lists them.
+    pub const ALL: &[PinType] = &[
+        PinType::Input,
+        PinType::Output,
+        PinType::Bidirectional,
+        PinType::TriState,
+        PinType::Passive,
+        PinType::PowerIn,
+        PinType::PowerOut,
+        PinType::OpenCollector,
+        PinType::OpenEmitter,
+        PinType::NotConnected,
+    ];
+}
+
 /// The physical land pattern of a part. Coordinates are relative to its origin, and its
 /// zero orientation follows IPC-7351.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

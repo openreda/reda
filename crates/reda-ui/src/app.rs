@@ -23,6 +23,7 @@ use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
 use crate::projects_panel::{self, ProjectsAction};
 use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
+use crate::settings::{self, Outcome, SettingsDialog};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
 use crate::{crash, theme, tr};
@@ -32,6 +33,8 @@ pub struct App {
     shell: Shell,
     files: FileDialogs,
     new_project: Option<NewProjectForm>,
+    /// The open settings dialog (Project Settings), if any.
+    settings: Option<SettingsDialog>,
     window_title: String,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
@@ -51,6 +54,7 @@ impl App {
             shell,
             files: FileDialogs::default(),
             new_project: None,
+            settings: None,
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
@@ -107,9 +111,11 @@ impl App {
                         .report(tr!("error-show-in-folder", error = e.to_string()));
                 }
             }
+            Some(ProjectsAction::ProjectSettings) => self.open_project_settings(),
             // The Output Job dialog is still to come.
             Some(ProjectsAction::EditJob(_)) | None => {}
         }
+        self.show_settings(&ctx);
         if let Some(JournalAction::Export) = frame.journal {
             self.files.start(&ctx, Pick::ExportJournal);
         }
@@ -187,8 +193,27 @@ impl App {
             (redo, i.consume_key(Modifiers::COMMAND, Key::Z))
         });
         if undo || redo {
-            let dialog = projects_panel::dialog_open(ctx);
+            let dialog = projects_panel::dialog_open(ctx) || self.settings.is_some();
             let _ = self.shell.undo(redo, dialog);
+        }
+    }
+
+    /// Opens the Project Settings dialog on the open Project, if there is one.
+    pub fn open_project_settings(&mut self) {
+        if let Some(project) = self.shell.engine().project() {
+            self.settings = Some(settings::project::dialog(project));
+        }
+    }
+
+    /// Draws the open settings dialog, and closes it or opens its folder picker as it asks.
+    fn show_settings(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.settings else {
+            return;
+        };
+        match dialog.show(ctx, &mut self.shell) {
+            Outcome::Open => {}
+            Outcome::Closed => self.settings = None,
+            Outcome::PickFolder => self.files.start(ctx, Pick::SettingsFolder),
         }
     }
 
@@ -218,6 +243,13 @@ impl App {
                     let _ = self
                         .shell
                         .run_reporting("project.library.add", json!({ "path": path }));
+                }
+            }
+            Some((Pick::SettingsFolder, path)) => {
+                if let (Some(folder), Some(dialog)) =
+                    (self.shell.engine().location(), &mut self.settings)
+                {
+                    dialog.picked_folder(&os::relative_path(folder, &path));
                 }
             }
             None => {}

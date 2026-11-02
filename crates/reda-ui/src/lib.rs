@@ -25,6 +25,7 @@ pub mod properties;
 pub mod recovery;
 mod recovery_dialog;
 pub mod selection;
+pub mod settings;
 pub mod shell;
 mod start_page;
 pub mod theme;
