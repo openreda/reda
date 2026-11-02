@@ -6,6 +6,7 @@
 //! [`Scene::to_text`] serialises a Scene for snapshot tests.
 
 mod color;
+mod command;
 mod outline;
 mod pdf;
 mod polygon;
@@ -18,6 +19,10 @@ mod transform;
 mod viewport;
 
 pub use color::{ColorKey, Palette, Rgba, SchematicColor, Theme};
+pub use command::{
+    DocumentRender, DocumentRenderParams, DocumentRenderResult, Junctions, RenderFormat,
+    RenderPoint, RenderTheme, RenderView, document_scene, register_all,
+};
 pub use pdf::{PdfInfo, to_pdf};
 pub use scene::{Align, GlyphRun, HAlign, Item, Primitive, Scene, SceneLayer, SceneSource, VAlign};
 pub use schematic::schematic_scene;

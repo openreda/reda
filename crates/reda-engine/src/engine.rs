@@ -22,6 +22,9 @@ pub fn registry() -> Registry {
     reda_library::register_generators(&mut registry, crate::library::store_footprint);
     reda_output::register_all(&mut registry);
     reda_schematic::register_all(&mut registry);
+    reda_render::register_all(&mut registry, |sheet| {
+        reda_schematic::connectivity::derive(sheet).junctions
+    });
     registry
 }
 

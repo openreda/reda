@@ -297,6 +297,213 @@
       "title": "Rename Document"
     },
     {
+      "category": "document",
+      "description": "Draws a Document as an image, through the same Scene as the canvas. The view, size, theme and highlight are explicit and independent of the user's view. `svg` returns vector SVG text; `png` needs the GPU backend.",
+      "icon": "render",
+      "id": "document.render",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "RenderFormat": {
+            "oneOf": [
+              {
+                "const": "png",
+                "description": "A PNG drawn by the GPU backend.",
+                "type": "string"
+              },
+              {
+                "const": "svg",
+                "description": "Vector SVG, with glyphs as filled outlines.",
+                "type": "string"
+              }
+            ]
+          },
+          "RenderPoint": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "RenderTheme": {
+            "enum": [
+              "dark",
+              "light"
+            ],
+            "type": "string"
+          },
+          "RenderView": {
+            "description": "What the image shows.",
+            "oneOf": [
+              {
+                "const": "fit",
+                "description": "The whole Document.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A rectangle of the Document, y up.",
+                "properties": {
+                  "rect": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "max": {
+                        "$ref": "#/$defs/RenderPoint"
+                      },
+                      "min": {
+                        "$ref": "#/$defs/RenderPoint"
+                      }
+                    },
+                    "required": [
+                      "min",
+                      "max"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "rect"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Everything these objects draw.",
+                "properties": {
+                  "objects": {
+                    "items": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "objects"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Document to draw.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "format": {
+            "$ref": "#/$defs/RenderFormat",
+            "default": "png"
+          },
+          "highlight": {
+            "default": [],
+            "description": "Objects to highlight: everything else is dimmed.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "size": {
+            "default": 1024,
+            "description": "The image's longer side in pixels.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "theme": {
+            "$ref": "#/$defs/RenderTheme"
+          },
+          "view": {
+            "$ref": "#/$defs/RenderView",
+            "description": "What to show: `\"fit\"` (the default), `{\"rect\": {\"min\", \"max\"}}` or\n`{\"objects\": [uuid…]}`."
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "DocumentRenderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "RenderFormat": {
+            "oneOf": [
+              {
+                "const": "png",
+                "description": "A PNG drawn by the GPU backend.",
+                "type": "string"
+              },
+              {
+                "const": "svg",
+                "description": "Vector SVG, with glyphs as filled outlines.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "format": {
+            "$ref": "#/$defs/RenderFormat"
+          },
+          "height": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "svg": {
+            "description": "The SVG document, for `format: \"svg\"`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "description": "Image size in pixels.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "width",
+          "height"
+        ],
+        "title": "DocumentRenderResult",
+        "type": "object"
+      },
+      "title": "Render Document"
+    },
+    {
       "category": "project",
       "description": "Moves a Document to `index` in the Project's Document list. The order of the Schematic Sheets gives \"sheet n of m\" and the PDF page order.",
       "icon": "reorder",
@@ -19530,6 +19737,64 @@
         "type": "object"
       },
       "title": "Duplicate"
+    },
+    {
+      "category": "schematic",
+      "description": "Writes every Schematic Sheet, in Document order, as one vector PDF: one page per sheet at its paper size. Glyphs are filled outlines and no fonts are embedded, so the text is not searchable.",
+      "icon": "export_pdf",
+      "id": "schematic.export_pdf",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "RenderTheme": {
+            "enum": [
+              "dark",
+              "light"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Where to write the PDF. A relative path is taken from the Project folder.",
+            "type": "string"
+          },
+          "theme": {
+            "$ref": "#/$defs/RenderTheme",
+            "description": "The colour scheme; light by default, for paper."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "ExportPdfParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "pages": {
+            "description": "One page per Schematic Sheet.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "path": {
+            "description": "The file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "pages"
+        ],
+        "title": "ExportPdfResult",
+        "type": "object"
+      },
+      "title": "Export Schematic PDF"
     },
     {
       "category": "schematic",
