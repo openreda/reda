@@ -632,6 +632,25 @@
       ],
       "type": "object"
     },
+    "LayerSpan": {
+      "additionalProperties": false,
+      "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\nA through Via spans the outermost copper Layers.",
+      "properties": {
+        "from": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "to": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
     "Net": {
       "additionalProperties": false,
       "description": "A PCB Net: Pads, Tracks, Vias and Zones name it by UUID.",
@@ -1198,6 +1217,99 @@
       ],
       "type": "string"
     },
+    "Track": {
+      "additionalProperties": false,
+      "description": "One copper segment on a copper Layer. A route is a chain of Tracks that share ends.",
+      "properties": {
+        "geometry": {
+          "$ref": "#/$defs/TrackGeometry"
+        },
+        "layer": {
+          "description": "The copper Layer it is on.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "net": {
+          "description": "Its PCB Net; left out for copper on no Net.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "The copper width; the ends are round.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uuid",
+        "layer",
+        "width",
+        "geometry"
+      ],
+      "type": "object"
+    },
+    "TrackGeometry": {
+      "description": "The centreline of a [`Track`]. v0.1 creates only lines.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A straight segment.",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "line",
+              "type": "string"
+            },
+            "to": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "from",
+            "to"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "arc",
+              "type": "string"
+            },
+            "sweep": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "to": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "from",
+            "to",
+            "sweep"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Vertex": {
       "additionalProperties": false,
       "description": "One corner of a contour and the edge that leaves it towards the next vertex.",
@@ -1221,6 +1333,50 @@
       "required": [
         "x",
         "y"
+      ],
+      "type": "object"
+    },
+    "Via": {
+      "additionalProperties": false,
+      "description": "A plated hole joining copper on the Layers of its span.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The centre."
+        },
+        "diameter": {
+          "description": "The copper pad diameter.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole": {
+          "description": "The drilled hole diameter.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "net": {
+          "description": "Its PCB Net; left out for a Via on no Net.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/LayerSpan",
+          "description": "The copper Layers it joins."
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "at",
+        "diameter",
+        "hole",
+        "span"
       ],
       "type": "object"
     }
@@ -1314,6 +1470,22 @@
       "description": "Free text on copper, silkscreen, mechanical and documentation Layers.",
       "items": {
         "$ref": "#/$defs/PcbText"
+      },
+      "type": "array"
+    },
+    "tracks": {
+      "default": [],
+      "description": "The copper Track segments; left out while the board has none.",
+      "items": {
+        "$ref": "#/$defs/Track"
+      },
+      "type": "array"
+    },
+    "vias": {
+      "default": [],
+      "description": "The Vias; left out while the board has none.",
+      "items": {
+        "$ref": "#/$defs/Via"
       },
       "type": "array"
     }

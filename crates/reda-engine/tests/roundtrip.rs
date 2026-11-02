@@ -12,10 +12,11 @@ use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck, ErcSeverities, FabPreset,
     FileNaming, FootprintCopy, FootprintInstance, GerberSettings, GraphicShape, InDocument, Layer,
-    LayerKind, LayerSet, Net, NetClass, NetLabel, NoConnect, Object, OutputJob, Outputs, PadNet,
-    PartEntry, PcbGraphic, PcbText, Port, PortDirection, PowerPort, PowerPortStyle, Project,
-    ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetGraphic,
-    SheetShape, SheetSize, SheetText, Side, UnitInstance, Uuid, Waiver, Wire,
+    LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, OutputJob, Outputs,
+    PadNet, PartEntry, PcbGraphic, PcbText, Port, PortDirection, PowerPort, PowerPortStyle,
+    Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame,
+    SheetGraphic, SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry, UnitInstance, Uuid,
+    Via, Waiver, Wire,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -69,6 +70,9 @@ struct PcbSeed {
     graphics: Vec<(usize, Nm, GraphicShape)>,
     /// A Footprint instance: Designator, position, linked and flags, first Pad's Net index.
     footprint: Option<(String, Point, bool, usize)>,
+    /// A Track and a Via: ends, an arc's sweep (0 for a line), width, Net index (None for
+    /// no Net), bottom Layer.
+    copper: Option<(Point, Point, i64, Nm, Option<usize>, bool)>,
 }
 
 /// A text object; the Layer is an index into the seed's Layers.
@@ -143,10 +147,14 @@ prop_compose! {
         texts in prop::collection::vec(text_seed(), 0..3),
         graphics in prop::collection::vec((any::<usize>(), length(), shape()), 0..3),
         footprint in prop::option::of((any::<String>(), point(), any::<bool>(), any::<usize>())),
+        copper in prop::option::of((
+            point(), point(), prop_oneof![Just(0i64), -359_999i64..360_000],
+            (1i64..10_000_000).prop_map(Nm), prop::option::of(any::<usize>()), any::<bool>(),
+        )),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
-            graphics, footprint,
+            graphics, footprint, copper,
         }
     }
 }
@@ -321,6 +329,46 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 thickness: t.height,
                 rotation: t.rotation,
                 mirrored: t.mirrored,
+            },
+        )));
+    }
+    if let Some((from, to, sweep, width, net, bottom)) = seed.copper
+        && from != to
+    {
+        let net = net
+            .filter(|_| !nets.is_empty())
+            .map(|n| nets[n % nets.len()]);
+        let geometry = match sweep {
+            0 => TrackGeometry::Line { from, to },
+            s => TrackGeometry::Arc {
+                from,
+                to,
+                sweep: Millideg(s),
+            },
+        };
+        let layer = layer_ids[usize::from(bottom)];
+        objects.push(Object::Track(InDocument::new(
+            doc,
+            Track {
+                uuid: id(),
+                layer,
+                net,
+                width,
+                geometry,
+            },
+        )));
+        objects.push(Object::Via(InDocument::new(
+            doc,
+            Via {
+                uuid: id(),
+                at: from,
+                net,
+                diameter: Nm(width.0 + 1),
+                hole: width,
+                span: LayerSpan {
+                    from: layer_ids[1],
+                    to: layer_ids[0],
+                },
             },
         )));
     }

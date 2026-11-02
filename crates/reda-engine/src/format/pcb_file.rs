@@ -35,6 +35,12 @@
 //!     {"uuid":"…","component":{"uuid":"…"},"footprint":"…","at":{…},"rotation":0,"side":"top","designator":"R1","fields":{…},"pads":[
 //!       {"pad":"…","net":"…"}
 //!     ]}
+//!   ],
+//!   "tracks": [
+//!     {"uuid":"…","layer":"…","net":"…","width":200000,"geometry":{"kind":"line","from":{…},"to":{…}}}
+//!   ],
+//!   "vias": [
+//!     {"uuid":"…","at":{…},"net":"…","diameter":600000,"hole":300000,"span":{"from":"…","to":"…"}}
 //!   ]
 //! }
 //! ```
@@ -44,13 +50,13 @@
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
-//! Footprints.
+//! Footprints. `tracks` and `vias` are left out while the board has none.
 
 use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, InDocument, LayerSet,
-    Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, Rules, Uuid,
+    Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, Rules, Track, Uuid, Via,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -98,6 +104,12 @@ pub(crate) struct PcbFile {
     /// The placed Footprint instances, sorted by UUID.
     #[serde(default)]
     footprints: Vec<FootprintInstance>,
+    /// The copper Track segments; left out while the board has none.
+    #[serde(default)]
+    tracks: Vec<Track>,
+    /// The Vias; left out while the board has none.
+    #[serde(default)]
+    vias: Vec<Via>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -148,6 +160,12 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
             &["pads", "graphics"],
         )?;
         w.containers("footprints", pcb.footprints(), |f| f.uuid, "pads")?;
+    }
+    if pcb.tracks().next().is_some() {
+        w.table("tracks", pcb.tracks(), |t| t.uuid)?;
+    }
+    if pcb.vias().next().is_some() {
+        w.table("vias", pcb.vias(), |v| v.uuid)?;
     }
     Ok(w.finish())
 }
@@ -221,6 +239,16 @@ pub(crate) fn read_pcb_file(
         file.footprints
             .into_iter()
             .map(|f| Object::FootprintInstance(InDocument::new(doc, f))),
+    );
+    objects.extend(
+        file.tracks
+            .into_iter()
+            .map(|t| Object::Track(InDocument::new(doc, t))),
+    );
+    objects.extend(
+        file.vias
+            .into_iter()
+            .map(|v| Object::Via(InDocument::new(doc, v))),
     );
     Ok(objects)
 }

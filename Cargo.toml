@@ -20,6 +20,8 @@ proptest = { version = "1.12", default-features = false, features = ["std"] }
 harfrust = "=0.12.0"
 skrifa = "=0.44.0"
 i_triangle = "0.51"
+# The spatial index behind PCB copper connectivity and clearance queries (reda-pcb).
+rstar = "0.13"
 toml_edit = "0.25"
 directories = "6"
 # MCP: only reda-cli uses these (it is the only crate that depends on rmcp).

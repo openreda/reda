@@ -359,6 +359,19 @@ fn merged_nets_keep_the_one_with_the_largest_overlap() {
     let big = before.iter().find(|n| n["name"] == "BIG").unwrap()["uuid"].clone();
     let small = before.iter().find(|n| n["name"] == "SMALL").unwrap()["uuid"].clone();
 
+    // Copper on SMALL moves to BIG when the Nets merge (Sync never deletes copper).
+    let track = engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": small, "points": [
+            {"x": "100mm", "y": 0}, {"x": "110mm", "y": 0}]}),
+    )["result"]["tracks"][0]
+        .clone();
+    let via = engine.run_ok(
+        "pcb.via.add",
+        json!({"at": {"x": "110mm", "y": 0}, "net": small}),
+    )["result"]["uuid"]
+        .clone();
+
     wire(&mut engine, &[(20.0, -3.81), (30.0, -3.81)]);
     let list = preview(&mut engine);
     let removed = &of_kind(&list, "remove_net")[0];
@@ -371,6 +384,10 @@ fn merged_nets_keep_the_one_with_the_largest_overlap() {
     let after = nets(&mut engine);
     assert_eq!(after.len(), 1);
     assert_eq!(after[0]["uuid"], big);
+    for object in [track, via] {
+        let got = engine.run_ok("object.get", json!({"uuid": object}));
+        assert_eq!(got["object"]["net"], big, "{got}");
+    }
 }
 
 #[test]
@@ -490,6 +507,13 @@ fn a_deleted_component_is_proposed_for_removal() {
     place(&mut engine, R_10K, 10, 0);
     wire(&mut engine, &[(0.0, -3.81), (10.0, -3.81)]);
     sync(&mut engine);
+    let net = nets(&mut engine)[0]["uuid"].clone();
+    let track = engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": net, "points": [
+            {"x": "100mm", "y": 0}, {"x": "110mm", "y": 0}]}),
+    )["result"]["tracks"][0]
+        .clone();
 
     let units = engine.run_ok("objects.query", json!({"type": "unit"}))["objects"].clone();
     let r2 = units
@@ -513,6 +537,12 @@ fn a_deleted_component_is_proposed_for_removal() {
     assert_eq!(left.len(), 1);
     assert_eq!(left[0]["designator"], "R1");
     assert!(nets(&mut engine).is_empty());
+    let got = engine.run_ok("object.get", json!({"uuid": track}));
+    assert_eq!(got["object"]["type"], "track");
+    assert!(
+        got["object"].get("net").is_none(),
+        "copper on a removed Net stays, on no Net: {got}"
+    );
 }
 
 #[test]
