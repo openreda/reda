@@ -28,6 +28,7 @@ use crate::layout::{self, Layout, TabKey, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
+use crate::recovery::{self, Recorder};
 use crate::selection::{self, Selection};
 use crate::tr;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
@@ -98,7 +99,7 @@ pub struct RecentProject {
 
 /// The shell: the engine and the tabs showing it.
 pub struct Shell {
-    engine: Engine,
+    pub(crate) engine: Engine,
     /// The open Documents' tabs, wherever the Layout puts them.
     documents: Vec<DocumentTab>,
     fonts: Arc<dyn InstalledFonts>,
@@ -112,6 +113,8 @@ pub struct Shell {
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
     closed_views: BTreeMap<Uuid, DocumentView>,
     view_saves: Debounce,
+    /// Recovery Snapshots and the Journal mirror (see [`crate::recovery`]).
+    pub(crate) recorder: Recorder,
 }
 
 impl Shell {
@@ -139,10 +142,12 @@ impl Shell {
             marked: SelectionHandle::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
+            recorder: Recorder::new(),
         };
         shell.load_preference_warnings();
         if shell.engine.project().is_some() {
             shell.show_project();
+            shell.recorder.opened(&shell.engine);
         }
         shell
     }
@@ -331,6 +336,19 @@ impl Shell {
             Some(_) => path.parent().unwrap_or(path),
             None => path,
         };
+        if let Some(dirs) = self.engine.user_dirs()
+            && let Some(pid) = recovery::live_instance(dirs, project)
+        {
+            // Another REDA has it open: that one keeps it, and no recovery is offered.
+            let name = store::resolve_project_file(project);
+            let name = name.file_stem().unwrap_or_default().to_string_lossy();
+            self.message = Some(tr!(
+                "error-project-held",
+                project = name.as_ref(),
+                pid = pid.to_string()
+            ));
+            return Ok(());
+        }
         self.run_reporting("project.open", json!({ "path": project }))?;
         if let Some((stem, kind)) = document {
             let uuid = self.engine.project().and_then(|p| {
@@ -378,7 +396,10 @@ impl Shell {
         }
         let out = self.engine.run(id, params)?;
         match base {
-            "project.open" | "project.new" => self.show_project(),
+            "project.open" | "project.new" => {
+                self.show_project();
+                self.recorder.opened(&self.engine);
+            }
             _ => match self.engine.registry().get(base).map(|meta| meta.kind) {
                 Some(Kind::Query) => {}
                 Some(Kind::View) => self.sync_document_tabs(),

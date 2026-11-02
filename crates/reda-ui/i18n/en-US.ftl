@@ -190,6 +190,8 @@ error-command = { $error }
 error-show-in-folder = Could not open the file manager: { $error }
 error-state-file = Could not update the recent Projects list: { $error }
 status-last-project-missing = The last Project, { $project }, was not reopened: it is missing at { $path }
+error-recovery = Recovery Snapshots: { $error }
+error-project-held = { $project } is already open in another REDA window (process { $pid }); it stays there.
 
 ## Violations: one line per check id, built from its arguments. Lengths are in mm.
 
@@ -274,3 +276,23 @@ check-dangling = Dangling Copper
 check-courtyard-overlap = Courtyard Overlap
 check-silkscreen-over-pads = Silkscreen over Pads
 check-out-of-sync = Out of Sync
+
+## Crash recovery and Crash Reports
+
+recovery-title = Recover Unsaved Work
+recovery-intro = REDA did not close cleanly last time. It kept copies of these files' unsaved changes:
+recovery-taken = Kept { $time }
+recovery-disk-changed = The file changed on disk since. Restoring and saving would overwrite the newer content.
+recovery-missing = The file is gone; restoring recreates it as unsaved.
+recovery-unreadable = This copy cannot be read: { $error }
+recovery-restore = Restore
+recovery-discard = Discard
+recovery-show-in-folder = Show in Folder
+recovery-restore-all = Restore All
+recovery-discard-all = Discard All
+crash-title = REDA Closed Unexpectedly
+crash-intro = REDA saved a Crash Report on this computer. Nothing has been sent anywhere.
+crash-open-folder = Open Folder
+crash-report-github = Report on GitHub…
+crash-report-github-hint = Opens a pre-filled issue in your browser for you to review before sending.
+crash-dismiss = Close

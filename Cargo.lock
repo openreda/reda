@@ -3357,6 +3357,7 @@ dependencies = [
  "egui_extras",
  "egui_kittest",
  "fluent-bundle",
+ "reda-control",
  "reda-engine",
  "reda-testkit",
  "rfd",

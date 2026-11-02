@@ -110,6 +110,7 @@ reda-ui -> egui-wgpu
 reda-ui -> egui_extras
 reda-ui -> egui_kittest [dev]
 reda-ui -> fluent-bundle
+reda-ui -> reda-control
 reda-ui -> reda-engine
 reda-ui -> reda-testkit [dev]
 reda-ui -> rfd
