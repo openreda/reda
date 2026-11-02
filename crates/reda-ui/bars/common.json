@@ -40,6 +40,15 @@
           ]
         },
         {
+          "id": "view.docks",
+          "title": "menu-view-docks",
+          "items": [
+            { "id": "view.docks.collapse_left", "command": "layout.dock.collapse:left" },
+            { "id": "view.docks.collapse_right", "command": "layout.dock.collapse:right" },
+            { "id": "view.docks.collapse_bottom", "command": "layout.dock.collapse:bottom" }
+          ]
+        },
+        {
           "id": "view.theme",
           "title": "menu-view-theme",
           "items": [

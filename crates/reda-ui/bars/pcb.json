@@ -55,21 +55,18 @@
     }
   ],
   "toolbar": [
-    { "id": "toolbar.zone_fill", "command": "pcb.zone.fill" }
+    { "id": "toolbar.zone_fill", "command": "pcb.zone.fill" },
+    "separator",
+    { "id": "toolbar.from_bottom", "command": "pcb.view.from_bottom" },
+    { "id": "toolbar.units", "command": "view.units.toggle" }
   ],
   "active_bar": [
-    { "id": "active_bar.undo", "command": "edit.undo", "params": { "document": "$active_document" } },
-    { "id": "active_bar.redo", "command": "edit.redo", "params": { "document": "$active_document" } },
-    "separator",
     { "id": "active_bar.select", "command": "tool.activate:select" },
+    "separator",
     { "id": "active_bar.route", "command": "tool.activate:route" },
     { "id": "active_bar.via", "command": "tool.activate:via" },
     { "id": "active_bar.zone", "command": "tool.activate:zone" },
     "separator",
-    { "id": "active_bar.zone_fill", "command": "pcb.zone.fill" },
-    { "id": "active_bar.layers", "command": "panel.show:layers" },
-    { "id": "active_bar.from_bottom", "command": "pcb.view.from_bottom" },
-    { "id": "active_bar.units", "command": "view.units.toggle" },
-    { "id": "active_bar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
+    { "id": "active_bar.layers", "command": "panel.show:layers" }
   ]
 }

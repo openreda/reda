@@ -32,16 +32,11 @@
     }
   ],
   "active_bar": [
-    { "id": "active_bar.undo", "command": "edit.undo", "params": { "document": "$active_document" } },
-    { "id": "active_bar.redo", "command": "edit.redo", "params": { "document": "$active_document" } },
-    "separator",
     { "id": "active_bar.select", "command": "tool.activate:select" },
+    "separator",
     { "id": "active_bar.pad", "command": "tool.activate:pad" },
     { "id": "active_bar.line", "command": "tool.activate:line" },
     { "id": "active_bar.rect", "command": "tool.activate:rect" },
-    { "id": "active_bar.circle", "command": "tool.activate:circle" },
-    { "id": "active_bar.origin", "command": "tool.activate:origin" },
-    "separator",
-    { "id": "active_bar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
+    { "id": "active_bar.circle", "command": "tool.activate:circle" }
   ]
 }

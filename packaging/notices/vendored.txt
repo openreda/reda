@@ -23,7 +23,7 @@ Text: crates/reda-text/fonts/noto-sans/OFL.txt
 
 == Placeholder icons (Lucide and Tabler) ==
 Directory: crates/reda-ui/icons
-Used for: interim toolbar, menu and Panel icons, until REDA's own set replaces them. crates/reda-ui/icons/README.md lists where each icon comes from.
+Used for: interim toolbar, menu and Panel icons, for the keys that do not yet have REDA's own art (listed in crates/reda-ui/icons/sources.txt). crates/reda-ui/icons/README.md lists where each icon comes from.
 Licence: Lucide: ISC, with parts under MIT from Feather. Tabler: MIT.
 Text: crates/reda-ui/icons/LICENSE-lucide.txt
 Text: crates/reda-ui/icons/LICENSE-tabler.txt

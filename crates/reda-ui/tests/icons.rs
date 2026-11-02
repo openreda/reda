@@ -98,27 +98,34 @@ fn the_light_theme_swaps_the_role_colours_and_the_placeholder_white() {
 }
 
 #[test]
-fn disabled_icons_are_a_faded_greyscale_copy() {
-    // Each colour becomes its luminance pulled 40 % toward mid grey, at 47 % opacity:
-    // #3d8fd6 has luminance 130.7, which pulls to 129.6; white pulls to 204.2.
+fn disabled_icons_are_a_greyscale_copy_that_the_disabled_button_fades_once() {
+    // Each colour becomes its luminance pulled 40 % toward mid grey: #3d8fd6 has luminance
+    // 130.7, which pulls to 129.6; white pulls to 204.2. The copy is not faded itself: the
+    // disabled button fades it, once, to about 47 % (the theme's disabled_alpha).
     let svg = r##"<svg stroke="#3d8fd6"><path fill="#fff"/></svg>"##;
     assert_eq!(
         icons::recolour(svg, Theme::Dark, false),
-        r##"<svg opacity="0.47" stroke="#828282"><path fill="#cccccc"/></svg>"##
+        r##"<svg stroke="#828282"><path fill="#cccccc"/></svg>"##
     );
     let light = icons::recolour(svg, Theme::Light, false);
-    assert!(light.starts_with(r##"<svg opacity="0.47""##), "{light}");
+    assert!(!light.contains("opacity"), "{light}");
     // The light theme's swap comes first: #347dbc has luminance 114.0, pulled to 119.6.
     assert!(light.contains(r##"stroke="#787878""##), "{light}");
 }
 
 #[test]
 fn icons_load_for_both_themes_and_states() {
-    let dark = String::from_utf8(icons::svg("save", Theme::Dark, true).unwrap().to_vec()).unwrap();
+    // `about` is still a placeholder, drawn in white; `save` is REDA's own art.
+    let dark = String::from_utf8(icons::svg("about", Theme::Dark, true).unwrap().to_vec()).unwrap();
     let light =
-        String::from_utf8(icons::svg("save", Theme::Light, true).unwrap().to_vec()).unwrap();
-    let off = String::from_utf8(icons::svg("save", Theme::Light, false).unwrap().to_vec()).unwrap();
+        String::from_utf8(icons::svg("about", Theme::Light, true).unwrap().to_vec()).unwrap();
     assert!(dark.contains("#fff"));
     assert!(light.contains("#1f2329") && !light.contains("#fff"));
-    assert!(off.contains("opacity=\"0.47\""));
+    let save = String::from_utf8(icons::svg("save", Theme::Light, true).unwrap().to_vec()).unwrap();
+    assert!(
+        save.contains("#347dbc") && !save.contains("#3d8fd6"),
+        "{save}"
+    );
+    let off = String::from_utf8(icons::svg("save", Theme::Light, false).unwrap().to_vec()).unwrap();
+    assert!(!off.contains("#347dbc"), "{off}");
 }

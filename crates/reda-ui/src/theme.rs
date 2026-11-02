@@ -1,6 +1,7 @@
-//! REDA's own dark and light themes: neutral greys, one blue accent, small corner radii, no
-//! shadows, tighter spacing and slightly smaller text. Both meet WCAG AA text contrast
-//! (4.5:1), and the default follows the OS.
+//! REDA's own dark and light themes: slate greys, one blue accent, small corner radii, no
+//! shadows, flat buttons, tighter spacing and slightly smaller text. Both meet WCAG AA text
+//! contrast (4.5:1), and the default follows the OS. The values are the ones the main
+//! window prototype settled (docs/spec/v0.1/app.md#window-shell).
 
 use egui::{Color32, CornerRadius, FontFamily, FontId, Shadow, Stroke, TextStyle, Theme, Visuals};
 use reda_engine::preferences::{self, Preferences};
@@ -9,97 +10,140 @@ use reda_engine::preferences::{self, Preferences};
 struct Colors {
     panel: Color32,
     window: Color32,
-    faint: Color32,
+    /// Text fields.
     field: Color32,
-    separator: Color32,
+    /// Tab strips, Dock headers and icon strips, striped rows.
+    faint: Color32,
+    /// Checkboxes and other widgets at rest.
+    widget: Color32,
+    hovered: Color32,
+    pressed: Color32,
+    /// Window outlines and separators.
+    stroke: Color32,
     text: Color32,
+    /// Text on hovered and pressed buttons and on selections.
+    strong: Color32,
     weak_text: Color32,
-    /// Buttons at rest, hovered, pressed and open: (background, text).
-    button: (Color32, Color32),
-    button_hovered: (Color32, Color32),
-    button_pressed: (Color32, Color32),
-    button_open: (Color32, Color32),
-    /// The one accent: selections, focus and links.
+    /// The one accent: selections, focus, the active Document's tab.
     accent: Color32,
-    selection: Color32,
+    /// How strongly a selection shows the accent over the panel.
+    selection_alpha: f32,
+    /// What separates tab groups and Docks.
+    gap: Color32,
     link: Color32,
     warn: Color32,
     error: Color32,
 }
 
-const fn grey(v: u8) -> Color32 {
-    Color32::from_rgb(v, v, v.saturating_add(4))
+const fn rgb(hex: u32) -> Color32 {
+    Color32::from_rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
 }
 
 const DARK: Colors = Colors {
-    panel: Color32::from_rgb(0x1e, 0x1f, 0x22),
-    window: Color32::from_rgb(0x25, 0x27, 0x2b),
-    faint: Color32::from_rgb(0x26, 0x28, 0x2c),
-    field: Color32::from_rgb(0x15, 0x16, 0x18),
-    separator: Color32::from_rgb(0x3a, 0x3d, 0x42),
-    text: Color32::from_rgb(0xd4, 0xd6, 0xda),
-    weak_text: Color32::from_rgb(0x9a, 0x9e, 0xa6),
-    button: (
-        Color32::from_rgb(0x2f, 0x31, 0x36),
-        Color32::from_rgb(0xd4, 0xd6, 0xda),
-    ),
-    button_hovered: (
-        Color32::from_rgb(0x3a, 0x3d, 0x43),
-        Color32::from_rgb(0xf2, 0xf3, 0xf5),
-    ),
-    button_pressed: (Color32::from_rgb(0x45, 0x49, 0x4f), Color32::WHITE),
-    button_open: (
-        Color32::from_rgb(0x34, 0x37, 0x3c),
-        Color32::from_rgb(0xe0, 0xe2, 0xe6),
-    ),
-    accent: Color32::from_rgb(0x4c, 0x8d, 0xf6),
-    selection: Color32::from_rgb(0x1f, 0x5f, 0xbf),
-    link: Color32::from_rgb(0x6a, 0xa9, 0xff),
-    warn: Color32::from_rgb(0xe8, 0xa3, 0x3d),
-    error: Color32::from_rgb(0xff, 0x6b, 0x6b),
+    panel: rgb(0x1d2024),
+    window: rgb(0x23272c),
+    field: rgb(0x141619),
+    faint: rgb(0x24282d),
+    widget: rgb(0x2b3036),
+    hovered: rgb(0x343a41),
+    pressed: rgb(0x3d444c),
+    stroke: rgb(0x383e45),
+    text: rgb(0xc4cad3),
+    strong: rgb(0xeef1f4),
+    weak_text: rgb(0x949ba5),
+    accent: rgb(0x3d8fd6),
+    selection_alpha: 0.55,
+    gap: rgb(0x141619),
+    link: rgb(0x4a98dc),
+    warn: rgb(0xe8a33d),
+    error: rgb(0xff6b6b),
 };
 
 const LIGHT: Colors = Colors {
-    panel: Color32::from_rgb(0xf3, 0xf4, 0xf6),
-    window: Color32::WHITE,
-    faint: Color32::from_rgb(0xec, 0xee, 0xf1),
-    field: Color32::WHITE,
-    separator: grey(0xcc),
-    text: Color32::from_rgb(0x1f, 0x23, 0x29),
-    weak_text: Color32::from_rgb(0x5c, 0x63, 0x6e),
-    button: (
-        Color32::from_rgb(0xe3, 0xe6, 0xea),
-        Color32::from_rgb(0x1f, 0x23, 0x29),
-    ),
-    button_hovered: (
-        Color32::from_rgb(0xd6, 0xda, 0xe0),
-        Color32::from_rgb(0x0b, 0x0d, 0x10),
-    ),
-    button_pressed: (Color32::from_rgb(0xc8, 0xcd, 0xd4), Color32::BLACK),
-    button_open: (
-        Color32::from_rgb(0xdd, 0xe1, 0xe6),
-        Color32::from_rgb(0x1f, 0x23, 0x29),
-    ),
-    accent: Color32::from_rgb(0x1f, 0x6f, 0xeb),
-    selection: Color32::from_rgb(0x1f, 0x5f, 0xbf),
-    link: Color32::from_rgb(0x1a, 0x5f, 0xc8),
-    warn: Color32::from_rgb(0x8a, 0x5a, 0x00),
-    error: Color32::from_rgb(0xc6, 0x28, 0x28),
+    panel: rgb(0xeceef1),
+    window: rgb(0xf7f8fa),
+    field: rgb(0xffffff),
+    faint: rgb(0xe4e7eb),
+    widget: rgb(0xdfe3e8),
+    hovered: rgb(0xd2d7de),
+    pressed: rgb(0xc5ccd5),
+    stroke: rgb(0xc3c9d1),
+    text: rgb(0x2a2f36),
+    strong: rgb(0x0d1014),
+    weak_text: rgb(0x596069),
+    accent: rgb(0x1f6fb8),
+    selection_alpha: 0.35,
+    gap: rgb(0xc3c9d1),
+    link: rgb(0x1d68ad),
+    warn: rgb(0x8a5a00),
+    error: rgb(0xc62828),
 };
 
-/// The theme's one accent colour: selections, focus and links.
-pub fn accent(theme: Theme) -> Color32 {
+fn colors(theme: Theme) -> &'static Colors {
     match theme {
-        Theme::Dark => DARK.accent,
-        Theme::Light => LIGHT.accent,
+        Theme::Dark => &DARK,
+        Theme::Light => &LIGHT,
     }
 }
 
+/// The theme's one accent colour: selections, focus and the active Document's tab.
+pub fn accent(theme: Theme) -> Color32 {
+    colors(theme).accent
+}
+
+/// A tab group's tab strip: a solid blue bar, the deep accent on the active Document's
+/// group (the one the menus follow) and a muted blue on the others. Both themes share it,
+/// so the tabs' light titles keep 4.5:1 on either.
+pub fn tab_bar(theme: Theme, active_group: bool) -> Color32 {
+    match (theme, active_group) {
+        (_, true) => rgb(0x1f5fbf),
+        (Theme::Dark, false) => rgb(0x2b4f7a),
+        (Theme::Light, false) => rgb(0x3f6593),
+    }
+}
+
+/// A tab's title and icon on its [`tab_bar`]: bright on the active tab, dimmer otherwise.
+pub fn tab_text(active_tab: bool) -> Color32 {
+    if active_tab {
+        Color32::WHITE
+    } else {
+        rgb(0xd6e2f2)
+    }
+}
+
+/// The colour of the gaps between tab groups and Docks.
+pub fn gap(theme: Theme) -> Color32 {
+    colors(theme).gap
+}
+
+/// The opaque background of an active or toggled button: the selection's accent over the
+/// panel. Blue icons must stay legible on it (the follow-up in issue #32).
+pub fn active_background(theme: Theme) -> Color32 {
+    let v = visuals(theme);
+    over(v.selection.bg_fill, v.panel_fill)
+}
+
+/// `top`, which may be translucent (premultiplied, as egui keeps colours), drawn over the
+/// opaque `under`.
+pub fn over(top: Color32, under: Color32) -> Color32 {
+    let a = f32::from(top.a()) / 255.0;
+    let mix = |t: u8, u: u8| (f32::from(t) + f32::from(u) * (1.0 - a)).round().min(255.0) as u8;
+    Color32::from_rgb(
+        mix(top.r(), under.r()),
+        mix(top.g(), under.g()),
+        mix(top.b(), under.b()),
+    )
+}
+
+/// How far a disabled widget fades, its icon included: once, to about 47 %.
+pub const DISABLED_ALPHA: f32 = 0.47;
+
 /// The egui visuals of REDA's theme.
 pub fn visuals(theme: Theme) -> Visuals {
-    let (c, mut v) = match theme {
-        Theme::Dark => (&DARK, Visuals::dark()),
-        Theme::Light => (&LIGHT, Visuals::light()),
+    let c = colors(theme);
+    let mut v = match theme {
+        Theme::Dark => Visuals::dark(),
+        Theme::Light => Visuals::light(),
     };
     let small = CornerRadius::same(3);
     v.override_text_color = None;
@@ -112,31 +156,38 @@ pub fn visuals(theme: Theme) -> Visuals {
     v.warn_fg_color = c.warn;
     v.error_fg_color = c.error;
     v.window_fill = c.window;
-    v.window_stroke = Stroke::new(1.0, c.separator);
+    v.window_stroke = Stroke::new(1.0, c.stroke);
     v.window_corner_radius = CornerRadius::same(4);
     v.window_shadow = Shadow::NONE;
     v.popup_shadow = Shadow::NONE;
-    v.menu_corner_radius = CornerRadius::same(4);
+    v.menu_corner_radius = small;
     v.panel_fill = c.panel;
-    v.selection.bg_fill = c.selection;
-    v.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+    v.selection.bg_fill = c.accent.gamma_multiply(c.selection_alpha);
+    v.selection.stroke = Stroke::new(1.0, c.strong);
     v.text_cursor.stroke = Stroke::new(2.0, c.accent);
+    v.disabled_alpha = DISABLED_ALPHA;
 
     let w = &mut v.widgets;
     w.noninteractive.bg_fill = c.panel;
     w.noninteractive.weak_bg_fill = c.panel;
-    w.noninteractive.bg_stroke = Stroke::new(1.0, c.separator);
+    w.noninteractive.bg_stroke = Stroke::new(1.0, c.stroke);
     w.noninteractive.fg_stroke = Stroke::new(1.0, c.text);
     w.noninteractive.corner_radius = small;
-    for (state, (bg, fg), stroke) in [
-        (&mut w.inactive, c.button, Stroke::NONE),
+    for (state, bg, fg, stroke) in [
+        (&mut w.inactive, c.widget, c.text, Stroke::NONE),
         (
             &mut w.hovered,
-            c.button_hovered,
-            Stroke::new(1.0, c.separator),
+            c.hovered,
+            c.strong,
+            Stroke::new(1.0, c.stroke),
         ),
-        (&mut w.active, c.button_pressed, Stroke::new(1.0, c.accent)),
-        (&mut w.open, c.button_open, Stroke::new(1.0, c.separator)),
+        (
+            &mut w.active,
+            c.pressed,
+            c.strong,
+            Stroke::new(1.0, c.accent),
+        ),
+        (&mut w.open, c.hovered, c.strong, Stroke::new(1.0, c.stroke)),
     ] {
         state.weak_bg_fill = bg;
         state.bg_fill = bg;
@@ -145,8 +196,10 @@ pub fn visuals(theme: Theme) -> Visuals {
         state.corner_radius = small;
         state.expansion = 0.0;
     }
-    // Checkboxes and slider rails need a fill that stands off the panel.
-    w.inactive.bg_fill = c.separator;
+    // Buttons are flat until hovered. Checkboxes and slider rails need a fill that stands
+    // off the panel.
+    w.inactive.weak_bg_fill = Color32::TRANSPARENT;
+    w.inactive.bg_fill = c.stroke;
     v
 }
 
@@ -157,11 +210,14 @@ pub fn style(theme: Theme) -> egui::Style {
         ..egui::Style::default()
     };
     style.text_styles = [
-        (TextStyle::Small, FontId::new(9.5, FontFamily::Proportional)),
-        (TextStyle::Body, FontId::new(12.0, FontFamily::Proportional)),
+        (
+            TextStyle::Small,
+            FontId::new(10.5, FontFamily::Proportional),
+        ),
+        (TextStyle::Body, FontId::new(12.5, FontFamily::Proportional)),
         (
             TextStyle::Button,
-            FontId::new(12.0, FontFamily::Proportional),
+            FontId::new(12.5, FontFamily::Proportional),
         ),
         (
             TextStyle::Heading,
@@ -175,10 +231,10 @@ pub fn style(theme: Theme) -> egui::Style {
     .into();
     let spacing = &mut style.spacing;
     spacing.item_spacing = egui::vec2(6.0, 3.0);
-    spacing.button_padding = egui::vec2(5.0, 2.0);
+    spacing.button_padding = egui::vec2(6.0, 2.0);
     spacing.menu_margin = egui::Margin::same(4);
     spacing.window_margin = egui::Margin::same(6);
-    spacing.interact_size.y = 18.0;
+    spacing.interact_size.y = 20.0;
     style
 }
 

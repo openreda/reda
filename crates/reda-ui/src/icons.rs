@@ -3,9 +3,10 @@
 //! Commands, Presets, Panels and Document types name an icon by key (`"save"`,
 //! `"panel_layers"`); [`ICONS`](table::ICONS) maps each key to its SVG in `icons/`. Each
 //! SVG is drawn with the dark-theme colours. On load, [`recolour`] swaps them for the light
-//! theme's, and makes the faded greyscale copy disabled buttons show; state otherwise shows
-//! on the button, never on the icon. Until REDA's own set exists the SVGs are Lucide and
-//! Tabler placeholders vendored by `cargo xtask icons` (see `icons/README.md`).
+//! theme's, and makes the greyscale copy disabled buttons show (the button fades it, once);
+//! state otherwise shows on the button, never on the icon. REDA's own art, listed in
+//! `icons/reda.txt`, comes first; each key without it shows a Lucide or Tabler placeholder
+//! vendored by `cargo xtask icons` until it gets REDA art (see `icons/README.md`).
 
 mod table;
 
@@ -80,13 +81,13 @@ const LIGHT_SWAP: [(u32, u32); 6] = [
     (0xffffff, 0x1f2329), // placeholder art: the light theme's text colour
 ];
 
-/// How far a disabled icon's greys are pulled toward mid grey, and its opacity.
+/// How far a disabled icon's greys are pulled toward mid grey.
 const DISABLED_PULL: f32 = 0.4;
-const DISABLED_OPACITY: &str = "0.47";
 
 /// `svg` (drawn with dark-theme colours) for `theme`: on the light theme each listed colour
 /// is swapped; when not `enabled` every colour then becomes its luminance pulled toward mid
-/// grey, and the whole icon is drawn faded.
+/// grey. The copy is not faded: the disabled button that shows it fades it, once, by the
+/// theme's [`DISABLED_ALPHA`](crate::theme::DISABLED_ALPHA).
 pub fn recolour(svg: &str, theme: Theme, enabled: bool) -> String {
     if theme == Theme::Dark && enabled {
         return svg.to_owned();
@@ -110,9 +111,6 @@ pub fn recolour(svg: &str, theme: Theme, enabled: bool) -> String {
         rest = &tail[digits..];
     }
     out.push_str(rest);
-    if !enabled && let Some(at) = out.find("<svg") {
-        out.insert_str(at + 4, &format!(" opacity=\"{DISABLED_OPACITY}\""));
-    }
     out
 }
 
@@ -167,7 +165,7 @@ fn loaded() -> &'static Loaded {
     })
 }
 
-/// The SVG for `key` on `theme`, faded and grey when not `enabled`; `None` without art.
+/// The SVG for `key` on `theme`, the greyscale copy when not `enabled`; `None` without art.
 pub fn svg(key: &str, theme: Theme, enabled: bool) -> Option<&'static [u8]> {
     let key = keys().find(|k| *k == key)?;
     loaded()

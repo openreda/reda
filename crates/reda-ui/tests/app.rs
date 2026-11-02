@@ -529,9 +529,9 @@ fn icon_sheet_snapshot(theme: egui::Theme) {
         "save",
         "undo",
         "zoom_fit",
-        "panel_layers",
+        "layers",
+        "select",
         "move",
-        "erc",
     ];
     let mut h = Harness::builder()
         .with_size([400.0, 172.0])
@@ -549,8 +549,10 @@ fn icon_sheet_snapshot(theme: egui::Theme) {
                 ] {
                     for enabled in [true, false] {
                         ui.horizontal(|ui| {
+                            // A disabled icon fades once, as on a disabled button.
                             for key in keys {
-                                ui.add(reda_ui::icons::image(key, size, theme, enabled).unwrap());
+                                let image = reda_ui::icons::image(key, size, theme, enabled);
+                                ui.add_enabled(enabled, image.unwrap());
                             }
                         });
                     }

@@ -136,6 +136,50 @@ fn a_right_click_tab_menu_splits_and_moves_to_a_new_window() {
 }
 
 #[test]
+fn the_view_menu_collapses_each_dock() {
+    let mut h = harness();
+    h.run();
+    // The Docks have no header: collapsing is in the View menu and the tab menu.
+    assert!(h.query_by_label("Collapse Left Dock").is_none());
+    for (side, label) in [
+        (DockSide::Left, "Collapse Left Dock"),
+        (DockSide::Bottom, "Collapse Bottom Dock"),
+    ] {
+        h.get_by_role_and_label(Role::Button, "View").click();
+        h.run();
+        h.get_by_label("Docks").hover();
+        h.run();
+        h.get_by_label(label).click();
+        h.run();
+        assert!(h.state().shell().layout().dock(side).collapsed, "{label}");
+    }
+    assert!(!h.state().shell().layout().dock(DockSide::Right).collapsed);
+}
+
+#[test]
+fn the_active_tabs_close_button_closes_it() {
+    let mut h = harness();
+    h.run();
+    // Each group's active tab shows its close button.
+    assert!(h.query_by_label("Close Projects").is_some());
+    assert!(h.query_by_label("Close Start").is_some());
+    h.get_by_role_and_label(Role::Button, "Close Projects")
+        .click();
+    h.run();
+    assert_eq!(
+        journal(&h),
+        [("layout.tab.close".to_owned(), json!({"tab": "projects"}))]
+    );
+    assert!(
+        h.state()
+            .shell()
+            .layout()
+            .place(&TabKey::Panel(PanelId::Projects))
+            .is_none()
+    );
+}
+
+#[test]
 fn a_collapsed_dock_shows_icons_that_open_flyouts() {
     let mut h = harness();
     h.run();
