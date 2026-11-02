@@ -300,6 +300,10 @@ fn snapshot_of_a_drag_in_flight() {
                               {"x": "150mm", "y": "60mm"}]}),
         )
         .unwrap();
+    // The Properties panel would show the Wire's UUID, which differs run to run.
+    shell
+        .run("layout.tab.close", json!({"tab": "properties"}))
+        .unwrap();
     h.run();
     // Grab the horizontal Wire and drag it up: it is drawn moved and selected, and the
     // Wire down from its end is drawn rubber-banded, with nothing committed yet.
