@@ -157,8 +157,12 @@ impl Command for MoveToNewWindow {
 pub struct SplitParams {
     #[doc = "The tab: \"start\", a Panel id such as \"properties\", or a Document UUID."]
     tab: String,
-    /// Where the new group goes: to the right of the tab's group, or below it.
+    /// Where the new group goes: to the right of, below, to the left of or above the group
+    /// it splits.
     side: SplitSide,
+    /// The tab group to split; the tab's own group by default.
+    #[serde(default)]
+    group: Option<GroupId>,
 }
 
 struct Split;
@@ -167,7 +171,7 @@ impl Command for Split {
     const META: Meta = Meta {
         id: "layout.tab.split",
         title: "Split Tab",
-        description: "Moves a tab out of its group into a new group to the right of it or below it. A tab alone in its group cannot split, and a tab in a Dock splits only down.",
+        description: "Moves a tab into a new group beside a tab group: its own group by default, or any other. A tab alone in its group cannot split from it, and a group in a Dock splits only up or down.",
         category: "layout",
         icon: "split",
         kind: Kind::View,
@@ -177,7 +181,7 @@ impl Command for Split {
 
     fn run(&self, cx: &mut Context<'_>, p: SplitParams) -> Result<TabPlaced, CommandError> {
         let tab = tab(&p.tab)?;
-        let group = layout(cx)?.split(&tab, p.side)?;
+        let group = layout(cx)?.split_beside(&tab, p.group, p.side)?;
         Ok(TabPlaced { group })
     }
 }

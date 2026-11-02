@@ -8,9 +8,11 @@
 //! refused action leaves the layout as it was.
 
 mod commands;
+mod drop;
 mod model;
 
 pub use commands::register_all;
+pub use drop::{DropOutcome, DropPlan, DropTarget};
 pub use model::{
     Area, Axis, Dock, DockSide, FloatingWindow, Group, GroupId, Layout, Node, PanelId, Place,
     SplitSide, TabKey, WindowId,
