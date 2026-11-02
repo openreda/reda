@@ -32,6 +32,8 @@ pub enum Request {
     Quit,
     /// Fit this Document's canvas to the Document.
     ZoomFit(Uuid),
+    /// Zoom this Document's canvas to the selection.
+    ZoomSelection(Uuid),
     /// Show the window in this theme.
     Theme(Theme),
     /// Show the About box.
@@ -62,6 +64,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(OpenDialog);
     registry.add(Quit);
     registry.add(ZoomFit);
+    registry.add(ZoomSelection);
     registry.add(SetTheme);
 }
 
@@ -230,6 +233,36 @@ impl Command for ZoomFit {
                 .ok_or_else(|| CommandError::unavailable("no Document is active"))?,
         };
         request(cx, Request::ZoomFit(document))?;
+        Ok(Done {})
+    }
+}
+
+struct ZoomSelection;
+
+impl Command for ZoomSelection {
+    const META: Meta = Meta {
+        id: "view.zoom_selection",
+        title: "Zoom to Selection",
+        description: "Zooms a Document's canvas, the active Document's by default, to the selected objects.",
+        category: "view",
+        icon: "zoom_fit",
+        kind: Kind::View,
+    };
+    type Params = ZoomFitParams;
+    type Output = Done;
+
+    fn run(&self, cx: &mut Context<'_>, p: ZoomFitParams) -> Result<Done, CommandError> {
+        let document = match p.document {
+            Some(document) => document,
+            None => cx
+                .view::<Layout>()?
+                .active_document()
+                .ok_or_else(|| CommandError::unavailable("no Document is active"))?,
+        };
+        if cx.view::<crate::selection::Selection>()?.is_empty() {
+            return Err(CommandError::unavailable("nothing is selected"));
+        }
+        request(cx, Request::ZoomSelection(document))?;
         Ok(Done {})
     }
 }

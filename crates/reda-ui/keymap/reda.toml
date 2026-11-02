@@ -90,12 +90,18 @@ command = "layout.tab.switch:next"
 key = "Ctrl+Shift+Tab"
 command = "layout.tab.switch:previous"
 
-# View: F zooms to fit on a canvas.
+# View: F zooms to fit on a canvas, and Home to the selection.
 
 [[bind]]
 context = "schematic"
 key = "F"
 command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Home"
+command = "view.zoom_selection"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -105,15 +111,33 @@ command = "view.zoom_fit"
 params = { document = "$active_document" }
 
 [[bind]]
+context = "pcb"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
 context = "symbol"
 key = "F"
 command = "view.zoom_fit"
 params = { document = "$active_document" }
 
 [[bind]]
+context = "symbol"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
 context = "footprint"
 key = "F"
 command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Home"
+command = "view.zoom_selection"
 params = { document = "$active_document" }
 
 # The schematic canvas. "$selection" is what is selected on the sheet, "$selectable"

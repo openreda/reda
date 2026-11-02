@@ -662,6 +662,9 @@ impl App {
                         tab.camera = None;
                     }
                 }
+                Request::ZoomSelection(document) => {
+                    self.shell.zoom_to_selection(document);
+                }
                 Request::Preferences => self.open_preferences(None),
                 Request::Theme(choice) => ctx.set_theme(match choice {
                     preferences::Theme::FollowOs => ThemePreference::System,
