@@ -1,7 +1,8 @@
 //! The Library panel: the registered Libraries' Parts, searched and filtered, with a
 //! preview of the chosen one. On a sheet it lists Parts that have a Symbol, on the PCB
 //! Mechanical Parts. Clicking or dragging a Part starts the placement Tool
-//! (`tool.place`); Edit and New… run the Library element Commands.
+//! (`tool.place`); Edit opens the chosen Part's Symbol and New… makes a Symbol, each in
+//! the Symbol editor.
 //!
 //! The panel reads the Libraries through [`Engine::libraries`](reda_engine::Engine),
 //! scanning again only when a Command may have changed them (the Shell's library
@@ -182,18 +183,20 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Action> {
         .and_then(|s| parts.iter().find(|(_, p)| p.uuid == s))
         .cloned();
     ui.horizontal(|ui| {
-        let part = chosen.as_ref().map(|(_, p)| p);
-        let edit = ui.add_enabled(part.is_some(), egui::Button::new(tr!("library-edit")));
+        // Edit opens the chosen Part's Symbol in the Symbol editor; New makes a Symbol.
+        let symbol = chosen.as_ref().and_then(|(_, p)| p.symbol);
+        let edit = ui.add_enabled(symbol.is_some(), egui::Button::new(tr!("library-edit")));
         if edit.clicked()
-            && let Some(part) = part
+            && let Some(symbol) = symbol
         {
             actions.push(Action::Run(
                 "library.element.open".into(),
-                json!({ "element": part.uuid }),
+                json!({ "element": symbol }),
             ));
         }
-        if ui.button(tr!("library-new")).clicked() {
-            let mut params = json!({"kind": "part"});
+        let new = ui.button(tr!("library-new"));
+        if new.on_hover_text(tr!("library-new-hover")).clicked() {
+            let mut params = json!({"kind": "symbol"});
             if let Some(library) = panel.library {
                 params["library"] = json!(library);
             }

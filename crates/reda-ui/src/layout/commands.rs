@@ -31,6 +31,8 @@ pub fn register_with_layouts(registry: &mut Registry, dirs: Option<UserDirs>) {
     registry.add(OpenDocument);
     registry.add(SaveLayout);
     registry.add(ApplyLayout { dirs });
+    registry.add(super::focus::CycleFocus);
+    registry.add(super::focus::SwitchTab);
 }
 
 fn user_dirs<'c>(cx: &'c Context<'_>) -> Result<&'c UserDirs, CommandError> {

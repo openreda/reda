@@ -107,3 +107,35 @@ fn open_elements_and_their_undo_stacks_stay_open_when_a_project_opens() {
     e.run_ok("edit.undo", json!({"document": DEMO_FOOTPRINT}));
     assert!(!e.dirty_scopes().contains(&Scope::Element(uuid)));
 }
+
+#[test]
+fn elements_edited_with_no_project_snapshot_into_the_per_user_folder_and_restore() {
+    let (home, work) = (TempDir::new("noproj4-home"), TempDir::new("noproj4-work"));
+    let mut e = engine(&home, &work);
+    e.run_ok("library.element.open", json!({"element": DEMO_FOOTPRINT}));
+    e.run_ok(
+        "library.footprint.pad.add",
+        json!({"footprint": DEMO_FOOTPRINT, "number": "9", "kind": "smd", "shape": "rect",
+               "at": {"x": "5mm", "y": "0mm"}, "width": "1mm", "height": "1mm"}),
+    );
+    let folder = reda_engine::recovery::user_dir(e.user_dirs().unwrap());
+    reda_engine::recovery::View::of(&e)
+        .write(&folder, &e.dirty_scopes(), 5)
+        .unwrap();
+
+    // The app went away uncleanly; the next one starts with no Project open.
+    let rows = reda_engine::recovery::scan(&folder, None);
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    let mut after = engine(&home, &work);
+    after.run_ok(
+        "recovery.restore",
+        json!({"snapshots": [rows[0].snapshot.file.clone()]}),
+    );
+    assert!(after.project().is_none());
+    let scope = Scope::Element(DEMO_FOOTPRINT.parse().unwrap());
+    assert!(after.dirty_scopes().contains(&scope));
+    after.run_ok("library.element.save", json!({"element": DEMO_FOOTPRINT}));
+    let file = work.path().join("user-lib/footprints/SOIC-8.redafp");
+    let text = std::fs::read_to_string(file).unwrap();
+    assert!(text.contains("\"number\":\"9\""), "{text}");
+}

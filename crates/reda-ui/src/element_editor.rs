@@ -13,7 +13,8 @@
 //! - Save (`library.element.save`) and the Library check ([`check`]) act on the element;
 //!   the check's Violations go to the Messages panel.
 //!
-//! A new kind of element editor adds an arm to [`scene`], [`edit`] and [`side_panel`].
+//! A new kind of element editor adds an arm to [`scene`], [`edit`], [`cancel`] and
+//! [`panels`].
 
 use std::sync::Arc;
 
@@ -119,7 +120,8 @@ pub fn scene(
             let layers = board_composites(&drawn.layers, &view).into();
             Some((drawn.scene, Some(layers)))
         }
-        LibraryElement::Symbol(_) | LibraryElement::Part(_) => None,
+        LibraryElement::Symbol(_) => Some((crate::symbol_editor::scene(engine, uuid)?, None)),
+        LibraryElement::Part(_) => None,
     }
 }
 
@@ -185,17 +187,58 @@ pub(crate) fn edit(shell: &mut Shell, element: Uuid, input: &CanvasInputs) -> Ve
             &input.events,
             input.camera.nm_per_point,
         ),
+        Some(LibraryElement::Symbol(_)) => {
+            crate::symbol_editor::pointer(shell, element, &input.events, input.camera.nm_per_point)
+        }
         _ => Vec::new(),
     }
 }
 
-/// The panel beside the element's canvas; returns the Commands its controls ask for.
-pub(crate) fn side_panel(ui: &mut egui::Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
+/// Drops what the editor of `element` has in flight (Escape, another Tool).
+pub(crate) fn cancel(shell: &mut Shell, element: Uuid) {
+    match shell.engine().element(element) {
+        Some(LibraryElement::Footprint(_)) => crate::footprint_editor::cancel(shell, element),
+        Some(LibraryElement::Symbol(_)) => crate::symbol_editor::cancel(shell, element),
+        _ => {}
+    }
+}
+
+/// The panels around the element's canvas (the Footprint's inspector beside it, the
+/// Symbol's Unit tabs over it and pin table under it), drawn into `ui` before the canvas
+/// takes what is left; returns the Commands their controls ask for.
+pub(crate) fn panels(ui: &mut egui::Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
     match shell.engine().element(element) {
         Some(LibraryElement::Footprint(_)) => {
-            crate::footprint_editor::inspector::show(ui, shell, element)
+            let id = egui::Id::NULL.with(("element-side-panel", element));
+            egui::Panel::right(id)
+                .resizable(false)
+                .exact_size(crate::footprint_editor::inspector::WIDTH)
+                .show(ui, |ui| {
+                    crate::footprint_editor::inspector::show(ui, shell, element)
+                })
+                .inner
         }
+        Some(LibraryElement::Symbol(_)) => crate::symbol_editor::view::panels(ui, shell, element),
         _ => Vec::new(),
+    }
+}
+
+/// The active Document, when it is an open Symbol.
+pub(crate) fn active_symbol(shell: &Shell) -> Option<Uuid> {
+    let active = shell.layout().active_document()?;
+    matches!(
+        shell.engine().element(active),
+        Some(LibraryElement::Symbol(_))
+    )
+    .then_some(active)
+}
+
+/// Runs the Library check on the active element, if the active Document is one, after a
+/// save: Save writes the file and the check's findings show in Messages.
+pub(crate) fn check_after_save(shell: &mut Shell) {
+    let active = shell.layout().active_document();
+    if let Some(element) = active.filter(|e| is_element(shell.engine(), *e)) {
+        let _ = check(shell, element);
     }
 }
 

@@ -28,7 +28,9 @@
             { "id": "edit.distribute.vertical", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "vertical" }, "title": "menu-edit-distribute-vertical" }
           ]
         },
-        { "id": "edit.snap_to_grid", "command": "schematic.snap_to_grid", "params": { "objects": "$selection", "grid": "$grid" }, "title": "menu-edit-snap-to-grid" }
+        { "id": "edit.snap_to_grid", "command": "schematic.snap_to_grid", "params": { "objects": "$selection", "grid": "$grid" }, "title": "menu-edit-snap-to-grid" },
+        "separator",
+        { "id": "edit.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } }
       ]
     },
     {

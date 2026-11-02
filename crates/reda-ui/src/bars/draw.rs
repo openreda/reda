@@ -4,12 +4,13 @@
 
 use std::collections::BTreeMap;
 
-use egui::{Align2, Button, Id, Order, Rect, Role, Ui, Vec2, WidgetInfo};
+use egui::{Align2, Button, Id, Order, Rect, Role, Ui, Vec2};
 use serde_json::Value;
 
 use reda_engine::model::Uuid;
 
 use super::{Action, Bars, Item, Menu, Resolved, resolve_for};
+use crate::a11y;
 use crate::i18n;
 use crate::icons;
 use crate::keymap;
@@ -124,7 +125,8 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
         let item = resolve_for(cx.shell, action, cx.document);
         let enabled = item.run.is_ok();
         // The tooltip names the shortcut: "Undo (Ctrl+Z)".
-        let heading = match cx.shortcut(ui, action) {
+        let shortcut = cx.shortcut(ui, action);
+        let heading = match &shortcut {
             Some(shortcut) => format!("{} ({shortcut})", item.title),
             None => item.title.clone(),
         };
@@ -138,9 +140,7 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
                 .selected(cx.is_checked(&item))
                 .frame_when_inactive(false),
         );
-        let name = item.title.clone();
-        response.widget_info(|| WidgetInfo::labeled(Role::Button, enabled, name.clone()));
-        match &item.run {
+        let response = match &item.run {
             Ok(run) => {
                 let response = response.on_hover_ui(|ui| {
                     ui.strong(&heading);
@@ -149,14 +149,24 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
                 if response.clicked() {
                     clicked = Some(run.clone());
                 }
+                response
             }
-            Err(reason) => {
-                response.on_disabled_hover_ui(|ui| {
-                    ui.strong(&heading);
-                    ui.label(reason);
-                });
-            }
-        }
+            Err(reason) => response.on_disabled_hover_ui(|ui| {
+                ui.strong(&heading);
+                ui.label(reason);
+            }),
+        };
+        // A choice among several (the active Tool) reads as on or off.
+        let selected =
+            (cx.checked.contains_key(item.command.as_str())).then(|| cx.is_checked(&item));
+        a11y::name(
+            &response,
+            Role::Button,
+            enabled,
+            &item.title,
+            selected,
+            shortcut.as_deref(),
+        );
     }
     clicked
 }

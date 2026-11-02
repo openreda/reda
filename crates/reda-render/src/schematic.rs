@@ -5,6 +5,8 @@ mod frame;
 mod ports;
 mod unit;
 
+pub use unit::symbol_scene;
+
 use reda_model::geom::Point;
 use reda_model::{Project, Uuid};
 

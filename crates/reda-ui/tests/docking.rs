@@ -279,7 +279,7 @@ fn menus_follow_the_document_last_pressed_on_in_any_window() {
 
     // A press on the PCB's canvas, in its own window, makes it the active Document, and
     // the main window's menus and toolbar follow.
-    let tab = h.get_by_role_and_label(Role::Button, &pcb_title).rect();
+    let tab = h.get_by_role_and_label(Role::Tab, &pcb_title).rect();
     let canvas = egui::pos2(tab.center().x, tab.bottom() + 80.0);
     h.drag_at(canvas);
     h.drop_at(canvas);

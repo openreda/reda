@@ -13,7 +13,7 @@ fn tr_looks_a_key_up_in_the_english_catalogue() {
 #[test]
 fn tr_fills_in_arguments() {
     assert_eq!(
-        tr!("canvas-description", document = "Sheet 1"),
+        tr!("canvas-name-schematic", document = "Sheet 1"),
         "Schematic canvas: Sheet 1"
     );
 }

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use egui::{Panel, ThemePreference, Ui};
+use egui::{Panel, ThemePreference, Ui, UiBuilder};
 use reda_engine::Engine;
 use reda_engine::preferences;
 use serde_json::json;
@@ -33,7 +33,12 @@ use crate::settings::{self, Outcome, SettingsDialog};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
 use crate::user_preferences::Watcher;
-use crate::{crash, keymap, theme, tr};
+use crate::{a11y, crash, keymap, tab_switcher, theme, tr};
+
+/// Where the window remembers its status bar row's height between frames.
+fn status_bar_id() -> egui::Id {
+    egui::Id::NULL.with("status-bar-height")
+}
 
 /// The REDA window.
 pub struct App {
@@ -180,10 +185,29 @@ impl App {
         self.collect_picked_files();
         self.update_title(&ctx);
         self.keys(&ctx);
+        tab_switcher::release(&ctx, &mut self.shell);
 
         let clicked = self.bars(ui);
-        Panel::bottom("status-bar").show(ui, |ui| self.status_bar(ui));
+        // The status bar's space is set aside before the docking layer's, but what is in
+        // it is drawn after, so keyboard focus reaches it last, as it sits in the window.
+        let status_height = ctx.data(|d| d.get_temp::<f32>(status_bar_id()));
+        let status_height = status_height.unwrap_or(ui.spacing().interact_size.y);
+        let status = Panel::bottom("status-bar")
+            .show(ui, |ui| {
+                let mut rect = ui.available_rect_before_wrap();
+                rect.set_height(status_height);
+                ui.advance_cursor_after_rect(rect);
+                rect
+            })
+            .inner;
         let frame = docking::show(ui, &mut self.shell);
+        let builder = UiBuilder::new()
+            .max_rect(status)
+            .id_salt("status-bar-content");
+        let drawn = ui.scope_builder(builder, |ui| self.status_bar(ui));
+        let height = drawn.inner.height();
+        ctx.data_mut(|d| d.insert_temp(status_bar_id(), height));
+        tab_switcher::show(&ctx, &mut self.shell);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {
             self.call(&id, params);
@@ -249,6 +273,7 @@ impl App {
                 }
             }
         }
+        a11y::focus_ring(&ctx);
     }
 
     /// Takes due Recovery Snapshots, and shows the recovery prompt and the Crash Report
@@ -295,10 +320,11 @@ impl App {
     /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs
     /// take keys first: nothing runs while a text field has the keyboard or the New Project
     /// dialog is open, and while a Project dialog is open only global keys apply, with
-    /// undo on the Project stack.
+    /// undo on the Project stack. A focused button keeps the plain keys (Space presses
+    /// it), but chords with a modifier and the function keys (F6, Ctrl+Tab) still apply.
     fn keys(&mut self, ctx: &egui::Context) {
         // The Preferences dialog takes every key: its Keyboard Shortcuts page records them.
-        if ctx.egui_wants_keyboard_input()
+        if ctx.text_edit_focused()
             || self.new_project.is_some()
             || self.preferences.is_some()
             || self.palette.is_some()
@@ -318,7 +344,13 @@ impl App {
             }
             active
         };
-        let actions = ctx.input_mut(|i| self.shell.keymap().take(i, &active));
+        // Escape and Enter go to the tab switcher while it is open.
+        tab_switcher::keys(ctx, &mut self.shell);
+        let widget_focused = ctx.egui_wants_keyboard_input();
+        let actions = ctx.input_mut(|i| {
+            let wanted = |chord: &keymap::Chord| !widget_focused || chord.passes_focused_widgets();
+            self.shell.keymap().take_where(i, &active, wanted)
+        });
         let document = self.shell.active_document().map(|d| d.document);
         for action in actions {
             // A key whose Command cannot run now does nothing, as its greyed menu item.
@@ -591,7 +623,8 @@ impl App {
         }
     }
 
-    fn status_bar(&mut self, ui: &mut Ui) {
+    /// Draws the status bar; returns the rect its row took.
+    fn status_bar(&mut self, ui: &mut Ui) -> egui::Rect {
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panels_button(ui);
@@ -642,7 +675,9 @@ impl App {
                     },
                 );
             });
-        });
+        })
+        .response
+        .rect
     }
 
     /// The Panels button: shows any Panel, reopening a closed one in its usual Dock.

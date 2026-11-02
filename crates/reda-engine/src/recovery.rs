@@ -21,7 +21,13 @@ use reda_library::{ElementKind, LibraryIndex, LibraryRoot, scan as scan_librarie
 use reda_model::{DocumentEntry, DocumentKind, LibraryElement, Project, Scope, Uuid};
 use serde::{Deserialize, Serialize};
 
-pub(crate) use restore::restore;
+pub(crate) use restore::{restore, restore_elements};
+
+/// The per-user recovery folder, where Library element snapshots go while no Project is
+/// open.
+pub fn user_dir(dirs: &reda_command::UserDirs) -> PathBuf {
+    dirs.data.join("recovery")
+}
 
 use crate::Engine;
 use crate::format::library::{
@@ -148,12 +154,12 @@ impl View {
     }
 
     pub(crate) fn of_session(session: &Session) -> View {
-        let has_elements = session
-            .project
-            .as_ref()
-            .is_some_and(|p| p.elements().next().is_some());
+        // With no Project open, the Library elements open on the workbench are
+        // snapshotted.
+        let holder = session.elements();
+        let has_elements = holder.is_some_and(|p| p.elements().next().is_some());
         View {
-            project: session.project.clone(),
+            project: holder.cloned(),
             folder: session.location.clone(),
             roots: match has_elements {
                 true => registered_roots(session),
