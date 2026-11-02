@@ -1,7 +1,9 @@
 //! The app registers its own view Commands (the layout Commands, `panel.show`,
-//! `document.open` and `selection.set`) on top of the engine's. They are not in `docs/commands.json`, which
-//! is the engine's catalogue, so the engine's Command coverage test does not see them.
-//! This test holds them to the same rule: every one is run by a test.
+//! `document.open`, `selection.set` and the window Commands the menus bind to) on top of
+//! the engine's. They are not in
+//! `docs/commands.json`, which is the engine's catalogue, so the engine's Command coverage
+//! test does not see them. This test holds them to the same rule: every one is run by a
+//! test.
 
 use std::path::{Path, PathBuf};
 
@@ -45,6 +47,7 @@ fn app_ids() -> Vec<&'static str> {
     let mut registry = Registry::new();
     reda_ui::layout::register_all(&mut registry);
     reda_ui::selection::register_all(&mut registry);
+    reda_ui::bars::register_all(&mut registry);
     registry
         .commands()
         .map(|meta| meta.id)
