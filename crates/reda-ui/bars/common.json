@@ -8,6 +8,8 @@
         { "id": "file.open_project", "command": "app.dialog.open:open_project" },
         { "id": "file.save_all", "command": "project.save" },
         "separator",
+        { "id": "file.preferences", "command": "app.dialog.open:preferences" },
+        "separator",
         { "id": "file.quit", "command": "app.quit" }
       ]
     },

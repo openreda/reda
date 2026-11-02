@@ -40,6 +40,7 @@ use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
 use crate::tools::{self, ActiveTool, Tool};
 use crate::tr;
+use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
 
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
@@ -145,10 +146,10 @@ pub struct Shell {
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
     keymap: Keymap,
+    /// The Preferences as last read (see [`Shell::poll_preferences`]).
+    preferences: Watched,
     /// What `schematic.copy` or `schematic.cut` last returned, for `schematic.paste`.
     clipboard: Option<Value>,
-    /// The Preferences, read at start and again after `app.preferences.set`.
-    prefs: Preferences,
     /// The PCB canvas's select-and-place Tool.
     pcb_tool: pcb::Tool,
     /// The colour overrides from the Preferences.
@@ -200,8 +201,8 @@ impl Shell {
             messages: Messages::default(),
             marked: SelectionHandle::default(),
             keymap: Keymap::default(),
+            preferences: Watched::default(),
             clipboard: None,
-            prefs: Preferences::default(),
             pcb_tool: pcb::Tool::default(),
             palette: PaletteHandle::default(),
             closed_views: BTreeMap::new(),
@@ -210,8 +211,7 @@ impl Shell {
         };
         shell.load_preference_warnings();
         shell.reload_keymap();
-        shell.prefs = preferences::current(shell.engine.user_dirs());
-        shell.palette = pcb::view::palette_handle(&shell.prefs, 0);
+        shell.palette = pcb::view::palette_handle(shell.preferences.values(), 0);
         if shell.engine.project().is_some() {
             shell.show_project();
             shell.recorder.opened(&shell.engine);
@@ -295,11 +295,6 @@ impl Shell {
     /// The Layer colour overrides the canvases draw with.
     pub fn palette(&self) -> &PaletteHandle {
         &self.palette
-    }
-
-    /// The Preferences as last read.
-    pub fn preferences(&self) -> &Preferences {
-        &self.prefs
     }
 
     // ---- The PCB canvas Tool (see `pcb::tool`) ----
@@ -722,10 +717,8 @@ impl Shell {
                 _ => self.refresh(),
             },
         }
-        if base == "app.preferences.set" {
-            self.prefs = preferences::current(self.engine.user_dirs());
-            self.generation += 1;
-            self.palette = pcb::view::palette_handle(&self.prefs, self.generation);
+        if matches!(base, "app.preferences.set" | "view.theme.set") {
+            self.reload_preferences();
         }
         self.sync_selection();
         self.sync_board_view();
@@ -1040,12 +1033,68 @@ impl Shell {
         self.set_load_messages(KEYMAP, problems);
     }
 
+    /// The Preferences as last read: after this window's own changes at once, and after
+    /// another instance's once [`Shell::poll_preferences`] notices them.
+    pub fn preferences(&self) -> &Preferences {
+        self.preferences.values()
+    }
+
+    /// Moves every time [`Shell::preferences`] change, so the window applies the theme and
+    /// UI scale once per change.
+    pub fn preferences_generation(&self) -> u64 {
+        self.preferences.generation()
+    }
+
+    /// Reads `preferences.toml` again if it changed on disk (another instance, or a hand
+    /// edit) and applies what changed. Returns whether the Preferences changed.
+    pub fn poll_preferences(&mut self) -> bool {
+        match self.engine.user_dirs() {
+            Some(dirs) if self.preferences.changed_on_disk(dirs) => {
+                let changed = self.reload_preferences();
+                if changed {
+                    // Layer colours and the Inactive-Layer mode are in the Scenes.
+                    self.refresh();
+                    self.sync_selection();
+                }
+                changed
+            }
+            _ => false,
+        }
+    }
+
+    /// Reads `preferences.toml` again and applies what changed: the undo depth, the base
+    /// Keymap, the Layer colours and the warnings in Messages. Returns whether the
+    /// Preferences changed.
+    fn reload_preferences(&mut self) -> bool {
+        let Some(dirs) = self.engine.user_dirs().cloned() else {
+            return false;
+        };
+        let Some(reloaded) = self.preferences.reload(&dirs) else {
+            return false;
+        };
+        let now = self.preferences.values().clone();
+        if now.general.undo_depth != reloaded.before.general.undo_depth {
+            (self.engine).set_undo_depth(now.general.undo_depth.map(|d| d.get() as usize));
+        }
+        if now.keymap != reloaded.before.keymap {
+            self.reload_keymap();
+        }
+        self.generation += 1;
+        self.palette = pcb::view::palette_handle(&now, self.generation);
+        self.set_preference_warnings(reloaded.warnings);
+        true
+    }
+
     /// Lists the warnings reading `preferences.toml` gave.
     fn load_preference_warnings(&mut self) {
-        let Some(dirs) = self.engine.user_dirs() else {
-            return;
-        };
-        let warnings = preferences::load(dirs).warnings;
+        let (watched, warnings) = Watched::load(self.engine.user_dirs());
+        self.preferences = watched;
+        if self.engine.user_dirs().is_some() {
+            self.set_preference_warnings(warnings);
+        }
+    }
+
+    fn set_preference_warnings(&mut self, warnings: Vec<String>) {
         let notes = warnings
             .into_iter()
             .map(|w| Note {
@@ -1379,7 +1428,7 @@ impl Shell {
         let layers = project.pcb_document(document).map(|pcb| {
             board.filter_scene(project, &mut scene);
             board
-                .composites(pcb, self.prefs.display.inactive_layer_mode)
+                .composites(pcb, self.preferences.values().display.inactive_layer_mode)
                 .into()
         });
         SceneHandle {
