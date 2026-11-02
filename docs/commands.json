@@ -15305,6 +15305,151 @@
     },
     {
       "category": "output",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, the Board Outline as the Profile) and writes them with their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Duplicate Designators, an open Board Outline and, when the job writes a BOM or CPL, Components without a Footprint block the run (`rejected`, `details.blockers`); other problems are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "icon": "output_run",
+      "id": "output.job.run",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "job": {
+            "description": "The Output Job to run.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job"
+        ],
+        "title": "JobRunParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WrittenFile": {
+            "description": "One file the run wrote, also in the zip.",
+            "properties": {
+              "function": {
+                "description": "What it holds: `copper_top`, `copper_bottom` or `profile`.",
+                "type": "string"
+              },
+              "name": {
+                "description": "The file name, such as `Demo.GTL`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "function"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The run report.",
+        "properties": {
+          "destination": {
+            "description": "The folder the files went to.",
+            "type": "string"
+          },
+          "files": {
+            "description": "Every file written, in zip order.",
+            "items": {
+              "$ref": "#/$defs/WrittenFile"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `erc_errors {count}`, `rule_below_preset {rule, board,\nminimum, preset, net_class?}`, `missing_font {font}`, `output_not_built {output}`.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          },
+          "zip": {
+            "description": "The zip of every file, `<project>-<job>.zip` in the destination.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination",
+          "zip",
+          "files",
+          "warnings"
+        ],
+        "title": "JobRunResult",
+        "type": "object"
+      },
+      "title": "Run Output Job"
+    },
+    {
+      "category": "output",
       "description": "Changes an Output Job's name, PCB Document, Fab Preset copy, outputs or destination. Values left out are kept; an empty `destination` restores the default. Returns the job.",
       "icon": "output_job_edit",
       "id": "output.job.set",
