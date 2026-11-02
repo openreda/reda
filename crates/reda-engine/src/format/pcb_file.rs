@@ -45,7 +45,19 @@
 //!   "free_pads": [
 //!     {"uuid":"…","kind":"plated_through_hole","shape":"circle","at":{…},"rotation":0,"width":6000000,"height":6000000,"hole":{…},"net":"…"}
 //!   ],
-//!   "placement_origin": {"uuid":"…","at":{"x":0,"y":0}}
+//!   "placement_origin": {"uuid":"…","at":{"x":0,"y":0}},
+//!   "zones": [
+//!     {"uuid":"…","layer":"…","net":"…","vertices":[
+//!       {"x":0,"y":0},
+//!       …
+//!     ],"clearance":160000,"min_width":200000,"pad_connection":"thermal",…}
+//!   ],
+//!   "keepouts": [
+//!     {"uuid":"…","layers":["…"],"vertices":[
+//!       {"x":0,"y":0},
+//!       …
+//!     ],"copper":true,"vias":true}
+//!   ]
 //! }
 //! ```
 //!
@@ -54,15 +66,16 @@
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
-//! Footprints. `tracks`, `vias` and `free_pads` are left out while the board has none,
-//! `placement_origin` while it is not set.
+//! Footprints. `tracks`, `vias`, `free_pads`, `zones` and `keepouts` are left out while
+//! the board has none, `placement_origin` while it is not set. Zone fills are never stored
+//! here: they live in the `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, FreePad, InDocument,
-    LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, PlacementOrigin, Rules,
-    Track, Uuid, Via,
+    Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, PlacementOrigin,
+    Rules, Track, Uuid, Via, Zone,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -122,6 +135,13 @@ pub(crate) struct PcbFile {
     /// The point the CPL measures from; left out while it is not set.
     #[serde(default)]
     placement_origin: Option<PlacementOrigin>,
+    /// The copper Zones (outlines and settings, never fills); left out while the board
+    /// has none.
+    #[serde(default)]
+    zones: Vec<Zone>,
+    /// The Keepouts; left out while the board has none.
+    #[serde(default)]
+    keepouts: Vec<Keepout>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -184,6 +204,12 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     }
     if let Some(origin) = pcb.placement_origin() {
         w.field("placement_origin", origin)?;
+    }
+    if pcb.zones().next().is_some() {
+        w.containers("zones", pcb.zones(), |z| z.uuid, "vertices")?;
+    }
+    if pcb.keepouts().next().is_some() {
+        w.containers("keepouts", pcb.keepouts(), |k| k.uuid, "vertices")?;
     }
     Ok(w.finish())
 }
@@ -276,6 +302,16 @@ pub(crate) fn read_pcb_file(
     objects.extend(
         file.placement_origin
             .map(|o| Object::PlacementOrigin(InDocument::new(doc, o))),
+    );
+    objects.extend(
+        file.zones
+            .into_iter()
+            .map(|z| Object::Zone(InDocument::new(doc, z))),
+    );
+    objects.extend(
+        file.keepouts
+            .into_iter()
+            .map(|k| Object::Keepout(InDocument::new(doc, k))),
     );
     Ok(objects)
 }

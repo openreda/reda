@@ -35,6 +35,8 @@ pub const QUERY_TOOLS: &[&str] = &[
     "pcb.ratsnest",
     "pcb.clearance.track",
     "pcb.clearance.via",
+    "pcb.zone.fill_status",
+    "pcb.zone.fills",
 ];
 
 const INSTRUCTIONS: &str = "\

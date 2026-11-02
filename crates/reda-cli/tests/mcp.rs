@@ -125,6 +125,8 @@ fn lists_the_generic_tools_and_the_query_commands() {
             "pcb.ratsnest",
             "pcb.clearance.track",
             "pcb.clearance.via",
+            "pcb.zone.fill_status",
+            "pcb.zone.fills",
         ]
     );
     for id in [
@@ -132,6 +134,8 @@ fn lists_the_generic_tools_and_the_query_commands() {
         "pcb.ratsnest",
         "pcb.clearance.track",
         "pcb.clearance.via",
+        "pcb.zone.fill_status",
+        "pcb.zone.fills",
     ] {
         let tool = tools.iter().find(|t| t["name"] == id).unwrap();
         let catalogue = reda_engine::registry().describe(id).unwrap();

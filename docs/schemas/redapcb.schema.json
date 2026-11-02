@@ -651,6 +651,47 @@
       ],
       "type": "object"
     },
+    "Keepout": {
+      "additionalProperties": false,
+      "description": "An area on some copper Layers where copper or Vias may not go.",
+      "properties": {
+        "copper": {
+          "description": "Whether copper (Tracks, Pads, Zone fills) is forbidden inside.",
+          "type": "boolean"
+        },
+        "layers": {
+          "description": "The copper Layers it applies to, top to bottom.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "vertices": {
+          "description": "The outline; the last vertex joins the first.",
+          "items": {
+            "$ref": "#/$defs/Vertex"
+          },
+          "type": "array"
+        },
+        "vias": {
+          "description": "Whether Vias are forbidden inside.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "uuid",
+        "layers",
+        "vertices",
+        "copper",
+        "vias"
+      ],
+      "type": "object"
+    },
     "Layer": {
       "additionalProperties": false,
       "description": "One Layer. Objects name their Layer by UUID, never by position.",
@@ -892,6 +933,21 @@
         "height"
       ],
       "type": "object"
+    },
+    "PadConnection": {
+      "description": "How a Zone's fill joins the Pads of its own Net.",
+      "oneOf": [
+        {
+          "const": "thermal",
+          "description": "A gap around the Pad crossed by four spokes, so the Pad solders easily.",
+          "type": "string"
+        },
+        {
+          "const": "solid",
+          "description": "The fill runs straight into the Pad.",
+          "type": "string"
+        }
+      ]
     },
     "PadKind": {
       "enum": [
@@ -1481,6 +1537,82 @@
         "span"
       ],
       "type": "object"
+    },
+    "Zone": {
+      "additionalProperties": false,
+      "description": "A solid copper fill on one copper Layer, inside its outline, keeping clear of other\nNets' copper. Its fill is computed on demand and cached outside the Document.",
+      "properties": {
+        "clearance": {
+          "description": "The gap kept to other Nets' copper; the Net Classes' clearance wins when larger.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "layer": {
+          "description": "The copper Layer it fills.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "min_width": {
+          "description": "The narrowest copper the fill may leave: thinner necks are removed.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "net": {
+          "description": "Its PCB Net; left out for a fill on no Net.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pad_connection": {
+          "$ref": "#/$defs/PadConnection"
+        },
+        "priority": {
+          "description": "Where Zones overlap, the higher priority fills first and the others keep clear\nof it.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "remove_islands": {
+          "description": "Whether pieces of fill that touch no copper of the Net are dropped.",
+          "type": "boolean"
+        },
+        "thermal_gap": {
+          "description": "With thermal relief: the gap around each Pad of the Net.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "thermal_spoke_width": {
+          "description": "With thermal relief: the width of the spokes.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "vertices": {
+          "description": "The outline the fill stays inside; the last vertex joins the first.",
+          "items": {
+            "$ref": "#/$defs/Vertex"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "uuid",
+        "layer",
+        "vertices",
+        "clearance",
+        "min_width",
+        "pad_connection",
+        "thermal_gap",
+        "thermal_spoke_width",
+        "remove_islands",
+        "priority"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1546,6 +1678,14 @@
       },
       "type": "array"
     },
+    "keepouts": {
+      "default": [],
+      "description": "The Keepouts; left out while the board has none.",
+      "items": {
+        "$ref": "#/$defs/Keepout"
+      },
+      "type": "array"
+    },
     "layers": {
       "$ref": "#/$defs/LayerSet",
       "description": "The Layers, top to bottom. Objects name a Layer by its UUID."
@@ -1608,6 +1748,14 @@
       "description": "The Vias; left out while the board has none.",
       "items": {
         "$ref": "#/$defs/Via"
+      },
+      "type": "array"
+    },
+    "zones": {
+      "default": [],
+      "description": "The copper Zones (outlines and settings, never fills); left out while the board\nhas none.",
+      "items": {
+        "$ref": "#/$defs/Zone"
       },
       "type": "array"
     }
