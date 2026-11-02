@@ -5,6 +5,7 @@
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::ErrorCode;
+use reda_ui::engine::model::DocumentKind;
 use reda_ui::layout::{Area, DockSide, Layout, Node, PanelId, TabKey};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
@@ -398,4 +399,46 @@ fn layout_commands_go_in_the_journal() {
         last,
         [("layout.tab.close", true), ("layout.tab.close", false)]
     );
+}
+
+#[test]
+fn document_open_opens_a_document_beside_the_active_one_and_focuses_it() {
+    let work = TempDir::new("layout-work");
+    let mut shell = shell_with_project(&work);
+    let first = sheet(&shell);
+    let pcb = shell
+        .engine()
+        .project()
+        .unwrap()
+        .documents()
+        .find(|d| d.kind == DocumentKind::Pcb)
+        .unwrap()
+        .uuid;
+
+    let out = shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+    let tab = TabKey::Document(pcb);
+    let place = shell.layout().place(&tab).unwrap();
+    assert_eq!(place.group, shell.layout().place(&first).unwrap().group);
+    assert_eq!(out["group"], json!(place.group));
+    assert_eq!(shell.layout().focus, Some(tab));
+    assert_eq!(shell.active_document().unwrap().document, pcb);
+    assert_eq!(shell.document_tabs().len(), 2);
+
+    // Opening it again only shows it.
+    shell
+        .run("layout.tab.activate", json!({"tab": tab_param(&first)}))
+        .unwrap();
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+    assert_eq!(shell.document_tabs().len(), 2);
+    assert_eq!(shell.active_document().unwrap().document, pcb);
+
+    let missing = "00000000-0000-4000-8000-0000000000ff";
+    let err = shell
+        .run("document.open", json!({"document": missing}))
+        .unwrap_err();
+    assert_eq!(err.code, ErrorCode::NotFound);
 }

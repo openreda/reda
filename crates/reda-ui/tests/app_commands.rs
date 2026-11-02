@@ -1,5 +1,5 @@
-//! The app registers its own view Commands (the layout Commands, `panel.show` and
-//! `selection.set`) on top of the engine's. They are not in `docs/commands.json`, which
+//! The app registers its own view Commands (the layout Commands, `panel.show`,
+//! `document.open` and `selection.set`) on top of the engine's. They are not in `docs/commands.json`, which
 //! is the engine's catalogue, so the engine's Command coverage test does not see them.
 //! This test holds them to the same rule: every one is run by a test.
 
