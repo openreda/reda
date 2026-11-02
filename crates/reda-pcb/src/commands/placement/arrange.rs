@@ -243,8 +243,8 @@ fn designator_order(a: &Item, b: &Item) -> Ordering {
     }
 }
 
-/// Compares text with runs of digits as numbers.
-fn natural_cmp(a: &str, b: &str) -> Ordering {
+/// Compares text with runs of digits as numbers, so R2 comes before R10.
+pub fn natural_cmp(a: &str, b: &str) -> Ordering {
     let (mut a, mut b) = (a, b);
     loop {
         match (a.chars().next(), b.chars().next()) {

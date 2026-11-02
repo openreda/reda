@@ -9,7 +9,7 @@ mod layer;
 mod mechanical;
 mod net_class;
 mod outline;
-mod placement;
+pub(crate) mod placement;
 mod rules;
 mod text;
 mod text_geometry;
