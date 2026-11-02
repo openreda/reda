@@ -38,6 +38,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `document_schematic` | Tabler `schema` (outline) |
 | `document_symbol` | Tabler `triangle` (outline) |
 | `drag` | Lucide `move-diagonal` |
+| `drc` | Tabler `shield-check` (outline) |
 | `duplicate` | Lucide `copy-plus` |
 | `erc` | Tabler `list-check` (outline) |
 | `export_pdf` | Lucide `file-output` |

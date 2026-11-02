@@ -27,6 +27,7 @@ document_pcb lucide:circuit-board
 document_schematic tabler:schema
 document_symbol tabler:triangle
 drag lucide:move-diagonal
+drc tabler:shield-check
 duplicate lucide:copy-plus
 erc tabler:list-check
 export_pdf lucide:file-output

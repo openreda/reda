@@ -66,6 +66,7 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
         egui::include_image!("../../icons/document_symbol.svg"),
     ),
     ("drag", egui::include_image!("../../icons/drag.svg")),
+    ("drc", egui::include_image!("../../icons/drc.svg")),
     (
         "duplicate",
         egui::include_image!("../../icons/duplicate.svg"),
