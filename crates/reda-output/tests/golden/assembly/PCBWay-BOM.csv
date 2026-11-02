@@ -1,0 +1,4 @@
+Line #,Quantity,Reference Designator,Part Number,Manufacturer,Description,Package,Type
+1,1,J1,,,Header 1x2,HDR254P1X2,THT
+2,2,"R1, R2",RC0603FR-0710KL,Yageo,10k,RESC1608X55N,SMT
+3,1,R3,,,4k7,RESC1608X55N,SMT

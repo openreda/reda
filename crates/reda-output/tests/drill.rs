@@ -41,6 +41,7 @@ fn plot_with(engine: &TestEngine, x2_attributes: bool) -> Vec<OutputFile> {
         pcb,
         fills: &fills,
         gerber,
+        fonts: &reda_command::Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })
 }

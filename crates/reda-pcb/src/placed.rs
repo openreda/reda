@@ -250,6 +250,10 @@ pub struct PlacedPad {
     /// The copper side of an SMD Pad; `None` for a Pad with a hole, which is on both.
     pub side: Option<Side>,
     pub net: Option<Uuid>,
+    /// The Pad's own solder-mask margin, overriding the board's; Free Pads have none.
+    pub mask_margin: Option<Nm>,
+    /// The Pad's own solder-paste margin, overriding the board's; Free Pads have none.
+    pub paste_margin: Option<Nm>,
 }
 
 impl PlacedPad {
@@ -289,6 +293,8 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
             hole: pad.hole,
             side: (pad.kind == PadKind::Smd).then(|| frame.side(Side::Top)),
             net: instance.pad_net(pad.uuid),
+            mask_margin: pad.mask_margin,
+            paste_margin: pad.paste_margin,
         })
         .collect()
 }
@@ -308,6 +314,8 @@ pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
         hole: pad.hole,
         side: pad.side,
         net: pad.net,
+        mask_margin: None,
+        paste_margin: None,
     }
 }
 
