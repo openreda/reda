@@ -39,6 +39,8 @@ exceptions = [
     { allow = ["OFL-1.1", "Ubuntu-font-1.0"], crate = "epaint_default_fonts" },
     # Windows clipboard access for egui (via arboard). BSL-1.0 is a permissive, OSI-approved licence.
     { allow = ["BSL-1.0"], crate = "clipboard-win" },
+    # clipboard-win's error type crate, from the same author under the same licence.
+    { allow = ["BSL-1.0"], crate = "error-code" },
 ]
 # The list above is the policy, not an inventory of what is in use today.
 unused-allowed-license = "allow"
