@@ -1,0 +1,156 @@
+/* REDA's website. The colours are the app's theme colours (crates/reda-ui/src/theme.rs);
+   the fonts are the visitor's own system fonts, so nothing is fetched from elsewhere. */
+
+:root {
+  color-scheme: dark;
+  --bg: #1e1f22;        /* panel */
+  --surface: #25272b;   /* window */
+  --faint: #26282c;
+  --line: #3a3d42;      /* separator */
+  --text: #d4d6da;
+  --weak: #9a9ea6;
+  --button: #2f3136;
+  --button-hover: #3a3d43;
+  --accent: #4c8df6;
+  --on-accent: #ffffff;
+  --link: #6aa9ff;
+  --warn: #e8a33d;
+  --copper: #e8a33d;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --faint: #eceef1;
+    --line: #cccccc;
+    --text: #1f2329;
+    --weak: #5c636e;
+    --button: #e3e6ea;
+    --button-hover: #d6dae0;
+    --accent: #1f6feb;
+    --on-accent: #ffffff;
+    --link: #1a5fc8;
+    --warn: #8a5a00;
+    --copper: #8a5a00;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--link); text-underline-offset: 0.15em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+  background: var(--faint);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 0.3em;
+}
+
+h1, h2, h3 { line-height: 1.2; }
+h1 { font-size: clamp(2rem, 5vw, 3.2rem); margin: 0 0 1rem; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin: 0 0 0.75rem; }
+h3 { font-size: 1.15rem; margin: 0 0 0.5rem; }
+
+.wrap { width: min(1200px, 100% - 2rem); margin-inline: auto; }
+
+.skip {
+  position: absolute; left: 1rem; top: -3rem;
+  background: var(--accent); color: var(--on-accent);
+  padding: 0.5rem 1rem; border-radius: 4px; z-index: 10;
+}
+.skip:focus { top: 1rem; }
+
+/* Header */
+.top { background: var(--surface); border-bottom: 1px solid var(--line); }
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem; padding: 0.6rem 0; }
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.2rem; color: var(--text); text-decoration: none; }
+.top nav ul { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; list-style: none; margin: 0; padding: 0; }
+.top nav a { color: var(--text); text-decoration: none; padding: 0.25rem 0; border-bottom: 2px solid transparent; }
+.top nav a:hover, .top nav a[aria-current="page"] { border-bottom-color: var(--accent); }
+
+/* Hero */
+.hero { padding: clamp(2.5rem, 7vw, 5rem) 0 2rem; }
+.lede { font-size: 1.2rem; max-width: 46rem; margin: 0 0 1rem; }
+.note { color: var(--weak); max-width: 46rem; font-size: 0.95rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.5rem 0; }
+.button {
+  display: inline-block; padding: 0.6rem 1.1rem; border-radius: 6px;
+  background: var(--button); color: var(--text); text-decoration: none; font-weight: 600;
+  border: 1px solid var(--line);
+}
+.button:hover { background: var(--button-hover); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.button.primary:hover { filter: brightness(1.1); }
+
+main > section { padding: 2rem 0; }
+main > section + section { border-top: 1px solid var(--line); }
+
+/* Section heading with the theme switch beside it */
+.section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.section-head h2 { margin: 0; }
+.theme-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.theme-switch button {
+  font: inherit; color: var(--text); background: var(--button); border: 0;
+  padding: 0.35rem 0.9rem; cursor: pointer;
+}
+.theme-switch button + button { border-left: 1px solid var(--line); }
+.theme-switch button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+/* Without JavaScript the switch cannot work, so it is hidden and the images follow the
+   visitor's colour scheme. */
+html:not(.js) .theme-switch { display: none; }
+
+/* Galleries */
+.shots-from { color: var(--weak); font-size: 0.9rem; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 1.5rem; margin-top: 1rem; }
+.shot { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.shot a { display: block; line-height: 0; }
+.shot img { width: 100%; height: auto; display: block; background: var(--faint); }
+.shot figcaption { padding: 0.75rem 1rem 1rem; }
+.shot figcaption strong { display: block; }
+
+/* One theme's images show at a time: the chosen one, else the visitor's colour scheme. */
+.shot .theme-light { display: none; }
+@media (prefers-color-scheme: light) {
+  .shot .theme-dark { display: none; }
+  .shot .theme-light { display: block; }
+}
+html[data-shots="dark"] .shot .theme-dark { display: block; }
+html[data-shots="dark"] .shot .theme-light { display: none; }
+html[data-shots="light"] .shot .theme-light { display: block; }
+html[data-shots="light"] .shot .theme-dark { display: none; }
+/* A scene drawn in one theme only always shows. */
+.shot a:only-of-type { display: block !important; }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 1.25rem; margin-top: 1rem; }
+.card { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--copper); border-radius: 8px; padding: 1.1rem 1.25rem; }
+.card ul { padding-left: 1.2rem; margin: 0.5rem 0; }
+.card li + li { margin-top: 0.35rem; }
+.card p { margin: 0.5rem 0; }
+
+/* Versions page */
+.version-list ul { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; margin: 1rem 0 0; }
+.version-list a { display: inline-block; padding: 0.2rem 0.7rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); text-decoration: none; }
+.version { padding-top: 2rem; }
+.version + .version { border-top: 1px solid var(--line); margin-top: 2rem; }
+.empty { color: var(--weak); }
+
+/* Footer */
+.foot { border-top: 1px solid var(--line); background: var(--surface); color: var(--weak); padding: 1.5rem 0; margin-top: 2rem; font-size: 0.95rem; }

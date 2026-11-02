@@ -4,6 +4,18 @@ REDA is an MIT-licensed electronic design automation (EDA) tool written in Rust.
 
 REDA is at an early stage. Expect missing features, rough edges and file-format changes between releases.
 
+Website: **<https://openreda.github.io/reda/>**
+
+## Screenshots
+
+The app draws these itself from the newest `main`, so they always show REDA as it is today. More, in the light theme too, and the screenshots of every release are on the [website](https://openreda.github.io/reda/).
+
+![A 555 LED blinker on a Schematic Sheet](https://openreda.github.io/reda/screenshots/latest/schematic-dark.png)
+
+![The 555 blinker's 2-layer board, with its ground Zone filled](https://openreda.github.io/reda/screenshots/latest/pcb-dark.png)
+
+![An Output Job that wrote Gerber, drill, BOM and CPL files](https://openreda.github.io/reda/screenshots/latest/output-job-dark.png)
+
 ## Download
 
 Every merge to `main` publishes a release on [GitHub Releases](https://github.com/openreda/reda/releases). The [`latest`](https://github.com/openreda/reda/releases/tag/latest) release always holds the newest build, with the version left out of the file names.
@@ -60,6 +72,7 @@ Local builds report their version as `<version>-dev+<git hash>`.
 
 ## Documentation
 
+- [The website](https://openreda.github.io/reda/): what REDA does, with screenshots of today's app and of every release. Its source is [`site/`](site/), built by `cargo xtask showcase` and `cargo xtask site`.
 - [`docs/spec/`](docs/spec/README.md): the product spec, and what each milestone builds.
 - [`docs/adr/`](docs/adr/): architecture decisions.
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REDA: open-source schematic and PCB design</title>
+<meta name="description" content="REDA is a free, MIT-licensed tool for drawing schematics, laying out PCBs and writing the files a fab needs. Written in Rust. No telemetry.">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="./" aria-current="page"><img src="icon.svg" alt="" width="28" height="28"> REDA</a>
+    <nav aria-label="Site">
+      <ul>
+        <li><a href="#screenshots">Screenshots</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#download">Download</a></li>
+        <li><a href="versions.html">Versions</a></li>
+        <li><a href="https://github.com/openreda/reda">GitHub</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap">
+      <h1>Schematic to fab, in one free app.</h1>
+      <p class="lede">REDA is an open-source electronics design tool. In one window you draw a circuit, lay out the PCB that makes it real, and write the files a fab needs to make and assemble your board.</p>
+      <p class="lede">It is MIT licensed, written in Rust, runs on Windows, macOS and Linux, and never phones home.</p>
+      <p class="actions">
+        <a class="button primary" href="https://github.com/openreda/reda/releases/tag/latest">Download the latest build</a>
+        <a class="button" href="https://github.com/openreda/reda">Source on GitHub</a>
+      </p>
+      <p class="note">REDA is at an early stage. Expect missing features, rough edges and file-format changes between releases. The builds are not signed yet; the <a href="https://github.com/openreda/reda#installing-an-unsigned-build">README</a> explains how to open them.</p>
+    </div>
+  </section>
+
+  <section id="screenshots" class="wrap" aria-labelledby="screenshots-title">
+    <div class="section-head">
+      <h2 id="screenshots-title">What REDA looks like today</h2>
+      <div class="theme-switch" role="group" aria-label="Screenshot theme">
+        <button type="button" data-shots="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-shots="light" aria-pressed="false">Light</button>
+      </div>
+    </div>
+    <p>These screenshots are drawn by the app itself, from the newest code, every time it changes. The <a href="versions.html">Versions</a> page keeps the screenshots of every release.</p>
+    <!-- reda:gallery -->
+  </section>
+
+  <section id="features" class="wrap" aria-labelledby="features-title">
+    <h2 id="features-title">What v0.1 does</h2>
+    <p>Version 0.1 takes you from an empty Project to a zip you can upload to a board house: a 2-layer board, drawn and routed by hand, checked and plotted.</p>
+    <div class="cards">
+      <article class="card">
+        <h3>Schematic</h3>
+        <ul>
+          <li>Several flat sheets per Project, joined by net labels and power ports.</li>
+          <li>Place Parts from a Library, wire them up, and annotate designators.</li>
+          <li>Highlight a net and see it on every sheet.</li>
+          <li>Export the schematic to PDF.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>PCB layout</h3>
+        <ul>
+          <li>Sync the schematic to the board; a change list shows what will happen first.</li>
+          <li>Place footprints on the top or bottom side and route tracks by hand, with vias.</li>
+          <li>Copper Zones (pours) with thermal reliefs, refilled before checks and outputs.</li>
+          <li>Clicking a part in one editor selects it in the other.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Checks</h3>
+        <ul>
+          <li>ERC finds unconnected pins, clashing outputs and dangling wires.</li>
+          <li>DRC checks clearances, track widths, drills and the board edge against your rules.</li>
+          <li>Every problem is listed in the Messages panel; click it to go there, or waive it.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Outputs for the fab</h3>
+        <ul>
+          <li>Gerber X2, Excellon drill files, a CSV BOM and a pick-and-place (CPL) file.</li>
+          <li>Fab Presets for JLCPCB, PCBWay and a generic house set the rules and the BOM columns.</li>
+          <li>One click writes everything into a single zip.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Parts and Libraries</h3>
+        <ul>
+          <li>A starter Library of passives, LEDs, diodes, transistors, an op-amp, a 555, an LDO and connectors.</li>
+          <li>Editors for Symbols, Footprints and Parts.</li>
+          <li>Footprint generators for chips, SOT, SOIC, QFN, QFP, DIP and headers (IPC-7351).</li>
+          <li>Import a part from a KiCad symbol and footprint, as vendor sites provide them.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Works with scripts and AI agents</h3>
+        <ul>
+          <li>Every action is a Command, the same in the app, the <code>reda</code> command line and MCP.</li>
+          <li>An agent can draw, route, check and plot a board, and you watch it happen in the app.</li>
+          <li>Undo works the same whoever made the change.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section id="download" class="wrap" aria-labelledby="download-title">
+    <h2 id="download-title">Get REDA</h2>
+    <div class="cards">
+      <article class="card">
+        <h3>Download</h3>
+        <p>Every change to REDA is released on GitHub. The <a href="https://github.com/openreda/reda/releases/tag/latest"><code>latest</code></a> release always holds the newest build; <a href="https://github.com/openreda/reda/releases">all releases</a> are kept.</p>
+        <ul>
+          <li>macOS (Apple Silicon): <code>.dmg</code></li>
+          <li>Windows (x86_64): an installer that needs no administrator rights</li>
+          <li>Linux (x86_64, aarch64): <code>.deb</code> or <code>.AppImage</code></li>
+          <li>Any of these: a plain <code>.tar.gz</code> or <code>.zip</code></li>
+        </ul>
+        <p><code>SHA256SUMS</code> beside the files lets you check your download.</p>
+      </article>
+      <article class="card">
+        <h3>Command line and MCP</h3>
+        <p>Every package ships the <code>reda</code> command-line tool beside the app. <code>reda commands</code> lists what it can do, <code>reda run</code> runs a Command on a Project, and <code>reda mcp</code> serves REDA to MCP clients such as AI coding agents.</p>
+        <p>When the app has the same Project open, the command line drives the running app instead, so you see each change.</p>
+        <p><a href="https://github.com/openreda/reda#the-reda-cli">Where to find the CLI</a> · <a href="https://github.com/openreda/reda/blob/main/docs/spec/v0.1/architecture.md#mcp">MCP details</a></p>
+      </article>
+      <article class="card">
+        <h3>Private by design</h3>
+        <p>REDA makes no network calls on its own. There is no telemetry, no account and no automatic update check. Help → Check for Updates asks GitHub only when you click it.</p>
+        <p>This website has no analytics, no trackers and no third-party fonts or scripts either.</p>
+      </article>
+      <article class="card">
+        <h3>Learn more</h3>
+        <ul>
+          <li><a href="https://github.com/openreda/reda/blob/main/docs/spec/README.md">The product spec</a>: what each milestone builds</li>
+          <li><a href="https://github.com/openreda/reda/blob/main/GLOSSARY.md">Glossary</a> of the words REDA uses</li>
+          <li><a href="https://github.com/openreda/reda#building-from-source">Building from source</a></li>
+          <li><a href="https://github.com/openreda/reda/issues">Issues</a>: report a bug or ask a question</li>
+          <li><a href="https://github.com/openreda/reda/blob/main/LICENSE">MIT licence</a></li>
+        </ul>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>REDA is free software under the <a href="https://github.com/openreda/reda/blob/main/LICENSE">MIT licence</a>. This site is built from the <a href="https://github.com/openreda/reda/tree/main/site">repository</a> on every change.</p>
+  </div>
+</footer>
+</body>
+</html>
