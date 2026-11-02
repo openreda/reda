@@ -51,7 +51,8 @@ impl Copper {
     /// Every piece of copper that `proposal` would come closer to than the clearance
     /// rules allow, sorted by item and Layer. Copper of the proposal's own Net never
     /// conflicts, and the objects in `ignore` (such as the segment being dragged) are left
-    /// out. An empty result means the proposal is clear.
+    /// out, and so are Zone fills, which make way when they are refilled. An empty result
+    /// means the proposal is clear.
     pub fn clearance(
         &self,
         pcb: &PcbDocument,
@@ -82,7 +83,11 @@ impl Copper {
         for layer in layers {
             for piece in self.candidates(layer, search) {
                 let other = self.net(piece.item);
-                if (net.is_some() && other == net) || ignore.contains(&piece.item.object()) {
+                // Zone fills make way for new copper when they are refilled.
+                if matches!(piece.item, Item::Zone { .. })
+                    || (net.is_some() && other == net)
+                    || ignore.contains(&piece.item.object())
+                {
                     continue;
                 }
                 let required = clearance_between(pcb, net, other);

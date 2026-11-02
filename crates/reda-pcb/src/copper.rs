@@ -2,7 +2,8 @@
 //! index per copper Layer and updated from each transaction's change set.
 //!
 //! The copper is every Pad of every placed Footprint (non-plated Pads have none), every
-//! Track and every Via. Copper on one Layer connects where it touches or overlaps; a Via
+//! Track, every Via and, once handed over with [`Copper::set_zone_fills`], every island of
+//! the Zone fills. Copper on one Layer connects where it touches or overlaps; a Via
 //! and a plated through-hole Pad connect their copper on every Layer they reach.
 //!
 //! [`Copper`] answers:
@@ -16,14 +17,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Point;
-use reda_model::{ChangeSet, Object, PadKind, PcbDocument, Side, Uuid};
+use reda_model::{ChangeSet, Object, PadKind, PcbDocument, Side, Uuid, ZoneFills};
 use rstar::{AABB, RTree, RTreeObject};
 use schemars::JsonSchema;
 use serde::Serialize;
 
 mod clearance;
 mod ratsnest;
-mod shape;
+pub(crate) mod shape;
 
 pub use clearance::{ClearanceHit, Proposal};
 pub use ratsnest::{RatsnestLine, RatsnestVisibility};
@@ -47,6 +48,11 @@ pub enum Item {
     Track {
         uuid: Uuid,
     },
+    /// One island (connected piece) of a Zone's fill, numbered in fill order.
+    Zone {
+        zone: Uuid,
+        island: u32,
+    },
 }
 
 impl Item {
@@ -55,6 +61,7 @@ impl Item {
         match *self {
             Item::Pad { footprint, .. } => footprint,
             Item::Track { uuid } | Item::Via { uuid } => uuid,
+            Item::Zone { zone, .. } => zone,
         }
     }
 }
@@ -99,6 +106,8 @@ pub struct Copper {
     info: BTreeMap<Item, Info>,
     contacts: BTreeMap<Item, BTreeSet<Item>>,
     pads: BTreeMap<Uuid, Vec<Item>>,
+    /// The Zone fills the index holds, kept to re-index a Zone after a change.
+    fills: Option<ZoneFills>,
 }
 
 impl Copper {
@@ -112,6 +121,7 @@ impl Copper {
             info: BTreeMap::new(),
             contacts: BTreeMap::new(),
             pads: BTreeMap::new(),
+            fills: None,
         };
         for instance in pcb.footprints() {
             copper.add_footprint(pcb, instance.uuid);
@@ -132,12 +142,18 @@ impl Copper {
         let mut footprints = BTreeSet::new();
         let mut tracks = BTreeSet::new();
         let mut vias = BTreeSet::new();
+        let mut zones = BTreeSet::new();
         for (uuid, change) in changes.iter() {
             let object = change.after.as_ref().or(change.before.as_ref());
             match object {
                 Some(Object::LayerSet(_)) => {
+                    let fills = self.fills.take();
                     *self = Copper::build(pcb);
+                    self.set_zone_fills(pcb, fills.as_ref());
                     return;
+                }
+                Some(Object::Zone(_)) => {
+                    zones.insert(*uuid);
                 }
                 Some(Object::FootprintInstance(_)) => {
                     footprints.insert(*uuid);
@@ -171,6 +187,33 @@ impl Copper {
         for uuid in vias {
             self.remove(Item::Via { uuid });
             self.add_via(pcb, uuid);
+        }
+        for uuid in zones {
+            self.remove_zone(uuid);
+            self.add_zone(pcb, uuid);
+        }
+    }
+
+    /// Hands the index the Zone fills to treat as copper (`None` drops them). A fill of a
+    /// Zone that no longer exists is skipped; each island takes its Zone's current Net and
+    /// Layer. [`Copper::apply`] keeps them in step with later changes to the Zones.
+    pub fn set_zone_fills(&mut self, pcb: &PcbDocument, fills: Option<&ZoneFills>) {
+        let old: Vec<Uuid> = self
+            .fills
+            .as_ref()
+            .map(|f| f.zones.keys().copied().collect())
+            .unwrap_or_default();
+        for zone in old {
+            self.remove_zone(zone);
+        }
+        self.fills = fills.cloned();
+        let zones: Vec<Uuid> = self
+            .fills
+            .as_ref()
+            .map(|f| f.zones.keys().copied().collect())
+            .unwrap_or_default();
+        for zone in zones {
+            self.add_zone(pcb, zone);
         }
     }
 
@@ -243,7 +286,7 @@ impl Copper {
                 let others: Vec<Item> = self
                     .items_at(layer, *end)
                     .into_iter()
-                    .filter(|i| *i != item)
+                    .filter(|i| *i != item && !matches!(i, Item::Zone { .. }))
                     .collect();
                 if let [next @ Item::Track { .. }] = others[..]
                     && self.info[&next].anchors.contains(end)
@@ -291,6 +334,18 @@ impl Copper {
             }
         }
         seen
+    }
+
+    /// Every piece of copper on `layer` with its shape, in no particular order.
+    pub(crate) fn pieces_on(&self, layer: Uuid) -> impl Iterator<Item = (Item, &Shape)> + '_ {
+        self.index
+            .get(&layer)
+            .into_iter()
+            .flat_map(|tree| tree.iter())
+            .map(|entry| {
+                let piece = self.piece(entry.slot);
+                (piece.item, &piece.shape)
+            })
     }
 
     fn piece(&self, slot: usize) -> &Piece {
@@ -367,6 +422,57 @@ impl Copper {
         };
         let shape = Shape::disc(via.at, via.diameter);
         self.insert(Item::Via { uuid }, info, pcb.span_layers(via.span), shape);
+    }
+
+    fn add_zone(&mut self, pcb: &PcbDocument, uuid: Uuid) {
+        let (Some(zone), Some(shapes)) = (
+            pcb.zone(uuid),
+            self.fills.as_ref().and_then(|f| f.zones.get(&uuid)),
+        ) else {
+            return;
+        };
+        let pieces: Vec<(Info, Shape)> = shapes
+            .iter()
+            .map(|s| {
+                // Up to 32 points along the outer edge anchor the Ratsnest.
+                let step = s.outer.len().div_ceil(32).max(1);
+                let anchors = s.outer.iter().step_by(step).copied().collect();
+                (
+                    Info {
+                        net: zone.net,
+                        anchors,
+                    },
+                    crate::zone::shape_copper(s),
+                )
+            })
+            .collect();
+        let layer = zone.layer;
+        for (island, (info, shape)) in pieces.into_iter().enumerate() {
+            let item = Item::Zone {
+                zone: uuid,
+                island: island as u32,
+            };
+            self.insert(item, info, vec![layer], shape);
+        }
+    }
+
+    fn remove_zone(&mut self, uuid: Uuid) {
+        let islands: Vec<Item> = self
+            .slots
+            .range(
+                Item::Zone {
+                    zone: uuid,
+                    island: 0,
+                }..=Item::Zone {
+                    zone: uuid,
+                    island: u32::MAX,
+                },
+            )
+            .map(|(item, _)| *item)
+            .collect();
+        for item in islands {
+            self.remove(item);
+        }
     }
 
     fn insert(&mut self, item: Item, info: Info, layers: Vec<Uuid>, shape: Shape) {

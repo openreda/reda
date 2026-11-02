@@ -3,13 +3,14 @@
 //! graphics.
 //!
 //! Copper connectivity and the Ratsnest are in [`copper`], the per-Net rules in
-//! [`net_rules`]. DRC and Zone fill join here in later tickets.
+//! [`net_rules`], Zone fill in [`zone`]. DRC joins here in a later ticket.
 
 mod board;
 mod commands;
 pub mod copper;
 pub mod net_rules;
 mod text;
+pub mod zone;
 
 pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board};
 pub use commands::{rect_outline, register_all};

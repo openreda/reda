@@ -15379,6 +15379,30 @@
                   "uuid"
                 ],
                 "type": "object"
+              },
+              {
+                "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
+                "properties": {
+                  "island": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "zone",
+                    "type": "string"
+                  },
+                  "zone": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "zone",
+                  "island"
+                ],
+                "type": "object"
               }
             ]
           }
@@ -15591,6 +15615,30 @@
                   "uuid"
                 ],
                 "type": "object"
+              },
+              {
+                "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
+                "properties": {
+                  "island": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "zone",
+                    "type": "string"
+                  },
+                  "zone": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "zone",
+                  "island"
+                ],
+                "type": "object"
               }
             ]
           }
@@ -15711,6 +15759,30 @@
                 "required": [
                   "kind",
                   "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
+                "properties": {
+                  "island": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "zone",
+                    "type": "string"
+                  },
+                  "zone": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "zone",
+                  "island"
                 ],
                 "type": "object"
               }
@@ -16882,6 +16954,30 @@
                 "required": [
                   "kind",
                   "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
+                "properties": {
+                  "island": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "zone",
+                    "type": "string"
+                  },
+                  "zone": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "zone",
+                  "island"
                 ],
                 "type": "object"
               }
