@@ -29,8 +29,8 @@ impl Flags {
     pub const SELECTED: Flags = Flags(1);
     /// Faintly lightened.
     pub const HOVERED: Flags = Flags(2);
-    /// Net-highlighted or cross-probed. While anything is highlighted, everything that is
-    /// not is drawn dimmed.
+    /// Net-highlighted or cross-probed. While anything a Scene draws is highlighted,
+    /// everything else it draws is dimmed.
     pub const HIGHLIGHTED: Flags = Flags(4);
     /// Faded towards the background.
     pub const DIMMED: Flags = Flags(8);
@@ -95,10 +95,6 @@ impl Highlight {
 
     pub fn is_empty(&self) -> bool {
         self.marks.is_empty()
-    }
-
-    fn any_highlighted(&self) -> bool {
-        self.marks.values().any(|f| f.contains(Flags::HIGHLIGHTED))
     }
 }
 
@@ -167,7 +163,11 @@ pub(crate) fn encode(scene: &Scene) -> Encoded {
 /// One flag word per instance, from `highlight`.
 pub(crate) fn flag_words(encoded: &Encoded, highlight: &Highlight) -> Vec<u8> {
     let (count, objects) = (encoded.count, &encoded.objects);
-    let dim_rest = highlight.any_highlighted();
+    // Only a highlighted object this Scene draws dims the rest: a cross-probe marks the
+    // other Document's objects on every canvas.
+    let dim_rest = objects
+        .keys()
+        .any(|o| highlight.get(*o).contains(Flags::HIGHLIGHTED));
     let base = if dim_rest { Flags::DIMMED } else { Flags::NONE };
     let mut words = vec![base.0; count as usize];
     for (object, ranges) in objects {

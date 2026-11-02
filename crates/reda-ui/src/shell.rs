@@ -23,10 +23,12 @@ use reda_engine::model::{
     DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid, Violation,
 };
 use reda_engine::preferences::Preferences;
+use reda_engine::sync::ChangeList;
 use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
 use crate::canvas::{Camera, LiveHandle, Overlay, PaletteHandle, SceneHandle, SelectionHandle};
+use crate::cross_probe::{self, CrossProbe};
 use crate::grid::{self, Grids};
 use crate::highlight::Highlight;
 use crate::keymap::{self, Keymap};
@@ -147,6 +149,11 @@ pub struct Shell {
     messages: Messages,
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
+    /// What the highlight marks were last worked out from: the selection, the
+    /// [`Highlight`], the edit count and the switches.
+    probed: Option<(Selection, Highlight, u64, CrossProbe)>,
+    /// Counts the refreshes after edits, so the cross-probe marks know when to redo.
+    edits: u64,
     keymap: Keymap,
     /// The Preferences as last read (see [`Shell::poll_preferences`]).
     preferences: Watched,
@@ -160,6 +167,9 @@ pub struct Shell {
     pcb_draw: pcb::draw::Draw,
     /// Whether the board's Zone fills are out of date ("Zones need refilling").
     zones_stale: bool,
+    /// The pending Sync changes (what `sync.preview` returns), renewed after every edit;
+    /// `None` without a PCB Document.
+    change_list: Option<ChangeList>,
     /// The colour overrides from the Preferences.
     palette: PaletteHandle,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
@@ -201,6 +211,9 @@ impl Shell {
         if engine.registry().get("tool.place").is_none() {
             engine.register(crate::placement::register_all);
         }
+        if engine.registry().get("view.cross_select.toggle").is_none() {
+            engine.register(cross_probe::register_all);
+        }
         if engine.registry().get("view.grid.set").is_none() {
             engine.register(grid::register_all);
         }
@@ -219,6 +232,7 @@ impl Shell {
             .view_mut()
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
+        engine.view_mut().set(CrossProbe::default());
         engine.view_mut().set(BoardView::new(units));
         engine
             .view_mut()
@@ -237,6 +251,8 @@ impl Shell {
             tool: None,
             messages: Messages::default(),
             marked: SelectionHandle::default(),
+            probed: None,
+            edits: 0,
             keymap: Keymap::default(),
             preferences: Watched::default(),
             clipboard: None,
@@ -244,6 +260,7 @@ impl Shell {
             router: pcb::Router::default(),
             pcb_draw: pcb::draw::Draw::default(),
             zones_stale: false,
+            change_list: None,
             palette: PaletteHandle::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
@@ -573,6 +590,43 @@ impl Shell {
     /// Whether the board's Zone fills are out of date: the "Zones need refilling" note.
     pub fn zones_need_refill(&self) -> bool {
         self.zones_stale
+    }
+
+    /// How many Sync changes are pending: "out of sync: N changes" on the PCB tab and in
+    /// the status bar. Zero without a PCB Document.
+    pub fn out_of_sync(&self) -> usize {
+        self.change_list.as_ref().map_or(0, |l| l.count)
+    }
+
+    /// What the canvases mark highlighted: the [`Highlight`]'s objects and what
+    /// cross-select and Net cross-probing carry across (see [`cross_probe`]), sorted by
+    /// UUID.
+    pub fn cross_probe(&self) -> &[Uuid] {
+        &self.marked.highlighted
+    }
+
+    /// Which cross-probes are on (`view.cross_select.toggle`,
+    /// `view.net_cross_probe.toggle`).
+    pub fn cross_probe_switches(&self) -> CrossProbe {
+        self.engine
+            .view()
+            .get::<CrossProbe>()
+            .copied()
+            .unwrap_or_default()
+    }
+
+    /// Whether `document` is the open Project's PCB Document.
+    pub fn is_pcb(&self, document: Uuid) -> bool {
+        self.engine
+            .project()
+            .and_then(|p| p.pcb())
+            .is_some_and(|pcb| pcb.uuid == document)
+    }
+
+    /// The pending Sync Change List, as `sync.preview` returns it; `None` without a PCB
+    /// Document.
+    pub fn change_list(&self) -> Option<&ChangeList> {
+        self.change_list.as_ref()
     }
 
     /// The rubber band's corners while one is drawn.
@@ -1512,6 +1566,7 @@ impl Shell {
         self.sync_selection();
         self.messages.clear_runs();
         self.load_fonts();
+        self.change_list = self.engine.project().and_then(reda_engine::sync::plan);
         let bytes = self.view_bytes().map(|(_, bytes)| bytes);
         self.view_saves = Debounce::default();
         if let Some(bytes) = bytes {
@@ -1546,6 +1601,7 @@ impl Shell {
         if project.is_none() && elements.is_empty() {
             self.documents.clear();
             *self.layout_mut() = Layout::default();
+            self.change_list = None;
             self.messages.clear_runs();
             self.messages.set_notes(FONTS, Vec::new());
             return;
@@ -1581,6 +1637,8 @@ impl Shell {
                 let fills = self.engine.project().and_then(|p| p.zone_fills(pcb.uuid));
                 reda_engine::pcb::zone::status(pcb, fills).needs_refill
             });
+        self.change_list = self.engine.project().and_then(reda_engine::sync::plan);
+        self.edits += 1;
         self.mark_stale_runs();
         self.update_markers();
     }
@@ -1792,20 +1850,32 @@ impl Shell {
         };
     }
 
-    /// Hands every canvas the [`Selection`]'s objects to mark, with a new generation
-    /// when they changed.
+    /// Hands every canvas the [`Selection`]'s objects and the highlighted ones (see
+    /// [`cross_probe::marks`]) to mark, with a new generation when they changed.
     fn sync_selection(&mut self) {
-        if self.marked.objects[..] != self.selection().objects[..]
-            || self.marked.highlighted[..] != self.highlight().objects[..]
-        {
-            let objects = Arc::from(self.selection().objects.as_slice());
-            let highlighted = Arc::from(self.highlight().objects.as_slice());
-            self.generation += 1;
-            self.marked = SelectionHandle {
-                generation: self.generation,
-                objects,
-                highlighted,
+        let switches = self.cross_probe_switches();
+        let key = (
+            self.selection().clone(),
+            self.highlight().clone(),
+            self.edits,
+            switches,
+        );
+        if self.probed.as_ref() != Some(&key) {
+            let highlighted = match self.engine.project() {
+                Some(project) => cross_probe::marks(project, &key.0, &key.1, switches),
+                None => key.1.objects.clone(),
             };
+            if self.marked.objects[..] != key.0.objects[..]
+                || self.marked.highlighted[..] != highlighted[..]
+            {
+                self.generation += 1;
+                self.marked = SelectionHandle {
+                    generation: self.generation,
+                    objects: Arc::from(key.0.objects.as_slice()),
+                    highlighted: Arc::from(highlighted),
+                };
+            }
+            self.probed = Some(key);
         }
         let grids = self
             .engine

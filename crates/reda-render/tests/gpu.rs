@@ -246,6 +246,27 @@ fn highlighting_dims_everything_else_but_the_paper() {
 }
 
 #[test]
+fn highlighting_objects_another_scene_draws_dims_nothing_here() {
+    let Some(gpu) = headless() else { return };
+    let scene = square_on_paper();
+    let palette = Palette::shipped(Theme::Dark);
+    let view = view_of(&scene, 100);
+    let plain = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    // A cross-probe marks the other Document's objects on every canvas.
+    let elsewhere = gpu
+        .render(
+            &scene,
+            &view,
+            &palette,
+            Highlight::new().mark(id(99), Flags::HIGHLIGHTED),
+        )
+        .unwrap();
+    assert_eq!(pixel(&elsewhere, 50, 50), pixel(&plain, 50, 50));
+}
+
+#[test]
 fn with_no_adapter_the_error_names_the_cause() {
     let Err(err) = Headless::with_backends(wgpu::Backends::empty()) else {
         panic!("an instance with no backends found an adapter");

@@ -21,6 +21,7 @@ use serde_json::{Value, json};
 use crate::shell::Shell;
 
 pub mod board_setup;
+pub mod change_list;
 mod draw;
 pub mod output_job;
 pub mod project;

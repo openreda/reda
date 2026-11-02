@@ -4,8 +4,9 @@
 //! menus and the canvas highlight the same way.
 //!
 //! The objects are UUIDs, which are unique across Documents, so one list serves every
-//! canvas: each marks the items of the objects its Scene draws. Cross-probing between the
-//! schematic and the board can add the other side's objects to the same list.
+//! canvas: each marks the items of the objects its Scene draws. Cross-probing
+//! ([`crate::cross_probe`]) carries a highlighted schematic Net to its PCB Net and back,
+//! so the canvases mark the other side's objects too.
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::Uuid;
