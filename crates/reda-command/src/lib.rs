@@ -28,7 +28,9 @@ pub use context::{Context, Env, Session};
 pub use error::{CommandError, ErrorCode};
 pub use fonts::{FontFace, Fonts};
 pub use history::{Entry, History};
-pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, SystemClock, Timestamp};
+#[cfg(not(target_arch = "wasm32"))]
+pub use inputs::SystemClock;
+pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, Timestamp};
 pub use library::{ElementLocation, FootprintCopyData, NoLibraries, PartCopy, PartSource};
 pub use registry::{Registry, scope_key};
 pub use signals::{CancelToken, Progress, Signals};

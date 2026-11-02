@@ -5,7 +5,7 @@
 //! Only Commands that read the Project and write files elsewhere may be detached (today
 //! `output.job.run`): an edit must run on the engine's own session.
 
-use reda_command::{CommandError, Env, FixedClock, Fonts, RandomIds, Registry, Session, Signals};
+use reda_command::{CommandError, Env, FixedClock, Fonts, Registry, Session, Signals};
 use serde_json::Value;
 
 use crate::Engine;
@@ -48,7 +48,7 @@ impl Detached {
     /// Runs the Command with `signals` (progress and cancellation).
     pub fn run(mut self, signals: &Signals) -> Finished {
         let parts = crate::library::DiskParts::new(&self.session);
-        let mut ids = RandomIds::new();
+        let mut ids = crate::engine::default_ids();
         let mut env = Env {
             ids: &mut ids,
             clock: &self.clock,

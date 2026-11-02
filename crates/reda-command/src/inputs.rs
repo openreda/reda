@@ -4,6 +4,7 @@
 //! [`RandomIds`] and [`SystemClock`]; tests use [`SeededIds`] and [`FixedClock::EPOCH`] so
 //! saved files and results are byte-for-byte reproducible.
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::hash::{BuildHasher, Hasher};
 
 use reda_model::Uuid;
@@ -39,24 +40,31 @@ impl IdSource for SeededIds {
 
 /// Random version-4 UUIDs for real sessions.
 ///
-/// SplitMix64 seeded from the standard library's per-process random hasher keys, the time
-/// and the process id. That is not a cryptographic source, which UUIDs here do not need:
-/// they only have to be unique across sessions and machines.
+/// SplitMix64, seeded by [`RandomIds::new`] from the standard library's per-process random
+/// hasher keys, the time and the process id. That is not a cryptographic source, which
+/// UUIDs here do not need: they only have to be unique across sessions and machines.
+/// wasm32 has neither a clock nor process ids in `std`, so a wasm host seeds it itself
+/// with [`RandomIds::from_seed`] (from `crypto.getRandomValues`, say).
 #[derive(Clone, Debug)]
 pub struct RandomIds {
     state: u64,
 }
 
 impl RandomIds {
+    /// Seeded from the hasher keys, the time and the process id.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> RandomIds {
         let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
         if let Ok(since) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
             hasher.write_u128(since.as_nanos());
         }
         hasher.write_u32(std::process::id());
-        RandomIds {
-            state: hasher.finish(),
-        }
+        RandomIds::from_seed(hasher.finish())
+    }
+
+    /// Seeded by the caller, which must give each session a different seed.
+    pub fn from_seed(seed: u64) -> RandomIds {
+        RandomIds { state: seed }
     }
 
     fn next_u64(&mut self) -> u64 {
@@ -68,6 +76,7 @@ impl RandomIds {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Default for RandomIds {
     fn default() -> RandomIds {
         RandomIds::new()
@@ -90,10 +99,13 @@ pub trait Clock: Send + Sync {
     fn now(&self) -> Timestamp;
 }
 
-/// The wall clock.
+/// The wall clock. Not on wasm32, whose `std` has no clock: a wasm host passes its own
+/// [`Clock`] (from `Date.now()`, say).
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SystemClock;
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Clock for SystemClock {
     fn now(&self) -> Timestamp {
         let since = std::time::SystemTime::now()

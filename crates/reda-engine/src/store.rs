@@ -278,7 +278,7 @@ pub fn save_tracked(
             if *old == new {
                 continue;
             }
-            let temp = format!(".{old}.{}.rename.tmp", std::process::id());
+            let temp = format!(".{old}.{}.rename.tmp", crate::fs::process_id());
             match std::fs::rename(folder.join(old), folder.join(&temp)) {
                 Ok(()) => moves.push((entry.uuid, old.clone(), temp, new)),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
