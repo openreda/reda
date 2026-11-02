@@ -59,6 +59,36 @@ jobs:
           --exclude reda-cli
           --exclude reda-testkit
 
+  png-snapshots:
+    name: PNG snapshots (Mesa llvmpipe)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      # Mesa's software renderer, reached through EGL/OpenGL as when the goldens were blessed.
+      - name: Install Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgl1-mesa-dri libgles2
+      - uses: Swatinem/rust-cache@v2
+      # REDA_PNG_SNAPSHOTS=1 turns a missing or non-llvmpipe adapter into a failure, and makes
+      # the snapshot tests compare instead of skip. Failures leave the actual and diff images
+      # in target/tmp/png-snapshots.
+      - name: Render and compare
+        env:
+          WGPU_BACKEND: gl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          REDA_PNG_SNAPSHOTS: "1"
+        run: cargo test --locked -p reda-render --features gpu --test png_snapshots --test gpu --test document_render_png
+      - name: Upload the differing images
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: png-snapshot-diffs
+          path: target/tmp/png-snapshots/
+          if-no-files-found: ignore
+
   deny:
     name: cargo-deny (licences, advisories, bans, sources)
     runs-on: ubuntu-latest

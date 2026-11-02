@@ -25,6 +25,23 @@ pub enum ColorKey {
     Schematic(SchematicColor),
 }
 
+impl ColorKey {
+    /// How many colour slots the GPU palette has: every key's [`slot`](Self::slot) is below.
+    pub const SLOTS: usize = 128;
+
+    /// The key's index in the GPU palette.
+    pub fn slot(self) -> usize {
+        match self {
+            ColorKey::Schematic(kind) => kind as usize,
+        }
+    }
+
+    /// Every key, in slot order.
+    pub fn all() -> impl Iterator<Item = ColorKey> {
+        SchematicColor::ALL.iter().map(|k| ColorKey::Schematic(*k))
+    }
+}
+
 macro_rules! schematic_colors {
     ($($(#[$doc:meta])* $name:ident: $dark:expr, $light:expr;)*) => {
         /// The kinds of schematic ink, each with its own colour.
@@ -108,6 +125,15 @@ impl Palette {
         self.theme
     }
 
+    /// The canvas around the Document: what an image shows outside the sheet, and what
+    /// dimmed objects fade towards.
+    pub fn background(&self) -> Rgba {
+        match self.theme {
+            Theme::Dark => Rgba::rgb(0x12, 0x13, 0x15),
+            Theme::Light => Rgba::rgb(0xe2, 0xe3, 0xe0),
+        }
+    }
+
     /// Overrides one colour.
     pub fn set(&mut self, key: ColorKey, color: Rgba) {
         self.overrides.retain(|(k, _)| *k != key);
@@ -123,3 +149,5 @@ impl Palette {
         }
     }
 }
+
+const _: () = assert!(SchematicColor::ALL.len() <= ColorKey::SLOTS);

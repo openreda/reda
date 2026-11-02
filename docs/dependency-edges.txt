@@ -31,6 +31,7 @@ reda-engine -> reda-model
 reda-engine -> reda-output
 reda-engine -> reda-pcb
 reda-engine -> reda-render
+reda-engine -> reda-render [cfg(not(target_arch = "wasm32"))]
 reda-engine -> reda-schematic
 reda-engine -> reda-testkit [dev]
 reda-engine -> schemars
@@ -68,6 +69,7 @@ reda-pcb -> schemars
 reda-pcb -> serde
 reda-pcb -> serde_json [dev]
 reda-render -> i_triangle
+reda-render -> png
 reda-render -> reda-command
 reda-render -> reda-model
 reda-render -> reda-testkit [dev]
@@ -75,7 +77,8 @@ reda-render -> reda-text
 reda-render -> schemars
 reda-render -> serde
 reda-render -> serde [dev]
-reda-render -> serde_json [dev]
+reda-render -> serde_json
+reda-render -> wgpu
 reda-schematic -> reda-command
 reda-schematic -> reda-model
 reda-schematic -> reda-testkit [dev]
