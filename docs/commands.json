@@ -1748,6 +1748,44 @@
     },
     {
       "category": "output",
+      "description": "Moves one of the user's Fab Presets, its `.redafab` file, to the OS trash. Project copies of it stay.",
+      "icon": "delete",
+      "id": "fab_preset.delete_user",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The user preset's name (case does not matter).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PresetDeleteUserParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The `.redafab` file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PresetSaveUserResult",
+        "type": "object"
+      },
+      "title": "Delete User Fab Preset"
+    },
+    {
+      "category": "output",
       "description": "Lists the Fab Presets a new Project or a job can use: the shipped Generic, JLCPCB and PCBWay, then the user's `.redafab` presets. `default` is the last one used for a new Project, else Generic.",
       "icon": "fab_preset",
       "id": "fab_preset.list",
@@ -2035,6 +2073,49 @@
         "type": "object"
       },
       "title": "List Fab Presets"
+    },
+    {
+      "category": "output",
+      "description": "Renames one of the user's Fab Presets and its `.redafab` file. Project copies keep the old name, so they no longer update from it.",
+      "icon": "rename",
+      "id": "fab_preset.rename_user",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The user preset's name (case does not matter).",
+            "type": "string"
+          },
+          "new_name": {
+            "description": "Its new name: a file name, and not a shipped preset's or another user preset's.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "new_name"
+        ],
+        "title": "PresetRenameUserParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The `.redafab` file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PresetSaveUserResult",
+        "type": "object"
+      },
+      "title": "Rename User Fab Preset"
     },
     {
       "category": "output",
@@ -3553,7 +3634,7 @@
           },
           "socket": {
             "default": false,
-            "description": "A socket (female) rather than a pin header (male). The land pattern is the same.",
+            "description": "A socket (female) rather than a pin header (male). The Footprint is the same.",
             "type": "boolean"
           }
         },
