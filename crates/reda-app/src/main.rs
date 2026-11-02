@@ -8,7 +8,6 @@
 //! ask GitHub for releases, then `reda-ui` runs the window.
 
 mod fonts;
-mod os_trash;
 mod releases;
 
 use std::path::PathBuf;
@@ -18,8 +17,8 @@ use std::sync::Arc;
 use reda_ui::engine::{Engine, Source, preferences, user_dirs};
 
 use crate::fonts::SystemFonts;
-use crate::os_trash::OsTrash;
 use crate::releases::GitHubReleases;
+use reda_ui::control::OsTrash;
 
 fn main() -> ExitCode {
     let mut project = None;

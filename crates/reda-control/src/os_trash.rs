@@ -1,5 +1,6 @@
 //! The OS trash (the Recycle Bin on Windows), where `project.save` sends the files of
-//! deleted Documents.
+//! deleted Documents. The front ends (the app and the CLI) hand it to their engines; the
+//! engine itself has no OS code.
 
 use std::path::Path;
 

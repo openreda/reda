@@ -3,7 +3,6 @@
 mod bridge;
 mod commands;
 mod mcp;
-mod os_trash;
 mod run;
 
 use std::process::ExitCode;

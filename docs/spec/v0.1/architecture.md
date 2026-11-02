@@ -42,7 +42,7 @@ Rules:
   - Commands and MCP: `schemars` 1.x, `rmcp`
   - window and UI: egui/eframe and `egui_wgpu`, `egui_extras` (SVG through resvg), `rfd`, `muda`, `egui_kittest`
   - per-user state: `directories`, `toml_edit`
-  - the OS trash for deleted Documents' files: `trash`, in the front ends only (the engine takes a `Trash` from them)
+  - the OS trash for deleted Documents' files: `trash`, in `reda-control`'s `OsTrash`, which the front ends hand the engine (the engine takes a `Trash` and has no OS code)
   - i18n: `fluent-bundle`
   - REDA stays on upstream egui and winit, with no forks ([research](https://github.com/openreda/reda/issues/2)).
 
