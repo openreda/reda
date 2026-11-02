@@ -87,7 +87,14 @@ fn footprint(engine: &TestEngine, designator: &str) -> Uuid {
 /// Moves Footprint `designator` to (`x`, `y`) mm, turned `rotation` degrees.
 fn put(engine: &mut TestEngine, designator: &str, x: i64, y: i64, rotation: i64) {
     let uuid = footprint(engine, designator);
-    let at = engine.project().unwrap().pcb().unwrap().footprint(uuid).unwrap().at;
+    let at = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .footprint(uuid)
+        .unwrap()
+        .at;
     engine.run_ok(
         "pcb.move",
         json!({"objects": [uuid], "by": {"x": x * 1_000_000 - at.x.0, "y": y * 1_000_000 - at.y.0}}),
@@ -101,7 +108,13 @@ fn put(engine: &mut TestEngine, designator: &str, x: i64, y: i64, rotation: i64)
 }
 
 fn preset_columns(engine: &TestEngine) -> (Vec<Column>, Vec<Column>) {
-    let preset = engine.project().unwrap().fab_presets().next().unwrap().preset();
+    let preset = engine
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .preset();
     (preset.bom, preset.cpl)
 }
 
@@ -253,7 +266,10 @@ fn mechanical_resistor_library(dir: &TempDir) -> PathBuf {
     let text = std::fs::read_to_string(&part).unwrap();
     std::fs::write(
         &part,
-        text.replace("\"component_type\":\"standard\"", "\"component_type\":\"mechanical\""),
+        text.replace(
+            "\"component_type\":\"standard\"",
+            "\"component_type\":\"mechanical\"",
+        ),
     )
     .unwrap();
     library
@@ -413,7 +429,9 @@ fn demo(dir: &TempDir) -> TestEngine {
 }
 
 fn golden(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/assembly").join(name)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/golden/assembly")
+        .join(name)
 }
 
 #[test]

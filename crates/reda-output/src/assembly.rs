@@ -59,25 +59,28 @@ pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> Out
 /// from its IPC-7351 zero orientation, and the side it sits on.
 pub fn cpl_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> OutputFile {
     let origin = cpl_origin(pcb);
-    let rows = fitted(project, pcb).into_iter().enumerate().map(|(i, part)| {
-        let at = part.instance.at;
-        columns
-            .iter()
-            .map(|c| match &c.source {
-                ColumnSource::Line => (i + 1).to_string(),
-                ColumnSource::Quantity => "1".into(),
-                ColumnSource::Designator => part.instance.designator.clone(),
-                ColumnSource::MidX => mm(at.x - origin.x),
-                ColumnSource::MidY => mm(at.y - origin.y),
-                ColumnSource::Layer => match part.instance.side {
-                    Side::Top => "Top".into(),
-                    Side::Bottom => "Bottom".into(),
-                },
-                ColumnSource::Rotation => degrees(part.instance.rotation),
-                source => part.describe(source),
-            })
-            .collect()
-    });
+    let rows = fitted(project, pcb)
+        .into_iter()
+        .enumerate()
+        .map(|(i, part)| {
+            let at = part.instance.at;
+            columns
+                .iter()
+                .map(|c| match &c.source {
+                    ColumnSource::Line => (i + 1).to_string(),
+                    ColumnSource::Quantity => "1".into(),
+                    ColumnSource::Designator => part.instance.designator.clone(),
+                    ColumnSource::MidX => mm(at.x - origin.x),
+                    ColumnSource::MidY => mm(at.y - origin.y),
+                    ColumnSource::Layer => match part.instance.side {
+                        Side::Top => "Top".into(),
+                        Side::Bottom => "Bottom".into(),
+                    },
+                    ColumnSource::Rotation => degrees(part.instance.rotation),
+                    source => part.describe(source),
+                })
+                .collect()
+        });
     OutputFile {
         name: format!("{}-CPL.csv", project.props().name),
         function: "cpl",
@@ -183,7 +186,12 @@ fn field<'a>(fields: &'a Fields, name: &str) -> &'a str {
         .custom
         .iter()
         .find(|f| f.name == name)
-        .or_else(|| fields.custom.iter().find(|f| f.name.eq_ignore_ascii_case(name)))
+        .or_else(|| {
+            fields
+                .custom
+                .iter()
+                .find(|f| f.name.eq_ignore_ascii_case(name))
+        })
         .map_or("", |f| f.value.as_str())
 }
 
@@ -194,7 +202,11 @@ fn fitted<'a>(project: &Project, pcb: &'a PcbDocument) -> Vec<Fitted<'a>> {
     let mut parts: Vec<Fitted<'a>> = pcb
         .footprints()
         .filter(|i| !i.not_fitted)
-        .filter(|i| i.component.as_ref().is_some_and(|c| !mechanical.contains(c)))
+        .filter(|i| {
+            i.component
+                .as_ref()
+                .is_some_and(|c| !mechanical.contains(c))
+        })
         .filter_map(|instance| {
             let copy = pcb.footprint_copy(instance.footprint)?;
             Some(Fitted { instance, copy })
