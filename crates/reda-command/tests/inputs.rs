@@ -45,3 +45,15 @@ fn fixed_clock_is_the_test_epoch() {
 fn system_clock_is_after_the_test_epoch() {
     assert!(SystemClock.now() > FixedClock::EPOCH.now());
 }
+
+#[test]
+fn seeded_random_ids_repeat_for_a_seed_and_differ_between_seeds() {
+    // What a wasm host, which has no clock or process id in std, seeds itself.
+    let take = |seed| {
+        let mut ids = RandomIds::from_seed(seed);
+        (ids.next_id(), ids.next_id())
+    };
+    assert_eq!(take(42), take(42));
+    assert_ne!(take(42), take(43));
+    assert_ne!(take(42).0, take(42).1);
+}

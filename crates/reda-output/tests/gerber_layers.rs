@@ -346,6 +346,57 @@ fn the_silkscreen_holds_footprint_drawing_designators_and_free_text() {
 }
 
 #[test]
+fn the_silkscreen_is_cleared_over_the_solder_mask_openings_on_its_side() {
+    let dir = TempDir::new("gerber-silk-clip");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(10.0, 10.0), "pads": [
+            {"at": pt(0.0, 0.0), "width": "1mm", "height": "1mm", "mask_margin": "0.1mm"}],
+            "graphics": [
+            {"layer": "silkscreen_top", "width": "0.15mm",
+             "shape": {"kind": "line", "start": pt(-2.0, 0.0), "end": pt(2.0, 0.0)}}]}),
+    );
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(20.0, 10.0), "side": "bottom", "pads": [
+            {"at": pt(0.0, 0.0), "width": "1mm", "height": "1mm"}]}),
+    );
+    let files = plot(&engine);
+    let top = layer(&files, "Demo.GTO");
+    let pads = pads(&engine);
+    let clears: Vec<_> = top
+        .objects
+        .iter()
+        .filter_map(|o| match o {
+            Object::Flash {
+                dark: false,
+                at,
+                aperture,
+                ..
+            } => Some((*at, aperture.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(clears.len(), 1, "only the top Pad's opening: {clears:?}");
+    let (at_, aperture) = &clears[0];
+    assert_eq!(*at_, at(&pads[0]));
+    assert_grown(&pads[0], aperture, 100_000);
+    // The silkscreen is drawn first, then cleared.
+    let last_draw = top
+        .objects
+        .iter()
+        .rposition(|o| matches!(o, Object::Draw { .. }))
+        .unwrap();
+    let first_clear = top
+        .objects
+        .iter()
+        .position(|o| matches!(o, Object::Flash { dark: false, .. }))
+        .unwrap();
+    assert!(last_draw < first_clear);
+}
+
+#[test]
 fn copper_text_and_drawing_plot_on_their_copper_layer_as_non_conductor() {
     let dir = TempDir::new("gerber-copper-text");
     let mut engine = board(&dir);

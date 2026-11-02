@@ -10,7 +10,7 @@ Each crate lives in `crates/reda-<name>/`, and the directory name is the package
 
 | Crate | Holds | Depends on |
 |---|---|---|
-| `reda-geom` | nm and millidegree types, unit-string parsing, Line\|Arc shapes, wrappers over `i_overlay` and `rstar` | — |
+| `reda-geom` | nm and millidegree types, unit-string parsing, Line\|Arc shapes, rotation and boxes | — |
 | `reda-text` | font loading from bytes, Hershey parsing, shaping (`harfrust`), outlines (`skrifa`), glyph triangulation (`i_triangle`) | geom |
 | `reda-model` | every persisted type (Project, Schematic Sheet, PCB Document, Symbol, Footprint, Part), UUIDs, transactions, change sets, serde derives. Data only. | geom |
 | `reda-command` | the Command trait, kinds, `available(ctx)`, error codes, the edit result envelope, `batch`, cancellation and progress, the registry | model |
@@ -37,12 +37,13 @@ Rules:
   - CI builds every crate below `reda-control` for `wasm32-unknown-unknown`.
   - A workspace test checks `cargo metadata` against a checked-in allow-list of dependency edges. That test also checks that `reda-testkit` appears only as a dev-dependency.
 - Third-party crates already chosen:
-  - geometry and fonts: `i_overlay`, `i_triangle`, `rstar`, `skrifa`, `harfrust`
-  - outputs: `gerber-types`; the Excellon writer is REDA's own
+  - geometry and fonts: `i_overlay` and `rstar` (used directly by `reda-pcb`, which alone needs polygon booleans and a spatial index), `i_triangle`, `skrifa`, `harfrust`
+  - outputs: `zip` (pure-Rust deflate) for the Output Job zip; the Gerber and Excellon writers are REDA's own (`gerber-types` was dropped: a small writer covers what REDA plots, X2 attributes included)
+  - images: `png`, for `document.render` output
   - Commands and MCP: `schemars` 1.x, `rmcp`
-  - window and UI: egui/eframe and `egui_wgpu`, `egui_extras` (SVG through resvg), `rfd`, `muda`, `egui_kittest`
+  - window and UI: egui/eframe and `egui_wgpu`, `egui_extras` (SVG through resvg), `rfd`, `egui_kittest` (`muda` was dropped: the menus are egui's own, drawn from the bars data)
   - per-user state: `directories`, `toml_edit`
-  - the OS trash for deleted Documents' files: `trash`, in the front ends only (the engine takes a `Trash` from them)
+  - the OS trash for deleted Documents' files: `trash`, in `reda-control`'s `OsTrash`, which the front ends hand the engine (the engine takes a `Trash` and has no OS code)
   - i18n: `fluent-bundle`
   - REDA stays on upstream egui and winit, with no forks ([research](https://github.com/openreda/reda/issues/2)).
 

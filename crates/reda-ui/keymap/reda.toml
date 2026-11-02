@@ -2,7 +2,7 @@
 #
 # Each [[bind]] binds one key, written portably by logical key ("Mod+Shift+Z"; Mod is Cmd
 # on macOS and Ctrl elsewhere), in one context: global (the default), schematic, pcb,
-# symbol, footprint or tool:<name>. The most specific context wins: the active Tool, then
+# symbol, footprint, part or tool:<name>. The most specific context wins: the active Tool, then
 # the active Document's type, then global. A key binds once per context.
 #
 # `command` names a Command or a Preset ("panel.show:projects"); `params` makes it a raw
@@ -90,12 +90,18 @@ command = "layout.tab.switch:next"
 key = "Ctrl+Shift+Tab"
 command = "layout.tab.switch:previous"
 
-# View: F zooms to fit on a canvas.
+# View: F zooms to fit on a canvas, and Home to the selection.
 
 [[bind]]
 context = "schematic"
 key = "F"
 command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Home"
+command = "view.zoom_selection"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -105,15 +111,33 @@ command = "view.zoom_fit"
 params = { document = "$active_document" }
 
 [[bind]]
+context = "pcb"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
 context = "symbol"
 key = "F"
 command = "view.zoom_fit"
 params = { document = "$active_document" }
 
 [[bind]]
+context = "symbol"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
 context = "footprint"
 key = "F"
 command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Home"
+command = "view.zoom_selection"
 params = { document = "$active_document" }
 
 # The schematic canvas. "$selection" is what is selected on the sheet, "$selectable"
@@ -212,12 +236,12 @@ command = "tool.activate:no_connect"
 [[bind]]
 context = "tool:wire"
 key = "/"
-command = "tool.corner"
+command = "tool.cycle_corner"
 
 [[bind]]
 context = "tool:wire"
 key = "Backspace"
-command = "tool.remove_last"
+command = "tool.undo_segment"
 
 # Find (Mod+F) searches every sheet by Designator, value or Net name.
 
@@ -599,3 +623,11 @@ command = "tool.finish"
 context = "tool:arc"
 key = "Backspace"
 command = "tool.undo_segment"
+
+# Part tabs.
+
+[[bind]]
+context = "part"
+key = "Mod+S"
+command = "library.element.save"
+params = { element = "$active_document" }

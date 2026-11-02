@@ -162,15 +162,14 @@ const BOARD_TOOLS: [(Tool, &str, &str); 13] = [
 pub struct ActiveTool(pub Tool);
 
 /// Adds `tool.activate` and the in-flight Commands (`tool.rotate`, `tool.mirror`,
-/// `tool.flip`, `tool.corner`, `tool.remove_last`, `tool.undo_segment`, `tool.finish`)
+/// `tool.flip`, `tool.cycle_corner`, `tool.undo_segment`, `tool.finish`)
 /// to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(ToolActivate);
     registry.add(ToolRotate);
     registry.add(ToolMirror);
     registry.add(ToolFlip);
-    registry.add(ToolCorner);
-    registry.add(ToolRemoveLast);
+    registry.add(ToolCycleCorner);
     registry.add(ToolUndoSegment);
     registry.add(ToolFinish);
 }
@@ -384,40 +383,20 @@ impl Command for ToolMirror {
     }
 }
 
-/// `tool.corner` (/): turns the corner of the Wire run in flight the other way
-/// (horizontal first or vertical first); applied by the window's Shell.
-struct ToolCorner;
-
-impl Command for ToolCorner {
-    const META: Meta = Meta {
-        id: "tool.corner",
-        title: "Toggle Corner",
-        description: "Turns the corner of the Wire run in flight the other way: horizontal \
-                      then vertical, or vertical then horizontal.",
-        category: "tool",
-        icon: "wire",
-        kind: Kind::View,
-    };
-    type Params = NoParams;
-    type Output = Turned;
-
-    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
-        Ok(Turned {})
-    }
-}
-
-/// `tool.remove_last` (Backspace): takes the last segment off the Wire run in flight;
+/// `tool.cycle_corner` (/): the next corner mode of the Wire run or route in flight;
 /// applied by the window's Shell.
-struct ToolRemoveLast;
+struct ToolCycleCorner;
 
-impl Command for ToolRemoveLast {
+impl Command for ToolCycleCorner {
     const META: Meta = Meta {
-        id: "tool.remove_last",
-        title: "Remove Last Segment",
-        description: "Takes the last fixed segment off the Wire run in flight; with none \
-                      left, the run ends without drawing anything.",
+        id: "tool.cycle_corner",
+        title: "Cycle Corner Mode",
+        description: "Switches the corners of the Wire run or route in flight: a Wire run \
+                      between horizontal-then-vertical and vertical-then-horizontal; a route \
+                      between straight-then-45°, 45°-then-straight, horizontal-then-vertical \
+                      and vertical-then-horizontal.",
         category: "tool",
-        icon: "wire",
+        icon: "line",
         kind: Kind::View,
     };
     type Params = NoParams;
@@ -436,7 +415,9 @@ impl Command for ToolUndoSegment {
     const META: Meta = Meta {
         id: "tool.undo_segment",
         title: "Remove Last Point",
-        description: "Takes back the last corner or point the active Tool has put down.",
+        description: "Takes back the last corner or point the active Tool has put down: a \
+                      Wire run's last segment (with none left, the run ends without drawing \
+                      anything), a route's or a shape's last corner.",
         category: "tool",
         icon: "undo",
         kind: Kind::View,

@@ -199,22 +199,8 @@ pub(crate) fn board_point(instance: &FootprintInstance, p: P) -> P {
 
 /// `p` turned counter-clockwise about the origin; exact for quarter turns.
 pub(crate) fn rotate(p: P, angle: Millideg) -> P {
-    let a = angle.normalized().0;
-    match a {
-        0 => p,
-        90_000 => [-p[1], p[0]],
-        180_000 => [-p[0], -p[1]],
-        270_000 => [p[1], -p[0]],
-        _ => {
-            let t = (a as f64 / 1000.0).to_radians();
-            let (s, c) = t.sin_cos();
-            let (x, y) = (p[0] as f64, p[1] as f64);
-            [
-                (x * c - y * s).round() as i64,
-                (x * s + y * c).round() as i64,
-            ]
-        }
-    }
+    let (x, y) = reda_model::geom::rotate(p[0], p[1], angle);
+    [x, y]
 }
 
 /// The corners of a chain of chords along the arc from `from` to `to` sweeping `sweep`,

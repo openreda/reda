@@ -8,6 +8,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - mm, Protel file extensions, `.FileFunction` attributes
   - files for Top/Bottom Copper, Mask, Paste and Silkscreen, plus the Board Outline as the Profile
   - silkscreen text is plotted from the same text geometry as the canvas (`reda-text`)
+  - the silkscreen is cleared over the solder-mask openings on its side, so no ink lands on bare copper
 - **Excellon:** XNC-style, metric, with PTH and NPTH as separate files.
 - **CSV BOM** and **CSV CPL**.
 - Everything goes into one zip.
@@ -65,8 +66,8 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 ## BOM
 
 - One row per group of Part + chosen Footprint + value fields.
-- Designators are listed in natural order ("R1, R2, R10"), with a quantity column.
-- The columns come from the Fab Preset's mapping.
+- Designators are listed in natural order ("R1, R2, R10").
+- The columns come from the Fab Preset's mapping. The Generic and PCBWay presets have a Quantity column; the JLCPCB preset follows JLCPCB's BOM template (Comment, Designator, Footprint, LCSC Part #), which has none.
 - Mechanical and Not Fitted Components are left out.
 - The BOM and CPL read only the job's PCB Document. Each Footprint instance carries the Component's fields and Not Fitted, kept current by Sync ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
 

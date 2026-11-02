@@ -237,6 +237,10 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
         }
     }
     ui.separator();
+    if ui.button(tr!("library-new-library")).clicked() {
+        picked = Some(Action::Call("library.create".into(), json!({})));
+    }
+    ui.separator();
     if ui.button(tr!("library-import-part")).clicked() {
         picked = Some(Action::Call(
             "library.import_part".into(),

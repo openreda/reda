@@ -10,7 +10,7 @@ use crate::document::{DocumentEntry, DocumentKind};
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{PcbDocument, ZoneFills};
 use crate::schematic::SchematicSheet;
-use crate::{ElementSource, ErcSeverities, LibraryElement, TxError, Uuid};
+use crate::{ElementSource, ErcSeverities, LibraryElement, Scope, TxError, Uuid};
 use reda_geom::Nm;
 
 /// Project-wide properties, stored in `<name>.reda`.
@@ -76,6 +76,8 @@ pub struct Project {
     /// Computed Zone fills per PCB Document: derived data kept beside the Documents, never
     /// part of them, so transactions and undo do not touch it.
     zone_fills: BTreeMap<Uuid, ZoneFills>,
+    /// Data computed from Documents, forgotten when they change.
+    derived: crate::derived::Derived,
     #[cfg(feature = "test-objects")]
     probes: BTreeMap<Uuid, crate::Probe>,
 }
@@ -96,9 +98,22 @@ impl Project {
             elements: BTreeMap::new(),
             pcb_documents: BTreeMap::new(),
             zone_fills: BTreeMap::new(),
+            derived: Default::default(),
             #[cfg(feature = "test-objects")]
             probes: BTreeMap::new(),
         }
+    }
+
+    /// The `T` computed from Document `document`, computed with `build` the first time it
+    /// is asked for after the Document last changed (or its Zone fills were set). For
+    /// derived data that is costly to build, such as a board's copper index; a crate
+    /// stores its own type, so the key is the type with the Document.
+    pub fn derived<T: std::any::Any + Send + Sync>(
+        &self,
+        document: Uuid,
+        build: impl FnOnce() -> T,
+    ) -> std::sync::Arc<T> {
+        self.derived.get_or(document, build)
     }
 
     pub fn uuid(&self) -> Uuid {
@@ -140,9 +155,6 @@ impl Project {
         self.schematic_sheets.get(&uuid)
     }
 
-    /// Opens a Library element for editing, outside any transaction: opening is not an
-    /// edit and is never undone. Its edits then [`crate::Transaction::replace`] it, on the
-    /// undo scope `Scope::Element(uuid)`. Refused when its UUID is taken.
     /// The last computed Zone fills of PCB Document `document`, current or stale.
     pub fn zone_fills(&self, document: Uuid) -> Option<&ZoneFills> {
         self.zone_fills.get(&document)
@@ -151,12 +163,16 @@ impl Project {
     /// Keeps `fills` as PCB Document `document`'s Zone fills (`None` forgets them). Fills
     /// are derived data: setting them is not an edit.
     pub fn set_zone_fills(&mut self, document: Uuid, fills: Option<ZoneFills>) {
+        self.derived.forget(document);
         match fills {
             Some(fills) => self.zone_fills.insert(document, fills),
             None => self.zone_fills.remove(&document),
         };
     }
 
+    /// Opens a Library element for editing, outside any transaction: opening is not an
+    /// edit and is never undone. Its edits then [`crate::Transaction::replace`] it, on the
+    /// undo scope `Scope::Element(uuid)`. Refused when its UUID is taken.
     pub fn open_element(
         &mut self,
         source: ElementSource,
@@ -331,6 +347,12 @@ impl Project {
 
     /// Sets the object stored under `uuid`, or removes it with `None`. No bookkeeping.
     pub(crate) fn put(&mut self, uuid: Uuid, object: Option<Object>) {
+        match object.as_ref().map(Object::scope) {
+            Some(Scope::Document(document) | Scope::Element(document)) => {
+                self.derived.forget(document);
+            }
+            _ => self.derived.clear(),
+        }
         match object {
             Some(Object::Project(props)) => self.props = props,
             Some(Object::Document(entry)) => {

@@ -95,6 +95,7 @@ fn right_click_waives_a_violation_and_show_waived_brings_it_back() {
 
     h.get_by_label("Show waived").click();
     h.run();
+    assert!(journal(&h).contains(&"view.messages.show_waived".to_owned()));
     h.get_by_label(&format!("{FIRST_END} (waived)"));
     h.get_by_label(&format!("{SECOND_END} (waived)"));
 

@@ -15,7 +15,7 @@ use std::any::Any;
 use std::path::Path;
 
 use reda_engine::command::CommandError;
-use reda_engine::model::Project;
+use reda_engine::model::{Project, Scope};
 use serde_json::{Value, json};
 
 use crate::shell::Shell;
@@ -152,6 +152,7 @@ pub struct SettingsDialog {
     pages: Vec<Box<dyn Page>>,
     selected: usize,
     error: Option<String>,
+    undo_scope: Scope,
 }
 
 impl SettingsDialog {
@@ -165,7 +166,20 @@ impl SettingsDialog {
             pages,
             selected: 0,
             error: None,
+            undo_scope: Scope::Project,
         }
+    }
+
+    /// The same dialog with its changes on `scope`'s undo stack, not the Project's.
+    pub fn on_stack(mut self, scope: Scope) -> Self {
+        self.undo_scope = scope;
+        self
+    }
+
+    /// The undo stack Apply puts the changes on, which `Mod+Z` undoes while the dialog is
+    /// open.
+    pub fn undo_scope(&self) -> Scope {
+        self.undo_scope
     }
 
     pub fn title(&self) -> &str {

@@ -119,6 +119,30 @@ fn rules_overrides_and_severities_apply_as_one_batch_and_one_undo_entry_on_the_p
 }
 
 #[test]
+fn undo_with_board_setup_open_undoes_its_changes_on_the_pcb() {
+    let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
+    let mut shell = shell_with_board(&home, &work);
+    // Something on the Project stack that the dialog's undo must leave alone.
+    shell
+        .run("project.properties.set", json!({"title": "Amp"}))
+        .unwrap();
+    let mut d = dialog(&shell);
+    d.page::<DrcPage>()
+        .unwrap()
+        .board()
+        .set_rule(RuleField::Clearance, "0.3");
+    d.apply(&mut shell).unwrap();
+    assert_eq!(pcb(&shell).setup().rules.clearance, Nm::from_um(300));
+
+    shell.undo(false, Some(d.undo_scope())).unwrap();
+    assert_eq!(pcb(&shell).setup().rules.clearance, Nm::from_um(160));
+    assert_eq!(
+        shell.engine().project().unwrap().props().properties.title,
+        "Amp"
+    );
+}
+
+#[test]
 fn each_rule_page_flags_its_own_invalid_values() {
     let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
     let shell = shell_with_board(&home, &work);
@@ -247,6 +271,29 @@ fn net_classes_are_added_renamed_and_deleted_and_nets_assigned_in_one_batch() {
     assert_eq!(board.net(vcc).unwrap().class, power.uuid);
     assert_eq!(board.net(gnd).unwrap().class, default);
     assert_eq!(board.net(sig).unwrap().class, default);
+}
+
+#[test]
+fn two_net_classes_can_swap_names_in_one_apply() {
+    let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let add = |shell: &mut Shell, name: &str| -> Uuid {
+        let out = shell
+            .run("pcb.net_class.add", json!({"name": name}))
+            .unwrap();
+        out["result"]["uuid"].as_str().unwrap().parse().unwrap()
+    };
+    let (power, signal) = (add(&mut shell, "Power"), add(&mut shell, "Signal"));
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<NetClassesPage>().unwrap().board();
+        board.rename_class(ClassKey::Existing(power), "Signal");
+        board.rename_class(ClassKey::Existing(signal), "Power");
+    }
+    assert!(d.can_apply());
+    d.apply(&mut shell).unwrap();
+    assert_eq!(pcb(&shell).net_class(power).unwrap().name, "Signal");
+    assert_eq!(pcb(&shell).net_class(signal).unwrap().name, "Power");
 }
 
 #[test]

@@ -2,7 +2,7 @@
 //! Board Outline and of every Footprint already placed (at the origin when there is
 //! neither), one row per Schematic Sheet in sheet order, sorted by Designator within it.
 
-use reda_model::geom::{Nm, Point};
+use reda_model::geom::{Bounds, Nm, Point};
 use reda_model::{Footprint, PcbDocument, Shape};
 
 use super::components::SchComponent;
@@ -11,40 +11,6 @@ use super::components::SchComponent;
 const CLUSTER_GAP: Nm = Nm::from_mm(5);
 /// The space between Footprints, and between rows, within a cluster.
 const SPACING: Nm = Nm::from_mm(2);
-
-/// An axis-aligned box.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Bounds {
-    min: Point,
-    max: Point,
-}
-
-impl Bounds {
-    fn of_point(p: Point) -> Bounds {
-        Bounds { min: p, max: p }
-    }
-
-    fn around(p: Point, r: Nm) -> Bounds {
-        Bounds {
-            min: Point::new(p.x - r, p.y - r),
-            max: Point::new(p.x + r, p.y + r),
-        }
-    }
-
-    fn union(self, other: Bounds) -> Bounds {
-        Bounds {
-            min: Point::new(self.min.x.min(other.min.x), self.min.y.min(other.min.y)),
-            max: Point::new(self.max.x.max(other.max.x), self.max.y.max(other.max.y)),
-        }
-    }
-
-    fn moved(self, by: Point) -> Bounds {
-        Bounds {
-            min: self.min + by,
-            max: self.max + by,
-        }
-    }
-}
 
 fn union_all(boxes: impl IntoIterator<Item = Bounds>) -> Option<Bounds> {
     boxes.into_iter().reduce(Bounds::union)

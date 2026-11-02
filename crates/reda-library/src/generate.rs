@@ -1,9 +1,9 @@
 //! Footprint generators: one Command per package family that computes an IPC-7351
-//! Nominal land pattern, writes it as a Footprint into a chosen Library and runs the
+//! Nominal Footprint, writes it into a chosen Library and runs the
 //! Library check on it.
 //!
 //! A family is a [`FootprintFamily`]: its Command metadata, its params, and a pure
-//! function from params to a [`LandPattern`]. [`Generator`] turns any family into a
+//! function from params to a [`FootprintPlan`]. [`Generator`] turns any family into a
 //! Command; the courtyard, Assembly outline, text and UUIDs are added the same way for
 //! all of them. To add a family, write a module with a `FootprintFamily` impl and add one
 //! line to [`register_generators`].
@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 pub use chip::{Chip, ChipClass, ChipDimensions, ChipParams, ChipSize};
 pub use gull_wing::GullWingDimensions;
 pub use no_lead::{Dfn, ExposedPadDimensions, NoLeadDimensions, NoLeadParams, Qfn};
-pub use pattern::{Body, Land, LandPattern};
+pub use pattern::{Body, FootprintPlan, PadSpec};
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
@@ -109,7 +109,7 @@ fn preview_of<F: FootprintFamily>(params: &serde_json::Value) -> Result<Footprin
     let p: F::Params = serde_json::from_value(params.clone())
         .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
     let target = F::target(&p);
-    let pattern = F::land_pattern(&p)?;
+    let pattern = F::plan(&p)?;
     let name = target.name.unwrap_or_else(|| pattern.name.clone());
     let mut next = 0;
     Ok(pattern.into_footprint(name, || {
@@ -127,8 +127,8 @@ pub trait FootprintFamily: Send + Sync + 'static {
     /// Where the Footprint goes and what it is called.
     fn target(params: &Self::Params) -> Target;
 
-    /// The land pattern, or `invalid_params` saying which param does not work.
-    fn land_pattern(params: &Self::Params) -> Result<LandPattern, CommandError>;
+    /// The Footprint, or `invalid_params` saying which param does not work.
+    fn plan(params: &Self::Params) -> Result<FootprintPlan, CommandError>;
 }
 
 /// The Library a generated Footprint is written into, and its name if the caller gave one
@@ -187,7 +187,7 @@ impl<F: FootprintFamily> Command for Generator<F> {
 
     fn run(&self, cx: &mut Context<'_>, p: F::Params) -> Result<Generated, CommandError> {
         let target = F::target(&p);
-        let pattern = F::land_pattern(&p)?;
+        let pattern = F::plan(&p)?;
         let name = target.name.unwrap_or_else(|| pattern.name.clone());
         check_element_name(&name).map_err(|why| CommandError::invalid_params("/name", why))?;
         let footprint = pattern.into_footprint(name, || cx.new_id());

@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use super::ipc::{self, Termination, Tol};
 use super::quad::{self, Quad};
-use super::{FootprintFamily, LandPattern, Target, TolParam, hundredths};
+use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 
 pub struct Qfp;
 
@@ -173,7 +173,7 @@ impl FootprintFamily for Qfp {
         }
     }
 
-    fn land_pattern(p: &QfpParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &QfpParams) -> Result<FootprintPlan, CommandError> {
         if p.pins < 8 || !p.pins.is_multiple_of(4) {
             return Err(CommandError::invalid_params(
                 "/pins",
@@ -224,6 +224,6 @@ impl FootprintFamily for Qfp {
             dims.body_y.nominal().0 as f64 / 1e6,
             dims.pitch.0 as f64 / 1e6
         );
-        quad::land_pattern(&quad, Termination::GullWing, name, description)
+        quad::plan(&quad, Termination::GullWing, name, description)
     }
 }

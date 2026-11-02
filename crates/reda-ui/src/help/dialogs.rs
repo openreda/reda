@@ -11,7 +11,7 @@ use crate::tr;
 #[derive(Default)]
 pub(crate) struct Dialogs {
     about: Option<AboutPage>,
-    update: Option<UpdateCheck>,
+    update: Option<Result<UpdateCheck, String>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -28,6 +28,7 @@ impl Dialogs {
     /// Draws the open windows; a check `app.update.check` ran since the last frame opens
     /// its result.
     pub(crate) fn show(&mut self, ctx: &egui::Context, engine: &Engine) {
+        super::updates::repaint_with(engine, ctx);
         if let Some(check) = take_checks(engine).pop() {
             self.update = Some(check);
         }
@@ -87,11 +88,19 @@ fn licences(ui: &mut Ui) {
 }
 
 /// What a Check for Updates found. Returns whether it closed.
-fn update(ctx: &egui::Context, check: &UpdateCheck) -> bool {
+fn update(ctx: &egui::Context, check: &Result<UpdateCheck, String>) -> bool {
     let modal = Modal::new(Id::NULL.with("update-check")).show(ctx, |ui| {
         ui.set_width(380.0);
         ui.heading(tr!("update-title"));
         ui.add_space(6.0);
+        let check = match check {
+            Ok(check) => check,
+            Err(why) => {
+                ui.label(tr!("update-failed", why = why.as_str()));
+                ui.add_space(8.0);
+                return close_button(ui);
+            }
+        };
         let latest = check.latest.as_str();
         let current = check.current.as_str();
         match &check.url {

@@ -598,16 +598,35 @@ impl BoardSetupDraft {
                 steps.push(Step::new("pcb.net_class.delete", json!({"class": uuid})));
             }
         }
-        for row in self.live_classes().filter(existing) {
-            let ClassKey::Existing(uuid) = row.key else {
-                continue;
-            };
-            if row.name.value().trim() != row.name.base().trim() {
+        let renames: Vec<(Uuid, &str)> = self
+            .live_classes()
+            .filter(existing)
+            .filter(|row| row.name.value().trim() != row.name.base().trim())
+            .filter_map(|row| match row.key {
+                ClassKey::Existing(uuid) => Some((uuid, row.name.value().trim())),
+                ClassKey::New(_) => None,
+            })
+            .collect();
+        // A rename onto a name another kept class still has (two classes swapping
+        // names) goes through a name of its own first: names are unique at every step.
+        let taken = |name: &str| {
+            self.live_classes()
+                .filter(existing)
+                .any(|row| row.name.base().trim() == name)
+        };
+        if renames.iter().any(|&(_, name)| taken(name)) {
+            for &(uuid, _) in &renames {
                 steps.push(Step::new(
                     "pcb.net_class.rename",
-                    json!({"class": uuid, "name": row.name.value().trim()}),
+                    json!({"class": uuid, "name": uuid.to_string()}),
                 ));
             }
+        }
+        for (uuid, name) in renames {
+            steps.push(Step::new(
+                "pcb.net_class.rename",
+                json!({"class": uuid, "name": name}),
+            ));
         }
         for row in self.live_classes().filter(existing) {
             let ClassKey::Existing(uuid) = row.key else {

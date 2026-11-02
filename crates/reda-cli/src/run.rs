@@ -128,7 +128,7 @@ pub fn execute(args: RunArgs) -> ExitCode {
         Err(err) => return fail(serde_json::to_value(&err)),
         Ok(Some(connection)) => Runner::Bridged(connection, Vec::new()),
         Ok(None) => Runner::Local(Box::new(
-            Engine::builder().trash(crate::os_trash::OsTrash).build(),
+            Engine::builder().trash(reda_control::OsTrash).build(),
         )),
     };
     match &args.target {

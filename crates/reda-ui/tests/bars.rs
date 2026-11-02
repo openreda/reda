@@ -579,3 +579,48 @@ fn window_commands_ask_the_window_and_are_refused_headless() {
     let err = shell.run("app.quit", json!({})).unwrap_err();
     assert_eq!(err.code, ErrorCode::Unavailable);
 }
+
+#[test]
+fn home_zooms_the_canvas_to_the_selection() {
+    let home = TempDir::new("bars-home");
+    let work = TempDir::new("bars-work");
+    let file = make_project(work.path(), "Zoom");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().unwrap().document;
+    let err = shell.run("view.zoom_selection", json!({})).unwrap_err();
+    assert_eq!(err.message, "nothing is selected");
+
+    let wire = shell
+        .run(
+            "schematic.wire.add",
+            json!({"document": sheet, "points": [{"x": "100mm", "y": "50mm"},
+                                                  {"x": "150mm", "y": "50mm"}]}),
+        )
+        .unwrap()["result"]["wires"][0]
+        .clone();
+    shell
+        .run("selection.set", json!({"objects": [wire]}))
+        .unwrap();
+    shell.run("view.zoom_selection", json!({})).unwrap();
+    assert_eq!(
+        bars::take_requests(shell.engine()),
+        [Request::ZoomSelection(sheet)]
+    );
+    assert!(shell.zoom_to_selection(sheet));
+    let (lo, hi) = shell.document_tab(sheet).unwrap().zoom_to.unwrap();
+    assert!(
+        lo.x.0 <= 100_000_000 && hi.x.0 >= 150_000_000,
+        "{lo:?} {hi:?}"
+    );
+    assert!(
+        hi.x.0 - lo.x.0 < 80_000_000,
+        "framed tightly: {lo:?} {hi:?}"
+    );
+
+    // Home is the key on every canvas.
+    let keymap =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("keymap/reda.toml"))
+            .unwrap();
+    assert_eq!(keymap.matches("key = \"Home\"").count(), 4);
+}

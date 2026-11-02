@@ -1,5 +1,5 @@
 //! Finding Fab Presets: the shipped ones (`reda-output`) and the user's `.redafab` files in
-//! `<config>/fab-presets/`, and saving a user preset.
+//! `<config>/fab-presets/`, and saving, renaming and deleting a user preset.
 //!
 //! Names are compared case-insensitively, and a shipped preset wins over a user preset of
 //! the same name (saving refuses such a name).
@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use reda_command::{CommandError, UserDirs};
 use reda_model::FabPreset;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::format::{read_bytes, read_fab_file, write_fab_file};
 
@@ -22,7 +22,7 @@ pub fn dir(dirs: &UserDirs) -> PathBuf {
 }
 
 /// Where a preset comes from.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Origin {
     /// Shipped with REDA.
@@ -32,7 +32,7 @@ pub enum Origin {
 }
 
 /// A preset that can be picked, with where it comes from.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Available {
     pub preset: FabPreset,
     pub origin: Origin,
@@ -123,18 +123,74 @@ pub fn find_or_fail(
     })
 }
 
+/// The user preset called `name` (not a shipped one), with its file.
+pub fn user_preset(dirs: &UserDirs, name: &str) -> Result<(FabPreset, PathBuf), CommandError> {
+    user_presets(dirs)
+        .0
+        .into_iter()
+        .find(|a| a.preset.name.eq_ignore_ascii_case(name.trim()))
+        .and_then(|a| Some((a.preset, a.path?)))
+        .ok_or_else(|| CommandError::not_found(format!("there is no user Fab Preset {name:?}")))
+}
+
+/// Refuses `name` for a user preset, at `pointer`: not a file name, or a shipped preset's.
+fn check_user_name(pointer: &str, name: &str) -> Result<(), CommandError> {
+    crate::commands::project::check_file_stem(name)
+        .map_err(|why| CommandError::invalid_params(pointer, why))?;
+    if reda_output::shipped_named(name).is_some() {
+        return Err(CommandError::invalid_params(
+            pointer,
+            format!("{name:?} is a shipped Fab Preset; use another name"),
+        ));
+    }
+    Ok(())
+}
+
+/// Renames the user preset `name` to `new_name`, file included; returns the new file. A
+/// shipped preset's name or another user preset's is refused.
+pub fn rename_user(dirs: &UserDirs, name: &str, new_name: &str) -> Result<PathBuf, CommandError> {
+    let (mut preset, old) = user_preset(dirs, name)?;
+    let new_name = new_name.trim();
+    check_user_name("/new_name", new_name)?;
+    let same = preset.name.eq_ignore_ascii_case(new_name);
+    if !same && user_preset(dirs, new_name).is_ok() {
+        return Err(CommandError::invalid_params(
+            "/new_name",
+            format!("there is already a user Fab Preset {new_name:?}"),
+        ));
+    }
+    preset.name = new_name.to_owned();
+    // A change of case only keeps the file: on a case-insensitive disk the new file name
+    // would be the old file.
+    let path = if same {
+        old.clone()
+    } else {
+        dir(dirs).join(format!("{new_name}.{EXTENSION}"))
+    };
+    write_user(&path, &preset)?;
+    if path != old {
+        std::fs::remove_file(&old)
+            .map_err(|e| CommandError::internal(format!("removing {}: {e}", old.display())))?;
+    }
+    Ok(path)
+}
+
+fn write_user(path: &Path, preset: &FabPreset) -> Result<(), CommandError> {
+    let bytes = write_fab_file(preset).map_err(|e| CommandError::internal(e.to_string()))?;
+    let io = |path: &Path, e: std::io::Error| {
+        CommandError::internal(format!("writing {}: {e}", path.display()))
+    };
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder).map_err(|e| io(folder, e))?;
+    }
+    crate::fs::write_atomic(path, &bytes).map_err(|e| io(path, e))
+}
+
 /// Writes `preset` as the user preset `<config>/fab-presets/<name>.redafab`, replacing a
 /// user preset of the same name. A shipped preset's name is refused.
 pub fn save_user(dirs: &UserDirs, preset: &FabPreset) -> Result<PathBuf, CommandError> {
     let name = preset.name.trim();
-    crate::commands::project::check_file_stem(name)
-        .map_err(|why| CommandError::invalid_params("/name", why))?;
-    if reda_output::shipped_named(name).is_some() {
-        return Err(CommandError::invalid_params(
-            "/name",
-            format!("{name:?} is a shipped Fab Preset; save under another name"),
-        ));
-    }
+    check_user_name("/name", name)?;
     let folder = dir(dirs);
     // Replace the file that already holds this name, whatever its file name.
     let existing = user_presets(dirs)
@@ -143,11 +199,6 @@ pub fn save_user(dirs: &UserDirs, preset: &FabPreset) -> Result<PathBuf, Command
         .find(|a| a.preset.name.eq_ignore_ascii_case(name))
         .and_then(|a| a.path);
     let path = existing.unwrap_or_else(|| folder.join(format!("{name}.{EXTENSION}")));
-    let bytes = write_fab_file(preset).map_err(|e| CommandError::internal(e.to_string()))?;
-    let io = |path: &Path, e: std::io::Error| {
-        CommandError::internal(format!("writing {}: {e}", path.display()))
-    };
-    std::fs::create_dir_all(&folder).map_err(|e| io(&folder, e))?;
-    crate::fs::write_atomic(&path, &bytes).map_err(|e| io(&path, e))?;
+    write_user(&path, preset)?;
     Ok(path)
 }

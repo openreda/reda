@@ -15,7 +15,7 @@ mod file;
 
 use std::num::NonZeroU32;
 
-use reda_command::UserDirs;
+use reda_command::{Length, UserDirs};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -89,6 +89,9 @@ pub struct Editing {
     pub electrical_snap: bool,
     /// Pan the view when the cursor reaches the canvas edge during an operation.
     pub auto_pan: bool,
+    /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
+    /// not one of the Document type's presets, is the type's own default.
+    pub default_grid: Option<Length>,
 }
 
 impl Default for Editing {
@@ -98,6 +101,7 @@ impl Default for Editing {
             repeat_placement: true,
             electrical_snap: true,
             auto_pan: true,
+            default_grid: None,
         }
     }
 }

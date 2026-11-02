@@ -6,7 +6,7 @@
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{CancelToken, UserDirs};
-use reda_ui::engine::model::{DocumentKind, Severity, Uuid};
+use reda_ui::engine::model::{DocumentKind, Scope, Severity, Uuid};
 use reda_ui::job_run::{JobRunner, RunOutcome};
 use reda_ui::settings::output_job::{self, JobPage};
 use reda_ui::shell::Shell;
@@ -84,7 +84,7 @@ fn the_dialog_edits_one_job_and_applies_as_one_batch() {
     assert_eq!(job.destination.as_deref(), Some("out/fab"));
     assert!(!d.has_changes());
 
-    shell.undo(false, true).unwrap();
+    shell.undo(false, Some(Scope::Project)).unwrap();
     let job = shell.engine().project().unwrap().output_job(uuid).unwrap();
     assert_ne!(job.name, "Fab");
 }

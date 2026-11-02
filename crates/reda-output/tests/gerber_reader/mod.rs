@@ -79,6 +79,8 @@ pub struct Arc {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     Flash {
+        /// Dark (adds) or clear (removes).
+        dark: bool,
         at: (i64, i64),
         aperture: Aperture,
         function: Option<String>,
@@ -364,6 +366,7 @@ impl Reader {
                             let (aperture, function) =
                                 self.apertures[&self.current.unwrap()].clone();
                             self.layer.objects.push(Object::Flash {
+                                dark: self.dark,
                                 at: to,
                                 aperture,
                                 function,

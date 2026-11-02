@@ -1,4 +1,4 @@
-use reda_geom::{Millideg, Nm, Point};
+use reda_geom::{Bounds, Millideg, Nm, Point, rotate};
 
 #[test]
 fn nanometre_constructors_scale_to_integer_nm() {
@@ -43,4 +43,30 @@ fn units_serialise_as_bare_integers() {
         serde_json::from_str::<Nm>("7.5").is_err(),
         "floats are refused"
     );
+}
+
+#[test]
+fn rotation_is_exact_on_quarter_turns_and_rounds_otherwise() {
+    assert_eq!(rotate(3, 4, Millideg(90_000)), (-4, 3));
+    assert_eq!(rotate(3, 4, Millideg(-90_000)), (4, -3));
+    assert_eq!(rotate(3, 4, Millideg(540_000)), (-3, -4));
+    assert_eq!(rotate(1_000_000, 0, Millideg(30_000)), (866_025, 500_000));
+    let p = Point::new(Nm(5), Nm(1));
+    let about = Point::new(Nm(1), Nm(1));
+    assert_eq!(
+        p.rotated_about(about, Millideg(90_000)),
+        Point::new(Nm(1), Nm(5))
+    );
+}
+
+#[test]
+fn bounds_hold_their_points_and_centre_rounds_down() {
+    let pt = |x, y| Point::new(Nm(x), Nm(y));
+    let b = Bounds::of_points([pt(3, -1), pt(-2, 4), pt(0, 0)]).unwrap();
+    assert_eq!((b.min, b.max), (pt(-2, -1), pt(3, 4)));
+    assert_eq!((b.width(), b.height()), (Nm(5), Nm(5)));
+    assert_eq!(b.center(), pt(0, 1));
+    assert_eq!(b.moved(pt(1, 1)).min, pt(-1, 0));
+    assert_eq!(Bounds::around(pt(0, 0), Nm(2)).max, pt(2, 2));
+    assert!(Bounds::of_points([]).is_none());
 }

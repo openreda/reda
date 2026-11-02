@@ -59,6 +59,35 @@ fn a_detached_job_run_writes_its_files_on_another_thread_and_is_journalled() {
 }
 
 #[test]
+fn the_zone_fills_a_detached_job_run_computes_are_kept() {
+    let dir = TempDir::new("detached-fills");
+    let mut engine = board(&dir);
+    let gnd = engine.run_ok("test.net.add", json!({"name": "GND"}))["result"]["uuid"].clone();
+    let p = |x: i64, y: i64| json!({"x": x * 1_000_000, "y": y * 1_000_000});
+    engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_top", "net": gnd,
+               "vertices": [p(2, 2), p(12, 2), p(12, 12), p(2, 12)]}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap().uuid;
+    assert!(engine.project().unwrap().zone_fills(pcb).is_none());
+
+    let detached = engine
+        .detach("output.job.run", json!({"job": JOB}))
+        .unwrap();
+    let done = std::thread::spawn(move || detached.run(&Signals::default()))
+        .join()
+        .unwrap();
+    engine.finish(done).unwrap();
+    assert!(
+        engine.project().unwrap().zone_fills(pcb).is_some(),
+        "the run's fills are stored back, as when it runs on the engine"
+    );
+    let status = engine.run_ok("pcb.zone.fill_status", json!({}));
+    assert_eq!(status["zones"][0]["state"], "filled", "{status}");
+}
+
+#[test]
 fn a_cancelled_detached_run_is_journalled_as_cancelled() {
     let dir = TempDir::new("detached-cancel");
     let mut engine = board(&dir);

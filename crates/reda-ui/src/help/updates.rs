@@ -4,7 +4,9 @@
 //! REDA makes no network call on its own. The only one is this Command's, made when it
 //! runs, through the [`ReleaseSource`] the app hands over with [`configure`]. `reda-ui`
 //! itself has no network code: without a source the Command is unavailable, so tests and
-//! headless engines never reach the network.
+//! headless engines never reach the network. The call runs on its own thread, so a slow
+//! network never holds up the window, and only the user can start it: a bridged agent is
+//! refused ([`USER_ONLY`]).
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -27,6 +29,10 @@ pub struct Release {
     /// Its web page.
     pub url: String,
 }
+
+/// Commands a bridged agent may not run, because they reach outside REDA on the user's
+/// behalf (`Shell::run_bridged` refuses them).
+pub const USER_ONLY: &[&str] = &["app.update.check"];
 
 /// Fetches the newest release. Only [`app.update.check`](CheckForUpdates) calls it, once
 /// per run.
@@ -144,6 +150,14 @@ pub struct UpdateCheck {
     pub url: Option<String>,
 }
 
+/// What `app.update.check` returns at once: the check carries on off the UI thread and its
+/// outcome reaches the window through [`take_checks`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct CheckStarted {
+    /// This build's version.
+    pub current: String,
+}
+
 /// The app's version and release source, shared by the Command and the window, in the
 /// engine's view state.
 #[derive(Clone)]
@@ -152,8 +166,13 @@ pub struct Updates(Arc<Mutex<State>>);
 struct State {
     version: String,
     source: Option<Arc<dyn ReleaseSource>>,
-    /// Checks not yet shown by the window, oldest first.
-    unseen: Vec<UpdateCheck>,
+    /// Outcomes not yet shown by the window, oldest first: what a check found, or why it
+    /// failed.
+    unseen: Vec<Result<UpdateCheck, String>>,
+    /// Whether a check is on its way; a second run while one is waits for it.
+    checking: bool,
+    /// Asks the window to draw again when a check finishes.
+    repaint: Option<egui::Context>,
 }
 
 impl Default for Updates {
@@ -162,6 +181,8 @@ impl Default for Updates {
             version: concat!(env!("CARGO_PKG_VERSION"), "-dev").to_owned(),
             source: None,
             unseen: Vec::new(),
+            checking: false,
+            repaint: None,
         })))
     }
 }
@@ -205,13 +226,24 @@ pub fn version(engine: &Engine) -> String {
         .unwrap_or_else(|| Updates::default().version())
 }
 
-/// Takes the checks run since the last call, oldest first, for the window to show.
-pub fn take_checks(engine: &Engine) -> Vec<UpdateCheck> {
+/// Takes the outcomes of the checks finished since the last call, oldest first, for the
+/// window to show: what each found, or why it failed.
+pub fn take_checks(engine: &Engine) -> Vec<Result<UpdateCheck, String>> {
     engine
         .view()
         .get::<Updates>()
         .map(|u| std::mem::take(&mut u.lock().unseen))
         .unwrap_or_default()
+}
+
+/// Has the window drawn again when a check finishes.
+pub(crate) fn repaint_with(engine: &Engine, ctx: &egui::Context) {
+    if let Some(updates) = engine.view().get::<Updates>() {
+        let mut state = updates.lock();
+        if state.repaint.is_none() {
+            state.repaint = Some(ctx.clone());
+        }
+    }
 }
 
 /// `app.update.check`.
@@ -227,7 +259,7 @@ impl Command for CheckForUpdates {
         kind: Kind::Query,
     };
     type Params = NoParams;
-    type Output = UpdateCheck;
+    type Output = CheckStarted;
 
     fn available(&self, _: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         match self.0.lock().source {
@@ -238,26 +270,47 @@ impl Command for CheckForUpdates {
         }
     }
 
-    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<UpdateCheck, CommandError> {
+    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<CheckStarted, CommandError> {
         let (current, source) = {
-            let state = self.0.lock();
+            let mut state = self.0.lock();
             let source = state
                 .source
                 .clone()
                 .ok_or_else(|| CommandError::unavailable("requires the REDA app"))?;
-            (state.version.clone(), source)
+            let current = state.version.clone();
+            if state.checking {
+                return Ok(CheckStarted { current });
+            }
+            state.checking = true;
+            (current, source)
         };
-        let release = source
-            .latest()
-            .map_err(|e| CommandError::unavailable(format!("could not check for updates: {e}")))?;
-        let newer = is_newer(&release.version, &current);
-        let check = UpdateCheck {
-            current,
-            latest: release.version,
-            newer,
-            url: newer.then_some(release.url),
+        let updates = self.0.clone();
+        let started = CheckStarted {
+            current: current.clone(),
         };
-        self.0.lock().unseen.push(check.clone());
-        Ok(check)
+        std::thread::Builder::new()
+            .name("update-check".into())
+            .spawn(move || {
+                let outcome = source.latest().map(|release| {
+                    let newer = is_newer(&release.version, &current);
+                    UpdateCheck {
+                        current,
+                        latest: release.version,
+                        newer,
+                        url: newer.then_some(release.url),
+                    }
+                });
+                let mut state = updates.lock();
+                state.unseen.push(outcome);
+                state.checking = false;
+                if let Some(ctx) = &state.repaint {
+                    ctx.request_repaint();
+                }
+            })
+            .map_err(|e| {
+                self.0.lock().checking = false;
+                CommandError::unavailable(format!("could not start the check: {e}"))
+            })?;
+        Ok(started)
     }
 }

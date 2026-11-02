@@ -96,6 +96,7 @@ impl SavedLayout {
                 .map(|w| FloatingWindow {
                     id: w.id,
                     root: map_node(&w.root, &mut slots_of),
+                    rect: w.rect,
                 })
                 .collect(),
         }
@@ -148,6 +149,7 @@ impl SavedLayout {
             .map(|w| FloatingWindow {
                 id: w.id,
                 root: map_node(&w.root, &mut fill),
+                rect: w.rect,
             })
             .collect();
         if !placed {

@@ -1,5 +1,5 @@
 //! Packages with leads on all four sides: QFP (gull-wing) and QFN (no-lead) share this
-//! land pattern.
+//! Footprint.
 //!
 //! Zero orientation: pin 1 at the top of the left side, numbered counter-clockwise: down
 //! the left side, along the bottom, up the right side and back along the top.
@@ -9,7 +9,7 @@ use reda_model::geom::{Nm, Point};
 
 use super::gull_wing::keep_body_middle_clear;
 use super::ipc::{self, Termination, Tol};
-use super::pattern::{Body, Land, LandPattern, SILKSCREEN_WIDTH, clip_silkscreen, rectangle};
+use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_WIDTH, clip_silkscreen, rectangle};
 
 /// A four-sided package's dimensions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,15 +39,15 @@ fn centres(n: usize, pitch: Nm) -> impl DoubleEndedIterator<Item = Nm> {
     (0..n).map(move |i| Nm((2 * i as i64 - (n as i64 - 1)) * pitch.0 / 2))
 }
 
-/// The land pattern of a four-sided package terminated as `termination`. Silkscreen
+/// The Footprint of a four-sided package terminated as `termination`. Silkscreen
 /// marks the body's corners where they clear the copper, all but the upper-left one,
 /// whose absence marks pin 1.
-pub fn land_pattern(
+pub fn plan(
     q: &Quad,
     termination: Termination,
     name: String,
     description: String,
-) -> Result<LandPattern, CommandError> {
+) -> Result<FootprintPlan, CommandError> {
     let goals = termination.goals(q.pitch);
     let span = |tips: Tol, body: Tol| {
         let span = ipc::span(tips, q.lead_length, goals)
@@ -58,47 +58,47 @@ pub fn land_pattern(
         }
     };
     let (sx, sy) = (span(q.span_x, q.body_x)?, span(q.span_y, q.body_y)?);
-    let (ox, oy) = (sx.land_offset().0, sy.land_offset().0);
-    let x = ipc::land_width(q.lead_width, goals);
+    let (ox, oy) = (sx.pad_offset().0, sy.pad_offset().0);
+    let x = ipc::pad_width(q.lead_width, goals);
     let reach = |n: usize| Nm((n as i64 - 1) * q.pitch.0 / 2 + x.0 / 2);
     if reach(q.rows).0 * 2 >= sy.inner.0 || reach(q.columns).0 * 2 >= sx.inner.0 {
         return Err(CommandError::invalid_params(
             "/pins",
-            "the leads do not fit along the body: the lands at the corners would meet",
+            "the leads do not fit along the body: the Pads at the corners would meet",
         ));
     }
-    let mut lands = vec![];
+    let mut pad_specs = vec![];
     let mut n = 0;
     let mut add = |at: Point, width: Nm, height: Nm| {
         n += 1;
-        lands.push(Land::smd(n.to_string(), at, width, height));
+        pad_specs.push(PadSpec::smd(n.to_string(), at, width, height));
     };
     let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
     for y in centres(q.rows, q.pitch).rev() {
-        add(p(-ox, y.0), sx.land_length(), x);
+        add(p(-ox, y.0), sx.pad_length(), x);
     }
     for x_at in centres(q.columns, q.pitch) {
-        add(p(x_at.0, -oy), x, sy.land_length());
+        add(p(x_at.0, -oy), x, sy.pad_length());
     }
     for y in centres(q.rows, q.pitch) {
-        add(p(ox, y.0), sx.land_length(), x);
+        add(p(ox, y.0), sx.pad_length(), x);
     }
     for x_at in centres(q.columns, q.pitch).rev() {
-        add(p(x_at.0, oy), x, sy.land_length());
+        add(p(x_at.0, oy), x, sy.pad_length());
     }
     let corner = p(
         q.body_x.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2,
         q.body_y.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2,
     );
     let pin_1 = p(-corner.x.0, corner.y.0);
-    let silkscreen = clip_silkscreen(&rectangle(corner.x, corner.y), &lands)
+    let silkscreen = clip_silkscreen(&rectangle(corner.x, corner.y), &pad_specs)
         .into_iter()
         .filter(|(start, end)| *start != pin_1 && *end != pin_1)
         .collect();
-    Ok(LandPattern {
+    Ok(FootprintPlan {
         name,
         description,
-        lands,
+        pad_specs,
         body: Body {
             nominal: (q.body_x.nominal(), q.body_y.nominal()),
             max: (q.body_x.max, q.body_y.max),

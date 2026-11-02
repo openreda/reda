@@ -3158,7 +3158,6 @@ name = "reda-app"
 version = "0.0.0"
 dependencies = [
  "reda-ui",
- "trash",
 ]
 
 [[package]]
@@ -3173,7 +3172,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "trash",
 ]
 
 [[package]]
@@ -3195,6 +3193,7 @@ dependencies = [
  "reda-testkit",
  "serde",
  "serde_json",
+ "trash",
 ]
 
 [[package]]

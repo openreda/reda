@@ -525,9 +525,9 @@ impl Command for UnitsToggle {
         };
         view.units = units;
         let grids = cx.view::<Grids>()?;
-        let current = grids.0.get(&pcb).copied();
-        let grid = grid::pcb_in_units(current.unwrap_or(grid::pcb_default(units)), units);
-        grids.0.insert(pcb, grid);
+        let current = grids.picked.get(&pcb).copied();
+        let grid = grid::pcb_in_units(current.unwrap_or(grids.pcb), units);
+        grids.picked.insert(pcb, grid);
         Ok(UnitsNow { units, grid })
     }
 }

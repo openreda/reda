@@ -771,3 +771,10 @@ impl PcbDocument {
         Ok(())
     }
 }
+
+/// Serialised as its objects in UUID order, for fingerprinting what a check reads.
+impl serde::Serialize for PcbDocument {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.objects())
+    }
+}

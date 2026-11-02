@@ -130,8 +130,8 @@ fn keys_and_clicks_draw_a_wire_run_that_ends_on_a_pin() {
         journal_since(&h, before),
         [
             "tool.activate:wire",
-            "tool.remove_last",
-            "tool.corner",
+            "tool.undo_segment",
+            "tool.cycle_corner",
             "schematic.wire.add"
         ]
     );

@@ -502,7 +502,6 @@ fn zone_layer_and_net(
     if kind != LayerKind::Copper {
         return None;
     }
-    let pcb = project.pcb()?;
-    let net = Copper::build(pcb).net_at(layer, first);
+    let net = Copper::of(project)?.net_at(layer, first);
     Some((layer, net))
 }

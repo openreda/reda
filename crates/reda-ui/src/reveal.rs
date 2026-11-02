@@ -32,6 +32,25 @@ impl Shell {
     }
 }
 
+impl Shell {
+    /// Zooms `document`'s canvas to what it draws of the selection (Pads by their
+    /// Footprint) when it next lays out; false when it draws none of it.
+    pub fn zoom_to_selection(&mut self, document: Uuid) -> bool {
+        let selection = self.selection();
+        let objects: Vec<Uuid> = (selection.objects.iter().copied())
+            .chain(selection.pads.iter().map(|p| p.footprint))
+            .collect();
+        let Some(tab) = self.document_tab_mut(document) else {
+            return false;
+        };
+        let Some(frame) = frame(&tab.scene.scene, &objects) else {
+            return false;
+        };
+        tab.zoom_to = Some(frame);
+        true
+    }
+}
+
 /// The box around what `scene` draws of `objects`, grown to at least [`MIN_FRAME`] across.
 pub fn frame(scene: &Scene, objects: &[Uuid]) -> Option<(Point, Point)> {
     let (lo, hi) = objects

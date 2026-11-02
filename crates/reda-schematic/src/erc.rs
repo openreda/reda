@@ -13,7 +13,7 @@ mod nets;
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{
     ErcCheck, ErcSeverities, InDocument, Object, Project, Scope, Severity, Uuid, Violation, Waiver,
-    apply_waivers, fingerprint,
+    apply_waivers,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -44,13 +44,14 @@ pub fn check(project: &Project) -> Vec<Violation> {
 /// severities) and every Schematic Sheet, Waivers included.
 pub fn design_fingerprint(project: &Project) -> String {
     let props = project.props();
-    let mut parts: Vec<&dyn std::fmt::Debug> = vec![props];
+    let mut f = reda_command::Fingerprint::new();
+    f.add(props);
     for document in &props.documents {
         if let Some(sheet) = project.schematic_sheet(*document) {
-            parts.push(sheet);
+            f.add(sheet);
         }
     }
-    fingerprint(&parts)
+    f.finish()
 }
 
 /// Every Waiver on the Project's Schematic Sheets, in Document order.

@@ -7,6 +7,7 @@
 //! other face. The canvas, DRC and the manufacturing outputs all read placed geometry from
 //! here.
 
+pub use reda_model::geom::Bounds;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
     FootprintInstance, FootprintLayer, FootprintText, FreePad, Hole, PadKind, PadShape,
@@ -16,79 +17,12 @@ use reda_model::{
 /// `p` turned counter-clockwise by `angle` about `about`. Quarter turns are exact; other
 /// angles round to the nearest nanometre.
 pub fn rotate(p: Point, about: Point, angle: Millideg) -> Point {
-    let (dx, dy) = ((p.x - about.x).0, (p.y - about.y).0);
-    let (x, y) = match angle.normalized().0 {
-        0 => (dx, dy),
-        90_000 => (-dy, dx),
-        180_000 => (-dx, -dy),
-        270_000 => (dy, -dx),
-        a => {
-            let r = (a as f64 / 1000.0).to_radians();
-            let (s, c) = r.sin_cos();
-            let (fx, fy) = (dx as f64, dy as f64);
-            (
-                (fx * c - fy * s).round() as i64,
-                (fx * s + fy * c).round() as i64,
-            )
-        }
-    };
-    Point::new(about.x + Nm(x), about.y + Nm(y))
+    p.rotated_about(about, angle)
 }
 
 /// Whether `angle` is a whole number of quarter turns.
 pub fn is_quarter_turn(angle: Millideg) -> bool {
     angle.0 % 90_000 == 0
-}
-
-/// An axis-aligned box on the board.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Bounds {
-    pub min: Point,
-    pub max: Point,
-}
-
-impl Bounds {
-    pub fn of_point(p: Point) -> Bounds {
-        Bounds { min: p, max: p }
-    }
-
-    /// The square of half-side `r` around `p`.
-    pub fn around(p: Point, r: Nm) -> Bounds {
-        Bounds {
-            min: Point::new(p.x - r, p.y - r),
-            max: Point::new(p.x + r, p.y + r),
-        }
-    }
-
-    pub fn union(self, other: Bounds) -> Bounds {
-        Bounds {
-            min: Point::new(self.min.x.min(other.min.x), self.min.y.min(other.min.y)),
-            max: Point::new(self.max.x.max(other.max.x), self.max.y.max(other.max.y)),
-        }
-    }
-
-    /// The smallest box holding every point; `None` when there are none.
-    pub fn of_points(points: impl IntoIterator<Item = Point>) -> Option<Bounds> {
-        points
-            .into_iter()
-            .map(Bounds::of_point)
-            .reduce(Bounds::union)
-    }
-
-    pub fn center(self) -> Point {
-        Point::new(
-            Nm((self.min.x.0 + self.max.x.0).div_euclid(2)),
-            Nm((self.min.y.0 + self.max.y.0).div_euclid(2)),
-        )
-    }
-
-    pub fn width(self) -> Nm {
-        self.max.x - self.min.x
-    }
-
-    pub fn height(self) -> Nm {
-        self.max.y - self.min.y
-    }
 }
 
 /// A Footprint's frame on the board: mirror (bottom side), turn, then move.

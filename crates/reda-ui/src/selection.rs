@@ -25,6 +25,11 @@ impl Selection {
     pub fn is_empty(&self) -> bool {
         self.objects.is_empty() && self.pads.is_empty() && self.nets.is_empty()
     }
+
+    /// How many things are selected: objects, Pads and Nets.
+    pub fn len(&self) -> usize {
+        self.objects.len() + self.pads.len() + self.nets.len()
+    }
 }
 
 /// A Pad of a Footprint instance on the PCB.
@@ -56,7 +61,8 @@ pub struct SelectionSetParams {
     nets: Vec<Uuid>,
 }
 
-/// How many things are now selected.
+/// How many things are now selected: what `selection.set` and the Commands that add to
+/// the selection return.
 #[derive(Serialize, JsonSchema)]
 pub struct SelectionSetResult {
     pub count: usize,
@@ -91,7 +97,7 @@ impl Command for SelectionSet {
             let project = cx.project()?;
             check(project, &selection)?;
         }
-        let count = selection.objects.len() + selection.pads.len() + selection.nets.len();
+        let count = selection.len();
         *cx.view::<Selection>()? = selection;
         Ok(SelectionSetResult { count })
     }

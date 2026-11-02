@@ -11,7 +11,7 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
         .ok_or_else(|| std::io::Error::other(format!("{} has no file name", path.display())))?;
     let mut temp_name = std::ffi::OsString::from(".");
     temp_name.push(name);
-    temp_name.push(format!(".{}.tmp", std::process::id()));
+    temp_name.push(format!(".{}.tmp", process_id()));
     let temp = path.with_file_name(temp_name);
 
     let result = (|| {
@@ -25,4 +25,16 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
         let _ = std::fs::remove_file(&temp);
     }
     result
+}
+
+/// This process's id, for temp file names; 0 on wasm32, whose `std` has no process ids.
+pub(crate) fn process_id() -> u32 {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::process::id()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        0
+    }
 }

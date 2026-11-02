@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use reda_command::{
     Clock, CommandError, Env, Fonts, History, IdSource, PartCopy, PartSource, RandomIds, Registry,
-    SeededIds, Session, Signals, SystemClock, Trash, UserDirs, ViewState,
+    SeededIds, Session, Signals, Trash, UserDirs, ViewState,
 };
 use reda_model::{ElementSource, LibraryElement, Project, Scope, Uuid};
 use serde_json::Value;
@@ -134,6 +134,10 @@ impl Engine {
 
     pub(crate) fn session(&self) -> &Session {
         &self.session
+    }
+
+    pub(crate) fn session_mut(&mut self) -> &mut Session {
+        &mut self.session
     }
 
     pub(crate) fn push_journal(&mut self, entry: JournalEntry) {
@@ -337,13 +341,42 @@ pub struct EngineBuilder {
     trash: Option<Arc<dyn Trash>>,
 }
 
+/// Fresh random UUIDs. On wasm32 the seed comes from the hasher keys alone, which may
+/// repeat between sessions: a wasm host should pass `.ids(RandomIds::from_seed(..))`.
+pub(crate) fn default_ids() -> RandomIds {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        RandomIds::new()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        use std::hash::{BuildHasher, Hasher};
+        let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+        hasher.write_usize(&hasher as *const _ as usize);
+        RandomIds::from_seed(hasher.finish())
+    }
+}
+
+/// The wall clock; on wasm32, which has none in `std`, the fixed epoch until the host
+/// passes `.clock(..)`.
+fn default_clock() -> Box<dyn Clock> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Box::new(reda_command::SystemClock)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        Box::new(reda_command::FixedClock::EPOCH)
+    }
+}
+
 impl Default for EngineBuilder {
     fn default() -> EngineBuilder {
         EngineBuilder {
             registry: registry(),
             undo_depth: None,
-            ids: Box::new(RandomIds::new()),
-            clock: Box::new(SystemClock),
+            ids: Box::new(default_ids()),
+            clock: default_clock(),
             fonts: Fonts::default(),
             headless: true,
             source: Source::default(),

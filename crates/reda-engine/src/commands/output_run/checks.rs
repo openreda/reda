@@ -12,7 +12,7 @@ use reda_model::{
 /// The problems that stop a run, in a fixed order: duplicate Designators, an open Board
 /// Outline, then Components without a Footprint (only when the job writes a BOM or CPL).
 pub(crate) fn blockers(project: &Project, pcb: &PcbDocument, job: &OutputJob) -> Vec<Violation> {
-    let mut found = duplicate_designators(project, pcb);
+    let mut found = duplicate_designators(pcb);
     let outline = pcb.outline();
     if outline.is_none_or(|o| reda_model::geom::check_contour(&o.vertices).is_err()) {
         found.push(
@@ -25,23 +25,12 @@ pub(crate) fn blockers(project: &Project, pcb: &PcbDocument, job: &OutputJob) ->
     found
 }
 
-/// One `duplicate_designator` per Designator two Components share, over the Schematic
-/// Sheets and the PCB's Mechanical Parts; objects are the Units and Footprints carrying it.
-fn duplicate_designators(project: &Project, pcb: &PcbDocument) -> Vec<Violation> {
-    // Designator → Component (or Mechanical Part) → the objects showing it.
+/// One `duplicate_designator` per Designator two Components (or Mechanical Parts) share
+/// on the job's PCB, which is all the BOM and CPL read; objects are the Footprints
+/// carrying it. A sheet that is out of sync with the board only warns (`out_of_sync`).
+fn duplicate_designators(pcb: &PcbDocument) -> Vec<Violation> {
+    // Designator → Component (or Mechanical Part) → the Footprints showing it.
     let mut by_name: BTreeMap<&str, BTreeMap<Uuid, Vec<Uuid>>> = BTreeMap::new();
-    for document in project.documents() {
-        if let Some(sheet) = project.schematic_sheet(document.uuid) {
-            for unit in sheet.units() {
-                by_name
-                    .entry(&unit.designator)
-                    .or_default()
-                    .entry(unit.component.uuid)
-                    .or_default()
-                    .push(unit.uuid);
-            }
-        }
-    }
     for footprint in pcb.footprints() {
         let owner = footprint
             .component
@@ -66,7 +55,9 @@ fn duplicate_designators(project: &Project, pcb: &PcbDocument) -> Vec<Violation>
 }
 
 /// One `missing_footprint` per fitted Standard Component with no Footprint chosen (the BOM
-/// and CPL leave Mechanical and Not Fitted Components out, so they need none).
+/// and CPL leave Mechanical and Not Fitted Components out, so they need none). It reads the
+/// sheets: a Component without a Footprint never reaches the board, so the job's PCB, which
+/// the BOM and CPL read, cannot show what it lacks.
 fn missing_footprints(project: &Project) -> Vec<Violation> {
     let mut by_component: BTreeMap<Uuid, (&str, Vec<Uuid>)> = BTreeMap::new();
     for document in project.documents() {

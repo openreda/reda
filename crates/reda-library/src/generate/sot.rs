@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use super::gull_wing::{self, GullWing, Lead, Side};
 use super::ipc::{Termination, Tol};
-use super::{FootprintFamily, LandPattern, Target};
+use super::{FootprintFamily, FootprintPlan, Target};
 
 pub struct Sot;
 
@@ -101,7 +101,7 @@ impl FootprintFamily for Sot {
         }
     }
 
-    fn land_pattern(p: &SotParams) -> Result<LandPattern, CommandError> {
+    fn plan(p: &SotParams) -> Result<FootprintPlan, CommandError> {
         use Side::{Left, Right};
         let (dims, title) = match p.package {
             SotPackage::Sot23_3 => (TO_236, "SOT-23-3"),
@@ -133,6 +133,6 @@ impl FootprintFamily for Sot {
         };
         let name = dims.ipc_name("SOT", leads.len());
         let description = format!("{title}, IPC-7351 Nominal");
-        gull_wing::land_pattern(&dims, &leads, Termination::GullWing, name, description)
+        gull_wing::plan(&dims, &leads, Termination::GullWing, name, description)
     }
 }

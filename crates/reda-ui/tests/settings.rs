@@ -8,7 +8,7 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::model::geom::Nm;
-use reda_ui::engine::model::{ErcCheck, Severity, Uuid};
+use reda_ui::engine::model::{ErcCheck, Scope, Severity, Uuid};
 use reda_ui::settings::project::{self, ErcPage, FabPresetsPage, LibrariesPage, PropertiesPage};
 use reda_ui::shell::Shell;
 use serde_json::json;
@@ -77,12 +77,15 @@ fn apply_commits_every_page_as_one_batch_and_one_undo_entry() {
     assert!(!d.has_changes(), "applied changes are no longer pending");
 
     // One undo puts everything back, and the dialog follows.
-    shell.undo(false, true).unwrap();
+    shell.undo(false, Some(Scope::Project)).unwrap();
     let p = shell.engine().project().unwrap().props().clone();
     assert_eq!(p.properties.title, "");
     assert_eq!(p.erc.get(ErcCheck::SinglePinNet), Severity::Warning);
     assert!(p.libraries.is_empty());
-    assert!(shell.undo(false, true).is_err(), "nothing else to undo");
+    assert!(
+        shell.undo(false, Some(Scope::Project)).is_err(),
+        "nothing else to undo"
+    );
     d.sync(shell.engine().project().unwrap());
     assert_eq!(d.page::<PropertiesPage>().unwrap().title.value(), "");
     assert!(!d.has_changes());
@@ -164,6 +167,22 @@ fn syncing_keeps_pending_edits_and_refreshes_the_rest() {
     let page = d.page::<PropertiesPage>().unwrap();
     assert_eq!(page.title.value(), "Mine");
     assert_eq!(page.author.value(), "Ada");
+}
+
+#[test]
+fn an_undo_under_pending_library_edits_does_not_bring_back_what_it_undid() {
+    let (home, work) = (TempDir::new("settings-home"), TempDir::new("settings-work"));
+    let mut shell = shell_with_project(&home, &work);
+    let mut d = dialog(&shell);
+    d.page_mut::<LibrariesPage>().unwrap().add("parts");
+    d.apply(&mut shell).unwrap();
+    // A pending edit, then the add is undone.
+    d.page_mut::<LibrariesPage>().unwrap().add("more");
+    shell.undo(false, Some(Scope::Project)).unwrap();
+    d.sync(shell.engine().project().unwrap());
+    assert_eq!(d.page::<LibrariesPage>().unwrap().rows(), ["more"]);
+    let ids: Vec<_> = d.steps().into_iter().map(|s| s.params).collect();
+    assert_eq!(ids, [json!({"path": "more"})]);
 }
 
 #[test]
@@ -307,4 +326,54 @@ fn a_picked_folder_becomes_a_library_row() {
             .libraries
             .is_empty()
     );
+}
+
+#[test]
+fn new_library_writes_the_library_at_once_and_registers_it_on_apply() {
+    let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
+    let mut shell = shell_with_project(&home, &work);
+    let mut d = dialog(&shell);
+    let page = d.page_mut::<LibrariesPage>().unwrap();
+    assert_eq!(page.create(&mut shell, "Parts"), Ok("Parts".to_owned()));
+    assert!(work.path().join("Board/Parts/Parts.redalib").is_file());
+    assert_eq!(d.page::<LibrariesPage>().unwrap().rows(), ["Parts"]);
+    assert!(journal_ids(&shell).contains(&"library.create".to_owned()));
+
+    d.apply(&mut shell).unwrap();
+    assert_eq!(
+        shell.engine().project().unwrap().props().libraries,
+        ["Parts"]
+    );
+    // A second Library in the same folder is refused, and no row is added.
+    let page = d.page_mut::<LibrariesPage>().unwrap();
+    assert!(page.create(&mut shell, "Parts").is_err());
+    assert_eq!(d.page::<LibrariesPage>().unwrap().rows(), ["Parts"]);
+}
+
+#[test]
+fn the_new_library_dialog_registers_a_project_library_after_creating_it() {
+    use reda_ui::command_dialog::ParamsDialog;
+    use reda_ui::library_dialogs::{NewLibraryDialog, NewLibraryFor};
+
+    let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
+    let shell = shell_with_project(&home, &work);
+    let mut d = NewLibraryDialog::new(&shell, &json!({}));
+    assert_eq!(d.owner, NewLibraryFor::Project);
+    assert_eq!(d.params(), None);
+    d.name = "Mine".into();
+    assert_eq!(
+        d.params(),
+        Some(json!({"path": "Mine", "name": "Mine", "register": "none"}))
+    );
+    assert_eq!(
+        d.then(&json!({"project_path": "Mine"})),
+        Some(("project.library.add".to_owned(), json!({"path": "Mine"})))
+    );
+
+    // For the user, a folder is needed and Preferences register it.
+    d.owner = NewLibraryFor::User;
+    assert_eq!(d.params(), None);
+    d.folder = "/abs/Mine".into();
+    assert_eq!(d.params().unwrap()["register"], "user");
+    assert_eq!(d.then(&json!({"project_path": "Mine"})), None);
 }
