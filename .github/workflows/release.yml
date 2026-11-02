@@ -38,6 +38,7 @@ env:
   CARGO_TERM_COLOR: always
   # Pinned: packaging/windows/installer.nsi is a copy of this version's template.
   CARGO_PACKAGER_VERSION: 0.11.8
+  CARGO_ABOUT_VERSION: 0.9.3
 
 jobs:
   ci:
@@ -108,6 +109,9 @@ jobs:
       STEM: REDA-${{ needs.plan.outputs.version }}-${{ matrix.name }}
       # build.rs: report the plain version, not -dev+<hash>.
       REDA_RELEASE: "1"
+      # reda-ui's build script puts these crate licences into THIRD_PARTY_NOTICES (shown under
+      # Help > About > Licences); a release build fails without them.
+      REDA_CRATE_NOTICES: ${{ github.workspace }}/target/crate-notices.txt
     defaults:
       run:
         shell: bash
@@ -118,9 +122,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-packager@${{ env.CARGO_PACKAGER_VERSION }}
+          tool: cargo-packager@${{ env.CARGO_PACKAGER_VERSION }},cargo-about@${{ env.CARGO_ABOUT_VERSION }}
       - name: Stamp the version into the workspace (not committed)
         run: cargo run --locked --quiet -p reda-release -- stamp "$VERSION"
+      - name: Generate the crate licences for THIRD_PARTY_NOTICES
+        run: |
+          mkdir -p target
+          cargo about generate --locked --workspace --fail \
+            --config packaging/notices/about.toml \
+            -o "$REDA_CRATE_NOTICES" packaging/notices/about.hbs
       - name: Check the binaries report it
         run: |
           cargo build --release --locked -p reda-app -p reda-cli

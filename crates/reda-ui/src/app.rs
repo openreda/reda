@@ -56,6 +56,7 @@ pub struct App {
     params_dialog: Option<Box<dyn ParamsDialog>>,
     /// The shortcut of a Command or Preset id, for the Palette (the Keymap's lookup).
     shortcuts: palette::ShortcutLookup,
+    help: crate::help::Dialogs,
 }
 
 impl App {
@@ -73,6 +74,7 @@ impl App {
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
+            help: Default::default(),
             palette: None,
             dialogs: Dialogs::new(),
             params_dialog: None,
@@ -164,6 +166,7 @@ impl App {
             let _ = self.shell.run_reporting(&id, params);
         }
         self.handle_requests(&ctx);
+        self.help.show(&ctx, self.shell.engine());
         for action in frame.messages {
             crate::panels::messages::apply(&mut self.shell, action);
         }
@@ -451,6 +454,7 @@ impl App {
                     preferences::Theme::Dark => ThemePreference::Dark,
                     preferences::Theme::Light => ThemePreference::Light,
                 }),
+                Request::About => self.help.open_about(),
             }
         }
     }

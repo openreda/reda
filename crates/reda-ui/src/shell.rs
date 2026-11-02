@@ -187,6 +187,7 @@ impl Shell {
         engine.view_mut().set(Grids::default());
         engine.view_mut().set(BoardView::new(units));
         crate::bars::install(&mut engine);
+        crate::help::install(&mut engine);
         let mut shell = Shell {
             engine,
             documents: Vec::new(),

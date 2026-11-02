@@ -2,6 +2,7 @@
 # <set> is `lucide` (lucide-static) or `tabler` (@tabler/icons, outline style).
 # `cargo xtask icons` vendors each one as <key>.svg and regenerates ../src/icons/table.rs
 # and README.md. REDA's own set replaces all of them before the first public release.
+about lucide:info
 align tabler:layout-align-left
 annotate tabler:list-numbers
 arc tabler:vector-spline
@@ -12,6 +13,7 @@ board_outline tabler:border-outer
 board_outline_from_lines tabler:vector
 board_outline_rect lucide:rectangle-horizontal
 clearance tabler:ruler-measure
+cli_install lucide:square-terminal
 close lucide:x
 component_place lucide:cpu
 copy lucide:copy
@@ -123,6 +125,7 @@ track tabler:route-2
 undo lucide:undo-2
 unit_place tabler:triangle-plus
 units lucide:ruler
+update_check lucide:cloud-download
 via lucide:circle-dot
 view_flip lucide:flip-horizontal-2
 waive lucide:shield-check

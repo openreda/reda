@@ -16,6 +16,7 @@ pub mod crash;
 mod dialogs;
 mod docking;
 pub mod grid;
+pub mod help;
 pub mod i18n;
 pub mod icons;
 mod journal_panel;

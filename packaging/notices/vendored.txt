@@ -1,0 +1,39 @@
+# The hand-kept part of THIRD_PARTY_NOTICES: third-party data REDA bundles that is not a
+# Rust crate's code (docs/spec/v0.1/app.md#icons, ADR-0002). reda-ui's build script turns
+# this into the "Bundled data" part of the notices built into the binary and shown under
+# Help > About > Licences; cargo-about adds the crate licences at release time.
+#
+# Format: an entry starts with `== Title ==`. `Key: value` lines are copied into the notices
+# as they are, except `Text:`, which names a file (from the repo root) whose contents are
+# copied in. Every folder holding vendored data must have a `Directory:` line;
+# crates/reda-ui/tests/notices.rs finds such folders by their licence and font files and
+# fails when one is missing here. Lines starting with `#` are comments.
+
+== Hershey Roman Simplex stroke font ==
+Directory: crates/reda-text/fonts/hershey
+Used for: REDA's default PCB text font.
+Licence: the Hershey font terms below. The Hershey Fonts were originally created by Dr. A. V. Hershey while working at the U. S. National Bureau of Standards. The format of the font data was originally created by James Hurt, Cognition, Inc.
+Text: crates/reda-text/fonts/hershey/LICENSE.txt
+
+== Noto Sans Regular ==
+Directory: crates/reda-text/fonts/noto-sans
+Used for: outline text, and characters the Hershey font lacks.
+Licence: SIL Open Font License 1.1
+Text: crates/reda-text/fonts/noto-sans/OFL.txt
+
+== Placeholder icons (Lucide and Tabler) ==
+Directory: crates/reda-ui/icons
+Used for: interim toolbar, menu and Panel icons, until REDA's own set replaces them. crates/reda-ui/icons/README.md lists where each icon comes from.
+Licence: Lucide: ISC, with parts under MIT from Feather. Tabler: MIT.
+Text: crates/reda-ui/icons/LICENSE-lucide.txt
+Text: crates/reda-ui/icons/LICENSE-tabler.txt
+
+== egui's default UI fonts (crate epaint_default_fonts) ==
+Directory: packaging/notices/eframe-fonts
+Used for: the window's UI text: Ubuntu Light, Hack, Noto Emoji and the emoji-icon-font subset that egui bundles. The licence texts here are copied unmodified from epaint_default_fonts 0.37.0.
+Licence: Ubuntu Font Licence 1.0 (Ubuntu Light), SIL Open Font License 1.1 (Noto Emoji), MIT (Hack, emoji-icon-font)
+Text: packaging/notices/eframe-fonts/UFL.txt
+Text: packaging/notices/eframe-fonts/OFL.txt
+Text: packaging/notices/eframe-fonts/Hack-Regular.txt
+Text: packaging/notices/eframe-fonts/emoji-icon-font-mit-license.txt
+Text: packaging/notices/eframe-fonts/egui-icons.txt

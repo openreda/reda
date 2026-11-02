@@ -48,6 +48,7 @@ fn app_ids() -> Vec<&'static str> {
     reda_ui::layout::register_all(&mut registry);
     reda_ui::selection::register_all(&mut registry);
     reda_ui::bars::register_all(&mut registry);
+    reda_ui::help::register_all(&mut registry);
     registry
         .commands()
         .map(|meta| meta.id)
