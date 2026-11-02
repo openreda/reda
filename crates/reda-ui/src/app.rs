@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use egui::{Key, Modifiers, Panel, ThemePreference, Ui};
+use egui::{Panel, ThemePreference, Ui};
 use reda_engine::Engine;
 use reda_engine::preferences;
 use serde_json::json;
@@ -23,7 +23,7 @@ use crate::os;
 use crate::projects_panel::{self, ProjectsAction};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
-use crate::{theme, tr};
+use crate::{keymap, theme, tr};
 
 /// The REDA window.
 pub struct App {
@@ -75,7 +75,7 @@ impl App {
         }
         self.collect_picked_files();
         self.update_title(&ctx);
-        self.undo_keys(&ctx);
+        self.keys(&ctx);
 
         let clicked = self.bars(ui);
         Panel::bottom("status-bar").show(ui, |ui| self.status_bar(ui));
@@ -125,20 +125,27 @@ impl App {
         }
     }
 
-    /// Mod+Z undoes and Mod+Shift+Z (or Mod+Y) redoes, on the stack focus picks, unless a
-    /// text field has the keyboard.
-    fn undo_keys(&mut self, ctx: &egui::Context) {
+    /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs
+    /// take keys first: nothing runs while a text field has the keyboard or the New Project
+    /// dialog is open, and while a Project dialog is open only global keys apply, with
+    /// undo on the Project stack.
+    fn keys(&mut self, ctx: &egui::Context) {
         if ctx.egui_wants_keyboard_input() || self.new_project.is_some() {
             return;
         }
-        let (redo, undo) = ctx.input_mut(|i| {
-            let redo = i.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
-                || i.consume_key(Modifiers::COMMAND, Key::Y);
-            (redo, i.consume_key(Modifiers::COMMAND, Key::Z))
-        });
-        if undo || redo {
-            let dialog = projects_panel::dialog_open(ctx);
-            let _ = self.shell.undo(redo, dialog);
+        let dialog = projects_panel::dialog_open(ctx);
+        let active = if dialog {
+            keymap::Active::default()
+        } else {
+            keymap::active(&self.shell)
+        };
+        let actions = ctx.input_mut(|i| self.shell.keymap().take(i, &active));
+        let document = self.shell.active_document().map(|d| d.document);
+        for action in actions {
+            // A key whose Command cannot run now does nothing, as its greyed menu item.
+            if let Ok((id, params)) = bars::resolve_in(&self.shell, &action, document, dialog).run {
+                let _ = self.shell.run_reporting(&id, params);
+            }
         }
     }
 

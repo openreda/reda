@@ -9,9 +9,10 @@ use serde_json::Value;
 
 use reda_engine::model::Uuid;
 
-use super::{Bars, Item, Menu, Resolved, resolve_for};
+use super::{Action, Bars, Item, Menu, Resolved, resolve_for};
 use crate::i18n;
 use crate::icons;
+use crate::keymap;
 use crate::shell::Shell;
 
 /// A clicked item: the Command or Preset id and its params.
@@ -31,6 +32,13 @@ pub struct Cx<'a> {
 impl Cx<'_> {
     fn is_checked(&self, item: &Resolved) -> bool {
         self.checked.get(item.command.as_str()) == Some(&item.params)
+    }
+
+    /// The key bound to `action` where these bars are drawn, as the platform writes it.
+    fn shortcut(&self, ui: &Ui, action: &Action) -> Option<String> {
+        let active = keymap::active_for(self.shell, self.document);
+        let chord = self.shell.keymap().shortcut(&action.binding, &active)?;
+        Some(chord.label(ui.ctx().os().is_mac()))
     }
 }
 
@@ -67,11 +75,14 @@ fn menu_items(ui: &mut Ui, cx: &Cx<'_>, items: &[Item], clicked: &mut Option<Inv
                 let image = icons::image(&item.icon, icons::MENU, theme, enabled);
                 // Button::new keeps the icon at its size; Button::image_and_text would
                 // shrink it to the text height.
-                let button = match image {
+                let mut button = match image {
                     Some(image) => Button::new((image, item.title.clone())),
                     None => Button::new(item.title.clone()),
                 }
                 .selected(cx.is_checked(&item));
+                if let Some(shortcut) = cx.shortcut(ui, action) {
+                    button = button.shortcut_text(shortcut);
+                }
                 let response = ui.add_enabled(enabled, button);
                 match &item.run {
                     Ok(run) => {
@@ -112,6 +123,11 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
         };
         let item = resolve_for(cx.shell, action, cx.document);
         let enabled = item.run.is_ok();
+        // The tooltip names the shortcut: "Undo (Ctrl+Z)".
+        let heading = match cx.shortcut(ui, action) {
+            Some(shortcut) => format!("{} ({shortcut})", item.title),
+            None => item.title.clone(),
+        };
         let button = match icons::image(&item.icon, icons::TOOLBAR, theme, enabled) {
             Some(image) => Button::new(image),
             None => Button::new(item.title.clone()),
@@ -127,7 +143,7 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
         match &item.run {
             Ok(run) => {
                 let response = response.on_hover_ui(|ui| {
-                    ui.strong(&item.title);
+                    ui.strong(&heading);
                     ui.label(&item.description);
                 });
                 if response.clicked() {
@@ -136,7 +152,7 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
             }
             Err(reason) => {
                 response.on_disabled_hover_ui(|ui| {
-                    ui.strong(&item.title);
+                    ui.strong(&heading);
                     ui.label(reason);
                 });
             }
