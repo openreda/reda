@@ -88,6 +88,7 @@ panel_properties lucide:sliders-horizontal
 part_edit lucide:package
 paste lucide:clipboard-paste
 pin tabler:point
+polygon lucide:pentagon
 port tabler:arrow-big-right
 power_port tabler:bolt
 preferences lucide:settings

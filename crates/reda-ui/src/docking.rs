@@ -543,15 +543,7 @@ impl Cx<'_> {
             TabKey::Document(uuid) => {
                 let start = self.frame.commands.len();
                 if crate::element_editor::is_element(self.shell.engine(), *uuid) {
-                    let id = Id::NULL.with(("element-side-panel", *uuid));
-                    let panel = egui::Panel::right(id)
-                        .resizable(false)
-                        .exact_size(crate::footprint_editor::inspector::WIDTH);
-                    let commands = panel
-                        .show(ui, |ui| {
-                            crate::element_editor::side_panel(ui, self.shell, *uuid)
-                        })
-                        .inner;
+                    let commands = crate::element_editor::panels(ui, self.shell, *uuid);
                     self.frame.commands.extend(commands);
                 }
                 let rect = ui.available_rect_before_wrap();

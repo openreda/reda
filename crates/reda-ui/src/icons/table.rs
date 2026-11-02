@@ -238,6 +238,7 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ),
     ("paste", egui::include_image!("../../icons/paste.svg")),
     ("pin", egui::include_image!("../../icons/pin.svg")),
+    ("polygon", egui::include_image!("../../icons/polygon.svg")),
     ("port", egui::include_image!("../../icons/port.svg")),
     (
         "power_port",

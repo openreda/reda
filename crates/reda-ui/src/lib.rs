@@ -42,6 +42,7 @@ pub mod selection;
 pub mod settings;
 pub mod shell;
 mod start_page;
+pub mod symbol_editor;
 pub mod theme;
 mod tool_preview;
 pub mod tools;

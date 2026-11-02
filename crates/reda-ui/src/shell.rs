@@ -195,6 +195,9 @@ impl Shell {
         if engine.registry().get("pcb.layer.show").is_none() {
             engine.register(pcb::register_all);
         }
+        if engine.registry().get("library.symbol.unit.show").is_none() {
+            engine.register(crate::symbol_editor::register_all);
+        }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
@@ -204,6 +207,9 @@ impl Shell {
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
         engine.view_mut().set(BoardView::new(units));
+        engine
+            .view_mut()
+            .set(crate::symbol_editor::EditorState::default());
         crate::bars::install(&mut engine);
         crate::help::install(&mut engine);
         let mut shell = Shell {
@@ -236,6 +242,10 @@ impl Shell {
         shell.palette = pcb::view::palette_handle(shell.preferences.values(), 0);
         if shell.engine.project().is_some() {
             shell.show_project();
+            shell.recorder.opened(&shell.engine);
+        } else if shell.engine.user_dirs().is_some() {
+            // Library editor tabs open with no Project snapshot into the per-user folder,
+            // and what an unclean exit left there is offered now.
             shell.recorder.opened(&shell.engine);
         }
         shell
@@ -837,7 +847,41 @@ impl Shell {
         if matches!(base, "library.element.open" | "library.element.new") {
             crate::element_editor::after_open(self, &out);
         }
+        self.after_element_run(base, &out);
         Ok(out)
+    }
+
+    /// What the Library editors do once `id` ran (with result `out`) and the tabs are
+    /// refreshed: show the Unit picked, open Edit in Library's Symbol, check a saved
+    /// element into Messages, and reopen restored elements in their tabs.
+    fn after_element_run(&mut self, id: &str, out: &Value) {
+        let uuid = |v: &Value| v.as_str().and_then(|s| s.parse::<Uuid>().ok());
+        match id {
+            "library.symbol.unit.show" => {
+                if let Some(symbol) = uuid(&out["symbol"]) {
+                    let scene = self.scene_of(symbol);
+                    if let Some(tab) = self.document_tab_mut(symbol) {
+                        tab.scene = scene;
+                    }
+                }
+            }
+            "library.element.edit_in_library" => {
+                if let Some(unit) = uuid(&out["object"]) {
+                    crate::symbol_editor::edit_in_library(self, unit);
+                }
+            }
+            "library.element.save" => crate::element_editor::check_after_save(self),
+            "recovery.restore" => {
+                let untabbed: Vec<Uuid> = crate::element_editor::open_elements(&self.engine)
+                    .into_iter()
+                    .filter(|e| self.layout().place(&TabKey::Document(*e)).is_none())
+                    .collect();
+                for element in untabbed {
+                    let _ = self.run("document.open", json!({ "document": element }));
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Refreshes what a successful run of `id` may have changed.
@@ -1480,15 +1524,29 @@ impl Shell {
                 let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
                 for document in documents {
                     crate::schematic_editor::cancel(self, document);
-                    if self.engine.element(document).is_some() {
-                        crate::footprint_editor::cancel(self, document);
-                    }
+                    crate::element_editor::cancel(self, document);
                 }
                 self.pcb_cancel();
                 self.with_router(|r, shell| r.cancel(shell));
                 crate::placement::refresh(self);
                 let tool = self.tool();
                 self.pcb_draw.start(tool);
+            }
+            // The Symbol editor's Pin Tool turns the next Pin, and its polygon takes back
+            // a corner or closes.
+            "tool.rotate" | "tool.undo_segment" | "tool.finish"
+                if crate::element_editor::active_symbol(self).is_some() =>
+            {
+                let symbol = crate::element_editor::active_symbol(self).expect("checked");
+                match id {
+                    "tool.rotate" => crate::symbol_editor::rotate(self, symbol),
+                    "tool.undo_segment" => crate::symbol_editor::undo_segment(self, symbol),
+                    _ => {
+                        if let Some((id, params)) = crate::symbol_editor::finish(self, symbol) {
+                            let _ = self.run_reporting(&id, params);
+                        }
+                    }
+                }
             }
             "tool.cycle_corner" => self.with_router(|r, shell| r.cycle_corner(shell)),
             "tool.undo_segment" if self.tool() == Tool::Route => {
