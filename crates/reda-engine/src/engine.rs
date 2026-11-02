@@ -22,21 +22,30 @@ pub fn registry() -> Registry {
     reda_library::register_generators(&mut registry, crate::library::store_footprint);
     reda_output::register_all(&mut registry);
     reda_schematic::register_all(&mut registry);
-    reda_render::register_all(&mut registry, junctions);
+    reda_render::register_all(&mut registry, DERIVE);
     registry
 }
+
+/// What Scenes need derived by the domain crates: a sheet's Junctions, and a board's
+/// placed geometry, Ratsnest and Zone fill states.
+const DERIVE: reda_render::Derive = reda_render::Derive {
+    junctions,
+    board: crate::board_geometry::board_geometry,
+};
 
 fn junctions(sheet: &reda_model::SchematicSheet) -> Vec<reda_model::geom::Point> {
     reda_schematic::connectivity::derive(sheet).junctions
 }
 
-/// The Scene the canvas draws for `document`, with the sheet's derived Junctions:
-/// `not_found` for an unknown Document, `rejected` for a kind with no Scene yet.
+/// The Scene the canvas draws for `document`, with the sheet's derived Junctions or the
+/// board's placed geometry (text in `fonts`): `not_found` for an unknown Document,
+/// `rejected` for a kind with no Scene yet.
 pub fn document_scene(
     project: &Project,
     document: reda_model::Uuid,
+    fonts: &Fonts,
 ) -> Result<reda_render::Scene, CommandError> {
-    reda_render::document_scene(project, document, junctions)
+    reda_render::document_scene(project, document, &DERIVE, fonts)
 }
 
 /// One session: at most one open Project, changed only by running Commands.
@@ -162,6 +171,21 @@ impl Engine {
     /// and is reported as missing.
     pub fn fonts_mut(&mut self) -> &mut Fonts {
         &mut self.fonts
+    }
+
+    /// The Scene the canvas draws for `document` of the open Project, as
+    /// [`document_scene`] builds it with this engine's fonts; `unavailable` with no
+    /// Project open.
+    pub fn document_scene(
+        &self,
+        document: reda_model::Uuid,
+    ) -> Result<reda_render::Scene, CommandError> {
+        let project = self
+            .session
+            .project
+            .as_ref()
+            .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
+        document_scene(project, document, &self.fonts)
     }
 
     /// The undo stacks of the open Project, for menus to label Undo and Redo.

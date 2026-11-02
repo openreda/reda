@@ -9,8 +9,9 @@ use reda_model::Uuid;
 use reda_model::geom::Point;
 
 use crate::color::{Palette, Rgba};
+use crate::layers::Composite;
 use crate::outline::{Seg, mesh_contours, mm, polygons, rect};
-use crate::scene::{Primitive, Scene};
+use crate::scene::{Item, Primitive, Scene};
 use crate::viewport::{Viewport, ink};
 
 /// The Scene as an SVG document showing `view`. Items whose object is in `highlight` keep
@@ -18,19 +19,86 @@ use crate::viewport::{Viewport, ink};
 ///
 /// Every element carries its object's UUID as `data-object`.
 pub fn to_svg(scene: &Scene, palette: &Palette, view: &Viewport, highlight: &[Uuid]) -> String {
+    to_svg_layers(scene, palette, view, highlight, None, false)
+}
+
+/// [`to_svg`], drawing only the Layers in `layers`, in that order, each as a group at its
+/// opacity (so a Layer composites as a whole), over the canvas background. `None` draws
+/// every item in Scene order. `mirrored` flips the image left to right: the PCB seen from
+/// the bottom.
+pub fn to_svg_layers(
+    scene: &Scene,
+    palette: &Palette,
+    view: &Viewport,
+    highlight: &[Uuid],
+    layers: Option<&[Composite]>,
+    mirrored: bool,
+) -> String {
     let mut out = String::new();
     let (w, h) = (view.max.x - view.min.x, view.max.y - view.min.y);
+    // Mirrored, the image shows x from -max to -min.
+    let left = if mirrored {
+        -view.max.x.0
+    } else {
+        view.min.x.0
+    };
     let _ = writeln!(
         out,
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{}\" height=\"{}\" viewBox=\"{} {} {} {}\">",
         view.width,
         view.height,
-        mm(view.min.x.0),
+        mm(left),
         mm(-view.max.y.0),
         mm(w.0),
         mm(h.0)
     );
-    for item in &scene.items {
+    let Some(layers) = layers else {
+        for item in &scene.items {
+            write_item(&mut out, item, palette, highlight);
+        }
+        out.push_str("</svg>\n");
+        return out;
+    };
+    let _ = writeln!(
+        out,
+        "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\"/>",
+        mm(left),
+        mm(-view.max.y.0),
+        mm(w.0),
+        mm(h.0),
+        hex(palette.background())
+    );
+    if mirrored {
+        out.push_str("<g transform=\"scale(-1 1)\">\n");
+    }
+    for composite in layers {
+        let mut items = scene.items.iter().filter(|i| i.layer == composite.layer);
+        let Some(first) = items.next() else { continue };
+        if composite.opacity < 1.0 {
+            let _ = writeln!(out, "<g opacity=\"{}\">", opacity(composite.opacity));
+        } else {
+            out.push_str("<g>\n");
+        }
+        for item in std::iter::once(first).chain(items) {
+            write_item(&mut out, item, palette, highlight);
+        }
+        out.push_str("</g>\n");
+    }
+    if mirrored {
+        out.push_str("</g>\n");
+    }
+    out.push_str("</svg>\n");
+    out
+}
+
+/// An opacity with at most three decimals.
+fn opacity(o: f32) -> String {
+    let thousandths = (o.clamp(0.0, 1.0) * 1000.0).round() as i64;
+    mm(thousandths * 1000)
+}
+
+fn write_item(out: &mut String, item: &Item, palette: &Palette, highlight: &[Uuid]) {
+    {
         let color = hex(ink(item, palette, highlight));
         let _ = write!(out, "<");
         match &item.primitive {
@@ -120,13 +188,11 @@ pub fn to_svg(scene: &Scene, palette: &Palette, view: &Viewport, highlight: &[Uu
                     let _ = write!(out, "<path d=\"{fill}\" stroke=\"none\"/>");
                 }
                 out.push_str("</g>\n");
-                continue;
+                return;
             }
         }
         let _ = writeln!(out, " data-object=\"{}\"/>", item.object);
     }
-    out.push_str("</svg>\n");
-    out
 }
 
 fn hex(Rgba([r, g, b, a]): Rgba) -> String {

@@ -4,7 +4,7 @@ use reda_model::Uuid;
 use reda_model::geom::Point;
 
 use crate::color::{ColorKey, Palette, Rgba, SchematicColor};
-use crate::scene::Item;
+use crate::scene::{Item, SceneLayer};
 
 /// A rectangle of the Document (nm, y up) shown in an image `width` x `height` pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,7 +39,7 @@ impl Viewport {
     }
 }
 
-/// Dimmed ink is blended this far (in 1/256) toward the paper.
+/// Dimmed ink is blended this far (in 1/256) toward the paper (or the canvas, on a board).
 const DIM: u32 = 180;
 
 /// The colour `item` is drawn in: its palette colour, or, while anything is highlighted,
@@ -50,7 +50,11 @@ pub(crate) fn ink(item: &Item, palette: &Palette, highlight: &[Uuid]) -> Rgba {
     if highlight.is_empty() || item.color == paper_key || highlight.contains(&item.object) {
         return color;
     }
-    let paper = palette.color(paper_key);
+    // A board has no paper: it dims toward the canvas around it.
+    let paper = match item.layer {
+        SceneLayer::Schematic => palette.color(paper_key),
+        _ => palette.background(),
+    };
     let mut out = color.0;
     for (c, p) in out.iter_mut().zip(paper.0).take(3) {
         *c = ((u32::from(*c) * (256 - DIM) + u32::from(p) * DIM) / 256) as u8;

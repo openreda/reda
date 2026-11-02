@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
 use crate::color::Palette;
+use crate::layers::Composite;
 use crate::scene::Scene;
 use crate::view::View;
 
@@ -188,11 +189,24 @@ impl Headless {
         palette: &Palette,
         highlight: &Highlight,
     ) -> Result<Image, RenderError> {
+        self.render_layers(scene, view, palette, highlight, None)
+    }
+
+    /// [`render`](Self::render), compositing `layers` (see [`Target::record_layers`]);
+    /// `None` draws every Layer opaque in Scene order.
+    pub fn render_layers(
+        &self,
+        scene: &Scene,
+        view: &View,
+        palette: &Palette,
+        highlight: &Highlight,
+        layers: Option<&[Composite]>,
+    ) -> Result<Image, RenderError> {
         let mut gpu_scene = GpuScene::new(&self.device, scene);
         gpu_scene.set_highlight(&self.queue, highlight);
         let mut canvas = Canvas::new(&self.device, &self.renderer);
         canvas.set_palette(&self.queue, palette);
-        self.render_frame(&gpu_scene, &mut canvas, view)
+        self.frame(&gpu_scene, &mut canvas, view, layers, |_| {})
     }
 
     /// Draws an uploaded Scene into a new target and reads it back. Writes only the view.
@@ -214,6 +228,17 @@ impl Headless {
         view: &View,
         over: impl FnOnce(&mut wgpu::RenderPass<'_>),
     ) -> Result<Image, RenderError> {
+        self.frame(scene, canvas, view, None, over)
+    }
+
+    fn frame(
+        &self,
+        scene: &GpuScene,
+        canvas: &mut Canvas,
+        view: &View,
+        layers: Option<&[Composite]>,
+        over: impl FnOnce(&mut wgpu::RenderPass<'_>),
+    ) -> Result<Image, RenderError> {
         let (width, height) = (view.width, view.height);
         if width == 0 || height == 0 || width > MAX_SIDE || height > MAX_SIDE {
             return Err(RenderError::BadSize { width, height });
@@ -233,7 +258,12 @@ impl Headless {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("reda headless frame"),
             });
-        target.record_with(&mut encoder, &self.renderer, canvas, scene, None, over);
+        match layers {
+            None => target.record_with(&mut encoder, &self.renderer, canvas, scene, None, over),
+            Some(layers) => {
+                target.record_layers(&mut encoder, &self.renderer, canvas, scene, layers, over)
+            }
+        }
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: target.texture(),
