@@ -20,6 +20,7 @@ use reda_engine::model::geom::Point;
 use reda_engine::model::{
     DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Severity, Side, Uuid, Violation,
 };
+use reda_engine::preferences::Preferences;
 use reda_engine::render::{self as render, board_composites};
 use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
@@ -34,6 +35,7 @@ use crate::recovery::{self, Recorder};
 use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
 use crate::tr;
+use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
 
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
@@ -118,6 +120,8 @@ pub struct Shell {
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
     keymap: Keymap,
+    /// The Preferences as last read (see [`Shell::poll_preferences`]).
+    preferences: Watched,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
     closed_views: BTreeMap<Uuid, DocumentView>,
     view_saves: Debounce,
@@ -152,6 +156,7 @@ impl Shell {
             messages: Messages::default(),
             marked: SelectionHandle::default(),
             keymap: Keymap::default(),
+            preferences: Watched::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
             recorder: Recorder::new(),
@@ -516,6 +521,9 @@ impl Shell {
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
+        if matches!(base, "app.preferences.set" | "view.theme.set") {
+            self.reload_preferences();
+        }
     }
 
     /// The Undo stack `Mod+Z` uses: a focused Document tab's own, else the Project's.
@@ -814,12 +822,57 @@ impl Shell {
         self.set_load_messages(KEYMAP, problems);
     }
 
+    /// The Preferences as last read: after this window's own changes at once, and after
+    /// another instance's once [`Shell::poll_preferences`] notices them.
+    pub fn preferences(&self) -> &Preferences {
+        self.preferences.values()
+    }
+
+    /// Moves every time [`Shell::preferences`] change, so the window applies the theme and
+    /// UI scale once per change.
+    pub fn preferences_generation(&self) -> u64 {
+        self.preferences.generation()
+    }
+
+    /// Reads `preferences.toml` again if it changed on disk (another instance, or a hand
+    /// edit) and applies what changed. Returns whether the Preferences changed.
+    pub fn poll_preferences(&mut self) -> bool {
+        match self.engine.user_dirs() {
+            Some(dirs) if self.preferences.changed_on_disk(dirs) => self.reload_preferences(),
+            _ => false,
+        }
+    }
+
+    /// Reads `preferences.toml` again and applies what changed: the undo depth, the base
+    /// Keymap and the warnings in Messages. Returns whether the Preferences changed.
+    fn reload_preferences(&mut self) -> bool {
+        let Some(dirs) = self.engine.user_dirs().cloned() else {
+            return false;
+        };
+        let Some(reloaded) = self.preferences.reload(&dirs) else {
+            return false;
+        };
+        let now = self.preferences.values().clone();
+        if now.general.undo_depth != reloaded.before.general.undo_depth {
+            (self.engine).set_undo_depth(now.general.undo_depth.map(|d| d.get() as usize));
+        }
+        if now.keymap != reloaded.before.keymap {
+            self.reload_keymap();
+        }
+        self.set_preference_warnings(reloaded.warnings);
+        true
+    }
+
     /// Lists the warnings reading `preferences.toml` gave.
     fn load_preference_warnings(&mut self) {
-        let Some(dirs) = self.engine.user_dirs() else {
-            return;
-        };
-        let warnings = preferences::load(dirs).warnings;
+        let (watched, warnings) = Watched::load(self.engine.user_dirs());
+        self.preferences = watched;
+        if self.engine.user_dirs().is_some() {
+            self.set_preference_warnings(warnings);
+        }
+    }
+
+    fn set_preference_warnings(&mut self, warnings: Vec<String>) {
         let notes = warnings
             .into_iter()
             .map(|w| Note {

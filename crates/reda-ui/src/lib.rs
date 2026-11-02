@@ -23,6 +23,7 @@ pub mod messages;
 mod new_project;
 mod os;
 mod panels;
+pub mod preferences_dialog;
 mod projects_panel;
 pub mod properties;
 pub mod recovery;
@@ -33,6 +34,7 @@ pub mod shell;
 mod start_page;
 pub mod theme;
 mod tool_preview;
+mod user_preferences;
 pub mod view_state;
 
 pub use app::{App, install_canvas, run};
