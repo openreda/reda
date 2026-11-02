@@ -92,6 +92,7 @@ impl Shell {
         }
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
+        crate::bars::install(&mut engine);
         let mut shell = Shell {
             engine,
             documents: Vec::new(),
@@ -408,6 +409,18 @@ impl Shell {
         match &out {
             Ok(_) => self.message = None,
             Err(e) => self.message = Some(tr!("error-command", error = e.message.clone())),
+        }
+        out
+    }
+
+    /// Saves the session's Journal to `path` as a script that `reda run --script`
+    /// replays. View Commands are left out: only the app can run them. A failure is also
+    /// kept as the message the status bar shows.
+    pub fn export_journal(&mut self, path: &Path) -> std::io::Result<()> {
+        let script = crate::journal_panel::script(&self.engine);
+        let out = reda_engine::fs::write_atomic(path, script.as_bytes());
+        if let Err(e) = &out {
+            self.message = Some(tr!("journal-export-failed", error = e.to_string()));
         }
         out
     }

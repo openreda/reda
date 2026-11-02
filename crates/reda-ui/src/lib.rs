@@ -8,11 +8,14 @@
 
 mod agents;
 mod app;
+pub mod bars;
 pub mod bridge;
 pub mod canvas;
 mod dialogs;
 mod docking;
 pub mod i18n;
+pub mod icons;
+mod journal_panel;
 pub mod layout;
 mod new_project;
 mod os;

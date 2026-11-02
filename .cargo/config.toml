@@ -1,0 +1,3 @@
+[alias]
+# Developer chores (crates/reda-xtask), such as `cargo xtask icons`.
+xtask = "run --package reda-xtask --bin xtask --"

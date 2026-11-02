@@ -1,0 +1,15 @@
+{
+  "menus": [
+    {
+      "id": "library",
+      "title": "menu-library",
+      "items": [
+        { "id": "library.save", "command": "library.element.save" },
+        { "id": "library.check", "command": "library.check" }
+      ]
+    }
+  ],
+  "active_bar": [
+    { "id": "active_bar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
+  ]
+}
