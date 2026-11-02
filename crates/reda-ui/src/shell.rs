@@ -780,6 +780,11 @@ impl Shell {
         params: Value,
         signals: &Signals,
     ) -> Result<Value, CommandError> {
+        if crate::help::USER_ONLY.contains(&id) {
+            return Err(CommandError::rejected(format!(
+                "only the user can run {id}, from the app"
+            )));
+        }
         let out = self.engine.run_from(source, id, params, signals)?;
         self.after_run(id);
         if let Some(tool) = &self.tool

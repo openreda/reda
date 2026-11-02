@@ -227,6 +227,7 @@ update-available = REDA { $latest } is available. This is { $current }.
 update-current = REDA { $latest } is the newest release.
 update-current-dev = This build ({ $current }) is newer than the newest release, { $latest }.
 update-open-release = Open the release page
+update-failed = REDA could not check for updates: { $why }
 
 ## Properties panel
 

@@ -10,8 +10,8 @@ use reda_engine::command::Registry;
 
 pub use cli_install::{BIN_DIR, CliInstalled, InstallError, install_cli};
 pub use updates::{
-    LATEST_RELEASE_API, Release, ReleaseSource, UpdateCheck, Updates, configure, is_newer,
-    parse_github_release, take_checks, updates, version,
+    CheckStarted, LATEST_RELEASE_API, Release, ReleaseSource, USER_ONLY, UpdateCheck, Updates,
+    configure, is_newer, parse_github_release, take_checks, updates, version,
 };
 
 pub(crate) use dialogs::Dialogs;
