@@ -15,6 +15,8 @@ egui-wgpu.workspace = true
 fluent-bundle.workspace = true
 reda-engine = { path = "../reda-engine" }
 rfd.workspace = true
+schemars.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 unic-langid.workspace = true
 

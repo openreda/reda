@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into REDA.app's Info.plist by cargo-packager (macos.infoPlistPath); these keys
+     replace the ones it generates. They declare REDA's three file types as exported UTIs and
+     give each its own icon. The .icns files sit in Contents/Resources (the `resources` list
+     in crates/reda-app/Cargo.toml). -->
+<plist version="1.0">
+<dict>
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.openreda.reda.project</string>
+      <key>UTTypeDescription</key>
+      <string>REDA Project</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.data</string>
+        <string>public.utf8-plain-text</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>reda.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>reda</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-reda-project</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.openreda.reda.schematic</string>
+      <key>UTTypeDescription</key>
+      <string>REDA Schematic Sheet</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.data</string>
+        <string>public.utf8-plain-text</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>redasch.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>redasch</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-reda-schematic</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.openreda.reda.pcb</string>
+      <key>UTTypeDescription</key>
+      <string>REDA PCB Document</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.data</string>
+        <string>public.utf8-plain-text</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>redapcb.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>redapcb</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-reda-pcb</string>
+      </dict>
+    </dict>
+  </array>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>REDA Project</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.openreda.reda.project</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>reda.icns</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>REDA Schematic Sheet</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.openreda.reda.schematic</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>redasch.icns</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>REDA PCB Document</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.openreda.reda.pcb</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>redapcb.icns</string>
+    </dict>
+  </array>
+</dict>
+</plist>

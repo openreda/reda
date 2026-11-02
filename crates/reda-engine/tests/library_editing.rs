@@ -636,7 +636,14 @@ fn an_opened_element_saves_back_to_its_file_and_tracks_dirty_state() {
         "Save All saves the Project, not open Library elements"
     );
     let out = e.run_ok("library.element.save", json!({}));
-    let file = dir.path().join("Demo/parts-lib/symbols/OpAmp_Dual.redasym");
+    // One component at a time: the engine reports native separators, and the path is
+    // compared as a JSON string.
+    let file = dir
+        .path()
+        .join("Demo")
+        .join("parts-lib")
+        .join("symbols")
+        .join("OpAmp_Dual.redasym");
     assert_eq!(
         out["written"],
         json!([file]),

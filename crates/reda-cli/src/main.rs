@@ -16,15 +16,6 @@ Usage:
   reda commands [--json]
   reda --version";
 
-/// The version string for a local build: the Cargo version plus `-dev` and the git hash.
-fn version() -> String {
-    format!(
-        "{}-dev+{}",
-        env!("CARGO_PKG_VERSION"),
-        env!("REDA_GIT_HASH")
-    )
-}
-
 fn usage_error(message: &str) -> ExitCode {
     eprintln!("reda: {message}\n{USAGE}");
     ExitCode::from(2)
@@ -35,7 +26,8 @@ fn main() -> ExitCode {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     match args.as_slice() {
         ["--version" | "-V"] => {
-            println!("reda {}", version());
+            // Set by build.rs: `X.Y.Z` in a release, `X.Y.Z-dev+<git hash>` locally.
+            println!("reda {}", env!("REDA_VERSION"));
             ExitCode::SUCCESS
         }
         ["run", rest @ ..] => match run::parse(rest) {

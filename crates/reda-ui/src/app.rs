@@ -1,5 +1,6 @@
-//! The window: menu bar, Document tabs, the Start page or a Document canvas, and the
-//! status bar. Drawing only; the state lives in [`Shell`].
+//! The window: menu bar, the docking layout (Docks, tab groups with the Start page,
+//! canvases and Panels), and the status bar with the Panels button. Drawing only; the state
+//! lives in [`Shell`].
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -9,10 +10,12 @@ use reda_engine::Engine;
 use reda_engine::preferences;
 use serde_json::json;
 
-use crate::canvas::{CanvasResources, canvas, canvas_id};
+use crate::canvas::{CanvasResources, canvas_id};
 use crate::dialogs::{FileDialogs, FormAction, NewProjectForm, Pick};
-use crate::shell::{InstalledFonts, Shell, Tab};
-use crate::start_page::{self, StartAction};
+use crate::docking::{self, panel_title};
+use crate::layout::PanelId;
+use crate::shell::{InstalledFonts, Shell};
+use crate::start_page::StartAction;
 use crate::{theme, tr};
 
 /// The REDA window.
@@ -67,9 +70,14 @@ impl App {
 
         Panel::top("menu-bar").show(ui, |ui| self.menu_bar(ui));
         Panel::bottom("status-bar").show(ui, |ui| self.status_bar(ui));
-        egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(ui.style()).inner_margin(0))
-            .show(ui, |ui| self.document_area(ui));
+        let frame = docking::show(ui, &mut self.shell);
+        for (id, params) in frame.commands {
+            let _ = self.shell.run_reporting(id, params);
+        }
+        if let Some(action) = frame.start {
+            self.start_action(&ctx, action);
+        }
+        self.drop_closed_canvases();
 
         if let Some(form) = &mut self.new_project {
             match form.show(&ctx) {
@@ -136,7 +144,7 @@ impl App {
             });
             ui.menu_button(tr!("menu-view"), |ui| {
                 if ui.button(tr!("menu-view-zoom-fit")).clicked()
-                    && let Some(Tab::Document(tab)) = self.shell.active_mut()
+                    && let Some(tab) = self.shell.active_document_mut()
                 {
                     tab.camera = None;
                 }
@@ -162,58 +170,47 @@ impl App {
     }
 
     fn status_bar(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| match self.shell.message() {
-            Some(message) => {
-                let message = message.to_owned();
-                ui.colored_label(ui.visuals().error_fg_color, message);
-                if ui.small_button(tr!("status-dismiss")).clicked() {
-                    self.shell.dismiss_message();
-                }
-            }
-            None => {
-                ui.weak(tr!("status-ready"));
-            }
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                self.panels_button(ui);
+                ui.with_layout(
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| match self.shell.message() {
+                        Some(message) => {
+                            let message = message.to_owned();
+                            ui.colored_label(ui.visuals().error_fg_color, message);
+                            if ui.small_button(tr!("status-dismiss")).clicked() {
+                                self.shell.dismiss_message();
+                            }
+                        }
+                        None => {
+                            ui.weak(tr!("status-ready"));
+                        }
+                    },
+                );
+            });
         });
     }
 
-    fn document_area(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.add_space(4.0);
-            let titles: Vec<String> = self
-                .shell
-                .tabs()
-                .iter()
-                .map(|t| match t {
-                    Tab::Start => tr!("start-page-title"),
-                    Tab::Document(d) => d.title.clone(),
-                })
-                .collect();
-            for (i, title) in titles.into_iter().enumerate() {
-                let selected = i == self.shell.active_index();
-                if ui.selectable_label(selected, title).clicked() {
-                    self.shell.set_active(i);
+    /// The Panels button: shows any Panel, reopening a closed one in its usual Dock.
+    fn panels_button(&mut self, ui: &mut Ui) {
+        ui.menu_button(tr!("status-panels"), |ui| {
+            let closed = self.shell.layout().closed_panels();
+            for panel in PanelId::ALL {
+                let title = panel_title(panel);
+                let label = if closed.contains(&panel) {
+                    tr!("panels-reopen", panel = title.as_str())
+                } else {
+                    title
+                };
+                if ui.button(label).clicked() {
+                    let _ = self
+                        .shell
+                        .run_reporting(&format!("panel.show:{}", panel.id()), json!({}));
+                    ui.close();
                 }
             }
         });
-        ui.separator();
-
-        let egui_theme = ui.ctx().theme();
-        let recent =
-            matches!(self.shell.active(), Some(Tab::Start)).then(|| self.shell.recent_projects());
-        let mut action = None;
-        match self.shell.active_mut() {
-            Some(Tab::Start) => {
-                action = start_page::show(ui, &recent.unwrap_or_default());
-            }
-            Some(Tab::Document(tab)) => canvas(ui, tab, theme::canvas_theme(egui_theme)),
-            None => {
-                ui.centered_and_justified(|ui| ui.weak(tr!("document-area-empty")));
-            }
-        }
-        if let Some(action) = action {
-            self.start_action(ui.ctx(), action);
-            self.drop_closed_canvases();
-        }
     }
 
     fn start_action(&mut self, ctx: &egui::Context, action: StartAction) {
@@ -232,15 +229,7 @@ impl App {
         let Some(render_state) = &self.render_state else {
             return;
         };
-        let keep: Vec<egui::Id> = self
-            .shell
-            .tabs()
-            .iter()
-            .filter_map(|t| match t {
-                Tab::Document(d) => Some(canvas_id(d)),
-                Tab::Start => None,
-            })
-            .collect();
+        let keep: Vec<egui::Id> = self.shell.document_tabs().iter().map(canvas_id).collect();
         if let Some(res) = render_state
             .renderer
             .write()
