@@ -154,6 +154,63 @@ context = "schematic"
 key = "Esc"
 command = "tool.activate:select"
 
+# The wiring Tools. A Wire run fixes a corner per click and ends on a Pin or Wire; `/`
+# turns its corner the other way and Backspace takes its last segment off. The other Tools
+# place one object per click until Esc.
+
+[[bind]]
+context = "schematic"
+key = "W"
+command = "tool.activate:wire"
+
+[[bind]]
+context = "schematic"
+key = "N"
+command = "tool.activate:net_label"
+
+[[bind]]
+context = "schematic"
+key = "P"
+command = "tool.activate:port"
+
+[[bind]]
+context = "schematic"
+key = "B"
+command = "tool.activate:power_port"
+
+[[bind]]
+context = "schematic"
+key = "Q"
+command = "tool.activate:no_connect"
+
+[[bind]]
+context = "tool:wire"
+key = "/"
+command = "tool.corner"
+
+[[bind]]
+context = "tool:wire"
+key = "Backspace"
+command = "tool.remove_last"
+
+# Space turns, X and Y mirror what is in flight on the sheet (a move or drag, a label or
+# Port being placed), else the selection.
+
+[[bind]]
+context = "schematic"
+key = "Space"
+command = "tool.rotate"
+
+[[bind]]
+context = "schematic"
+key = "X"
+command = "tool.mirror:x"
+
+[[bind]]
+context = "schematic"
+key = "Y"
+command = "tool.mirror:y"
+
 # The board canvas: Layers, the view, and the select-and-place Tool. Space and L turn or
 # flip what is being moved (else the selection); Esc drops it and returns to Select.
 
@@ -265,36 +322,11 @@ context = "pcb"
 key = "U"
 command = "pcb.selection.connected"
 
-# Placing a Part from the Library panel: Space turns it, X and Y mirror it on a sheet, L
-# flips a Mechanical Part to the other side of the board, Tab opens Properties to edit it
-# (later placements keep the edits) and Esc stops placing.
-
-[[bind]]
-context = "tool:place"
-key = "Space"
-command = "tool.rotate"
-
-[[bind]]
-context = "tool:place"
-key = "X"
-command = "tool.mirror:x"
-
-[[bind]]
-context = "tool:place"
-key = "Y"
-command = "tool.mirror:y"
-
-[[bind]]
-context = "tool:place"
-key = "L"
-command = "tool.flip"
+# Placing a Part from the Library panel: Space, X, Y, L and Esc come from the sheet and
+# board bindings above (they turn the Part in flight first); Tab opens Properties to edit
+# it, and later placements keep the edits.
 
 [[bind]]
 context = "tool:place"
 key = "Tab"
 command = "panel.show:properties"
-
-[[bind]]
-context = "tool:place"
-key = "Esc"
-command = "tool.activate:select"

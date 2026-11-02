@@ -188,6 +188,31 @@ fn space_rotates_and_x_and_y_mirror_in_flight_and_later_placements_keep_it() {
 }
 
 #[test]
+fn space_and_x_while_placing_turn_only_the_part_in_flight_not_the_selection() {
+    let Fixture { mut shell, .. } = fixture("place-not-selection");
+    run(
+        &mut shell,
+        "tool.place",
+        json!({"document": SHEET, "part": RESISTOR}),
+    );
+    placement::click(&mut shell, sheet(), mil(0, 0));
+    let placed = units(&shell)[0].uuid;
+    run(&mut shell, "selection.set", json!({"objects": [placed]}));
+    run(
+        &mut shell,
+        "tool.place",
+        json!({"document": SHEET, "part": RESISTOR}),
+    );
+    let from = shell.engine().journal().len();
+    press(&mut shell, sheet(), "Space");
+    press(&mut shell, sheet(), "X");
+    assert_eq!(journal_since(&shell, from), ["tool.rotate", "tool.mirror:x"]);
+    let first = units(&shell).into_iter().find(|u| u.uuid == placed).unwrap();
+    assert_eq!(first.rotation, Millideg::from_deg(0));
+    assert!(!first.mirror);
+}
+
+#[test]
 fn edits_made_in_flight_carry_to_later_placements_with_the_next_designator() {
     let Fixture { mut shell, .. } = fixture("place-edits");
     run(

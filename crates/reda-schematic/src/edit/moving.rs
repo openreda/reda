@@ -3,13 +3,13 @@
 use reda_command::{Command, CommandError, Context, Kind, Meta};
 use std::collections::BTreeSet;
 
-use reda_model::geom::Point;
-use reda_model::{Object, Project, Uuid};
+use reda_model::geom::{Millideg, Point};
+use reda_model::{InDocument, Object, Project, Uuid, Wire};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::selection::{one_sheet, resolve};
-use super::transform::{Placement, place_anew, plan};
+use super::transform::{Axis, Placement, place_anew, plan};
 use crate::component::At;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -138,3 +138,61 @@ fn shift(
     place_anew(cx, document, &moves, keep_connections)?;
     Ok(EditResult { document })
 }
+
+/// One step of a placement in flight: what the Move and Drag Tools have done to the
+/// selection so far (turns and flips about the point picked up, then the offset).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FlightStep {
+    /// Moved by this offset.
+    Translate(Point),
+    /// Turned counter-clockwise about `center`.
+    Rotate { center: Point, angle: Millideg },
+    /// Flipped about `center`.
+    Mirror { center: Point, axis: Axis },
+}
+
+/// The Project as `schematic.rotate`, `schematic.mirror` and `schematic.move` (or with
+/// `keep_connections` `schematic.drag`) of `objects` would leave it, one Command per step
+/// in order, without changing anything. Wires a moved Pin lands on are not split in the
+/// preview. The same errors as the Commands.
+pub fn flight_preview(
+    project: &Project,
+    objects: &[Uuid],
+    steps: &[FlightStep],
+    keep_connections: bool,
+) -> Result<Project, CommandError> {
+    let mut out = project.clone();
+    let mut corners = 0u128;
+    for step in steps {
+        let resolved = resolve(&out, objects, "/objects")?;
+        let document = one_sheet(&resolved, "/objects")?;
+        let body = crate::sheet(&out, document)?.clone();
+        let how = match *step {
+            FlightStep::Translate(by) => Placement::Translate(by),
+            FlightStep::Rotate { center, angle } => Placement::Rotate { center, angle },
+            FlightStep::Mirror { center, axis } => Placement::Mirror { center, axis },
+        };
+        let moves: Vec<_> = resolved.into_iter().map(|o| (o, how)).collect();
+        let plan = plan(&body, &moves, keep_connections)?;
+        let mut tx = out.transaction();
+        for uuid in plan.removed {
+            tx.remove(uuid)?;
+        }
+        for object in plan.replaced {
+            tx.replace(object)?;
+        }
+        for wire in plan.inserted {
+            corners += 1;
+            let uuid = Uuid::from_u128(PREVIEW_CORNERS + corners);
+            tx.insert(Object::Wire(InDocument::new(
+                document,
+                Wire { uuid, ..wire },
+            )))?;
+        }
+        tx.commit()?;
+    }
+    Ok(out)
+}
+
+/// Where the UUIDs of the corner Wires a preview adds start; never stored.
+const PREVIEW_CORNERS: u128 = 0x0000_0000_0000_4000_8000_7072_0000_0000;

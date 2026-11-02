@@ -124,7 +124,7 @@ impl Command for PowerPortAdd {
     ) -> Result<PowerPortAddResult, CommandError> {
         sheet(cx.project()?, p.document)?;
         let name = name(&p.name, "Power Port")?;
-        let style = p.style.unwrap_or_else(|| default_style(&name));
+        let style = p.style.unwrap_or_else(|| default_power_port_style(&name));
         let port = PowerPort {
             uuid: cx.new_id(),
             name,
@@ -139,8 +139,9 @@ impl Command for PowerPortAdd {
     }
 }
 
-/// `ground` for ground-like names, else `bar`.
-fn default_style(name: &str) -> PowerPortStyle {
+/// The look a Power Port named `name` gets when none is given: `ground` for ground-like
+/// names (GND, VSS), else `bar`.
+pub fn default_power_port_style(name: &str) -> PowerPortStyle {
     let upper = name.to_uppercase();
     if upper.contains("GND") || upper.contains("VSS") {
         PowerPortStyle::Ground

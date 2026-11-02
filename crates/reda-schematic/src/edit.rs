@@ -23,7 +23,9 @@ pub use graphics::{
     GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, RectAdd, RectAddParams,
     TextAdd, TextAddParams, TextResult, TextSet, TextSetParams,
 };
-pub use moving::{Drag, EditResult, Move, ShiftParams, ShiftPreview, shift_preview};
+pub use moving::{
+    Drag, EditResult, FlightStep, Move, ShiftParams, ShiftPreview, flight_preview, shift_preview,
+};
 pub use selection::selectable;
 pub use transform::Axis;
 pub use turn::{Mirror, MirrorParams, Rotate, RotateParams};

@@ -1,26 +1,24 @@
-//! The placement Tool's view Commands: `tool.place` picks a Part up, `tool.mirror` and
-//! `tool.place.set` change it in flight (`tool.rotate` and `tool.flip`, in
+//! The placement Tool's view Commands: `tool.place` picks a Part up and `tool.place.set`
+//! changes it in flight (`tool.rotate`, `tool.mirror` and `tool.flip`, in
 //! [`crate::tools`], turn it too).
 
 use std::collections::BTreeMap;
 
 use reda_engine::command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Meta, Preset, Registry, Unavailable,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
 use reda_engine::model::geom::Millideg;
 use reda_engine::model::{ComponentType, Side, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use super::{Placement, Placing, Target};
 use crate::tools::{ActiveTool, Tool};
 
-/// Adds `tool.place`, `tool.mirror` and `tool.place.set` to `registry`. The Shell does
+/// Adds `tool.place` and `tool.place.set` to `registry`. The Shell does
 /// this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(ToolPlace);
-    registry.add(ToolMirror);
     registry.add(ToolPlaceSet);
 }
 
@@ -144,53 +142,6 @@ impl Command for ToolPlace {
             tool: Tool::Place,
             part,
         })
-    }
-}
-
-#[derive(Clone, Copy, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Axis {
-    /// Left to right, about the vertical axis.
-    X,
-    /// Top to bottom, about the horizontal axis.
-    Y,
-}
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ToolMirrorParams {
-    axis: Axis,
-}
-
-/// What `tool.mirror` returns.
-#[derive(Serialize, JsonSchema)]
-pub struct Mirrored {}
-
-struct ToolMirror;
-
-impl Command for ToolMirror {
-    const META: Meta = Meta {
-        id: "tool.mirror",
-        title: "Mirror",
-        description: "Mirrors the Part being placed on a sheet, left to right (x) or top to \
-                      bottom (y). A board placement turns over with Flip Side instead.",
-        category: "tool",
-        icon: "mirror",
-        kind: Kind::View,
-    };
-    type Params = ToolMirrorParams;
-    type Output = Mirrored;
-
-    fn presets(&self) -> Vec<Preset> {
-        vec![
-            Preset::new("x", "Mirror X", "mirror", json!({"axis": "x"})),
-            Preset::new("y", "Mirror Y", "mirror", json!({"axis": "y"})),
-        ]
-    }
-
-    fn run(&self, cx: &mut Context<'_>, p: ToolMirrorParams) -> Result<Mirrored, CommandError> {
-        edit_placing(cx, |placing| placing.mirror(matches!(p.axis, Axis::X)))?;
-        Ok(Mirrored {})
     }
 }
 

@@ -25,6 +25,7 @@ panels-reopen = { $panel } (closed)
 floating-window-title = REDA
 floating-window-title-tab = { $tab } – REDA
 status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
+tool-wire = Wire
 
 ## The bridge: agents connecting through the control port
 
@@ -146,6 +147,7 @@ menu-view = View
 menu-view-panels = Panels
 menu-view-theme = Theme
 menu-design = Design
+menu-place = Place
 menu-library = Library
 menu-help = Help
 bars-no-active-document = no Document is active

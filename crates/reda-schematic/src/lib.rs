@@ -28,10 +28,10 @@ pub use component::{
 pub use edit::{
     Align, AlignParams, AlignTo, Axis, Clipboard, Copy, CopyParams, Cut, Delete, DeleteParams,
     DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
-    EditResult, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, Mirror,
-    MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
+    EditResult, FlightStep, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams,
+    Mirror, MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
     RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams,
-    TextResult, TextSet, TextSetParams, selectable, shift_preview,
+    TextResult, TextSet, TextSetParams, flight_preview, selectable, shift_preview,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{
@@ -41,7 +41,7 @@ pub use natural::natural_cmp;
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use ports::{
     PortAdd, PortAddParams, PortAddResult, PowerPortAdd, PowerPortAddParams, PowerPortAddResult,
-    ProjectNets, ProjectNetsResult,
+    ProjectNets, ProjectNetsResult, default_power_port_style,
 };
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
 pub use sheet::{
