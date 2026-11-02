@@ -62,7 +62,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
 }
 
 /// The file attributes every file starts with, then `function` and the polarity.
-fn file_attributes(plot: &Plot<'_>, function: String) -> Vec<(&'static str, String)> {
+pub(crate) fn file_attributes(plot: &Plot<'_>, function: String) -> Vec<(&'static str, String)> {
     let props = plot.project.props();
     let revision = match props.properties.revision.as_str() {
         "" => "-",
