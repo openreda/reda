@@ -211,6 +211,23 @@ impl Shell {
         Ok(())
     }
 
+    /// The Fab Presets a new Project can start from (shipped, then the user's) and the
+    /// default pick: the last one used, else Generic.
+    pub fn fab_preset_choices(&mut self) -> (Vec<String>, String) {
+        let list = self
+            .engine
+            .run("fab_preset.list", json!({}))
+            .unwrap_or_default();
+        let names = list["presets"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|p| p["preset"]["name"].as_str().map(str::to_owned))
+            .collect();
+        let default = list["default"].as_str().unwrap_or("Generic").to_owned();
+        (names, default)
+    }
+
     /// Creates the Project `name` in a new folder inside `folder`, and opens it.
     pub fn new_project(&mut self, folder: &Path, name: &str) -> Result<(), CommandError> {
         self.run_reporting("project.new", json!({ "path": folder, "name": name }))?;

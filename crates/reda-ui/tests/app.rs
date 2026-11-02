@@ -109,6 +109,72 @@ fn the_new_project_form_creates_and_opens_a_project() {
     assert!(h.query_by_label("New Project").is_none(), "the form closed");
 }
 
+#[test]
+fn the_new_project_dialog_takes_a_fab_preset_and_a_rectangle_board() {
+    let home = TempDir::new("app-home");
+    let work = TempDir::new("app-work");
+    state::update(&UserDirs::under(home.path()), |s| {
+        s.last_fab_preset = Some("JLCPCB".into());
+    })
+    .unwrap();
+    let mut h = harness(home.path());
+    h.run();
+
+    h.get_by_label("New Project…").click();
+    h.run();
+    // The last Fab Preset used is the default.
+    let picked = |h: &Harness<'_, App>, label: &str| {
+        h.get_by_role_and_label(Role::RadioButton, label)
+            .accesskit_node()
+            .toggled()
+            == Some(egui::accesskit::Toggled::True)
+    };
+    assert!(picked(&h, "JLCPCB"));
+    assert!(!picked(&h, "Generic"));
+    h.get_by_label("The board rules and the Output Job can be changed later.");
+    h.get_by_role_and_label(Role::TextInput, "Name")
+        .set_text_value_accesskit("Sized");
+    h.get_by_role_and_label(Role::TextInput, "Location")
+        .set_text_value_accesskit(&work.path().display().to_string());
+    // The board size is used only once Rectangle is picked.
+    assert!(
+        h.get_by_role_and_label(Role::TextInput, "Width (mm)")
+            .accesskit_node()
+            .is_disabled()
+    );
+    h.get_by_label("Rectangle").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Width (mm)")
+        .set_text_value_accesskit("50");
+    h.run();
+    h.get_by_label("Create").click();
+    h.run();
+
+    let project = h.state().shell().engine().project().unwrap();
+    let jobs: Vec<_> = project.output_jobs().map(|j| j.name.clone()).collect();
+    assert_eq!(jobs, ["JLCPCB"]);
+    let outline = project.pcb().unwrap().outline().expect("a Board Outline");
+    let xs: Vec<i64> = outline.vertices.iter().map(|v| v.x.0).collect();
+    assert_eq!(xs.iter().max(), Some(&50_000_000));
+    let ys: Vec<i64> = outline.vertices.iter().map(|v| v.y.0).collect();
+    assert_eq!(ys.iter().max(), Some(&80_000_000));
+}
+
+#[test]
+fn the_new_project_dialog_refuses_a_bad_board_size() {
+    let home = TempDir::new("app-home");
+    let mut h = harness(home.path());
+    h.run();
+    h.get_by_label("New Project…").click();
+    h.run();
+    h.get_by_label("Rectangle").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Height (mm)")
+        .set_text_value_accesskit("-3");
+    h.run();
+    assert!(h.get_by_label("Create").accesskit_node().is_disabled());
+}
+
 /// Why snapshots cannot be compared here, if they cannot.
 fn snapshot_skip_reason() -> Option<String> {
     if !cfg!(target_os = "linux") {

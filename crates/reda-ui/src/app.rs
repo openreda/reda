@@ -11,9 +11,10 @@ use reda_engine::preferences;
 use serde_json::json;
 
 use crate::canvas::{CanvasResources, canvas_id};
-use crate::dialogs::{FileDialogs, FormAction, NewProjectForm, Pick};
+use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
 use crate::layout::PanelId;
+use crate::new_project::{FormAction, NewProjectForm};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
 use crate::{theme, tr};
@@ -85,14 +86,20 @@ impl App {
                 FormAction::Browse => self.files.start(&ctx, Pick::NewProjectLocation),
                 FormAction::Cancel => self.new_project = None,
                 FormAction::Create => {
-                    let (folder, name) = (PathBuf::from(&form.location), form.name.clone());
-                    if self.shell.new_project(&folder, name.trim()).is_ok() {
+                    if let Some(params) = form.params()
+                        && self.shell.run_reporting("project.new", params).is_ok()
+                    {
                         self.new_project = None;
                         self.drop_closed_canvases();
                     }
                 }
             }
         }
+    }
+
+    fn open_new_project(&mut self) {
+        let (presets, default) = self.shell.fab_preset_choices();
+        self.new_project = Some(NewProjectForm::new(presets, default));
     }
 
     fn collect_picked_files(&mut self) {
@@ -125,7 +132,7 @@ impl App {
         egui::MenuBar::new().ui(ui, |ui| {
             ui.menu_button(tr!("menu-file"), |ui| {
                 if ui.button(tr!("menu-file-new-project")).clicked() {
-                    self.new_project = Some(NewProjectForm::new());
+                    self.open_new_project();
                 }
                 if ui.button(tr!("menu-file-open-project")).clicked() {
                     self.files.start(ui.ctx(), Pick::OpenProject);
@@ -215,7 +222,7 @@ impl App {
 
     fn start_action(&mut self, ctx: &egui::Context, action: StartAction) {
         match action {
-            StartAction::NewProject => self.new_project = Some(NewProjectForm::new()),
+            StartAction::NewProject => self.open_new_project(),
             StartAction::OpenProject => self.files.start(ctx, Pick::OpenProject),
             StartAction::OpenRecent(path) => {
                 let _ = self.shell.open_project(&path);

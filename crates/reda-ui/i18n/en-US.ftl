@@ -70,6 +70,14 @@ new-project-name = Name
 new-project-location = Location
 new-project-browse = Browse…
 new-project-create = Create
+new-project-fab-preset = Fab Preset
+new-project-fab-preset-note = The board rules and the Output Job can be changed later.
+new-project-board = Board
+new-project-draw-later = Draw later
+new-project-rectangle = Rectangle
+new-project-width = Width (mm)
+new-project-height = Height (mm)
+new-project-corner-radius = Corner radius (mm)
 
 ## Canvas
 
