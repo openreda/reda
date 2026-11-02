@@ -45,5 +45,6 @@ pub mod view_state;
 pub use app::{App, install_canvas, run};
 /// The control port, re-exported for tests that act as agents.
 pub use reda_control as control;
+pub use docking::windows;
 /// The engine, re-exported so the app depends only on the UI.
 pub use reda_engine as engine;

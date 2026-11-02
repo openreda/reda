@@ -23,6 +23,7 @@ status-panels = Panels
 status-grid = Grid: { $grid }
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
+floating-window-title-tab = { $tab } – REDA
 status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
 
 ## The bridge: agents connecting through the control port
