@@ -417,6 +417,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             rotation: Millideg(90_000),
             mirror,
             designator,
+            designator_locked: mirror,
             fields: entry.part.fields.clone(),
             footprint: entry.part.footprints.first().copied(),
             component_type: ComponentType::Standard,

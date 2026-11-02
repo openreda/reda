@@ -36,6 +36,9 @@ pub struct Symbol {
     /// The body drawing of every Unit, sorted by UUID; [`SymbolGraphic::unit`] says which
     /// Unit it belongs to.
     pub graphics: Vec<SymbolGraphic>,
+    /// Where an imported Symbol came from. Elements made in REDA have none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Box<Provenance>>,
 }
 
 impl Symbol {
@@ -122,6 +125,9 @@ pub struct Footprint {
     pub designator: FootprintText,
     /// Where the value text goes.
     pub value: FootprintText,
+    /// Where an imported Footprint came from. Elements made in REDA have none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Box<Provenance>>,
 }
 
 /// The Layers a Footprint draws on besides copper.
@@ -325,6 +331,24 @@ pub struct Part {
     pub footprints: Vec<Uuid>,
     pub fields: Fields,
     pub pin_map: PinMap,
+    /// Where an imported Part came from. Elements made in REDA have none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Box<Provenance>>,
+}
+
+/// Where an imported Library element came from, kept with the element so its terms travel
+/// with it: vendor parts stay under the vendor's terms after import.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Provenance {
+    /// The service the files came from, such as `SnapMagic`, or `Unknown`.
+    pub service: String,
+    /// The service's terms of use, when known.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub terms_url: String,
+    /// Copyright lines found in the imported files, kept verbatim.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub copyright: Vec<String>,
 }
 
 /// Whether a part's Components go into the BOM and may exist only on the board.

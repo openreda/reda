@@ -1,7 +1,8 @@
-# Weekly fuzzing of file loading (docs/spec/v0.1/quality-and-release.md#testing).
+# Weekly fuzzing of file loading and the KiCad import reader
+# (docs/spec/v0.1/quality-and-release.md#testing).
 # Scheduled and manual only: it never runs on pull requests, so it never gates a merge.
 # A crash uploads the failing inputs; reproduce one with
-#   cargo +nightly fuzz run load_project fuzz/artifacts/load_project/<crash file>
+#   cargo +nightly fuzz run <target> fuzz/artifacts/<target>/<crash file>
 name: Fuzz
 
 on:
@@ -37,4 +38,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-artifacts
+          path: fuzz/artifacts
+
+  import_kicad:
+    name: fuzz import_kicad
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly
+        run: rustup toolchain install nightly --profile minimal
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Fuzz for 20 minutes
+        working-directory: fuzz
+        run: |
+          mkdir -p corpus/import_kicad
+          cargo +nightly fuzz run import_kicad corpus/import_kicad seeds/import_kicad -- -max_total_time=1200
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts-import_kicad
           path: fuzz/artifacts

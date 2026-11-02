@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"HDR254P2X5","description":"Pin header, 2 × 5, 2.54 mm pitch"},
+  "text": {"designator":{"at":{"x":0,"y":7300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":-2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":-5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-00000000000c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2800000,"y":-6600000},"end":{"x":2800000,"y":6600000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1540000,"y":6350000},{"x":2540000,"y":6350000},{"x":2540000,"y":-6350000},{"x":-2540000,"y":-6350000},{"x":-2540000,"y":5350000}]},"width":100000},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":6410000},"end":{"x":2600000,"y":6410000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2600000,"y":-6410000},"end":{"x":2600000,"y":6410000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000010","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":-6410000},"end":{"x":2600000,"y":-6410000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000011","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":-6410000},"end":{"x":-2600000,"y":6410000}},"width":120000}
+  ]
+}

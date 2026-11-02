@@ -44,7 +44,8 @@
 //! and Junctions are derived from the drawing, never written. A part-table entry (`parts`) holds the
 //! keys of a `.redapart` file (`part`, `footprints`, `fields`, `pin_map`) and of a
 //! `.redasym` file (`symbol`, `units`, `pins`, `graphics`) with the same shapes, plus its own `uuid`,
-//! its content `hash` and `copies`: the sheet's Footprint copy of each alternate. A
+//! its content `hash` and `copies`: the sheet's Footprint copy of each alternate. An
+//! imported Part's `provenance` and its Symbol's `symbol_provenance` are kept too. A
 //! Footprint copy (`footprints`) holds the keys of a `.redafp` file. Rows leave out the
 //! sheet their model objects name: the file is the sheet.
 
@@ -52,8 +53,8 @@ use std::path::Path;
 
 use reda_model::{
     Fields, FootprintCopy, FootprintGraphic, InDocument, NetLabel, NoConnect, Object, Pad,
-    PartEntry, Pin, PinMap, Port, PowerPort, SchematicSheet, SheetFrame, SymbolGraphic, Unit,
-    UnitInstance, Uuid, Wire,
+    PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet, SheetFrame, SymbolGraphic,
+    Unit, UnitInstance, Uuid, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -118,6 +119,9 @@ struct PartEntryRow {
     /// The content hash of the Part with its Symbol and Footprints, as copied.
     hash: String,
     part: PartRow,
+    /// Where the Part was imported from, as in a `.redapart` file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    provenance: Option<Box<Provenance>>,
     /// The alternate Footprints by Library UUID, the default first.
     footprints: Vec<Uuid>,
     /// The sheet's Footprint copy of each alternate, in the same order.
@@ -125,6 +129,9 @@ struct PartEntryRow {
     fields: Fields,
     pin_map: PinMap,
     symbol: SymbolRow,
+    /// Where the Symbol was imported from, as in a `.redasym` file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    symbol_provenance: Option<Box<Provenance>>,
     units: Vec<Unit>,
     pins: Vec<Pin>,
     graphics: Vec<SymbolGraphic>,
@@ -138,6 +145,9 @@ struct FootprintCopyRow {
     /// The content hash of the Footprint, as copied.
     hash: String,
     footprint: FootprintRow,
+    /// Where the Footprint was imported from, as in a `.redafp` file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    provenance: Option<Box<Provenance>>,
     text: FootprintTexts,
     pads: Vec<Pad>,
     graphics: Vec<FootprintGraphic>,
@@ -153,11 +163,13 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         uuid: e.uuid,
         hash: e.hash.clone(),
         part: PartRow::of(&e.part),
+        provenance: e.part.provenance.clone(),
         footprints: e.part.footprints.clone(),
         copies: e.footprints.clone(),
         fields: e.part.fields.clone(),
         pin_map: sorted(&e.part.pin_map),
         symbol: SymbolRow::of(&e.symbol),
+        symbol_provenance: e.symbol.provenance.clone(),
         units: e.symbol.units.clone(),
         pins: e.symbol.pins.clone(),
         graphics: e.symbol.graphics.clone(),
@@ -166,6 +178,7 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         uuid: c.uuid,
         hash: c.hash.clone(),
         footprint: FootprintRow::of(&c.footprint),
+        provenance: c.footprint.provenance.clone(),
         text: FootprintTexts::of(&c.footprint),
         pads: c.footprint.pads.clone(),
         graphics: c.footprint.graphics.clone(),
@@ -216,7 +229,7 @@ pub(crate) fn read_sheet_file(
     for row in file.footprints {
         let footprint = row
             .footprint
-            .into_footprint(row.text, row.pads, row.graphics)
+            .into_footprint(row.text, row.pads, row.graphics, row.provenance)
             .map_err(|e| invalid(format!("Footprint copy {}: {e}", row.uuid)))?;
         objects.push(Object::FootprintCopy(InDocument::new(
             sheet,
@@ -230,9 +243,11 @@ pub(crate) fn read_sheet_file(
     for row in file.parts {
         let symbol = row
             .symbol
-            .into_symbol(row.units, row.pins, row.graphics)
+            .into_symbol(row.units, row.pins, row.graphics, row.symbol_provenance)
             .map_err(|e| invalid(format!("part entry {}: {e}", row.uuid)))?;
-        let part = row.part.into_part(row.footprints, row.fields, &row.pin_map);
+        let part = row
+            .part
+            .into_part(row.footprints, row.fields, &row.pin_map, row.provenance);
         objects.push(Object::PartEntry(InDocument::new(
             sheet,
             PartEntry {

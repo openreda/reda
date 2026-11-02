@@ -3,6 +3,7 @@
 //! Front ends (the CLI, MCP, the GUI) build an [`Engine`] and drive it only through
 //! [`Engine::run`]. Tests build one with `reda_testkit::test_engine()`.
 
+pub mod annotate;
 mod builders;
 pub mod canonical;
 pub mod commands;
