@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- A Project (.reda): the page with REDA's copper "R". -->
+  <path d="M208 64 H640 L832 256 V928 A32 32 0 0 1 800 960 H208 A32 32 0 0 1 176 928 V96 A32 32 0 0 1 208 64 Z" fill="#ffffff" stroke="#5b6b7a" stroke-width="24"/>
+  <path d="M640 64 V224 A32 32 0 0 0 672 256 H832" fill="#dde3e9" stroke="#5b6b7a" stroke-width="24" stroke-linejoin="round"/>
+  <rect x="256" y="320" width="496" height="496" rx="96" fill="#123047"/>
+  <g fill="none" stroke="#e8a33d" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M424 720 V424 H536 A72 72 0 0 1 536 568 H424"/>
+    <path d="M528 568 L600 720"/>
+  </g>
+</svg>

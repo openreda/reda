@@ -1,5 +1,7 @@
 //! The `reda-release` binary that `.github/workflows/release.yml` calls. Not shipped.
 
+mod render_icons;
+
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -14,7 +16,9 @@ Usage:
   reda-release stamp <version> [--root <workspace dir>]
       Writes the version into Cargo.toml's [workspace.package] and Cargo.lock.
   reda-release notes <version> < changes
-      Prints the release notes; changes are `<pr number or empty>\\t<title>` lines.";
+      Prints the release notes; changes are `<pr number or empty>\\t<title>` lines.
+  reda-release icons <packaging/icons dir>
+      Re-renders the PNG, .ico and .icns icons from <dir>/src/*.svg (needs rsvg-convert).";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -23,7 +27,8 @@ fn main() -> ExitCode {
         ["plan", rest @ ..] => run_plan(rest),
         ["stamp", version, rest @ ..] => run_stamp(version, rest),
         ["notes", version] => run_notes(version),
-        _ => Err("expected plan, stamp or notes".to_owned()),
+        ["icons", dir] => render_icons::render_all(std::path::Path::new(dir)),
+        _ => Err("expected plan, stamp, notes or icons".to_owned()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
