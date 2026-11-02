@@ -2,12 +2,14 @@
 //! visible Component fields.
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{PartEntry, Pin, SchematicSheet, Shape, SymbolGraphic, UnitInstance, Uuid};
+use reda_model::{
+    PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance, Uuid,
+};
 
 use super::Builder;
 use crate::color::SchematicColor as C;
 use crate::polygon::triangulate;
-use crate::scene::{Align, HAlign, Primitive, VAlign};
+use crate::scene::{Align, HAlign, Primitive, Scene, SceneSource, VAlign};
 use crate::text::{TextStyle, reading_direction};
 use crate::transform::{Placement, rotate};
 
@@ -44,7 +46,8 @@ fn draw_unit(b: &mut Builder, unit: &UnitInstance, entry: &PartEntry) {
         draw_graphic(b, unit.uuid, &place, graphic);
     }
     for pin in entry.symbol.pins.iter().filter(|p| p.unit == unit.unit) {
-        draw_pin(b, unit.uuid, &place, pin, entry);
+        let pads = entry.part.pin_map.pads_of(&pin.number).join(",");
+        draw_pin(b, unit.uuid, &place, pin, &pads);
     }
     let body = b.scene.items[first..]
         .iter()
@@ -170,9 +173,32 @@ fn capsule(place: &Placement, a: Point, z: Point, width: Nm) -> Primitive {
     }
 }
 
+/// One Unit of a Library Symbol as the Symbol editor draws it, at the Symbol origin: its
+/// graphics, then its Pins with their names and numbers. Each item is tagged with its
+/// own graphic's or Pin's UUID, so the editor can pick them one by one. `None` when the
+/// Symbol has no such Unit.
+pub fn symbol_scene(symbol: &Symbol, unit: Uuid) -> Option<Scene> {
+    symbol.units.iter().find(|u| u.uuid == unit)?;
+    let mut b = Builder {
+        scene: Scene::new(SceneSource::Symbol(symbol.uuid, unit)),
+    };
+    let place = Placement {
+        at: Point::new(Nm(0), Nm(0)),
+        rotation: Millideg(0),
+        mirror: false,
+    };
+    for graphic in symbol.graphics.iter().filter(|g| g.unit == unit) {
+        draw_graphic(&mut b, graphic.uuid, &place, graphic);
+    }
+    for pin in symbol.pins.iter().filter(|p| p.unit == unit) {
+        draw_pin(&mut b, pin.uuid, &place, pin, &pin.number);
+    }
+    Some(b.scene)
+}
+
 /// A Pin: its line from the connection end into the body, its name just inside the body
-/// end, and the Pad number(s) it maps to beside the line, as view-only labels.
-fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, entry: &PartEntry) {
+/// end, and `number` (the Pad number(s) it maps to) beside the line, as view-only labels.
+fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, number: &str) {
     let end = place.apply(pin.at);
     let dir = place.angle(pin.rotation);
     let along = |d: i64| {
@@ -204,7 +230,6 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, entry: 
         );
     }
     if pin.number_visible {
-        let pads = entry.part.pin_map.pads_of(&pin.number).join(",");
         // Above the line as read, so every Pin's number is on the same side of it.
         let reading = reading_direction(dir);
         let (nx, ny) = rotate(0, NUMBER_GAP, reading);
@@ -215,7 +240,7 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, entry: 
         b.text(
             object,
             C::PinNumber,
-            &pads,
+            number,
             mid,
             TextStyle {
                 height: PIN_TEXT,

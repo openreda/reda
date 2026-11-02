@@ -22,6 +22,9 @@ impl Scene {
             SceneSource::Pcb(uuid) => {
                 let _ = writeln!(out, "scene pcb {uuid}");
             }
+            SceneSource::Symbol(symbol, unit) => {
+                let _ = writeln!(out, "scene symbol {symbol} unit {unit}");
+            }
         }
         for item in &self.items {
             let layer = match item.layer {

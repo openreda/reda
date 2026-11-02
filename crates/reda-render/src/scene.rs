@@ -29,6 +29,8 @@ pub enum SceneSource {
     Schematic(Uuid),
     /// A PCB Document, by its UUID.
     Pcb(Uuid),
+    /// One Unit of a Library Symbol in the Symbol editor: the Symbol's and the Unit's UUIDs.
+    Symbol(Uuid, Uuid),
 }
 
 /// One primitive, tagged with the object it draws and the Layer it is on.
