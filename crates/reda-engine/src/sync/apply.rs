@@ -198,73 +198,61 @@ impl<'c, 'e> Applier<'c, 'e> {
             }
         }
 
-        let mut removed_nets = BTreeSet::new();
-        let mut merges = BTreeMap::new();
+        let mut merges = Merges::default();
         for change in included() {
             if let ChangeKind::RemoveNet {
                 net, merge_into, ..
             } = &change.change
             {
-                removed_nets.insert(*net);
-                merges.insert(*net, *merge_into);
+                merges.0.insert(*net, *merge_into);
             }
         }
-        // Pads Sync does not manage (Mechanical Parts placed on the PCB) lose a removed Net.
+        // Pads Sync does not manage (Mechanical Parts placed on the PCB) are copper too:
+        // they follow a removed Net into its merge target, or go to no Net.
         for instance in self.instances.values_mut() {
             for pad in &mut instance.pads {
-                if pad.net.is_some_and(|n| removed_nets.contains(&n)) {
-                    pad.net = None;
+                if let Some(to) = merges.follow(pad.net) {
+                    pad.net = to;
                 }
             }
         }
 
         self.write(&pcb)?;
         self.reassign_copper(&merges)?;
-        let free_pads: Vec<_> = self
-            .cx
-            .project()?
-            .pcb()
-            .into_iter()
-            .flat_map(|p| p.free_pads())
-            .filter(|p| p.net.is_some_and(|n| removed_nets.contains(&n)))
-            .cloned()
-            .collect();
-        for mut pad in free_pads {
-            pad.net = None;
-            self.cx
-                .tx()?
-                .replace(Object::FreePad(InDocument::new(self.pcb, pad)))?;
-        }
-        for net in removed_nets {
+        for &net in merges.0.keys() {
             self.cx.tx()?.remove(net)?;
         }
         self.prune_copies()
     }
 
-    /// Sync never deletes copper: Tracks and Vias on a removed Net move to the Net it
-    /// merged into, or to no Net.
-    fn reassign_copper(
-        &mut self,
-        merges: &BTreeMap<Uuid, Option<Uuid>>,
-    ) -> Result<(), CommandError> {
-        if merges.is_empty() {
+    /// Sync never deletes copper: the copper on a removed Net that Sync does not manage
+    /// through Pad Net changes moves to the Net it merged into, or to no Net. Every kind
+    /// of copper that carries a Net belongs here (Zones too, once they exist).
+    fn reassign_copper(&mut self, merges: &Merges) -> Result<(), CommandError> {
+        if merges.0.is_empty() {
             return Ok(());
         }
-        let target = |net: Option<Uuid>| net.and_then(|n| merges.get(&n).copied());
         let mut moved = Vec::new();
         if let Some(pcb) = self.cx.project()?.pcb() {
             for track in pcb.tracks() {
-                if let Some(to) = target(track.net) {
+                if let Some(to) = merges.follow(track.net) {
                     let mut track = track.clone();
                     track.net = to;
                     moved.push(Object::Track(InDocument::new(pcb.uuid, track)));
                 }
             }
             for via in pcb.vias() {
-                if let Some(to) = target(via.net) {
+                if let Some(to) = merges.follow(via.net) {
                     let mut via = via.clone();
                     via.net = to;
                     moved.push(Object::Via(InDocument::new(pcb.uuid, via)));
+                }
+            }
+            for pad in pcb.free_pads() {
+                if let Some(to) = merges.follow(pad.net) {
+                    let mut pad = pad.clone();
+                    pad.net = to;
+                    moved.push(Object::FreePad(InDocument::new(pcb.uuid, pad)));
                 }
             }
         }
@@ -362,6 +350,18 @@ impl<'c, 'e> Applier<'c, 'e> {
             self.cx.tx()?.remove(uuid)?;
         }
         Ok(())
+    }
+}
+
+/// The Nets an apply removes, each with the Net it merged into (`None` = none).
+#[derive(Default)]
+struct Merges(BTreeMap<Uuid, Option<Uuid>>);
+
+impl Merges {
+    /// Where copper on `net` goes: `Some(target)` when `net` is removed (`target` = its
+    /// merge target or no Net), `None` when it stays put.
+    fn follow(&self, net: Option<Uuid>) -> Option<Option<Uuid>> {
+        net.and_then(|n| self.0.get(&n).copied())
     }
 }
 

@@ -20,10 +20,12 @@ pub mod store;
 pub mod sync;
 pub mod user_dirs;
 
-pub use engine::{Engine, EngineBuilder, registry};
+pub use engine::{Engine, EngineBuilder, document_scene, registry};
 pub use journal::{JournalEntry, Source};
 
 /// The Command system, re-exported so front ends depend only on the engine.
 pub use reda_command as command;
 /// The design-data model, re-exported so front ends depend only on the engine.
 pub use reda_model as model;
+/// Scenes and the canvas renderer, re-exported so the app draws with the engine's copy.
+pub use reda_render as render;

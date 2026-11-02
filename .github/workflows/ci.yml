@@ -81,12 +81,23 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: "1"
           REDA_PNG_SNAPSHOTS: "1"
         run: cargo test --locked -p reda-render --features gpu --test png_snapshots --test gpu --test document_render_png
+      # The app's theme and canvas snapshots (egui_kittest), plus the canvas GPU tests.
+      # egui_kittest leaves <name>.new.png and <name>.diff.png beside a failing snapshot.
+      - name: Render and compare the app
+        env:
+          WGPU_BACKEND: gl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          REDA_PNG_SNAPSHOTS: "1"
+        run: cargo test --locked -p reda-ui --test app --test canvas_gpu
       - name: Upload the differing images
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: png-snapshot-diffs
-          path: target/tmp/png-snapshots/
+          path: |
+            target/tmp/png-snapshots/
+            crates/reda-ui/tests/snapshots/*.new.png
+            crates/reda-ui/tests/snapshots/*.diff.png
           if-no-files-found: ignore
 
   deny:
