@@ -164,6 +164,29 @@ impl Registry {
         check_available(resolved.entry, project, headless)
     }
 
+    /// Checks params for a Command or Preset id against its schema without running it:
+    /// the `invalid_params` error [`Registry::run`] would give, or `Ok`. Forms use it to
+    /// tell whether the params are complete.
+    pub fn check_params(&self, id: &str, params: &Value) -> Result<(), CommandError> {
+        let resolved = self.resolve(id, params.clone())?;
+        check_params(resolved.entry, &resolved.params)
+    }
+
+    /// Checks one top-level param of the Command `id` on its own, so a form can flag each
+    /// field as it is typed. The error's pointer starts at `/<name>`.
+    pub fn check_param(&self, id: &str, name: &str, value: &Value) -> Result<(), CommandError> {
+        let entry = self.resolve(id, Value::Null)?.entry;
+        schema::check_property(&entry.params_schema, name, value).map_err(|m| {
+            CommandError::invalid_params(&m.pointer, format!("{}: {}", m.pointer, m.message))
+        })
+    }
+
+    /// The JSON Schema of the params of the Command `id` (a Preset id names its Command).
+    pub fn params_schema(&self, id: &str) -> Option<&Value> {
+        let command = id.split_once(':').map_or(id, |(c, _)| c);
+        self.commands.get(command).map(|e| &e.params_schema)
+    }
+
     /// Runs one Command, or one Preset as `<id>:<preset>`, against the session.
     ///
     /// The params are checked against the Command's schema first; a misfit is
