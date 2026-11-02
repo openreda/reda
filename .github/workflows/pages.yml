@@ -1,0 +1,93 @@
+# The website, https://openreda.github.io/reda/ (site/ and crates/reda-xtask/src/site.rs).
+#
+# Its screenshots are drawn by the app itself from the newest main (`cargo xtask showcase`,
+# on Mesa's llvmpipe), so they follow every change to the UI without a commit. The Versions
+# page shows each release's own screenshots, which release.yml attaches to the release as
+# screenshots-<version>.tar.gz.
+#
+# Pull requests build the site in ci.yml (job `png-snapshots`) but never deploy it.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+  # A push to main starts Release and this workflow together, so the new release's
+  # screenshots may not exist yet; and a release published by Release's GITHUB_TOKEN fires
+  # no `release` event. Rebuilding once Release has finished picks its screenshots up.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
+
+# One deployment at a time; a newer run waits rather than cancelling one half-way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build the site
+    # After Release, only when it succeeded; every other trigger always builds.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      # A release event would check out its tag; the site always shows the newest main.
+      # (A workflow_run event already runs on main, the default branch.)
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.repository.default_branch || github.ref }}
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - name: Install Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgl1-mesa-dri libgles2
+      - uses: Swatinem/rust-cache@v2
+      - name: Draw the screenshots
+        run: cargo xtask showcase --out target/showcase
+      - name: Fetch the released versions' screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p target/versions target/archives
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | while read -r tag; do
+                version="${tag#v}"
+                archive="screenshots-$version.tar.gz"
+                # Releases made before the screenshots existed have none; skip them.
+                if gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+                     --pattern "$archive" --dir target/archives --clobber 2> /dev/null; then
+                  mkdir -p "target/versions/$version"
+                  tar -xzf "target/archives/$archive" --no-same-owner -C "target/versions/$version"
+                  echo "Fetched $archive"
+                fi
+              done
+      - name: Assemble the site
+        run: cargo xtask site --screenshots target/showcase --versions target/versions --out _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

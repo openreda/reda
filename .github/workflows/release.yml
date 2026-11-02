@@ -194,9 +194,39 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # The release's screenshots, drawn by the app as it is released, become the asset
+  # screenshots-<version>.tar.gz, which the website's Versions page shows (pages.yml).
+  # Uploaded as a `packages-*` artifact, so `publish` attaches it with the packages.
+  screenshots:
+    name: Screenshots
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - name: Install Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgl1-mesa-dri libgles2
+      - uses: Swatinem/rust-cache@v2
+      - name: Draw and archive the screenshots
+        run: |
+          cargo xtask showcase --out "target/screenshots-$VERSION" --version "$VERSION"
+          mkdir dist
+          tar -czf "dist/screenshots-$VERSION.tar.gz" -C "target/screenshots-$VERSION" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-screenshots
+          path: dist/*
+          if-no-files-found: error
+
   publish:
     name: Publish ${{ needs.plan.outputs.tag }}
-    needs: [plan, package]
+    needs: [plan, package, screenshots]
     if: needs.plan.outputs.release == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -256,6 +286,8 @@ jobs:
           for f in dist/*; do
             name=$(basename "$f")
             [ "$name" = SHA256SUMS ] && continue
+            # The screenshots belong to their version only; `latest` holds the downloads.
+            [ "$name" = "screenshots-$VERSION.tar.gz" ] && continue
             cp "$f" "latest/${name/-$VERSION/}"
           done
           (cd latest && sha256sum -- * > SHA256SUMS)
