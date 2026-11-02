@@ -35,7 +35,7 @@ pub const DEFAULT_SNAP_RADIUS: Nm = Nm::from_um(500);
 
 /// The Tool's state between events.
 #[derive(Debug, Default)]
-pub struct Tool {
+pub struct SelectTool {
     state: State,
     /// Where the cursor last snapped, for the snap marker.
     snap: Option<(Point, SnapKind)>,
@@ -126,7 +126,7 @@ fn board(shell: &Shell) -> Option<(&Project, Uuid)> {
     Some((project, project.pcb()?.uuid))
 }
 
-impl Tool {
+impl SelectTool {
     /// Sets how far electrical points catch the cursor (a few pixels at the zoom).
     pub fn set_snap_radius(&mut self, radius: Nm) {
         self.radius = Some(radius);
@@ -411,7 +411,7 @@ impl Tool {
     }
 }
 
-impl Tool {
+impl SelectTool {
     fn start_track_drag(
         &mut self,
         shell: &mut Shell,

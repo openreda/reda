@@ -154,26 +154,26 @@ pub enum Interaction {
 
 /// The Footprint editor's view state: the Tools' settings and each canvas's interaction.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct EditorState {
+pub struct FootprintEditorState {
     pub settings: ToolSettings,
     pub canvases: BTreeMap<Uuid, Interaction>,
 }
 
-fn state(shell: &Shell) -> EditorState {
+fn state(shell: &Shell) -> FootprintEditorState {
     shell
         .engine()
         .view()
-        .get::<EditorState>()
+        .get::<FootprintEditorState>()
         .cloned()
         .unwrap_or_default()
 }
 
-fn state_mut(shell: &mut Shell) -> &mut EditorState {
+fn state_mut(shell: &mut Shell) -> &mut FootprintEditorState {
     let view = shell.engine.view_mut();
-    if view.get::<EditorState>().is_none() {
-        view.set(EditorState::default());
+    if view.get::<FootprintEditorState>().is_none() {
+        view.set(FootprintEditorState::default());
     }
-    view.get_mut::<EditorState>().expect("just set")
+    view.get_mut::<FootprintEditorState>().expect("just set")
 }
 
 /// The Footprint Tools' settings.
@@ -224,7 +224,7 @@ impl Command for ToolSet {
     type Output = Value;
 
     fn run(&self, cx: &mut Context<'_>, p: ToolSetParams) -> Result<Value, CommandError> {
-        let settings = &mut cx.view::<EditorState>()?.settings;
+        let settings = &mut cx.view::<FootprintEditorState>()?.settings;
         if let Some(pad) = p.pad {
             settings.pad = pad;
         }

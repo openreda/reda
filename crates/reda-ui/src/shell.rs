@@ -160,7 +160,7 @@ pub struct Shell {
     /// What `schematic.copy` or `schematic.cut` last returned, for `schematic.paste`.
     clipboard: Option<Value>,
     /// The PCB canvas's select-and-place Tool.
-    pcb_tool: pcb::Tool,
+    pcb_tool: pcb::SelectTool,
     /// The board's routing and Via Tools.
     router: pcb::Router,
     /// The PCB drawing Tools' state (see `pcb::draw`).
@@ -242,11 +242,11 @@ impl Shell {
         engine.view_mut().set(messages::ShowWaived::default());
         engine
             .view_mut()
-            .set(crate::footprint_editor::EditorState::default());
+            .set(crate::footprint_editor::FootprintEditorState::default());
         engine.view_mut().set(BoardView::new(units));
         engine
             .view_mut()
-            .set(crate::symbol_editor::EditorState::default());
+            .set(crate::symbol_editor::SymbolEditorState::default());
         engine.view_mut().set(layout::focus::Focus::default());
         crate::bars::install(&mut engine);
         crate::help::install(&mut engine);
@@ -266,7 +266,7 @@ impl Shell {
             keymap: Keymap::default(),
             preferences: Watched::default(),
             clipboard: None,
-            pcb_tool: pcb::Tool::default(),
+            pcb_tool: pcb::SelectTool::default(),
             router: pcb::Router::default(),
             pcb_draw: pcb::draw::Draw::default(),
             zones_stale: false,
@@ -541,11 +541,11 @@ impl Shell {
 
     /// The PCB Tool, to read what it draws (snap marker, rubber band) and set its snap
     /// radius from the zoom.
-    pub fn pcb_tool(&self) -> &pcb::Tool {
+    pub fn pcb_tool(&self) -> &pcb::SelectTool {
         &self.pcb_tool
     }
 
-    pub fn pcb_tool_mut(&mut self) -> &mut pcb::Tool {
+    pub fn pcb_tool_mut(&mut self) -> &mut pcb::SelectTool {
         &mut self.pcb_tool
     }
 
