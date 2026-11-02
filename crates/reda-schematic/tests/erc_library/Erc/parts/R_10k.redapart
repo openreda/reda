@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "part": {"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","symbol":"a0000000-0000-4000-8000-000000000010"},
+  "footprints": [],
+  "fields": {"value":"10k"},
+  "pin_map": {}
+}

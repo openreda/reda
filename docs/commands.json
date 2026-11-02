@@ -453,6 +453,471 @@
       "title": "Undo"
     },
     {
+      "category": "schematic",
+      "description": "Checks every Schematic Sheet with the ERC checks that are not Off and returns the Violations: each with its check id, severity, message arguments and the UUIDs of the objects involved. Waived Violations are left out unless `include_waived`.",
+      "icon": "erc",
+      "id": "erc.run",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "include_waived": {
+            "default": false,
+            "description": "Also list the Violations that Waivers waive, each naming its Waiver.",
+            "type": "boolean"
+          }
+        },
+        "title": "ErcRunParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "design": {
+            "description": "A fingerprint of the design the run checked. Pass it to `erc.stale` to learn\nwhether the design was edited since.",
+            "type": "string"
+          },
+          "unmatched_waivers": {
+            "description": "Waivers that match no Violation any more, because their objects no longer break\nthe check.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "violations": {
+            "description": "The Violations, in the order of the ERC table.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          },
+          "waived": {
+            "description": "How many Violations Waivers waived.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "violations",
+          "waived",
+          "unmatched_waivers",
+          "design"
+        ],
+        "title": "ErcRunResult",
+        "type": "object"
+      },
+      "title": "Run ERC"
+    },
+    {
+      "category": "schematic",
+      "description": "Sets how one ERC check reports its Violations: `error`, `warning` or `off`. Stored in the Project.",
+      "icon": "severity",
+      "id": "erc.set_severity",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "ErcCheck": {
+            "description": "One ERC check, named as in [`ErcSeverities`].",
+            "oneOf": [
+              {
+                "const": "unconnected_input",
+                "description": "An Input or Power In Pin connected to nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unconnected_pin",
+                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt.",
+                "type": "string"
+              },
+              {
+                "const": "pin_conflict",
+                "description": "Drivers fighting on a Net: Output and Power Out Pins together.",
+                "type": "string"
+              },
+              {
+                "const": "pin_conflict_mixed",
+                "description": "Pin types that should not mix on a Net, such as Tri-state and Output.",
+                "type": "string"
+              },
+              {
+                "const": "undriven_power",
+                "description": "A Net with Power In Pins and no Power Out Pin or Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "single_pin_net",
+                "description": "A wired Net with only one Pin.",
+                "type": "string"
+              },
+              {
+                "const": "dangling_wire",
+                "description": "A Wire end that touches nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unattached_label",
+                "description": "A Net Label or Port attached to nothing.",
+                "type": "string"
+              },
+              {
+                "const": "no_connect_connected",
+                "description": "A No-Connect Marker on a Pin that is connected.",
+                "type": "string"
+              },
+              {
+                "const": "multiple_net_names",
+                "description": "One Net with several names.",
+                "type": "string"
+              },
+              {
+                "const": "single_sheet_port",
+                "description": "A Port whose name no other sheet has.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_designator",
+                "description": "Several Components with the same Designator.",
+                "type": "string"
+              },
+              {
+                "const": "unplaced_units",
+                "description": "Units of a placed multi-unit Component left unplaced.",
+                "type": "string"
+              },
+              {
+                "const": "unit_data_mismatch",
+                "description": "Units of one Component whose Component data differ.",
+                "type": "string"
+              }
+            ]
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "$ref": "#/$defs/ErcCheck",
+            "description": "The ERC check."
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity"
+          }
+        },
+        "required": [
+          "check",
+          "severity"
+        ],
+        "title": "ErcSetSeverityParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set ERC Severity"
+    },
+    {
+      "category": "schematic",
+      "description": "Tells whether the schematic, its Waivers or the ERC severities changed since the `erc.run` that returned `design`.",
+      "icon": "erc",
+      "id": "erc.stale",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "design": {
+            "description": "The `design` fingerprint an `erc.run` returned.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "design"
+        ],
+        "title": "ErcStaleParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "stale": {
+            "description": "Whether the design was edited since that run, so its results are stale.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stale"
+        ],
+        "title": "ErcStaleResult",
+        "type": "object"
+      },
+      "title": "Are ERC Results Stale"
+    },
+    {
+      "category": "schematic",
+      "description": "Deletes Waivers, so the Violations they waived are reported again.",
+      "icon": "waive",
+      "id": "erc.unwaive",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "waivers": {
+            "description": "The Waivers to delete.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "waivers"
+        ],
+        "title": "ErcUnwaiveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "waivers": {
+            "description": "The deleted Waivers.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "waivers"
+        ],
+        "title": "ErcUnwaiveResult",
+        "type": "object"
+      },
+      "title": "Delete ERC Waivers"
+    },
+    {
+      "category": "schematic",
+      "description": "Waives one current ERC Violation, named by its check and exactly its objects, with an optional comment. The Waiver is stored in the sheet holding the Violation's first object and stops matching once those objects no longer break the check.",
+      "icon": "waive",
+      "id": "erc.waive",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "ErcCheck": {
+            "description": "One ERC check, named as in [`ErcSeverities`].",
+            "oneOf": [
+              {
+                "const": "unconnected_input",
+                "description": "An Input or Power In Pin connected to nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unconnected_pin",
+                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt.",
+                "type": "string"
+              },
+              {
+                "const": "pin_conflict",
+                "description": "Drivers fighting on a Net: Output and Power Out Pins together.",
+                "type": "string"
+              },
+              {
+                "const": "pin_conflict_mixed",
+                "description": "Pin types that should not mix on a Net, such as Tri-state and Output.",
+                "type": "string"
+              },
+              {
+                "const": "undriven_power",
+                "description": "A Net with Power In Pins and no Power Out Pin or Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "single_pin_net",
+                "description": "A wired Net with only one Pin.",
+                "type": "string"
+              },
+              {
+                "const": "dangling_wire",
+                "description": "A Wire end that touches nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unattached_label",
+                "description": "A Net Label or Port attached to nothing.",
+                "type": "string"
+              },
+              {
+                "const": "no_connect_connected",
+                "description": "A No-Connect Marker on a Pin that is connected.",
+                "type": "string"
+              },
+              {
+                "const": "multiple_net_names",
+                "description": "One Net with several names.",
+                "type": "string"
+              },
+              {
+                "const": "single_sheet_port",
+                "description": "A Port whose name no other sheet has.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_designator",
+                "description": "Several Components with the same Designator.",
+                "type": "string"
+              },
+              {
+                "const": "unplaced_units",
+                "description": "Units of a placed multi-unit Component left unplaced.",
+                "type": "string"
+              },
+              {
+                "const": "unit_data_mismatch",
+                "description": "Units of one Component whose Component data differ.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "$ref": "#/$defs/ErcCheck",
+            "description": "The check id of the Violation, such as `unconnected_pin`."
+          },
+          "comment": {
+            "default": "",
+            "description": "Why it is waived.",
+            "type": "string"
+          },
+          "objects": {
+            "description": "Exactly the objects of the Violation, in any order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "check",
+          "objects"
+        ],
+        "title": "ErcWaiveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "document": {
+            "description": "The sheet that holds it: the one holding the Violation's first object.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "waiver": {
+            "description": "The new Waiver.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "waiver",
+          "document"
+        ],
+        "title": "ErcWaiveResult",
+        "type": "object"
+      },
+      "title": "Waive ERC Violation"
+    },
+    {
       "category": "output",
       "description": "Copies a shipped or user Fab Preset into the Project, so Output Jobs can use it and it travels with the Project.",
       "icon": "fab_preset_add",
@@ -1118,6 +1583,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -1665,6 +2138,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -1915,6 +2396,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -2057,6 +2546,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -2226,6 +2723,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -2476,6 +2981,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -2706,6 +3219,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -2936,6 +3457,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -3096,6 +3625,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -3321,6 +3858,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -3546,6 +4091,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -5046,6 +5599,14 @@
               "severity": {
                 "$ref": "#/$defs/Severity",
                 "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -7025,6 +7586,99 @@
             ],
             "type": "object"
           },
+          "ErcSeverities": {
+            "additionalProperties": false,
+            "description": "The severity of every ERC check, stored in the Project. A check left out has its\ndefault.",
+            "properties": {
+              "dangling_wire": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Wire end that touches nothing."
+              },
+              "duplicate_designator": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Several Components with the same Designator."
+              },
+              "multiple_net_names": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "One Net with several names."
+              },
+              "no_connect_connected": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A No-Connect Marker on a Pin that is connected."
+              },
+              "pin_conflict": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Drivers fighting on a Net: Output and Power Out Pins together."
+              },
+              "pin_conflict_mixed": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Pin types that should not mix on a Net, such as Tri-state and Output."
+              },
+              "single_pin_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A wired Net with only one Pin."
+              },
+              "single_sheet_port": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Port whose name no other sheet has."
+              },
+              "unattached_label": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Net Label or Port attached to nothing."
+              },
+              "unconnected_input": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "An Input or Power In Pin connected to nothing."
+              },
+              "unconnected_pin": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt."
+              },
+              "undriven_power": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Net with Power In Pins and no Power Out Pin or Power Port."
+              },
+              "unit_data_mismatch": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Units of one Component whose Component data differ."
+              },
+              "unplaced_units": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Units of a placed multi-unit Component left unplaced."
+              }
+            },
+            "required": [
+              "unconnected_input",
+              "unconnected_pin",
+              "pin_conflict",
+              "pin_conflict_mixed",
+              "undriven_power",
+              "single_pin_net",
+              "dangling_wire",
+              "unattached_label",
+              "no_connect_connected",
+              "multiple_net_names",
+              "single_sheet_port",
+              "duplicate_designator",
+              "unplaced_units",
+              "unit_data_mismatch"
+            ],
+            "type": "object"
+          },
           "Field": {
             "additionalProperties": false,
             "description": "One free-form field.",
@@ -7625,6 +8279,37 @@
           "InDocument18": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "check": {
+                "description": "The check id of the waived Violation, such as `unconnected_pin` or `clearance`.",
+                "type": "string"
+              },
+              "comment": {
+                "description": "Why it is waived. Left out when empty.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, sorted.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "check",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "InDocument19": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "font": {
                 "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
                 "type": "string"
@@ -7677,7 +8362,34 @@
             ],
             "type": "object"
           },
-          "InDocument19": {
+          "InDocument2": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "default_net_class": {
+                "description": "The Net Class that new Nets get, and that Nets of a deleted class fall back to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rules": {
+                "$ref": "#/$defs/Rules"
+              },
+              "severities": {
+                "$ref": "#/$defs/DrcSeverities"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "default_net_class",
+              "rules",
+              "severities"
+            ],
+            "type": "object"
+          },
+          "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -7703,33 +8415,6 @@
               "layer",
               "width",
               "shape"
-            ],
-            "type": "object"
-          },
-          "InDocument2": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "default_net_class": {
-                "description": "The Net Class that new Nets get, and that Nets of a deleted class fall back to.",
-                "format": "uuid",
-                "type": "string"
-              },
-              "rules": {
-                "$ref": "#/$defs/Rules"
-              },
-              "severities": {
-                "$ref": "#/$defs/DrcSeverities"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "default_net_class",
-              "rules",
-              "severities"
             ],
             "type": "object"
           },
@@ -7981,6 +8666,26 @@
                     },
                     "type": "array"
                   },
+                  "erc": {
+                    "$ref": "#/$defs/ErcSeverities",
+                    "default": {
+                      "dangling_wire": "warning",
+                      "duplicate_designator": "error",
+                      "multiple_net_names": "warning",
+                      "no_connect_connected": "warning",
+                      "pin_conflict": "error",
+                      "pin_conflict_mixed": "warning",
+                      "single_pin_net": "warning",
+                      "single_sheet_port": "warning",
+                      "unattached_label": "warning",
+                      "unconnected_input": "error",
+                      "unconnected_pin": "warning",
+                      "undriven_power": "warning",
+                      "unit_data_mismatch": "error",
+                      "unplaced_units": "warning"
+                    },
+                    "description": "The ERC severities."
+                  },
                   "libraries": {
                     "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.",
                     "items": {
@@ -8016,7 +8721,8 @@
                   "uuid",
                   "name",
                   "documents",
-                  "properties"
+                  "properties",
+                  "erc"
                 ],
                 "type": "object"
               },
@@ -8565,7 +9271,7 @@
                 "$ref": "#/$defs/InDocument18",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "waiver",
                     "type": "string"
                   }
                 },
@@ -8576,6 +9282,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument19",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument20",
                 "properties": {
                   "type": {
                     "const": "pcb_graphic",
@@ -9602,6 +10321,11 @@
                 "type": "string"
               },
               {
+                "const": "waiver",
+                "description": "A Waiver of one Violation, in the Document holding its objects.",
+                "type": "string"
+              },
+              {
                 "const": "pcb_text",
                 "description": "Free text on a PCB Layer.",
                 "type": "string"
@@ -9858,6 +10582,99 @@
               "courtyard_overlap",
               "silkscreen_over_pads",
               "out_of_sync"
+            ],
+            "type": "object"
+          },
+          "ErcSeverities": {
+            "additionalProperties": false,
+            "description": "The severity of every ERC check, stored in the Project. A check left out has its\ndefault.",
+            "properties": {
+              "dangling_wire": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Wire end that touches nothing."
+              },
+              "duplicate_designator": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Several Components with the same Designator."
+              },
+              "multiple_net_names": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "One Net with several names."
+              },
+              "no_connect_connected": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A No-Connect Marker on a Pin that is connected."
+              },
+              "pin_conflict": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Drivers fighting on a Net: Output and Power Out Pins together."
+              },
+              "pin_conflict_mixed": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Pin types that should not mix on a Net, such as Tri-state and Output."
+              },
+              "single_pin_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A wired Net with only one Pin."
+              },
+              "single_sheet_port": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Port whose name no other sheet has."
+              },
+              "unattached_label": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Net Label or Port attached to nothing."
+              },
+              "unconnected_input": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "An Input or Power In Pin connected to nothing."
+              },
+              "unconnected_pin": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt."
+              },
+              "undriven_power": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Net with Power In Pins and no Power Out Pin or Power Port."
+              },
+              "unit_data_mismatch": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Units of one Component whose Component data differ."
+              },
+              "unplaced_units": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Units of a placed multi-unit Component left unplaced."
+              }
+            },
+            "required": [
+              "unconnected_input",
+              "unconnected_pin",
+              "pin_conflict",
+              "pin_conflict_mixed",
+              "undriven_power",
+              "single_pin_net",
+              "dangling_wire",
+              "unattached_label",
+              "no_connect_connected",
+              "multiple_net_names",
+              "single_sheet_port",
+              "duplicate_designator",
+              "unplaced_units",
+              "unit_data_mismatch"
             ],
             "type": "object"
           },
@@ -10461,6 +11278,37 @@
           "InDocument18": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "check": {
+                "description": "The check id of the waived Violation, such as `unconnected_pin` or `clearance`.",
+                "type": "string"
+              },
+              "comment": {
+                "description": "Why it is waived. Left out when empty.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, sorted.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "check",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "InDocument19": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "font": {
                 "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
                 "type": "string"
@@ -10513,7 +11361,34 @@
             ],
             "type": "object"
           },
-          "InDocument19": {
+          "InDocument2": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "default_net_class": {
+                "description": "The Net Class that new Nets get, and that Nets of a deleted class fall back to.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rules": {
+                "$ref": "#/$defs/Rules"
+              },
+              "severities": {
+                "$ref": "#/$defs/DrcSeverities"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "default_net_class",
+              "rules",
+              "severities"
+            ],
+            "type": "object"
+          },
+          "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -10539,33 +11414,6 @@
               "layer",
               "width",
               "shape"
-            ],
-            "type": "object"
-          },
-          "InDocument2": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "default_net_class": {
-                "description": "The Net Class that new Nets get, and that Nets of a deleted class fall back to.",
-                "format": "uuid",
-                "type": "string"
-              },
-              "rules": {
-                "$ref": "#/$defs/Rules"
-              },
-              "severities": {
-                "$ref": "#/$defs/DrcSeverities"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "default_net_class",
-              "rules",
-              "severities"
             ],
             "type": "object"
           },
@@ -10817,6 +11665,26 @@
                     },
                     "type": "array"
                   },
+                  "erc": {
+                    "$ref": "#/$defs/ErcSeverities",
+                    "default": {
+                      "dangling_wire": "warning",
+                      "duplicate_designator": "error",
+                      "multiple_net_names": "warning",
+                      "no_connect_connected": "warning",
+                      "pin_conflict": "error",
+                      "pin_conflict_mixed": "warning",
+                      "single_pin_net": "warning",
+                      "single_sheet_port": "warning",
+                      "unattached_label": "warning",
+                      "unconnected_input": "error",
+                      "unconnected_pin": "warning",
+                      "undriven_power": "warning",
+                      "unit_data_mismatch": "error",
+                      "unplaced_units": "warning"
+                    },
+                    "description": "The ERC severities."
+                  },
                   "libraries": {
                     "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.",
                     "items": {
@@ -10852,7 +11720,8 @@
                   "uuid",
                   "name",
                   "documents",
-                  "properties"
+                  "properties",
+                  "erc"
                 ],
                 "type": "object"
               },
@@ -11401,7 +12270,7 @@
                 "$ref": "#/$defs/InDocument18",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "waiver",
                     "type": "string"
                   }
                 },
@@ -11412,6 +12281,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument19",
+                "properties": {
+                  "type": {
+                    "const": "pcb_text",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument20",
                 "properties": {
                   "type": {
                     "const": "pcb_graphic",
