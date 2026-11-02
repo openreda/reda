@@ -22,6 +22,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use reda_engine::Engine;
+use reda_engine::command::{FixedClock, SeededIds};
 use reda_engine::format::FORMAT;
 use reda_engine::store;
 use reda_testkit::{
@@ -60,7 +62,16 @@ fn copy_tree(from: &Path, to: &Path) {
 fn open_copy(dir: &str, file: &str) -> (TempDir, TestEngine) {
     let work = TempDir::new(&format!("reference-{dir}"));
     copy_tree(&projects_dir().join(dir), work.path());
-    let mut engine = test_engine_with_library(&starter_library());
+    // The Projects were made on seed 0; another seed keeps new objects' UUIDs clear of
+    // theirs.
+    let mut engine = TestEngine(
+        Engine::builder()
+            .ids(SeededIds::new(1 << 32))
+            .clock(FixedClock::EPOCH)
+            .user_dirs(None)
+            .starter_library(Some(starter_library()))
+            .build(),
+    );
     let opened = engine.run_ok("project.open", json!({"path": work.path().join(file)}));
     assert!(
         opened.get("missing").is_none(),
@@ -124,6 +135,27 @@ fn every_folder_under_tests_projects_is_a_listed_reference_project() {
     let mut listed: Vec<String> = PROJECTS.iter().map(|(d, _)| d.to_string()).collect();
     listed.sort();
     assert_eq!(folders, listed);
+}
+
+#[test]
+fn opening_and_saving_leaves_every_file_as_it_was() {
+    for (dir, file) in PROJECTS {
+        let (work, mut engine) = open_copy(dir, file);
+        engine.run_ok("project.save", json!({}));
+        let kept = read_tree(&projects_dir().join(dir));
+        let saved: BTreeMap<_, _> = read_tree(work.path())
+            .into_iter()
+            .filter(|(rel, _)| !rel.starts_with(".reda/"))
+            .collect();
+        assert_eq!(
+            saved.keys().collect::<Vec<_>>(),
+            kept.keys().collect::<Vec<_>>(),
+            "{dir}"
+        );
+        for (rel, bytes) in &kept {
+            assert!(saved[rel] == *bytes, "{dir}: saving rewrote {rel}");
+        }
+    }
 }
 
 #[test]
