@@ -128,12 +128,47 @@ impl fmt::Display for DockSide {
     }
 }
 
-/// Where a split puts the new group, beside the tab's group.
+/// Where a split puts the new group, beside the group it splits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SplitSide {
     Right,
     Down,
+    Left,
+    Up,
+}
+
+impl SplitSide {
+    pub const ALL: [SplitSide; 4] = [
+        SplitSide::Left,
+        SplitSide::Right,
+        SplitSide::Up,
+        SplitSide::Down,
+    ];
+
+    /// The axis of the split it makes.
+    pub fn axis(self) -> Axis {
+        match self {
+            SplitSide::Left | SplitSide::Right => Axis::Horizontal,
+            SplitSide::Up | SplitSide::Down => Axis::Vertical,
+        }
+    }
+
+    /// Whether the new group goes before the split group: to its left or above it.
+    fn before(self) -> bool {
+        matches!(self, SplitSide::Left | SplitSide::Up)
+    }
+}
+
+impl fmt::Display for SplitSide {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            SplitSide::Right => "right",
+            SplitSide::Down => "down",
+            SplitSide::Left => "left",
+            SplitSide::Up => "up",
+        })
+    }
 }
 
 /// How a split lays out its children: side by side, or stacked.
@@ -213,16 +248,19 @@ impl<T> Node<T> {
         }
     }
 
-    /// Puts `new` beside the group `id`, along `axis`. Returns whether it found the group.
-    fn split(&mut self, id: GroupId, axis: Axis, new: &mut Option<Group<T>>) -> bool {
+    /// Puts `new` beside the group `id`, on `side`. Returns whether it found the group.
+    fn split(&mut self, id: GroupId, side: SplitSide, new: &mut Option<Group<T>>) -> bool {
+        let axis = side.axis();
         match self {
             Node::Group(g) if g.id == id => {
                 let old = std::mem::replace(self, Node::Group(Group::new(id, Vec::new())));
-                let new = new.take().expect("split once");
-                *self = Node::Split {
-                    axis,
-                    children: vec![old, Node::Group(new)],
+                let new = Node::Group(new.take().expect("split once"));
+                let children = if side.before() {
+                    vec![new, old]
+                } else {
+                    vec![old, new]
                 };
+                *self = Node::Split { axis, children };
                 true
             }
             Node::Group(_) => false,
@@ -235,10 +273,11 @@ impl<T> Node<T> {
                     // Beside a direct child along the split's own axis: a new sibling.
                     if own == axis && matches!(&children[i], Node::Group(g) if g.id == id) {
                         let new = new.take().expect("split once");
-                        children.insert(i + 1, Node::Group(new));
+                        let at = if side.before() { i } else { i + 1 };
+                        children.insert(at, Node::Group(new));
                         return true;
                     }
-                    if children[i].split(id, axis, new) {
+                    if children[i].split(id, side, new) {
                         return true;
                     }
                 }
@@ -662,45 +701,54 @@ impl Layout {
 
     /// Moves `tab` out of its group into a new group to the right of it or below it.
     pub fn split(&mut self, tab: &TabKey, side: SplitSide) -> Result<GroupId, CommandError> {
+        self.split_beside(tab, None, side)
+    }
+
+    /// Moves `tab` into a new group on `side` of the group `beside` (by default the tab's
+    /// own group). A tab alone in its group has nothing to split from, and a Dock holds
+    /// one column of groups, so a group in a Dock splits only up or down.
+    pub fn split_beside(
+        &mut self,
+        tab: &TabKey,
+        beside: Option<GroupId>,
+        side: SplitSide,
+    ) -> Result<GroupId, CommandError> {
         self.apply(|l| {
             let place = l.find(tab)?;
+            let target = beside.unwrap_or(place.group);
+            let area = l
+                .groups()
+                .into_iter()
+                .find(|(_, g)| g.id == target)
+                .map(|(area, _)| area)
+                .ok_or_else(|| CommandError::not_found(format!("no tab group {}", target.0)))?;
             let alone = l.group(place.group).is_some_and(|g| g.tabs.len() == 1);
-            if alone {
+            if alone && target == place.group {
                 return Err(CommandError::rejected(format!(
                     "{tab} is alone in its group, so there is nothing to split it from"
                 )));
             }
+            if matches!(area, Area::Dock(_)) && side.axis() == Axis::Horizontal {
+                return Err(CommandError::rejected(
+                    "a Dock holds one column of groups, so a group in it splits only up or down",
+                ));
+            }
             l.take(tab)?;
             let id = GroupId(l.fresh_id());
-            let new = Group::new(id, vec![tab.clone()]);
-            match (place.area, side) {
-                (Area::Dock(_), SplitSide::Right) => {
-                    return Err(CommandError::rejected(
-                        "a Dock holds one column of groups, so a tab in it can only split down",
-                    ));
-                }
-                (Area::Dock(dock), SplitSide::Down) => {
+            let mut new = Some(Group::new(id, vec![tab.clone()]));
+            match area {
+                Area::Dock(dock) => {
                     let groups = &mut l.dock_mut(dock).groups;
-                    let at = groups.iter().position(|g| g.id == place.group).unwrap_or(0);
-                    groups.insert(at + 1, new);
+                    let at = groups.iter().position(|g| g.id == target).unwrap_or(0);
+                    let at = if side.before() { at } else { at + 1 };
+                    groups.insert(at, new.take().expect("one new group"));
                 }
-                (area, side) => {
-                    let axis = match side {
-                        SplitSide::Right => Axis::Horizontal,
-                        SplitSide::Down => Axis::Vertical,
-                    };
-                    let root = match area {
-                        Area::Window(w) => {
-                            &mut l
-                                .windows
-                                .iter_mut()
-                                .find(|win| win.id == w)
-                                .expect("placed")
-                                .root
-                        }
-                        _ => &mut l.centre,
-                    };
-                    root.split(place.group, axis, &mut Some(new));
+                Area::Window(w) => {
+                    let window = l.windows.iter_mut().find(|win| win.id == w);
+                    window.expect("placed").root.split(target, side, &mut new);
+                }
+                Area::Centre => {
+                    l.centre.split(target, side, &mut new);
                 }
             }
             Ok(l.activate_in_place(tab))
@@ -781,6 +829,15 @@ impl Layout {
             _ => None,
         };
         place.group
+    }
+
+    /// Whether both layouts put the same tabs in the same places, whatever has focus.
+    pub(super) fn same_arrangement(&self, other: &Layout) -> bool {
+        self.centre == other.centre
+            && self.left == other.left
+            && self.right == other.right
+            && self.bottom == other.bottom
+            && self.windows == other.windows
     }
 
     fn fresh_id(&mut self) -> u64 {

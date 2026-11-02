@@ -963,8 +963,13 @@ impl Shell {
                 .map(|d| d.title.clone())
                 .unwrap_or_default();
             let scene = self.scene_of(document);
-            self.documents
-                .push(DocumentTab::new(document, title, scene));
+            let mut tab = DocumentTab::new(document, title, scene);
+            // A Document opened again comes back as it was last seen.
+            if let Some(view) = self.closed_views.remove(&document) {
+                tab.camera = view.camera;
+                tab.layers = view.layers;
+            }
+            self.documents.push(tab);
         }
         self.sync_selection();
     }
@@ -1006,10 +1011,20 @@ impl Shell {
     }
 
     /// Drops the tab state of Documents whose tabs the layout no longer has.
+    /// Their view is kept for `view.json` and for when they open again.
     fn forget_closed_documents(&mut self) {
-        let mut documents = std::mem::take(&mut self.documents);
-        documents.retain(|d| self.layout().place(&TabKey::Document(d.document)).is_some());
-        self.documents = documents;
+        let documents = std::mem::take(&mut self.documents);
+        let (open, closed): (Vec<_>, Vec<_>) = documents
+            .into_iter()
+            .partition(|d| self.layout().place(&TabKey::Document(d.document)).is_some());
+        for tab in closed {
+            let view = DocumentView {
+                camera: tab.camera,
+                layers: tab.layers,
+            };
+            self.closed_views.insert(tab.document, view);
+        }
+        self.documents = open;
     }
 
     fn scene_of(&mut self, document: Uuid) -> SceneHandle {

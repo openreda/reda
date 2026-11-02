@@ -2,6 +2,8 @@
 //! split into lines, mirrored, rotated and moved into place. Gerber, PDF and the canvas all
 //! draw from this, so they agree glyph for glyph.
 
+mod footprint;
+
 use std::sync::OnceLock;
 
 use reda_command::Fonts;
@@ -10,6 +12,8 @@ use reda_model::{HERSHEY_FONT, NOTO_SANS_FONT, PcbDocument, PcbText, Uuid};
 use reda_text::{Font, OutlineFont, StrokeFont, layout};
 use schemars::JsonSchema;
 use serde::Serialize;
+
+pub use footprint::{FOOTPRINT_TEXT_PEN, board_layer, footprint_texts};
 
 /// The distance from one baseline to the next, as a multiple of the capital height
 /// (`LINE_PITCH.0 / LINE_PITCH.1`).

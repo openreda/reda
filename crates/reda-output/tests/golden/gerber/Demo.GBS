@@ -1,0 +1,17 @@
+%TF.GenerationSoftware,openreda,REDA*%
+%TF.CreationDate,2026-01-01T00:00:00+00:00*%
+%TF.ProjectId,Demo,00000000-0000-4000-8000-000000000001,A\u002C first*%
+%TF.SameCoordinates,00000000-0000-4000-8000-000000000003*%
+%TF.FileFunction,Soldermask,Bot*%
+%TF.FilePolarity,Negative*%
+%FSLAX46Y46*%
+%MOMM*%
+%LPD*%
+G75*
+G01*
+%TA.AperFunction,SMDPad,CuDef*%
+%ADD10O,1.500000X0.800000*%
+%TD*%
+D10*
+X20000000Y10000000D03*
+M02*

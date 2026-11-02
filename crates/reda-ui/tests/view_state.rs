@@ -85,6 +85,28 @@ fn the_layout_and_cameras_come_back_when_the_project_reopens() {
 }
 
 #[test]
+fn a_document_opened_again_keeps_its_camera_and_the_project_tree_still_opens_tabs() {
+    let home = TempDir::new("view-home");
+    let work = TempDir::new("view-work");
+    let project = make_project(home.path(), work.path(), "Again");
+
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.open_project(&project).unwrap();
+    let sheet = first_sheet(&shell);
+    shell.document_tab_mut(sheet).unwrap().camera = Some(CAMERA);
+    let tab = TabKey::Document(sheet).to_string();
+    shell.run("layout.tab.close", json!({"tab": tab})).unwrap();
+    assert!(shell.document_tab(sheet).is_none());
+
+    // `document.open`, as the Projects panel runs it, brings the tab back as it was.
+    shell
+        .run("document.open", json!({"document": sheet}))
+        .unwrap();
+    assert_eq!(shell.document_tab(sheet).unwrap().camera, Some(CAMERA));
+    assert!(shell.layout().place(&TabKey::Document(sheet)).is_some());
+}
+
+#[test]
 fn opening_another_project_saves_the_view_of_the_one_it_replaces() {
     let home = TempDir::new("view-home");
     let work = TempDir::new("view-work");

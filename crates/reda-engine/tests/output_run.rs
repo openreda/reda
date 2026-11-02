@@ -69,12 +69,29 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         .iter()
         .map(|f| f["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, ["Demo.GTL", "Demo.GBL", "Demo.GKO"]);
+    assert_eq!(
+        names[..11],
+        [
+            "Demo.GTL",
+            "Demo.GBL",
+            "Demo.GTS",
+            "Demo.GBS",
+            "Demo.GTP",
+            "Demo.GBP",
+            "Demo.GTO",
+            "Demo.GBO",
+            "Demo.GKO",
+            "Demo-PTH.drl",
+            "Demo-NPTH.drl"
+        ]
+    );
     assert_eq!(out["files"][0]["function"], "copper_top");
+    assert_eq!(out["files"][9]["function"], "drill_plated");
+    assert_eq!(out["files"][10]["function"], "drill_non_plated");
 
     let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
-    assert_eq!(archive.len(), 3);
+    assert_eq!(archive.len(), names.len());
     for name in names {
         let loose = std::fs::read(folder.join(name)).unwrap();
         let mut entry = archive.by_name(name).unwrap();
@@ -83,7 +100,7 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         assert_eq!(zipped, loose, "{name}");
         let text = String::from_utf8(loose).unwrap();
         assert!(
-            text.contains("%TF.CreationDate,2026-01-01T00:00:00+00:00*%"),
+            name.ends_with(".csv") || text.contains("TF.CreationDate,2026-01-01T00:00:00+00:00"),
             "the time comes from the injected Clock"
         );
     }
@@ -106,13 +123,72 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
         json!({"job": JOB, "outputs": {"gerber": false}}),
     );
     run(&mut engine);
-    assert!(!folder.join("Demo.GTL").exists(), "Gerber turned off");
+    for name in ["Demo.GTL", "Demo.GTS", "Demo.GBP", "Demo.GTO"] {
+        assert!(!folder.join(name).exists(), "Gerber turned off: {name}");
+    }
+    assert!(folder.join("Demo-PTH.drl").exists());
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "outputs": {"drill": false}}),
+    );
+    run(&mut engine);
+    assert!(!folder.join("Demo-PTH.drl").exists(), "drill turned off");
+    assert!(!folder.join("Demo-NPTH.drl").exists(), "drill turned off");
     assert!(folder.join("Demo-Generic.zip").exists());
     assert_eq!(
         std::fs::read(folder.join("notes.txt")).unwrap(),
         b"mine",
         "files REDA does not write are left alone"
     );
+}
+
+#[test]
+fn a_run_writes_the_bom_and_cpl_with_the_job_preset_columns() {
+    let dir = TempDir::new("output-assembly");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(5.0, 5.0), "pads": [{"at": pt(0.0, 0.0), "width": "1mm",
+               "height": "1mm"}]}),
+    );
+    let out = run(&mut engine);
+    let files: Vec<(&str, &str)> = out["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| (f["name"].as_str().unwrap(), f["function"].as_str().unwrap()))
+        .collect();
+    assert!(files.contains(&("Demo-BOM.csv", "bom")), "{files:?}");
+    assert!(files.contains(&("Demo-CPL.csv", "cpl")), "{files:?}");
+    assert!(
+        !out["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w["check"] == "output_not_built"),
+        "{}",
+        out["warnings"]
+    );
+    let folder = dir.path().join("Demo/outputs/Generic");
+    assert_eq!(
+        std::fs::read_to_string(folder.join("Demo-CPL.csv")).unwrap(),
+        "Designator,Mid X,Mid Y,Layer,Rotation\n",
+        "a Footprint with no Component is a Mechanical Part, so it is left out"
+    );
+    assert!(
+        std::fs::read_to_string(folder.join("Demo-BOM.csv"))
+            .unwrap()
+            .starts_with("Designator,Quantity,Value,Footprint,Manufacturer,MPN\n")
+    );
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "outputs": {"bom": false, "cpl": false}}),
+    );
+    run(&mut engine);
+    assert!(!folder.join("Demo-BOM.csv").exists(), "BOM turned off");
+    assert!(!folder.join("Demo-CPL.csv").exists(), "CPL turned off");
 }
 
 #[test]
