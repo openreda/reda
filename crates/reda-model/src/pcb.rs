@@ -17,8 +17,10 @@ use crate::{FootprintCopy, Object, Severity, Uuid};
 
 mod footprint;
 mod graphics;
+mod placement;
 
 pub use footprint::{FootprintInstance, PadNet};
+pub use placement::{FreePad, PlacementOrigin};
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
@@ -243,6 +245,8 @@ pub struct PcbDocument {
     pub(crate) graphics: BTreeMap<Uuid, PcbGraphic>,
     pub(crate) footprint_copies: BTreeMap<Uuid, FootprintCopy>,
     pub(crate) footprints: BTreeMap<Uuid, FootprintInstance>,
+    pub(crate) free_pads: BTreeMap<Uuid, FreePad>,
+    pub(crate) placement_origins: BTreeMap<Uuid, PlacementOrigin>,
 }
 
 impl PcbDocument {
@@ -259,6 +263,8 @@ impl PcbDocument {
             graphics: BTreeMap::new(),
             footprint_copies: BTreeMap::new(),
             footprints: BTreeMap::new(),
+            free_pads: BTreeMap::new(),
+            placement_origins: BTreeMap::new(),
         }
     }
 
@@ -356,6 +362,20 @@ impl PcbDocument {
         self.footprints.get(&uuid)
     }
 
+    /// The Free Pads, sorted by UUID.
+    pub fn free_pads(&self) -> impl Iterator<Item = &FreePad> {
+        self.free_pads.values()
+    }
+
+    pub fn free_pad(&self, uuid: Uuid) -> Option<&FreePad> {
+        self.free_pads.get(&uuid)
+    }
+
+    /// The Placement Origin, if the user has set one.
+    pub fn placement_origin(&self) -> Option<&PlacementOrigin> {
+        self.placement_origins.values().next()
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -377,7 +397,9 @@ impl PcbDocument {
             texts => PcbText,
             graphics => PcbGraphic,
             footprint_copies => FootprintCopy,
-            footprints => FootprintInstance
+            footprints => FootprintInstance,
+            free_pads => FreePad,
+            placement_origins => PlacementOrigin
         )
     }
 
@@ -404,7 +426,9 @@ impl PcbDocument {
             texts => PcbText,
             graphics => PcbGraphic,
             footprint_copies => FootprintCopy,
-            footprints => FootprintInstance
+            footprints => FootprintInstance,
+            free_pads => FreePad,
+            placement_origins => PlacementOrigin
         );
         out
     }
@@ -421,6 +445,8 @@ impl PcbDocument {
         self.graphics.remove(&uuid);
         self.footprint_copies.remove(&uuid);
         self.footprints.remove(&uuid);
+        self.free_pads.remove(&uuid);
+        self.placement_origins.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -434,6 +460,8 @@ impl PcbDocument {
             && self.graphics.is_empty()
             && self.footprint_copies.is_empty()
             && self.footprints.is_empty()
+            && self.free_pads.is_empty()
+            && self.placement_origins.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -452,6 +480,11 @@ impl PcbDocument {
         if self.outlines.len() > 1 {
             return Err(format!(
                 "PCB Document {doc} has more than one Board Outline"
+            ));
+        }
+        if self.placement_origins.len() > 1 {
+            return Err(format!(
+                "PCB Document {doc} has more than one Placement Origin"
             ));
         }
         let mut layers = std::collections::BTreeSet::new();
@@ -493,7 +526,25 @@ impl PcbDocument {
                 ));
             }
         }
-        self.check_footprints()
+        self.check_footprints()?;
+        self.check_free_pads()
+    }
+
+    fn check_free_pads(&self) -> Result<(), String> {
+        for pad in self.free_pads.values() {
+            if let Some(problem) = pad.problem() {
+                return Err(format!("Free Pad {}: {problem}", pad.uuid));
+            }
+            if let Some(net) = pad.net
+                && !self.nets.contains_key(&net)
+            {
+                return Err(format!(
+                    "Free Pad {} is on Net {net}, which does not exist",
+                    pad.uuid
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn check_footprints(&self) -> Result<(), String> {

@@ -466,6 +466,90 @@
       ],
       "type": "object"
     },
+    "FreePad": {
+      "additionalProperties": false,
+      "description": "A Pad placed directly on the board, belonging to no Footprint: a mounting hole, a\nfiducial or a test point.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The Pad centre."
+        },
+        "corner_radius": {
+          "description": "The corner radius of a rounded-rectangle Pad.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Hole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The drilled hole; SMD Pads have none, the others must."
+        },
+        "kind": {
+          "$ref": "#/$defs/PadKind",
+          "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
+        },
+        "net": {
+          "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rotation": {
+          "description": "Counter-clockwise.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "shape": {
+          "$ref": "#/$defs/PadShape"
+        },
+        "side": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The copper side of an SMD Pad; left out for Pads with a hole."
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uuid",
+        "kind",
+        "shape",
+        "at",
+        "rotation",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
     "GraphicShape": {
       "description": "The shape of a [`PcbGraphic`].",
       "oneOf": [
@@ -930,6 +1014,24 @@
       ],
       "type": "object"
     },
+    "PlacementOrigin": {
+      "additionalProperties": false,
+      "description": "The point from which Footprint positions are measured in the manufacturing outputs\n(CPL). A PCB Document has at most one; without it the outputs measure from the\nlower-left corner of the Board Outline's bounding box.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "at"
+      ],
+      "type": "object"
+    },
     "Point": {
       "additionalProperties": false,
       "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
@@ -1273,6 +1375,14 @@
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },
+    "free_pads": {
+      "default": [],
+      "description": "Pads that belong to no Footprint, sorted by UUID; left out while there are none.",
+      "items": {
+        "$ref": "#/$defs/FreePad"
+      },
+      "type": "array"
+    },
     "graphics": {
       "description": "Lines, arcs and rectangles on copper, silkscreen, mechanical and documentation\nLayers.",
       "items": {
@@ -1301,6 +1411,18 @@
     "pcb": {
       "$ref": "#/$defs/PcbRow",
       "description": "The PCB Document's identity; it matches its entry in the Project file."
+    },
+    "placement_origin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlacementOrigin"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The point the CPL measures from; left out while it is not set."
     },
     "rules": {
       "$ref": "#/$defs/Rules",

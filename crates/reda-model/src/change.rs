@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
-    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, InDocument, LayerSet, Net, NetClass,
-    PcbGraphic, PcbText,
+    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, FreePad, InDocument, LayerSet, Net,
+    NetClass, PcbGraphic, PcbText, PlacementOrigin,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -54,6 +54,8 @@ pub enum Object {
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
     FootprintInstance(InDocument<FootprintInstance>),
+    FreePad(InDocument<FreePad>),
+    PlacementOrigin(InDocument<PlacementOrigin>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -123,6 +125,10 @@ pub enum ObjectType {
     PcbGraphic,
     /// A Footprint placed on the board, with its Component's data and a Net per Pad.
     FootprintInstance,
+    /// A Pad placed directly on the board, belonging to no Footprint.
+    FreePad,
+    /// The point manufacturing outputs measure Footprint positions from.
+    PlacementOrigin,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -160,6 +166,8 @@ impl Object {
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
             Object::FootprintInstance(o) => o.uuid,
+            Object::FreePad(o) => o.uuid,
+            Object::PlacementOrigin(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -195,6 +203,8 @@ impl Object {
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             Object::FootprintInstance(_) => ObjectType::FootprintInstance,
+            Object::FreePad(_) => ObjectType::FreePad,
+            Object::PlacementOrigin(_) => ObjectType::PlacementOrigin,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -231,6 +241,8 @@ impl Object {
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
             Object::FootprintInstance(o) => Scope::Document(o.document),
+            Object::FreePad(o) => Scope::Document(o.document),
+            Object::PlacementOrigin(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }
