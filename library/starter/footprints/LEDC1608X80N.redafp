@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip capacitor, 1608 metric, IPC-7351 Nominal"},
+  "footprint": {"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal"},
   "text": {"designator":{"at":{"x":0,"y":1450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":400000,"layer":"assembly_top"}},
   "pads": [
     {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250},
