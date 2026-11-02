@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"10c64dfa-0803-40d2-b882-b8dcff64100b","name":"Header_1x04","component_type":"standard","symbol":"e0980f62-b37a-4e55-89a2-27e68b3106cb"},
+  "footprints": [
+    "c239ed4d-de6f-416c-9865-3fb339411b89",
+    "d7a754a4-3d36-4926-a011-29b659e2a655"
+  ],
+  "fields": {"value":"Header 1x4","description":"1 × 4 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},
+  "pin_map": {}
+}

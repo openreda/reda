@@ -234,6 +234,35 @@ fn upside_down_text_is_turned_to_read_left_to_right() {
     assert!(lo.y > anchor.y, "{lo:?}");
 }
 
+#[test]
+fn free_text_lines_and_rectangles_are_drawn() {
+    let dir = TempDir::new("render-drawing");
+    let mut engine = demo(&dir);
+    engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Power supply\nrev A", "at": at(1000, 6000)}),
+    );
+    engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Turned", "at": at(4000, 6000),
+               "height": "100mil", "rotation": "90deg"}),
+    );
+    engine.run_ok(
+        "schematic.graphic.add_line",
+        json!({"document": SHEET, "from": at(1000, 5000), "to": at(3000, 4000)}),
+    );
+    engine.run_ok(
+        "schematic.graphic.add_rect",
+        json!({"document": SHEET, "from": at(1000, 3000), "to": at(3000, 2000)}),
+    );
+    engine.run_ok(
+        "schematic.graphic.add_rect",
+        json!({"document": SHEET, "from": at(4000, 3000), "to": at(5000, 2000), "filled": true}),
+    );
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    assert_golden(golden("drawing.scene"), scene.to_text().as_bytes());
+}
+
 trait Mil {
     fn mil(self) -> reda_model::geom::Nm;
 }

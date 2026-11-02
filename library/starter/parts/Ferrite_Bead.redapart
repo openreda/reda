@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "part": {"uuid":"9dcb2fa1-ef6c-4d3a-b792-f8cc02007c63","name":"Ferrite_Bead","component_type":"standard","symbol":"fedd1974-aa81-4047-b2a7-0a9bebcb8278"},
+  "footprints": [
+    "595f5b96-5122-43d0-988d-d17a6d6a898b",
+    "c90f8f6c-1afb-46d0-8e31-138f5d581c2e",
+    "878e4faa-0f70-4f21-a036-7a90b752c5ee"
+  ],
+  "fields": {"value":"600R@100MHz","description":"Ferrite bead","keywords":"FB ferrite bead EMI"},
+  "pin_map": {}
+}

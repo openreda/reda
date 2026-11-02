@@ -81,6 +81,10 @@ schematic_colors! {
     Value: Rgba::rgb(0xc8, 0xc8, 0xc8), Rgba::rgb(0x30, 0x30, 0x30);
     /// Other visible Component fields.
     Field: Rgba::rgb(0x96, 0x96, 0x96), Rgba::rgb(0x60, 0x60, 0x60);
+    /// Free text on the sheet.
+    Text: Rgba::rgb(0xdc, 0xdc, 0xdc), Rgba::rgb(0x20, 0x20, 0x20);
+    /// Free lines and rectangles on the sheet.
+    Graphic: Rgba::rgb(0xa0, 0xa8, 0xb4), Rgba::rgb(0x44, 0x4c, 0x58);
 }
 
 /// The colours one theme draws with: the shipped scheme plus the user's overrides (a

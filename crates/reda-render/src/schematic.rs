@@ -18,7 +18,8 @@ use crate::text::{TextStyle, glyph_run};
 /// itself: pass `reda_schematic::connectivity::derive(sheet).junctions` (or the
 /// `schematic.nets` result's `junctions`).
 ///
-/// Draw order: the paper, frame and title block, then Units (body, Pins, fields), Wires,
+/// Draw order: the paper, frame and title block, free lines and rectangles, free text,
+/// then Units (body, Pins, fields), Wires,
 /// Junctions, Net Labels, No-Connect Markers, Ports and Power Ports; each kind in UUID order.
 pub fn schematic_scene(project: &Project, sheet: Uuid, junctions: &[Point]) -> Option<Scene> {
     let body = project.schematic_sheet(sheet)?;
@@ -26,6 +27,8 @@ pub fn schematic_scene(project: &Project, sheet: Uuid, junctions: &[Point]) -> O
         scene: Scene::new(SceneSource::Schematic(sheet)),
     };
     frame::build(&mut b, project, body);
+    drawing::graphics(&mut b, body);
+    drawing::texts(&mut b, body);
     unit::build(&mut b, body);
     drawing::wires(&mut b, body);
     drawing::junctions(&mut b, body, junctions);

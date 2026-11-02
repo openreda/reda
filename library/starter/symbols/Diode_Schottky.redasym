@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"1dc9e0a2-8cd0-429f-aa80-97bcb550679c","name":"Diode_Schottky","designator_prefix":"D","description":"Schottky diode"},
+  "units": [
+    {"uuid":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"d8e8ceca-cede-45d7-b094-babca3c87acf","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"fde91632-4446-48ab-90fc-ee01a68bf186","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","name":"A","number":"2","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"07e2efdf-a7ed-4bcf-93af-4f523c0e933e","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","shape":{"kind":"line","start":{"x":-1270000,"y":-1270000},"end":{"x":1270000,"y":-1270000}},"width":254000},
+    {"uuid":"1cbd63aa-64f3-424c-b010-b9ac83ced4e0","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","shape":{"kind":"line","start":{"x":1270000,"y":-762000},"end":{"x":1778000,"y":-762000}},"width":254000},
+    {"uuid":"7d9c2715-6fe4-42d4-a701-50fe0ccaa111","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","shape":{"kind":"line","start":{"x":-1270000,"y":-1270000},"end":{"x":-1270000,"y":-1778000}},"width":254000},
+    {"uuid":"aa7d6c79-8fef-4e2b-9cce-ccea6b5e332d","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","shape":{"kind":"line","start":{"x":-1270000,"y":-1778000},"end":{"x":-1778000,"y":-1778000}},"width":254000},
+    {"uuid":"b5f994a6-a468-4efa-9873-d94a1482d7f1","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","shape":{"kind":"line","start":{"x":1270000,"y":-1270000},"end":{"x":1270000,"y":-762000}},"width":254000},
+    {"uuid":"be045e47-1bcd-43c9-a198-522fa4e08891","unit":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","shape":{"kind":"polygon","points":[{"x":-1270000,"y":1270000},{"x":1270000,"y":1270000},{"x":0,"y":-1270000}]},"width":254000}
+  ]
+}

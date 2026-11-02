@@ -9,7 +9,8 @@ use serde_json::Value;
 
 /// A headless [`Engine`] with `SeededIds::new(0)` and `FixedClock::EPOCH`, so UUIDs run
 /// `00000000-0000-4000-8000-000000000001`, `…002`, … and saved files are reproducible.
-/// It has no per-user folders, so it never reads the real user's Preferences; use
+/// It has no per-user folders, so it never reads the real user's Preferences, and no
+/// starter Library (see [`test_engine_with_library`]); use
 /// [`test_engine_in`] for tests of per-user files.
 ///
 /// It derefs to [`Engine`]; [`TestEngine::run_ok`] and [`TestEngine::run_err`] add the
@@ -20,6 +21,7 @@ pub fn test_engine() -> TestEngine {
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
             .user_dirs(None)
+            .starter_library(None)
             .build(),
     )
 }
@@ -32,6 +34,7 @@ pub fn test_engine_in(home: &Path) -> TestEngine {
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
             .user_dirs(Some(UserDirs::under(home)))
+            .starter_library(None)
             .build(),
     )
 }
@@ -57,6 +60,7 @@ pub fn test_engine_with_trash(trash: &Path) -> TestEngine {
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
             .user_dirs(None)
+            .starter_library(None)
             .trash(FolderTrash(trash.to_owned()))
             .build(),
     )

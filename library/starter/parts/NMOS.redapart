@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"b61bd593-ef8a-4020-a5a8-cb4de3f48526","name":"NMOS","component_type":"standard","symbol":"9719be04-dd42-44b1-99a3-55cfa74b40c1"},
+  "footprints": [
+    "43ca8637-7f8d-4597-866a-d91d359dd6bb"
+  ],
+  "fields": {"value":"2N7002","description":"N-channel enhancement MOSFET","keywords":"Q transistor MOSFET FET"},
+  "pin_map": {}
+}

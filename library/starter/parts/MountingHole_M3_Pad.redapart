@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"1a21d727-dfca-41ae-9639-309d8abf4714","name":"MountingHole_M3_Pad","component_type":"mechanical"},
+  "footprints": [
+    "8cef86d0-5480-4597-8542-ac0c2cbd9774"
+  ],
+  "fields": {"value":"M3","description":"Mounting hole for M3, 3.2 mm plated, 5.5 mm copper ring","keywords":"H mounting hole screw mechanical"},
+  "pin_map": {}
+}

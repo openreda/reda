@@ -3,6 +3,7 @@
 
 pub mod document;
 pub mod elements;
+pub mod export_pdf;
 pub mod fab_preset;
 pub mod history;
 pub mod import_part;
@@ -23,6 +24,7 @@ pub fn register_all(registry: &mut Registry) {
     document::register_all(registry);
     fab_preset::register_all(registry);
     elements::register_all(registry);
+    export_pdf::register_all(registry);
     history::register_all(registry);
     import_part::register_all(registry);
     library::register_all(registry);

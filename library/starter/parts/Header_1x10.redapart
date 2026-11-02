@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"37d54f1b-62de-4001-88c1-d637cd1da4a1","name":"Header_1x10","component_type":"standard","symbol":"d9a8adcb-0853-418a-bb67-cc2cc6286b83"},
+  "footprints": [
+    "9553b550-db0e-4ca1-8867-6ded2db7e327",
+    "8266b905-dc11-4359-812a-69b8d546065a"
+  ],
+  "fields": {"value":"Header 1x10","description":"1 × 10 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},
+  "pin_map": {}
+}

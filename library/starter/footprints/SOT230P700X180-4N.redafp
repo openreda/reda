@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"29bd1760-af17-4842-97db-7d25d557604a","name":"SOT230P700X180-4N","description":"SOT-223, IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":4300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"24407872-9d48-4769-8484-9ab168833218","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":0},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000},
+    {"uuid":"3dd64c1f-65bb-48cb-bb85-cdfe931447f7","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":-2300000},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000},
+    {"uuid":"a98e58a3-2ebd-4d76-a1cd-1caa5e709bf2","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":3025000,"y":0},"rotation":0,"width":2000000,"height":3200000,"corner_radius":250000},
+    {"uuid":"d58ceb36-767d-40d8-9f0a-159801db3049","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":2300000},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000}
+  ],
+  "graphics": [
+    {"uuid":"26ebd8a0-a320-4313-8d20-386e9fbd90be","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4025000,"y":3410000},"end":{"x":1850000,"y":3410000}},"width":120000},
+    {"uuid":"72c214e6-9c97-47bf-9a7c-0e4ed41f2525","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4300000,"y":-3600000},"end":{"x":4300000,"y":3600000}},"width":50000},
+    {"uuid":"a94f7bfc-c3bb-4196-9655-0c949e8fd927","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-875000,"y":3250000},{"x":1750000,"y":3250000},{"x":1750000,"y":-3250000},{"x":-1750000,"y":-3250000},{"x":-1750000,"y":2375000}]},"width":100000},
+    {"uuid":"e40715f9-3a0e-4b39-943c-97d966ac691f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1850000,"y":-3410000},"end":{"x":1850000,"y":-3410000}},"width":120000}
+  ]
+}

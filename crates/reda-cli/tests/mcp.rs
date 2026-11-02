@@ -119,6 +119,7 @@ fn lists_the_generic_tools_and_the_query_commands() {
             "objects.query",
             "object.get",
             "erc.run",
+            "document.render",
         ]
     );
     let overview = &tools[3];

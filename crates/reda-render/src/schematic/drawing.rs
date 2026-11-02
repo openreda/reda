@@ -1,7 +1,8 @@
-//! The connecting drawing: Wires, Junctions, Net Labels and No-Connect Markers.
+//! The connecting drawing (Wires, Junctions, Net Labels and No-Connect Markers) and the
+//! free drawing (text, lines and rectangles).
 
-use reda_model::geom::{Nm, Point};
-use reda_model::{SchematicSheet, Wire};
+use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::{SchematicSheet, SheetShape, Wire};
 
 use super::Builder;
 use crate::color::SchematicColor as C;
@@ -10,6 +11,8 @@ use crate::text::{TextStyle, reading_direction};
 use crate::transform::rotate;
 
 const WIRE_WIDTH: Nm = Nm(152_400);
+/// Free lines and rectangle outlines have no width of their own.
+const GRAPHIC_WIDTH: Nm = Nm(254_000);
 const JUNCTION_RADIUS: Nm = Nm(508_000);
 const LABEL_TEXT: Nm = Nm::from_um(1_270);
 /// Net Label text sits this far above its Wire.
@@ -97,5 +100,42 @@ pub(super) fn no_connects(b: &mut Builder, sheet: &SchematicSheet) {
                 },
             );
         }
+    }
+}
+
+pub(super) fn graphics(b: &mut Builder, sheet: &SchematicSheet) {
+    for graphic in sheet.graphics() {
+        let primitive = match graphic.shape {
+            SheetShape::Line { from, to } => Primitive::Capsule {
+                a: from,
+                b: to,
+                width: GRAPHIC_WIDTH,
+            },
+            SheetShape::Rect { from, to, filled } => Primitive::Rect {
+                center: Point::new(Nm((from.x.0 + to.x.0) / 2), Nm((from.y.0 + to.y.0) / 2)),
+                size: (Nm((to.x - from.x).0.abs()), Nm((to.y - from.y).0.abs())),
+                rotation: Millideg(0),
+                corner_radius: Nm(0),
+                stroke: (!filled).then_some(GRAPHIC_WIDTH),
+            },
+        };
+        b.push(graphic.uuid, C::Graphic, primitive);
+    }
+}
+
+pub(super) fn texts(b: &mut Builder, sheet: &SchematicSheet) {
+    for text in sheet.texts() {
+        b.text(
+            text.uuid,
+            C::Text,
+            &text.text,
+            text.at,
+            TextStyle {
+                height: text.height,
+                rotation: text.rotation,
+                align: Align::new(HAlign::Left, VAlign::Baseline),
+                view_label: false,
+            },
+        );
     }
 }

@@ -22,6 +22,9 @@ pub fn registry() -> Registry {
     reda_library::register_generators(&mut registry, crate::library::store_footprint);
     reda_output::register_all(&mut registry);
     reda_schematic::register_all(&mut registry);
+    reda_render::register_all(&mut registry, |sheet| {
+        reda_schematic::connectivity::derive(sheet).junctions
+    });
     registry
 }
 
@@ -169,8 +172,9 @@ impl Default for Engine {
 }
 
 /// Configures an [`Engine`]. Defaults: random UUIDs, the wall clock, headless, unlimited
-/// undo, no installed fonts, the full [`registry`], the CLI as the source, and the per-user
-/// folders from [`crate::user_dirs::discover`].
+/// undo, no installed fonts, the full [`registry`], the CLI as the source, the per-user
+/// folders from [`crate::user_dirs::discover`] and the starter Library from
+/// [`crate::starter::discover`].
 pub struct EngineBuilder {
     registry: Registry,
     undo_depth: Option<usize>,
@@ -195,7 +199,7 @@ impl Default for EngineBuilder {
             headless: true,
             source: Source::default(),
             user_dirs: crate::user_dirs::discover(),
-            starter_library: None,
+            starter_library: crate::starter::discover(),
             trash: None,
         }
     }
@@ -236,8 +240,8 @@ impl EngineBuilder {
         self
     }
 
-    /// The starter Library's folder, which the app ships; `None` (the default) scans no
-    /// starter Library.
+    /// The starter Library's folder, which the app ships (by default the one
+    /// [`crate::starter::discover`] finds); `None` scans no starter Library.
     pub fn starter_library(mut self, folder: Option<PathBuf>) -> EngineBuilder {
         self.starter_library = folder;
         self
