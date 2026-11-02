@@ -39,9 +39,10 @@ pub(super) enum Item {
     Origin(PlacementOrigin),
 }
 
-/// A change of position applied to an [`Item`].
-#[derive(Clone, Copy, Debug)]
-pub(super) enum Op {
+/// A change of position applied to placed objects: what `pcb.move`, `pcb.rotate` and
+/// `pcb.flip` each do once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Op {
     Translate(Point),
     /// Counter-clockwise about a point.
     Rotate(Point, Millideg),
@@ -181,6 +182,30 @@ fn default_center(pcb: &PcbDocument, items: &[Item]) -> Point {
         [one] => one.at(),
         _ => extent(pcb, items).center(),
     }
+}
+
+/// Where `objects` turn and flip about when no centre is given: a lone object's own
+/// position, else the middle of their extent.
+pub fn anchor(pcb: &PcbDocument, objects: &[Uuid]) -> Result<Point, CommandError> {
+    Ok(default_center(pcb, &resolve(pcb, objects)?))
+}
+
+/// `objects` as they would be after `ops`, one after another, without changing the board:
+/// for showing a move in flight. Refused as the Commands refuse (locked Footprints,
+/// objects that cannot be placed).
+pub fn preview(
+    pcb: &PcbDocument,
+    objects: &[Uuid],
+    ops: &[Op],
+) -> Result<Vec<Object>, CommandError> {
+    let mut items = resolve(pcb, objects)?;
+    refuse_locked(&items)?;
+    for item in &mut items {
+        for op in ops {
+            item.apply(*op);
+        }
+    }
+    Ok(items.into_iter().map(|i| i.into_object(pcb.uuid)).collect())
 }
 
 /// Applies one Op per item (`ops` in the same order), refusing locked Footprints first,
