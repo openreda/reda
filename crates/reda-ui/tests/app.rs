@@ -227,12 +227,36 @@ fn set_theme(home: &Path, theme: &str) {
 }
 
 /// A fixed folder for Projects that snapshots show, so their paths are the same on every
-/// machine (the snapshots run on Linux only).
-fn snapshot_folder(name: &str) -> PathBuf {
-    let dir = PathBuf::from("/tmp/reda-ui-snapshots").join(name);
+/// machine (the snapshots run on Linux only). It holds an exclusive lock on
+/// `<name>.lock` beside it until dropped, so test runs in other checkouts that want the
+/// same folder wait instead of deleting it under this one.
+struct SnapshotFolder {
+    dir: PathBuf,
+    _lock: std::fs::File,
+}
+
+impl std::ops::Deref for SnapshotFolder {
+    type Target = PathBuf;
+
+    fn deref(&self) -> &PathBuf {
+        &self.dir
+    }
+}
+
+fn snapshot_folder(name: &str) -> SnapshotFolder {
+    let root = PathBuf::from("/tmp/reda-ui-snapshots");
+    std::fs::create_dir_all(&root).unwrap();
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(root.join(format!("{name}.lock")))
+        .unwrap();
+    lock.lock().unwrap();
+    let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    dir
+    SnapshotFolder { dir, _lock: lock }
 }
 
 fn start_page_snapshot(theme: &str) {
