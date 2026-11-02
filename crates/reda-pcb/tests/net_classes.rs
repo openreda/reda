@@ -178,5 +178,8 @@ fn a_net_class_is_added_with_its_nets_in_one_step() {
         json!({"name": "Other", "nets": [gnd, power]}),
     );
     assert_eq!(err.code, ErrorCode::NotFound);
-    assert!(pcb(&engine).net_class_named("Other").is_none(), "nothing added");
+    assert!(
+        pcb(&engine).net_class_named("Other").is_none(),
+        "nothing added"
+    );
 }

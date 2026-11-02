@@ -33,7 +33,7 @@ pub struct App {
     shell: Shell,
     files: FileDialogs,
     new_project: Option<NewProjectForm>,
-    /// The open settings dialog (Project Settings), if any.
+    /// The open settings dialog (Project Settings or Board Setup), if any.
     settings: Option<SettingsDialog>,
     window_title: String,
     /// The window's renderer, to free closed canvases' GPU state.
@@ -112,6 +112,7 @@ impl App {
                 }
             }
             Some(ProjectsAction::ProjectSettings) => self.open_project_settings(),
+            Some(ProjectsAction::BoardSetup) => self.open_board_setup(),
             // The Output Job dialog is still to come.
             Some(ProjectsAction::EditJob(_)) | None => {}
         }
@@ -202,6 +203,15 @@ impl App {
     pub fn open_project_settings(&mut self) {
         if let Some(project) = self.shell.engine().project() {
             self.settings = Some(settings::project::dialog(project));
+        }
+    }
+
+    /// Opens the Board Setup dialog on the open Project's PCB Document, if there is one.
+    pub fn open_board_setup(&mut self) {
+        if let Some(project) = self.shell.engine().project()
+            && project.pcb().is_some()
+        {
+            self.settings = Some(settings::board_setup::dialog(project));
         }
     }
 
