@@ -27,6 +27,8 @@ pub enum SceneSource {
     None,
     /// A Schematic Sheet, by its Document UUID.
     Schematic(Uuid),
+    /// A PCB Document, by its UUID.
+    Pcb(Uuid),
 }
 
 /// One primitive, tagged with the object it draws and the Layer it is on.
@@ -49,6 +51,10 @@ pub enum SceneLayer {
     Schematic,
     /// A PCB Layer, by its UUID.
     Board(Uuid),
+    /// Drilled holes (and the numbers of Pads with a hole), drawn over every PCB Layer.
+    Drill,
+    /// The Ratsnest's lines, drawn over everything while the Ratsnest is visible.
+    Ratsnest,
 }
 
 /// A drawable shape. Each maps to one instanced SDF primitive, a triangle list or a run of

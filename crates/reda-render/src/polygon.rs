@@ -10,8 +10,23 @@ use reda_text::Mesh;
 /// Triangulates the closed polygon through `points`, either winding, resolving
 /// self-overlaps with the non-zero rule.
 pub(crate) fn triangulate(points: &[Point]) -> Mesh {
-    let contour: Vec<IntPoint<i64>> = points.iter().map(|p| IntPoint::new(p.x.0, p.y.0)).collect();
-    let shapes = [contour].simplify(FillRule::NonZero, Default::default());
+    fill(&[points], FillRule::NonZero)
+}
+
+/// Triangulates an outer contour with holes (a Zone fill's shape), either winding: the
+/// area inside an odd number of contours is filled.
+pub(crate) fn triangulate_with_holes(outer: &[Point], holes: &[Vec<Point>]) -> Mesh {
+    let mut contours: Vec<&[Point]> = vec![outer];
+    contours.extend(holes.iter().map(Vec::as_slice));
+    fill(&contours, FillRule::EvenOdd)
+}
+
+fn fill(contours: &[&[Point]], rule: FillRule) -> Mesh {
+    let contours: Vec<Vec<IntPoint<i64>>> = contours
+        .iter()
+        .map(|c| c.iter().map(|p| IntPoint::new(p.x.0, p.y.0)).collect())
+        .collect();
+    let shapes = contours.simplify(rule, Default::default());
     let t = shapes.uncheck_triangulate().into_triangulation::<u32>();
     Mesh {
         points: t

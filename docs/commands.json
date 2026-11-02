@@ -304,6 +304,26 @@
       "kind": "query",
       "params": {
         "$defs": {
+          "InactiveLayers": {
+            "description": "How Layers other than the active one are drawn. A key cycles through the three.",
+            "oneOf": [
+              {
+                "const": "normal",
+                "description": "At [`NORMAL_OPACITY`].",
+                "type": "string"
+              },
+              {
+                "const": "dimmed",
+                "description": "At [`DIMMED_OPACITY`].",
+                "type": "string"
+              },
+              {
+                "const": "hidden",
+                "description": "Not drawn: single-Layer mode.",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -413,7 +433,7 @@
         "additionalProperties": false,
         "properties": {
           "active_layer": {
-            "description": "The PCB Layer drawn last, on top. Leave this out for a Schematic Sheet.",
+            "description": "The PCB Layer drawn last, on top, at full opacity; the top copper by default (when\nshown). Leave this out for a Schematic Sheet.",
             "format": "uuid",
             "type": [
               "string",
@@ -429,6 +449,13 @@
             "$ref": "#/$defs/RenderFormat",
             "default": "png"
           },
+          "from_bottom": {
+            "description": "View the PCB from the bottom: mirrored, bottom Layers on top. PCB only; false by\ndefault.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "highlight": {
             "default": [],
             "description": "Objects to highlight: everything else is dimmed.",
@@ -438,14 +465,32 @@
             },
             "type": "array"
           },
+          "inactive_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/InactiveLayers"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the other PCB Layers are drawn: `normal` (the default, partly transparent),\n`dimmed` or `hidden` (only the active Layer). PCB only."
+          },
           "layers": {
-            "description": "The PCB Layers to show (every Layer by default). A Schematic Sheet has a single\nLayer, so leave this out for one.",
+            "description": "The PCB Layers to show, by UUID (every Layer by default). A Schematic Sheet has a\nsingle Layer, so leave this out for one.",
             "items": {
               "format": "uuid",
               "type": "string"
             },
             "type": [
               "array",
+              "null"
+            ]
+          },
+          "ratsnest": {
+            "description": "Whether the PCB's Ratsnest is drawn; true by default. PCB only.",
+            "type": [
+              "boolean",
               "null"
             ]
           },
