@@ -6,6 +6,10 @@
 //! except `.reda/.gitignore`. The goldens come from `store::encode` after the last step, so
 //! a script need not (and should not) run `project.save`.
 //!
+//! Scripts run with the repo's starter Library (`library/starter`) registered, so they can
+//! place its Parts by UUID; a starter Library change that alters a placed Part shows up
+//! as a golden diff.
+//!
 //! `project.new` writes the new Project to disk, so the harness points every `project.new`
 //! step at a temporary folder (see `journal::relocate_new_projects`); the path a script
 //! gives, conventionally `/nonexistent`, is only a placeholder.
@@ -19,7 +23,7 @@ use std::path::Path;
 
 use reda_engine::{journal, store};
 
-use crate::{TempDir, read_tree, test_engine};
+use crate::{TempDir, read_tree, starter_library, test_engine_with_library};
 
 /// The one file the goldens leave out: its content `*` would ignore itself.
 const SKIPPED: &str = ".reda/.gitignore";
@@ -74,7 +78,7 @@ fn run_one(script: &Path, bless: bool) -> Result<(), Vec<String>> {
     let mut steps = journal::parse(&text).map_err(|e| vec![e.to_string()])?;
     let work = TempDir::new("scenario");
     let placeholders = journal::relocate_new_projects(&mut steps, work.path());
-    let mut engine = test_engine();
+    let mut engine = test_engine_with_library(&starter_library());
     journal::replay(&mut engine, &steps).map_err(|e| vec![e.to_string()])?;
     let mut actual = BTreeMap::new();
     if let Some(project) = engine.project() {

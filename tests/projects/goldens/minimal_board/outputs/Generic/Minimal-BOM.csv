@@ -1,0 +1,4 @@
+Designator,Quantity,Value,Footprint,Manufacturer,MPN
+D1,1,LED,LEDC1608X80N,,
+J1,1,Header 1x2,HDR254P1X2,,
+R1,1,1k,RESC1608X55N,,

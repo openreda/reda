@@ -17,7 +17,7 @@ pub use locate::{Location, locate};
 use crate::{i18n, tr};
 
 /// Arguments that are lengths in nm, shown in millimetres.
-const LENGTH_ARGS: &[&str] = &["x", "y", "actual", "required", "minimum", "grid"];
+const LENGTH_ARGS: &[&str] = &["x", "y", "actual", "required", "minimum", "grid", "board"];
 
 /// A check whose results the panel shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

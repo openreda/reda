@@ -94,7 +94,7 @@ fn check_pcb(project: &Project, uuid: Uuid) -> Result<(), CommandError> {
 
 /// A destination param: a `/`-separated folder inside the Project folder, or empty for the
 /// default.
-fn destination(value: String) -> Result<Option<String>, CommandError> {
+pub fn job_destination(value: String) -> Result<Option<String>, CommandError> {
     let value = value.trim().trim_end_matches('/').to_owned();
     if value.is_empty() {
         return Ok(None);
@@ -205,7 +205,7 @@ impl Command for JobAdd {
         let mut job = new_job(cx.new_id(), name, pcb, p.fab_preset);
         p.outputs.unwrap_or_default().apply(&mut job.outputs);
         if let Some(value) = p.destination {
-            job.destination = destination(value)?;
+            job.destination = job_destination(value)?;
         }
         let created = JobCreated {
             uuid: job.uuid,
@@ -270,7 +270,7 @@ impl Command for JobSet {
             outputs.apply(&mut job.outputs);
         }
         if let Some(value) = p.destination {
-            job.destination = destination(value)?;
+            job.destination = job_destination(value)?;
         }
         cx.tx()?.replace(Object::OutputJob(job.clone()))?;
         Ok(job)

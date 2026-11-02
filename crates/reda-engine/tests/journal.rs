@@ -243,3 +243,40 @@ fn replay_with_random_uuids_remaps_uuid_keyed_changes_across_documents() {
     assert_ne!(docs[2], second.as_str().unwrap());
     assert_eq!(replayed.journal()[3].params["document"], docs[2]);
 }
+
+#[test]
+fn relocating_a_new_project_also_moves_later_paths_inside_its_folder() {
+    let text = [
+        r#"{"id":"project.new","params":{"path":"/nonexistent","name":"Demo"}}"#,
+        r#"{"id":"project.open","params":{"path":"/nonexistent/Demo/Demo.reda"}}"#,
+        r#"{"id":"project.open","params":{"path":"/nonexistent"}}"#,
+    ]
+    .join("\n");
+    let (dir, script) = script(&text);
+    assert_eq!(
+        script[1].params["path"],
+        json!(dir.path().join("1").join("Demo/Demo.reda"))
+    );
+    assert_eq!(script[2].params["path"], json!(dir.path().join("1")));
+    let mut e = test_engine();
+    journal::replay(&mut e, &script[..2]).unwrap();
+}
+
+#[test]
+fn replay_with_random_uuids_remaps_the_change_list_a_sync_names() {
+    // A reference Project's script: it previews Sync and applies it by the Change List's
+    // hash, which is built from the UUIDs of what it lists.
+    let text = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/scenarios/minimal_board.jsonl"),
+    )
+    .unwrap();
+    let (_dir, script) = script(&text);
+    let mut replayed = Engine::builder()
+        .user_dirs(None)
+        .starter_library(Some(reda_testkit::starter_library()))
+        .build();
+    journal::replay(&mut replayed, &script).unwrap();
+    let pcb = replayed.project().unwrap().pcb().unwrap();
+    assert_eq!(pcb.footprints().count(), 3);
+}

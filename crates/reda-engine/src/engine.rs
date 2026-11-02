@@ -136,6 +136,23 @@ impl Engine {
         &self.session
     }
 
+    pub(crate) fn push_journal(&mut self, entry: JournalEntry) {
+        self.journal.push(entry);
+    }
+
+    pub(crate) fn source(&self) -> Source {
+        self.source
+    }
+
+    pub(crate) fn is_headless(&self) -> bool {
+        self.headless
+    }
+
+    /// The injected clock's time.
+    pub(crate) fn now(&self) -> reda_command::Timestamp {
+        self.clock.now()
+    }
+
     /// The per-user folders, if there are any.
     pub fn user_dirs(&self) -> Option<&UserDirs> {
         self.session.user_dirs.as_ref()

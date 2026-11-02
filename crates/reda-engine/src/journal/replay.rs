@@ -114,6 +114,13 @@ fn is_uuid(s: &str) -> bool {
     s.parse::<Uuid>().is_ok()
 }
 
+/// A hash over content that holds UUIDs, such as a Sync Change List's `hash` and its
+/// change `id`s or a check's `design` fingerprint: 16 or more lowercase hex digits. A
+/// replay with other UUIDs gets other hashes, so they are paired like UUIDs.
+fn is_content_hash(s: &str) -> bool {
+    s.len() >= 16 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 fn kind(value: &Value) -> &'static str {
     match value {
         Value::Null => "null",
@@ -158,7 +165,12 @@ fn compare(
                 map.entry(a.clone()).or_insert_with(|| b.clone());
                 Ok(())
             }
-            (false, false) => Ok(()),
+            (false, false) => {
+                if is_content_hash(a) && is_content_hash(b) {
+                    map.entry(a.clone()).or_insert_with(|| b.clone());
+                }
+                Ok(())
+            }
             _ => mismatch(
                 pointer,
                 format!("recorded {}, replayed {}", kind(recorded), kind(replayed)),

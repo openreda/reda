@@ -23,6 +23,7 @@ status-panels = Panels
 status-grid = Grid: { $grid }
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
+floating-window-title-tab = { $tab } – REDA
 status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
 
 ## The bridge: agents connecting through the control port
@@ -534,3 +535,111 @@ form-choose = Choose…
 palette-title = Command Palette
 palette-hint = Type a Command…
 palette-nothing = No Command matches.
+
+## Board Setup
+
+board-setup-title = Board Setup
+board-setup-rules = Rules
+board-setup-page-clearance = Clearance
+board-setup-page-track-width = Track Width
+board-setup-page-via = Via
+board-setup-page-annular-ring = Annular Ring
+board-setup-page-hole-spacing = Hole Spacing
+board-setup-page-edge-clearance = Edge Clearance
+board-setup-page-net-classes = Net Classes
+board-setup-page-drc = DRC
+board-setup-clearance = Clearance
+board-setup-track-width = Track width
+board-setup-via-diameter = Via diameter
+board-setup-via-hole = Via hole
+board-setup-annular-ring = Annular ring
+board-setup-hole-to-hole = Hole-to-hole spacing
+board-setup-edge-clearance = Edge clearance
+board-setup-board-wide = Board-wide minimum { $rule } (mm)
+board-setup-overrides = Net Class overrides (mm)
+board-setup-override = { $class }: { $rule }
+board-setup-overrides-note = Leave an override empty to use the board-wide value. Where two Net Classes meet, the larger clearance applies.
+board-setup-no-overrides = Net Classes do not override this rule.
+board-setup-net-class = Net Class
+board-setup-severity = DRC severity of { $check }:
+board-setup-severity-choice = { $check }: { $severity }
+board-setup-units = Lengths are in mm unless you give a unit, such as 8mil.
+board-setup-fab-preset = Fab Preset rules:
+board-setup-apply-preset = Apply { $preset } Rules…
+board-setup-preset-preview = Applying the { $preset } rules changes:
+board-setup-preset-same = The rules already match { $preset }.
+board-setup-rule = Rule
+board-setup-now = Now
+board-setup-preset = Preset
+board-setup-use-preset = Use These Rules
+board-setup-no-pcb = The Project has no PCB Document.
+board-setup-negative = A length cannot be negative.
+board-setup-not-a-length = Not a length. Give mm, such as 0.2, or a unit, such as 8mil.
+board-setup-required = Give a length.
+board-setup-new-class = Class { $number }
+board-setup-class-blank = Give the Net Class a name.
+board-setup-class-duplicate = Another Net Class is called { $name }.
+board-setup-class-name = Net Class { $number } name
+board-setup-delete = Delete
+board-setup-delete-class = Delete Net Class { $number }
+board-setup-default-class = The Default Net Class cannot be deleted.
+board-setup-add-class = Add Net Class
+board-setup-nets = Nets
+board-setup-filter = Filter Nets
+board-setup-no-nets = The board has no Nets yet.
+board-setup-class-of = Net Class of { $net }
+
+## Output Job dialog and job runs
+
+output-job-title = Output Job: { $job }
+output-job-page = Job
+output-job-name = Name
+output-job-pcb = PCB Document
+output-job-pcb-missing = (missing)
+output-job-fab-preset = Fab Preset
+output-job-outputs = Outputs
+output-job-gerber = Gerber X2
+output-job-drill = Excellon drill
+output-job-bom = CSV BOM
+output-job-cpl = CSV CPL (pick and place)
+output-job-destination = Destination folder
+output-job-destination-default = Empty: { $folder }
+output-job-name-blank = Give the job a name.
+output-job-name-taken = Another job is already called { $name }.
+output-job-broken = This job's PCB Document is gone. Pick another to repair it.
+output-job-gone = This Output Job was deleted.
+output-job-destination-invalid = Give a /-separated folder inside the Project folder.
+output-job-run = Run
+output-job-run-hint = Applies your changes, then runs the job.
+output-job-broken-run = Output Job { $job } names a PCB Document that is gone: edit it to point it at another.
+output-job-broken-label = { $job } (broken)
+output-job-starting = Starting
+output-job-running = Running { $job }
+output-job-cancelling = Cancelling…
+output-job-done = { $job } finished
+output-job-blocked = { $job } did not run
+output-job-cancelled = { $job } was cancelled
+output-job-failed = { $job } failed
+output-job-written = Wrote { $count } { $count ->
+    [one] file
+   *[other] files
+} and their zip to { $folder }.
+output-job-nothing-written = Nothing was written.
+output-job-blockers = Blocking problems
+output-job-warnings = Warnings
+output-job-show-zip = Show Zip
+output-job-close = Close
+output-job-busy = Another Output Job is running.
+message-output-job = { $job }: { $text }
+violation-board-outline-open = The Board Outline is missing or not closed
+violation-missing-footprint = { $designator } has no Footprint
+violation-erc-errors = ERC finds { $count } { $count ->
+    [one] error
+   *[other] errors
+}
+violation-drc-errors = DRC finds { $count } { $count ->
+    [one] error
+   *[other] errors
+}
+violation-rule-below-preset = Board { $rule } { $board } is below { $preset }'s minimum { $minimum }
+violation-missing-font = Font “{ $font }” is not installed

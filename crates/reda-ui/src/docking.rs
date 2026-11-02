@@ -1,19 +1,24 @@
 //! Draws the docking [`Layout`]: the Docks (expanded, or as icon strips with a flyout),
 //! the centre's splits and tab groups, floating windows, and each tab's menu.
 //!
+//! Each floating window is an OS window of its own (an egui immediate viewport), drawn in
+//! the same frame as the main window. Tabs drag between windows ([`windows`]). Where egui
+//! cannot open OS windows, as in tests, floating windows float inside the main window.
+//!
 //! Drawing never changes the layout. Every click and every drop of a dragged tab
 //! ([`drag`]) becomes a layout Command in [`Frame::commands`], which the window runs after
 //! the frame, so the layout changes the same way from the mouse, the keyboard, scripts and
 //! MCP.
 
 mod drag;
+pub mod windows;
 
 use std::collections::BTreeMap;
 
 use egui::containers::menu::menu_style;
 use egui::{
     Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Role, Sense, SetOpenCommand, Ui,
-    UiBuilder, Vec2, WidgetInfo,
+    UiBuilder, Vec2, ViewportBuilder, ViewportId, WidgetInfo,
 };
 use reda_engine::model::{DocumentKind, Uuid};
 use serde_json::{Value, json};
@@ -23,13 +28,16 @@ use crate::bars::draw::{self, Invocation};
 use crate::canvas::{CanvasInputs, canvas_id, canvas_input, canvas_paint};
 use crate::icons;
 use crate::journal_panel::{self, JournalAction};
-use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
+use crate::layout::{
+    Area, Axis, DockSide, FloatingWindow, Group, Layout, Node, PanelId, SplitSide, TabKey, WindowId,
+};
 use crate::panels;
 use crate::projects_panel::{self, ProjectsAction};
 use crate::schematic_editor;
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::{theme, tr};
+use windows::{WindowView, Zones};
 
 /// What one frame of the docking layer asks for.
 #[derive(Default)]
@@ -52,6 +60,8 @@ pub struct Frame {
 const STRIP: f32 = 30.0;
 /// The size of a flyout from a collapsed Dock.
 const FLYOUT: Vec2 = Vec2::new(280.0, 320.0);
+/// The size a floating window opens at.
+const WINDOW: Vec2 = Vec2::new(640.0, 420.0);
 
 /// The title of a Panel, for its tab, its Dock icon and the Panels button.
 pub fn panel_title(panel: PanelId) -> String {
@@ -105,10 +115,11 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
         layout: &layout,
         recent: &recent,
         frame: Frame::default(),
-        zones: drag::Zones {
+        zones: Zones {
             area: ui.available_rect_before_wrap(),
             groups: Vec::new(),
             docks: Vec::new(),
+            dock_edges: true,
         },
     };
     // The bottom Dock spans the window, so it goes first.
@@ -118,23 +129,55 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
     egui::CentralPanel::default()
         .frame(egui::Frame::central_panel(ui.style()).inner_margin(0))
         .show(ui, |ui| cx.node(ui, &layout.centre, Area::Centre));
-    for window in &layout.windows {
-        // Until floating windows become native OS windows (Docking III), they float
-        // inside the main window.
-        egui::Window::new(tr!("floating-window-title"))
-            .id(Id::NULL.with(("floating-window", window.id.0)))
-            .default_size([480.0, 320.0])
-            .show(ui.ctx(), |ui| {
-                cx.node(ui, &window.root, Area::Window(window.id));
-            });
+    let ctx = ui.ctx().clone();
+    // Where egui cannot open OS windows (as in tests), floating windows float inside the
+    // main window and share its drop zones.
+    let embedded = ctx.embed_viewports();
+    if embedded {
+        for window in &layout.windows {
+            egui::Window::new(window_title(cx.shell, &layout, window.id))
+                .id(Id::NULL.with(("floating-window", window.id.0)))
+                .default_size([480.0, 320.0])
+                .show(&ctx, |ui| {
+                    cx.node(ui, &window.root, Area::Window(window.id));
+                });
+        }
     }
+    let view = WindowView {
+        window: None,
+        origin: ctx.input(|i| i.viewport().inner_rect).map(|r| r.min),
+        rect: ctx.content_rect(),
+        zones: std::mem::replace(&mut cx.zones, Zones::empty(Rect::NOTHING)),
+        first_group: layout.groups().first().map(|(_, g)| g.id),
+    };
     let shell = &*cx.shell;
-    if let Some((id, params)) =
-        drag::show(ui.ctx(), &layout, &cx.zones, |tab| tab_title(shell, tab))
-    {
-        cx.frame.commands.push((id.to_owned(), params));
+    let commands = drag::show(&ctx, &layout, view, |tab| tab_title(shell, tab));
+    cx.frame.commands.extend(commands);
+    let mut live = vec![egui::ViewportId::ROOT];
+    if !embedded {
+        for window in &layout.windows {
+            live.push(cx.native_window(&ctx, window));
+        }
     }
+    drag::retain(&ctx, &live);
     cx.frame
+}
+
+/// A floating window's title: its active tab's, after the app's name.
+fn window_title(shell: &Shell, layout: &Layout, window: WindowId) -> String {
+    match first_group(layout, window).and_then(|g| g.active_tab()) {
+        Some(tab) => tr!("floating-window-title-tab", tab = tab_title(shell, tab)),
+        None => tr!("floating-window-title"),
+    }
+}
+
+/// The first group of the floating window `window`.
+fn first_group(layout: &Layout, window: WindowId) -> Option<&Group> {
+    layout
+        .groups()
+        .into_iter()
+        .find(|(area, _)| *area == Area::Window(window))
+        .map(|(_, g)| g)
 }
 
 struct Cx<'a> {
@@ -143,12 +186,53 @@ struct Cx<'a> {
     recent: &'a [RecentProject],
     frame: Frame,
     /// Where a dragged tab can be dropped, as drawn this frame.
-    zones: drag::Zones,
+    zones: Zones,
 }
 
 impl Cx<'_> {
     fn run(&mut self, id: &'static str, params: Value) {
         self.frame.commands.push((id.to_owned(), params));
+    }
+
+    /// Shows the floating window `window` as an OS window of its own; returns its
+    /// viewport. Closing the OS window closes the window's tabs.
+    fn native_window(&mut self, ctx: &egui::Context, window: &FloatingWindow) -> ViewportId {
+        let viewport = drag::viewport_id(window.id);
+        let mut builder = ViewportBuilder::default()
+            .with_title(window_title(self.shell, self.layout, window.id))
+            .with_inner_size(WINDOW)
+            .with_min_inner_size([240.0, 160.0]);
+        if let Some(at) = drag::placement(ctx, self.layout, window.id) {
+            builder = builder.with_position(at);
+        }
+        ctx.show_viewport_immediate(viewport, builder, |ui, _| {
+            let ctx = ui.ctx().clone();
+            let area = egui::CentralPanel::default()
+                .frame(egui::Frame::central_panel(ui.style()).inner_margin(0))
+                .show(ui, |ui| {
+                    let area = ui.available_rect_before_wrap();
+                    self.zones = Zones::empty(area);
+                    self.node(ui, &window.root, Area::Window(window.id));
+                    area
+                })
+                .inner;
+            if ctx.input(|i| i.viewport().close_requested()) {
+                self.run("layout.window.close", json!({"window": window.id}));
+            }
+            let mut zones = std::mem::replace(&mut self.zones, Zones::empty(Rect::NOTHING));
+            zones.area = area;
+            let view = WindowView {
+                window: Some(window.id),
+                origin: ctx.input(|i| i.viewport().inner_rect).map(|r| r.min),
+                rect: ctx.content_rect(),
+                zones,
+                first_group: first_group(self.layout, window.id).map(|g| g.id),
+            };
+            let shell = &*self.shell;
+            let commands = drag::show(&ctx, self.layout, view, |tab| tab_title(shell, tab));
+            self.frame.commands.extend(commands);
+        });
+        viewport
     }
 
     fn dock(&mut self, ui: &mut Ui, side: DockSide) {

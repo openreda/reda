@@ -265,7 +265,8 @@ fn led(s: &mut Script) {
                 },
             }),
         );
-        s.mark_pad_one(&fp);
+        let description = format!("Chip LED, {} metric, IPC-7351 Nominal", &name[4..8]);
+        s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
     for (size, pad, body, ring) in [(3.0, 1.8, 1.5, 2.5), (5.0, 1.8, 2.5, 2.96)] {
