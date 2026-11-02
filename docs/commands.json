@@ -15426,7 +15426,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `erc_errors {count}`, `rule_below_preset {rule, board,\nminimum, preset, net_class?}`, `missing_font {font}`, `output_not_built {output}`.",
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `erc_errors {count}`, `drc_errors {count}`,\n`rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`,\n`output_not_built {output}`.",
             "items": {
               "$ref": "#/$defs/Violation"
             },
