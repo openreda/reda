@@ -105,5 +105,7 @@ reda-ui -> fluent-bundle
 reda-ui -> reda-engine
 reda-ui -> reda-testkit [dev]
 reda-ui -> rfd
+reda-ui -> schemars
+reda-ui -> serde
 reda-ui -> serde_json
 reda-ui -> unic-langid

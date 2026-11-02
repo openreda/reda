@@ -3237,6 +3237,8 @@ dependencies = [
  "reda-engine",
  "reda-testkit",
  "rfd",
+ "schemars",
+ "serde",
  "serde_json",
  "unic-langid",
 ]
