@@ -4,7 +4,9 @@
 
 use reda_model::Uuid;
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_render::gpu::{Canvas, Flags, GpuScene, Headless, Highlight, Image, RenderError, Writes};
+use reda_render::gpu::{
+    Canvas, Flags, GpuScene, Grid, GridSpec, Headless, Highlight, Image, RenderError, Writes,
+};
 use reda_render::{
     ColorKey, Palette, Primitive, Rgba, Scene, SceneLayer, SceneSource, SchematicColor, Theme, View,
 };
@@ -221,4 +223,48 @@ fn with_no_adapter_the_error_names_the_cause() {
     let message = err.to_string();
     assert!(message.contains("no GPU or software renderer"), "{message}");
     assert!(message.contains("no backends enabled"), "{message}");
+}
+
+#[test]
+fn the_grid_draws_dots_on_grid_points_over_the_scene() {
+    let Some(gpu) = headless() else { return };
+    // Paper only: 100 mm square filling a 100 px image, so 1 px = 1 mm.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Paper,
+        filled_rect(c, 100, 100),
+    );
+    let palette = Palette::shipped(Theme::Light);
+    let gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let view = view_of(&scene, 100);
+    let mut grid = Grid::new(gpu.device(), gpu.renderer());
+    let spec = GridSpec {
+        origin: (0.0, 0.0),
+        pitch: 10.0 * 1_000_000.0,
+        radius_px: 1.5,
+        color: Rgba([0, 0, 0, 255]),
+    };
+    grid.set(gpu.queue(), &view, Some(&spec));
+    let img = gpu
+        .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+        .unwrap();
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    // Document (20 mm, 30 mm) is a grid point: pixel (20, 70) from the top left. The
+    // pixel centre sits half a pixel off it, well inside the 1.5 px dot.
+    assert_eq!(pixel(&img, 20, 70), [0, 0, 0, 255]);
+    assert_eq!(pixel(&img, 19, 69), [0, 0, 0, 255]);
+    // Midway between dots is untouched paper.
+    assert_eq!(pixel(&img, 25, 65), paper);
+
+    // Hidden, the same frame is plain paper.
+    grid.set(gpu.queue(), &view, None);
+    let img = gpu
+        .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+        .unwrap();
+    assert_eq!(pixel(&img, 20, 70), paper);
 }

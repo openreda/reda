@@ -35,6 +35,17 @@ trash = { version = "5.2", default-features = false, features = ["coinit_apartme
 # 30.0); png encodes `document.render` output.
 wgpu = "30.0.1"
 png = "0.18.1"
+# The window and UI (reda-ui, reda-app): egui/eframe/egui-wgpu move together, and egui-wgpu
+# 0.37 is built on wgpu 30, the version above. eframe's glow backend stays off (ADR-0010).
+egui = "0.37"
+eframe = { version = "0.37", default-features = false, features = ["wgpu", "accesskit", "default_fonts", "wayland", "x11", "clipboard", "links"] }
+egui-wgpu = "0.37"
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot"] }
+# Native file dialogs (xdg-portal on Linux, no GTK).
+rfd = "0.17"
+# The UI's string catalogue.
+fluent-bundle = "0.16"
+unic-langid = "0.9"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

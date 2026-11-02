@@ -1,0 +1,20 @@
+[package]
+name = "reda-app"
+description = "The REDA GUI binary: hands the OS trash and installed fonts to the engine and runs the window."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "reda-app"
+path = "src/main.rs"
+
+[dependencies]
+reda-ui = { path = "../reda-ui" }
+trash.workspace = true
+
+[lints]
+workspace = true

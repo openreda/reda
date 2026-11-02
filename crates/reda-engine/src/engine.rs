@@ -22,10 +22,21 @@ pub fn registry() -> Registry {
     reda_library::register_generators(&mut registry, crate::library::store_footprint);
     reda_output::register_all(&mut registry);
     reda_schematic::register_all(&mut registry);
-    reda_render::register_all(&mut registry, |sheet| {
-        reda_schematic::connectivity::derive(sheet).junctions
-    });
+    reda_render::register_all(&mut registry, junctions);
     registry
+}
+
+fn junctions(sheet: &reda_model::SchematicSheet) -> Vec<reda_model::geom::Point> {
+    reda_schematic::connectivity::derive(sheet).junctions
+}
+
+/// The Scene the canvas draws for `document`, with the sheet's derived Junctions:
+/// `not_found` for an unknown Document, `rejected` for a kind with no Scene yet.
+pub fn document_scene(
+    project: &Project,
+    document: reda_model::Uuid,
+) -> Result<reda_render::Scene, CommandError> {
+    reda_render::document_scene(project, document, junctions)
 }
 
 /// One session: at most one open Project, changed only by running Commands.
