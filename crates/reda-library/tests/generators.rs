@@ -424,6 +424,48 @@ fn an_existing_file_or_an_unknown_library_is_refused() {
     assert_eq!(err.code, ErrorCode::NotFound);
 }
 
+#[test]
+fn a_preview_computes_the_footprint_a_generator_would_write_without_writing_it() {
+    let chip = "library.footprint.generate.chip";
+    let params = json!({"library": LIBRARY, "size": "0603"});
+    let footprint = reda_library::generate::preview(chip, &params)
+        .expect("the chip generator has a preview")
+        .unwrap();
+    assert_eq!(footprint.name, "RESC1608X55N");
+    let mut pads: Vec<_> = footprint
+        .pads
+        .iter()
+        .map(|p| (p.number.clone(), p.at.x.0, p.width.0))
+        .collect();
+    pads.sort();
+    // The same lands as the written Footprint above.
+    assert_eq!(
+        pads,
+        [
+            ("1".to_owned(), -787_500, 925_000),
+            ("2".to_owned(), 787_500, 925_000)
+        ]
+    );
+    // A name the caller gives replaces the IPC-7351 one; bad params say which one.
+    let named = json!({"library": LIBRARY, "size": "0603", "name": "R0603"});
+    let preview = reda_library::generate::preview(chip, &named);
+    assert_eq!(preview.unwrap().unwrap().name, "R0603");
+    let bad = json!({"library": LIBRARY, "rows": 3, "pins_per_row": 4, "pitch": "2.54"});
+    let error = reda_library::generate::preview("library.footprint.generate.header", &bad)
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::InvalidParams);
+    // Every generator has one; other Commands have none.
+    for id in reda_library::generate::GENERATORS {
+        assert!(
+            reda_library::generate::preview(id, &json!({})).is_some(),
+            "{id}"
+        );
+    }
+    assert_eq!(reda_library::generate::GENERATORS.len(), 10);
+    assert!(reda_library::generate::preview("library.check", &json!({})).is_none());
+}
+
 /// Each Pad's number, centre and size, sorted by number.
 fn pad_boxes(file: &Value) -> Vec<(String, i64, i64, i64, i64)> {
     let mut pads: Vec<_> = file["pads"]

@@ -65,6 +65,59 @@ pub fn register_generators(registry: &mut Registry, store: FootprintStore) {
     registry.add(Generator::<Header>::new(store));
 }
 
+/// Every generator Command's id, in the order [`register_generators`] adds them.
+pub const GENERATORS: [&str; 10] = [
+    <Chip as FootprintFamily>::META.id,
+    <Sot as FootprintFamily>::META.id,
+    <Soic as FootprintFamily>::META.id,
+    <Ssop as FootprintFamily>::META.id,
+    <Tssop as FootprintFamily>::META.id,
+    <Dfn as FootprintFamily>::META.id,
+    <Qfn as FootprintFamily>::META.id,
+    <Qfp as FootprintFamily>::META.id,
+    <Dip as FootprintFamily>::META.id,
+    <Header as FootprintFamily>::META.id,
+];
+
+type Preview = fn(&serde_json::Value) -> Result<Footprint, CommandError>;
+
+const PREVIEWS: [Preview; 10] = [
+    preview_of::<Chip>,
+    preview_of::<Sot>,
+    preview_of::<Soic>,
+    preview_of::<Ssop>,
+    preview_of::<Tssop>,
+    preview_of::<Dfn>,
+    preview_of::<Qfn>,
+    preview_of::<Qfp>,
+    preview_of::<Dip>,
+    preview_of::<Header>,
+];
+
+/// The Footprint the generator Command `command` would write with `params`, computed
+/// without writing anything (its UUIDs count up from 1), for a generator form's preview. `None`
+/// when `command` is not a generator; `invalid_params` when the params do not work.
+pub fn preview(
+    command: &str,
+    params: &serde_json::Value,
+) -> Option<Result<Footprint, CommandError>> {
+    let i = GENERATORS.iter().position(|id| *id == command)?;
+    Some(PREVIEWS[i](params))
+}
+
+fn preview_of<F: FootprintFamily>(params: &serde_json::Value) -> Result<Footprint, CommandError> {
+    let p: F::Params = serde_json::from_value(params.clone())
+        .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
+    let target = F::target(&p);
+    let pattern = F::land_pattern(&p)?;
+    let name = target.name.unwrap_or_else(|| pattern.name.clone());
+    let mut next = 0;
+    Ok(pattern.into_footprint(name, || {
+        next += 1;
+        Uuid::from_u128(next)
+    }))
+}
+
 /// One package family.
 pub trait FootprintFamily: Send + Sync + 'static {
     /// The Command's metadata; its kind must be `Kind::File`, since it writes a file.

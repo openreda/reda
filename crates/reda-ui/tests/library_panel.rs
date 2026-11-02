@@ -167,22 +167,29 @@ fn the_footprint_picker_shows_the_alternates() {
 }
 
 #[test]
-fn edit_opens_the_parts_symbol_and_new_asks_for_the_new_symbols_name() {
+fn edit_opens_the_part_and_new_asks_for_the_new_parts_name() {
     let (home, work) = (TempDir::new("lib-edit-home"), TempDir::new("lib-edit"));
     let mut h = harness(&home, &work);
     choose(&mut h, "Resistor");
-    h.get_by_role_and_label(Role::Button, "Edit Symbol").click();
+    h.get_by_role_and_label(Role::Button, "Edit Part").click();
     h.run();
-    // The Part's Symbol opens, then its Symbol editor tab.
+    // The Part opens, then its Part editor tab, which links to its Symbol.
     let journal = h.state().shell().engine().journal();
     let entry = journal[journal.len() - 2].clone();
     assert_eq!(entry.id, "library.element.open");
-    assert_eq!(entry.params, json!({"element": RESISTOR_SYMBOL}));
+    assert_eq!(entry.params, json!({"element": RESISTOR}));
     assert_eq!(journal.last().unwrap().id, "document.open");
-    let symbol = RESISTOR_SYMBOL.parse().unwrap();
-    assert_eq!(h.state().shell().layout().active_document(), Some(symbol));
+    let part = RESISTOR.parse().unwrap();
+    assert_eq!(h.state().shell().layout().active_document(), Some(part));
+    h.get_by_role_and_label(Role::Button, "Edit Symbol").click();
+    h.run();
+    let journal = h.state().shell().engine().journal();
+    let entry = journal[journal.len() - 2].clone();
+    assert_eq!(entry.params, json!({"element": RESISTOR_SYMBOL}));
 
     h.get_by_role_and_label(Role::Button, "New…").click();
+    h.run();
+    h.get_by_label("New Part…").click();
     h.run();
     // library.element.new lacks the Library and name: its params form asks for them.
     h.get_by_label("New Library Element");

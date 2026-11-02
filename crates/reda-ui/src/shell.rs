@@ -16,6 +16,7 @@ use std::time::Instant;
 
 use reda_engine::command::{CommandError, FontFace, Kind, Signals};
 use reda_engine::journal::Source;
+use reda_engine::library::LibraryIndex;
 use reda_engine::model::Project;
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{
@@ -170,6 +171,10 @@ pub struct Shell {
     library_generation: u64,
     /// The Library panel's filters, chosen Part and scan.
     library_panel: crate::panels::library::LibraryPanel,
+    /// The registered Libraries as last scanned, and the library generation of the scan.
+    library_index: Option<(u64, Arc<LibraryIndex>)>,
+    /// A notice for the window to show once, such as Import part's vendor-terms notice.
+    notice: Option<String>,
 }
 
 impl Shell {
@@ -236,6 +241,8 @@ impl Shell {
             recorder: Recorder::new(),
             library_generation: 0,
             library_panel: Default::default(),
+            library_index: None,
+            notice: None,
         };
         shell.load_preference_warnings();
         shell.reload_keymap();
@@ -334,6 +341,26 @@ impl Shell {
     /// count may be stale.
     pub fn library_generation(&self) -> u64 {
         self.library_generation
+    }
+
+    /// The registered Libraries, scanned again only when a Command may have changed them
+    /// (see [`Shell::library_generation`]).
+    pub fn library_index(&mut self) -> Arc<LibraryIndex> {
+        let generation = self.library_generation;
+        match &self.library_index {
+            Some((g, index)) if *g == generation => index.clone(),
+            _ => {
+                let index = Arc::new(self.engine.libraries());
+                self.library_index = Some((generation, index.clone()));
+                index
+            }
+        }
+    }
+
+    /// Takes the notice waiting to be shown, such as the vendor-terms notice of the first
+    /// Import part.
+    pub fn take_notice(&mut self) -> Option<String> {
+        self.notice.take()
     }
 
     pub(crate) fn library_panel_mut(&mut self) -> &mut crate::panels::library::LibraryPanel {
@@ -871,6 +898,15 @@ impl Shell {
                 }
             }
             "library.element.save" => crate::element_editor::check_after_save(self),
+            "library.import_part" => {
+                if let Some(notice) = out["notice"].as_str() {
+                    self.notice = Some(notice.to_owned());
+                }
+                crate::element_editor::report_created(self, out);
+            }
+            _ if reda_engine::library::GENERATORS.contains(&id) => {
+                crate::element_editor::report_created(self, out);
+            }
             "recovery.restore" => {
                 let untabbed: Vec<Uuid> = crate::element_editor::open_elements(&self.engine)
                     .into_iter()

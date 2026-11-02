@@ -23,6 +23,10 @@ pub enum Pick {
     PreferencesFolder,
     /// Where to save the exported Journal.
     ExportJournal,
+    /// The symbol file Import part reads.
+    ImportSymbol,
+    /// The footprint file Import part reads.
+    ImportFootprint,
 }
 
 /// Native file pickers. Each runs on its own thread, so the window keeps drawing; the
@@ -59,10 +63,18 @@ impl FileDialogs {
                 .set_title(tr!("journal-export-title"))
                 .add_filter(tr!("journal-export-filter"), &["jsonl"])
                 .set_file_name("journal.jsonl"),
+            Pick::ImportSymbol => rfd::AsyncFileDialog::new()
+                .set_title(tr!("import-symbol-title"))
+                .add_filter(tr!("import-symbol-filter"), &["kicad_sym"]),
+            Pick::ImportFootprint => rfd::AsyncFileDialog::new()
+                .set_title(tr!("import-footprint-title"))
+                .add_filter(tr!("import-footprint-filter"), &["kicad_mod"]),
         };
         std::thread::spawn(move || {
             let picked = match pick {
-                Pick::OpenProject => block_on(dialog.pick_file()),
+                Pick::OpenProject | Pick::ImportSymbol | Pick::ImportFootprint => {
+                    block_on(dialog.pick_file())
+                }
                 Pick::NewProjectLocation
                 | Pick::LibraryFolder
                 | Pick::SettingsFolder

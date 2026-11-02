@@ -1,14 +1,14 @@
 //! The Library panel: the registered Libraries' Parts, searched and filtered, with a
 //! preview of the chosen one. On a sheet it lists Parts that have a Symbol, on the PCB
 //! Mechanical Parts. Clicking or dragging a Part starts the placement Tool
-//! (`tool.place`); Edit opens the chosen Part's Symbol and New… makes a Symbol, each in
-//! the Symbol editor.
+//! (`tool.place`); Edit opens the chosen Part in the Part editor, and New… makes a Part,
+//! Symbol or Footprint, imports a Part or runs a Footprint generator.
 //!
 //! The panel reads the Libraries through [`Engine::libraries`](reda_engine::Engine),
 //! scanning again only when a Command may have changed them (the Shell's library
 //! generation) or on Refresh, and changes nothing itself.
 
-mod preview;
+pub(crate) mod preview;
 
 use egui::{ComboBox, Id, Role, ScrollArea, Sense, TextEdit, Ui, WidgetInfo};
 use reda_engine::library::{LibraryIndex, SearchHit, SearchQuery};
@@ -183,25 +183,21 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Action> {
         .and_then(|s| parts.iter().find(|(_, p)| p.uuid == s))
         .cloned();
     ui.horizontal(|ui| {
-        // Edit opens the chosen Part's Symbol in the Symbol editor; New makes a Symbol.
-        let symbol = chosen.as_ref().and_then(|(_, p)| p.symbol);
-        let edit = ui.add_enabled(symbol.is_some(), egui::Button::new(tr!("library-edit")));
+        // Edit opens the chosen Part in the Part editor, which links to its Symbol and
+        // Footprints; New makes an element, imports a Part or generates a Footprint.
+        let part = chosen.as_ref().map(|(_, p)| p.uuid);
+        let edit = ui.add_enabled(part.is_some(), egui::Button::new(tr!("library-edit")));
         if edit.clicked()
-            && let Some(symbol) = symbol
+            && let Some(part) = part
         {
             actions.push(Action::Run(
                 "library.element.open".into(),
-                json!({ "element": symbol }),
+                json!({ "element": part }),
             ));
         }
-        let new = ui.button(tr!("library-new"));
-        if new.on_hover_text(tr!("library-new-hover")).clicked() {
-            let mut params = json!({"kind": "symbol"});
-            if let Some(library) = panel.library {
-                params["library"] = json!(library);
-            }
-            actions.push(Action::Call("library.element.new".into(), params));
-        }
+        ui.menu_button(tr!("library-new"), |ui| {
+            actions.extend(new_menu(ui, shell, panel.library));
+        });
         if ui.button(tr!("library-refresh")).clicked() {
             panel.rescan();
         }
@@ -217,6 +213,52 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Action> {
             });
     }
     actions
+}
+
+/// The New menu: a new Part, Symbol or Footprint opened in its editor, Import part, and a
+/// Footprint generator per family. Each asks for what it lacks in a dialog; `library` (the
+/// Library filter) is the one they start in.
+fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action> {
+    let with_library = |mut params: Value| {
+        if let Some(library) = library {
+            params["library"] = json!(library);
+        }
+        params
+    };
+    let mut picked = None;
+    for (kind, label) in [
+        ("part", tr!("library-new-part")),
+        ("symbol", tr!("library-new-symbol")),
+        ("footprint", tr!("library-new-footprint")),
+    ] {
+        if ui.button(label).clicked() {
+            let params = with_library(json!({ "kind": kind }));
+            picked = Some(Action::Call("library.element.new".into(), params));
+        }
+    }
+    ui.separator();
+    if ui.button(tr!("library-import-part")).clicked() {
+        picked = Some(Action::Call(
+            "library.import_part".into(),
+            with_library(json!({})),
+        ));
+    }
+    ui.menu_button(tr!("library-generate"), |ui| {
+        for id in reda_engine::library::GENERATORS {
+            let title = shell.engine().registry().get(id).map_or_else(
+                || id.to_owned(),
+                |m| crate::bars::command_title(id, m.title),
+            );
+            if ui.button(format!("{title}…")).clicked() {
+                picked = Some(Action::Call(id.into(), with_library(json!({}))));
+                ui.close();
+            }
+        }
+    });
+    if picked.is_some() {
+        ui.close();
+    }
+    picked
 }
 
 /// The search box and the Library and Component Type filters.

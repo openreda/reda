@@ -71,6 +71,8 @@ pub struct App {
     /// The shortcut of a Command or Preset id, for the Palette (the Keymap's lookup).
     shortcuts: palette::ShortcutLookup,
     help: crate::help::Dialogs,
+    /// A notice the Shell handed over (Import part's vendor terms), shown until OK.
+    notice: Option<String>,
 }
 
 impl App {
@@ -95,11 +97,12 @@ impl App {
             theme_installed: false,
             help: Default::default(),
             palette: None,
-            dialogs: Dialogs::new(),
+            dialogs: crate::library_dialogs::dialogs(),
             params_dialog: None,
             shortcuts: Box::new(|_, _| None),
             bridge: Bridge::off(),
             bridge_waker_set: false,
+            notice: None,
         }
     }
 
@@ -233,6 +236,7 @@ impl App {
         self.crash_recovery(&ctx);
         self.show_palette(&ctx);
         self.show_params_dialog(&ctx);
+        self.show_notice(&ctx);
 
         if let Some(form) = &mut self.new_project {
             match form.show(&ctx) {
@@ -464,6 +468,28 @@ impl App {
         }
     }
 
+    /// Shows the notice the Shell has, such as the first Import part's vendor-terms
+    /// notice, until OK.
+    fn show_notice(&mut self, ctx: &egui::Context) {
+        if self.notice.is_none() {
+            self.notice = self.shell.take_notice();
+        }
+        let Some(notice) = &self.notice else {
+            return;
+        };
+        let mut close = false;
+        let modal = egui::Modal::new(egui::Id::NULL.with("notice")).show(ctx, |ui| {
+            ui.set_width(420.0);
+            ui.heading(tr!("import-notice-title"));
+            ui.label(notice);
+            ui.add_space(8.0);
+            close = ui.button(tr!("notice-ok")).clicked();
+        });
+        if close || modal.should_close() {
+            self.notice = None;
+        }
+    }
+
     fn open_new_project(&mut self) {
         let (presets, default) = self.shell.fab_preset_choices();
         self.new_project = Some(NewProjectForm::new(presets, default));
@@ -504,7 +530,8 @@ impl App {
                     dialog.picked_folder(&os::relative_path(folder, &path));
                 }
             }
-            None => {}
+            // The Import part dialog runs its own pickers.
+            Some((Pick::ImportSymbol | Pick::ImportFootprint, _)) | None => {}
         }
     }
 
