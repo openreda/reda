@@ -22,6 +22,7 @@ use crate::shell::Shell;
 
 pub mod board_setup;
 mod draw;
+pub mod output_job;
 pub mod project;
 
 pub use draw::{Outcome, PageCx, field, problem_label};

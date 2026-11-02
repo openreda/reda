@@ -936,6 +936,18 @@ impl Shell {
         self.messages.set_notes(source, notes);
     }
 
+    /// Replaces the Messages panel lines `source` reports, such as an Output Job run's
+    /// blockers and warnings.
+    pub fn set_notes(&mut self, source: &str, notes: Vec<Note>) {
+        self.messages.set_notes(source, notes);
+    }
+
+    /// Journals a run detached from the engine (see [`JobRunner`](crate::job_run::JobRunner))
+    /// and returns its outcome.
+    pub fn finish_detached(&mut self, done: reda_engine::Finished) -> Result<Value, CommandError> {
+        self.engine.finish(done)
+    }
+
     /// The Violation markers on `document`'s canvas; none when it is not open.
     pub fn markers(&self, document: Uuid) -> Arc<[Marker]> {
         self.document_tab(document)
