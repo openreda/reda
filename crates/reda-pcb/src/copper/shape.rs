@@ -10,7 +10,7 @@
 //! Orientation and intersection tests are exact in `i128`; distances are `f64`.
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{FootprintInstance, Pad, PadShape, Side, TrackGeometry};
+use reda_model::{FootprintInstance, FreePad, Pad, PadShape, Side, TrackGeometry};
 use rstar::AABB;
 
 pub(crate) type P = [i64; 2];
@@ -68,31 +68,30 @@ impl Shape {
 
     /// A Pad's copper as placed on the board by `instance`.
     pub fn pad(instance: &FootprintInstance, pad: &Pad) -> Shape {
-        let (hw, hh) = (pad.width.0 / 2, pad.height.0 / 2);
-        let (core, radius) = match pad.shape {
-            PadShape::Circle => (rect_core(0, 0), hw),
-            PadShape::Rect => (rect_core(hw, hh), 0),
-            PadShape::RoundedRect => {
-                let r = pad.corner_radius.map_or(0, |r| r.0).clamp(0, hw.min(hh));
-                (rect_core(hw - r, hh - r), r)
-            }
-            PadShape::Oval => {
-                let r = hw.min(hh);
-                (rect_core(hw - r, hh - r), r)
-            }
+        let outline = PadOutline {
+            shape: pad.shape,
+            width: pad.width,
+            height: pad.height,
+            corner_radius: pad.corner_radius,
         };
-        let place = |p: P| -> P {
+        outline.placed(|p| {
             let p = rotate(p, pad.rotation);
-            let p = [p[0] + pad.at.x.0, p[1] + pad.at.y.0];
-            board_point(instance, p)
+            board_point(instance, [p[0] + pad.at.x.0, p[1] + pad.at.y.0])
+        })
+    }
+
+    /// A Free Pad's copper: it is drawn in board coordinates.
+    pub fn free_pad(pad: &FreePad) -> Shape {
+        let outline = PadOutline {
+            shape: pad.shape,
+            width: pad.width,
+            height: pad.height,
+            corner_radius: pad.corner_radius,
         };
-        let core = match core {
-            Core::Seg(a, b) => Core::Seg(place(a), place(b)),
-            Core::Poly(points) => Core::Poly(points.into_iter().map(place).collect()),
-        };
-        Shape {
-            prims: vec![Prim { core, radius }],
-        }
+        outline.placed(|p| {
+            let p = rotate(p, pad.rotation);
+            [p[0] + pad.at.x.0, p[1] + pad.at.y.0]
+        })
     }
 
     pub fn envelope(&self) -> AABB<P> {
@@ -128,6 +127,40 @@ impl Shape {
     /// Whether `point` lies on this copper (its edge included).
     pub fn contains(&self, point: Point) -> bool {
         self.touches(&Shape::disc(point, Nm::ZERO))
+    }
+}
+
+/// The outline of a Pad in its own frame, centred on the origin.
+struct PadOutline {
+    shape: PadShape,
+    width: Nm,
+    height: Nm,
+    corner_radius: Option<Nm>,
+}
+
+impl PadOutline {
+    /// The Pad's copper with each core point moved onto the board by `place`.
+    fn placed(&self, place: impl Fn(P) -> P) -> Shape {
+        let (hw, hh) = (self.width.0 / 2, self.height.0 / 2);
+        let (core, radius) = match self.shape {
+            PadShape::Circle => (rect_core(0, 0), hw),
+            PadShape::Rect => (rect_core(hw, hh), 0),
+            PadShape::RoundedRect => {
+                let r = self.corner_radius.map_or(0, |r| r.0).clamp(0, hw.min(hh));
+                (rect_core(hw - r, hh - r), r)
+            }
+            PadShape::Oval => {
+                let r = hw.min(hh);
+                (rect_core(hw - r, hh - r), r)
+            }
+        };
+        let core = match core {
+            Core::Seg(a, b) => Core::Seg(place(a), place(b)),
+            Core::Poly(points) => Core::Poly(points.into_iter().map(place).collect()),
+        };
+        Shape {
+            prims: vec![Prim { core, radius }],
+        }
     }
 }
 
