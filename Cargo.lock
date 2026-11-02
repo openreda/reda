@@ -662,6 +662,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "reda-render"
+version = "0.0.0"
+dependencies = [
+ "i_triangle",
+ "reda-model",
+ "reda-testkit",
+ "reda-text",
+ "serde_json",
+]
+
+[[package]]
 name = "reda-schematic"
 version = "0.0.0"
 dependencies = [
