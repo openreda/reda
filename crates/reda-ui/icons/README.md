@@ -4,23 +4,70 @@
 
 One SVG per semantic icon key (docs/spec/v0.1/app.md#icons). Every key gets REDA's own art, drawn to the style guide in issue #32; until then a Lucide or Tabler placeholder stands in.
 
+## Role colours
+
+REDA's own icons use only these colours, written as the dark-theme value; reda-ui swaps each for its light-theme value on load (`ROLES` in `src/icons.rs`). Each reaches at least 3:1 on its theme's panel.
+
+| Role | Dark (in file) | Light |
+|---|---|---|
+| Existing / context (pins, pads, frames, the thing acted on) | `#8a93a0` | `#727984` |
+| Created, schematic (Wire, Net Label, Power Port…) | `#2fb36b` | `#228a51` |
+| Created, PCB copper (Track, Via, Zone, Pad…) | `#e08a2e` | `#ac6921` |
+| Created, general (file, edit, view, selection, checks) | `#3d8fd6` | `#347dbc` |
+| Picked point | `#ec4f7a` | `#d2456c` |
+| Created, board edge and keepout (Board Outline, Board Cutout, Keepout) | `#d4c03c` | `#8a7a12` |
+
 ## REDA's own icons
 
 MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leaves alone.
 
 | Key | Drawn by | Reference | Cleaned up by |
 |---|---|---|---|
+| `board_cutout` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `board_outline` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `board_outline_from_lines` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `board_outline_rect` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `clearance` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `document_pcb` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `drc` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `fab_preset` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `fab_preset_add` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `fab_preset_update` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `grid` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `keepout` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_active` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_next` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_previous` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_swap` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_visible` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `layers` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `measure` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `move` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `net_label` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `origin` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `output_job_add` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `output_job_edit` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `output_run` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `pad` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `power_port` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `ratsnest` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `rule` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `rules` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `save` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `select` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `severity` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `split` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `sync` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `track` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `undo` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `units` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `user_origin` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `via` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `view_flip` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `waive` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `wire` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `zone` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `zone_fill` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `zoom_fit` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 
 ## Placeholder icons
@@ -42,12 +89,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `arc` | Tabler `vector-spline` (outline) |
 | `arrange` | Lucide `layout-grid` |
 | `batch` | Lucide `list-checks` |
-| `board_cutout` | Tabler `square-dashed` (outline) |
-| `board_outline` | Tabler `border-outer` (outline) |
-| `board_outline_from_lines` | Tabler `vector` (outline) |
-| `board_outline_rect` | Lucide `rectangle-horizontal` |
 | `circle` | Lucide `circle` |
-| `clearance` | Tabler `ruler-measure` (outline) |
 | `cli_install` | Lucide `square-terminal` |
 | `close` | Lucide `x` |
 | `component_place` | Lucide `cpu` |
@@ -61,31 +103,19 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `document_add` | Lucide `file-plus` |
 | `document_footprint` | Tabler `cpu-2` (outline) |
 | `document_open` | Lucide `file-input` |
-| `document_pcb` | Lucide `circuit-board` |
 | `document_schematic` | Tabler `schema` (outline) |
 | `document_symbol` | Tabler `triangle` (outline) |
 | `drag` | Lucide `move-diagonal` |
-| `drc` | Tabler `shield-check` (outline) |
 | `duplicate` | Lucide `copy-plus` |
 | `erc` | Tabler `list-check` (outline) |
 | `export_pdf` | Lucide `file-output` |
-| `fab_preset` | Tabler `building-factory` (outline) |
-| `fab_preset_add` | Tabler `building-factory-2` (outline) |
-| `fab_preset_update` | Lucide `refresh-cw` |
 | `find` | Lucide `search` |
 | `flip` | Lucide `flip-horizontal` |
 | `footprint` | Tabler `cpu` (outline) |
 | `footprint_edit` | Tabler `cpu-2` (outline) |
 | `footprint_generate` | Lucide `wand` |
-| `grid` | Lucide `grid-3x3` |
 | `home` | Lucide `house` |
 | `inspect` | Lucide `scan-search` |
-| `keepout` | Lucide `ban` |
-| `layer_active` | Lucide `pencil-line` |
-| `layer_next` | Lucide `chevron-down` |
-| `layer_previous` | Lucide `chevron-up` |
-| `layer_swap` | Lucide `arrow-up-down` |
-| `layer_visible` | Lucide `eye` |
 | `layout` | Lucide `layout-dashboard` |
 | `layout_save` | Lucide `layout-template` |
 | `library_add` | Lucide `library-big` |
@@ -97,18 +127,12 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `library_update` | Lucide `book-up` |
 | `line` | Lucide `minus` |
 | `lock` | Lucide `lock` |
-| `measure` | Tabler `ruler-2` (outline) |
 | `mirror` | Lucide `flip-horizontal-2` |
 | `net` | Tabler `topology-star` (outline) |
 | `net_class` | Tabler `topology-ring` (outline) |
 | `net_class_add` | Tabler `topology-ring-2` (outline) |
 | `no_connect` | Lucide `circle-x` |
-| `origin` | Lucide `crosshair` |
-| `output_job_add` | Lucide `file-plus-2` |
-| `output_job_edit` | Lucide `file-cog` |
-| `output_run` | Lucide `play` |
 | `overview` | Lucide `layout-dashboard` |
-| `pad` | Lucide `square` |
 | `panel` | Lucide `panels-top-left` |
 | `panel_journal` | Lucide `scroll-text` |
 | `panel_layers` | Lucide `layers` |
@@ -126,24 +150,18 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `project_open` | Lucide `folder-open` |
 | `properties` | Lucide `sliders-horizontal` |
 | `quit` | Lucide `log-out` |
-| `ratsnest` | Tabler `route` (outline) |
 | `rectangle` | Lucide `square` |
 | `redo` | Lucide `redo-2` |
 | `rename` | Lucide `pencil` |
 | `render` | Lucide `image` |
 | `reorder` | Lucide `arrow-up-down` |
 | `rotate` | Lucide `rotate-cw` |
-| `rule` | Lucide `ruler` |
-| `rules` | Tabler `ruler-2` (outline) |
 | `save_all` | Lucide `save-all` |
 | `search` | Lucide `search` |
 | `select_connected` | Tabler `link` (outline) |
 | `select_similar` | Lucide `boxes` |
-| `severity` | Lucide `triangle-alert` |
 | `sheet_size` | Tabler `dimensions` (outline) |
-| `split` | Lucide `columns-2` |
 | `symbol_edit` | Tabler `triangle-square-circle` (outline) |
-| `sync` | Lucide `refresh-ccw-dot` |
 | `tab` | Lucide `app-window` |
 | `tab_move` | Lucide `move-right` |
 | `text` | Lucide `type` |
@@ -153,10 +171,5 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `theme_light` | Lucide `sun` |
 | `title_block` | Tabler `table` (outline) |
 | `unit_place` | Tabler `triangle-plus` (outline) |
-| `units` | Lucide `ruler` |
 | `update_check` | Lucide `cloud-download` |
-| `user_origin` | Tabler `focus-2` (outline) |
-| `view_flip` | Lucide `flip-horizontal-2` |
-| `waive` | Lucide `shield-check` |
 | `window_new` | Lucide `app-window-mac` |
-| `zone_fill` | Tabler `paint` (outline) |

@@ -129,3 +129,39 @@ fn icons_load_for_both_themes_and_states() {
     let off = String::from_utf8(icons::svg("save", Theme::Light, false).unwrap().to_vec()).unwrap();
     assert!(!off.contains("#347dbc"), "{off}");
 }
+
+#[test]
+fn reda_own_icons_use_only_the_role_colours_and_plain_shapes() {
+    let roles: Vec<String> = icons::role_colours()
+        .map(|(dark, _)| format!("#{:02x}{:02x}{:02x}", dark.r(), dark.g(), dark.b()))
+        .collect();
+    let list = std::fs::read_to_string(icons_dir().join("reda.txt")).unwrap();
+    let keys = list
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+        .map(|l| l.split(" | ").next().unwrap());
+    for key in keys {
+        let svg = std::fs::read_to_string(icons_dir().join(format!("{key}.svg"))).unwrap();
+        assert!(
+            svg.contains(r#"viewBox="0 0 24 24""#),
+            "{key}.svg is not on the 24 px grid"
+        );
+        for banned in [
+            "currentColor",
+            "<text",
+            "<filter",
+            "<mask",
+            "Gradient",
+            "<image",
+        ] {
+            assert!(!svg.contains(banned), "{key}.svg uses {banned}");
+        }
+        for (at, _) in svg.match_indices('#') {
+            let hex = svg[at..].get(..7).unwrap_or_default().to_ascii_lowercase();
+            assert!(
+                roles.contains(&hex),
+                "{key}.svg uses {hex}, not a role colour"
+            );
+        }
+    }
+}

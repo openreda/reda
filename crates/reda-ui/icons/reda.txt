@@ -1,16 +1,51 @@
 # REDA's own icons, drawn to the style guide in issue #32 (MIT, like the repo). One line per
 # semantic icon key: `<key> | <drawn by> | <reference or generator, with prompt> | <cleaned up by>`.
 # `cargo xtask icons` leaves these SVGs alone, adds them to ../src/icons/table.rs and lists
-# them in README.md. The first twelve come from the icon style prototype that settled #32.
+# them in README.md. The twelve whose reference names the Recraft sheets come from the icon
+# style prototype that settled #32.
+board_cutout | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+board_outline | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+board_outline_from_lines | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+board_outline_rect | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+clearance | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+document_pcb | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+drc | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+fab_preset | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+fab_preset_add | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+fab_preset_update | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+grid | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+keepout | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+layer_active | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+layer_next | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+layer_previous | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+layer_swap | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+layer_visible | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 layers | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+measure | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 move | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
 net_label | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+origin | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+output_job_add | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+output_job_edit | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+output_run | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+pad | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 power_port | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+ratsnest | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+rule | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+rules | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 save | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
 select | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+severity | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+split | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+sync | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 track | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
 undo | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+units | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+user_origin | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 via | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+view_flip | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
+waive | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 wire | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
 zone | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+zone_fill | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 zoom_fit | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
