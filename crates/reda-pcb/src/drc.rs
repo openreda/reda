@@ -1,17 +1,23 @@
-//! DRC: the design rules check over the PCB Document's copper, its severities and its
-//! Waivers.
+//! DRC: the design rules check over the PCB Document's copper, placement and silkscreen,
+//! its severities and its Waivers.
 //!
 //! [`check`] runs every check that is not Off against the board and a current set of Zone
 //! fills, and returns the Violations in the order of the DRC table, each check's in a
-//! fixed order. The `drc.*` Commands refill stale Zones first ([`crate::zone::current`]),
-//! lay the board's Waivers over the result ([`reda_model::apply_waivers`]) and fingerprint
-//! the board they read, so a front end can tell when results are stale.
+//! fixed order. Only `out_of_sync` is not among them: Sync lives in the engine, which
+//! hands the `drc.*` Commands a [`crate::SyncCheck`] for it. The Commands refill stale
+//! Zones first ([`crate::zone::current`]), add the `out_of_sync` Violation, lay the
+//! board's Waivers over the result ([`reda_model::apply_waivers`]) and fingerprint the
+//! board and the Change List pending against it, so a front end can tell when results
+//! are stale.
 
 mod connections;
 mod copper;
 mod edge;
 mod holes;
+mod placement;
+mod silkscreen;
 
+use reda_command::Fonts;
 use reda_model::{DrcCheck, DrcSeverities, PcbDocument, Severity, Uuid, Violation, ZoneFills};
 
 use crate::Copper;
@@ -20,7 +26,7 @@ use crate::copper::Item;
 /// Runs every DRC check that is not Off over `pcb`, with `fills` as its Zone fills (pass
 /// current ones: [`crate::zone::current`]). Waivers are ignored. Violations come in the
 /// order of the DRC table.
-pub fn check(pcb: &PcbDocument, fills: &ZoneFills) -> Vec<Violation> {
+pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violation> {
     let mut copper = Copper::build(pcb);
     copper.set_zone_fills(pcb, Some(fills));
     let mut report = Report {
@@ -34,6 +40,8 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills) -> Vec<Violation> {
     copper::check(&board, &mut report);
     holes::check(&board, &mut report);
     edge::check(&board, &mut report);
+    placement::check(&board, &mut report);
+    silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
