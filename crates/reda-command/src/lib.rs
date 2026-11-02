@@ -18,6 +18,7 @@ mod signals;
 mod trash;
 mod units;
 mod user;
+mod view;
 
 pub use command::{
     AvailabilityContext, Command, Kind, Meta, NO_PROJECT, NoParams, Preset, Unavailable,
@@ -33,3 +34,4 @@ pub use signals::{CancelToken, Progress, Signals};
 pub use trash::Trash;
 pub use units::{Angle, Length};
 pub use user::UserDirs;
+pub use view::ViewState;

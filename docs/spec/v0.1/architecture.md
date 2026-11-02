@@ -26,6 +26,7 @@ Each crate lives in `crates/reda-<name>/`, and the directory name is the package
 | `reda-app` | the thin GUI binary, plus OS-specific work such as finding installed fonts (it hands font bytes to the engine) | ui |
 | `reda-cli` | the `reda` binary. It is the only crate that depends on `rmcp`. | engine, control |
 | `reda-testkit` | dev-only: `assert_golden`, the test-engine builder, the scenario harness | (dev-dependency only) |
+| `reda-release` | CI-only, never shipped: the `reda-release` binary the release workflow runs to pick the next version, stamp it into the workspace and write the release notes; it also renders the package icons | — (`toml_edit` only) |
 
 Rules:
 - Domain crates (library, schematic, pcb, render, output) don't depend on each other except where the table says so. Cross-Document work happens only in `reda-engine`.
@@ -171,6 +172,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 - **Catalogue:**
   - `reda commands --json` dumps the registry, including Presets.
   - A generated `docs/commands.json` is checked in and verified by a test.
+  - The app registers its own view Commands on top of the engine's: the layout Commands (`layout.tab.*`, `layout.dock.collapse`) and `panel.show`. They are not in the engine's registry, so `reda commands` and `docs/commands.json` leave them out. An app-side test holds them to the Command coverage rule.
 
 ### Tools and dialogs
 - **Tools are not Commands.** A Tool (place, Wire, route, drag-move…) is a GUI-side state machine:

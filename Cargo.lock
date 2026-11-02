@@ -3180,6 +3180,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "reda-release"
+version = "0.0.0"
+dependencies = [
+ "toml_edit",
+]
+
+[[package]]
 name = "reda-render"
 version = "0.0.0"
 dependencies = [
@@ -3240,6 +3247,8 @@ dependencies = [
  "reda-engine",
  "reda-testkit",
  "rfd",
+ "schemars",
+ "serde",
  "serde_json",
  "unic-langid",
 ]

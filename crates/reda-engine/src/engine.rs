@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use reda_command::{
     Clock, CommandError, Env, Fonts, History, IdSource, RandomIds, Registry, Session, Signals,
-    SystemClock, Trash, UserDirs,
+    SystemClock, Trash, UserDirs, ViewState,
 };
 use reda_model::{Project, Scope};
 use serde_json::Value;
@@ -173,6 +173,22 @@ impl Engine {
     /// the default. Front ends pass the *undo depth* Preference here.
     pub fn set_undo_depth(&mut self, depth: Option<usize>) {
         self.session.history.set_depth(depth);
+    }
+
+    /// The front end's view state, which its view Commands change (see [`ViewState`]).
+    pub fn view(&self) -> &ViewState {
+        &self.session.view
+    }
+
+    /// The view state, for the front end to install its own state in, such as the app's
+    /// docking Layout when a Project opens.
+    pub fn view_mut(&mut self) -> &mut ViewState {
+        &mut self.session.view
+    }
+
+    /// Adds Commands after the engine is built, such as the app's view Commands.
+    pub fn register(&mut self, register_all: impl FnOnce(&mut Registry)) {
+        register_all(&mut self.registry);
     }
 }
 

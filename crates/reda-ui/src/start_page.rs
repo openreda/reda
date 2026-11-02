@@ -22,7 +22,8 @@ pub fn show(ui: &mut Ui, recent: &[RecentProject]) -> Option<StartAction> {
     let mut action = None;
     ui.add_space(24.0);
     ui.vertical_centered(|ui| {
-        ui.set_max_width(520.0);
+        // Narrower when Docks leave the centre less room, so nothing is clipped.
+        ui.set_max_width(ui.available_width().min(520.0));
         ui.with_layout(Layout::top_down(Align::Min), |ui| {
             ui.heading(tr!("start-page-heading"));
             ui.add_space(12.0);

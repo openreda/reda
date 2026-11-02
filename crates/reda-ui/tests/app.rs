@@ -198,10 +198,7 @@ fn snapshot_of_a_schematic_sheet_on_the_canvas() {
     h.run();
     let shell = h.state_mut().shell_mut();
     shell.open_project(&file).unwrap();
-    let Some(reda_ui::shell::Tab::Document(tab)) = shell.active() else {
-        panic!("no sheet tab");
-    };
-    let sheet = tab.document;
+    let sheet = shell.active_document().expect("a sheet tab").document;
     shell
         .run(
             "schematic.wire.add",
