@@ -2,11 +2,11 @@ REDA is built from the Rust crates below. Each licence text is followed by the c
 {{#each licenses}}
 
 
----- {{name}} ----
+---- {{{name}}} ----
 
 Used by:
 {{#each used_by}}
-- {{crate.name}} {{crate.version}}{{#if crate.repository}} ({{crate.repository}}){{/if}}
+- {{{crate.name}}} {{{crate.version}}}{{#if crate.repository}} ({{{crate.repository}}}){{/if}}
 {{/each}}
 
 {{{text}}}
