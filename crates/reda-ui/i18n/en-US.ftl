@@ -83,19 +83,24 @@ projects-no-libraries = No Library folders.
 projects-add-folder = Add Folder…
 projects-remove = Remove
 
-## Menus
+## Menus, toolbars and the Active Bar
 
+# Menu and submenu titles, named by the bar data files in crates/reda-ui/bars.
 menu-file = File
-menu-file-new-project = New Project…
-menu-file-open-project = Open Project…
-menu-file-save-all = Save All
-menu-file-quit = Quit
+menu-edit = Edit
 menu-view = View
-menu-view-zoom-fit = Zoom to Fit
+menu-view-panels = Panels
 menu-view-theme = Theme
-theme-follow-os = Follow the System
-theme-dark = Dark
-theme-light = Light
+menu-design = Design
+menu-library = Library
+bars-no-active-document = no Document is active
+bars-unknown-command = there is no Command { $command }
+
+# Command and Preset titles the UI shows instead of the engine's: command-<id>-title, with
+# the id's dots and colon written as dashes.
+command-view-theme-set-follow_os-title = Follow the System
+command-view-theme-set-dark-title = Dark
+command-view-theme-set-light-title = Light
 
 ## Dialogs
 

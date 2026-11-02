@@ -7,10 +7,12 @@
 //! [`run`].
 
 mod app;
+pub mod bars;
 pub mod canvas;
 mod dialogs;
 mod docking;
 pub mod i18n;
+pub mod icons;
 pub mod layout;
 mod new_project;
 mod os;
