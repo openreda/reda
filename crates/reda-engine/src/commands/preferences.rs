@@ -1,7 +1,8 @@
 //! `app.preferences.get` and `app.preferences.set`.
 //!
 //! Both are file Commands: they touch the user's `preferences.toml`, work headless, are
-//! never undoable and never dirty the Project. Changes apply at once.
+//! never undoable and never dirty the Project. Changes apply at once: setting
+//! `general.undo_depth` caps the undo stacks of this engine straight away.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry, UserDirs};
 use schemars::JsonSchema;
@@ -96,6 +97,13 @@ impl Command for PreferencesSet {
         let key = preferences::value_of(&Preferences::default(), &p.key)
             .map(|(key, _)| key)
             .ok_or_else(|| unknown_key(&p.key))?;
+        if key == "general.undo_depth" {
+            // Applies at once: the undo stacks take the new cap (trimming when lower).
+            let depth = preferences::load(&dirs).values.general.undo_depth;
+            cx.session()?
+                .history
+                .set_depth(depth.map(|d| d.get() as usize));
+        }
         Ok(json!({ "key": key, "value": value }))
     }
 }

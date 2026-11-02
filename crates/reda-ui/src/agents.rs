@@ -1,6 +1,6 @@
 //! Drawing the bridge: the status-bar indicator (with the bridge switch, the connected
-//! agents and the allowed agents, until the Preferences dialog's Agents page lands) and
-//! the "Allow this agent?" prompt. The state is in [`Bridge`].
+//! agents and the allowed agents, as on the Preferences dialog's Agents page) and the
+//! "Allow this agent?" prompt. The state is in [`Bridge`].
 
 use egui::{Id, Modal, Ui};
 
@@ -9,8 +9,10 @@ use crate::shell::Shell;
 use crate::tr;
 
 /// The status-bar indicator: whether agents can connect and how many are. Its menu turns
-/// the bridge on and off and forgets allowed agents.
-pub fn indicator(ui: &mut Ui, bridge: &mut Bridge, shell: &mut Shell) {
+/// the bridge on and off and forgets allowed agents. Returns whether "Agent Settings…"
+/// was clicked, which opens the Preferences dialog's Agents page.
+pub fn indicator(ui: &mut Ui, bridge: &mut Bridge, shell: &mut Shell) -> bool {
+    let mut settings = false;
     let agents = bridge.agents();
     let label = match (bridge.is_on(), agents.len()) {
         (false, _) => tr!("bridge-indicator-off"),
@@ -49,7 +51,13 @@ pub fn indicator(ui: &mut Ui, bridge: &mut Bridge, shell: &mut Shell) {
                 }
             });
         }
+        ui.separator();
+        if ui.button(tr!("bridge-settings")).clicked() {
+            settings = true;
+            ui.close();
+        }
     });
+    settings
 }
 
 /// "Allow this agent?" for the first agent waiting, if any. Bridged Commands of agents

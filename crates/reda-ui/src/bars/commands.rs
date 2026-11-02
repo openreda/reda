@@ -36,6 +36,8 @@ pub enum Request {
     Theme(Theme),
     /// Show the About box.
     About,
+    /// Show the Preferences dialog.
+    Preferences,
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -93,6 +95,8 @@ pub enum Dialog {
     NewProject,
     /// The OS dialog that picks a Project to open.
     OpenProject,
+    /// The Preferences dialog.
+    Preferences,
     /// The Command Palette.
     CommandPalette,
     /// The About box, with the third-party licences.
@@ -134,6 +138,12 @@ impl Command for OpenDialog {
                 json!({"dialog": "open_project"}),
             ),
             Preset::new(
+                "preferences",
+                "Preferences…",
+                "preferences",
+                json!({"dialog": "preferences"}),
+            ),
+            Preset::new(
                 "command_palette",
                 "Command Palette…",
                 "find",
@@ -147,6 +157,7 @@ impl Command for OpenDialog {
         let r = match p.dialog {
             Dialog::NewProject => Request::NewProject,
             Dialog::OpenProject => Request::OpenProject,
+            Dialog::Preferences => Request::Preferences,
             Dialog::CommandPalette => Request::CommandPalette,
             Dialog::About => Request::About,
         };

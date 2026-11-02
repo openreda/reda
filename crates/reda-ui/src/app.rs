@@ -26,11 +26,13 @@ use crate::layout::{PanelId, TabKey};
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
 use crate::palette::{self, Palette, PaletteOutcome};
+use crate::preferences_dialog::{Outcome as PreferencesOutcome, PageId, PreferencesDialog};
 use crate::projects_panel::{self, ProjectsAction};
 use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
 use crate::settings::{self, Outcome, SettingsDialog};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
+use crate::user_preferences::Watcher;
 use crate::{crash, keymap, theme, tr};
 
 /// The REDA window.
@@ -42,6 +44,15 @@ pub struct App {
     settings: Option<SettingsDialog>,
     /// The running Output Job, or the report of the last run.
     jobs: JobRuns,
+    /// The open Preferences dialog, if any.
+    preferences: Option<PreferencesDialog>,
+    /// The Preferences generation the window last applied (theme, UI scale).
+    applied_preferences: Option<u64>,
+    /// Wakes the window when `preferences.toml` changes on disk.
+    preferences_watcher: Option<Watcher>,
+    /// Whether to start the watcher. Off in tests, which poll each frame instead, so a
+    /// wake from the thread never adds frames.
+    watch_preferences: bool,
     window_title: String,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
@@ -75,6 +86,10 @@ impl App {
             new_project: None,
             settings: None,
             jobs: JobRuns::default(),
+            preferences: None,
+            applied_preferences: None,
+            preferences_watcher: None,
+            watch_preferences: false,
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
@@ -92,6 +107,13 @@ impl App {
     /// off.
     pub fn with_bridge(mut self, bridge: Bridge) -> App {
         self.bridge = bridge;
+        self
+    }
+
+    /// Wakes the window when `preferences.toml` changes on disk, so an idle window applies
+    /// another instance's change at once. Without it, a change applies on the next frame.
+    pub fn watching_preferences(mut self) -> App {
+        self.watch_preferences = true;
         self
     }
 
@@ -149,11 +171,11 @@ impl App {
     pub fn ui(&mut self, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
         if !self.theme_installed {
-            let prefs = preferences::current(self.shell.engine().user_dirs());
-            theme::install(&ctx, theme::preference(&prefs));
+            theme::install(&ctx, theme::preference(self.shell.preferences()));
             crate::icons::install_loaders(&ctx);
             self.theme_installed = true;
         }
+        self.apply_preferences(&ctx);
         self.pump_bridge(&ctx);
         self.collect_picked_files();
         self.update_title(&ctx);
@@ -198,6 +220,7 @@ impl App {
             self.jobs.run_from_dialog(&ctx, &mut self.shell, dialog);
         }
         self.jobs.show(&ctx, &mut self.shell);
+        self.show_preferences(&ctx);
         if let Some(JournalAction::Export) = frame.journal {
             self.files.start(&ctx, Pick::ExportJournal);
         }
@@ -271,8 +294,10 @@ impl App {
     /// dialog is open, and while a Project dialog is open only global keys apply, with
     /// undo on the Project stack.
     fn keys(&mut self, ctx: &egui::Context) {
+        // The Preferences dialog takes every key: its Keyboard Shortcuts page records them.
         if ctx.egui_wants_keyboard_input()
             || self.new_project.is_some()
+            || self.preferences.is_some()
             || self.palette.is_some()
             || self.params_dialog.is_some()
         {
@@ -335,6 +360,31 @@ impl App {
         }
     }
 
+    /// Opens the Preferences dialog on `page` (its General page with `None`).
+    pub fn open_preferences(&mut self, page: Option<PageId>) {
+        self.preferences = Some(PreferencesDialog::on(page.unwrap_or(PageId::General)));
+    }
+
+    pub fn preferences_dialog(&self) -> Option<&PreferencesDialog> {
+        self.preferences.as_ref()
+    }
+
+    /// Draws the open Preferences dialog and does what it asks of the window.
+    fn show_preferences(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.preferences else {
+            return;
+        };
+        match dialog.show(ctx, &mut self.shell, &mut self.bridge) {
+            PreferencesOutcome::Open => {}
+            PreferencesOutcome::Closed => self.preferences = None,
+            PreferencesOutcome::PickFolder => self.files.start(ctx, Pick::PreferencesFolder),
+            PreferencesOutcome::ShowFolder(folder) => {
+                let _ = std::fs::create_dir_all(&folder);
+                self.show_in_folder(&folder);
+            }
+        }
+    }
+
     fn open_palette(&mut self) {
         let shell = &self.shell;
         let shortcut = |id: &str| (self.shortcuts)(shell, id);
@@ -355,6 +405,32 @@ impl App {
                 self.handle_requests(ctx);
             }
         }
+    }
+
+    /// Notices another instance's change to `preferences.toml`, and applies the theme and
+    /// UI scale whenever the Preferences change.
+    fn apply_preferences(&mut self, ctx: &egui::Context) {
+        if self.watch_preferences
+            && self.preferences_watcher.is_none()
+            && let Some(dirs) = self.shell.engine().user_dirs()
+        {
+            let waker = ctx.clone();
+            self.preferences_watcher = Some(Watcher::start(dirs.preferences_file(), move || {
+                waker.request_repaint()
+            }));
+        }
+        self.shell.poll_preferences();
+        let generation = self.shell.preferences_generation();
+        if self.applied_preferences == Some(generation) {
+            return;
+        }
+        let prefs = self.shell.preferences();
+        ctx.set_theme(theme::preference(prefs));
+        let scale = prefs.general.ui_scale as f32;
+        if (ctx.zoom_factor() - scale).abs() > f32::EPSILON {
+            ctx.set_zoom_factor(scale);
+        }
+        self.applied_preferences = Some(generation);
     }
 
     /// Calls a Command from the GUI: it runs when its params are complete, else its
@@ -411,6 +487,11 @@ impl App {
                     let _ = self
                         .shell
                         .run_reporting("project.library.add", json!({ "path": path }));
+                }
+            }
+            Some((Pick::PreferencesFolder, path)) => {
+                if let Some(dialog) = &mut self.preferences {
+                    dialog.picked_folder(&mut self.shell, &path);
                 }
             }
             Some((Pick::SettingsFolder, path)) => {
@@ -475,6 +556,7 @@ impl App {
                         tab.camera = None;
                     }
                 }
+                Request::Preferences => self.open_preferences(None),
                 Request::Theme(choice) => ctx.set_theme(match choice {
                     preferences::Theme::FollowOs => ThemePreference::System,
                     preferences::Theme::Dark => ThemePreference::Dark,
@@ -489,7 +571,9 @@ impl App {
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panels_button(ui);
-                bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell);
+                if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
+                    self.open_preferences(Some(PageId::Agents));
+                }
                 if self.shell.zones_need_refill() {
                     if ui.small_button(tr!("status-zones-refill")).clicked() {
                         let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
@@ -649,6 +733,7 @@ pub fn run(
                 App::new(shell)
                     .with_render_state(render_state.clone())
                     .with_bridge(bridge)
+                    .watching_preferences()
                     .with_shortcuts(keymap::shortcut_of),
             ))
         }),
