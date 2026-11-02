@@ -52,6 +52,8 @@ pub struct Frame {
     pub journal: Option<JournalAction>,
     /// Clicks in the Messages panel.
     pub messages: Vec<panels::messages::Action>,
+    /// Commands to call from the GUI, which ask for params they lack in a dialog.
+    pub calls: Vec<(String, Value)>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -329,6 +331,11 @@ impl Cx<'_> {
             .project()
             .and_then(|p| p.document(document))
             .map(|d| d.kind);
+        // A Part from the Library panel in flight takes the pointer on any canvas.
+        if self.shell.tool() == crate::tools::Tool::Place {
+            crate::placement::canvas(self.shell, document, input);
+            return Vec::new();
+        }
         match kind {
             Some(DocumentKind::Schematic) => {
                 let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
@@ -589,13 +596,21 @@ impl Cx<'_> {
                 let commands = panels::layers::show(ui, self.shell);
                 self.frame.commands.extend(commands);
             }
+            TabKey::Panel(PanelId::Library) => {
+                for action in panels::library::show(ui, self.shell) {
+                    match action {
+                        panels::library::Action::Run(id, params) => {
+                            self.frame.commands.push((id, params));
+                        }
+                        panels::library::Action::Call(id, params) => {
+                            self.frame.calls.push((id, params));
+                        }
+                    }
+                }
+            }
             TabKey::Panel(PanelId::Messages) => {
                 let actions = panels::messages::show(ui, self.shell);
                 self.frame.messages.extend(actions);
-            }
-            TabKey::Panel(_) => {
-                ui.add_space(8.0);
-                ui.vertical_centered(|ui| ui.weak(tr!("panel-empty")));
             }
         }
     }

@@ -10,7 +10,29 @@ use reda_command::{
 /// How `project.library.add` stores a Project Library path, for front ends that check a
 /// path before running it.
 pub use reda_library::normalise_library_path;
-use reda_library::{ElementKind, LibraryFiles, LibraryIndex, LibraryRoot, Origin, scan};
+/// The scanned Libraries and their search, for front ends that list Parts.
+pub use reda_library::{Library, LibraryIndex, Origin as LibraryOrigin, SearchHit, SearchQuery};
+
+/// A [`PartSource`] over Parts already copied out of the Libraries, so a Tool that
+/// previews the same placement many times reads the disk once.
+pub struct ReadyParts(Vec<PartCopy>);
+
+impl ReadyParts {
+    pub fn new(parts: Vec<PartCopy>) -> ReadyParts {
+        ReadyParts(parts)
+    }
+}
+
+impl PartSource for ReadyParts {
+    fn part(&self, uuid: Uuid) -> Result<PartCopy, CommandError> {
+        self.0
+            .iter()
+            .find(|c| c.part.uuid == uuid)
+            .cloned()
+            .ok_or_else(|| CommandError::not_found(format!("Part {uuid} is not at hand")))
+    }
+}
+use reda_library::{ElementKind, LibraryFiles, LibraryRoot, Origin, scan};
 use reda_model::{Footprint, LibraryInfo, Part, Symbol, Uuid};
 
 use crate::format::library::{

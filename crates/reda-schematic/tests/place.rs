@@ -281,3 +281,33 @@ fn component_references_accept_an_empty_sheet_instance_path() {
     reopened.run_ok("project.save", json!({}));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), saved);
 }
+
+#[test]
+fn placing_takes_a_designator_and_fields_from_the_placement_tool() {
+    let dir = TempDir::new("place-edits");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": R_10K, "at": {"x": "0mm", "y": "0mm"},
+               "designator": "R7", "fields": {"value": "4k7", "LCSC": "C25900"}}),
+    );
+    assert_eq!(out["result"]["designator"], "R7");
+    let unit = object(&mut engine, &out["result"]["unit"]);
+    assert_eq!(unit["designator"], "R7");
+    assert_eq!(unit["fields"]["value"], "4k7");
+    assert_eq!(unit["fields"]["custom"][0]["value"], "C25900");
+
+    // A Designator in use is refused, and so is a blank one.
+    let taken = engine.run(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": R_10K, "at": {"x": "5mm", "y": "0mm"},
+               "designator": "R7"}),
+    );
+    assert_eq!(taken.unwrap_err().code, ErrorCode::Conflict);
+    let blank = engine.run(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": R_10K, "at": {"x": "5mm", "y": "0mm"},
+               "designator": " "}),
+    );
+    assert_eq!(blank.unwrap_err().code, ErrorCode::InvalidParams);
+}

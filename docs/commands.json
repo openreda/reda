@@ -18601,6 +18601,17 @@
               "null"
             ]
           },
+          "fields": {
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "default": {},
+            "description": "Fields to set over the Part's defaults, by name (`value`, `mpn`… or a free-form\nname); null or empty clears a field.",
+            "type": "object"
+          },
           "footprint": {
             "default": null,
             "description": "One of the Part's alternate Footprints, by UUID; its first when left out.",
@@ -22693,10 +22704,28 @@
             "$ref": "#/$defs/At",
             "description": "Where the Symbol origin goes."
           },
+          "designator": {
+            "description": "The Designator, which no other Component may use; by default the next free one\nfor the Symbol's prefix.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "document": {
             "description": "The Schematic Sheet to place on.",
             "format": "uuid",
             "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "default": {},
+            "description": "Fields to set over the Part's defaults, by name: `value`, the other built-in\nfields or any free-form name such as `LCSC`. An empty value or `null` clears a\nbuilt-in field and leaves out a free-form one.",
+            "type": "object"
           },
           "footprint": {
             "description": "The Footprint, by UUID: one of the Part's alternates. The first by default.",
