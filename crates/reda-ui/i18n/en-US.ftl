@@ -565,3 +565,58 @@ board-setup-nets = Nets
 board-setup-filter = Filter Nets
 board-setup-no-nets = The board has no Nets yet.
 board-setup-class-of = Net Class of { $net }
+
+## Output Job dialog and job runs
+
+output-job-title = Output Job: { $job }
+output-job-page = Job
+output-job-name = Name
+output-job-pcb = PCB Document
+output-job-pcb-missing = (missing)
+output-job-fab-preset = Fab Preset
+output-job-outputs = Outputs
+output-job-gerber = Gerber X2
+output-job-drill = Excellon drill
+output-job-bom = CSV BOM
+output-job-cpl = CSV CPL (pick and place)
+output-job-destination = Destination folder
+output-job-destination-default = Empty: { $folder }
+output-job-name-blank = Give the job a name.
+output-job-name-taken = Another job is already called { $name }.
+output-job-broken = This job's PCB Document is gone. Pick another to repair it.
+output-job-gone = This Output Job was deleted.
+output-job-destination-invalid = Give a /-separated folder inside the Project folder.
+output-job-run = Run
+output-job-run-hint = Applies your changes, then runs the job.
+output-job-broken-run = Output Job { $job } names a PCB Document that is gone: edit it to point it at another.
+output-job-broken-label = { $job } (broken)
+output-job-starting = Starting
+output-job-running = Running { $job }
+output-job-cancelling = Cancelling…
+output-job-done = { $job } finished
+output-job-blocked = { $job } did not run
+output-job-cancelled = { $job } was cancelled
+output-job-failed = { $job } failed
+output-job-written = Wrote { $count } { $count ->
+    [one] file
+   *[other] files
+} and their zip to { $folder }.
+output-job-nothing-written = Nothing was written.
+output-job-blockers = Blocking problems
+output-job-warnings = Warnings
+output-job-show-zip = Show Zip
+output-job-close = Close
+output-job-busy = Another Output Job is running.
+message-output-job = { $job }: { $text }
+violation-board-outline-open = The Board Outline is missing or not closed
+violation-missing-footprint = { $designator } has no Footprint
+violation-erc-errors = ERC finds { $count } { $count ->
+    [one] error
+   *[other] errors
+}
+violation-drc-errors = DRC finds { $count } { $count ->
+    [one] error
+   *[other] errors
+}
+violation-rule-below-preset = Board { $rule } { $board } is below { $preset }'s minimum { $minimum }
+violation-missing-font = Font “{ $font }” is not installed
