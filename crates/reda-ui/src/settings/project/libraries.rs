@@ -9,12 +9,17 @@ use reda_engine::model::Project;
 use serde_json::json;
 
 use crate::settings::{Draft, Page, PageCx, Problem, Step, field};
+use crate::shell::Shell;
 use crate::tr;
 
 /// The Library paths as typed, one row each.
 #[derive(Clone, Debug, Default)]
 pub struct LibrariesPage {
     rows: Draft<Vec<String>>,
+    /// The New Library name being typed.
+    pub new_name: String,
+    /// What the last New Library did: the folder it made, or why it failed.
+    created: Option<Result<String, String>>,
 }
 
 impl LibrariesPage {
@@ -31,6 +36,22 @@ impl LibrariesPage {
         if index < self.rows.value().len() {
             self.rows.value_mut().remove(index);
         }
+    }
+
+    /// Creates an empty Library named `name` in a folder of that name in the Project
+    /// folder (`library.create`, at once, since it writes files) and adds its path as a
+    /// row, which Apply registers with the Project.
+    pub fn create(&mut self, shell: &mut Shell, name: &str) -> Result<String, String> {
+        let params = json!({"path": name.trim(), "name": name.trim()});
+        let out = shell
+            .run("library.create", params)
+            .map_err(|e| e.message.clone())?;
+        let path = out["project_path"]
+            .as_str()
+            .unwrap_or(name.trim())
+            .to_owned();
+        self.add(&path);
+        Ok(path)
     }
 
     /// Each row's stored form, or why it is invalid.
@@ -126,6 +147,34 @@ impl Page for LibrariesPage {
                 cx.pick_folder();
             }
         });
+        ui.horizontal(|ui| {
+            let label = tr!("settings-library-new-name");
+            let response = ui.add(
+                egui::TextEdit::singleline(&mut self.new_name)
+                    .hint_text(label.clone())
+                    .desired_width(200.0),
+            );
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::Role::TextInput, true, label.clone())
+            });
+            let create = ui.add_enabled(
+                !self.new_name.trim().is_empty(),
+                egui::Button::new(tr!("settings-library-new")),
+            );
+            if create.clicked() {
+                let name = std::mem::take(&mut self.new_name);
+                self.created = Some(self.create(cx.shell, &name));
+            }
+        });
+        match &self.created {
+            Some(Ok(path)) => {
+                ui.weak(tr!("settings-library-created", path = path.as_str()));
+            }
+            Some(Err(why)) => {
+                ui.colored_label(ui.visuals().error_fg_color, why);
+            }
+            None => {}
+        }
     }
 
     fn picked_folder(&mut self, path: &Path) {

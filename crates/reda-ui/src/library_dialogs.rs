@@ -6,6 +6,7 @@
 
 mod generate;
 mod import;
+mod new_library;
 
 use reda_engine::library::LibraryOrigin;
 use reda_engine::model::Uuid;
@@ -15,10 +16,14 @@ use crate::shell::Shell;
 
 pub use generate::GenerateDialog;
 pub use import::ImportDialog;
+pub use new_library::{For as NewLibraryFor, NewLibraryDialog};
 
-/// The window's hand-written dialogs: Import part's and every generator's.
+/// The window's hand-written dialogs: New Library's, Import part's and every generator's.
 pub fn dialogs() -> Dialogs {
     let mut dialogs = Dialogs::new();
+    dialogs.register("library.create", |shell, params| {
+        Box::new(NewLibraryDialog::new(shell, &params))
+    });
     dialogs.register("library.import_part", |_, params| {
         Box::new(ImportDialog::new(&params))
     });

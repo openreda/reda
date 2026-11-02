@@ -2399,6 +2399,90 @@
     },
     {
       "category": "library",
+      "description": "Creates an empty Library by writing `<name>.redalib` into the folder `path` (absolute, or relative to the Project folder). `register: user` also adds it to the user's Libraries in Preferences; for a Project Library, run `project.library.add` with the returned `project_path`.",
+      "icon": "library_add",
+      "id": "library.create",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "Register": {
+            "description": "Where a new Library is registered.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not registered. For a Project Library, run `project.library.add` with the result's\n`project_path` next, which is undoable on the Project's stack.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "Added to the user's Libraries in Preferences (`libraries.paths`).",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "type": "string"
+          },
+          "name": {
+            "description": "The Library's name, which is also the stem of its `.redalib` file.",
+            "type": "string"
+          },
+          "path": {
+            "description": "The Library folder: absolute, or relative to the open Project's folder. It may\nexist already, but must not hold a Library yet.",
+            "type": "string"
+          },
+          "register": {
+            "$ref": "#/$defs/Register"
+          }
+        },
+        "required": [
+          "path",
+          "name"
+        ],
+        "title": "CreateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "library": {
+            "description": "The new Library's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The Library folder.",
+            "type": "string"
+          },
+          "project_path": {
+            "description": "The folder relative to the open Project's folder, in the form\n`project.library.add` stores, when it lies inside that folder or was given\nrelative to it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "library",
+          "name",
+          "path"
+        ],
+        "title": "CreateResult",
+        "type": "object"
+      },
+      "title": "New Library"
+    },
+    {
+      "category": "library",
       "description": "Closes an open Library element and forgets its undo stack. Unsaved changes are discarded; its file is left as it is.",
       "icon": "close",
       "id": "library.element.close",

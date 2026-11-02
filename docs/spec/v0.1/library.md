@@ -56,6 +56,7 @@ Not in v0.1: full KiCad project or library import (v0.6), direct EasyEDA/LCSC im
   - the starter Library
   - user Libraries, listed in Preferences (Libraries page)
   - Project Libraries, listed in the `.reda` file by relative path
+- **New Library** (`library.create`) writes the `.redalib` into a new or empty folder. It is offered in the Library panel's New… menu and on the Project Settings Libraries page. A user Library is added to Preferences at once; a Project Library is then registered with `project.library.add`, which is undoable.
 
 ## Library panel
 

@@ -308,3 +308,53 @@ fn a_picked_folder_becomes_a_library_row() {
             .is_empty()
     );
 }
+
+#[test]
+fn new_library_writes_the_library_at_once_and_registers_it_on_apply() {
+    let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
+    let mut shell = shell_with_project(&home, &work);
+    let mut d = dialog(&shell);
+    let page = d.page_mut::<LibrariesPage>().unwrap();
+    assert_eq!(page.create(&mut shell, "Parts"), Ok("Parts".to_owned()));
+    assert!(work.path().join("Board/Parts/Parts.redalib").is_file());
+    assert_eq!(d.page::<LibrariesPage>().unwrap().rows(), ["Parts"]);
+    assert!(journal_ids(&shell).contains(&"library.create".to_owned()));
+
+    d.apply(&mut shell).unwrap();
+    assert_eq!(
+        shell.engine().project().unwrap().props().libraries,
+        ["Parts"]
+    );
+    // A second Library in the same folder is refused, and no row is added.
+    let page = d.page_mut::<LibrariesPage>().unwrap();
+    assert!(page.create(&mut shell, "Parts").is_err());
+    assert_eq!(d.page::<LibrariesPage>().unwrap().rows(), ["Parts"]);
+}
+
+#[test]
+fn the_new_library_dialog_registers_a_project_library_after_creating_it() {
+    use reda_ui::command_dialog::ParamsDialog;
+    use reda_ui::library_dialogs::{NewLibraryDialog, NewLibraryFor};
+
+    let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
+    let shell = shell_with_project(&home, &work);
+    let mut d = NewLibraryDialog::new(&shell, &json!({}));
+    assert_eq!(d.owner, NewLibraryFor::Project);
+    assert_eq!(d.params(), None);
+    d.name = "Mine".into();
+    assert_eq!(
+        d.params(),
+        Some(json!({"path": "Mine", "name": "Mine", "register": "none"}))
+    );
+    assert_eq!(
+        d.then(&json!({"project_path": "Mine"})),
+        Some(("project.library.add".to_owned(), json!({"path": "Mine"})))
+    );
+
+    // For the user, a folder is needed and Preferences register it.
+    d.owner = NewLibraryFor::User;
+    assert_eq!(d.params(), None);
+    d.folder = "/abs/Mine".into();
+    assert_eq!(d.params().unwrap()["register"], "user");
+    assert_eq!(d.then(&json!({"project_path": "Mine"})), None);
+}

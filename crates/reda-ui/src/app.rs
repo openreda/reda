@@ -519,7 +519,11 @@ impl App {
             command_dialog::Outcome::Run(params) => {
                 let id = dialog.command().to_owned();
                 match self.shell.run_reporting(&id, params) {
-                    Ok(_) => {
+                    Ok(out) => {
+                        if let Some((next, params)) = dialog.then(&out) {
+                            // Errors reach the status bar; the first Command's work stays.
+                            let _ = self.shell.run_reporting(&next, params);
+                        }
                         self.params_dialog = None;
                         self.handle_requests(ctx);
                     }

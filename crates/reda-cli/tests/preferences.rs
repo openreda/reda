@@ -58,3 +58,32 @@ fn set_then_get_through_reda_home() {
     );
     assert_eq!(stdout_json(&out)["value"], false);
 }
+
+#[test]
+fn a_new_user_library_is_created_and_registered() {
+    let home = TempDir::new("cli-lib-create");
+    let folder = home.path().join("Mine");
+    let out = reda(
+        home.path(),
+        &[
+            "run",
+            "library.create",
+            "--path",
+            folder.to_str().unwrap(),
+            "--name",
+            "Mine",
+            "--register",
+            "user",
+        ],
+    );
+    assert_eq!(stdout_json(&out)["name"], "Mine");
+    assert!(folder.join("Mine.redalib").is_file());
+    let out = reda(
+        home.path(),
+        &["run", "app.preferences.get", "--key", "libraries.paths"],
+    );
+    assert_eq!(
+        stdout_json(&out)["value"],
+        json!([folder.to_str().unwrap()])
+    );
+}
