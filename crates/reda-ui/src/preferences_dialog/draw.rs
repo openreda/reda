@@ -158,7 +158,7 @@ impl PreferencesDialog {
     fn page_content(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
         match self.page {
             PageId::Libraries => self.libraries(ui, cx),
-            PageId::FabPresets => fab_presets_page(ui, cx),
+            PageId::FabPresets => self.fab_presets(ui, cx),
             PageId::Agents => self.agents(ui, cx),
             PageId::KeyboardShortcuts => self.keyboard_shortcuts(ui, cx),
             page => {
@@ -568,32 +568,49 @@ fn fixed_label(ui: &mut Ui, width: f32, text: RichText) -> egui::Response {
     .inner
 }
 
-/// The user's Fab Presets, with the folder they live in.
-fn fab_presets_page(ui: &mut Ui, cx: &mut Cx<'_>) {
-    ui.label(tr!("pref-fab-presets-intro"));
-    ui.add_space(4.0);
-    let Some(dirs) = cx.shell.engine().user_dirs().cloned() else {
-        ui.weak(tr!("shortcuts-no-folder"));
-        return;
-    };
-    let (presets, warnings) = fab_presets::user_presets(&dirs);
-    if presets.is_empty() {
-        ui.weak(tr!("pref-fab-presets-none"));
-    }
-    for preset in presets {
-        ui.horizontal(|ui| {
-            ui.label(preset.preset.name.as_str());
-            if let Some(path) = &preset.path {
-                ui.weak(path.display().to_string());
-            }
-        });
-    }
-    for warning in warnings {
-        ui.colored_label(ui.visuals().error_fg_color, warning);
-    }
-    ui.add_space(4.0);
-    if ui.link(tr!("shortcuts-open-folder")).clicked() {
-        cx.outcome = Outcome::ShowFolder(fab_presets::dir(&dirs));
+impl PreferencesDialog {
+    /// The user's Fab Presets, each renamed in its name field (Enter) or deleted, with the
+    /// folder they live in.
+    fn fab_presets(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
+        ui.label(tr!("pref-fab-presets-intro"));
+        ui.add_space(4.0);
+        let Some(dirs) = cx.shell.engine().user_dirs().cloned() else {
+            ui.weak(tr!("shortcuts-no-folder"));
+            return;
+        };
+        let (presets, warnings) = fab_presets::user_presets(&dirs);
+        if presets.is_empty() {
+            ui.weak(tr!("pref-fab-presets-none"));
+        }
+        for preset in presets {
+            let name = preset.preset.name;
+            let key = format!("fab_presets/{name}");
+            ui.horizontal(|ui| {
+                let mut text = self.texts.get(&key).cloned().unwrap_or(name.clone());
+                let label = tr!("pref-fab-preset-name", name = name.as_str());
+                let problem = self.problem(&key).map(|p| Problem::new(key.as_str(), p));
+                let response = field(ui, &label, &mut text, 200.0, problem.as_ref());
+                if response.changed() {
+                    self.texts.insert(key.clone(), text.clone());
+                }
+                if response.lost_focus() && text.trim() != name {
+                    self.rename_fab_preset(cx.shell, &name, &text);
+                }
+                let button = ui.small_button(tr!("pref-delete"));
+                let delete = tr!("pref-delete-named", item = name.as_str());
+                button.widget_info(|| WidgetInfo::labeled(Role::Button, true, delete.clone()));
+                if button.clicked() {
+                    self.delete_fab_preset(cx.shell, &name);
+                }
+            });
+        }
+        for warning in warnings {
+            ui.colored_label(ui.visuals().error_fg_color, warning);
+        }
+        ui.add_space(4.0);
+        if ui.link(tr!("shortcuts-open-folder")).clicked() {
+            cx.outcome = Outcome::ShowFolder(fab_presets::dir(&dirs));
+        }
     }
 }
 

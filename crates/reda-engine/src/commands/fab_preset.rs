@@ -17,6 +17,8 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(PresetAdd);
     registry.add(PresetDelete);
     registry.add(PresetSaveUser);
+    registry.add(PresetRenameUser);
+    registry.add(PresetDeleteUser);
     registry.add(PresetSourceDiff);
     registry.add(PresetUpdateFromSource);
 }
@@ -196,6 +198,85 @@ impl Command for PresetSaveUser {
             .user_dirs()
             .ok_or_else(|| CommandError::unavailable("there is no per-user config folder"))?;
         let path = fab_presets::save_user(dirs, &preset)?;
+        Ok(PresetSaveUserResult { path })
+    }
+}
+
+fn user_dirs<'c>(cx: &'c Context<'_>) -> Result<&'c reda_command::UserDirs, CommandError> {
+    cx.user_dirs()
+        .ok_or_else(|| CommandError::unavailable("there is no per-user config folder"))
+}
+
+pub struct PresetRenameUser;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresetRenameUserParams {
+    /// The user preset's name (case does not matter).
+    pub name: String,
+    /// Its new name: a file name, and not a shipped preset's or another user preset's.
+    pub new_name: String,
+}
+
+impl Command for PresetRenameUser {
+    const META: Meta = Meta {
+        id: "fab_preset.rename_user",
+        title: "Rename User Fab Preset",
+        description: "Renames one of the user's Fab Presets and its `.redafab` file. Project \
+                      copies keep the old name, so they no longer update from it.",
+        category: "output",
+        icon: "rename",
+        kind: Kind::File,
+    };
+    type Params = PresetRenameUserParams;
+    type Output = PresetSaveUserResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: PresetRenameUserParams,
+    ) -> Result<PresetSaveUserResult, CommandError> {
+        let path = fab_presets::rename_user(user_dirs(cx)?, &p.name, &p.new_name)?;
+        Ok(PresetSaveUserResult { path })
+    }
+}
+
+pub struct PresetDeleteUser;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresetDeleteUserParams {
+    /// The user preset's name (case does not matter).
+    pub name: String,
+}
+
+impl Command for PresetDeleteUser {
+    const META: Meta = Meta {
+        id: "fab_preset.delete_user",
+        title: "Delete User Fab Preset",
+        description: "Moves one of the user's Fab Presets, its `.redafab` file, to the OS \
+                      trash. Project copies of it stay.",
+        category: "output",
+        icon: "delete",
+        kind: Kind::File,
+    };
+    type Params = PresetDeleteUserParams;
+    type Output = PresetSaveUserResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: PresetDeleteUserParams,
+    ) -> Result<PresetSaveUserResult, CommandError> {
+        let (_, path) = fab_presets::user_preset(user_dirs(cx)?, &p.name)?;
+        let trash = cx
+            .session()?
+            .trash
+            .clone()
+            .ok_or_else(|| CommandError::unavailable("there is no trash to move it to"))?;
+        trash.trash(&path).map_err(|e| {
+            CommandError::internal(format!("moving {} to the trash: {e}", path.display()))
+        })?;
         Ok(PresetSaveUserResult { path })
     }
 }

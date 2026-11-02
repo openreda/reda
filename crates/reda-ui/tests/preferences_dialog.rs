@@ -233,3 +233,31 @@ fn another_instance_changing_the_theme_applies_here() {
         egui::ThemePreference::Dark
     );
 }
+
+#[test]
+fn the_fab_presets_page_renames_and_deletes_user_presets() {
+    let home = TempDir::new("prefs-fab");
+    let dirs = UserDirs::under(home.path());
+    let mut preset = reda_ui::engine::output::shipped().remove(0);
+    preset.name = "My JLC".into();
+    reda_ui::engine::fab_presets::save_user(&dirs, &preset).unwrap();
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Fab Presets");
+
+    let field = "Name of My JLC";
+    h.get_by_role_and_label(Role::TextInput, field).click();
+    h.run();
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.get_by_role_and_label(Role::TextInput, field)
+        .type_text("JLC Fast");
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(last_journal_id(&h), "fab_preset.rename_user");
+    assert!(dirs.config.join("fab-presets/JLC Fast.redafab").exists());
+
+    h.get_by_role_and_label(Role::Button, "Delete JLC Fast")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "fab_preset.delete_user");
+}

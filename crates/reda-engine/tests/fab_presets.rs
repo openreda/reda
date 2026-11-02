@@ -1,10 +1,12 @@
 //! Fab Presets: the shipped ones, user `.redafab` presets, Project copies and what
 //! `project.new` makes of them.
 
+use reda_engine::Engine;
 use reda_engine::command::ErrorCode;
+use reda_engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_engine::model::geom::Nm;
 use reda_engine::state;
-use reda_testkit::{TempDir, TestEngine, test_engine, test_engine_in};
+use reda_testkit::{FolderTrash, TempDir, TestEngine, test_engine, test_engine_in};
 use serde_json::{Value, json};
 
 fn new_project(engine: &mut TestEngine, dir: &TempDir, params: Value) -> Value {
@@ -279,4 +281,78 @@ fn copies_and_jobs_survive_save_and_open() {
         json!({"path": dir.path().join("work/Demo")}),
     );
     assert_eq!(other.project().unwrap(), &before);
+}
+
+/// An engine whose per-user folders are under `home` and whose trash is `home/trash`, with
+/// the user preset "My JLC" saved from a Project in `dir`.
+fn with_user_preset(home: &TempDir, dir: &TempDir) -> TestEngine {
+    let mut engine = TestEngine(
+        Engine::builder()
+            .ids(SeededIds::new(0))
+            .clock(FixedClock::EPOCH)
+            .user_dirs(Some(UserDirs::under(home.path())))
+            .starter_library(None)
+            .trash(FolderTrash(home.path().join("trash")))
+            .build(),
+    );
+    new_project(&mut engine, dir, json!({"fab_preset": "JLCPCB"}));
+    let copy = only_preset(&engine);
+    engine.run_ok(
+        "fab_preset.save_user",
+        json!({"preset": copy.uuid, "name": "My JLC"}),
+    );
+    engine
+}
+
+fn user_names(engine: &mut TestEngine) -> Vec<String> {
+    let list = engine.run_ok("fab_preset.list", json!({}));
+    list["presets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["origin"] == "user")
+        .map(|p| p["preset"]["name"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[test]
+fn a_user_preset_is_renamed_with_its_file() {
+    let (home, dir) = (TempDir::new("fab-rename-home"), TempDir::new("fab-rename"));
+    let mut engine = with_user_preset(&home, &dir);
+    let folder = home.path().join("config/fab-presets");
+    let out = engine.run_ok(
+        "fab_preset.rename_user",
+        json!({"name": "my jlc", "new_name": "JLC Fast"}),
+    );
+    assert_eq!(out["path"], json!(folder.join("JLC Fast.redafab")));
+    assert!(!folder.join("My JLC.redafab").exists());
+    assert_eq!(user_names(&mut engine), ["JLC Fast"]);
+
+    for taken in ["PCBWay", "", "JLC/Fast"] {
+        let err = engine.run_err(
+            "fab_preset.rename_user",
+            json!({"name": "JLC Fast", "new_name": taken}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{taken:?}");
+    }
+    let err = engine.run_err(
+        "fab_preset.rename_user",
+        json!({"name": "Nope", "new_name": "Other"}),
+    );
+    assert_eq!(err.code, ErrorCode::NotFound);
+}
+
+#[test]
+fn a_deleted_user_preset_goes_to_the_trash() {
+    let (home, dir) = (TempDir::new("fab-delete-home"), TempDir::new("fab-delete"));
+    let mut engine = with_user_preset(&home, &dir);
+    engine.run_ok("fab_preset.delete_user", json!({"name": "My JLC"}));
+    assert!(user_names(&mut engine).is_empty());
+    assert!(home.path().join("trash/My JLC.redafab").exists());
+    let err = engine.run_err("fab_preset.delete_user", json!({"name": "JLCPCB"}));
+    assert_eq!(
+        err.code,
+        ErrorCode::NotFound,
+        "a shipped preset is not the user's"
+    );
 }
