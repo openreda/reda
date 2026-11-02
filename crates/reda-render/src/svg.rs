@@ -9,7 +9,7 @@ use reda_model::Uuid;
 use reda_model::geom::Point;
 
 use crate::color::{Palette, Rgba};
-use crate::outline::{Seg, circle, mesh_contours, mm, polygons, rect};
+use crate::outline::{Seg, mesh_contours, mm, polygons, rect};
 use crate::scene::{Primitive, Scene};
 use crate::viewport::{Viewport, ink};
 

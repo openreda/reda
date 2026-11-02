@@ -7,6 +7,7 @@
 
 mod color;
 mod outline;
+mod pdf;
 mod polygon;
 mod scene;
 mod schematic;
@@ -17,6 +18,7 @@ mod transform;
 mod viewport;
 
 pub use color::{ColorKey, Palette, Rgba, SchematicColor, Theme};
+pub use pdf::{PdfInfo, to_pdf};
 pub use scene::{Align, GlyphRun, HAlign, Item, Primitive, Scene, SceneLayer, SceneSource, VAlign};
 pub use schematic::schematic_scene;
 pub use svg::to_svg;

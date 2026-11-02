@@ -64,10 +64,7 @@ pub(crate) fn mesh_contours(mesh: &Mesh) -> Vec<Vec<Point>> {
     while let Some((&start, _)) = next.iter().next() {
         let mut contour = vec![start];
         let mut at = start;
-        loop {
-            let Some(outs) = next.get_mut(&at) else {
-                break;
-            };
+        while let Some(outs) = next.get_mut(&at) {
             let to = outs.pop().expect("points with no edges left are removed");
             if outs.is_empty() {
                 next.remove(&at);

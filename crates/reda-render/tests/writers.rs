@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use reda_model::Uuid;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_render::{
-    Align, ColorKey, GlyphRun, Item, Palette, Primitive, Scene, SceneLayer, SceneSource,
-    SchematicColor, Theme, Viewport, to_svg,
+    Align, ColorKey, GlyphRun, Item, Palette, PdfInfo, Primitive, Scene, SceneLayer, SceneSource,
+    SchematicColor, Theme, Viewport, to_pdf, to_svg,
 };
 use reda_testkit::assert_golden;
 use reda_text::{Mesh, Segment};
@@ -167,4 +167,77 @@ fn highlighting_dims_everything_else_but_the_paper() {
         "the highlighted Wire keeps its colour"
     );
     assert_ne!(line(&plain, 4), line(&lit, 4), "the Junction is dimmed");
+}
+
+/// 2026-01-01T00:00:00Z, the test Clock's time, in ms.
+const EPOCH_MS: i64 = 1_767_225_600_000;
+
+fn info() -> PdfInfo {
+    PdfInfo {
+        title: "Demo (rev B)".into(),
+        created: EPOCH_MS,
+    }
+}
+
+#[test]
+fn pdf_writes_one_vector_page_per_scene() {
+    let first = every_primitive();
+    let mut second = every_primitive();
+    second.items.truncate(2);
+    let pdf = to_pdf(&[first, second], &Palette::shipped(Theme::Light), &info());
+    assert_golden(golden("every_primitive.pdf"), &pdf);
+}
+
+#[test]
+fn pdf_embeds_no_font_and_dates_itself_from_the_clock() {
+    let pdf = to_pdf(
+        &[every_primitive()],
+        &Palette::shipped(Theme::Light),
+        &info(),
+    );
+    let text = String::from_utf8_lossy(&pdf);
+    assert!(text.starts_with("%PDF-1.4\n"));
+    assert!(!text.contains("/Font"), "glyphs are paths, not text");
+    assert!(text.contains("/CreationDate (D:20260101000000Z)"));
+    assert!(text.contains("/Title (Demo \\(rev B\\))"));
+    assert!(
+        text.contains("/MediaBox [0 0 113.386 85.039]"),
+        "40 x 30 mm in points"
+    );
+    assert!(text.trim_end().ends_with("%%EOF"));
+}
+
+#[test]
+fn pdf_cross_reference_offsets_point_at_their_objects() {
+    let pdf = to_pdf(
+        &[every_primitive()],
+        &Palette::shipped(Theme::Light),
+        &info(),
+    );
+    let text = String::from_utf8_lossy(&pdf);
+    let xref = text.rfind("\nxref\n").unwrap() + 1;
+    let startxref: usize = text
+        .rsplit("startxref\n")
+        .next()
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_eq!(startxref, xref);
+    let entries: Vec<&str> = text[xref..]
+        .lines()
+        .skip(3)
+        .take_while(|l| l.ends_with(" n "))
+        .collect();
+    assert!(!entries.is_empty());
+    for (i, e) in entries.iter().enumerate() {
+        let offset: usize = e[..10].parse().unwrap();
+        assert!(
+            text[offset..].starts_with(&format!("{} 0 obj", i + 1)),
+            "object {} at {offset}",
+            i + 1
+        );
+    }
 }
