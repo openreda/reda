@@ -23,6 +23,7 @@ status-panels = Panels
 status-grid = Grid: { $grid }
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
+floating-window-title-tab = { $tab } – REDA
 status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
 
 ## The bridge: agents connecting through the control port
@@ -147,6 +148,7 @@ menu-design = Design
 menu-place = Place
 pcb-user-origin-reset = Reset User Origin
 menu-library = Library
+menu-help = Help
 bars-no-active-document = no Document is active
 bars-nothing-selected = nothing is selected
 bars-clipboard-empty = nothing has been copied
@@ -206,6 +208,22 @@ new-project-rectangle = Rectangle
 new-project-width = Width (mm)
 new-project-height = Height (mm)
 new-project-corner-radius = Corner radius (mm)
+
+## Help: the About box and the update check
+
+about-title = About REDA
+about-tab-about = About
+about-tab-licences = Licences
+about-version = Version { $version }
+about-summary = Electronic design automation: capture schematics, lay out PCBs and produce fab outputs.
+about-licence = REDA is free software under the MIT licence. It ships with third-party data and Rust crates under their own licences, listed under Licences.
+about-notices = Third-party notices
+help-close = Close
+update-title = Check for Updates
+update-available = REDA { $latest } is available. This is { $current }.
+update-current = REDA { $latest } is the newest release.
+update-current-dev = This build ({ $current }) is newer than the newest release, { $latest }.
+update-open-release = Open the release page
 
 ## Properties panel
 
@@ -508,3 +526,56 @@ form-choose = Choose…
 palette-title = Command Palette
 palette-hint = Type a Command…
 palette-nothing = No Command matches.
+
+## Board Setup
+
+board-setup-title = Board Setup
+board-setup-rules = Rules
+board-setup-page-clearance = Clearance
+board-setup-page-track-width = Track Width
+board-setup-page-via = Via
+board-setup-page-annular-ring = Annular Ring
+board-setup-page-hole-spacing = Hole Spacing
+board-setup-page-edge-clearance = Edge Clearance
+board-setup-page-net-classes = Net Classes
+board-setup-page-drc = DRC
+board-setup-clearance = Clearance
+board-setup-track-width = Track width
+board-setup-via-diameter = Via diameter
+board-setup-via-hole = Via hole
+board-setup-annular-ring = Annular ring
+board-setup-hole-to-hole = Hole-to-hole spacing
+board-setup-edge-clearance = Edge clearance
+board-setup-board-wide = Board-wide minimum { $rule } (mm)
+board-setup-overrides = Net Class overrides (mm)
+board-setup-override = { $class }: { $rule }
+board-setup-overrides-note = Leave an override empty to use the board-wide value. Where two Net Classes meet, the larger clearance applies.
+board-setup-no-overrides = Net Classes do not override this rule.
+board-setup-net-class = Net Class
+board-setup-severity = DRC severity of { $check }:
+board-setup-severity-choice = { $check }: { $severity }
+board-setup-units = Lengths are in mm unless you give a unit, such as 8mil.
+board-setup-fab-preset = Fab Preset rules:
+board-setup-apply-preset = Apply { $preset } Rules…
+board-setup-preset-preview = Applying the { $preset } rules changes:
+board-setup-preset-same = The rules already match { $preset }.
+board-setup-rule = Rule
+board-setup-now = Now
+board-setup-preset = Preset
+board-setup-use-preset = Use These Rules
+board-setup-no-pcb = The Project has no PCB Document.
+board-setup-negative = A length cannot be negative.
+board-setup-not-a-length = Not a length. Give mm, such as 0.2, or a unit, such as 8mil.
+board-setup-required = Give a length.
+board-setup-new-class = Class { $number }
+board-setup-class-blank = Give the Net Class a name.
+board-setup-class-duplicate = Another Net Class is called { $name }.
+board-setup-class-name = Net Class { $number } name
+board-setup-delete = Delete
+board-setup-delete-class = Delete Net Class { $number }
+board-setup-default-class = The Default Net Class cannot be deleted.
+board-setup-add-class = Add Net Class
+board-setup-nets = Nets
+board-setup-filter = Filter Nets
+board-setup-no-nets = The board has no Nets yet.
+board-setup-class-of = Net Class of { $net }

@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::{DockSide, GroupId, Layout, PanelId, SplitSide, TabKey, saved};
+use super::{DockSide, GroupId, Layout, PanelId, SplitSide, TabKey, WindowId, saved};
 
 /// Adds the layout Commands to `registry`, with no `layout.apply:<name>` Presets.
 pub fn register_all(registry: &mut Registry) {
@@ -25,6 +25,7 @@ pub fn register_with_layouts(registry: &mut Registry, dirs: Option<UserDirs>) {
     registry.add(MoveToNewWindow);
     registry.add(Split);
     registry.add(Close);
+    registry.add(CloseWindow);
     registry.add(Collapse);
     registry.add(ShowPanel);
     registry.add(OpenDocument);
@@ -253,6 +254,33 @@ impl Command for Close {
     fn run(&self, cx: &mut Context<'_>, p: TabParams) -> Result<Done, CommandError> {
         let tab = tab(&p.tab)?;
         layout(cx)?.close(&tab)?;
+        Ok(Done {})
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WindowParams {
+    /// The window's id, as the layout gives it.
+    window: WindowId,
+}
+
+struct CloseWindow;
+
+impl Command for CloseWindow {
+    const META: Meta = Meta {
+        id: "layout.window.close",
+        title: "Close Window",
+        description: "Closes a window of its own and every tab in it, as closing its OS window does. A closed Panel reopens from the Panels button or its panel.show Preset.",
+        category: "layout",
+        icon: "close",
+        kind: Kind::View,
+    };
+    type Params = WindowParams;
+    type Output = Done;
+
+    fn run(&self, cx: &mut Context<'_>, p: WindowParams) -> Result<Done, CommandError> {
+        layout(cx)?.close_window(p.window)?;
         Ok(Done {})
     }
 }

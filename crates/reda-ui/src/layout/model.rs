@@ -763,6 +763,18 @@ impl Layout {
         })
     }
 
+    /// Closes the window `window` with every tab in it, as when its OS window is closed.
+    pub fn close_window(&mut self, window: WindowId) -> Result<(), CommandError> {
+        self.apply(|l| {
+            let before = l.windows.len();
+            l.windows.retain(|w| w.id != window);
+            if l.windows.len() == before {
+                return Err(CommandError::not_found(format!("no window {}", window.0)));
+            }
+            Ok(())
+        })
+    }
+
     /// Collapses the Dock at `side` to an icon strip, or expands it. Collapsing a
     /// collapsed Dock dismisses its flyout.
     pub fn collapse(&mut self, side: DockSide, collapsed: bool) -> Result<(), CommandError> {

@@ -20,6 +20,7 @@ use serde_json::{Value, json};
 
 use crate::shell::Shell;
 
+pub mod board_setup;
 mod draw;
 pub mod project;
 

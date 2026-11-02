@@ -2,6 +2,7 @@
 
 /// Every icon key with its SVG (dark-theme colours), sorted by key.
 pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
+    ("about", egui::include_image!("../../icons/about.svg")),
     ("align", egui::include_image!("../../icons/align.svg")),
     ("annotate", egui::include_image!("../../icons/annotate.svg")),
     ("arc", egui::include_image!("../../icons/arc.svg")),
@@ -26,6 +27,10 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     (
         "clearance",
         egui::include_image!("../../icons/clearance.svg"),
+    ),
+    (
+        "cli_install",
+        egui::include_image!("../../icons/cli_install.svg"),
     ),
     ("close", egui::include_image!("../../icons/close.svg")),
     (
@@ -319,6 +324,10 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
         egui::include_image!("../../icons/unit_place.svg"),
     ),
     ("units", egui::include_image!("../../icons/units.svg")),
+    (
+        "update_check",
+        egui::include_image!("../../icons/update_check.svg"),
+    ),
     (
         "user_origin",
         egui::include_image!("../../icons/user_origin.svg"),

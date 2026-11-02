@@ -18881,7 +18881,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a Net Class called `name`, optionally overriding the board-wide `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets.",
+      "description": "Adds a Net Class called `name`, optionally overriding the board-wide `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets, and moves `nets` into it.",
       "icon": "net_class_add",
       "id": "pcb.net_class.add",
       "kind": "edit",
@@ -18920,6 +18920,15 @@
           "name": {
             "description": "Unique among the board's Net Classes, ignoring case.",
             "type": "string"
+          },
+          "nets": {
+            "default": [],
+            "description": "Nets to move into the new class.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           },
           "track_width": {
             "anyOf": [
@@ -21632,6 +21641,23 @@
               "pcb"
             ],
             "type": "string"
+          },
+          "JobEntry": {
+            "description": "An Output Job as `project.new` and `project.open` list it.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -21653,6 +21679,13 @@
           },
           "name": {
             "type": "string"
+          },
+          "output_jobs": {
+            "description": "The Output Jobs, by name, for `output.job.run`; left out when there are none.",
+            "items": {
+              "$ref": "#/$defs/JobEntry"
+            },
+            "type": "array"
           },
           "path": {
             "description": "The Project file.",
@@ -21733,6 +21766,23 @@
               "pcb"
             ],
             "type": "string"
+          },
+          "JobEntry": {
+            "description": "An Output Job as `project.new` and `project.open` list it.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -21754,6 +21804,13 @@
           },
           "name": {
             "type": "string"
+          },
+          "output_jobs": {
+            "description": "The Output Jobs, by name, for `output.job.run`; left out when there are none.",
+            "items": {
+              "$ref": "#/$defs/JobEntry"
+            },
+            "type": "array"
           },
           "path": {
             "description": "The Project file.",
@@ -30728,6 +30785,65 @@
       },
       "presets": [],
       "result": {
+        "$defs": {
+          "AddedFootprint": {
+            "description": "A Footprint `sync.apply` added for a Component.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentRef"
+              },
+              "footprint": {
+                "description": "The new Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "footprint"
+            ],
+            "type": "object"
+          },
+          "AddedNet": {
+            "description": "A Net `sync.apply` added.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "net": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "net"
+            ],
+            "type": "object"
+          },
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "What `sync.apply` did.",
         "properties": {
@@ -30738,17 +30854,33 @@
             },
             "type": "array"
           },
+          "footprints": {
+            "description": "The Footprints added, in the order they were placed (sheet, then Designator).",
+            "items": {
+              "$ref": "#/$defs/AddedFootprint"
+            },
+            "type": "array"
+          },
           "left_out": {
             "description": "The ids left out (excluded or depending on an excluded one), in list order. They\nshow up again in the next preview.",
             "items": {
               "type": "string"
             },
             "type": "array"
+          },
+          "nets": {
+            "description": "The Nets added, in Change List order.",
+            "items": {
+              "$ref": "#/$defs/AddedNet"
+            },
+            "type": "array"
           }
         },
         "required": [
           "applied",
-          "left_out"
+          "left_out",
+          "footprints",
+          "nets"
         ],
         "title": "SyncApplyResult",
         "type": "object"

@@ -1,0 +1,28 @@
+# cargo-about configuration for the "Rust crates" part of THIRD_PARTY_NOTICES
+# (docs/spec/v0.1/app.md#icons). The release workflow runs, from the repo root:
+#   cargo about generate --locked --workspace --fail \
+#     --config packaging/notices/about.toml -o target/crate-notices.txt packaging/notices/about.hbs
+# and builds with REDA_CRATE_NOTICES pointing at the output (see crates/reda-ui/build.rs).
+#
+# The licences match deny.toml (ADR-0002), in the order a dual-licensed crate's licence is
+# picked: the permissive allow-list first, then the per-crate exceptions there.
+accepted = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "BSL-1.0",
+    "MPL-2.0",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+]
+# Only what ships: build scripts, proc macros' build deps and test-only crates do not.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+# The workspace crates are REDA itself (MIT, publish = false).
+private = { ignore = true }

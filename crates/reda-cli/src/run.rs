@@ -1,5 +1,5 @@
 //! `reda run <id> [--params json | --key value…] [--project p] [--save]` and
-//! `reda run --script journal.jsonl [--project p] [--save]`.
+//! `reda run --script journal.jsonl [--into dir] [--project p] [--save]`.
 //!
 //! Bridges to a running instance that holds the Project ([`crate::bridge`]), else runs
 //! in-process. Prints the result as JSON on stdout, or the `{code, message}` error as JSON
@@ -11,7 +11,14 @@
 //! `--script` replays an exported Journal (see [`reda_engine::journal::replay`]) and prints
 //! the replay's own Journal as JSON lines. A replay mismatch prints
 //! `{line, id, pointer?, message}` on stderr.
+//!
+//! `project.new` writes the new Project, as it always does, so replaying a session that
+//! starts with one into its recorded folder fails once that folder holds the recorded
+//! Project. `--into dir` points every `project.new` step at `dir` instead (the Project
+//! goes to `dir/<name>/`), and moves later paths inside the recorded folder with it, as
+//! the scenario harness does with its temporary folders.
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use reda_control::client::Connection;
@@ -29,6 +36,9 @@ pub struct RunArgs {
     pub params: Value,
     pub project: Option<String>,
     pub save: bool,
+    /// `--into`: the folder a script's `project.new` steps write to instead of the
+    /// recorded one.
+    pub into: Option<String>,
 }
 
 /// What `reda run` runs.
@@ -51,7 +61,9 @@ pub fn parse(args: &[&str]) -> Result<RunArgs, String> {
     let mut json_params: Option<Value> = None;
     let mut flags = Map::new();
     let mut project = None;
+    let mut into = None;
     let mut save = false;
+    let script = matches!(target, Target::Script(_));
     while let [first, tail @ ..] = rest {
         rest = tail;
         let Some(key) = first.strip_prefix("--") else {
@@ -72,12 +84,13 @@ pub fn parse(args: &[&str]) -> Result<RunArgs, String> {
                 json_params = Some(parsed);
             }
             "project" => project = Some(value.to_string()),
+            "into" if script => into = Some(value.to_string()),
             _ => {
                 flags.insert(key.to_owned(), flag_value(value));
             }
         }
     }
-    if matches!(target, Target::Script(_)) && (json_params.is_some() || !flags.is_empty()) {
+    if script && (json_params.is_some() || !flags.is_empty()) {
         return Err("--script takes no params".into());
     }
     let params = match (json_params, flags.is_empty()) {
@@ -90,6 +103,7 @@ pub fn parse(args: &[&str]) -> Result<RunArgs, String> {
         params,
         project,
         save,
+        into,
     })
 }
 
@@ -186,14 +200,21 @@ fn execute_script(runner: &mut Runner, script: &str, args: &RunArgs) -> ExitCode
             ))));
         }
     };
-    let steps = match journal::parse(&text) {
+    let mut steps = match journal::parse(&text) {
         Ok(steps) => steps,
         Err(err) => return fail(serde_json::to_value(&err)),
     };
+    if let Some(into) = &args.into {
+        journal::move_new_projects(&mut steps, |_| PathBuf::from(into));
+    }
     if let Err(err) = open(runner, args) {
         return fail(serde_json::to_value(&err));
     }
-    if let Err(err) = journal::replay_with(|id, params| runner.run(id, params), &steps) {
+    if let Err(mut err) = journal::replay_with(|id, params| runner.run(id, params), &steps) {
+        if err.id.as_deref() == Some("project.new") && args.into.is_none() {
+            err.message
+                .push_str("; to replay it somewhere else, give --into <folder>");
+        }
         return fail(serde_json::to_value(&err));
     }
     if let Err(err) = save(runner, args) {

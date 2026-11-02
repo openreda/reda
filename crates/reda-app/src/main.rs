@@ -3,12 +3,13 @@
 //! Usage: `reda-app [PROJECT]`, where PROJECT is a `.reda` file or a Project folder (or a
 //! `.redasch`/`.redapcb` Document file) to open at once. When a running instance already
 //! has that Project open, the file is handed to it over the bridge and this process exits.
-//! The OS-specific work happens here: the engine gets the OS trash for
-//! deleted Documents' files and the machine's installed fonts, then `reda-ui` runs the
-//! window.
+//! The OS-specific work happens here: the engine gets the OS trash for deleted Documents'
+//! files and the machine's installed fonts, the update check gets the version and a way to
+//! ask GitHub for releases, then `reda-ui` runs the window.
 
 mod fonts;
 mod os_trash;
+mod releases;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -18,6 +19,7 @@ use reda_ui::engine::{Engine, Source, preferences, user_dirs};
 
 use crate::fonts::SystemFonts;
 use crate::os_trash::OsTrash;
+use crate::releases::GitHubReleases;
 
 fn main() -> ExitCode {
     let mut project = None;
@@ -53,13 +55,19 @@ fn main() -> ExitCode {
         reda_ui::crash::install(reda_ui::crash::reports_dir(dirs), env!("REDA_VERSION"));
     }
     let prefs = preferences::current(dirs.as_ref());
-    let engine = Engine::builder()
+    let mut engine = Engine::builder()
         .source(Source::Gui)
         .headless(false)
         .user_dirs(dirs)
         .trash(OsTrash)
         .undo_depth(prefs.general.undo_depth.map(|d| d.get() as usize))
         .build();
+    // The update check goes online only when the user runs it (Help > Check for Updates).
+    reda_ui::help::configure(
+        &mut engine,
+        env!("REDA_VERSION"),
+        Some(Arc::new(GitHubReleases)),
+    );
     let fonts = Arc::new(SystemFonts::scan_in_background(SystemFonts::os_dirs()));
 
     match reda_ui::run(engine, fonts, project) {

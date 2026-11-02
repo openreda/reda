@@ -4,6 +4,7 @@ use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, NoParams,
     Registry, Unavailable,
 };
+use reda_model::{ComponentRef, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +73,25 @@ pub struct SyncApplyResult {
     /// The ids left out (excluded or depending on an excluded one), in list order. They
     /// show up again in the next preview.
     pub left_out: Vec<String>,
+    /// The Footprints added, in the order they were placed (sheet, then Designator).
+    pub footprints: Vec<AddedFootprint>,
+    /// The Nets added, in Change List order.
+    pub nets: Vec<AddedNet>,
+}
+
+/// A Footprint `sync.apply` added for a Component.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct AddedFootprint {
+    pub component: ComponentRef,
+    /// The new Footprint instance.
+    pub footprint: Uuid,
+}
+
+/// A Net `sync.apply` added.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct AddedNet {
+    pub name: String,
+    pub net: Uuid,
 }
 
 pub struct SyncApply;
@@ -106,6 +126,21 @@ impl Command for SyncApply {
         Ok(SyncApplyResult {
             applied: done.applied,
             left_out: done.left_out,
+            footprints: done
+                .created
+                .footprints
+                .into_iter()
+                .map(|(component, footprint)| AddedFootprint {
+                    component,
+                    footprint,
+                })
+                .collect(),
+            nets: done
+                .created
+                .nets
+                .into_iter()
+                .map(|(name, net)| AddedNet { name, net })
+                .collect(),
         })
     }
 }

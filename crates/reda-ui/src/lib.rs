@@ -16,6 +16,7 @@ pub mod crash;
 mod dialogs;
 mod docking;
 pub mod grid;
+pub mod help;
 pub mod i18n;
 pub mod icons;
 mod journal_panel;
@@ -42,6 +43,7 @@ pub mod tools;
 pub mod view_state;
 
 pub use app::{App, install_canvas, run};
+pub use docking::windows;
 /// The control port, re-exported for tests that act as agents.
 pub use reda_control as control;
 /// The engine, re-exported so the app depends only on the UI.

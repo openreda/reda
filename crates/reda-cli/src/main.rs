@@ -12,7 +12,7 @@ const USAGE: &str = "\
 Usage:
   reda mcp [--project <path>]
   reda run <id> [--params <json> | --<key> <value>…] [--project <path>] [--save]
-  reda run --script <journal.jsonl> [--project <path>] [--save]
+  reda run --script <journal.jsonl> [--into <folder>] [--project <path>] [--save]
   reda commands [--json]
   reda --version";
 

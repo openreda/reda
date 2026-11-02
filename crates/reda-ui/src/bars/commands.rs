@@ -1,5 +1,5 @@
 //! The view Commands behind menu items that act on the window rather than the design:
-//! opening the New Project and Open Project dialogs, Quit, Zoom to Fit and the Theme.
+//! opening the New Project and Open Project dialogs and the About box, Quit, Zoom to Fit and the Theme.
 //!
 //! The window owns dialogs, cameras and the egui theme, so these Commands only queue a
 //! [`Request`] in the engine's view state; the window takes the queue each frame with
@@ -34,6 +34,8 @@ pub enum Request {
     ZoomFit(Uuid),
     /// Show the window in this theme.
     Theme(Theme),
+    /// Show the About box.
+    About,
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -93,6 +95,8 @@ pub enum Dialog {
     OpenProject,
     /// The Command Palette.
     CommandPalette,
+    /// The About box, with the third-party licences.
+    About,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -135,6 +139,7 @@ impl Command for OpenDialog {
                 "find",
                 json!({"dialog": "command_palette"}),
             ),
+            Preset::new("about", "About REDA", "about", json!({"dialog": "about"})),
         ]
     }
 
@@ -143,6 +148,7 @@ impl Command for OpenDialog {
             Dialog::NewProject => Request::NewProject,
             Dialog::OpenProject => Request::OpenProject,
             Dialog::CommandPalette => Request::CommandPalette,
+            Dialog::About => Request::About,
         };
         request(cx, r)?;
         Ok(Done {})

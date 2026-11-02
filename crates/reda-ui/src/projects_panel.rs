@@ -26,6 +26,8 @@ pub enum ProjectsAction {
     EditJob(Uuid),
     /// Open the Project Settings dialog.
     ProjectSettings,
+    /// Open the Board Setup dialog.
+    BoardSetup,
 }
 
 /// The panel's own UI state.
@@ -299,11 +301,9 @@ impl Tree<'_> {
                     if let Some(row) = self.document_row(ui, pcb, false) {
                         row.context_menu(|ui| {
                             self.document_menu_top(ui, pcb);
-                            item(
-                                ui,
-                                tr!("projects-board-setup"),
-                                Some(tr!("projects-not-yet")),
-                            );
+                            if item(ui, tr!("projects-board-setup"), None) {
+                                self.action = Some(ProjectsAction::BoardSetup);
+                            }
                             if item(ui, tr!("projects-delete"), None) {
                                 self.run("document.delete", json!({"document": pcb.uuid}));
                             }
