@@ -29,6 +29,7 @@ mod os;
 pub mod palette;
 mod panels;
 pub mod pcb;
+pub mod preferences_dialog;
 mod projects_panel;
 pub mod properties;
 pub mod recovery;
@@ -41,6 +42,7 @@ mod start_page;
 pub mod theme;
 mod tool_preview;
 pub mod tools;
+mod user_preferences;
 pub mod view_state;
 
 pub use app::{App, install_canvas, run};

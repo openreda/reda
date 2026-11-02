@@ -303,6 +303,23 @@ fn preference_commands_are_journalled_and_dirty_nothing() {
 }
 
 #[test]
+fn setting_the_undo_depth_caps_the_undo_stacks_at_once() {
+    let home = TempDir::new("prefs-undo-depth");
+    let mut engine = test_engine_in(home.path());
+    assert_eq!(engine.history().depth(), None);
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "general.undo_depth", "value": 25}),
+    );
+    assert_eq!(engine.history().depth(), Some(25));
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "general.undo_depth", "value": null}),
+    );
+    assert_eq!(engine.history().depth(), None);
+}
+
+#[test]
 fn the_schema_comes_from_the_preferences_type() {
     let schema = reda_engine::preferences::schema();
     assert_eq!(schema["type"], "object");
