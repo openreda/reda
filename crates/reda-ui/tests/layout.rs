@@ -272,6 +272,45 @@ fn a_tab_moves_into_a_new_window() {
 }
 
 #[test]
+fn closing_a_window_closes_its_tabs_in_one_action() {
+    let work = TempDir::new("layout-work");
+    let mut shell = shell_with_project(&work);
+    let sheet = sheet(&shell);
+    shell
+        .run(
+            "layout.tab.move_to_new_window",
+            json!({"tab": "properties"}),
+        )
+        .unwrap();
+    let window = shell.layout().windows[0].id;
+    let Node::Group(group) = &shell.layout().windows[0].root else {
+        panic!("a window of one group")
+    };
+    let group = group.id;
+    shell
+        .run(
+            "layout.tab.move_to_group",
+            json!({"tab": tab_param(&sheet), "group": group}),
+        )
+        .unwrap();
+
+    shell
+        .run("layout.window.close", json!({"window": window}))
+        .unwrap();
+    let layout = shell.layout().clone();
+    assert!(layout.windows.is_empty());
+    assert!(layout.place(&sheet).is_none());
+    assert!(layout.closed_panels().contains(&PanelId::Properties));
+
+    // A window that is gone is refused, and the layout stays as it was.
+    let err = shell
+        .run("layout.window.close", json!({"window": window}))
+        .unwrap_err();
+    assert_eq!(err.code, ErrorCode::NotFound);
+    assert_eq!(*shell.layout(), layout);
+}
+
+#[test]
 fn closing_panels_and_documents_and_reopening_panels() {
     let work = TempDir::new("layout-work");
     let mut shell = shell_with_project(&work);
