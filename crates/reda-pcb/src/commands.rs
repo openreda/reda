@@ -15,7 +15,9 @@ mod text_geometry;
 mod track;
 mod via;
 
+pub use mechanical::{MechanicalSet, MechanicalSetParams};
 pub use outline::rect_outline;
+pub use placement::Placed;
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,

@@ -44,7 +44,7 @@ pub fn apply(
         }
     }
     let left_out = plan.list.cascade(&unticked.iter().cloned().collect());
-    Applier::new(cx)?.run(&plan, &left_out)?;
+    carry_out(cx, &plan, &left_out)?;
     let (left, applied): (Vec<_>, Vec<_>) = plan
         .list
         .changes()
@@ -54,6 +54,16 @@ pub fn apply(
         applied,
         left_out: left,
     })
+}
+
+/// Carries out every change of `plan` but those in `left_out`, which must already hold
+/// every change depending on one left out.
+pub(super) fn carry_out(
+    cx: &mut Context<'_>,
+    plan: &Plan,
+    left_out: &BTreeSet<String>,
+) -> Result<(), CommandError> {
+    Applier::new(cx)?.run(plan, left_out)
 }
 
 /// The PCB's Footprint instances as the apply leaves them, written out at the end.
