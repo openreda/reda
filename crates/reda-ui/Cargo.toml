@@ -13,6 +13,7 @@ eframe.workspace = true
 egui.workspace = true
 egui-wgpu.workspace = true
 fluent-bundle.workspace = true
+reda-control = { path = "../reda-control" }
 reda-engine = { path = "../reda-engine" }
 rfd.workspace = true
 schemars.workspace = true

@@ -20,6 +20,7 @@ use serde_json::{Value, json};
 
 use crate::canvas::{Camera, SceneHandle};
 use crate::layout::{self, Layout, TabKey};
+use crate::recovery::{self, Recorder};
 use crate::selection::{self, Selection};
 use crate::tr;
 
@@ -64,7 +65,7 @@ pub struct RecentProject {
 
 /// The shell: the engine and the tabs showing it.
 pub struct Shell {
-    engine: Engine,
+    pub(crate) engine: Engine,
     /// The open Documents' tabs, wherever the Layout puts them.
     documents: Vec<DocumentTab>,
     fonts: Arc<dyn InstalledFonts>,
@@ -72,6 +73,8 @@ pub struct Shell {
     asked_fonts: BTreeSet<String>,
     generation: u64,
     message: Option<String>,
+    /// Recovery Snapshots and the Journal mirror (see [`crate::recovery`]).
+    pub(crate) recorder: Recorder,
 }
 
 impl Shell {
@@ -93,9 +96,11 @@ impl Shell {
             asked_fonts: BTreeSet::new(),
             generation: 0,
             message: None,
+            recorder: Recorder::new(),
         };
         if shell.engine.project().is_some() {
             shell.show_project();
+            shell.recorder.opened(&shell.engine);
         }
         shell
     }
@@ -218,6 +223,19 @@ impl Shell {
             Some(_) => path.parent().unwrap_or(path),
             None => path,
         };
+        if let Some(dirs) = self.engine.user_dirs()
+            && let Some(pid) = recovery::live_instance(dirs, project)
+        {
+            // Another REDA has it open: that one keeps it, and no recovery is offered.
+            let name = store::resolve_project_file(project);
+            let name = name.file_stem().unwrap_or_default().to_string_lossy();
+            self.message = Some(tr!(
+                "error-project-held",
+                project = name.as_ref(),
+                pid = pid.to_string()
+            ));
+            return Ok(());
+        }
         self.run_reporting("project.open", json!({ "path": project }))?;
         if let Some((stem, kind)) = document {
             let uuid = self.engine.project().and_then(|p| {
@@ -262,7 +280,10 @@ impl Shell {
         let out = self.engine.run(id, params)?;
         let base = id.split(':').next().unwrap_or(id);
         match base {
-            "project.open" | "project.new" => self.show_project(),
+            "project.open" | "project.new" => {
+                self.show_project();
+                self.recorder.opened(&self.engine);
+            }
             _ => match self.engine.registry().get(base).map(|meta| meta.kind) {
                 Some(Kind::Query) => {}
                 Some(Kind::View) => self.sync_document_tabs(),
