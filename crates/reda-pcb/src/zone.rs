@@ -13,10 +13,12 @@ use reda_model::{PcbDocument, Uuid, Zone, ZoneFills};
 
 mod cache;
 mod fill;
+mod merge;
 mod poly;
 
 pub use cache::{decode, encode};
 pub(crate) use fill::shape_copper;
+pub use merge::{LayerFill, layer_fills};
 
 use crate::copper::shape::Shape;
 use crate::copper::{Copper, Proposal};
