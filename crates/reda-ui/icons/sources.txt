@@ -61,6 +61,7 @@ library_remove lucide:book-x
 library_update lucide:book-up
 line lucide:minus
 lock lucide:lock
+measure tabler:ruler-2
 mirror lucide:flip-horizontal-2
 move lucide:move
 net tabler:topology-star
@@ -123,6 +124,7 @@ track tabler:route-2
 undo lucide:undo-2
 unit_place tabler:triangle-plus
 units lucide:ruler
+user_origin tabler:focus-2
 via lucide:circle-dot
 view_flip lucide:flip-horizontal-2
 waive lucide:shield-check

@@ -144,6 +144,8 @@ menu-view = View
 menu-view-panels = Panels
 menu-view-theme = Theme
 menu-design = Design
+menu-place = Place
+pcb-user-origin-reset = Reset User Origin
 menu-library = Library
 bars-no-active-document = no Document is active
 bars-nothing-selected = nothing is selected
@@ -281,6 +283,18 @@ pcb-rotate = Rotate
 pcb-flip = Flip Side
 pcb-lock = Lock
 pcb-unlock = Unlock
+pcb-outline-from-selection = Board Outline from Selection
+pcb-draw-needs-copper = Zones go on a copper Layer: make one active first.
+pcb-draw-needs-graphics-layer = Text and graphics go on a copper, silkscreen, mechanical or documentation Layer: make one active first.
+pcb-draw-arc-straight = The three points lie on one line: put the third off it to bend the arc.
+pcb-text-title = Text
+pcb-text-words = Text
+pcb-text-place = Place Text
+pcb-text-cancel = Cancel
+pcb-measure = dX { $dx }  dY { $dy }  ·  { $distance }
+pcb-placing = Mechanical Part: click to place, Space rotates, L flips
+status-zones-stale = Zones need refilling
+status-zones-refill = Refill
 
 ## Errors
 

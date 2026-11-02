@@ -16,6 +16,31 @@
       ]
     },
     {
+      "id": "place",
+      "title": "menu-place",
+      "items": [
+        { "id": "place.board_outline", "command": "tool.activate:board_outline" },
+        { "id": "place.board_outline_rect", "command": "tool.activate:board_outline_rect" },
+        { "id": "place.board_outline_from_selection", "command": "pcb.board_outline.add_from_graphics", "params": { "graphics": "$selection" } },
+        { "id": "place.board_cutout", "command": "tool.activate:board_cutout" },
+        "separator",
+        { "id": "place.zone", "command": "tool.activate:zone" },
+        { "id": "place.keepout", "command": "tool.activate:keepout" },
+        "separator",
+        { "id": "place.text", "command": "tool.activate:text" },
+        { "id": "place.line", "command": "tool.activate:line" },
+        { "id": "place.arc", "command": "tool.activate:arc" },
+        { "id": "place.rect", "command": "tool.activate:rect" },
+        "separator",
+        { "id": "place.free_pad", "command": "tool.activate:free_pad" },
+        { "id": "place.placement_origin", "command": "tool.activate:placement_origin" },
+        "separator",
+        { "id": "place.user_origin", "command": "tool.activate:user_origin" },
+        { "id": "place.user_origin_reset", "command": "pcb.view.origin.set", "title": "pcb-user-origin-reset" },
+        { "id": "place.measure", "command": "tool.activate:measure" }
+      ]
+    },
+    {
       "id": "design",
       "title": "menu-design",
       "items": [
@@ -32,6 +57,11 @@
   "active_bar": [
     { "id": "active_bar.undo", "command": "edit.undo", "params": { "document": "$active_document" } },
     { "id": "active_bar.redo", "command": "edit.redo", "params": { "document": "$active_document" } },
+    "separator",
+    { "id": "active_bar.select", "command": "tool.activate:select" },
+    { "id": "active_bar.zone", "command": "tool.activate:zone" },
+    { "id": "active_bar.keepout", "command": "tool.activate:keepout" },
+    { "id": "active_bar.measure", "command": "tool.activate:measure" },
     "separator",
     { "id": "active_bar.zone_fill", "command": "pcb.zone.fill" },
     { "id": "active_bar.layers", "command": "panel.show:layers" },

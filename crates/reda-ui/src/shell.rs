@@ -151,6 +151,10 @@ pub struct Shell {
     prefs: Preferences,
     /// The PCB canvas's select-and-place Tool.
     pcb_tool: pcb::Tool,
+    /// The PCB drawing Tools' state (see `pcb::draw`).
+    pcb_draw: pcb::draw::Draw,
+    /// Whether the board's Zone fills are out of date ("Zones need refilling").
+    zones_stale: bool,
     /// The colour overrides from the Preferences.
     palette: PaletteHandle,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
@@ -202,6 +206,8 @@ impl Shell {
             clipboard: None,
             prefs: Preferences::default(),
             pcb_tool: pcb::Tool::default(),
+            pcb_draw: pcb::draw::Draw::default(),
+            zones_stale: false,
             palette: PaletteHandle::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
@@ -306,6 +312,12 @@ impl Shell {
     /// A button went down on the board at `at`; `toggle` is `Mod` held; `tolerance` is
     /// how near counts as on an object.
     pub fn pcb_press(&mut self, at: Point, toggle: bool, tolerance: Nm) {
+        if self.drawing() {
+            let mut draw = std::mem::take(&mut self.pcb_draw);
+            draw.press(self, at);
+            self.pcb_draw = draw;
+            return;
+        }
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.press(self, at, toggle, tolerance);
         self.pcb_tool = tool;
@@ -313,6 +325,12 @@ impl Shell {
 
     /// The pointer moved to `at` with the button down.
     pub fn pcb_drag(&mut self, at: Point) {
+        if self.drawing() {
+            let mut draw = std::mem::take(&mut self.pcb_draw);
+            draw.drag(self, at);
+            self.pcb_draw = draw;
+            return;
+        }
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.drag(self, at);
         self.pcb_tool = tool;
@@ -320,6 +338,10 @@ impl Shell {
 
     /// The button came up: selects, or runs the move in flight as one Command.
     pub fn pcb_release(&mut self) {
+        if self.drawing() {
+            self.with_draw(|draw, shell| draw.release(shell));
+            return;
+        }
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.release(self);
         self.pcb_tool = tool;
@@ -334,6 +356,10 @@ impl Shell {
 
     /// Space: turns the move in flight, or the selection, by 90°.
     pub fn pcb_rotate(&mut self) {
+        if self.drawing() {
+            self.pcb_draw.rotate();
+            return;
+        }
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.rotate(self);
         self.pcb_tool = tool;
@@ -341,6 +367,10 @@ impl Shell {
 
     /// L: flips the move in flight, or the selection, to the other side.
     pub fn pcb_flip(&mut self) {
+        if self.drawing() {
+            self.pcb_draw.flip();
+            return;
+        }
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.flip(self);
         self.pcb_tool = tool;
@@ -348,6 +378,12 @@ impl Shell {
 
     /// The cursor is at `at` with no button down: where it snaps.
     pub fn pcb_hover(&mut self, at: Point) -> (Point, SnapKind) {
+        if self.drawing() {
+            let mut draw = std::mem::take(&mut self.pcb_draw);
+            let snapped = draw.hover(self, at);
+            self.pcb_draw = draw;
+            return snapped;
+        }
         let mut tool = std::mem::take(&mut self.pcb_tool);
         let snapped = tool.hover(self, at);
         self.pcb_tool = tool;
@@ -366,7 +402,55 @@ impl Shell {
 
     /// Where the cursor last snapped.
     pub fn pcb_snap(&self) -> Option<(Point, SnapKind)> {
+        if self.drawing() {
+            return self.pcb_draw.snap();
+        }
         self.pcb_tool.snap()
+    }
+
+    /// Whether a PCB drawing Tool is active (see `pcb::draw`).
+    fn drawing(&self) -> bool {
+        self.tool().draws_on_board()
+    }
+
+    fn with_draw(&mut self, f: impl FnOnce(&mut pcb::draw::Draw, &mut Shell)) {
+        let mut draw = std::mem::take(&mut self.pcb_draw);
+        f(&mut draw, self);
+        self.pcb_draw = draw;
+    }
+
+    /// The PCB drawing Tools' state: the preview, a measurement, text waiting for words.
+    pub fn pcb_draw(&self) -> &pcb::draw::Draw {
+        &self.pcb_draw
+    }
+
+    /// Sets how far electrical points catch the cursor for every PCB Tool.
+    pub fn set_pcb_snap_radius(&mut self, radius: Nm) {
+        self.pcb_tool.set_snap_radius(radius);
+        self.pcb_draw.set_snap_radius(radius);
+    }
+
+    /// Places the text the text Tool was clicked for, with these words (one Command).
+    pub fn pcb_draw_text(&mut self, text: &str) {
+        self.with_draw(|draw, shell| draw.place_text(shell, text));
+    }
+
+    /// Drops the text the text Tool was clicked for.
+    pub fn pcb_cancel_text(&mut self) {
+        self.pcb_draw.cancel_text();
+    }
+
+    /// Board point `at` as the cursor readout gives it: from the user origin, if set.
+    pub fn pcb_cursor_from_origin(&self, at: Point) -> Point {
+        match self.board_view().origin {
+            Some(origin) => at - origin,
+            None => at,
+        }
+    }
+
+    /// Whether the board's Zone fills are out of date: the "Zones need refilling" note.
+    pub fn zones_need_refill(&self) -> bool {
+        self.zones_stale
     }
 
     /// The rubber band's corners while one is drawn.
@@ -1180,6 +1264,14 @@ impl Shell {
         }
         self.documents = documents;
         self.load_fonts();
+        self.zones_stale = self
+            .engine
+            .project()
+            .and_then(|p| p.pcb())
+            .is_some_and(|pcb| {
+                let fills = self.engine.project().and_then(|p| p.zone_fills(pcb.uuid));
+                reda_engine::pcb::zone::status(pcb, fills).needs_refill
+            });
         self.mark_stale_runs();
         self.update_markers();
     }
@@ -1231,7 +1323,12 @@ impl Shell {
                     crate::schematic_editor::cancel(self, document);
                 }
                 self.pcb_cancel();
+                let part = out["part"].as_str().and_then(|p| p.parse().ok());
+                let tool = self.tool();
+                self.pcb_draw.start(tool, part);
             }
+            "tool.undo_segment" if self.drawing() => self.pcb_draw.undo_segment(),
+            "tool.finish" if self.drawing() => self.with_draw(|draw, shell| draw.finish(shell)),
             "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
             "tool.flip" if self.board_is_active() => self.pcb_flip(),
             "schematic.paste" | "schematic.duplicate" => {

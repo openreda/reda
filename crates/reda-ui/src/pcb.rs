@@ -8,13 +8,21 @@
 //!   "No Board Outline" hint.
 //! - [`tool`]: the select-and-place [`Tool`]: click, rubber band, drag to move, Space and
 //!   L, with the move drawn from a preview until release.
+//! - [`draw`]: the drawing Tools (outline, cutouts, Zones, Keepouts, text and graphics,
+//!   Free Pads, origins, Mechanical Parts, measure), previewed until one Command commits.
 
 pub mod canvas;
 mod commands;
+pub mod draw;
 pub mod snap;
 pub mod tool;
 pub mod view;
 
-pub use commands::register_all;
+/// Adds the PCB view Commands to `registry`. The Shell does this for its engine.
+pub fn register_all(registry: &mut reda_engine::command::Registry) {
+    commands::register_all(registry);
+    draw::register_all(registry);
+}
+
 pub use tool::Tool;
 pub use view::BoardView;
