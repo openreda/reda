@@ -38,6 +38,8 @@ pub struct Frame {
     pub projects: Option<ProjectsAction>,
     /// A Journal panel button, if one was clicked.
     pub journal: Option<JournalAction>,
+    /// Clicks in the Messages panel.
+    pub messages: Vec<panels::messages::Action>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -426,6 +428,10 @@ impl Cx<'_> {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
                     self.frame.journal = Some(action);
                 }
+            }
+            TabKey::Panel(PanelId::Messages) => {
+                let actions = panels::messages::show(ui, self.shell);
+                self.frame.messages.extend(actions);
             }
             TabKey::Panel(_) => {
                 ui.add_space(8.0);

@@ -12,15 +12,19 @@ use std::sync::Arc;
 
 use reda_engine::command::{CommandError, FontFace, Kind, Signals};
 use reda_engine::journal::Source;
+use reda_engine::model::geom::Point;
 use reda_engine::model::{
-    DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Side, Uuid,
+    DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Severity, Side, Uuid, Violation,
 };
 use reda_engine::render::{LayerView, board_composites};
-use reda_engine::{Engine, state, store};
+use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
-use crate::canvas::{Camera, SceneHandle};
+use crate::canvas::{Camera, SceneHandle, SelectionHandle};
 use crate::layout::{self, Layout, TabKey};
+use crate::messages::{
+    self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
+};
 use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
 use crate::tr;
@@ -51,6 +55,26 @@ pub struct DocumentTab {
     pub camera: Option<Camera>,
     /// What the canvas draws.
     pub scene: SceneHandle,
+    /// A box to zoom the camera to when the canvas next lays out, in Document nm.
+    pub zoom_to: Option<(Point, Point)>,
+    /// The selected objects the canvas marks.
+    pub selection: SelectionHandle,
+    /// The Violation markers the canvas draws over the Document.
+    pub markers: Arc<[Marker]>,
+}
+
+impl DocumentTab {
+    fn new(document: Uuid, title: String, scene: SceneHandle) -> DocumentTab {
+        DocumentTab {
+            document,
+            title,
+            camera: None,
+            scene,
+            zoom_to: None,
+            selection: SelectionHandle::default(),
+            markers: Arc::from([]),
+        }
+    }
 }
 
 /// One row of the Start page's recent Projects.
@@ -78,6 +102,9 @@ pub struct Shell {
     note: Option<String>,
     /// The preview of the Tool in use.
     tool: Option<ToolPreview>,
+    messages: Messages,
+    /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
+    marked: SelectionHandle,
 }
 
 impl Shell {
@@ -102,7 +129,10 @@ impl Shell {
             message: None,
             note: None,
             tool: None,
+            messages: Messages::default(),
+            marked: SelectionHandle::default(),
         };
+        shell.load_preference_warnings();
         if shell.engine.project().is_some() {
             shell.show_project();
         }
@@ -370,6 +400,7 @@ impl Shell {
                 _ => self.refresh(),
             },
         }
+        self.sync_selection();
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
@@ -425,6 +456,224 @@ impl Shell {
         out
     }
 
+    // ---- Messages ----
+
+    /// What the Messages panel lists.
+    pub fn messages(&self) -> &Messages {
+        &self.messages
+    }
+
+    /// The Messages panel's lines, grouped by Document.
+    pub fn message_groups(&self) -> Vec<MessageGroup> {
+        self.messages.groups(self.engine.project())
+    }
+
+    /// Runs ERC or DRC (`erc.run`/`drc.run`) and shows its Violations, waived ones
+    /// included so the panel can toggle them. An error goes to the status bar.
+    pub fn run_check(&mut self, kind: CheckKind) -> Result<(), CommandError> {
+        let out = self.run_reporting(
+            &format!("{}.run", kind.id()),
+            json!({"include_waived": true}),
+        )?;
+        let violations: Vec<Violation> =
+            serde_json::from_value(out["violations"].clone()).unwrap_or_default();
+        let project = self.engine.project();
+        let entries = violations
+            .into_iter()
+            .map(|violation| Entry {
+                document: project.and_then(|p| messages::violation_document(p, &violation)),
+                text: messages::violation_text(&violation),
+                violation,
+            })
+            .collect();
+        self.messages.set_run(CheckRun {
+            kind,
+            entries,
+            design: out["design"].as_str().unwrap_or_default().to_owned(),
+            stale: false,
+        });
+        self.update_markers();
+        Ok(())
+    }
+
+    /// Lists waived Violations too, or hides them again.
+    pub fn set_show_waived(&mut self, show: bool) {
+        self.messages.set_show_waived(show);
+        self.update_markers();
+    }
+
+    /// Goes to a line's Violation: opens its Document (`document.open`), zooms to it and
+    /// selects the objects involved (`selection.set`). A load message about a Document
+    /// opens that Document.
+    pub fn go_to(&mut self, key: LineKey) {
+        let (document, objects) = match key {
+            LineKey::Violation(..) => match self.messages.entry(key) {
+                Some(e) => (e.document, e.violation.objects.clone()),
+                None => return,
+            },
+            LineKey::Note(i) => match self.messages.notes().get(i) {
+                Some(n) => (n.document, Vec::new()),
+                None => return,
+            },
+        };
+        self.messages.set_current(Some(key));
+        if let Some(document) = document
+            && self
+                .run_reporting("document.open", json!({ "document": document }))
+                .is_ok()
+        {
+            let location = self.messages.entry(key).and_then(|e| {
+                let tab = self.document_tab(document)?;
+                let project = self.engine.project()?;
+                messages::locate(project, document, &tab.scene.scene, &e.violation)
+            });
+            if let (Some(location), Some(tab)) = (location, self.document_tab_mut(document)) {
+                tab.zoom_to = Some(location.frame);
+            }
+        }
+        // `selection.set` takes only objects the Project has; a Violation may also name
+        // what has no UUID of its own in the model.
+        let objects: Vec<Uuid> = match self.engine.project() {
+            Some(project) => objects
+                .into_iter()
+                .filter(|o| project.object(*o).is_some())
+                .collect(),
+            None => Vec::new(),
+        };
+        let _ = self.run_reporting("selection.set", json!({ "objects": objects }));
+        self.update_markers();
+    }
+
+    /// Waives a line's Violation (`erc.waive`/`drc.waive`) and runs the check again.
+    pub fn waive(&mut self, key: LineKey) -> Result<(), CommandError> {
+        let Some((kind, v)) = self.violation_of(key) else {
+            return Ok(());
+        };
+        self.run_reporting(
+            &format!("{}.waive", kind.id()),
+            json!({"check": v.check, "objects": v.objects}),
+        )?;
+        self.run_check(kind)
+    }
+
+    /// Deletes the Waiver waiving a line's Violation and runs the check again.
+    pub fn unwaive(&mut self, key: LineKey) -> Result<(), CommandError> {
+        let Some((kind, v)) = self.violation_of(key) else {
+            return Ok(());
+        };
+        let Some(waiver) = v.waiver else {
+            return Ok(());
+        };
+        self.run_reporting(
+            &format!("{}.unwaive", kind.id()),
+            json!({"waivers": [waiver]}),
+        )?;
+        self.run_check(kind)
+    }
+
+    /// Sets the severity of a line's check (`erc.set_severity`/`drc.set_severity`) and
+    /// runs the check again.
+    pub fn set_severity(&mut self, key: LineKey, severity: Severity) -> Result<(), CommandError> {
+        let Some((kind, v)) = self.violation_of(key) else {
+            return Ok(());
+        };
+        self.run_reporting(
+            &format!("{}.set_severity", kind.id()),
+            json!({"check": v.check, "severity": severity}),
+        )?;
+        self.run_check(kind)
+    }
+
+    fn violation_of(&self, key: LineKey) -> Option<(CheckKind, Violation)> {
+        match key {
+            LineKey::Violation(kind, _) => {
+                Some((kind, self.messages.entry(key)?.violation.clone()))
+            }
+            LineKey::Note(_) => None,
+        }
+    }
+
+    /// Replaces the load errors and warnings `source` reports (such as `keymap`), each
+    /// about the whole application.
+    pub fn set_load_messages(&mut self, source: &str, messages: Vec<(Severity, String)>) {
+        let notes = messages
+            .into_iter()
+            .map(|(severity, text)| Note {
+                source: source.to_owned(),
+                document: None,
+                severity,
+                text,
+            })
+            .collect();
+        self.messages.set_notes(source, notes);
+    }
+
+    /// The Violation markers on `document`'s canvas; none when it is not open.
+    pub fn markers(&self, document: Uuid) -> Arc<[Marker]> {
+        self.document_tab(document)
+            .map(|t| t.markers.clone())
+            .unwrap_or_else(|| Arc::from([]))
+    }
+
+    /// Marks check results stale once the design differs from the run's.
+    fn mark_stale_runs(&mut self) {
+        let Some(project) = self.engine.project() else {
+            return;
+        };
+        let erc = reda_engine::schematic::erc::design_fingerprint(project);
+        let drc = project.pcb().map(reda_engine::pcb::drc::design_fingerprint);
+        if let Some(run) = self.messages.run_mut(CheckKind::Erc) {
+            run.stale = run.design != erc;
+        }
+        if let Some(run) = self.messages.run_mut(CheckKind::Drc) {
+            run.stale = drc.as_ref() != Some(&run.design);
+        }
+    }
+
+    /// Recomputes every open tab's Violation markers.
+    fn update_markers(&mut self) {
+        let Some(project) = self.engine.project() else {
+            return;
+        };
+        let current = self.messages.current();
+        for tab in &mut self.documents {
+            let markers: Vec<Marker> = self
+                .messages
+                .listed()
+                .filter(|(_, e)| e.document == Some(tab.document))
+                .filter_map(|(key, e)| {
+                    let location =
+                        messages::locate(project, tab.document, &tab.scene.scene, &e.violation)?;
+                    Some(Marker {
+                        at: location.at,
+                        severity: e.violation.severity,
+                        waived: e.violation.waiver.is_some(),
+                        current: current == Some(key),
+                    })
+                })
+                .collect();
+            tab.markers = Arc::from(markers);
+        }
+    }
+
+    /// Lists the warnings reading `preferences.toml` gave.
+    fn load_preference_warnings(&mut self) {
+        let Some(dirs) = self.engine.user_dirs() else {
+            return;
+        };
+        let warnings = preferences::load(dirs).warnings;
+        let notes = warnings
+            .into_iter()
+            .map(|w| Note {
+                source: PREFERENCES.to_owned(),
+                document: None,
+                severity: Severity::Warning,
+                text: tr!("message-preferences", warning = w),
+            })
+            .collect();
+        self.messages.set_notes(PREFERENCES, notes);
+    }
+
     /// Puts the open Project at the top of the recent Projects in `state.json`.
     fn remember_project(&mut self) {
         if let (Some(dirs), Some(file)) = (self.engine.user_dirs(), self.project_file())
@@ -454,15 +703,13 @@ impl Shell {
         if let Some((document, title)) = first_sheet {
             layout.open_document(document);
             let scene = self.scene_of(document);
-            self.documents.push(DocumentTab {
-                document,
-                title,
-                camera: None,
-                scene,
-            });
+            self.documents
+                .push(DocumentTab::new(document, title, scene));
         }
         *self.layout_mut() = layout;
         self.engine.view_mut().set(Selection::default());
+        self.sync_selection();
+        self.messages.clear_runs();
         self.load_fonts();
     }
 
@@ -472,6 +719,8 @@ impl Shell {
         let Some(project) = self.engine.project() else {
             self.documents.clear();
             *self.layout_mut() = Layout::default();
+            self.messages.clear_runs();
+            self.messages.set_notes(FONTS, Vec::new());
             return;
         };
         let open: Vec<(Uuid, String)> = project
@@ -493,6 +742,8 @@ impl Shell {
         }
         self.documents = documents;
         self.load_fonts();
+        self.mark_stale_runs();
+        self.update_markers();
     }
 
     /// Matches the Document tabs to the layout after a view Command: drops the state of
@@ -517,12 +768,27 @@ impl Shell {
                 .map(|d| d.title.clone())
                 .unwrap_or_default();
             let scene = self.scene_of(document);
-            self.documents.push(DocumentTab {
-                document,
-                title,
-                camera: None,
-                scene,
-            });
+            self.documents
+                .push(DocumentTab::new(document, title, scene));
+        }
+        self.sync_selection();
+    }
+
+    /// Hands every canvas the [`Selection`]'s objects to mark, with a new generation
+    /// when they changed.
+    fn sync_selection(&mut self) {
+        if self.marked.objects[..] != self.selection().objects[..] {
+            let objects = Arc::from(self.selection().objects.as_slice());
+            self.generation += 1;
+            self.marked = SelectionHandle {
+                generation: self.generation,
+                objects,
+            };
+        }
+        for tab in &mut self.documents {
+            if tab.selection.generation != self.marked.generation {
+                tab.selection = self.marked.clone();
+            }
         }
     }
 
@@ -561,6 +827,7 @@ impl Shell {
     /// Hands the engine the installed fonts that PCB text names and it does not have yet.
     fn load_fonts(&mut self) {
         let Some(pcb) = self.engine.project().and_then(|p| p.pcb()) else {
+            self.messages.set_notes(FONTS, Vec::new());
             return;
         };
         let wanted: BTreeSet<String> = pcb
@@ -577,6 +844,18 @@ impl Shell {
             }
             self.asked_fonts.insert(family);
         }
+        let missing = reda_engine::pcb::missing_fonts(pcb_of(&self.engine), self.engine.fonts());
+        let document = pcb_of(&self.engine).uuid;
+        let notes = missing
+            .into_iter()
+            .map(|font| Note {
+                source: FONTS.to_owned(),
+                document: Some(document),
+                severity: Severity::Warning,
+                text: tr!("message-missing-font", font = font),
+            })
+            .collect();
+        self.messages.set_notes(FONTS, notes);
     }
 }
 
@@ -585,4 +864,17 @@ fn document_file(path: &Path) -> Option<(String, DocumentKind)> {
     let kind = DocumentKind::from_extension(path.extension()?.to_str()?)?;
     let stem = path.file_stem()?.to_string_lossy().into_owned();
     Some((stem, kind))
+}
+
+/// The `source` of missing-font warnings.
+const FONTS: &str = "fonts";
+/// The `source` of Preference warnings.
+const PREFERENCES: &str = "preferences";
+
+/// The open Project's PCB Document; only called when there is one.
+fn pcb_of(engine: &Engine) -> &reda_engine::model::PcbDocument {
+    engine
+        .project()
+        .and_then(|p| p.pcb())
+        .expect("checked by the caller")
 }

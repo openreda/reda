@@ -119,6 +119,9 @@ impl App {
             let _ = self.shell.run_reporting(&id, params);
         }
         self.handle_requests(&ctx);
+        for action in frame.messages {
+            crate::panels::messages::apply(&mut self.shell, action);
+        }
         if let Some(action) = frame.start {
             self.start_action(&ctx, action);
         }
