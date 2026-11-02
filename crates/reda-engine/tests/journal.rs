@@ -243,3 +243,22 @@ fn replay_with_random_uuids_remaps_uuid_keyed_changes_across_documents() {
     assert_ne!(docs[2], second.as_str().unwrap());
     assert_eq!(replayed.journal()[3].params["document"], docs[2]);
 }
+
+#[test]
+fn replay_with_random_uuids_remaps_the_change_list_a_sync_names() {
+    // A reference Project's script: it previews Sync and applies it by the Change List's
+    // hash, which is built from the UUIDs of what it lists.
+    let text = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/scenarios/minimal_board.jsonl"),
+    )
+    .unwrap();
+    let (_dir, script) = script(&text);
+    let mut replayed = Engine::builder()
+        .user_dirs(None)
+        .starter_library(Some(reda_testkit::starter_library()))
+        .build();
+    journal::replay(&mut replayed, &script).unwrap();
+    let pcb = replayed.project().unwrap().pcb().unwrap();
+    assert_eq!(pcb.footprints().count(), 3);
+}
