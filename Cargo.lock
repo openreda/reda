@@ -3166,6 +3166,9 @@ dependencies = [
 name = "reda-pcb"
 version = "0.0.0"
 dependencies = [
+ "i_overlay",
+ "i_triangle",
+ "proptest",
  "reda-command",
  "reda-model",
  "reda-testkit",
@@ -3244,6 +3247,8 @@ dependencies = [
  "reda-engine",
  "reda-testkit",
  "rfd",
+ "schemars",
+ "serde",
  "serde_json",
  "unic-langid",
 ]

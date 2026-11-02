@@ -16,6 +16,7 @@ pub mod query;
 pub mod reannotate;
 pub mod sync;
 pub mod write_through;
+pub mod zone_fill;
 
 use reda_command::Registry;
 use reda_model::{Scope, Uuid};
@@ -37,6 +38,7 @@ pub fn register_all(registry: &mut Registry) {
     query::register_all(registry);
     reannotate::register_all(registry);
     sync::register_all(registry);
+    zone_fill::register_all(registry);
     write_through::register_all(registry);
 }
 

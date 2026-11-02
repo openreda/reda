@@ -246,6 +246,10 @@ impl Command for Create {
 /// A view Command with Presets.
 pub struct Zoom;
 
+/// The GUI state `test.view.zoom` changes, held in the session.
+#[derive(Debug, PartialEq)]
+pub struct ZoomLevel(pub u32);
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ZoomParams {
@@ -277,7 +281,11 @@ impl Command for Zoom {
         ]
     }
 
-    fn run(&self, _: &mut Context<'_>, p: ZoomParams) -> Result<u32, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, p: ZoomParams) -> Result<u32, CommandError> {
+        if p.level == 0 {
+            return Err(CommandError::rejected("zoom must be above 0%"));
+        }
+        cx.view::<ZoomLevel>()?.0 = p.level;
         Ok(p.level)
     }
 }

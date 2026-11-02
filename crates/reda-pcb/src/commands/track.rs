@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use super::layer::LayerRef;
 use super::outline::PointParam;
 use super::{needs_pcb, pcb, positive};
-use crate::copper::Copper;
 use crate::net_rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
@@ -115,7 +114,7 @@ impl Command for TrackAdd {
         let net = match existing_net(pcb, p.net, "/net")? {
             Some(net) => Some(net),
             None => {
-                let copper = Copper::build(pcb);
+                let copper = super::board_copper(cx)?;
                 let first = points[0];
                 let last = points[points.len() - 1];
                 copper
@@ -199,7 +198,7 @@ impl Command for TrackDelete {
             }
         }
         let mut deleted: Vec<Uuid> = if p.whole {
-            let copper = Copper::build(pcb);
+            let copper = super::board_copper(cx)?;
             p.tracks
                 .iter()
                 .flat_map(|t| copper.whole_track(*t))

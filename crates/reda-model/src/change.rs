@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
-    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, FreePad, InDocument, LayerSet, Net,
-    NetClass, PcbGraphic, PcbText, PlacementOrigin, Track, Via,
+    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, FreePad, InDocument, Keepout,
+    LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Track, Via, Zone,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -56,6 +56,8 @@ pub enum Object {
     FootprintInstance(InDocument<FootprintInstance>),
     Track(InDocument<Track>),
     Via(InDocument<Via>),
+    Zone(InDocument<Zone>),
+    Keepout(InDocument<Keepout>),
     FreePad(InDocument<FreePad>),
     PlacementOrigin(InDocument<PlacementOrigin>),
     // Left out of schemas so the catalogue is the same with and without the feature.
@@ -131,6 +133,10 @@ pub enum ObjectType {
     Track,
     /// A plated hole joining copper on several Layers.
     Via,
+    /// A copper fill on a Net, on one copper Layer.
+    Zone,
+    /// An area where copper or Vias may not go.
+    Keepout,
     /// A Pad placed directly on the board, belonging to no Footprint.
     FreePad,
     /// The point manufacturing outputs measure Footprint positions from.
@@ -174,6 +180,8 @@ impl Object {
             Object::FootprintInstance(o) => o.uuid,
             Object::Track(o) => o.uuid,
             Object::Via(o) => o.uuid,
+            Object::Zone(o) => o.uuid,
+            Object::Keepout(o) => o.uuid,
             Object::FreePad(o) => o.uuid,
             Object::PlacementOrigin(o) => o.uuid,
             #[cfg(feature = "test-objects")]
@@ -213,6 +221,8 @@ impl Object {
             Object::FootprintInstance(_) => ObjectType::FootprintInstance,
             Object::Track(_) => ObjectType::Track,
             Object::Via(_) => ObjectType::Via,
+            Object::Zone(_) => ObjectType::Zone,
+            Object::Keepout(_) => ObjectType::Keepout,
             Object::FreePad(_) => ObjectType::FreePad,
             Object::PlacementOrigin(_) => ObjectType::PlacementOrigin,
             #[cfg(feature = "test-objects")]
@@ -253,6 +263,8 @@ impl Object {
             Object::FootprintInstance(o) => Scope::Document(o.document),
             Object::Track(o) => Scope::Document(o.document),
             Object::Via(o) => Scope::Document(o.document),
+            Object::Zone(o) => Scope::Document(o.document),
+            Object::Keepout(o) => Scope::Document(o.document),
             Object::FreePad(o) => Scope::Document(o.document),
             Object::PlacementOrigin(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]

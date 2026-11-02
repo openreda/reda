@@ -198,7 +198,7 @@ pub(crate) fn board_point(instance: &FootprintInstance, p: P) -> P {
 }
 
 /// `p` turned counter-clockwise about the origin; exact for quarter turns.
-fn rotate(p: P, angle: Millideg) -> P {
+pub(crate) fn rotate(p: P, angle: Millideg) -> P {
     let a = angle.normalized().0;
     match a {
         0 => p,
@@ -219,7 +219,7 @@ fn rotate(p: P, angle: Millideg) -> P {
 
 /// The corners of a chain of chords along the arc from `from` to `to` sweeping `sweep`,
 /// none further than 1 µm from the arc.
-fn arc_points(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
+pub(crate) fn arc_points(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
     let theta = (sweep.0 as f64 / 1000.0).to_radians();
     let (fx, fy) = (from.x.0 as f64, from.y.0 as f64);
     let (tx, ty) = (to.x.0 as f64, to.y.0 as f64);

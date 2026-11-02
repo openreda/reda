@@ -218,7 +218,8 @@ impl Command for ProjectOpen {
         cx: &mut Context<'_>,
         p: ProjectOpenParams,
     ) -> Result<ProjectSummary, CommandError> {
-        let opened = store::open(&store::resolve_project_file(&p.path))?;
+        let mut opened = store::open(&store::resolve_project_file(&p.path))?;
+        super::zone_fill::load_caches(&mut opened.project, &opened.folder);
         let session = cx.session()?;
         session.files_on_disk = files_of(&opened.project);
         session.project = Some(opened.project);

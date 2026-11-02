@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use super::outline::PointParam;
 use super::track::existing_net;
 use super::{needs_pcb, pcb, positive};
-use crate::copper::Copper;
 use crate::net_rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
@@ -86,7 +85,7 @@ impl Command for ViaAdd {
         let net = match existing_net(pcb, p.net, "/net")? {
             Some(net) => Some(net),
             None => {
-                let copper = Copper::build(pcb);
+                let copper = super::board_copper(cx)?;
                 pcb.span_layers(span)
                     .into_iter()
                     .find_map(|layer| copper.net_at(layer, at))

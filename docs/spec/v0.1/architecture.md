@@ -187,7 +187,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 - **SDK:** `rmcp`, with a hand-written `ServerHandler` driven by the registry.
 - **Tools:**
   - Generic: `search_commands`, `describe_command` and `run_command {id, params}`.
-  - Query Commands, also reachable from the CLI: `project.overview`, `objects.query` (by Document, object type, Net, Designator or region), `object.get`, `erc.run`, `drc.run`, `sync.preview`, `document.render`, `pcb.copper.connected`, `pcb.ratsnest`, `pcb.clearance.track` and `pcb.clearance.via`.
+  - Query Commands, also reachable from the CLI: `project.overview`, `objects.query` (by Document, object type, Net, Designator or region), `object.get`, `erc.run`, `drc.run`, `sync.preview`, `document.render`, `pcb.copper.connected`, `pcb.ratsnest`, `pcb.clearance.track`, `pcb.clearance.via`, `pcb.zone.fill_status` and `pcb.zone.fills`.
 - **`document.render`** params are explicit and independent of the user's view:
   - view: fit the Document (default), a rectangle in nm, or fit a set of object UUIDs
   - size: in pixels (default 1024 px on the long side)
