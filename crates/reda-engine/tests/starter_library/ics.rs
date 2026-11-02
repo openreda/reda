@@ -1,4 +1,4 @@
-//! A generic dual op-amp, a 555 timer and an LDO regulator.
+//! A generic dual op-amp, a 555 timer, an LDO regulator and a generic USB microcontroller.
 
 use serde_json::json;
 
@@ -14,6 +14,7 @@ pub fn build(s: &mut Script) {
     op_amp(s, vec![soic8.clone(), tssop8, dip8.clone()]);
     timer(s, vec![soic8, dip8]);
     ldo(s);
+    mcu(s);
 }
 
 /// One amplifier: the triangle, + and − inputs on the left, the output on the right.
@@ -106,6 +107,49 @@ fn ldo(s: &mut Script) {
             "U regulator LDO linear voltage",
         ),
         pin_map: Some(json!({"pins": [{"pin": "2", "pads": ["2", "4"]}]})),
+        mechanical: false,
+    });
+}
+
+/// A vendor-neutral USB microcontroller in TSSOP-20, so examples and the reference
+/// Projects can show an MCU board without shipping a vendor's Part. Its pinout is REDA's
+/// own: supplies, reset, boot, SWD and USB on fixed Pins, the rest general-purpose I/O.
+fn mcu(s: &mut Script) {
+    let tssop20 = s.generate("tssop", json!({"pins": 20}));
+    let sym = s.symbol(
+        "MCU_USB",
+        "U",
+        "Generic microcontroller with USB device, SWD and 11 I/O Pins",
+    );
+    s.pin(&sym, top("VDD", "11", "power_in", -100, 650));
+    s.pin(&sym, top("VDDA", "5", "power_in", 100, 650));
+    s.pin(&sym, bottom("VSS", "8", "power_in", 0, -650));
+    s.pin(&sym, left("BOOT0", "1", "input", -500, 300));
+    s.pin(&sym, left("NRST", "4", "input", -500, 200));
+    s.pin(&sym, left("SWDIO", "19", "bidirectional", -500, 0));
+    s.pin(&sym, left("SWCLK", "18", "input", -500, -100));
+    s.pin(&sym, left("USB_DP", "10", "bidirectional", -500, -300));
+    s.pin(&sym, left("USB_DM", "9", "bidirectional", -500, -400));
+    let io = ["2", "3", "6", "7", "12", "13", "14", "15", "16", "17", "20"];
+    for (i, number) in io.iter().enumerate() {
+        let name = format!("P{i}");
+        let y = 500 - 100 * i as i64;
+        s.pin(&sym, right(&name, number, "bidirectional", 500, y));
+    }
+    s.draw(&sym, rect(mil(-400), mil(-550), mil(400), mil(550)), false);
+    s.draw(&sym, text(0, mil(-450), "MCU", mil(50)), false);
+    let sym = s.finish_symbol(sym);
+    s.part(PartSpec {
+        name: "MCU_USB_TSSOP-20",
+        symbol: Some(&sym),
+        footprints: vec![tssop20],
+        fields: fields(
+            "MCU",
+            "Generic USB microcontroller, TSSOP-20: a vendor-neutral stand-in for examples; \
+             use your own Library or Import part for a real MCU",
+            "U microcontroller MCU USB",
+        ),
+        pin_map: None,
         mechanical: false,
     });
 }

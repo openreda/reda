@@ -35,6 +35,7 @@ use serde_json::{Value, json};
 const PROJECTS: &[(&str, &str)] = &[
     ("minimal_board", "Minimal.reda"),
     ("blinky_555", "Blinky.reda"),
+    ("usb_c_mcu", "UsbMcu.reda"),
 ];
 
 /// Folders under `tests/projects/` that are not Projects.

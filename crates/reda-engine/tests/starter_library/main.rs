@@ -150,6 +150,8 @@ fn generic_passives_and_discretes_have_footprint_alternates() {
         "Crystal_HC-49US",
         "Timer_555",
         "LDO_SOT-223",
+        "MCU_USB_TSSOP-20",
+        "USB_C_Receptacle_USB2.0",
     ] {
         let part = &parts[name];
         assert_eq!(part["component_type"], "standard", "{name}");

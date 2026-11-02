@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "project": {"uuid":"00000000-0000-4000-8000-000000000001"},
+  "documents": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","path":"UsbMcu.redasch","title":"Sheet 1"},
+    {"uuid":"00000000-0000-4000-8000-000000000003","path":"UsbMcu.redapcb","title":"UsbMcu"}
+  ],
+  "fab_presets": [
+    {"uuid":"00000000-0000-4000-8000-000000000016","name":"JLCPCB","rules":{"clearance":100000,"track_width":100000,"via_diameter":510000,"via_hole":150000,"annular_ring":180000,"hole_to_hole":450000,"edge_clearance":200000},"gerber":{"x2_attributes":true,"naming":"protel"},"bom":[{"header":"Comment","source":"value"},{"header":"Designator","source":"designator"},{"header":"Footprint","source":"footprint"},{"header":"LCSC Part #","source":{"field":"LCSC"}}],"cpl":[{"header":"Designator","source":"designator"},{"header":"Mid X","source":"mid_x"},{"header":"Mid Y","source":"mid_y"},{"header":"Layer","source":"layer"},{"header":"Rotation","source":"rotation"}]}
+  ],
+  "output_jobs": [
+    {"uuid":"00000000-0000-4000-8000-000000000017","name":"JLCPCB","pcb":"00000000-0000-4000-8000-000000000003","fab_preset":"00000000-0000-4000-8000-000000000016","outputs":{"gerber":true,"drill":true,"bom":true,"cpl":true}}
+  ],
+  "properties": {"title":"USB-C MCU board","revision":"A","date":"","author":"","company":"REDA reference Projects"}
+}
