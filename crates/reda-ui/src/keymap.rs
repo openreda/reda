@@ -36,13 +36,16 @@ pub enum Context {
     Global,
     /// While a Document of this type is the active Document.
     Document(DocumentType),
+    /// While a Part's tab is the active Document. A Part has no canvas and no bars of
+    /// its own, so it is not a [`DocumentType`].
+    Part,
     /// While this Tool is active, such as `tool:wire`.
     Tool(String),
 }
 
 impl Context {
-    /// Reads `global`, `schematic`, `pcb`, `symbol`, `footprint` or `tool:<name>`; `None`
-    /// for anything else.
+    /// Reads `global`, `schematic`, `pcb`, `symbol`, `footprint`, `part` or `tool:<name>`;
+    /// `None` for anything else.
     pub fn parse(name: &str) -> Option<Context> {
         Some(match name {
             "global" => Context::Global,
@@ -50,6 +53,7 @@ impl Context {
             "pcb" => Context::Document(DocumentType::Pcb),
             "symbol" => Context::Document(DocumentType::Symbol),
             "footprint" => Context::Document(DocumentType::Footprint),
+            "part" => Context::Part,
             other => match other.strip_prefix("tool:") {
                 Some(tool) if !tool.is_empty() => Context::Tool(tool.to_owned()),
                 _ => return None,
@@ -66,6 +70,7 @@ impl fmt::Display for Context {
             Context::Document(DocumentType::Pcb) => f.write_str("pcb"),
             Context::Document(DocumentType::Symbol) => f.write_str("symbol"),
             Context::Document(DocumentType::Footprint) => f.write_str("footprint"),
+            Context::Part => f.write_str("part"),
             Context::Tool(tool) => write!(f, "tool:{tool}"),
         }
     }
@@ -79,6 +84,8 @@ pub struct Active {
     pub tool: Option<String>,
     /// The active Document's type.
     pub document: Option<DocumentType>,
+    /// Whether the active Document is a Part's tab.
+    pub part: bool,
 }
 
 impl Active {
@@ -86,8 +93,10 @@ impl Active {
     fn contexts(&self) -> impl Iterator<Item = Context> + '_ {
         let tool = self.tool.clone().map(Context::Tool);
         let document = self.document.map(Context::Document);
+        let part = self.part.then_some(Context::Part);
         tool.into_iter()
             .chain(document)
+            .chain(part)
             .chain(std::iter::once(Context::Global))
     }
 }
@@ -98,6 +107,9 @@ pub fn active(shell: &Shell) -> Active {
         // One Tool is always active (Select at rest); its id names its context.
         tool: Some(shell.tool().id().to_owned()),
         document: bars::active_type(shell),
+        part: shell
+            .active_document()
+            .is_some_and(|t| crate::element_editor::is_part(shell.engine(), t.document)),
     }
 }
 
@@ -116,9 +128,11 @@ pub fn shortcut_of(shell: &Shell, id: &str) -> Option<String> {
 /// What is active for the canvas of `document` (or, with `None`, for no Document): the
 /// active Tool and that Document's type. An Active Bar shows its own canvas's shortcuts.
 pub fn active_for(shell: &Shell, document: Option<Uuid>) -> Active {
+    let part = document.is_some_and(|uuid| crate::element_editor::is_part(shell.engine(), uuid));
     let document = document.and_then(|uuid| bars::document_type(shell, uuid));
     Active {
         document,
+        part,
         ..active(shell)
     }
 }

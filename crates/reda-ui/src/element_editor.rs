@@ -74,6 +74,11 @@ pub fn document_type(engine: &Engine, uuid: Uuid) -> Option<DocumentType> {
     }
 }
 
+/// Whether the open element `uuid` is a Part.
+pub fn is_part(engine: &Engine, uuid: Uuid) -> bool {
+    matches!(engine.element(uuid), Some(LibraryElement::Part(_)))
+}
+
 /// The open elements, by UUID.
 pub fn open_elements(engine: &Engine) -> Vec<Uuid> {
     engine

@@ -2,7 +2,7 @@
 #
 # Each [[bind]] binds one key, written portably by logical key ("Mod+Shift+Z"; Mod is Cmd
 # on macOS and Ctrl elsewhere), in one context: global (the default), schematic, pcb,
-# symbol, footprint or tool:<name>. The most specific context wins: the active Tool, then
+# symbol, footprint, part or tool:<name>. The most specific context wins: the active Tool, then
 # the active Document's type, then global. A key binds once per context.
 #
 # `command` names a Command or a Preset ("panel.show:projects"); `params` makes it a raw
@@ -623,3 +623,11 @@ command = "tool.finish"
 context = "tool:arc"
 key = "Backspace"
 command = "tool.undo_segment"
+
+# Part tabs.
+
+[[bind]]
+context = "part"
+key = "Mod+S"
+command = "library.element.save"
+params = { element = "$active_document" }

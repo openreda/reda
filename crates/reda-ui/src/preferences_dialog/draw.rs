@@ -602,6 +602,7 @@ fn fab_presets_page(ui: &mut Ui, cx: &mut Cx<'_>) {
 fn contexts(current: &Context) -> Vec<Context> {
     let mut out = vec![Context::Global];
     out.extend(DocumentType::ALL.iter().map(|&t| Context::Document(t)));
+    out.push(Context::Part);
     if !out.contains(current) {
         out.push(current.clone());
     }

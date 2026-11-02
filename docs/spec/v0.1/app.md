@@ -163,7 +163,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - It is a data file in `reda-ui`, in the same format any later Keymap preset will use.
   - A Preference `keymap.base` picks the base Keymap. It is only `"reda"` in v0.1, and may be hidden.
 - **Contexts:**
-  - The most specific context wins: **active Tool → Document type (schematic / pcb / symbol / footprint) → global**.
+  - The most specific context wins: **active Tool → Document type (schematic / pcb / symbol / footprint / part) → global**.
   - Text fields and dialogs take keys first.
   - A key binds only once per context. A clash is a load error in Messages, and the earlier binding is kept.
 - **Default scheme.** The exact letters can change during the build, but the scheme is fixed:
