@@ -74,6 +74,8 @@ impl Goals {
     pub const GULL_WING: Goals = Goals::mm(0.35, 0.35, 0.03, 0.25);
     /// Gull-wing leads at a pitch of 0.625 mm or less.
     pub const FINE_GULL_WING: Goals = Goals::mm(0.35, 0.35, -0.02, 0.25);
+    /// Flat no-lead terminations on the body's underside (QFN, DFN/SON).
+    pub const NO_LEAD: Goals = Goals::mm(0.30, 0.0, -0.04, 0.25);
 
     const fn mm(toe: f64, heel: f64, side: f64, courtyard: f64) -> Goals {
         Goals {
@@ -90,6 +92,25 @@ impl Goals {
             Goals::GULL_WING
         } else {
             Goals::FINE_GULL_WING
+        }
+    }
+}
+
+/// How a package's leads meet the board.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Termination {
+    /// Gull-wing leads, bent out from the body's sides.
+    GullWing,
+    /// Flat terminations on the body's underside, ending at its edge.
+    NoLead,
+}
+
+impl Termination {
+    /// The solder-fillet goals for leads at `pitch`.
+    pub fn goals(self, pitch: Nm) -> Goals {
+        match self {
+            Termination::GullWing => Goals::gull_wing(pitch),
+            Termination::NoLead => Goals::NO_LEAD,
         }
     }
 }
@@ -148,6 +169,16 @@ pub fn span(span: Tol, terminal: Tol, goals: Goals) -> Result<Span, String> {
         return Err("the terminals are too long for the span: the lands would meet".into());
     }
     Ok(span)
+}
+
+/// `value` rounded up to the round-off grid.
+pub fn round_up(value: Nm) -> Nm {
+    round(value.0 as f64, ROUND_OFF, true)
+}
+
+/// `value` rounded down to the round-off grid.
+pub fn round_down(value: Nm) -> Nm {
+    round(value.0 as f64, ROUND_OFF, false)
 }
 
 /// `X` for a termination `width` wide.

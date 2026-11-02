@@ -4,7 +4,8 @@
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Footprint, FootprintGraphic, FootprintLayer, FootprintText, Pad, PadKind, PadShape, Shape, Uuid,
+    Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
+    Shape, Uuid,
 };
 
 use super::ipc::courtyard_round;
@@ -20,7 +21,7 @@ pub const SILKSCREEN_CLEARANCE: Nm = Nm(200_000);
 /// The largest corner radius of a land.
 const MAX_CORNER_RADIUS: Nm = Nm(250_000);
 
-/// One SMD land, a rounded rectangle at rotation 0.
+/// One land at rotation 0.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Land {
     pub number: String,
@@ -29,13 +30,146 @@ pub struct Land {
     pub width: Nm,
     /// Along y.
     pub height: Nm,
+    pub kind: LandKind,
+}
+
+/// What kind of Pad a land becomes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LandKind {
+    /// An SMD Pad, a rounded rectangle.
+    Smd,
+    /// A plated through-hole Pad with a round hole `drill` across: square when `square`
+    /// (pin 1), otherwise round or oval.
+    ThroughHole { drill: Nm, square: bool },
 }
 
 impl Land {
+    /// An SMD land.
+    pub fn smd(number: impl Into<String>, at: Point, width: Nm, height: Nm) -> Land {
+        Land {
+            number: number.into(),
+            at,
+            width,
+            height,
+            kind: LandKind::Smd,
+        }
+    }
+
     /// The highest y the land's copper reaches.
     pub fn top(&self) -> Nm {
         Nm(self.at.y.0 + self.height.0 / 2)
     }
+
+    /// The land's copper as `(x min, y min, x max, y max)`.
+    fn bounds(&self) -> (i64, i64, i64, i64) {
+        let (x, y) = (self.at.x.0, self.at.y.0);
+        let (w, h) = (self.width.0 / 2, self.height.0 / 2);
+        (x - w, y - h, x + w, y + h)
+    }
+
+    fn pad(&self, uuid: Uuid) -> Pad {
+        let (kind, shape, corner_radius, hole) = match self.kind {
+            LandKind::Smd => (
+                PadKind::Smd,
+                PadShape::RoundedRect,
+                Some(corner_radius(self)),
+                None,
+            ),
+            LandKind::ThroughHole { drill, square } => {
+                let shape = if square {
+                    PadShape::Rect
+                } else if self.width == self.height {
+                    PadShape::Circle
+                } else {
+                    PadShape::Oval
+                };
+                let hole = Hole {
+                    width: drill,
+                    height: drill,
+                };
+                (PadKind::PlatedThroughHole, shape, None, Some(hole))
+            }
+        };
+        Pad {
+            uuid,
+            number: self.number.clone(),
+            kind,
+            shape,
+            at: self.at,
+            rotation: Millideg(0),
+            width: self.width,
+            height: self.height,
+            corner_radius,
+            hole,
+            mask_margin: None,
+            paste_margin: None,
+        }
+    }
+}
+
+/// The parts of the axis-parallel Silkscreen `lines` that keep [`SILKSCREEN_CLEARANCE`]
+/// from every land's copper, measured from the line's edge; pieces no longer than the
+/// line width are dropped.
+pub fn clip_silkscreen(lines: &[(Point, Point)], lands: &[Land]) -> Vec<(Point, Point)> {
+    let keep = SILKSCREEN_CLEARANCE.0 + SILKSCREEN_WIDTH.0 / 2;
+    let mut out = vec![];
+    for (start, end) in lines {
+        let horizontal = start.y == end.y;
+        // The line as an interval along its own axis, at `across` on the other one.
+        let (across, a, b) = if horizontal {
+            (start.y.0, start.x.0.min(end.x.0), start.x.0.max(end.x.0))
+        } else {
+            (start.x.0, start.y.0.min(end.y.0), start.y.0.max(end.y.0))
+        };
+        let mut pieces = vec![(a, b)];
+        for land in lands {
+            let (x0, y0, x1, y1) = land.bounds();
+            let (along, near) = if horizontal {
+                ((x0 - keep, x1 + keep), (y0 - keep, y1 + keep))
+            } else {
+                ((y0 - keep, y1 + keep), (x0 - keep, x1 + keep))
+            };
+            if across <= near.0 || across >= near.1 {
+                continue;
+            }
+            pieces = pieces
+                .into_iter()
+                .flat_map(|(a, b)| {
+                    let mut left = vec![];
+                    if a < along.0 {
+                        left.push((a, b.min(along.0)));
+                    }
+                    if b > along.1 {
+                        left.push((a.max(along.1), b));
+                    }
+                    left
+                })
+                .collect();
+        }
+        for (a, b) in pieces {
+            if b - a <= SILKSCREEN_WIDTH.0 {
+                continue;
+            }
+            out.push(if horizontal {
+                (Point::new(Nm(a), Nm(across)), Point::new(Nm(b), Nm(across)))
+            } else {
+                (Point::new(Nm(across), Nm(a)), Point::new(Nm(across), Nm(b)))
+            });
+        }
+    }
+    out
+}
+
+/// The four sides of the rectangle with corner `(x, y)`, symmetric about the origin.
+pub fn rectangle(x: Nm, y: Nm) -> Vec<(Point, Point)> {
+    let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
+    let (x, y) = (x.0, y.0);
+    vec![
+        (p(-x, y), p(x, y)),
+        (p(x, y), p(x, -y)),
+        (p(x, -y), p(-x, -y)),
+        (p(-x, -y), p(-x, y)),
+    ]
 }
 
 /// The package body, centred on the origin.
@@ -83,24 +217,7 @@ impl LandPattern {
     /// The Footprint called `name`, taking UUIDs from `new_id` in a fixed order.
     pub fn into_footprint(self, name: String, mut new_id: impl FnMut() -> Uuid) -> Footprint {
         let uuid = new_id();
-        let pads: Vec<Pad> = self
-            .lands
-            .iter()
-            .map(|land| Pad {
-                uuid: new_id(),
-                number: land.number.clone(),
-                kind: PadKind::Smd,
-                shape: PadShape::RoundedRect,
-                at: land.at,
-                rotation: Millideg(0),
-                width: land.width,
-                height: land.height,
-                corner_radius: Some(corner_radius(land)),
-                hole: None,
-                mask_margin: None,
-                paste_margin: None,
-            })
-            .collect();
+        let pads: Vec<Pad> = self.lands.iter().map(|land| land.pad(new_id())).collect();
         let corner = self.courtyard_corner();
         let mut graphics = vec![FootprintGraphic {
             uuid: new_id(),

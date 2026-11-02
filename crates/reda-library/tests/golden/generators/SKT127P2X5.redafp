@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SKT127P2X5","description":"Socket, 2 × 5, 1.27 mm pitch"},
+  "text": {"designator":{"at":{"x":0,"y":4150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-635000,"y":2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":0},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":0},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":-1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":-1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":-2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":-2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-00000000000c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-3450000},"end":{"x":1550000,"y":3450000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":3175000},{"x":1270000,"y":3175000},{"x":1270000,"y":-3175000},{"x":-1270000,"y":-3175000},{"x":-1270000,"y":2540000}]},"width":100000},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1395000,"y":3300000},"end":{"x":1395000,"y":3300000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1395000,"y":-3300000},"end":{"x":1395000,"y":3300000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000010","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1395000,"y":-3300000},"end":{"x":1395000,"y":-3300000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000011","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1395000,"y":-3300000},"end":{"x":-1395000,"y":3300000}},"width":120000}
+  ]
+}

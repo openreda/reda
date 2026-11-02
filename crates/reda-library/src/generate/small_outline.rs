@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::gull_wing::{self, GullWing, GullWingDimensions};
-use super::ipc::Tol;
+use super::ipc::{Termination, Tol};
 use super::{FootprintFamily, LandPattern, Target};
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
@@ -171,7 +171,7 @@ fn small_outline(
         standard.title,
         dims.pitch.0 as f64 / 1e6
     );
-    gull_wing::land_pattern(&dims, &leads, name, description)
+    gull_wing::land_pattern(&dims, &leads, Termination::GullWing, name, description)
 }
 
 pub struct Soic;
