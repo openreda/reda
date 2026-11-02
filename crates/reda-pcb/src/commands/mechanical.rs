@@ -48,6 +48,10 @@ pub struct MechanicalPlaceParams {
     /// The Designator; by default the next free one for the Part's prefix.
     #[serde(default)]
     pub designator: Option<String>,
+    /// Fields to set over the Part's defaults, by name (`value`, `mpn`… or a free-form
+    /// name); null or empty clears a field.
+    #[serde(default)]
+    pub fields: BTreeMap<String, Option<String>>,
 }
 
 /// What [`MechanicalPlace`] returns.
@@ -111,6 +115,16 @@ impl Command for MechanicalPlace {
                     )
                 })?,
         };
+        if p.fields.keys().any(|k| k.trim().is_empty()) {
+            return Err(CommandError::invalid_params(
+                "/fields",
+                "a field name is empty",
+            ));
+        }
+        let mut fields = copy.part.fields.clone();
+        for (name, value) in &p.fields {
+            fields.set(name, value.as_deref().unwrap_or(""));
+        }
         let project = cx.project()?;
         let designator = match p.designator {
             Some(d) => {
@@ -171,7 +185,7 @@ impl Command for MechanicalPlace {
             side: p.side.unwrap_or(Side::Top),
             locked: false,
             designator: designator.clone(),
-            fields: copy.part.fields.clone(),
+            fields,
             not_fitted: false,
             designator_text: None,
             pads,

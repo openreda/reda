@@ -12,8 +12,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use reda_engine::model::Uuid;
-
+use crate::placement::commands::edit_placing;
+use crate::placement::{Placement, Placing};
 use crate::selection::Selection;
 
 /// A canvas Tool.
@@ -57,12 +57,12 @@ pub enum Tool {
     UserOrigin,
     /// Measures between two points.
     Measure,
-    /// Places a Mechanical Part (`part` names it), as the Library panel starts it.
-    PlaceMechanical,
     /// Routes Tracks on the board: clicks place corners, same-Net copper ends the route (T).
     Route,
     /// Places stitching Vias on the board, one per click (V).
     Via,
+    /// A Library Part follows the pointer until a click places it (`tool.place`).
+    Place,
 }
 
 impl Tool {
@@ -85,18 +85,19 @@ impl Tool {
             Tool::PlacementOrigin => "placement_origin",
             Tool::UserOrigin => "user_origin",
             Tool::Measure => "measure",
-            Tool::PlaceMechanical => "place_mechanical",
             Tool::Route => "route",
             Tool::Via => "via",
+            Tool::Place => "place",
         }
     }
 
     /// Whether the Tool draws or places on the board (see [`crate::pcb::draw`]); routing
-    /// and Vias have their own Tool (`pcb::route`).
+    /// and Vias have their own Tool (`pcb::route`), and Library Parts theirs
+    /// (`crate::placement`).
     pub fn draws_on_board(self) -> bool {
         !matches!(
             self,
-            Tool::Select | Tool::Move | Tool::Drag | Tool::Route | Tool::Via
+            Tool::Select | Tool::Move | Tool::Drag | Tool::Route | Tool::Via | Tool::Place
         )
     }
 }
@@ -141,18 +142,12 @@ pub fn register_all(registry: &mut Registry) {
 pub struct ToolActivateParams {
     /// The Tool to make active.
     tool: Tool,
-    /// The Mechanical Part `place_mechanical` places, by UUID.
-    #[serde(default)]
-    part: Option<Uuid>,
 }
 
 /// The Tool now active.
 #[derive(Serialize, JsonSchema)]
 pub struct ToolActivateResult {
     tool: Tool,
-    /// The Mechanical Part it places.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    part: Option<Uuid>,
 }
 
 struct ToolActivate;
@@ -192,30 +187,21 @@ impl Command for ToolActivate {
         cx: &mut Context<'_>,
         p: ToolActivateParams,
     ) -> Result<ToolActivateResult, CommandError> {
+        if p.tool == Tool::Place {
+            return Err(CommandError::rejected(
+                "pick the Part to place in the Library panel (tool.place)",
+            ));
+        }
         let carries = matches!(p.tool, Tool::Move | Tool::Drag);
         if carries && cx.view::<Selection>()?.objects.is_empty() {
             return Err(CommandError::rejected(
                 "nothing is selected: select what to move first",
             ));
         }
-        let part = match (p.tool, p.part) {
-            (Tool::PlaceMechanical, None) => {
-                return Err(CommandError::invalid_params(
-                    "/part",
-                    "place_mechanical needs the Mechanical Part to place",
-                ));
-            }
-            (Tool::PlaceMechanical, part) => part,
-            (_, Some(_)) => {
-                return Err(CommandError::invalid_params(
-                    "/part",
-                    "only place_mechanical takes a part",
-                ));
-            }
-            (_, None) => None,
-        };
         cx.view::<ActiveTool>()?.0 = p.tool;
-        Ok(ToolActivateResult { tool: p.tool, part })
+        // Another Tool ends a placement.
+        cx.view::<Placement>()?.placing = None;
+        Ok(ToolActivateResult { tool: p.tool })
     }
 }
 
@@ -242,7 +228,8 @@ impl Command for ToolRotate {
     type Params = NoParams;
     type Output = Turned;
 
-    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        edit_placing(cx, Placing::rotate)?;
         Ok(Turned {})
     }
 }
@@ -264,7 +251,8 @@ impl Command for ToolFlip {
     type Params = NoParams;
     type Output = Turned;
 
-    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        edit_placing(cx, Placing::flip)?;
         Ok(Turned {})
     }
 }

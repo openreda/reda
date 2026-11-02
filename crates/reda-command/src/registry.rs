@@ -302,6 +302,48 @@ impl Registry {
         }
     }
 
+    /// Runs the edit Command `id` on a copy of `project` and returns that copy with the
+    /// Command's result: what the Project would be if it ran. Nothing else changes, so a
+    /// Tool can draw an edit before the user commits it. Only edit Commands preview.
+    pub fn preview(
+        &self,
+        project: &Project,
+        history: &History,
+        env: &mut Env<'_>,
+        id: &str,
+        params: Value,
+    ) -> Result<(Project, Value), CommandError> {
+        let Resolved { entry, params } = self.resolve(id, params)?;
+        check_available(entry, Some(project), env.headless)?;
+        check_params(entry, &params)?;
+        let command = match (&entry.runner, entry.meta.kind) {
+            (Runner::Command(command), Kind::Edit) => command,
+            _ => {
+                return Err(CommandError::rejected(format!(
+                    "{} is not an edit Command, so it has nothing to preview",
+                    entry.meta.id
+                )));
+            }
+        };
+        let mut copy = project.clone();
+        let signals = Signals::default();
+        let result = {
+            let run = invoke_in(
+                command.as_ref(),
+                Kind::Edit,
+                (copy.transaction(), history, None),
+                &mut *env.ids,
+                (env.clock, env.parts, env.fonts),
+                &signals,
+                params,
+            );
+            let result = run.result?;
+            run.tx.commit()?;
+            result
+        };
+        Ok((copy, result))
+    }
+
     /// Runs `batch {commands}`: every step in one transaction, so a failing step rolls back
     /// the steps before it too.
     fn run_batch(

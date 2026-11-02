@@ -1,6 +1,7 @@
 //! The PCB drawing Tools: Board Outline (polygon or rectangle) and Cutouts, Zones and
 //! Keepouts, text, lines, arcs and rectangles on the active Layer, Free Pads, the
-//! Placement Origin and Mechanical Parts, the user origin and the measure Tool.
+//! Placement Origin, the user origin and the measure Tool. (Mechanical Parts are placed
+//! from the Library panel by the placement Tool, `crate::placement`.)
 //!
 //! Each is a small state machine over the same pointer events as the select Tool
 //! (press, drag, release, hover), fed by the Shell while a drawing [`Tool`] is active:
@@ -10,8 +11,8 @@
 //!   `tool.undo_segment` (Backspace) takes back the last corner.
 //! - **Two points** (outline rectangle, line, rectangle): two clicks, or one drag.
 //! - **Arcs**: the two ends, then a point the arc passes through.
-//! - **One point** (text, Free Pad, Placement Origin, user origin, Mechanical Part): a
-//!   click; text then asks for its words ([`Draw::pending_text`]).
+//! - **One point** (text, Free Pad, Placement Origin, user origin): a click; text then
+//!   asks for its words ([`Draw::pending_text`]).
 //! - **Measure**: a click starts, the cursor follows, a second click holds it.
 //!
 //! Nothing runs while a shape is drawn: [`Draw::preview`] gives what to draw over the
@@ -22,8 +23,8 @@
 mod commands;
 mod geometry;
 
-use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{LayerKind, Project, Side, Uuid};
+use reda_engine::model::geom::{Nm, Point};
+use reda_engine::model::{LayerKind, Project, Uuid};
 use reda_engine::pcb::Copper;
 use serde_json::{Value, json};
 
@@ -83,13 +84,11 @@ fn shape(tool: Tool) -> Shape {
         Tool::BoardOutline | Tool::BoardCutout | Tool::Zone | Tool::Keepout => Shape::Polygon,
         Tool::BoardOutlineRect | Tool::Line | Tool::Rect => Shape::TwoPoints,
         Tool::Arc => Shape::Arc,
-        Tool::Text
-        | Tool::FreePad
-        | Tool::PlacementOrigin
-        | Tool::UserOrigin
-        | Tool::PlaceMechanical => Shape::Point,
+        Tool::Text | Tool::FreePad | Tool::PlacementOrigin | Tool::UserOrigin => Shape::Point,
         Tool::Measure => Shape::Measure,
-        Tool::Select | Tool::Move | Tool::Drag | Tool::Route | Tool::Via => Shape::None,
+        Tool::Select | Tool::Move | Tool::Drag | Tool::Route | Tool::Via | Tool::Place => {
+            Shape::None
+        }
     }
 }
 
@@ -109,10 +108,6 @@ pub struct Draw {
     measure: Option<Measurement>,
     /// Whether the measurement is held (a second click), not following the cursor.
     held: bool,
-    /// The Mechanical Part placed, and how it is turned.
-    part: Option<Uuid>,
-    rotation: Millideg,
-    side: Side,
     radius: Option<Nm>,
 }
 
@@ -127,21 +122,16 @@ impl Default for Draw {
             text_at: None,
             measure: None,
             held: false,
-            part: None,
-            rotation: Millideg::ZERO,
-            side: Side::Top,
             radius: None,
         }
     }
 }
 
 impl Draw {
-    /// Starts `tool` afresh (`part` for Mechanical Part placement), dropping anything in
-    /// progress.
-    pub fn start(&mut self, tool: Tool, part: Option<Uuid>) {
+    /// Starts `tool` afresh, dropping anything in progress.
+    pub fn start(&mut self, tool: Tool) {
         *self = Draw {
             tool,
-            part,
             radius: self.radius,
             ..Draw::default()
         };
@@ -164,11 +154,6 @@ impl Draw {
     /// Where the cursor last snapped, for the snap marker.
     pub fn snap(&self) -> Option<(Point, SnapKind)> {
         self.cursor
-    }
-
-    /// The Mechanical Part being placed, with its rotation and side.
-    pub fn part(&self) -> Option<(Uuid, Millideg, Side)> {
-        self.part.map(|p| (p, self.rotation, self.side))
     }
 
     /// What to draw over the canvas while a shape is in progress.
@@ -211,10 +196,6 @@ impl Draw {
                     _ => None,
                 }
             }
-            Shape::Point if self.tool == Tool::PlaceMechanical => Some(Preview {
-                points: vec![cursor?],
-                closed: false,
-            }),
             Shape::Point | Shape::Measure | Shape::None => None,
         }
     }
@@ -289,21 +270,8 @@ impl Draw {
 
     /// Esc, or another Tool: drops what is in progress.
     pub fn cancel(&mut self) {
-        let (tool, part) = (self.tool, self.part);
-        self.start(tool, part);
-    }
-
-    /// Space: turns the Mechanical Part being placed by 90°.
-    pub fn rotate(&mut self) {
-        self.rotation = Millideg((self.rotation.0 + 90_000) % 360_000);
-    }
-
-    /// L: flips the Mechanical Part being placed to the other side.
-    pub fn flip(&mut self) {
-        self.side = match self.side {
-            Side::Top => Side::Bottom,
-            Side::Bottom => Side::Top,
-        };
+        let tool = self.tool;
+        self.start(tool);
     }
 
     /// Text's words arrived: places it where the text Tool was clicked.
@@ -486,24 +454,14 @@ impl Draw {
             ),
             Tool::PlacementOrigin => ("pcb.placement_origin.set", json!({"at": xy(points[0])})),
             Tool::UserOrigin => ("pcb.view.origin.set", json!({"at": xy(points[0])})),
-            Tool::PlaceMechanical => {
-                let side = match self.side {
-                    Side::Top => "top",
-                    Side::Bottom => "bottom",
-                };
-                (
-                    "pcb.mechanical.place",
-                    json!({"part": self.part?, "at": xy(points[0]),
-                           "rotation": self.rotation.0, "side": side}),
-                )
-            }
             Tool::Text
             | Tool::Measure
             | Tool::Select
             | Tool::Move
             | Tool::Drag
             | Tool::Route
-            | Tool::Via => return None,
+            | Tool::Via
+            | Tool::Place => return None,
         })
     }
 }

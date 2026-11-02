@@ -1,7 +1,7 @@
 //! The PCB drawing Tools, through the Shell with no window: each previews while it is
 //! drawn, touches the Journal only when the shape is finished, and then runs one Command
 //! (Board Outline and Cutouts, Zones (Z) and Keepouts (K), text, lines, arcs and
-//! rectangles on the active Layer, Free Pads, the Placement Origin and Mechanical Parts);
+//! rectangles on the active Layer, Free Pads and the Placement Origin);
 //! the user origin and the measure Tool change only the view; and the Shell says when
 //! Zones need refilling.
 
@@ -18,9 +18,6 @@ use serde_json::{Value, json};
 fn library() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter")
 }
-
-/// The starter Library's MountingHole_M3 (a Mechanical Part).
-const MOUNTING_HOLE: &str = "326ace02-ef44-4af4-8f9d-21d6c65a74ef";
 
 const TOLERANCE: Nm = Nm::from_um(200);
 
@@ -296,48 +293,19 @@ fn text_asks_for_its_words_then_runs_one_command() {
 }
 
 #[test]
-fn free_pads_the_placement_origin_and_mechanical_parts_are_placed_by_a_click() {
+fn free_pads_and_the_placement_origin_are_placed_by_a_click() {
     let mut b = board();
     let start = b.mark();
     b.tool("free_pad");
     b.click(mm(2.0, 2.0));
     b.tool("placement_origin");
     b.click(mm(1.0, 1.0));
-    run(
-        &mut b.shell,
-        "tool.activate",
-        json!({"tool": "place_mechanical", "part": MOUNTING_HOLE}),
-    );
-    b.shell.pcb_hover(mm(10.0, 10.0));
-    assert!(
-        b.shell.pcb_draw().preview().is_some(),
-        "the part follows the cursor"
-    );
-    run(&mut b.shell, "tool.rotate", json!({}));
-    b.click(mm(10.0, 10.0));
     assert_eq!(
         b.edits_since(start),
-        [
-            "pcb.free_pad.add",
-            "pcb.placement_origin.set",
-            "pcb.mechanical.place"
-        ]
+        ["pcb.free_pad.add", "pcb.placement_origin.set"]
     );
     assert_eq!(b.pcb().free_pads().next().unwrap().at, mm(2.0, 2.0));
     assert_eq!(b.pcb().placement_origin().unwrap().at, mm(1.0, 1.0));
-    let part = b.pcb().footprints().next().unwrap();
-    assert_eq!(part.at, mm(10.0, 10.0));
-    assert_eq!(part.rotation, Millideg::from_deg(90));
-}
-
-#[test]
-fn place_mechanical_needs_a_part() {
-    let mut b = board();
-    assert!(
-        b.shell
-            .run("tool.activate", json!({"tool": "place_mechanical"}))
-            .is_err()
-    );
 }
 
 #[test]

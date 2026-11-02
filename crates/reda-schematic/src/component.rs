@@ -1,6 +1,6 @@
 //! Placing Components: `schematic.component.place` and `schematic.unit.place`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reda_command::{Angle, Command, CommandError, Context, Kind, Length, Meta, PartCopy};
 use reda_model::geom::{Millideg, Point};
@@ -11,6 +11,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::properties::{check_designator, check_field_names};
 use crate::sheet;
 use crate::wiring::split_wires_at_pins;
 
@@ -48,6 +49,14 @@ pub struct ComponentPlaceParams {
     pub footprint: Option<Uuid>,
     /// The new Unit's UUID; a fresh one by default.
     pub uuid: Option<Uuid>,
+    /// The Designator, which no other Component may use; by default the next free one
+    /// for the Symbol's prefix.
+    pub designator: Option<String>,
+    /// Fields to set over the Part's defaults, by name: `value`, the other built-in
+    /// fields or any free-form name such as `LCSC`. An empty value or `null` clears a
+    /// built-in field and leaves out a free-form one.
+    #[serde(default)]
+    pub fields: BTreeMap<String, Option<String>>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -124,11 +133,22 @@ impl Command for ComponentPlace {
             Some(name) => unit_named(&content.symbol, name)?,
             None => content.symbol.units[0].uuid,
         };
-        let designator = next_free_designator(cx.project()?, &content.symbol.designator_prefix);
-        let fields = content.part.fields.clone();
+        check_field_names("/fields", p.fields.keys(), false)?;
+        let mut fields = content.part.fields.clone();
+        for (name, value) in &p.fields {
+            fields.set(name, value.as_deref().unwrap_or(""));
+        }
+        let prefix = content.symbol.designator_prefix.clone();
         let component_type = content.part.component_type;
         let entry = ensure_entry(cx, p.document, content)?;
         let component = ComponentRef::new(cx.new_id());
+        let designator = match p.designator {
+            Some(d) => {
+                check_designator(cx.project()?, &[component.uuid], &d)?;
+                d
+            }
+            None => next_free_designator(cx.project()?, &prefix),
+        };
         let uuid = p.uuid.unwrap_or_else(|| cx.new_id());
         let instance = UnitInstance {
             uuid,

@@ -265,6 +265,40 @@ context = "pcb"
 key = "U"
 command = "pcb.selection.connected"
 
+# Placing a Part from the Library panel: Space turns it, X and Y mirror it on a sheet, L
+# flips a Mechanical Part to the other side of the board, Tab opens Properties to edit it
+# (later placements keep the edits) and Esc stops placing.
+
+[[bind]]
+context = "tool:place"
+key = "Space"
+command = "tool.rotate"
+
+[[bind]]
+context = "tool:place"
+key = "X"
+command = "tool.mirror:x"
+
+[[bind]]
+context = "tool:place"
+key = "Y"
+command = "tool.mirror:y"
+
+[[bind]]
+context = "tool:place"
+key = "L"
+command = "tool.flip"
+
+[[bind]]
+context = "tool:place"
+key = "Tab"
+command = "panel.show:properties"
+
+[[bind]]
+context = "tool:place"
+key = "Esc"
+command = "tool.activate:select"
+
 # The board's drawing Tools: Z draws a Zone, K a Keepout. While a polygon or an arc is
 # being drawn, Backspace takes back the last corner and Enter finishes the shape.
 

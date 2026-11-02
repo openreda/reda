@@ -110,7 +110,7 @@ impl Command for ComponentSet {
 
 /// Refuses a Designator for several Components, a blank one, or one another Component
 /// already uses.
-fn check_designator(
+pub(crate) fn check_designator(
     project: &Project,
     components: &[Uuid],
     designator: &str,
@@ -164,7 +164,7 @@ fn check_alternate(
 }
 
 /// Refuses blank field names, and `value` when `value_has_own_param`.
-fn check_field_names<'a>(
+pub(crate) fn check_field_names<'a>(
     param: &str,
     names: impl Iterator<Item = &'a String>,
     value_has_own_param: bool,

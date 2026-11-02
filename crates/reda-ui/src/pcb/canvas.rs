@@ -115,15 +115,6 @@ fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         for p in &points {
             painter.circle_stroke(*p, 3.0, Stroke::new(1.0, accent));
         }
-        if let (Some(_), Some(at)) = (draw.part(), points.first()) {
-            painter.text(
-                *at + vec2(10.0, -10.0),
-                Align2::LEFT_BOTTOM,
-                tr!("pcb-placing"),
-                FontId::proportional(12.0),
-                accent,
-            );
-        }
     }
     if let Some(m) = draw.measurement() {
         let (a, b) = (screen(m.from), screen(m.to));

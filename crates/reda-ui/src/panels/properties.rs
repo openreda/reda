@@ -3,14 +3,19 @@
 //! applies to everything selected; nothing here changes the Project directly.
 
 use egui::{Checkbox, ComboBox, Grid, Id, Key, Role, TextEdit, Ui, WidgetInfo};
-use serde_json::Value;
+use reda_engine::model::Uuid;
+use serde_json::{Value, json};
 
+use crate::placement::Placing;
 use crate::properties::{ComponentProperties, Edit, MIXED, NetClassProperty, Properties, Shared};
 use crate::shell::Shell;
 use crate::tr;
 
 /// Draws the panel for the Shell's selection; returns the Commands its edits ask for.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
+    if let Some(placing) = crate::placement::placing(shell) {
+        return placing_section(ui, placing);
+    }
     let Some(project) = shell.engine().project() else {
         ui.weak(tr!("properties-nothing-selected"));
         return Vec::new();
@@ -51,6 +56,67 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
         .iter()
         .filter_map(|edit| properties.command(edit))
         .collect()
+}
+
+/// While a Part is being placed (Tab opens the panel then): its Designator, value and
+/// Footprint, which `tool.place.set` changes for this and later placements.
+fn placing_section(ui: &mut Ui, placing: &Placing) -> Vec<(&'static str, Value)> {
+    let mut out = Vec::new();
+    ui.label(tr!(
+        "properties-placing",
+        part = placing.copy.part.name.clone()
+    ));
+    ui.separator();
+    Grid::new("properties-placing")
+        .num_columns(2)
+        .show(ui, |ui| {
+            let designator = Shared::Same(placing.designator.clone().unwrap_or_default());
+            let label = field_label("designator");
+            if let Some(text) = text_field(ui, "placing-designator", &label, &designator, true) {
+                out.push(("tool.place.set", json!({ "designator": text })));
+            }
+            ui.end_row();
+            let value = placing
+                .fields
+                .get("value")
+                .cloned()
+                .unwrap_or_else(|| placing.copy.part.fields.value.clone());
+            let label = field_label("value");
+            if let Some(text) = text_field(ui, "placing-value", &label, &Shared::Same(value), true)
+            {
+                out.push(("tool.place.set", json!({ "fields": {"value": text} })));
+            }
+            ui.end_row();
+            ui.label(tr!("properties-footprint"));
+            let current = placing
+                .footprint
+                .or_else(|| placing.copy.part.footprints.first().copied());
+            let name = |uuid: Uuid| {
+                placing
+                    .copy
+                    .footprints
+                    .iter()
+                    .find(|f| f.footprint.uuid == uuid)
+                    .map_or_else(|| uuid.to_string(), |f| f.footprint.name.clone())
+            };
+            let selected = current.map_or_else(|| tr!("properties-no-footprint"), name);
+            let response = ComboBox::from_id_salt("properties-placing-footprint")
+                .selected_text(selected)
+                .show_ui(ui, |ui| {
+                    for f in &placing.copy.footprints {
+                        let uuid = f.footprint.uuid;
+                        let chosen = current == Some(uuid);
+                        if ui.selectable_label(chosen, &f.footprint.name).clicked() && !chosen {
+                            out.push(("tool.place.set", json!({ "footprint": uuid })));
+                        }
+                    }
+                })
+                .response;
+            let label = tr!("properties-footprint");
+            response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+            ui.end_row();
+        });
+    out
 }
 
 /// A field's label: the built-in ones translated, free-form ones as named.

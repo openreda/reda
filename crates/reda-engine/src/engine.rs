@@ -4,13 +4,17 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use reda_command::{
-    Clock, CommandError, Env, Fonts, History, IdSource, RandomIds, Registry, Session, Signals,
-    SystemClock, Trash, UserDirs, ViewState,
+    Clock, CommandError, Env, Fonts, History, IdSource, PartCopy, PartSource, RandomIds, Registry,
+    SeededIds, Session, Signals, SystemClock, Trash, UserDirs, ViewState,
 };
 use reda_model::{Project, Scope};
 use serde_json::Value;
 
 use crate::journal::{JournalEntry, Source};
+
+/// The seed of the UUIDs an [`Engine::preview`] makes: fixed, so the same edit previews
+/// the same way each time, and apart from any a test engine seeds.
+const PREVIEW_SEED: u64 = 0xf1e5;
 
 /// The full registry: every crate's `register_all()`. Add a line here when a new crate
 /// brings Commands.
@@ -213,6 +217,44 @@ impl Engine {
             .as_ref()
             .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
         document_scene(project, document, &self.fonts)
+    }
+
+    /// Scans the registered Libraries (the starter Library, the user's and the open
+    /// Project's) from disk, as `library.search` does, for the Library panel to list.
+    pub fn libraries(&self) -> crate::library::LibraryIndex {
+        crate::library::scan_registered(&self.session)
+    }
+
+    /// The Part `uuid` from the registered Libraries with its Symbol and Footprints, as
+    /// placing it would copy it; `not_found` when no Library holds it whole.
+    pub fn library_part(&self, uuid: reda_model::Uuid) -> Result<PartCopy, CommandError> {
+        crate::library::DiskParts::new(&self.session).part(uuid)
+    }
+
+    /// The open Project as the edit Command `id` would leave it, with the Command's
+    /// result, taking Library Parts from `parts`. Nothing runs for real: no Journal entry,
+    /// undo entry or dirty mark, so a Tool can draw an edit before the user commits it.
+    pub fn preview(
+        &self,
+        id: &str,
+        params: Value,
+        parts: &dyn PartSource,
+    ) -> Result<(Project, Value), CommandError> {
+        let project = self
+            .session
+            .project
+            .as_ref()
+            .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
+        let mut ids = SeededIds::new(PREVIEW_SEED);
+        let mut env = Env {
+            ids: &mut ids,
+            clock: &*self.clock,
+            parts,
+            fonts: &self.fonts,
+            headless: self.headless,
+        };
+        self.registry
+            .preview(project, &self.session.history, &mut env, id, params)
     }
 
     /// The undo stacks of the open Project, for menus to label Undo and Redo.
