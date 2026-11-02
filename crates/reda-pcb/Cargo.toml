@@ -12,6 +12,7 @@ publish.workspace = true
 reda-command = { path = "../reda-command" }
 reda-model = { path = "../reda-model" }
 reda-text = { path = "../reda-text" }
+rstar.workspace = true
 schemars.workspace = true
 serde.workspace = true
 
