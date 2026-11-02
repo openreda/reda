@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "part": {"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},
+  "footprints": [
+    "cece716c-4fd0-42c8-900c-0f3bc3c14225",
+    "0691e5e7-9eb6-49f3-9f3e-d4159258693e",
+    "71936419-d9da-4a2b-8429-13c6a21ecace",
+    "e80f4a40-24ca-407b-844c-e5cab9631e1c",
+    "afd4eee0-373d-4487-aade-3ad89f20f99d"
+  ],
+  "fields": {"value":"10k","description":"Resistor","keywords":"R resistor"},
+  "pin_map": {}
+}

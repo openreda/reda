@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "part": {"uuid":"712a6f72-c199-49e4-9b2a-7ad0e80f4345","name":"Diode_Schottky","component_type":"standard","symbol":"1dc9e0a2-8cd0-429f-aa80-97bcb550679c"},
+  "footprints": [
+    "994846c1-6dfb-48a2-babf-ae60f86398b2",
+    "d7207e2b-b137-4fb4-a47b-9c233f186cc7",
+    "fc63d2e4-35d0-43e8-87a8-bd01d8595462"
+  ],
+  "fields": {"value":"BAT54","description":"Schottky diode","keywords":"D diode schottky"},
+  "pin_map": {}
+}

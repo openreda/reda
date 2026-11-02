@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"595a0c81-2c35-4b8a-af0f-ea2a53b1f271","name":"Conn_1x06","designator_prefix":"J","description":"Generic connector, 1 × 6 pins"},
+  "units": [
+    {"uuid":"11a5ddab-965e-4f20-a712-c765d804101f","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"2d48f3c7-dbdb-457a-a96f-328cff77eed5","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_4","number":"4","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"76c1c382-89fe-465b-aace-646159cc3fda","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_5","number":"5","electrical_type":"passive","at":{"x":-5080000,"y":-3810000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"943b566d-80c6-43ff-bb8c-fdcad40afa41","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":3810000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"97664d8d-4e36-4a35-922a-183a1932e1fc","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_3","number":"3","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"dd1948ad-71bc-470d-b097-f20aade64bea","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":6350000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"f1f6cca6-0d9b-4c0e-964a-84ff970ae272","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_6","number":"6","electrical_type":"passive","at":{"x":-5080000,"y":-6350000},"rotation":0,"length":2540000,"name_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"d0f1bb70-5fac-4ad2-8041-fa7b93c32ea9","unit":"11a5ddab-965e-4f20-a712-c765d804101f","shape":{"kind":"rect","start":{"x":-2540000,"y":-7620000},"end":{"x":0,"y":7620000}},"width":254000}
+  ]
+}

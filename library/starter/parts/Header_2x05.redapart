@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"5efea691-ecc3-4974-bcbd-a95e1a93a933","name":"Header_2x05","component_type":"standard","symbol":"a9d8be65-99c1-4050-ae5a-2800ba0079ca"},
+  "footprints": [
+    "0057fec4-0cd6-4916-9b45-6192ba36083c",
+    "b0b9d9f3-edc4-489b-91c4-2bc4f4efeeb1"
+  ],
+  "fields": {"value":"Header 2x5","description":"2 × 5 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},
+  "pin_map": {}
+}

@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"57ad0048-7b1b-4c99-a6ce-589f131c080d","name":"Diode_Zener","designator_prefix":"D","description":"Zener diode"},
+  "units": [
+    {"uuid":"36f9747e-429f-4e92-8d79-27d1db24537a","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"5d9bd74d-a7ec-4c81-a0e6-0970dd4c1c97","unit":"36f9747e-429f-4e92-8d79-27d1db24537a","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"9870af27-80fd-44be-a450-041af98b24e7","unit":"36f9747e-429f-4e92-8d79-27d1db24537a","name":"A","number":"2","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"1f2f4e33-1168-4c3b-95bf-c4c730d1a886","unit":"36f9747e-429f-4e92-8d79-27d1db24537a","shape":{"kind":"line","start":{"x":-1270000,"y":-1270000},"end":{"x":-1778000,"y":-1778000}},"width":254000},
+    {"uuid":"36e3bd6b-836d-4c41-8221-88ed088a26ed","unit":"36f9747e-429f-4e92-8d79-27d1db24537a","shape":{"kind":"line","start":{"x":-1270000,"y":-1270000},"end":{"x":1270000,"y":-1270000}},"width":254000},
+    {"uuid":"4c032141-ed66-45c0-a19a-640de670f82e","unit":"36f9747e-429f-4e92-8d79-27d1db24537a","shape":{"kind":"polygon","points":[{"x":-1270000,"y":1270000},{"x":1270000,"y":1270000},{"x":0,"y":-1270000}]},"width":254000},
+    {"uuid":"b6846913-ddc2-4669-8c15-ff7dee1a31a8","unit":"36f9747e-429f-4e92-8d79-27d1db24537a","shape":{"kind":"line","start":{"x":1270000,"y":-1270000},"end":{"x":1778000,"y":-762000}},"width":254000}
+  ]
+}

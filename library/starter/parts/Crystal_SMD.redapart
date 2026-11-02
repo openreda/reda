@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"37c5fb55-2f83-4f07-a954-ac3a1a19e242","name":"Crystal_SMD","component_type":"standard","symbol":"8fcb03df-c1bf-43e6-b1e5-7975262989c7"},
+  "footprints": [
+    "595b8b5e-8c78-4efa-b9ad-91bead0c60bf"
+  ],
+  "fields": {"value":"16MHz","description":"Quartz crystal, 3.2 × 2.5 mm SMD","keywords":"Y crystal quartz"},
+  "pin_map": {"pins":[{"pin":"2","pads":["3"]}],"unconnected":["2","4"]}
+}
