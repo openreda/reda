@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::change::{ChangeSet, Object};
 use crate::document::{DocumentEntry, DocumentKind};
 use crate::output::{OutputJob, ProjectFabPreset};
-use crate::pcb::PcbDocument;
+use crate::pcb::{PcbDocument, ZoneFills};
 use crate::schematic::SchematicSheet;
 use crate::{ElementSource, ErcSeverities, LibraryElement, TxError, Uuid};
 
@@ -65,6 +65,9 @@ pub struct Project {
     /// The Library elements open for editing, each its own undo scope.
     elements: BTreeMap<Uuid, (ElementSource, LibraryElement)>,
     pcb_documents: BTreeMap<Uuid, PcbDocument>,
+    /// Computed Zone fills per PCB Document: derived data kept beside the Documents, never
+    /// part of them, so transactions and undo do not touch it.
+    zone_fills: BTreeMap<Uuid, ZoneFills>,
     #[cfg(feature = "test-objects")]
     probes: BTreeMap<Uuid, crate::Probe>,
 }
@@ -84,6 +87,7 @@ impl Project {
             schematic_sheets: BTreeMap::new(),
             elements: BTreeMap::new(),
             pcb_documents: BTreeMap::new(),
+            zone_fills: BTreeMap::new(),
             #[cfg(feature = "test-objects")]
             probes: BTreeMap::new(),
         }
@@ -131,6 +135,20 @@ impl Project {
     /// Opens a Library element for editing, outside any transaction: opening is not an
     /// edit and is never undone. Its edits then [`crate::Transaction::replace`] it, on the
     /// undo scope `Scope::Element(uuid)`. Refused when its UUID is taken.
+    /// The last computed Zone fills of PCB Document `document`, current or stale.
+    pub fn zone_fills(&self, document: Uuid) -> Option<&ZoneFills> {
+        self.zone_fills.get(&document)
+    }
+
+    /// Keeps `fills` as PCB Document `document`'s Zone fills (`None` forgets them). Fills
+    /// are derived data: setting them is not an edit.
+    pub fn set_zone_fills(&mut self, document: Uuid, fills: Option<ZoneFills>) {
+        match fills {
+            Some(fills) => self.zone_fills.insert(document, fills),
+            None => self.zone_fills.remove(&document),
+        };
+    }
+
     pub fn open_element(
         &mut self,
         source: ElementSource,
@@ -235,6 +253,8 @@ impl Project {
             Object::FootprintInstance(o) => o.document,
             Object::Track(o) => o.document,
             Object::Via(o) => o.document,
+            Object::Zone(o) => o.document,
+            Object::Keepout(o) => o.document,
             _ => return Ok(()),
         };
         match self.pcb_documents.contains_key(&pcb) {
@@ -398,6 +418,12 @@ impl Project {
             Some(Object::Via(o)) => {
                 self.pcb_mut(o.document).vias.insert(uuid, o.object);
             }
+            Some(Object::Zone(o)) => {
+                self.pcb_mut(o.document).zones.insert(uuid, o.object);
+            }
+            Some(Object::Keepout(o)) => {
+                self.pcb_mut(o.document).keepouts.insert(uuid, o.object);
+            }
             #[cfg(feature = "test-objects")]
             Some(Object::Probe(probe)) => {
                 self.probes.insert(uuid, probe);
@@ -415,6 +441,7 @@ impl Project {
                 if self.entries.remove(&uuid).is_some() {
                     self.schematic_sheets.remove(&uuid);
                     self.pcb_documents.remove(&uuid);
+                    self.zone_fills.remove(&uuid);
                 }
                 #[cfg(feature = "test-objects")]
                 self.probes.remove(&uuid);

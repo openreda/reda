@@ -41,6 +41,18 @@
 //!   ],
 //!   "vias": [
 //!     {"uuid":"…","at":{…},"net":"…","diameter":600000,"hole":300000,"span":{"from":"…","to":"…"}}
+//!   ],
+//!   "zones": [
+//!     {"uuid":"…","layer":"…","net":"…","vertices":[
+//!       {"x":0,"y":0},
+//!       …
+//!     ],"clearance":160000,"min_width":200000,"pad_connection":"thermal",…}
+//!   ],
+//!   "keepouts": [
+//!     {"uuid":"…","layers":["…"],"vertices":[
+//!       {"x":0,"y":0},
+//!       …
+//!     ],"copper":true,"vias":true}
 //!   ]
 //! }
 //! ```
@@ -50,13 +62,15 @@
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
-//! Footprints. `tracks` and `vias` are left out while the board has none.
+//! Footprints. `tracks`, `vias`, `zones` and `keepouts` are left out while the board has
+//! none. Zone fills are never stored here: they live in the `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
-    BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, InDocument, LayerSet,
-    Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, Rules, Track, Uuid, Via,
+    BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, InDocument, Keepout,
+    LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, Rules, Track, Uuid, Via,
+    Zone,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -110,6 +124,13 @@ pub(crate) struct PcbFile {
     /// The Vias; left out while the board has none.
     #[serde(default)]
     vias: Vec<Via>,
+    /// The copper Zones (outlines and settings, never fills); left out while the board
+    /// has none.
+    #[serde(default)]
+    zones: Vec<Zone>,
+    /// The Keepouts; left out while the board has none.
+    #[serde(default)]
+    keepouts: Vec<Keepout>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -166,6 +187,12 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     }
     if pcb.vias().next().is_some() {
         w.table("vias", pcb.vias(), |v| v.uuid)?;
+    }
+    if pcb.zones().next().is_some() {
+        w.containers("zones", pcb.zones(), |z| z.uuid, "vertices")?;
+    }
+    if pcb.keepouts().next().is_some() {
+        w.containers("keepouts", pcb.keepouts(), |k| k.uuid, "vertices")?;
     }
     Ok(w.finish())
 }
@@ -249,6 +276,16 @@ pub(crate) fn read_pcb_file(
         file.vias
             .into_iter()
             .map(|v| Object::Via(InDocument::new(doc, v))),
+    );
+    objects.extend(
+        file.zones
+            .into_iter()
+            .map(|z| Object::Zone(InDocument::new(doc, z))),
+    );
+    objects.extend(
+        file.keepouts
+            .into_iter()
+            .map(|k| Object::Keepout(InDocument::new(doc, k))),
     );
     Ok(objects)
 }

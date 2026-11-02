@@ -18,12 +18,15 @@ use crate::{FootprintCopy, Object, Severity, Uuid};
 mod copper;
 mod footprint;
 mod graphics;
+mod zone;
 
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 
 pub use footprint::{FootprintInstance, PadNet};
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
+
+pub use zone::{FillShape, Keepout, PadConnection, Zone, ZoneFills};
 
 /// Which face of the board a sided Layer is on.
 #[derive(
@@ -248,6 +251,8 @@ pub struct PcbDocument {
     pub(crate) footprints: BTreeMap<Uuid, FootprintInstance>,
     pub(crate) tracks: BTreeMap<Uuid, Track>,
     pub(crate) vias: BTreeMap<Uuid, Via>,
+    pub(crate) zones: BTreeMap<Uuid, Zone>,
+    pub(crate) keepouts: BTreeMap<Uuid, Keepout>,
 }
 
 impl PcbDocument {
@@ -266,6 +271,8 @@ impl PcbDocument {
             footprints: BTreeMap::new(),
             tracks: BTreeMap::new(),
             vias: BTreeMap::new(),
+            zones: BTreeMap::new(),
+            keepouts: BTreeMap::new(),
         }
     }
 
@@ -381,6 +388,24 @@ impl PcbDocument {
         self.vias.get(&uuid)
     }
 
+    /// The Zones, sorted by UUID.
+    pub fn zones(&self) -> impl Iterator<Item = &Zone> {
+        self.zones.values()
+    }
+
+    pub fn zone(&self, uuid: Uuid) -> Option<&Zone> {
+        self.zones.get(&uuid)
+    }
+
+    /// The Keepouts, sorted by UUID.
+    pub fn keepouts(&self) -> impl Iterator<Item = &Keepout> {
+        self.keepouts.values()
+    }
+
+    pub fn keepout(&self, uuid: Uuid) -> Option<&Keepout> {
+        self.keepouts.get(&uuid)
+    }
+
     /// The copper Layers, top to bottom.
     pub fn copper_layers(&self) -> impl Iterator<Item = &Layer> {
         self.layers()
@@ -425,7 +450,9 @@ impl PcbDocument {
             footprint_copies => FootprintCopy,
             footprints => FootprintInstance,
             tracks => Track,
-            vias => Via
+            vias => Via,
+            zones => Zone,
+            keepouts => Keepout
         )
     }
 
@@ -454,7 +481,9 @@ impl PcbDocument {
             footprint_copies => FootprintCopy,
             footprints => FootprintInstance,
             tracks => Track,
-            vias => Via
+            vias => Via,
+            zones => Zone,
+            keepouts => Keepout
         );
         out
     }
@@ -473,6 +502,8 @@ impl PcbDocument {
         self.footprints.remove(&uuid);
         self.tracks.remove(&uuid);
         self.vias.remove(&uuid);
+        self.zones.remove(&uuid);
+        self.keepouts.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -488,6 +519,8 @@ impl PcbDocument {
             && self.footprints.is_empty()
             && self.tracks.is_empty()
             && self.vias.is_empty()
+            && self.zones.is_empty()
+            && self.keepouts.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -587,6 +620,37 @@ impl PcbDocument {
                     "Via {uuid} needs a hole and a diameter larger than it"
                 ));
             }
+        }
+        for zone in self.zones.values() {
+            let uuid = zone.uuid;
+            if !is_copper(zone.layer) {
+                return Err(format!("Zone {uuid} is not on a copper Layer"));
+            }
+            if !net_exists(zone.net) {
+                return Err(format!("Zone {uuid} is on a Net that does not exist"));
+            }
+            reda_geom::check_contour(&zone.vertices).map_err(|e| format!("Zone {uuid}: {e}"))?;
+            if zone.min_width <= Nm::ZERO || zone.thermal_spoke_width <= Nm::ZERO {
+                return Err(format!(
+                    "Zone {uuid} needs a positive minimum width and spoke width"
+                ));
+            }
+            if zone.clearance < Nm::ZERO || zone.thermal_gap < Nm::ZERO {
+                return Err(format!("Zone {uuid} has a negative clearance or gap"));
+            }
+        }
+        for keepout in self.keepouts.values() {
+            let uuid = keepout.uuid;
+            if keepout.layers.is_empty() || !keepout.layers.iter().all(|l| is_copper(*l)) {
+                return Err(format!(
+                    "Keepout {uuid} must apply to one or more copper Layers"
+                ));
+            }
+            if !keepout.copper && !keepout.vias {
+                return Err(format!("Keepout {uuid} forbids nothing"));
+            }
+            reda_geom::check_contour(&keepout.vertices)
+                .map_err(|e| format!("Keepout {uuid}: {e}"))?;
         }
         Ok(())
     }

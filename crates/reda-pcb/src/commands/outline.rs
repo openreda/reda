@@ -47,7 +47,7 @@ pub struct VertexParam {
 }
 
 /// Contour params as stored vertices, checked to be one closed contour.
-fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandError> {
+pub(super) fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandError> {
     let vertices: Vec<Vertex> = vertices
         .iter()
         .map(|v| {

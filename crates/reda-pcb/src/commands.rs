@@ -11,6 +11,7 @@ mod text;
 mod text_geometry;
 mod track;
 mod via;
+mod zone;
 
 pub use outline::rect_outline;
 
@@ -33,6 +34,7 @@ pub fn register_all(registry: &mut Registry) {
     track::register_all(registry);
     via::register_all(registry);
     copper::register_all(registry);
+    zone::register_all(registry);
 }
 
 /// Why a PCB Command cannot run in a Project without a PCB Document.

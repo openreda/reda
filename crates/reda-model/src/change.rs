@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
-    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, InDocument, LayerSet, Net, NetClass,
-    PcbGraphic, PcbText, Track, Via,
+    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, InDocument, Keepout, LayerSet, Net,
+    NetClass, PcbGraphic, PcbText, Track, Via, Zone,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -56,6 +56,8 @@ pub enum Object {
     FootprintInstance(InDocument<FootprintInstance>),
     Track(InDocument<Track>),
     Via(InDocument<Via>),
+    Zone(InDocument<Zone>),
+    Keepout(InDocument<Keepout>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -129,6 +131,10 @@ pub enum ObjectType {
     Track,
     /// A plated hole joining copper on several Layers.
     Via,
+    /// A copper fill on a Net, on one copper Layer.
+    Zone,
+    /// An area where copper or Vias may not go.
+    Keepout,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -168,6 +174,8 @@ impl Object {
             Object::FootprintInstance(o) => o.uuid,
             Object::Track(o) => o.uuid,
             Object::Via(o) => o.uuid,
+            Object::Zone(o) => o.uuid,
+            Object::Keepout(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -205,6 +213,8 @@ impl Object {
             Object::FootprintInstance(_) => ObjectType::FootprintInstance,
             Object::Track(_) => ObjectType::Track,
             Object::Via(_) => ObjectType::Via,
+            Object::Zone(_) => ObjectType::Zone,
+            Object::Keepout(_) => ObjectType::Keepout,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -243,6 +253,8 @@ impl Object {
             Object::FootprintInstance(o) => Scope::Document(o.document),
             Object::Track(o) => Scope::Document(o.document),
             Object::Via(o) => Scope::Document(o.document),
+            Object::Zone(o) => Scope::Document(o.document),
+            Object::Keepout(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }

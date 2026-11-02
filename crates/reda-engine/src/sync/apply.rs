@@ -216,8 +216,8 @@ impl<'c, 'e> Applier<'c, 'e> {
         self.prune_copies()
     }
 
-    /// Sync never deletes copper: Tracks and Vias on a removed Net move to the Net it
-    /// merged into, or to no Net.
+    /// Sync never deletes copper: Tracks, Vias and Zones on a removed Net move to the Net
+    /// it merged into, or to no Net.
     fn reassign_copper(
         &mut self,
         merges: &BTreeMap<Uuid, Option<Uuid>>,
@@ -240,6 +240,13 @@ impl<'c, 'e> Applier<'c, 'e> {
                     let mut via = via.clone();
                     via.net = to;
                     moved.push(Object::Via(InDocument::new(pcb.uuid, via)));
+                }
+            }
+            for zone in pcb.zones() {
+                if let Some(to) = target(zone.net) {
+                    let mut zone = zone.clone();
+                    zone.net = to;
+                    moved.push(Object::Zone(InDocument::new(pcb.uuid, zone)));
                 }
             }
         }

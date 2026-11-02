@@ -371,6 +371,12 @@ fn merged_nets_keep_the_one_with_the_largest_overlap() {
         json!({"at": {"x": "110mm", "y": 0}, "net": small}),
     )["result"]["uuid"]
         .clone();
+    let zone = engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_bottom", "net": small, "vertices": [
+            {"x": "100mm", "y": 0}, {"x": "110mm", "y": 0}, {"x": "110mm", "y": "10mm"}]}),
+    )["result"]["uuid"]
+        .clone();
 
     wire(&mut engine, &[(20.0, -3.81), (30.0, -3.81)]);
     let list = preview(&mut engine);
@@ -384,7 +390,7 @@ fn merged_nets_keep_the_one_with_the_largest_overlap() {
     let after = nets(&mut engine);
     assert_eq!(after.len(), 1);
     assert_eq!(after[0]["uuid"], big);
-    for object in [track, via] {
+    for object in [track, via, zone] {
         let got = engine.run_ok("object.get", json!({"uuid": object}));
         assert_eq!(got["object"]["net"], big, "{got}");
     }
