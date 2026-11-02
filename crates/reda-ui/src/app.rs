@@ -10,6 +10,8 @@ use reda_engine::Engine;
 use reda_engine::preferences;
 use serde_json::json;
 
+use crate::agents as bridge_ui;
+use crate::bridge::Bridge;
 use crate::canvas::{CanvasResources, canvas_id};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
@@ -30,6 +32,9 @@ pub struct App {
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
+    /// The control port, for agents.
+    bridge: Bridge,
+    bridge_waker_set: bool,
 }
 
 impl App {
@@ -43,6 +48,35 @@ impl App {
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
+            bridge: Bridge::off(),
+            bridge_waker_set: false,
+        }
+    }
+
+    /// Hosts the control port `bridge` (see [`Bridge::start`]); without one the bridge is
+    /// off.
+    pub fn with_bridge(mut self, bridge: Bridge) -> App {
+        self.bridge = bridge;
+        self
+    }
+
+    pub fn bridge(&self) -> &Bridge {
+        &self.bridge
+    }
+
+    /// Between frames: runs the bridged Commands waiting, raising the window for a file
+    /// another app handed over.
+    fn pump_bridge(&mut self, ctx: &egui::Context) {
+        if !self.bridge_waker_set {
+            let waker = ctx.clone();
+            self.bridge.set_waker(move || waker.request_repaint());
+            self.bridge_waker_set = true;
+        }
+        self.bridge.pump(&mut self.shell);
+        if self.bridge.take_focus_request() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            self.drop_closed_canvases();
         }
     }
 
@@ -68,6 +102,7 @@ impl App {
             theme::install(&ctx, theme::preference(&prefs));
             self.theme_installed = true;
         }
+        self.pump_bridge(&ctx);
         self.collect_picked_files();
         self.update_title(&ctx);
         self.undo_keys(&ctx);
@@ -95,6 +130,7 @@ impl App {
             Some(ProjectsAction::EditJob(_)) | None => {}
         }
         self.drop_closed_canvases();
+        bridge_ui::ask(&ctx, &mut self.bridge, &mut self.shell);
 
         if let Some(form) = &mut self.new_project {
             match form.show(&ctx) {
@@ -222,17 +258,24 @@ impl App {
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panels_button(ui);
+                bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell);
                 ui.with_layout(
                     egui::Layout::left_to_right(egui::Align::Center),
-                    |ui| match self.shell.message() {
-                        Some(message) => {
+                    |ui| match (self.shell.message(), self.shell.note()) {
+                        (Some(message), _) => {
                             let message = message.to_owned();
                             ui.colored_label(ui.visuals().error_fg_color, message);
                             if ui.small_button(tr!("status-dismiss")).clicked() {
                                 self.shell.dismiss_message();
                             }
                         }
-                        None => {
+                        (None, Some(note)) => {
+                            ui.label(note.to_owned());
+                            if ui.small_button(tr!("status-dismiss")).clicked() {
+                                self.shell.dismiss_note();
+                            }
+                        }
+                        (None, None) => {
                             ui.weak(tr!("status-ready"));
                         }
                     },
@@ -339,8 +382,12 @@ pub fn run(
             if let Some(path) = open {
                 let _ = shell.open_project(&path);
             }
+            // After the Shell, so the catalogue agents see has the app's own Commands.
+            let bridge = Bridge::start(&shell);
             Ok(Box::new(
-                App::new(shell).with_render_state(render_state.clone()),
+                App::new(shell)
+                    .with_render_state(render_state.clone())
+                    .with_bridge(bridge),
             ))
         }),
     )

@@ -22,6 +22,23 @@ status-dismiss = Dismiss
 status-panels = Panels
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
+status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
+
+## The bridge: agents connecting through the control port
+
+bridge-indicator-off = Agents: off
+bridge-indicator-on = Agents: on
+bridge-indicator-connected = Agents: { $count } connected
+bridge-switch = Let agents connect
+bridge-connected = Connected now
+bridge-allowed = Allowed agents
+bridge-none-allowed = None yet
+bridge-forget = Forget
+bridge-error = The bridge could not start: { $error }
+bridge-ask-title = Allow this agent?
+bridge-ask-body = { $agent } ({ $source }) wants to read and edit the open Project. It can't save: its changes show here as unsaved, and you can undo them.
+bridge-allow = Allow
+bridge-deny = Deny
 
 ## Docking
 

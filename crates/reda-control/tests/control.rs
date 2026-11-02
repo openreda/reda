@@ -482,11 +482,11 @@ fn a_gated_server_asks_the_host_to_admit_each_agent() {
         name: "Alpha".into(),
         source: Source::Mcp,
     };
-    assert_eq!(server.agents(), [alpha_agent.clone()]);
+    assert_eq!(server.agents(), std::slice::from_ref(&alpha_agent));
 
     let denied = connect(Source::Cli, "Beta").err().expect("denied");
     assert_eq!(denied.kind(), std::io::ErrorKind::PermissionDenied);
-    assert_eq!(server.agents(), [alpha_agent.clone()]);
+    assert_eq!(server.agents(), std::slice::from_ref(&alpha_agent));
 
     // Another REDA app is let in without asking, but may only hand over a file.
     let mut app = connect(Source::Gui, "REDA").expect("the app's hand-off");

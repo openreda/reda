@@ -3261,6 +3261,7 @@ dependencies = [
  "egui-wgpu",
  "egui_kittest",
  "fluent-bundle",
+ "reda-control",
  "reda-engine",
  "reda-testkit",
  "rfd",
