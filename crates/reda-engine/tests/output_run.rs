@@ -425,3 +425,36 @@ fn an_out_of_sync_board_only_warns() {
         "{warnings}"
     );
 }
+
+#[test]
+fn a_designator_shared_only_between_a_sheet_and_the_board_does_not_block() {
+    // The sheet's U1 and the board's U1 are different Components (the board is out of
+    // sync), but the BOM and CPL read only the board, where U1 is unique.
+    let dir = TempDir::new("output-dup-sync");
+    let mut engine = TestEngine(
+        reda_engine::Engine::builder()
+            .ids(reda_command::SeededIds::new(0))
+            .clock(reda_command::FixedClock::EPOCH)
+            .user_dirs(None)
+            .starter_library(Some(erc_library()))
+            .commands(reda_testkit::probe_commands)
+            .build(),
+    );
+    new_project(&mut engine, &dir);
+    engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": "a0000000-0000-4000-8000-000000000210",
+               "at": {"x": 0, "y": 0}}),
+    );
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(5.0, 5.0), "designator": "U1",
+               "pads": [{"at": pt(0.0, 0.0), "width": "1mm", "height": "1mm"}]}),
+    );
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "outputs": {"bom": false, "cpl": false}}),
+    );
+    let out = run(&mut engine);
+    assert!(!checks(&out["warnings"]).contains(&"duplicate_designator".to_string()));
+}
