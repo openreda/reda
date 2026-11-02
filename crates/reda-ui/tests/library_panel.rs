@@ -172,9 +172,12 @@ fn edit_opens_the_part_and_new_asks_for_the_new_parts_name() {
     choose(&mut h, "Resistor");
     h.get_by_role_and_label(Role::Button, "Edit Part").click();
     h.run();
-    let entry = h.state().shell().engine().journal().last().unwrap().clone();
+    // The element opens, then its editor tab opens (#113).
+    let journal = h.state().shell().engine().journal();
+    let entry = journal[journal.len() - 2].clone();
     assert_eq!(entry.id, "library.element.open");
     assert_eq!(entry.params, json!({"element": RESISTOR}));
+    assert_eq!(journal.last().unwrap().id, "document.open");
 
     h.get_by_role_and_label(Role::Button, "New Part…").click();
     h.run();
@@ -189,5 +192,5 @@ fn edit_opens_the_part_and_new_asks_for_the_new_parts_name() {
         .unwrap()
         .id
         .clone();
-    assert_eq!(last, "library.element.open", "nothing ran yet");
+    assert_eq!(last, "document.open", "nothing ran yet");
 }
