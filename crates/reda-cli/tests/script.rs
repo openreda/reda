@@ -101,10 +101,7 @@ fn a_recorded_session_replays_into_another_folder_with_into() {
     let out = reda(&["run", "--script", path(&script)]);
     assert_eq!(out.status.code(), Some(1));
     let err: Value = serde_json::from_slice(&out.stderr).expect("stderr is JSON");
-    assert!(
-        err["message"].as_str().unwrap().contains("--into"),
-        "{err}"
-    );
+    assert!(err["message"].as_str().unwrap().contains("--into"), "{err}");
 
     let into = dir.path().join("replayed");
     let out = reda(&["run", "--script", path(&script), "--into", path(&into)]);

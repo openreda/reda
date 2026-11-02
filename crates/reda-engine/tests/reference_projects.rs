@@ -205,6 +205,8 @@ fn every_output_matches_its_goldens() {
 
 #[test]
 fn every_older_format_has_a_frozen_copy_that_opens_and_saves() {
+    // Empty while REDA is on its first format.
+    #[allow(clippy::reversed_empty_ranges)]
     for n in 1..FORMAT {
         for (dir, file) in PROJECTS {
             let frozen = projects_dir()
