@@ -39,6 +39,25 @@ impl Millideg {
     }
 }
 
+/// (`x`, `y`) turned counter-clockwise by `angle` about the origin. Quarter turns are
+/// exact; other angles round to the nearest unit.
+pub fn rotate(x: i64, y: i64, angle: Millideg) -> (i64, i64) {
+    match angle.normalized().0 {
+        0 => (x, y),
+        90_000 => (-y, x),
+        180_000 => (-x, -y),
+        270_000 => (y, -x),
+        a => {
+            let (sin, cos) = (a as f64 / 1000.0).to_radians().sin_cos();
+            let (fx, fy) = (x as f64, y as f64);
+            (
+                (fx * cos - fy * sin).round() as i64,
+                (fx * sin + fy * cos).round() as i64,
+            )
+        }
+    }
+}
+
 impl Add for Millideg {
     type Output = Millideg;
     fn add(self, rhs: Millideg) -> Millideg {

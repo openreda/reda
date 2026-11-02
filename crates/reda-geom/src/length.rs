@@ -99,6 +99,12 @@ impl Point {
     pub const fn new(x: Nm, y: Nm) -> Point {
         Point { x, y }
     }
+
+    /// This point turned counter-clockwise by `angle` about `about` ([`crate::rotate`]).
+    pub fn rotated_about(self, about: Point, angle: crate::Millideg) -> Point {
+        let (x, y) = crate::rotate((self.x - about.x).0, (self.y - about.y).0, angle);
+        Point::new(about.x + Nm(x), about.y + Nm(y))
+    }
 }
 
 impl Add for Point {

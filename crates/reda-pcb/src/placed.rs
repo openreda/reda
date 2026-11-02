@@ -16,23 +16,7 @@ use reda_model::{
 /// `p` turned counter-clockwise by `angle` about `about`. Quarter turns are exact; other
 /// angles round to the nearest nanometre.
 pub fn rotate(p: Point, about: Point, angle: Millideg) -> Point {
-    let (dx, dy) = ((p.x - about.x).0, (p.y - about.y).0);
-    let (x, y) = match angle.normalized().0 {
-        0 => (dx, dy),
-        90_000 => (-dy, dx),
-        180_000 => (-dx, -dy),
-        270_000 => (dy, -dx),
-        a => {
-            let r = (a as f64 / 1000.0).to_radians();
-            let (s, c) = r.sin_cos();
-            let (fx, fy) = (dx as f64, dy as f64);
-            (
-                (fx * c - fy * s).round() as i64,
-                (fx * s + fy * c).round() as i64,
-            )
-        }
-    };
-    Point::new(about.x + Nm(x), about.y + Nm(y))
+    p.rotated_about(about, angle)
 }
 
 /// Whether `angle` is a whole number of quarter turns.

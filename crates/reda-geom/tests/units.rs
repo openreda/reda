@@ -1,4 +1,4 @@
-use reda_geom::{Millideg, Nm, Point};
+use reda_geom::{Millideg, Nm, Point, rotate};
 
 #[test]
 fn nanometre_constructors_scale_to_integer_nm() {
@@ -42,5 +42,19 @@ fn units_serialise_as_bare_integers() {
     assert!(
         serde_json::from_str::<Nm>("7.5").is_err(),
         "floats are refused"
+    );
+}
+
+#[test]
+fn rotation_is_exact_on_quarter_turns_and_rounds_otherwise() {
+    assert_eq!(rotate(3, 4, Millideg(90_000)), (-4, 3));
+    assert_eq!(rotate(3, 4, Millideg(-90_000)), (4, -3));
+    assert_eq!(rotate(3, 4, Millideg(540_000)), (-3, -4));
+    assert_eq!(rotate(1_000_000, 0, Millideg(30_000)), (866_025, 500_000));
+    let p = Point::new(Nm(5), Nm(1));
+    let about = Point::new(Nm(1), Nm(1));
+    assert_eq!(
+        p.rotated_about(about, Millideg(90_000)),
+        Point::new(Nm(1), Nm(5))
     );
 }
