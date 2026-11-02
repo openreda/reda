@@ -1,0 +1,65 @@
+[
+  {
+    "destination": "outputs/JLCPCB",
+    "files": [
+      {
+        "function": "copper_top",
+        "name": "UsbMcu.GTL"
+      },
+      {
+        "function": "copper_bottom",
+        "name": "UsbMcu.GBL"
+      },
+      {
+        "function": "solder_mask_top",
+        "name": "UsbMcu.GTS"
+      },
+      {
+        "function": "solder_mask_bottom",
+        "name": "UsbMcu.GBS"
+      },
+      {
+        "function": "paste_top",
+        "name": "UsbMcu.GTP"
+      },
+      {
+        "function": "paste_bottom",
+        "name": "UsbMcu.GBP"
+      },
+      {
+        "function": "silkscreen_top",
+        "name": "UsbMcu.GTO"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "name": "UsbMcu.GBO"
+      },
+      {
+        "function": "profile",
+        "name": "UsbMcu.GKO"
+      },
+      {
+        "function": "drill_plated",
+        "name": "UsbMcu-PTH.drl"
+      },
+      {
+        "function": "drill_non_plated",
+        "name": "UsbMcu-NPTH.drl"
+      },
+      {
+        "function": "bom",
+        "name": "UsbMcu-BOM.csv"
+      },
+      {
+        "function": "cpl",
+        "name": "UsbMcu-CPL.csv"
+      }
+    ],
+    "warnings": [],
+    "zip": "outputs/JLCPCB/UsbMcu-JLCPCB.zip"
+  },
+  {
+    "pages": 1,
+    "path": "outputs/schematic.pdf"
+  }
+]
