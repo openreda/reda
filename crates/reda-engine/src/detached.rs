@@ -3,9 +3,12 @@
 //! progress bar with Cancel), then hand the outcome back to the engine's Journal.
 //!
 //! Only Commands that read the Project and write files elsewhere may be detached (today
-//! `output.job.run`): an edit must run on the engine's own session.
+//! `output.job.run`): an edit must run on the engine's own session. The one thing such a
+//! run may change in its copy is derived data, the Zone fills it computed, and
+//! [`Engine::finish`] keeps those, as a run on the engine would have.
 
 use reda_command::{CommandError, Env, FixedClock, Fonts, Registry, Session, Signals};
+use reda_model::{Uuid, ZoneFills};
 use serde_json::Value;
 
 use crate::Engine;
@@ -28,6 +31,8 @@ pub struct Detached {
     clock: FixedClock,
     fonts: Fonts,
     headless: bool,
+    /// The PCB Document's Zone fills when the run was split off.
+    fills: Option<(Uuid, Option<ZoneFills>)>,
 }
 
 /// A detached run's outcome, for [`Engine::finish`].
@@ -36,6 +41,8 @@ pub struct Finished {
     id: String,
     params: Value,
     outcome: Result<Value, CommandError>,
+    /// Zone fills the run computed: the PCB Document, its fills before and after.
+    fills: Option<(Uuid, Option<ZoneFills>, ZoneFills)>,
 }
 
 impl Finished {
@@ -63,10 +70,15 @@ impl Detached {
             self.params.clone(),
             signals,
         );
+        let fills = self.fills.and_then(|(pcb, before)| {
+            let after = self.session.project.as_ref()?.zone_fills(pcb)?;
+            (before.as_ref() != Some(after)).then(|| (pcb, before, after.clone()))
+        });
         Finished {
             id: self.id,
             params: self.params,
             outcome,
+            fills,
         }
     }
 }
@@ -84,6 +96,11 @@ impl Engine {
             )));
         }
         let session = self.session();
+        let fills = session
+            .project
+            .as_ref()
+            .and_then(|p| Some((p, p.pcb()?.uuid)))
+            .map(|(p, pcb)| (pcb, p.zone_fills(pcb).cloned()));
         self.registry()
             .check(id, &params, session.project.as_ref(), self.is_headless())?;
         Ok(Detached {
@@ -100,12 +117,19 @@ impl Engine {
             clock: FixedClock(self.now()),
             fonts: self.fonts().clone(),
             headless: self.is_headless(),
+            fills,
         })
     }
 
-    /// Records a detached run in the Journal, as if it had run here, and returns its
-    /// outcome.
+    /// Records a detached run in the Journal, as if it had run here, keeps the Zone fills
+    /// it computed (unless the fills here changed meanwhile), and returns its outcome.
     pub fn finish(&mut self, done: Finished) -> Result<Value, CommandError> {
+        if let Some((pcb, before, after)) = done.fills
+            && let Some(project) = self.session_mut().project.as_mut()
+            && project.zone_fills(pcb) == before.as_ref()
+        {
+            project.set_zone_fills(pcb, Some(after));
+        }
         let source = self.source();
         self.push_journal(JournalEntry {
             id: done.id,

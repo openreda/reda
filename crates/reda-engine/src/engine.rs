@@ -136,6 +136,10 @@ impl Engine {
         &self.session
     }
 
+    pub(crate) fn session_mut(&mut self) -> &mut Session {
+        &mut self.session
+    }
+
     pub(crate) fn push_journal(&mut self, entry: JournalEntry) {
         self.journal.push(entry);
     }
