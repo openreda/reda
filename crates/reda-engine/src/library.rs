@@ -242,24 +242,24 @@ pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandEr
 
 /// A 128-bit FNV-1a content hash, written as 32 lowercase hex digits. It tells copies of
 /// Library elements apart; it is not meant to resist tampering.
-struct ContentHash(u128);
+pub(crate) struct ContentHash(u128);
 
 impl ContentHash {
     const OFFSET: u128 = 0x6c62272e07bb014262b821756295c58d;
     const PRIME: u128 = 0x0000000001000000000000000000013b;
 
-    fn new() -> ContentHash {
+    pub(crate) fn new() -> ContentHash {
         ContentHash(Self::OFFSET)
     }
 
-    fn write(&mut self, bytes: &[u8]) {
+    pub(crate) fn write(&mut self, bytes: &[u8]) {
         for &b in bytes {
             self.0 ^= u128::from(b);
             self.0 = self.0.wrapping_mul(Self::PRIME);
         }
     }
 
-    fn finish(self) -> String {
+    pub(crate) fn finish(self) -> String {
         format!("{:032x}", self.0)
     }
 }

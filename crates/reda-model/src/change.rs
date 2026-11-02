@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
-    BoardCutout, BoardOutline, BoardSetup, InDocument, LayerSet, Net, NetClass, PcbGraphic, PcbText,
+    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, InDocument, LayerSet, Net, NetClass,
+    PcbGraphic, PcbText,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -51,6 +52,7 @@ pub enum Object {
     SheetGraphic(InDocument<SheetGraphic>),
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
+    FootprintInstance(InDocument<FootprintInstance>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -94,7 +96,7 @@ pub enum ObjectType {
     SheetFrame,
     /// An entry of a sheet's part table: a copied Part with its Symbol.
     PartEntry,
-    /// A copied Footprint in a sheet's part table.
+    /// A copied Footprint in a sheet's or the PCB Document's part table.
     FootprintCopy,
     /// A placed Unit of a Component.
     Unit,
@@ -116,6 +118,8 @@ pub enum ObjectType {
     PcbText,
     /// A line, arc or rectangle on a PCB Layer.
     PcbGraphic,
+    /// A Footprint placed on the board, with its Component's data and a Net per Pad.
+    FootprintInstance,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -151,6 +155,7 @@ impl Object {
             Object::SheetGraphic(o) => o.uuid,
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
+            Object::FootprintInstance(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -184,6 +189,7 @@ impl Object {
             Object::SheetGraphic(_) => ObjectType::SheetGraphic,
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
+            Object::FootprintInstance(_) => ObjectType::FootprintInstance,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -218,6 +224,7 @@ impl Object {
             Object::SheetGraphic(o) => Scope::Document(o.document),
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
+            Object::FootprintInstance(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }

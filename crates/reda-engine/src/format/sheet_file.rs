@@ -149,10 +149,11 @@ struct PartEntryRow {
     graphics: Vec<SymbolGraphic>,
 }
 
-/// One copied Footprint: a `.redafp` file's keys in one row.
+/// One copied Footprint: a `.redafp` file's keys in one row. The PCB file's part table
+/// uses the same rows.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct FootprintCopyRow {
+pub(crate) struct FootprintCopyRow {
     uuid: Uuid,
     /// The content hash of the Footprint, as copied.
     hash: String,
@@ -163,6 +164,38 @@ struct FootprintCopyRow {
     text: FootprintTexts,
     pads: Vec<Pad>,
     graphics: Vec<FootprintGraphic>,
+}
+
+impl FootprintCopyRow {
+    pub(crate) fn of(c: &FootprintCopy) -> FootprintCopyRow {
+        FootprintCopyRow {
+            uuid: c.uuid,
+            hash: c.hash.clone(),
+            footprint: FootprintRow::of(&c.footprint),
+            provenance: c.footprint.provenance.clone(),
+            text: FootprintTexts::of(&c.footprint),
+            pads: c.footprint.pads.clone(),
+            graphics: c.footprint.graphics.clone(),
+        }
+    }
+
+    pub(crate) fn uuid(&self) -> Uuid {
+        self.uuid
+    }
+
+    /// The copy this row holds, or why its Footprint is malformed.
+    pub(crate) fn into_copy(self) -> Result<FootprintCopy, String> {
+        let uuid = self.uuid;
+        let footprint = self
+            .footprint
+            .into_footprint(self.text, self.pads, self.graphics, self.provenance)
+            .map_err(|e| format!("Footprint copy {uuid}: {e}"))?;
+        Ok(FootprintCopy {
+            uuid,
+            hash: self.hash,
+            footprint,
+        })
+    }
 }
 
 pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, CanonicalError> {
@@ -186,15 +219,7 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
         pins: e.symbol.pins.clone(),
         graphics: e.symbol.graphics.clone(),
     });
-    let footprints = sheet.footprints().map(|c| FootprintCopyRow {
-        uuid: c.uuid,
-        hash: c.hash.clone(),
-        footprint: FootprintRow::of(&c.footprint),
-        provenance: c.footprint.provenance.clone(),
-        text: FootprintTexts::of(&c.footprint),
-        pads: c.footprint.pads.clone(),
-        graphics: c.footprint.graphics.clone(),
-    });
+    let footprints = sheet.footprints().map(FootprintCopyRow::of);
     // A sheet with no Components keeps the short form of an empty sheet.
     if sheet.parts().next().is_some() || sheet.units().next().is_some() {
         w.containers_spread("parts", parts, |r| r.uuid, &["units", "pins", "graphics"])?;
@@ -245,18 +270,8 @@ pub(crate) fn read_sheet_file(
         objects.push(Object::SheetFrame(InDocument::new(sheet, frame)));
     }
     for row in file.footprints {
-        let footprint = row
-            .footprint
-            .into_footprint(row.text, row.pads, row.graphics, row.provenance)
-            .map_err(|e| invalid(format!("Footprint copy {}: {e}", row.uuid)))?;
-        objects.push(Object::FootprintCopy(InDocument::new(
-            sheet,
-            FootprintCopy {
-                uuid: row.uuid,
-                hash: row.hash,
-                footprint,
-            },
-        )));
+        let copy = row.into_copy().map_err(invalid)?;
+        objects.push(Object::FootprintCopy(InDocument::new(sheet, copy)));
     }
     for row in file.parts {
         let symbol = row

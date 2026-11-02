@@ -7966,6 +7966,86 @@
             ],
             "type": "object"
           },
+          "InDocument20": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the Footprint origin sits on the board."
+              },
+              "component": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Component it shows (Sheet Instance path + Component UUID); left out for a\nMechanical Part that exists only on the PCB."
+              },
+              "designator": {
+                "type": "string"
+              },
+              "designator_text": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where this instance draws its Designator text, when moved from the Footprint's own\nplacement."
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields",
+                "description": "The value is `fields.value`."
+              },
+              "footprint": {
+                "description": "The PCB Document's Footprint copy it is placed from.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against moving.",
+                "type": "boolean"
+              },
+              "not_fitted": {
+                "type": "boolean"
+              },
+              "pads": {
+                "description": "One entry per Pad of the Footprint copy, sorted by Pad UUID.",
+                "items": {
+                  "$ref": "#/$defs/PadNet"
+                },
+                "type": "array"
+              },
+              "rotation": {
+                "description": "Counter-clockwise, applied after flipping to the bottom side.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "side": {
+                "$ref": "#/$defs/Side"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "footprint",
+              "at",
+              "rotation",
+              "side",
+              "designator",
+              "fields",
+              "pads"
+            ],
+            "type": "object"
+          },
           "InDocument3": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -8819,6 +8899,19 @@
                   "type"
                 ],
                 "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument20",
+                "properties": {
+                  "type": {
+                    "const": "footprint_instance",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -8942,6 +9035,29 @@
               "non_plated"
             ],
             "type": "string"
+          },
+          "PadNet": {
+            "additionalProperties": false,
+            "description": "The Net a Pad of a Footprint instance is on.",
+            "properties": {
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "The Pad of the Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "pad"
+            ],
+            "type": "object"
           },
           "PadShape": {
             "enum": [
@@ -9791,7 +9907,7 @@
               },
               {
                 "const": "footprint_copy",
-                "description": "A copied Footprint in a sheet's part table.",
+                "description": "A copied Footprint in a sheet's or the PCB Document's part table.",
                 "type": "string"
               },
               {
@@ -9842,6 +9958,11 @@
               {
                 "const": "pcb_graphic",
                 "description": "A line, arc or rectangle on a PCB Layer.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_instance",
+                "description": "A Footprint placed on the board, with its Component's data and a Net per Pad.",
                 "type": "string"
               }
             ]
@@ -10802,6 +10923,86 @@
             ],
             "type": "object"
           },
+          "InDocument20": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the Footprint origin sits on the board."
+              },
+              "component": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Component it shows (Sheet Instance path + Component UUID); left out for a\nMechanical Part that exists only on the PCB."
+              },
+              "designator": {
+                "type": "string"
+              },
+              "designator_text": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where this instance draws its Designator text, when moved from the Footprint's own\nplacement."
+              },
+              "fields": {
+                "$ref": "#/$defs/Fields",
+                "description": "The value is `fields.value`."
+              },
+              "footprint": {
+                "description": "The PCB Document's Footprint copy it is placed from.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against moving.",
+                "type": "boolean"
+              },
+              "not_fitted": {
+                "type": "boolean"
+              },
+              "pads": {
+                "description": "One entry per Pad of the Footprint copy, sorted by Pad UUID.",
+                "items": {
+                  "$ref": "#/$defs/PadNet"
+                },
+                "type": "array"
+              },
+              "rotation": {
+                "description": "Counter-clockwise, applied after flipping to the bottom side.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "side": {
+                "$ref": "#/$defs/Side"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "footprint",
+              "at",
+              "rotation",
+              "side",
+              "designator",
+              "fields",
+              "pads"
+            ],
+            "type": "object"
+          },
           "InDocument3": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -11655,6 +11856,19 @@
                   "type"
                 ],
                 "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument20",
+                "properties": {
+                  "type": {
+                    "const": "footprint_instance",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -11799,6 +12013,29 @@
               "non_plated"
             ],
             "type": "string"
+          },
+          "PadNet": {
+            "additionalProperties": false,
+            "description": "The Net a Pad of a Footprint instance is on.",
+            "properties": {
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "The Pad of the Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "pad"
+            ],
+            "type": "object"
           },
           "PadShape": {
             "enum": [
@@ -24105,6 +24342,623 @@
         "type": "object"
       },
       "title": "Add Wire"
+    },
+    {
+      "category": "sync",
+      "description": "Applies the Change List of `sync.preview` to the PCB Document in one transaction, leaving out the `exclude`d changes and every change that requires one. New Footprints go into a fresh cluster outside the Board Outline (at the origin with no outline), grouped by sheet and sorted by Designator. Fails with `conflict` when the Change List no longer matches `hash`.",
+      "icon": "sync",
+      "id": "sync.apply",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "exclude": {
+            "default": [],
+            "description": "Ids of changes to leave out; the changes that require them are left out too.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "hash": {
+            "description": "The `hash` of the previewed Change List.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash"
+        ],
+        "title": "SyncApplyParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `sync.apply` did.",
+        "properties": {
+          "applied": {
+            "description": "The ids of the changes carried out, in list order.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "left_out": {
+            "description": "The ids left out (excluded or depending on an excluded one), in list order. They\nshow up again in the next preview.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied",
+          "left_out"
+        ],
+        "title": "SyncApplyResult",
+        "type": "object"
+      },
+      "title": "Update PCB from Schematic"
+    },
+    {
+      "category": "sync",
+      "description": "Compares the Schematic Sheets with the PCB Document and returns the pending Change List, grouped by kind (components, footprints, component data, Nets, Pad Nets). Each change has a stable id and the ids it requires; unticking a change also unticks every change that requires it. `count` is the out-of-sync count, `hash` goes to `sync.apply`. Nothing is stored.",
+      "icon": "sync",
+      "id": "sync.preview",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Change": {
+            "description": "One pending change.",
+            "oneOf": [
+              {
+                "description": "Places a Footprint instance for a Component the PCB does not have yet.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "footprint": {
+                    "description": "The Library Footprint chosen for it.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "footprint_name": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "add_component",
+                    "type": "string"
+                  },
+                  "sheet": {
+                    "description": "The Schematic Sheet it is grouped with when placed: its first Unit's.",
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "designator",
+                  "footprint",
+                  "footprint_name",
+                  "sheet"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Deletes the Footprint instance of a Component the schematic no longer has (or that\nno longer has a Footprint). Copper attached to it stays.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "instance": {
+                    "description": "The Footprint instance.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "remove_component",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "designator"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Swaps a Footprint in place, keeping position, rotation, side, lock and Designator\ntext placement; its Pads get their Nets again from the new pin-pad map.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/FootprintRef"
+                  },
+                  "instance": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "change_footprint",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/FootprintRef"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "designator",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Changes the Designator.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "instance": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "designator",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Changes the fields, value included.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/Fields"
+                  },
+                  "instance": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "fields",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Fields"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "designator",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Changes Not Fitted.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "boolean"
+                  },
+                  "instance": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "not_fitted",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "designator",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Adds a PCB Net, in the Default Net Class.",
+                "properties": {
+                  "kind": {
+                    "const": "add_net",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Renames a PCB Net, keeping its UUID.",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "rename_net",
+                    "type": "string"
+                  },
+                  "net": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "net",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Removes a PCB Net no schematic Net matches any more.",
+                "properties": {
+                  "kind": {
+                    "const": "remove_net",
+                    "type": "string"
+                  },
+                  "merge_into": {
+                    "description": "The PCB Net its Pads went to, when it merged into another one.",
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "net": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "net",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Moves a Pad to another Net, or to none.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/NetRef"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "instance": {
+                    "description": "The Footprint instance; left out while it is still to be added.",
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "pad_net",
+                    "type": "string"
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "pad": {
+                    "description": "The Pad of the (new) Footprint.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "to": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/NetRef"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "designator",
+                  "pad",
+                  "number"
+                ],
+                "type": "object"
+              }
+            ],
+            "properties": {
+              "id": {
+                "description": "A stable id: a hash of the change's kind and targets, the same in every preview\nwhile those targets exist.",
+                "type": "string"
+              },
+              "requires": {
+                "description": "The changes this one depends on; leaving one of them out leaves this one out too.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "ComponentRef": {
+            "additionalProperties": false,
+            "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
+            "properties": {
+              "path": {
+                "description": "The Sheet Instances from the top sheet down. Empty in v0.1.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
+          "Field": {
+            "additionalProperties": false,
+            "description": "One free-form field.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "Fields": {
+            "additionalProperties": false,
+            "description": "A Part's default fields, copied onto each Component placed from it.",
+            "properties": {
+              "custom": {
+                "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                },
+                "type": "array"
+              },
+              "datasheet": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "string"
+              },
+              "manufacturer": {
+                "type": "string"
+              },
+              "mpn": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "FootprintRef": {
+            "description": "A Footprint as copied: the Library Footprint and the content hash of the copy.",
+            "properties": {
+              "footprint": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "hash": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "name",
+              "hash"
+            ],
+            "type": "object"
+          },
+          "Group": {
+            "description": "One group of the Change List.",
+            "properties": {
+              "changes": {
+                "items": {
+                  "$ref": "#/$defs/Change"
+                },
+                "type": "array"
+              },
+              "group": {
+                "$ref": "#/$defs/GroupKind"
+              }
+            },
+            "required": [
+              "group",
+              "changes"
+            ],
+            "type": "object"
+          },
+          "GroupKind": {
+            "description": "The kinds of change, as the Change List groups them.",
+            "oneOf": [
+              {
+                "const": "components",
+                "description": "Adding or removing a Component.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Changing a Footprint.",
+                "type": "string"
+              },
+              {
+                "const": "component_data",
+                "description": "Changing a Designator, the fields (value included) or Not Fitted.",
+                "type": "string"
+              },
+              {
+                "const": "nets",
+                "description": "Adding, renaming or removing a Net.",
+                "type": "string"
+              },
+              {
+                "const": "pad_nets",
+                "description": "Changing a Pad's Net.",
+                "type": "string"
+              }
+            ]
+          },
+          "NetRef": {
+            "description": "A PCB Net a Pad is or will be on: its UUID once it exists, and its name.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "net": {
+                "description": "Left out for a Net that this Sync adds.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The pending changes, grouped by kind.",
+        "properties": {
+          "count": {
+            "description": "How many changes are pending: the \"out of sync\" count.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "groups": {
+            "description": "The non-empty groups, in a fixed order: components, footprints, component data,\nNets, Pad Nets.",
+            "items": {
+              "$ref": "#/$defs/Group"
+            },
+            "type": "array"
+          },
+          "hash": {
+            "description": "A hash of the whole list; `sync.apply` refuses to run when the list no longer\nhashes the same.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash",
+          "count",
+          "groups"
+        ],
+        "title": "ChangeList",
+        "type": "object"
+      },
+      "title": "Preview Update PCB from Schematic"
     }
   ]
 }
