@@ -4,11 +4,14 @@
 
 use std::path::{Path, PathBuf};
 
+use egui::Modifiers;
 use reda_testkit::TempDir;
+use reda_ui::canvas::interact::Pointer;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
 use reda_ui::properties::{Edit, Properties, Shared};
+use reda_ui::schematic_editor::{self, Scale};
 use reda_ui::settings::SettingsDialog;
 use reda_ui::settings::change_list::{self, ChangeListPage};
 use reda_ui::shell::Shell;
@@ -295,6 +298,80 @@ fn net_highlighting_maps_across_through_syncs_matching() {
         "view.net_cross_probe.toggle",
         json!({"on": false}),
     );
+    assert!(marked(&shell).is_empty());
+}
+
+/// Alt+clicks on the sheet's canvas at (`x`, `y`) mm, running what the editor asks for.
+fn alt_click(shell: &mut Shell, x: f64, y: f64) {
+    const MM: f64 = 1_000_000.0;
+    let events = [Pointer::Click {
+        at: (x * MM, y * MM),
+        modifiers: Modifiers::ALT,
+    }];
+    let sheet: Uuid = SHEET.parse().unwrap();
+    for (id, params) in schematic_editor::pointer(shell, sheet, &events, Scale::at(MM)) {
+        run(shell, &id, params);
+    }
+}
+
+#[test]
+fn alt_clicking_a_schematic_net_lights_up_its_copper_on_the_board_and_back() {
+    let dir = TempDir::new("sync-ui-alt-click");
+    let mut shell = shell(&dir);
+    let ((r1, _), (r2, _), wire) = two_wired_resistors(&mut shell);
+    sync(&mut shell);
+    let sig = first_of_type(&mut shell, "net");
+    let label = first_of_type(&mut shell, "net_label");
+    let out = run(
+        &mut shell,
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": sig,
+               "points": [{"x": "40mm", "y": "40mm"}, {"x": "50mm", "y": "40mm"}]}),
+    );
+    let track = uuid(&out["result"]["tracks"][0]);
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    run(&mut shell, "document.open", json!({"document": SHEET}));
+    run(&mut shell, "document.open", json!({"document": pcb}));
+
+    // Alt+click on the Wire: one highlight, the schematic Net, carried to the PCB Net.
+    alt_click(&mut shell, 2.0, -3.81);
+    assert!(shell.highlight().objects.contains(&wire));
+    assert!(shell.selection().objects.is_empty());
+    let lit = marked(&shell);
+    for object in [
+        wire,
+        label,
+        track,
+        footprint_of(&shell, r1),
+        footprint_of(&shell, r2),
+    ] {
+        assert!(lit.contains(&object), "{object} is lit");
+    }
+    let board = &shell.document_tab(pcb).unwrap().selection.highlighted;
+    assert!(board.contains(&track), "the PCB canvas marks the copper");
+
+    // Without Net cross-probing only the schematic Net stays lit.
+    run(
+        &mut shell,
+        "view.net_cross_probe.toggle",
+        json!({"on": false}),
+    );
+    assert!(!marked(&shell).contains(&track));
+    assert!(marked(&shell).contains(&wire));
+    run(
+        &mut shell,
+        "view.net_cross_probe.toggle",
+        json!({"on": true}),
+    );
+
+    // And back: highlighting the PCB Net lights up its schematic Net.
+    run(&mut shell, "view.highlight", json!({"objects": [sig]}));
+    let lit = marked(&shell);
+    for object in [wire, label, track] {
+        assert!(lit.contains(&object), "{object} is lit");
+    }
+
+    run(&mut shell, "view.highlight", json!({}));
     assert!(marked(&shell).is_empty());
 }
 
