@@ -465,9 +465,10 @@ impl Layout {
         centre[0].id
     }
 
-    /// Opens `document` in the Document group (or shows it where it is) and activates it.
-    /// The app does this itself when a Project opens; it is not a layout Command.
-    pub fn open_document(&mut self, document: Uuid) {
+    /// Opens `document` in the Document group (or shows it where it is) and activates it;
+    /// returns its group. The `document.open` Command does this, and so does the app when
+    /// a Project opens.
+    pub fn open_document(&mut self, document: Uuid) -> GroupId {
         let tab = TabKey::Document(document);
         if self.place(&tab).is_none() {
             let group = self.document_group();
@@ -475,7 +476,7 @@ impl Layout {
                 g.tabs.push(tab.clone());
             }
         }
-        self.activate_in_place(&tab);
+        self.activate_in_place(&tab)
     }
 
     /// Closes every tab `keep` refuses, such as Documents that no longer exist.

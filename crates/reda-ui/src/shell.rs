@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use reda_engine::command::{CommandError, FontFace, Kind};
-use reda_engine::model::{DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Side, Uuid};
+use reda_engine::model::{
+    DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Side, Uuid,
+};
 use reda_engine::render::{LayerView, board_composites};
 use reda_engine::{Engine, state, store};
 use serde_json::{Value, json};
@@ -170,6 +172,11 @@ impl Shell {
         self.message.as_deref()
     }
 
+    /// Shows `message` in the status bar, as for a failed Command.
+    pub fn report(&mut self, message: String) {
+        self.message = Some(message);
+    }
+
     pub fn dismiss_message(&mut self) {
         self.message = None;
     }
@@ -202,31 +209,98 @@ impl Shell {
         }
     }
 
-    /// Opens the Project at `path` (its `.reda` file or folder), replacing any open one.
+    /// Opens the Project at `path`, replacing any open one. `path` is its `.reda` file or
+    /// folder, or one of its Document files (`.redasch`, `.redapcb`), which opens the
+    /// Project with that Document's tab focused.
     pub fn open_project(&mut self, path: &Path) -> Result<(), CommandError> {
-        self.run_reporting("project.open", json!({ "path": path }))?;
-        self.after_open();
+        let document = document_file(path);
+        let project = match &document {
+            Some(_) => path.parent().unwrap_or(path),
+            None => path,
+        };
+        self.run_reporting("project.open", json!({ "path": project }))?;
+        if let Some((stem, kind)) = document {
+            let uuid = self.engine.project().and_then(|p| {
+                p.documents()
+                    .find(|d| d.kind == kind && d.name == stem)
+                    .map(|d| d.uuid)
+            });
+            if let Some(uuid) = uuid {
+                self.run_reporting("document.open", json!({ "document": uuid }))?;
+            }
+        }
         Ok(())
+    }
+
+    /// The Fab Presets a new Project can start from (shipped, then the user's) and the
+    /// default pick: the last one used, else Generic.
+    pub fn fab_preset_choices(&mut self) -> (Vec<String>, String) {
+        let list = self
+            .engine
+            .run("fab_preset.list", json!({}))
+            .unwrap_or_default();
+        let names = list["presets"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|p| p["preset"]["name"].as_str().map(str::to_owned))
+            .collect();
+        let default = list["default"].as_str().unwrap_or("Generic").to_owned();
+        (names, default)
     }
 
     /// Creates the Project `name` in a new folder inside `folder`, and opens it.
     pub fn new_project(&mut self, folder: &Path, name: &str) -> Result<(), CommandError> {
         self.run_reporting("project.new", json!({ "path": folder, "name": name }))?;
-        self.after_open();
         Ok(())
     }
 
     /// Runs a Command, then refreshes the tabs when it may have changed the design or
-    /// closed a Document's tab.
+    /// closed a Document's tab. Opening, creating or saving a Project puts it at the top
+    /// of the recent Projects.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
         let out = self.engine.run(id, params)?;
         let base = id.split(':').next().unwrap_or(id);
-        match self.engine.registry().get(base).map(|meta| meta.kind) {
-            Some(Kind::Query) => {}
-            Some(Kind::View) => self.forget_closed_documents(),
-            _ => self.refresh(),
+        match base {
+            "project.open" | "project.new" => self.show_project(),
+            _ => match self.engine.registry().get(base).map(|meta| meta.kind) {
+                Some(Kind::Query) => {}
+                Some(Kind::View) => self.sync_document_tabs(),
+                _ => self.refresh(),
+            },
+        }
+        if matches!(base, "project.open" | "project.new" | "project.save") {
+            self.remember_project();
         }
         Ok(out)
+    }
+
+    /// The Undo stack `Mod+Z` uses: a focused Document tab's own, else the Project's.
+    /// The Projects panel (and any Panel that is not about one Document) uses the
+    /// Project stack, and so do the Project dialogs, which the window says by
+    /// `project_dialog`.
+    pub fn undo_scope(&self, project_dialog: bool) -> Option<Scope> {
+        self.engine.project()?;
+        if project_dialog {
+            return Some(Scope::Project);
+        }
+        match &self.layout().focus {
+            Some(TabKey::Document(uuid)) => Some(Scope::Document(*uuid)),
+            _ => Some(Scope::Project),
+        }
+    }
+
+    /// Undoes (or with `redo`, redoes) on the stack [`Shell::undo_scope`] picks.
+    pub fn undo(&mut self, redo: bool, project_dialog: bool) -> Result<Value, CommandError> {
+        let Some(scope) = self.undo_scope(project_dialog) else {
+            return Err(CommandError::unavailable("no Project is open"));
+        };
+        let document = match scope {
+            Scope::Document(uuid) => json!(uuid),
+            _ => json!("project"),
+        };
+        let id = if redo { "edit.redo" } else { "edit.undo" };
+        self.run_reporting(id, json!({ "document": document }))
     }
 
     /// [`Shell::run`], keeping any error as the message the status bar shows.
@@ -239,8 +313,8 @@ impl Shell {
         out
     }
 
-    fn after_open(&mut self) {
-        self.show_project();
+    /// Puts the open Project at the top of the recent Projects in `state.json`.
+    fn remember_project(&mut self) {
         if let (Some(dirs), Some(file)) = (self.engine.user_dirs(), self.project_file())
             && let Err(e) = state::update(dirs, |s| s.add_recent_project(&file))
         {
@@ -309,6 +383,37 @@ impl Shell {
         self.load_fonts();
     }
 
+    /// Matches the Document tabs to the layout after a view Command: drops the state of
+    /// closed tabs and starts it for tabs `document.open` added.
+    fn sync_document_tabs(&mut self) {
+        self.forget_closed_documents();
+        let opened: Vec<Uuid> = self
+            .layout()
+            .groups()
+            .into_iter()
+            .flat_map(|(_, g)| g.tabs.iter())
+            .filter_map(|t| match t {
+                TabKey::Document(uuid) if self.document_tab(*uuid).is_none() => Some(*uuid),
+                _ => None,
+            })
+            .collect();
+        for document in opened {
+            let title = self
+                .engine
+                .project()
+                .and_then(|p| p.document(document))
+                .map(|d| d.title.clone())
+                .unwrap_or_default();
+            let scene = self.scene_of(document);
+            self.documents.push(DocumentTab {
+                document,
+                title,
+                camera: None,
+                scene,
+            });
+        }
+    }
+
     /// Drops the tab state of Documents whose tabs the layout no longer has.
     fn forget_closed_documents(&mut self) {
         let mut documents = std::mem::take(&mut self.documents);
@@ -361,4 +466,11 @@ impl Shell {
             self.asked_fonts.insert(family);
         }
     }
+}
+
+/// The stem and kind of `path` when it names a Document file rather than a Project.
+fn document_file(path: &Path) -> Option<(String, DocumentKind)> {
+    let kind = DocumentKind::from_extension(path.extension()?.to_str()?)?;
+    let stem = path.file_stem()?.to_string_lossy().into_owned();
+    Some((stem, kind))
 }
