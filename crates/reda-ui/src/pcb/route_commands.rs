@@ -16,7 +16,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::selection::{PadRef, Selection};
+use crate::selection::{PadRef, Selection, SelectionSetResult};
 use crate::tools::{ActiveTool, Tool};
 
 /// Adds the routing Commands to `registry`. The Shell does this for its engine.
@@ -180,12 +180,6 @@ impl Command for Width {
     }
 }
 
-/// How many things are now selected.
-#[derive(Serialize, JsonSchema)]
-pub struct Selected {
-    pub count: usize,
-}
-
 /// `pcb.selection.connected`: adds to the selection all copper physically connected to
 /// the selected copper.
 struct SelectConnected;
@@ -201,13 +195,13 @@ impl Command for SelectConnected {
         kind: Kind::View,
     };
     type Params = NoParams;
-    type Output = Selected;
+    type Output = SelectionSetResult;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Selected, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<SelectionSetResult, CommandError> {
         let mut selection = cx.view::<Selection>()?.clone();
         let project = cx.project()?;
         let pcb = project
@@ -249,8 +243,8 @@ impl Command for SelectConnected {
                 }
             }
         }
-        let count = selection.objects.len() + selection.pads.len() + selection.nets.len();
+        let count = selection.len();
         *cx.view::<Selection>()? = selection;
-        Ok(Selected { count })
+        Ok(SelectionSetResult { count })
     }
 }
