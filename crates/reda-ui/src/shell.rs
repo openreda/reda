@@ -28,6 +28,7 @@ use serde_json::{Value, json};
 
 use crate::canvas::{Camera, LiveHandle, Overlay, PaletteHandle, SceneHandle, SelectionHandle};
 use crate::grid::{self, Grids};
+use crate::highlight::Highlight;
 use crate::keymap::{self, Keymap};
 use crate::layout::{self, Layout, TabKey, saved};
 use crate::messages::{
@@ -191,6 +192,12 @@ impl Shell {
         if engine.registry().get("tool.activate").is_none() {
             engine.register(tools::register_all);
         }
+        if engine.registry().get("view.highlight").is_none() {
+            engine.register(crate::highlight::register_all);
+        }
+        if engine.registry().get("schematic.dialog.open").is_none() {
+            engine.register(crate::schematic_dialogs::register_all);
+        }
         if engine.registry().get("tool.place").is_none() {
             engine.register(crate::placement::register_all);
         }
@@ -206,6 +213,7 @@ impl Shell {
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
+        engine.view_mut().set(Highlight::default());
         engine.view_mut().set(ActiveTool::default());
         engine
             .view_mut()
@@ -344,6 +352,14 @@ impl Shell {
             .view()
             .get::<Selection>()
             .expect("the Shell installs its Selection")
+    }
+
+    /// What is highlighted on every canvas; it changes through `view.highlight`.
+    pub fn highlight(&self) -> &Highlight {
+        self.engine
+            .view()
+            .get::<Highlight>()
+            .expect("the Shell installs its Highlight")
     }
 
     /// The active canvas Tool; it changes through `tool.activate`.
@@ -1640,6 +1656,16 @@ impl Shell {
                 }
             }
             "tool.cycle_corner" => self.with_router(|r, shell| r.cycle_corner(shell)),
+            "tool.undo_segment" | "tool.finish" if self.sheet_drawing().is_some() => {
+                let sheet = self.sheet_drawing().expect("checked above");
+                if id == "tool.finish" {
+                    for (id, params) in crate::schematic_editor::finish(self, sheet) {
+                        let _ = self.run_reporting(&id, params);
+                    }
+                } else {
+                    crate::schematic_editor::undo_point(self, sheet);
+                }
+            }
             "tool.undo_segment" if self.tool() == Tool::Route => {
                 self.with_router(|r, shell| r.undo_segment(shell))
             }
@@ -1704,6 +1730,24 @@ impl Shell {
         {
             selection.objects.retain(|o| !gone.contains(o));
         }
+        let unlit: Vec<Uuid> = match self.engine.project() {
+            Some(project) => self
+                .highlight()
+                .objects
+                .iter()
+                .copied()
+                .filter(|o| project.object(*o).is_none())
+                .collect(),
+            None => Vec::new(),
+        };
+        if !unlit.is_empty()
+            && let Some(highlight) = self.engine.view_mut().get_mut::<Highlight>()
+        {
+            highlight.objects.retain(|o| !unlit.contains(o));
+            if highlight.objects.is_empty() {
+                highlight.net = None;
+            }
+        }
     }
 
     /// Drops the moves and Wire runs put down on every canvas, once their Command has run.
@@ -1711,6 +1755,13 @@ impl Shell {
         for tab in &mut self.documents {
             crate::schematic_editor::end_commit(tab);
         }
+    }
+
+    /// The active sheet while its Line or Rect Tool is active.
+    fn sheet_drawing(&self) -> Option<Uuid> {
+        matches!(self.tool(), Tool::Line | Tool::Rect)
+            .then(|| self.active_sheet())
+            .flatten()
     }
 
     /// The active Document when it is a Schematic Sheet.
@@ -1744,12 +1795,16 @@ impl Shell {
     /// Hands every canvas the [`Selection`]'s objects to mark, with a new generation
     /// when they changed.
     fn sync_selection(&mut self) {
-        if self.marked.objects[..] != self.selection().objects[..] {
+        if self.marked.objects[..] != self.selection().objects[..]
+            || self.marked.highlighted[..] != self.highlight().objects[..]
+        {
             let objects = Arc::from(self.selection().objects.as_slice());
+            let highlighted = Arc::from(self.highlight().objects.as_slice());
             self.generation += 1;
             self.marked = SelectionHandle {
                 generation: self.generation,
                 objects,
+                highlighted,
             };
         }
         let grids = self

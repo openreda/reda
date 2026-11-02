@@ -27,12 +27,14 @@ pub struct SceneHandle {
     pub layers: Option<Arc<[Composite]>>,
 }
 
-/// The selected objects shared with the paint callback. `generation` changes whenever the
-/// selection does, so the GPU knows when to rewrite the flags.
+/// The selected and highlighted objects shared with the paint callback. `generation`
+/// changes whenever either does, so the GPU knows when to rewrite the flags.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SelectionHandle {
     pub generation: u64,
     pub objects: Arc<[Uuid]>,
+    /// Highlighted objects (a Net): while there are any, everything else is dimmed.
+    pub highlighted: Arc<[Uuid]>,
 }
 
 impl Default for SelectionHandle {
@@ -40,6 +42,7 @@ impl Default for SelectionHandle {
         SelectionHandle {
             generation: 0,
             objects: Arc::from([]),
+            highlighted: Arc::from([]),
         }
     }
 }
@@ -256,12 +259,17 @@ impl CanvasResources {
         if gpu.selection != Some(marks) {
             let live = &frame.live;
             let unmarked = frame.selection.objects.is_empty()
+                && frame.selection.highlighted.is_empty()
                 && live.hovered.is_none()
                 && live.moving.is_empty()
                 && live.hidden.is_empty();
             // A Scene with no marks needs no write for no marks.
             if gpu.selection.is_some() || !unmarked {
                 let mut highlight = Highlight::new();
+                highlight.mark_all(
+                    frame.selection.highlighted.iter().copied(),
+                    Flags::HIGHLIGHTED,
+                );
                 highlight.mark_all(frame.selection.objects.iter().copied(), Flags::SELECTED);
                 highlight.mark_all(live.hovered, Flags::HOVERED);
                 highlight.mark_all(live.moving.iter().copied(), Flags::MOVING);

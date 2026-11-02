@@ -1,6 +1,13 @@
 {
   "menus": [
     {
+      "id": "file",
+      "title": "menu-file",
+      "items": [
+        { "id": "file.export_pdf", "command": "schematic.dialog.open:export_pdf" }
+      ]
+    },
+    {
       "id": "edit",
       "title": "menu-edit",
       "items": [
@@ -30,7 +37,10 @@
         },
         { "id": "edit.snap_to_grid", "command": "schematic.snap_to_grid", "params": { "objects": "$selection", "grid": "$grid" }, "title": "menu-edit-snap-to-grid" },
         "separator",
-        { "id": "edit.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } }
+        { "id": "edit.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } },
+        "separator",
+        { "id": "edit.find", "command": "schematic.dialog.open:find" },
+        { "id": "edit.select_similar", "command": "schematic.dialog.open:select_similar" }
       ]
     },
     {
@@ -53,7 +63,8 @@
             "separator",
             { "id": "view.grid.cycle", "command": "view.grid.cycle", "params": { "document": "$active_document" } }
           ]
-        }
+        },
+        { "id": "view.clear_highlight", "command": "view.highlight", "params": {}, "title": "menu-view-clear-highlight" }
       ]
     },
     {
@@ -64,7 +75,11 @@
         { "id": "place.net_label", "command": "tool.activate:net_label" },
         { "id": "place.port", "command": "tool.activate:port" },
         { "id": "place.power_port", "command": "tool.activate:power_port" },
-        { "id": "place.no_connect", "command": "tool.activate:no_connect" }
+        { "id": "place.no_connect", "command": "tool.activate:no_connect" },
+        "separator",
+        { "id": "place.text", "command": "tool.activate:text" },
+        { "id": "place.line", "command": "tool.activate:line" },
+        { "id": "place.rect", "command": "tool.activate:rect" }
       ]
     },
     {
@@ -72,7 +87,10 @@
       "title": "menu-design",
       "items": [
         { "id": "design.erc", "command": "erc.run" },
-        { "id": "design.sync_preview", "command": "sync.preview" }
+        { "id": "design.sync_preview", "command": "sync.preview" },
+        "separator",
+        { "id": "design.reannotate", "command": "schematic.dialog.open:reannotate" },
+        { "id": "design.update_from_library", "command": "schematic.dialog.open:update_from_library" }
       ]
     }
   ],
@@ -88,6 +106,10 @@
     { "id": "active_bar.net_label", "command": "tool.activate:net_label" },
     { "id": "active_bar.port", "command": "tool.activate:port" },
     { "id": "active_bar.power_port", "command": "tool.activate:power_port" },
-    { "id": "active_bar.no_connect", "command": "tool.activate:no_connect" }
+    { "id": "active_bar.no_connect", "command": "tool.activate:no_connect" },
+    "separator",
+    { "id": "active_bar.text", "command": "tool.activate:text" },
+    { "id": "active_bar.line", "command": "tool.activate:line" },
+    { "id": "active_bar.rect", "command": "tool.activate:rect" }
   ]
 }

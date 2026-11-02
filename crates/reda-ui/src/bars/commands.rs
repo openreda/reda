@@ -38,6 +38,8 @@ pub enum Request {
     About,
     /// Show the Preferences dialog.
     Preferences,
+    /// Show a schematic dialog (Find, Re-annotate…).
+    Schematic(crate::schematic_dialogs::DialogKind),
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -78,7 +80,7 @@ pub fn take_requests(engine: &Engine) -> Vec<Request> {
         .unwrap_or_default()
 }
 
-fn request(cx: &mut Context<'_>, request: Request) -> Result<(), CommandError> {
+pub(crate) fn request(cx: &mut Context<'_>, request: Request) -> Result<(), CommandError> {
     cx.view::<Requests>()?.push(request);
     Ok(())
 }
