@@ -12,6 +12,7 @@ mod text_geometry;
 mod track;
 mod via;
 mod zone;
+mod zone_fill;
 
 pub use outline::rect_outline;
 
@@ -35,6 +36,7 @@ pub fn register_all(registry: &mut Registry) {
     via::register_all(registry);
     copper::register_all(registry);
     zone::register_all(registry);
+    zone_fill::register_all(registry);
 }
 
 /// Why a PCB Command cannot run in a Project without a PCB Document.
@@ -57,6 +59,17 @@ fn pcb<'c>(cx: &'c Context<'_>) -> Result<&'c PcbDocument, CommandError> {
     cx.project()?
         .pcb()
         .ok_or_else(|| CommandError::unavailable(NO_PCB))
+}
+
+/// The board's copper index, with the Zone fills the Project holds for it (stale ones
+/// too: they stay copper until the next fill).
+fn board_copper(cx: &Context<'_>) -> Result<crate::Copper, CommandError> {
+    let pcb = pcb(cx)?;
+    let mut copper = crate::Copper::build(pcb);
+    if let Some(fills) = cx.project()?.zone_fills(pcb.uuid) {
+        copper.set_zone_fills(pcb, Some(fills));
+    }
+    Ok(copper)
 }
 
 /// What a Command that creates one object returns.

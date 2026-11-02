@@ -18415,6 +18415,293 @@
     },
     {
       "category": "pcb",
+      "description": "Fills every Zone of the PCB Document and stores the fills in the Project's `.reda/` cache (never in the Document, so filling is not an edit). Long-running: reports progress per Zone and can be cancelled, which keeps the previous fills.",
+      "icon": "zone_fill",
+      "id": "pcb.zone.fill",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FilledZone": {
+            "description": "One filled Zone.",
+            "properties": {
+              "islands": {
+                "description": "The separate pieces of copper its fill came to.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "zone": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "zone",
+              "islands"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "cached": {
+            "description": "Whether the fills were written to the `.reda/` cache (not when the Project has no\nfolder or the write failed).",
+            "type": "boolean"
+          },
+          "zones": {
+            "description": "Every Zone, in fill order (priority, highest first).",
+            "items": {
+              "$ref": "#/$defs/FilledZone"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "zones",
+          "cached"
+        ],
+        "title": "ZoneFillResult",
+        "type": "object"
+      },
+      "title": "Fill Zones"
+    },
+    {
+      "category": "pcb",
+      "description": "Whether the Zones need refilling (some Zone is unfilled, or the board changed since the last fill) and each Zone's state: `filled`, `stale` or `unfilled`.",
+      "icon": "zone_fill",
+      "id": "pcb.zone.fill_status",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FillState": {
+            "oneOf": [
+              {
+                "const": "filled",
+                "description": "Filled from the board as it is now.",
+                "type": "string"
+              },
+              {
+                "const": "stale",
+                "description": "Filled, but the board has changed since: the fill is drawn dimmed until refilled.",
+                "type": "string"
+              },
+              {
+                "const": "unfilled",
+                "description": "Never filled: only the outline is drawn.",
+                "type": "string"
+              }
+            ]
+          },
+          "ZoneStatus": {
+            "description": "One Zone's fill state.",
+            "properties": {
+              "state": {
+                "$ref": "#/$defs/FillState"
+              },
+              "zone": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "zone",
+              "state"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Where a PCB Document's stored fills stand.",
+        "properties": {
+          "needs_refill": {
+            "description": "Whether the status bar should say \"Zones need refilling\": some Zone has no fill\nyet or the board changed since the fills were made.",
+            "type": "boolean"
+          },
+          "zones": {
+            "description": "Every Zone, sorted by UUID.",
+            "items": {
+              "$ref": "#/$defs/ZoneStatus"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "needs_refill",
+          "zones"
+        ],
+        "title": "FillStatus",
+        "type": "object"
+      },
+      "title": "Zone Fill Status"
+    },
+    {
+      "category": "pcb",
+      "description": "The stored fill of each Zone (polygons with holes), with whether it is current, stale or missing. Stale fills are returned as they were.",
+      "icon": "zone_fill",
+      "id": "pcb.zone.fills",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "zones": {
+            "default": null,
+            "description": "Only these Zones; left out, every Zone.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "FillsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FillShape": {
+            "additionalProperties": false,
+            "description": "One connected piece of a Zone's fill: an outer contour (counter-clockwise) and its\nholes (clockwise).",
+            "properties": {
+              "holes": {
+                "items": {
+                  "items": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "outer": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "outer"
+            ],
+            "type": "object"
+          },
+          "FillState": {
+            "oneOf": [
+              {
+                "const": "filled",
+                "description": "Filled from the board as it is now.",
+                "type": "string"
+              },
+              {
+                "const": "stale",
+                "description": "Filled, but the board has changed since: the fill is drawn dimmed until refilled.",
+                "type": "string"
+              },
+              {
+                "const": "unfilled",
+                "description": "Never filled: only the outline is drawn.",
+                "type": "string"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ZoneFill": {
+            "description": "One Zone's stored fill.",
+            "properties": {
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "net": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "shapes": {
+                "description": "The filled copper: polygons with holes, in nm. Empty when unfilled.",
+                "items": {
+                  "$ref": "#/$defs/FillShape"
+                },
+                "type": "array"
+              },
+              "state": {
+                "$ref": "#/$defs/FillState"
+              },
+              "zone": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "zone",
+              "layer",
+              "state",
+              "shapes"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "zones": {
+            "description": "The Zones, sorted by UUID.",
+            "items": {
+              "$ref": "#/$defs/ZoneFill"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "zones"
+        ],
+        "title": "FillsResult",
+        "type": "object"
+      },
+      "title": "Zone Fills"
+    },
+    {
+      "category": "pcb",
       "description": "Changes a Zone's Layer, outline, Net or fill settings; what is left out stays as it is.",
       "icon": "zone",
       "id": "pcb.zone.set",

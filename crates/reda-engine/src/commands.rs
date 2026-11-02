@@ -15,6 +15,7 @@ pub mod properties;
 pub mod query;
 pub mod reannotate;
 pub mod sync;
+pub mod zone_fill;
 
 use reda_command::Registry;
 use reda_model::{Scope, Uuid};
@@ -36,6 +37,7 @@ pub fn register_all(registry: &mut Registry) {
     query::register_all(registry);
     reannotate::register_all(registry);
     sync::register_all(registry);
+    zone_fill::register_all(registry);
 }
 
 /// A param naming one file of the Project: `"project"` for the Project file, or a

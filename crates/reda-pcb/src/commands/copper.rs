@@ -65,7 +65,7 @@ impl Command for Connected {
         p: ConnectedParams,
     ) -> Result<ConnectedResult, CommandError> {
         let pcb = pcb(cx)?;
-        let copper = Copper::build(pcb);
+        let copper = super::board_copper(cx)?;
         let starts: Vec<Item> = if pcb.track(p.object).is_some() {
             vec![Item::Track { uuid: p.object }]
         } else if pcb.via(p.object).is_some() {
@@ -140,7 +140,7 @@ impl Command for Ratsnest {
 
     fn run(&self, cx: &mut Context<'_>, p: RatsnestParams) -> Result<RatsnestResult, CommandError> {
         let pcb = pcb(cx)?;
-        let copper = Copper::build(pcb);
+        let copper = super::board_copper(cx)?;
         let lines = match p.nets {
             None => copper.ratsnest(),
             Some(mut nets) => {
