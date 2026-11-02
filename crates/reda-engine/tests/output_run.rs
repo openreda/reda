@@ -69,12 +69,31 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         .iter()
         .map(|f| f["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, ["Demo.GTL", "Demo.GBL", "Demo.GKO"]);
+    assert_eq!(
+        names,
+        [
+            "Demo.GTL",
+            "Demo.GBL",
+            "Demo.GKO",
+            "Demo-PTH.drl",
+            "Demo-NPTH.drl"
+        ]
+    );
     assert_eq!(out["files"][0]["function"], "copper_top");
+    assert_eq!(out["files"][3]["function"], "drill_plated");
+    assert_eq!(out["files"][4]["function"], "drill_non_plated");
+    let built = |output: &str| {
+        !out["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w["check"] == "output_not_built" && w["args"]["output"] == output)
+    };
+    assert!(built("drill"), "{}", out["warnings"]);
 
     let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
-    assert_eq!(archive.len(), 3);
+    assert_eq!(archive.len(), 5);
     for name in names {
         let loose = std::fs::read(folder.join(name)).unwrap();
         let mut entry = archive.by_name(name).unwrap();
@@ -83,7 +102,7 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         assert_eq!(zipped, loose, "{name}");
         let text = String::from_utf8(loose).unwrap();
         assert!(
-            text.contains("%TF.CreationDate,2026-01-01T00:00:00+00:00*%"),
+            text.contains("TF.CreationDate,2026-01-01T00:00:00+00:00"),
             "the time comes from the injected Clock"
         );
     }
@@ -107,6 +126,15 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
     );
     run(&mut engine);
     assert!(!folder.join("Demo.GTL").exists(), "Gerber turned off");
+    assert!(folder.join("Demo-PTH.drl").exists());
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "outputs": {"drill": false}}),
+    );
+    run(&mut engine);
+    assert!(!folder.join("Demo-PTH.drl").exists(), "drill turned off");
+    assert!(!folder.join("Demo-NPTH.drl").exists(), "drill turned off");
     assert!(folder.join("Demo-Generic.zip").exists());
     assert_eq!(
         std::fs::read(folder.join("notes.txt")).unwrap(),
