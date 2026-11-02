@@ -1,10 +1,10 @@
 //! The test-engine builder: a headless engine with deterministic inputs.
 
 use std::ops::{Deref, DerefMut};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use reda_engine::Engine;
-use reda_engine::command::{CommandError, FixedClock, SeededIds, UserDirs};
+use reda_engine::command::{CommandError, FixedClock, SeededIds, Trash, UserDirs};
 use serde_json::Value;
 
 /// A headless [`Engine`] with `SeededIds::new(0)` and `FixedClock::EPOCH`, so UUIDs run
@@ -50,6 +50,35 @@ pub fn test_engine_with_library(library: &Path) -> TestEngine {
             .starter_library(Some(library.to_owned()))
             .build(),
     )
+}
+
+/// Like [`test_engine`], with a trash that moves deleted Documents' files into the folder
+/// `trash` (created as needed), for tests of what saving does with them.
+pub fn test_engine_with_trash(trash: &Path) -> TestEngine {
+    TestEngine(
+        Engine::builder()
+            .ids(SeededIds::new(0))
+            .clock(FixedClock::EPOCH)
+            .user_dirs(None)
+            .starter_library(None)
+            .trash(FolderTrash(trash.to_owned()))
+            .build(),
+    )
+}
+
+/// A [`Trash`] that moves files into a folder, keeping their names; a later file of the
+/// same name replaces an earlier one.
+#[derive(Debug)]
+pub struct FolderTrash(pub PathBuf);
+
+impl Trash for FolderTrash {
+    fn trash(&self, path: &Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(&self.0)?;
+        let name = path
+            .file_name()
+            .ok_or_else(|| std::io::Error::other("no file name"))?;
+        std::fs::rename(path, self.0.join(name))
+    }
 }
 
 /// See [`test_engine`].

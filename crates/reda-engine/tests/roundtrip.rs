@@ -12,9 +12,10 @@ use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, FabPreset, FileNaming, FootprintCopy,
     GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, NetLabel,
-    NoConnect, Object, OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Project,
-    ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetSize,
-    Side, UnitInstance, Uuid, Wire,
+    NoConnect, Object, OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Port, PortDirection,
+    PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules,
+    Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, UnitInstance, Uuid,
+    Wire,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -452,7 +453,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             sheet,
             NetLabel {
                 uuid: id(6),
-                name,
+                name: name.clone(),
                 at: to,
                 rotation: Millideg(180_000),
             },
@@ -462,6 +463,57 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             NoConnect {
                 uuid: id(7),
                 at: from,
+            },
+        )));
+        objects.push(Object::Port(InDocument::new(
+            sheet,
+            Port {
+                uuid: id(8),
+                name: name.clone(),
+                direction: PortDirection::In,
+                at: to,
+                rotation: Millideg(90_000),
+            },
+        )));
+        objects.push(Object::PowerPort(InDocument::new(
+            sheet,
+            PowerPort {
+                uuid: id(9),
+                name: name.clone(),
+                style: PowerPortStyle::Ground,
+                at: from,
+                rotation: Millideg(0),
+            },
+        )));
+        objects.push(Object::SheetText(InDocument::new(
+            sheet,
+            SheetText {
+                uuid: id(10),
+                text: format!("{name}\nnote"),
+                at: to,
+                height: Nm(len.0.abs() + 1),
+                rotation: Millideg(90_000),
+            },
+        )));
+        objects.push(Object::SheetGraphic(InDocument::new(
+            sheet,
+            SheetGraphic {
+                uuid: id(11),
+                shape: SheetShape::Line {
+                    from,
+                    to: Point::new(x + Nm(3), y + Nm(5)),
+                },
+            },
+        )));
+        objects.push(Object::SheetGraphic(InDocument::new(
+            sheet,
+            SheetGraphic {
+                uuid: id(12),
+                shape: SheetShape::Rect {
+                    from,
+                    to: Point::new(x + Nm(7), to.y),
+                    filled: len.0 % 2 == 0,
+                },
             },
         )));
     }

@@ -78,6 +78,15 @@ pub(crate) fn glyph_run(text: &str, at: Point, style: TextStyle) -> GlyphRun {
     }
 }
 
+/// How far the longest line of `text` reaches at capital height `height`.
+pub(crate) fn advance(text: &str, height: Nm) -> Nm {
+    let font = noto_sans();
+    text.split('\n')
+        .map(|line| layout(line, Font::Outline(font), height, font).advance)
+        .max()
+        .unwrap_or(Nm(0))
+}
+
 /// Whether text in direction `r` would read upside down.
 fn upside_down(r: Millideg) -> bool {
     let r = r.normalized().0;

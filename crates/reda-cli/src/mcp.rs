@@ -65,7 +65,12 @@ pub fn execute(args: McpArgs) -> ExitCode {
                 return ExitCode::from(1);
             }
         },
-        None => writer::spawn(|| Engine::builder().source(Source::Mcp).build()),
+        None => writer::spawn(|| {
+            Engine::builder()
+                .source(Source::Mcp)
+                .trash(crate::os_trash::OsTrash)
+                .build()
+        }),
     };
     let server = match is_bridged {
         true => Server::bridged(writer.clone(), &catalogue),

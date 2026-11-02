@@ -266,8 +266,10 @@ impl Command for SchematicNets {
         id: "schematic.nets",
         title: "Schematic Nets",
         description: "Derives the Nets of a Schematic Sheet from its drawing: each Net's \
-                      name, Net Label names, Pins, Wires and Net Labels, plus the sheet's \
-                      Junctions. Every Pin is in exactly one Net. Nothing is stored.",
+                      name (chosen over the Project-wide Net it is part of), the Net Label, \
+                      Port and Power Port names on it, its Pins, Wires, Net Labels, Ports \
+                      and Power Ports, plus the sheet's Junctions. Every Pin is in exactly \
+                      one Net. Nothing is stored.",
         category: "schematic",
         icon: "net",
         kind: Kind::Query,
@@ -276,6 +278,8 @@ impl Command for SchematicNets {
     type Output = SheetConnectivity;
 
     fn run(&self, cx: &mut Context<'_>, p: NetsParams) -> Result<SheetConnectivity, CommandError> {
-        Ok(connectivity::derive(sheet(cx.project()?, p.document)?))
+        let project = cx.project()?;
+        sheet(project, p.document)?;
+        Ok(connectivity::sheet_connectivity(project, p.document).expect("the sheet exists"))
     }
 }

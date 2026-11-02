@@ -164,6 +164,47 @@ fn every_item_is_tagged_with_an_object_on_the_sheet() {
 }
 
 #[test]
+fn ports_and_power_ports_are_drawn_in_every_direction_and_style() {
+    let dir = TempDir::new("render-ports");
+    let mut engine = demo(&dir);
+    for (i, direction) in ["in", "out", "bidirectional"].into_iter().enumerate() {
+        let y = 6000 - 500 * i as i64;
+        engine.run_ok(
+            "schematic.port.add",
+            json!({"document": SHEET, "name": "SDA", "at": at(1000, y), "direction": direction}),
+        );
+        // Turned half a turn, the flag reaches left and its name still reads left to right.
+        engine.run_ok(
+            "schematic.port.add",
+            json!({"document": SHEET, "name": "SCL_OUT", "at": at(4000, y),
+                   "direction": direction, "rotation": "180deg"}),
+        );
+    }
+    let styles = [
+        "bar",
+        "arrow",
+        "circle",
+        "wave",
+        "ground",
+        "signal_ground",
+        "earth",
+    ];
+    for (i, style) in styles.into_iter().enumerate() {
+        engine.run_ok(
+            "schematic.power_port.add",
+            json!({"document": SHEET, "name": "VCC", "at": at(1000 + 600 * i as i64, 3000),
+                   "style": style}),
+        );
+    }
+    engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": "GND", "at": at(6000, 3000), "rotation": "90deg"}),
+    );
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    assert_golden(golden("ports.scene"), scene.to_text().as_bytes());
+}
+
+#[test]
 fn upside_down_text_is_turned_to_read_left_to_right() {
     let dir = TempDir::new("render-readable");
     let mut engine = demo(&dir);

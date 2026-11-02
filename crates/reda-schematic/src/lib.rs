@@ -4,10 +4,12 @@
 
 mod component;
 pub mod connectivity;
+mod edit;
 mod find;
 mod library_element;
 mod natural;
 mod pins;
+mod ports;
 mod properties;
 mod sheet;
 mod similar;
@@ -22,12 +24,24 @@ pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,
 };
+pub use edit::{
+    Align, AlignParams, AlignTo, Axis, Clipboard, Copy, CopyParams, Cut, Delete, DeleteParams,
+    DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
+    EditResult, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, Mirror,
+    MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
+    RotateParams, ShiftParams, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
+    TextSetParams,
+};
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{
     ElementFile, LibraryElement, LibraryElementParams, LibraryElementResult,
 };
 pub use natural::natural_cmp;
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
+pub use ports::{
+    PortAdd, PortAddParams, PortAddResult, PowerPortAdd, PowerPortAddParams, PowerPortAddResult,
+    ProjectNets, ProjectNetsResult,
+};
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
 pub use sheet::{
     SheetFrameView, SheetRef, SheetSetSize, SheetSetSizeParams, SheetTitleBlock, TitleBlock,
@@ -66,6 +80,26 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(UnitMove);
     registry.add(NoConnectAdd);
     registry.add(SchematicNets);
+    registry.add(PortAdd);
+    registry.add(PowerPortAdd);
+    registry.add(ProjectNets);
+    registry.add(Delete);
+    registry.add(Copy);
+    registry.add(Cut);
+    registry.add(Paste);
+    registry.add(Duplicate);
+    registry.add(Move);
+    registry.add(Drag);
+    registry.add(Rotate);
+    registry.add(Mirror);
+    registry.add(Align);
+    registry.add(Distribute);
+    registry.add(SnapToGrid);
+    registry.add(TextAdd);
+    registry.add(TextSet);
+    registry.add(LineAdd);
+    registry.add(RectAdd);
+    registry.add(GraphicSet);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

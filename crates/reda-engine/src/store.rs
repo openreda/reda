@@ -1,9 +1,10 @@
 //! Project open and save: mapping a Project folder to and from a [`Project`].
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use reda_command::CommandError;
-use reda_model::{DocumentEntry, DocumentKind, Object, Project, ProjectProps, Scope};
+use reda_command::{CommandError, Trash};
+use reda_model::{DocumentEntry, DocumentKind, Object, Project, ProjectProps, Scope, Uuid};
 
 use crate::builders::add_document;
 use crate::canonical::CanonicalError;
@@ -128,14 +129,15 @@ pub fn open_from(
 /// Every file of the Project as canonical bytes, keyed by its `/`-separated path relative to
 /// the Project folder, in write order: the Project file comes last.
 pub fn encode(project: &Project) -> Result<Vec<(String, Vec<u8>)>, CanonicalError> {
-    encode_scoped(project, None)
+    encode_scoped(project, None, &DocumentEntry::file_name)
 }
 
 /// Like [`encode`], but with `only` = `Some(scope)` just the one file `scope` names (the
-/// Project file comes with `.reda/.gitignore`).
+/// Project file comes with `.reda/.gitignore`). `file_name` names each Document's file.
 fn encode_scoped(
     project: &Project,
     only: Option<Scope>,
+    file_name: &dyn Fn(&DocumentEntry) -> String,
 ) -> Result<Vec<(String, Vec<u8>)>, CanonicalError> {
     let wanted = |scope: Scope| only.is_none_or(|only| only == scope);
     let mut files: Vec<(String, Vec<u8>)> = vec![];
@@ -160,7 +162,7 @@ fn encode_scoped(
                 write_pcb_file(pcb)?
             }
         };
-        files.push((entry.file_name(), bytes));
+        files.push((file_name(entry), bytes));
     }
     if wanted(Scope::Project) {
         let name = format!("{}.{PROJECT_EXTENSION}", project.props().name);
@@ -172,23 +174,128 @@ fn encode_scoped(
 /// Writes the Project's files into `folder`, each through a temp file and a rename, the
 /// Project file last: every file with `only` = `None`, or just the one `only` names (the
 /// Project file comes with `.reda/.gitignore`). Returns the written paths relative to
-/// `folder`.
+/// `folder`. For a Project with no files on disk yet; [`save_tracked`] also renames and
+/// trashes the files of renamed and deleted Documents.
 pub fn save(
     folder: &Path,
     project: &Project,
     only: Option<Scope>,
 ) -> Result<Vec<String>, CommandError> {
+    let mut on_disk = BTreeMap::new();
+    save_tracked(folder, project, only, &mut on_disk, None).map(|saved| saved.written)
+}
+
+/// What [`save_tracked`] did on disk. Paths are relative to the Project folder.
+#[derive(Debug, Default)]
+pub struct Saved {
+    /// Every file written, in write order.
+    pub written: Vec<String>,
+    /// Files moved to a renamed Document's new name, as `(from, to)`.
+    pub renamed: Vec<(String, String)>,
+    /// Files of deleted Documents sent to the trash.
+    pub trashed: Vec<String>,
+}
+
+/// Like [`save`], keeping the Documents' files in step with the Project. `on_disk` holds
+/// each Document's file as REDA last read or wrote it, and is updated to match.
+///
+/// Saving the Project file (`only` = `None` or the Project) first sends the files of
+/// deleted Documents to `trash` (left on disk without one), then renames the files of
+/// renamed Documents, each through a temp name so swapped names and case-only changes
+/// work. Saving a Document alone writes it to the file the Project file on disk lists,
+/// and first trashes a deleted Document's file it would overwrite.
+pub fn save_tracked(
+    folder: &Path,
+    project: &Project,
+    only: Option<Scope>,
+    on_disk: &mut BTreeMap<Uuid, String>,
+    trash: Option<&dyn Trash>,
+) -> Result<Saved, CommandError> {
     let io = |path: &Path, e: std::io::Error| {
         CommandError::internal(format!("writing {}: {e}", path.display()))
     };
-    let files = encode_scoped(project, only).map_err(|e| CommandError::internal(e.to_string()))?;
-    if only.is_none_or(|only| only == Scope::Project) {
+    let with_project = only.is_none_or(|only| only == Scope::Project);
+    // Each Document's file as this save writes it.
+    let names: BTreeMap<Uuid, String> = project
+        .documents()
+        .map(|d| match on_disk.get(&d.uuid) {
+            Some(name) if !with_project => (d.uuid, name.clone()),
+            _ => (d.uuid, d.file_name()),
+        })
+        .collect();
+    let files = encode_scoped(project, only, &|d| names[&d.uuid].clone())
+        .map_err(|e| CommandError::internal(e.to_string()))?;
+    let mut saved = Saved::default();
+    let same = |a: &str, b: &str| a.to_lowercase() == b.to_lowercase();
+
+    // Deleted Documents' files.
+    let doomed: Vec<Uuid> = on_disk
+        .iter()
+        .filter(|(uuid, name)| {
+            project.document(**uuid).is_none()
+                && (with_project || files.iter().any(|(rel, _)| same(rel, name)))
+        })
+        .map(|(uuid, _)| *uuid)
+        .collect();
+    for uuid in doomed {
+        let name = on_disk.remove(&uuid).expect("listed above");
+        let claimed = on_disk
+            .iter()
+            .any(|(other, n)| project.document(*other).is_some() && same(n, &name));
+        let Some(trash) = trash.filter(|_| !claimed) else {
+            continue;
+        };
+        let path = folder.join(&name);
+        match trash.trash(&path) {
+            Ok(()) => saved.trashed.push(name),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => {
+                return Err(CommandError::internal(format!(
+                    "moving {} to the trash: {e}",
+                    path.display()
+                )));
+            }
+        }
+    }
+
+    // Renamed Documents' files: every one to a temp name first, then to its new name.
+    if with_project {
+        let mut moves = vec![];
+        for entry in project.documents() {
+            let Some(old) = on_disk.get(&entry.uuid) else {
+                continue;
+            };
+            let new = entry.file_name();
+            if *old == new {
+                continue;
+            }
+            let temp = format!(".{old}.{}.rename.tmp", std::process::id());
+            match std::fs::rename(folder.join(old), folder.join(&temp)) {
+                Ok(()) => moves.push((entry.uuid, old.clone(), temp, new)),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(io(&folder.join(old), e)),
+            }
+        }
+        for (uuid, old, temp, new) in moves {
+            let path = folder.join(&new);
+            std::fs::rename(folder.join(temp), &path).map_err(|e| io(&path, e))?;
+            on_disk.insert(uuid, new.clone());
+            saved.renamed.push((old, new));
+        }
+    }
+
+    if with_project {
         let state = folder.join(".reda");
         std::fs::create_dir_all(&state).map_err(|e| io(&state, e))?;
     }
-    for (rel, bytes) in &files {
-        let path = folder.join(rel);
-        write_atomic(&path, bytes).map_err(|e| io(&path, e))?;
+    let documents: BTreeMap<&String, Uuid> = names.iter().map(|(u, n)| (n, *u)).collect();
+    for (rel, bytes) in files {
+        let path = folder.join(&rel);
+        write_atomic(&path, &bytes).map_err(|e| io(&path, e))?;
+        if let Some(uuid) = documents.get(&rel) {
+            on_disk.insert(*uuid, rel.clone());
+        }
+        saved.written.push(rel);
     }
-    Ok(files.into_iter().map(|(rel, _)| rel).collect())
+    Ok(saved)
 }
