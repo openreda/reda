@@ -107,6 +107,7 @@ impl App {
             self.files.start(&ctx, Pick::ExportJournal);
         }
         self.drop_closed_canvases();
+        self.shell.save_view_if_due(std::time::Instant::now());
 
         if let Some(form) = &mut self.new_project {
             match form.show(&ctx) {
@@ -302,6 +303,10 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         App::ui(self, ui);
     }
+
+    fn on_exit(&mut self) {
+        self.shell.save_view();
+    }
 }
 
 /// The `general.theme` value of the theme the window shows.
@@ -329,7 +334,8 @@ pub fn install_canvas(render_state: &egui_wgpu::RenderState, sample_count: u32) 
 }
 
 /// Opens the REDA window on `engine` and runs until it closes. `fonts` supplies installed
-/// fonts on demand; `open` is a Project to open at once.
+/// fonts on demand; `open` is a Project to open at once. Without one, the last Project
+/// reopens when the Preferences ask for it.
 pub fn run(
     engine: Engine,
     fonts: Arc<dyn InstalledFonts>,
@@ -353,8 +359,11 @@ pub fn run(
                 .ok_or("REDA draws with wgpu, but the window has no wgpu renderer")?;
             install_canvas(render_state, 1);
             let mut shell = Shell::new(engine).with_fonts(fonts);
-            if let Some(path) = open {
-                let _ = shell.open_project(&path);
+            match open {
+                Some(path) => {
+                    let _ = shell.open_project(&path);
+                }
+                None => shell.reopen_last_project(),
             }
             Ok(Box::new(
                 App::new(shell).with_render_state(render_state.clone()),

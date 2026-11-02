@@ -1,16 +1,24 @@
 //! The layout Commands: view Commands that change the [`Layout`] in the engine's view
 //! state. Each is refused headless, and a refused action leaves the layout as it was.
 
-use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Preset, Registry};
+use reda_engine::command::{
+    Command, CommandError, Context, Kind, Meta, Preset, Registry, UserDirs,
+};
 use reda_engine::model::Uuid;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::{DockSide, GroupId, Layout, PanelId, SplitSide, TabKey};
+use super::{DockSide, GroupId, Layout, PanelId, SplitSide, TabKey, saved};
 
-/// Adds the layout Commands to `registry`. The Shell does this for its engine.
+/// Adds the layout Commands to `registry`, with no `layout.apply:<name>` Presets.
 pub fn register_all(registry: &mut Registry) {
+    register_with_layouts(registry, None);
+}
+
+/// Adds the layout Commands to `registry`, offering the Saved Layouts in `dirs` as
+/// `layout.apply:<name>` Presets. The Shell does this for its engine.
+pub fn register_with_layouts(registry: &mut Registry, dirs: Option<UserDirs>) {
     registry.add(Activate);
     registry.add(MoveToGroup);
     registry.add(MoveToDock);
@@ -20,6 +28,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Collapse);
     registry.add(ShowPanel);
     registry.add(OpenDocument);
+    registry.add(SaveLayout);
+    registry.add(ApplyLayout { dirs });
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -53,6 +63,11 @@ impl Command for OpenDocument {
         let group = layout(cx)?.open_document(p.document);
         Ok(TabPlaced { group })
     }
+}
+
+fn user_dirs<'c>(cx: &'c Context<'_>) -> Result<&'c UserDirs, CommandError> {
+    cx.user_dirs()
+        .ok_or_else(|| CommandError::unavailable("there is no per-user folder for Saved Layouts"))
 }
 
 fn tab(raw: &str) -> Result<TabKey, CommandError> {
@@ -321,5 +336,76 @@ impl Command for ShowPanel {
     fn run(&self, cx: &mut Context<'_>, p: ShowPanelParams) -> Result<TabPlaced, CommandError> {
         let group = layout(cx)?.show_panel(p.panel)?;
         Ok(TabPlaced { group })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LayoutNameParams {
+    /// The Saved Layout's name: lowercase letters, digits and underscores.
+    name: String,
+}
+
+struct SaveLayout;
+
+impl Command for SaveLayout {
+    const META: Meta = Meta {
+        id: "layout.save",
+        title: "Save Layout",
+        description: "Saves the layout as a Saved Layout of the user's: where each Panel is, and which tab groups hold Documents, never which Documents.",
+        category: "layout",
+        icon: "layout_save",
+        kind: Kind::View,
+    };
+    type Params = LayoutNameParams;
+    type Output = Done;
+
+    fn run(&self, cx: &mut Context<'_>, p: LayoutNameParams) -> Result<Done, CommandError> {
+        saved::check_name(&p.name)?;
+        let current = layout(cx)?.clone();
+        saved::save(user_dirs(cx)?, &p.name, &current)?;
+        Ok(Done {})
+    }
+}
+
+struct ApplyLayout {
+    /// Where the Saved Layouts offered as Presets are.
+    dirs: Option<UserDirs>,
+}
+
+impl Command for ApplyLayout {
+    const META: Meta = Meta {
+        id: "layout.apply",
+        title: "Apply Layout",
+        description: "Applies a Saved Layout: each Panel goes to its saved place, and the open Documents move into its first Document group.",
+        category: "layout",
+        icon: "layout",
+        kind: Kind::View,
+    };
+    type Params = LayoutNameParams;
+    type Output = Done;
+
+    fn presets(&self) -> Vec<Preset> {
+        let Some(dirs) = &self.dirs else {
+            return Vec::new();
+        };
+        saved::names(dirs)
+            .into_iter()
+            .map(|name| {
+                Preset::new(
+                    name.clone(),
+                    format!("Apply Layout {name}"),
+                    "layout",
+                    json!({ "name": name }),
+                )
+            })
+            .collect()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: LayoutNameParams) -> Result<Done, CommandError> {
+        let saved = saved::load(user_dirs(cx)?, &p.name)?;
+        let current = layout(cx)?;
+        *current = saved.apply_to(current)?;
+        Ok(Done {})
     }
 }

@@ -25,6 +25,7 @@ pub mod selection;
 pub mod shell;
 mod start_page;
 pub mod theme;
+pub mod view_state;
 
 pub use app::{App, install_canvas, run};
 /// The engine, re-exported so the app depends only on the UI.
