@@ -6,13 +6,18 @@
 //! [`Scene::to_text`] serialises a Scene for snapshot tests.
 
 mod color;
+mod outline;
 mod polygon;
 mod scene;
 mod schematic;
 mod snapshot;
+mod svg;
 mod text;
 mod transform;
+mod viewport;
 
 pub use color::{ColorKey, Palette, Rgba, SchematicColor, Theme};
 pub use scene::{Align, GlyphRun, HAlign, Item, Primitive, Scene, SceneLayer, SceneSource, VAlign};
 pub use schematic::schematic_scene;
+pub use svg::to_svg;
+pub use viewport::Viewport;
