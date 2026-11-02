@@ -1,0 +1,21 @@
+[package]
+name = "reda-render"
+description = "Canvas rendering: GPU-free Scenes built from Documents, for the wgpu backend, PDF and SVG."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+i_triangle.workspace = true
+reda-model = { path = "../reda-model" }
+reda-text = { path = "../reda-text" }
+
+[dev-dependencies]
+reda-testkit = { path = "../reda-testkit" }
+serde_json.workspace = true
+
+[lints]
+workspace = true
