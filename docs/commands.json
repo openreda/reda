@@ -580,6 +580,486 @@
       "title": "Reorder Documents"
     },
     {
+      "category": "pcb",
+      "description": "Checks the PCB with the DRC checks that are not Off, after refilling stale Zones, and returns the Violations: each with its check id, severity, message arguments and the UUIDs of the objects involved (a Pad as its Footprint then the Pad). Waived Violations are left out unless `include_waived`.",
+      "icon": "drc",
+      "id": "drc.run",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "include_waived": {
+            "default": false,
+            "description": "Also list the Violations that Waivers waive, each naming its Waiver.",
+            "type": "boolean"
+          }
+        },
+        "title": "DrcRunParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "design": {
+            "description": "A fingerprint of the board the run checked. Pass it to `drc.stale` to learn\nwhether the board was edited since.",
+            "type": "string"
+          },
+          "refilled": {
+            "description": "Whether some Zone was unfilled or stale, so the run checked a fresh fill. The fill\nis not stored: run `pcb.zone.fill` to keep it.",
+            "type": "boolean"
+          },
+          "unmatched_waivers": {
+            "description": "Waivers that match no Violation any more, because their objects no longer break\nthe check.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "violations": {
+            "description": "The Violations, in the order of the DRC table.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          },
+          "waived": {
+            "description": "How many Violations Waivers waived.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "violations",
+          "waived",
+          "unmatched_waivers",
+          "refilled",
+          "design"
+        ],
+        "title": "DrcRunResult",
+        "type": "object"
+      },
+      "title": "Run DRC"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets how one DRC check reports its Violations: `error`, `warning` or `off`. Stored in the PCB Document, next to its rules.",
+      "icon": "severity",
+      "id": "drc.set_severity",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "DrcCheck": {
+            "description": "One DRC check, named as in [`DrcSeverities`].",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets.",
+                "type": "string"
+              },
+              {
+                "const": "short_circuit",
+                "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "A Track narrower than the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "A Via or Pad hole smaller than the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "An annular ring below the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Holes closer than the minimum spacing.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "keepout",
+                "description": "An object inside a Keepout that forbids it.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_outside_board",
+                "description": "A Footprint outside the Board Outline.",
+                "type": "string"
+              },
+              {
+                "const": "unrouted",
+                "description": "Connections the Ratsnest still shows.",
+                "type": "string"
+              },
+              {
+                "const": "copper_without_net",
+                "description": "Copper with no Net.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Tracks and Vias that end unconnected.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_overlap",
+                "description": "Overlapping courtyards.",
+                "type": "string"
+              },
+              {
+                "const": "silkscreen_over_pads",
+                "description": "Silkscreen over exposed Pads.",
+                "type": "string"
+              },
+              {
+                "const": "out_of_sync",
+                "description": "The PCB out of sync with the schematic.",
+                "type": "string"
+              }
+            ]
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "$ref": "#/$defs/DrcCheck",
+            "description": "The DRC check."
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity"
+          }
+        },
+        "required": [
+          "check",
+          "severity"
+        ],
+        "title": "DrcSetSeverityParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set DRC Severity"
+    },
+    {
+      "category": "pcb",
+      "description": "Tells whether the PCB, its rules, its DRC severities or its Waivers changed since the `drc.run` that returned `design`.",
+      "icon": "drc",
+      "id": "drc.stale",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "design": {
+            "description": "The `design` fingerprint a `drc.run` returned.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "design"
+        ],
+        "title": "DrcStaleParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "stale": {
+            "description": "Whether the board was edited since that run, so its results are stale.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stale"
+        ],
+        "title": "DrcStaleResult",
+        "type": "object"
+      },
+      "title": "Are DRC Results Stale"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes Waivers of DRC Violations, so the Violations they waived are reported again.",
+      "icon": "waive",
+      "id": "drc.unwaive",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "waivers": {
+            "description": "The Waivers to delete.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "waivers"
+        ],
+        "title": "DrcUnwaiveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "waivers": {
+            "description": "The deleted Waivers.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "waivers"
+        ],
+        "title": "DrcUnwaiveResult",
+        "type": "object"
+      },
+      "title": "Delete DRC Waivers"
+    },
+    {
+      "category": "pcb",
+      "description": "Waives one current DRC Violation, named by its check and exactly its objects, with an optional comment. The Waiver is stored in the PCB Document and stops matching once those objects no longer break the check.",
+      "icon": "waive",
+      "id": "drc.waive",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "DrcCheck": {
+            "description": "One DRC check, named as in [`DrcSeverities`].",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets.",
+                "type": "string"
+              },
+              {
+                "const": "short_circuit",
+                "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "A Track narrower than the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "A Via or Pad hole smaller than the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "An annular ring below the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Holes closer than the minimum spacing.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "keepout",
+                "description": "An object inside a Keepout that forbids it.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_outside_board",
+                "description": "A Footprint outside the Board Outline.",
+                "type": "string"
+              },
+              {
+                "const": "unrouted",
+                "description": "Connections the Ratsnest still shows.",
+                "type": "string"
+              },
+              {
+                "const": "copper_without_net",
+                "description": "Copper with no Net.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Tracks and Vias that end unconnected.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_overlap",
+                "description": "Overlapping courtyards.",
+                "type": "string"
+              },
+              {
+                "const": "silkscreen_over_pads",
+                "description": "Silkscreen over exposed Pads.",
+                "type": "string"
+              },
+              {
+                "const": "out_of_sync",
+                "description": "The PCB out of sync with the schematic.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "$ref": "#/$defs/DrcCheck",
+            "description": "The check id of the Violation, such as `clearance`."
+          },
+          "comment": {
+            "default": "",
+            "description": "Why it is waived.",
+            "type": "string"
+          },
+          "objects": {
+            "description": "Exactly the objects of the Violation, in any order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "check",
+          "objects"
+        ],
+        "title": "DrcWaiveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "document": {
+            "description": "The PCB Document that holds it.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "waiver": {
+            "description": "The new Waiver.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "waiver",
+          "document"
+        ],
+        "title": "DrcWaiveResult",
+        "type": "object"
+      },
+      "title": "Waive DRC Violation"
+    },
+    {
       "category": "edit",
       "description": "Redoes the newest undone edit on one undo stack: a Document's, or the Project file's with `document: \"project\"`. Any new edit on that stack clears what could be redone.",
       "icon": "redo",
@@ -16527,130 +17007,6 @@
         "type": "object"
       },
       "title": "Distribute"
-    },
-    {
-      "category": "pcb",
-      "description": "Sets how one DRC check reports its Violations: `error`, `warning` or `off`.",
-      "icon": "severity",
-      "id": "pcb.drc.set_severity",
-      "kind": "edit",
-      "params": {
-        "$defs": {
-          "DrcCheck": {
-            "description": "One DRC check, named as in [`DrcSeverities`].",
-            "oneOf": [
-              {
-                "const": "clearance",
-                "description": "Clearance between copper of different Nets.",
-                "type": "string"
-              },
-              {
-                "const": "short_circuit",
-                "description": "Different Nets touching.",
-                "type": "string"
-              },
-              {
-                "const": "track_width",
-                "description": "A Track narrower than the minimum.",
-                "type": "string"
-              },
-              {
-                "const": "hole_size",
-                "description": "A Via or Pad hole smaller than the minimum.",
-                "type": "string"
-              },
-              {
-                "const": "annular_ring",
-                "description": "An annular ring below the minimum.",
-                "type": "string"
-              },
-              {
-                "const": "hole_to_hole",
-                "description": "Holes closer than the minimum spacing.",
-                "type": "string"
-              },
-              {
-                "const": "edge_clearance",
-                "description": "Copper too close to the Board Outline or a Board Cutout.",
-                "type": "string"
-              },
-              {
-                "const": "keepout",
-                "description": "An object inside a Keepout that forbids it.",
-                "type": "string"
-              },
-              {
-                "const": "footprint_outside_board",
-                "description": "A Footprint outside the Board Outline.",
-                "type": "string"
-              },
-              {
-                "const": "unrouted",
-                "description": "Connections the Ratsnest still shows.",
-                "type": "string"
-              },
-              {
-                "const": "copper_without_net",
-                "description": "Copper with no Net.",
-                "type": "string"
-              },
-              {
-                "const": "dangling",
-                "description": "Tracks and Vias that end unconnected.",
-                "type": "string"
-              },
-              {
-                "const": "courtyard_overlap",
-                "description": "Overlapping courtyards.",
-                "type": "string"
-              },
-              {
-                "const": "silkscreen_over_pads",
-                "description": "Silkscreen over exposed Pads.",
-                "type": "string"
-              },
-              {
-                "const": "out_of_sync",
-                "description": "The PCB out of sync with the schematic.",
-                "type": "string"
-              }
-            ]
-          },
-          "Severity": {
-            "description": "How a check's Violations are reported.",
-            "enum": [
-              "error",
-              "warning",
-              "off"
-            ],
-            "type": "string"
-          }
-        },
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
-        "properties": {
-          "check": {
-            "$ref": "#/$defs/DrcCheck",
-            "description": "The DRC check."
-          },
-          "severity": {
-            "$ref": "#/$defs/Severity"
-          }
-        },
-        "required": [
-          "check",
-          "severity"
-        ],
-        "title": "SeveritySetParams",
-        "type": "object"
-      },
-      "presets": [],
-      "result": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "null",
-        "type": "null"
-      },
-      "title": "Set DRC Severity"
     },
     {
       "category": "pcb",

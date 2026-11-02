@@ -246,7 +246,10 @@ impl Project {
             Object::PowerPort(o) => return self.check_sheet(o.document),
             Object::SheetText(o) => return self.check_sheet(o.document),
             Object::SheetGraphic(o) => return self.check_sheet(o.document),
-            // Only sheets hold Waivers so far; the PCB Document gets a table with DRC.
+            // Sheets hold ERC Waivers, the PCB Document DRC ones.
+            Object::Waiver(o) if self.pcb_documents.contains_key(&o.document) => {
+                return Ok(());
+            }
             Object::Waiver(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
@@ -402,9 +405,14 @@ impl Project {
             Some(Object::SheetGraphic(o)) => {
                 self.sheet_mut(o.document).graphics.insert(uuid, o.object);
             }
-            Some(Object::Waiver(o)) => {
-                self.sheet_mut(o.document).waivers.insert(uuid, o.object);
-            }
+            Some(Object::Waiver(o)) => match self.pcb_documents.get_mut(&o.document) {
+                Some(pcb) => {
+                    pcb.waivers.insert(uuid, o.object);
+                }
+                None => {
+                    self.sheet_mut(o.document).waivers.insert(uuid, o.object);
+                }
+            },
             Some(Object::PcbText(o)) => {
                 self.pcb_mut(o.document).texts.insert(uuid, o.object);
             }
