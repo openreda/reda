@@ -11,7 +11,10 @@ mod connections;
 mod copper;
 mod edge;
 mod holes;
+mod placement;
+mod silkscreen;
 
+use reda_command::Fonts;
 use reda_model::{DrcCheck, DrcSeverities, PcbDocument, Severity, Uuid, Violation, ZoneFills};
 
 use crate::Copper;
@@ -20,7 +23,7 @@ use crate::copper::Item;
 /// Runs every DRC check that is not Off over `pcb`, with `fills` as its Zone fills (pass
 /// current ones: [`crate::zone::current`]). Waivers are ignored. Violations come in the
 /// order of the DRC table.
-pub fn check(pcb: &PcbDocument, fills: &ZoneFills) -> Vec<Violation> {
+pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violation> {
     let mut copper = Copper::build(pcb);
     copper.set_zone_fills(pcb, Some(fills));
     let mut report = Report {
@@ -34,6 +37,8 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills) -> Vec<Violation> {
     copper::check(&board, &mut report);
     holes::check(&board, &mut report);
     edge::check(&board, &mut report);
+    placement::check(&board, &mut report);
+    silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);

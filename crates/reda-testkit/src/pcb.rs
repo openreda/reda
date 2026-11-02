@@ -17,7 +17,7 @@ pub(crate) fn register_all(registry: &mut Registry) {
 /// `test.footprint.add {at, rotation?, side?, pads: [{at, width, height, shape?, kind?,
 /// rotation?, corner_radius?, net?, hole?}]}`: places a Footprint instance with its own one-off
 /// Footprint copy (Pads numbered 1, 2, … in param order), as Sync will, so copper tests
-/// need no Library. Pads default to rectangular SMD Pads.
+/// need no Library. Pads default to rectangular SMD Pads; the Designator text is hidden.
 struct FootprintAdd;
 
 #[derive(Deserialize, JsonSchema)]
@@ -126,7 +126,11 @@ impl Command for FootprintAdd {
             description: String::new(),
             pads,
             graphics: Vec::new(),
-            designator: FootprintText::DESIGNATOR,
+            // Hidden: these Footprints are for copper tests and draw no silkscreen.
+            designator: FootprintText {
+                visible: false,
+                ..FootprintText::DESIGNATOR
+            },
             value: FootprintText::VALUE,
             provenance: None,
         };

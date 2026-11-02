@@ -27,7 +27,7 @@ fn current(cx: &Context<'_>) -> Result<(Vec<Violation>, bool), CommandError> {
     let stored = cx.project()?.zone_fills(pcb.uuid);
     let refilled = zone::status(pcb, stored).needs_refill;
     let fills = zone::current(pcb, stored);
-    Ok((check(pcb, &fills), refilled))
+    Ok((check(pcb, &fills, cx.fonts()), refilled))
 }
 
 pub struct DrcRun;
