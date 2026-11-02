@@ -15,11 +15,13 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use reda_engine::command::{CommandError, FontFace, Kind};
+use reda_engine::model::Project;
+use reda_engine::model::geom::Nm;
 use reda_engine::model::geom::Point;
 use reda_engine::model::{
     DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid, Violation,
 };
-use reda_engine::preferences::InactiveLayerMode;
+use reda_engine::preferences::Preferences;
 use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
@@ -28,6 +30,7 @@ use crate::layout::{self, Layout, TabKey, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
+use crate::pcb::snap::SnapKind;
 use crate::pcb::{self, BoardView};
 use crate::selection::{self, Selection};
 use crate::tr;
@@ -110,8 +113,10 @@ pub struct Shell {
     messages: Messages,
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
-    /// How inactive Layers draw while a board's view has no mode of its own (Preference).
-    inactive_default: InactiveLayerMode,
+    /// The Preferences, read at start and again after `app.preferences.set`.
+    prefs: Preferences,
+    /// The PCB canvas's select-and-place Tool.
+    pcb_tool: pcb::Tool,
     /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
     closed_views: BTreeMap<Uuid, DocumentView>,
     view_saves: Debounce,
@@ -145,14 +150,13 @@ impl Shell {
             message: None,
             messages: Messages::default(),
             marked: SelectionHandle::default(),
-            inactive_default: InactiveLayerMode::default(),
+            prefs: Preferences::default(),
+            pcb_tool: pcb::Tool::default(),
             closed_views: BTreeMap::new(),
             view_saves: Debounce::default(),
         };
         shell.load_preference_warnings();
-        shell.inactive_default = preferences::current(shell.engine.user_dirs())
-            .display
-            .inactive_layer_mode;
+        shell.prefs = preferences::current(shell.engine.user_dirs());
         if shell.engine.project().is_some() {
             shell.show_project();
         }
@@ -207,6 +211,101 @@ impl Shell {
             .view_mut()
             .get_mut::<BoardView>()
             .expect("the Shell installs its BoardView")
+    }
+
+    /// The Preferences as last read.
+    pub fn preferences(&self) -> &Preferences {
+        &self.prefs
+    }
+
+    // ---- The PCB canvas Tool (see `pcb::tool`) ----
+
+    /// A button went down on the board at `at`; `toggle` is `Mod` held; `tolerance` is
+    /// how near counts as on an object.
+    pub fn pcb_press(&mut self, at: Point, toggle: bool, tolerance: Nm) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.press(self, at, toggle, tolerance);
+        self.pcb_tool = tool;
+    }
+
+    /// The pointer moved to `at` with the button down.
+    pub fn pcb_drag(&mut self, at: Point) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.drag(self, at);
+        self.pcb_tool = tool;
+    }
+
+    /// The button came up: selects, or runs the move in flight as one Command.
+    pub fn pcb_release(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.release(self);
+        self.pcb_tool = tool;
+    }
+
+    /// Esc: drops the move or rubber band in flight.
+    pub fn pcb_cancel(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.cancel(self);
+        self.pcb_tool = tool;
+    }
+
+    /// Space: turns the move in flight, or the selection, by 90°.
+    pub fn pcb_rotate(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.rotate(self);
+        self.pcb_tool = tool;
+    }
+
+    /// L: flips the move in flight, or the selection, to the other side.
+    pub fn pcb_flip(&mut self) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.flip(self);
+        self.pcb_tool = tool;
+    }
+
+    /// The cursor is at `at` with no button down: where it snaps.
+    pub fn pcb_hover(&mut self, at: Point) -> (Point, SnapKind) {
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        let snapped = tool.hover(self, at);
+        self.pcb_tool = tool;
+        snapped
+    }
+
+    /// The PCB Tool, to read what it draws (snap marker, rubber band) and set its snap
+    /// radius from the zoom.
+    pub fn pcb_tool(&self) -> &pcb::Tool {
+        &self.pcb_tool
+    }
+
+    pub fn pcb_tool_mut(&mut self) -> &mut pcb::Tool {
+        &mut self.pcb_tool
+    }
+
+    /// Where the cursor last snapped.
+    pub fn pcb_snap(&self) -> Option<(Point, SnapKind)> {
+        self.pcb_tool.snap()
+    }
+
+    /// The rubber band's corners while one is drawn.
+    pub fn pcb_band(&self) -> Option<(Point, Point)> {
+        self.pcb_tool.band()
+    }
+
+    /// Draws `document` from `project` instead of the open Project: a preview of an edit
+    /// in flight. The next refresh (or [`Shell::redraw`]) draws the real one again.
+    pub fn show_preview(&mut self, document: Uuid, project: &Project) {
+        let scene = self.scene_from(project, document);
+        if let Some(tab) = self.document_tab_mut(document) {
+            tab.scene = scene;
+        }
+    }
+
+    /// Draws `document` from the open Project again, as after a dropped preview.
+    pub fn redraw(&mut self, document: Uuid) {
+        let scene = self.scene_of(document);
+        if let Some(tab) = self.document_tab_mut(document) {
+            tab.scene = scene;
+        }
     }
 
     /// The open Documents' tabs.
@@ -418,6 +517,9 @@ impl Shell {
         }
         self.sync_selection();
         self.sync_board_view();
+        if base == "app.preferences.set" {
+            self.prefs = preferences::current(self.engine.user_dirs());
+        }
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
@@ -895,15 +997,43 @@ impl Shell {
 
     fn scene_of(&mut self, document: Uuid) -> SceneHandle {
         self.generation += 1;
-        let mut scene = self.engine.document_scene(document).unwrap_or_default();
-        let board = self.board_view();
-        let layers = self.engine.project().and_then(|project| {
-            let pcb = project.pcb_document(document)?;
-            board.filter_scene(project, &mut scene);
-            Some(board.composites(pcb, self.inactive_default).into())
-        });
+        let handle = match self.engine.project() {
+            Some(project) => self.build_scene(project, document),
+            None => SceneHandle {
+                generation: 0,
+                scene: Arc::default(),
+                layers: None,
+            },
+        };
         SceneHandle {
             generation: self.generation,
+            ..handle
+        }
+    }
+
+    /// `document`'s Scene drawn from `project` (not necessarily the open one).
+    fn scene_from(&mut self, project: &Project, document: Uuid) -> SceneHandle {
+        self.generation += 1;
+        SceneHandle {
+            generation: self.generation,
+            ..self.build_scene(project, document)
+        }
+    }
+
+    /// The Scene of `document` in `project`, filtered and composited as the board view
+    /// asks for a PCB. Its generation is left for the caller to set.
+    fn build_scene(&self, project: &Project, document: Uuid) -> SceneHandle {
+        let mut scene =
+            reda_engine::document_scene(project, document, self.engine.fonts()).unwrap_or_default();
+        let board = self.board_view();
+        let layers = project.pcb_document(document).map(|pcb| {
+            board.filter_scene(project, &mut scene);
+            board
+                .composites(pcb, self.prefs.display.inactive_layer_mode)
+                .into()
+        });
+        SceneHandle {
+            generation: 0,
             scene: Arc::new(scene),
             layers,
         }

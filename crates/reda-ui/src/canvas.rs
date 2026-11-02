@@ -10,6 +10,7 @@
 
 mod camera;
 mod gpu;
+pub mod hit;
 mod widget;
 
 pub use camera::{Camera, CanvasInput, grid_pitch};
