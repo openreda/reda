@@ -122,6 +122,10 @@ impl Engine {
         &self.journal
     }
 
+    pub(crate) fn session(&self) -> &Session {
+        &self.session
+    }
+
     /// The per-user folders, if there are any.
     pub fn user_dirs(&self) -> Option<&UserDirs> {
         self.session.user_dirs.as_ref()

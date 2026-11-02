@@ -21975,6 +21975,50 @@
       "title": "Save All"
     },
     {
+      "category": "project",
+      "description": "Loads Recovery Snapshots from the open Project's `.reda/recovery/` folder as unsaved changes on top of their files, in one step that undoes like an edit. A snapshot whose Document is gone recreates it as an unsaved Document. An unreadable snapshot is refused. The snapshot files are left in place for the app to delete.",
+      "icon": "project_open",
+      "id": "recovery.restore",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "snapshots": {
+            "description": "Snapshot file names in the Project's `.reda/recovery/` folder, as its\n`manifest.json` lists them.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshots"
+        ],
+        "title": "RecoveryRestoreParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "restored": {
+            "description": "What was restored, each now unsaved: `\"project\"` for the Project file, else the\nUUID of a Document or Library element.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "restored"
+        ],
+        "title": "RecoveryRestoreResult",
+        "type": "object"
+      },
+      "title": "Restore Recovery Snapshot"
+    },
+    {
       "category": "schematic",
       "description": "Aligns the selected objects' left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y.",
       "icon": "align",
