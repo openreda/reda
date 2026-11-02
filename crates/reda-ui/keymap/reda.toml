@@ -236,12 +236,12 @@ command = "tool.activate:no_connect"
 [[bind]]
 context = "tool:wire"
 key = "/"
-command = "tool.corner"
+command = "tool.cycle_corner"
 
 [[bind]]
 context = "tool:wire"
 key = "Backspace"
-command = "tool.remove_last"
+command = "tool.undo_segment"
 
 # Find (Mod+F) searches every sheet by Designator, value or Net name.
 

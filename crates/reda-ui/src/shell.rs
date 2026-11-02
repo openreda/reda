@@ -1747,7 +1747,19 @@ impl Shell {
                     }
                 }
             }
-            "tool.cycle_corner" => self.with_router(|r, shell| r.cycle_corner(shell)),
+            "tool.cycle_corner" if self.tool() == Tool::Route => {
+                self.with_router(|r, shell| r.cycle_corner(shell))
+            }
+            "tool.cycle_corner" | "tool.undo_segment"
+                if self.tool() == Tool::Wire && self.active_sheet().is_some() =>
+            {
+                let sheet = self.active_sheet().expect("checked above");
+                if id == "tool.cycle_corner" {
+                    crate::schematic_editor::corner(self, sheet);
+                } else {
+                    crate::schematic_editor::remove_last(self, sheet);
+                }
+            }
             "tool.undo_segment" | "tool.finish" if self.sheet_drawing().is_some() => {
                 let sheet = self.sheet_drawing().expect("checked above");
                 if id == "tool.finish" {
@@ -1783,13 +1795,9 @@ impl Shell {
                 crate::placement::refresh(self);
             }
             "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
-            "tool.rotate" | "tool.mirror" | "tool.corner" | "tool.remove_last" => {
+            "tool.rotate" | "tool.mirror" => {
                 if let Some(sheet) = self.active_sheet() {
                     match (id, out["axis"].as_str()) {
-                        ("tool.corner", _) => crate::schematic_editor::corner(self, sheet),
-                        ("tool.remove_last", _) => {
-                            crate::schematic_editor::remove_last(self, sheet)
-                        }
                         ("tool.mirror", Some("x")) => self.sheet_turn(sheet, Turn::MirrorX),
                         ("tool.mirror", _) => self.sheet_turn(sheet, Turn::MirrorY),
                         _ => self.sheet_turn(sheet, Turn::Rotate),

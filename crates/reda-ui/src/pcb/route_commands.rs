@@ -21,7 +21,6 @@ use crate::tools::{ActiveTool, Tool};
 
 /// Adds the routing Commands to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
-    registry.add(CycleCorner);
     registry.add(AddVia);
     registry.add(Finish);
     registry.add(Width);
@@ -82,14 +81,6 @@ macro_rules! route_key {
     };
 }
 
-route_key!(
-    CycleCorner,
-    "tool.cycle_corner",
-    "Cycle Corner Mode",
-    "Switches the route's corners between straight-then-45°, 45°-then-straight, \
-     horizontal-then-vertical and vertical-then-horizontal.",
-    "line"
-);
 route_key!(
     AddVia,
     "pcb.route.add_via",
