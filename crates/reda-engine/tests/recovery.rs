@@ -206,3 +206,60 @@ fn a_snapshot_missing_from_the_manifest_is_still_listed() {
     assert_eq!(rows.len(), 1);
     assert!(matches!(rows[0].state, State::Unparsable(_)));
 }
+
+const LIBRARY: &str = "000000aa-0000-4000-8000-000000000000";
+
+#[test]
+fn a_new_library_element_snapshots_with_its_absolute_path_and_restores() {
+    use reda_engine::format::library::write_library_info;
+    use reda_engine::model::LibraryInfo;
+    let tmp = TempDir::new("recovery-element");
+    let (mut engine, folder) = project(tmp.path());
+    let lib = folder.join("lib");
+    std::fs::create_dir_all(&lib).unwrap();
+    let info = LibraryInfo {
+        uuid: LIBRARY.parse().unwrap(),
+        name: "Mine".into(),
+        description: String::new(),
+    };
+    std::fs::write(lib.join("Mine.redalib"), write_library_info(&info).unwrap()).unwrap();
+    engine.run_ok("project.library.add", json!({"path": "lib"}));
+    let out = engine.run_ok(
+        "library.element.new",
+        json!({"library": LIBRARY, "kind": "symbol", "name": "Opamp"}),
+    );
+    let element: Uuid = out["element"].as_str().unwrap().parse().unwrap();
+    let dir = recovery::project_dir(&folder);
+    recovery::View::of(&engine)
+        .write(&dir, &[Scope::Element(element)], 5)
+        .unwrap();
+
+    let rows = found(&dir, &folder);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].snapshot.path, lib.join("symbols/Opamp.redasym"));
+    assert!(rows[0].missing);
+    let mut after = reopen(&folder);
+    after.run_ok(
+        "recovery.restore",
+        json!({"snapshots": [rows[0].snapshot.file.clone()]}),
+    );
+    assert!(after.project().unwrap().element(element).is_some());
+    assert!(after.dirty_scopes().contains(&Scope::Element(element)));
+}
+
+#[test]
+fn starter_library_elements_never_get_snapshots() {
+    let starter = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter");
+    let tmp = TempDir::new("recovery-starter");
+    let mut engine = reda_testkit::test_engine_with_library(&starter);
+    engine.run_ok("project.new", json!({"path": tmp.path(), "name": "Demo"}));
+    let capacitor = "e2a20189-4b01-467b-a2c0-1e5ddd811319";
+    let out = engine.run_ok("library.element.open", json!({"element": capacitor}));
+    assert_eq!(out["read_only"], true);
+    let folder = tmp.path().join("Demo");
+    let dir = recovery::project_dir(&folder);
+    recovery::View::of(&engine)
+        .write(&dir, &[Scope::Element(capacitor.parse().unwrap())], 5)
+        .unwrap();
+    assert!(found(&dir, &folder).is_empty());
+}

@@ -383,7 +383,7 @@ pub(crate) enum Parsed {
     /// The Project file's bytes, checked to parse.
     Project(Vec<u8>),
     Document(DocumentEntry, Vec<u8>),
-    Element(Uuid, LibraryElement),
+    Element(Uuid, Box<LibraryElement>),
 }
 
 pub(crate) fn parse_snapshot(dir: &Path, snapshot: &Snapshot) -> Result<Parsed, String> {
@@ -423,7 +423,7 @@ pub(crate) fn parse_snapshot(dir: &Path, snapshot: &Snapshot) -> Result<Parsed, 
                     read.uuid()
                 ));
             }
-            Parsed::Element(*element, read)
+            Parsed::Element(*element, Box::new(read))
         }
         Target::Unknown => return Err("the manifest does not list it".into()),
     })

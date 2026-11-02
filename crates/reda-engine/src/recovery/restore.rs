@@ -52,7 +52,7 @@ pub(crate) fn restore(
         if let (Parsed::Element(uuid, element), super::Target::Element { library, .. }) =
             (snapshot, &row.target)
         {
-            elements.push((*uuid, *library, element.clone()));
+            elements.push((*uuid, *library, (**element).clone()));
         }
     }
 
