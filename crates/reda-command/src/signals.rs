@@ -61,7 +61,9 @@ impl Signals {
         self
     }
 
-    pub(crate) fn report(&self, progress: f64, total: Option<f64>, message: &str) {
+    /// Passes a progress report to the reporter, if there is one. Commands report through
+    /// [`crate::Context::progress`]; a bridge relays reports from the far side here.
+    pub fn report(&self, progress: f64, total: Option<f64>, message: &str) {
         if let Some(reporter) = &self.progress {
             reporter.report(progress, total, message);
         }

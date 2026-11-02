@@ -344,12 +344,14 @@ fn an_unavailable_menu_item_is_greyed_with_the_reason_on_hover() {
     h.run();
     h.get_by_role_and_label(Role::Button, "File").click();
     h.run();
-    // The toolbar has a Save All button too; the open menu's comes first, as the menu bar
-    // draws it.
-    let save = h
-        .get_all_by_role_and_label(Role::Button, "Save All")
-        .next()
-        .unwrap();
+    // The menu item reads with its shortcut, which tells it from the toolbar's Save All.
+    let shortcut = if cfg!(target_os = "macos") {
+        "Cmd+S"
+    } else {
+        "Ctrl+S"
+    };
+    let label = format!("Save All {shortcut}");
+    let save = h.get_by_role_and_label(Role::Button, &label);
     assert!(save.accesskit_node().is_disabled());
     save.hover();
     h.run_steps(120);

@@ -7,13 +7,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use egui::{Key, Modifiers, Panel, ThemePreference, Ui};
+use egui::{Panel, ThemePreference, Ui};
 use reda_engine::Engine;
 use reda_engine::preferences;
 use serde_json::json;
 
+use crate::agents as bridge_ui;
 use crate::bars::draw::{self, Invocation};
 use crate::bars::{self, Request};
+use crate::bridge::Bridge;
 use crate::canvas::{CanvasResources, canvas_id};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
@@ -23,21 +25,27 @@ use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
 use crate::projects_panel::{self, ProjectsAction};
 use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
+use crate::settings::{self, Outcome, SettingsDialog};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
-use crate::{crash, theme, tr};
+use crate::{crash, keymap, theme, tr};
 
 /// The REDA window.
 pub struct App {
     shell: Shell,
     files: FileDialogs,
     new_project: Option<NewProjectForm>,
+    /// The open settings dialog (Project Settings), if any.
+    settings: Option<SettingsDialog>,
     window_title: String,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
     /// A Crash Report from an earlier run, not yet offered.
     crash_report: Option<PathBuf>,
+    /// The control port, for agents.
+    bridge: Bridge,
+    bridge_waker_set: bool,
 }
 
 impl App {
@@ -51,9 +59,39 @@ impl App {
             shell,
             files: FileDialogs::default(),
             new_project: None,
+            settings: None,
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
+            bridge: Bridge::off(),
+            bridge_waker_set: false,
+        }
+    }
+
+    /// Hosts the control port `bridge` (see [`Bridge::start`]); without one the bridge is
+    /// off.
+    pub fn with_bridge(mut self, bridge: Bridge) -> App {
+        self.bridge = bridge;
+        self
+    }
+
+    pub fn bridge(&self) -> &Bridge {
+        &self.bridge
+    }
+
+    /// Between frames: runs the bridged Commands waiting, raising the window for a file
+    /// another app handed over.
+    fn pump_bridge(&mut self, ctx: &egui::Context) {
+        if !self.bridge_waker_set {
+            let waker = ctx.clone();
+            self.bridge.set_waker(move || waker.request_repaint());
+            self.bridge_waker_set = true;
+        }
+        self.bridge.pump(&mut self.shell);
+        if self.bridge.take_focus_request() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            self.drop_closed_canvases();
         }
     }
 
@@ -80,9 +118,10 @@ impl App {
             crate::icons::install_loaders(&ctx);
             self.theme_installed = true;
         }
+        self.pump_bridge(&ctx);
         self.collect_picked_files();
         self.update_title(&ctx);
-        self.undo_keys(&ctx);
+        self.keys(&ctx);
 
         let clicked = self.bars(ui);
         Panel::bottom("status-bar").show(ui, |ui| self.status_bar(ui));
@@ -107,13 +146,16 @@ impl App {
                         .report(tr!("error-show-in-folder", error = e.to_string()));
                 }
             }
+            Some(ProjectsAction::ProjectSettings) => self.open_project_settings(),
             // The Output Job dialog is still to come.
             Some(ProjectsAction::EditJob(_)) | None => {}
         }
+        self.show_settings(&ctx);
         if let Some(JournalAction::Export) = frame.journal {
             self.files.start(&ctx, Pick::ExportJournal);
         }
         self.drop_closed_canvases();
+        bridge_ui::ask(&ctx, &mut self.bridge, &mut self.shell);
         self.shell.save_view_if_due(std::time::Instant::now());
         self.crash_recovery(&ctx);
 
@@ -175,20 +217,47 @@ impl App {
         }
     }
 
-    /// Mod+Z undoes and Mod+Shift+Z (or Mod+Y) redoes, on the stack focus picks, unless a
-    /// text field has the keyboard.
-    fn undo_keys(&mut self, ctx: &egui::Context) {
+    /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs
+    /// take keys first: nothing runs while a text field has the keyboard or the New Project
+    /// dialog is open, and while a Project dialog is open only global keys apply, with
+    /// undo on the Project stack.
+    fn keys(&mut self, ctx: &egui::Context) {
         if ctx.egui_wants_keyboard_input() || self.new_project.is_some() {
             return;
         }
-        let (redo, undo) = ctx.input_mut(|i| {
-            let redo = i.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
-                || i.consume_key(Modifiers::COMMAND, Key::Y);
-            (redo, i.consume_key(Modifiers::COMMAND, Key::Z))
-        });
-        if undo || redo {
-            let dialog = projects_panel::dialog_open(ctx);
-            let _ = self.shell.undo(redo, dialog);
+        // The Project dialogs: the Projects panel's and the settings dialog.
+        let dialog = projects_panel::dialog_open(ctx) || self.settings.is_some();
+        let active = if dialog {
+            keymap::Active::default()
+        } else {
+            keymap::active(&self.shell)
+        };
+        let actions = ctx.input_mut(|i| self.shell.keymap().take(i, &active));
+        let document = self.shell.active_document().map(|d| d.document);
+        for action in actions {
+            // A key whose Command cannot run now does nothing, as its greyed menu item.
+            if let Ok((id, params)) = bars::resolve_in(&self.shell, &action, document, dialog).run {
+                let _ = self.shell.run_reporting(&id, params);
+            }
+        }
+    }
+
+    /// Opens the Project Settings dialog on the open Project, if there is one.
+    pub fn open_project_settings(&mut self) {
+        if let Some(project) = self.shell.engine().project() {
+            self.settings = Some(settings::project::dialog(project));
+        }
+    }
+
+    /// Draws the open settings dialog, and closes it or opens its folder picker as it asks.
+    fn show_settings(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.settings else {
+            return;
+        };
+        match dialog.show(ctx, &mut self.shell) {
+            Outcome::Open => {}
+            Outcome::Closed => self.settings = None,
+            Outcome::PickFolder => self.files.start(ctx, Pick::SettingsFolder),
         }
     }
 
@@ -218,6 +287,13 @@ impl App {
                     let _ = self
                         .shell
                         .run_reporting("project.library.add", json!({ "path": path }));
+                }
+            }
+            Some((Pick::SettingsFolder, path)) => {
+                if let (Some(folder), Some(dialog)) =
+                    (self.shell.engine().location(), &mut self.settings)
+                {
+                    dialog.picked_folder(&os::relative_path(folder, &path));
                 }
             }
             None => {}
@@ -280,17 +356,24 @@ impl App {
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panels_button(ui);
+                bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell);
                 ui.with_layout(
                     egui::Layout::left_to_right(egui::Align::Center),
-                    |ui| match self.shell.message() {
-                        Some(message) => {
+                    |ui| match (self.shell.message(), self.shell.note()) {
+                        (Some(message), _) => {
                             let message = message.to_owned();
                             ui.colored_label(ui.visuals().error_fg_color, message);
                             if ui.small_button(tr!("status-dismiss")).clicked() {
                                 self.shell.dismiss_message();
                             }
                         }
-                        None => {
+                        (None, Some(note)) => {
+                            ui.label(note.to_owned());
+                            if ui.small_button(tr!("status-dismiss")).clicked() {
+                                self.shell.dismiss_note();
+                            }
+                        }
+                        (None, None) => {
                             ui.weak(tr!("status-ready"));
                         }
                     },
@@ -417,8 +500,12 @@ pub fn run(
                 }
                 None => shell.reopen_last_project(),
             }
+            // After the Shell, so the catalogue agents see has the app's own Commands.
+            let bridge = Bridge::start(&shell);
             Ok(Box::new(
-                App::new(shell).with_render_state(render_state.clone()),
+                App::new(shell)
+                    .with_render_state(render_state.clone())
+                    .with_bridge(bridge),
             ))
         }),
     )

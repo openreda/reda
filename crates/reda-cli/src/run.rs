@@ -120,12 +120,14 @@ pub fn execute(args: RunArgs) -> ExitCode {
         Target::Command(id) => bridge::may_bridge(id),
         Target::Script(_) => true,
     };
-    let mut runner = match may_bridge
-        .then(|| bridge::connect(args.project.as_deref(), Source::Cli))
-        .flatten()
-    {
-        Some(connection) => Runner::Bridged(connection, Vec::new()),
-        None => Runner::Local(Box::new(
+    let bridged = match may_bridge {
+        true => bridge::connect(args.project.as_deref(), Source::Cli),
+        false => Ok(None),
+    };
+    let mut runner = match bridged {
+        Err(err) => return fail(serde_json::to_value(&err)),
+        Ok(Some(connection)) => Runner::Bridged(connection, Vec::new()),
+        Ok(None) => Runner::Local(Box::new(
             Engine::builder().trash(crate::os_trash::OsTrash).build(),
         )),
     };

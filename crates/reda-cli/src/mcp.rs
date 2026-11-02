@@ -52,7 +52,16 @@ pub fn execute(args: McpArgs) -> ExitCode {
         .enable_all()
         .build()
         .expect("start the async runtime");
-    let bridged = bridge::connect(args.project.as_deref(), Source::Mcp);
+    let bridged = match bridge::connect(args.project.as_deref(), Source::Mcp) {
+        Ok(bridged) => bridged,
+        Err(err) => {
+            eprintln!(
+                "{}",
+                serde_json::to_string_pretty(&err).expect("errors serialise")
+            );
+            return ExitCode::from(1);
+        }
+    };
     let is_bridged = bridged.is_some();
     let (writer, thread, catalogue) = match bridged {
         Some(connection) => match writer::spawn_bridge(connection) {

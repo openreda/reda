@@ -26,6 +26,17 @@ pub enum Source {
     Mcp,
 }
 
+impl Source {
+    /// How undo labels name the source of a bridged edit: "MCP: Add Track".
+    pub fn label(self) -> &'static str {
+        match self {
+            Source::Gui => "GUI",
+            Source::Cli => "CLI",
+            Source::Mcp => "MCP",
+        }
+    }
+}
+
 /// One Command run: its id, params and source, and the result or error.
 #[derive(Clone, Debug, PartialEq)]
 pub struct JournalEntry {

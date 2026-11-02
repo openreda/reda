@@ -22,6 +22,23 @@ status-dismiss = Dismiss
 status-panels = Panels
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
+status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
+
+## The bridge: agents connecting through the control port
+
+bridge-indicator-off = Agents: off
+bridge-indicator-on = Agents: on
+bridge-indicator-connected = Agents: { $count } connected
+bridge-switch = Let agents connect
+bridge-connected = Connected now
+bridge-allowed = Allowed agents
+bridge-none-allowed = None yet
+bridge-forget = Forget
+bridge-error = The bridge could not start: { $error }
+bridge-ask-title = Allow this agent?
+bridge-ask-body = { $agent } ({ $source }) wants to read and edit the open Project. It can't save: its changes show here as unsaved, and you can undo them.
+bridge-allow = Allow
+bridge-deny = Deny
 
 ## Docking
 
@@ -230,6 +247,23 @@ violation-out-of-sync = The PCB is out of sync with the schematic
 messages-general = General
 message-preferences = Preferences: { $warning }
 message-missing-font = Font “{ $font }” is not installed; its text is drawn in Noto Sans
+
+## The Keymap's load errors, shown in Messages
+
+keymap-unreadable = Keymap { $file } could not be read: { $error }
+keymap-unknown-section = Keymap { $file }: “{ $section }” is not a section; use [[bind]] or [[unbind]]
+keymap-bad-entry = Keymap { $file }: { $error }
+keymap-unknown-field = a binding has an unknown field “{ $field }”
+keymap-missing-field = a binding has no “{ $field }”
+keymap-missing-field-for = the binding of { $key } has no “{ $field }”
+keymap-not-a-string = “{ $field }” must be a string
+keymap-bad-key = “{ $key }” is not a key: { $error }
+keymap-bad-context = the binding of { $key } names “{ $context }”, which is not a context
+keymap-preset-params = the binding of { $key } names a Preset, which has fixed params; give none
+keymap-bad-number = a number in the params is not finite
+keymap-clash = Keymap { $file }: { $key } is bound twice in the { $context } context; the first binding is kept
+keymap-base-unbind = Keymap { $file }: only keymap.toml can unbind keys ({ $key })
+keymap-unknown-command = Keymap { $file }: { $key } names { $command }, which is not a Command or Preset
 messages-run-erc = Run ERC
 messages-run-drc = Run DRC
 messages-show-waived = Show waived
@@ -296,3 +330,71 @@ crash-open-folder = Open Folder
 crash-report-github = Report on GitHub…
 crash-report-github-hint = Opens a pre-filled issue in your browser for you to review before sending.
 crash-dismiss = Close
+
+## Settings dialogs
+
+settings-ok = OK
+settings-apply = Apply
+settings-invalid = Fix the flagged values first.
+settings-page-invalid = { $page } (has invalid values)
+project-settings-title = Project Settings
+settings-page-properties = Properties
+settings-page-erc = ERC
+settings-page-fab-presets = Fab Presets
+settings-page-libraries = Libraries
+settings-title = Title
+settings-revision = Revision
+settings-date = Date
+settings-author = Author
+settings-company = Company
+settings-board-thickness = Board thickness (mm)
+settings-copper-weight = Copper weight
+settings-fab-notes = The board thickness and copper weight are used only in fab notes. Give the copper weight as text, such as 1 oz.
+settings-thickness-invalid = Not a length. Give mm, such as 1.6, or a unit, such as 63mil.
+settings-thickness-positive = The board thickness must be more than zero.
+settings-erc-choice = { $check }: { $severity }
+settings-erc-matrix = Pin-type matrix (fixed): E is a Pin Conflict, W is Mixed Pin Types.
+pin-type-input = Input
+pin-type-input-short = In
+pin-type-output = Output
+pin-type-output-short = Out
+pin-type-bidirectional = Bidirectional
+pin-type-bidirectional-short = Bi
+pin-type-tri-state = Tri-state
+pin-type-tri-state-short = Tri
+pin-type-passive = Passive
+pin-type-passive-short = Pas
+pin-type-power-in = Power In
+pin-type-power-in-short = PI
+pin-type-power-out = Power Out
+pin-type-power-out-short = PO
+pin-type-open-collector = Open Collector
+pin-type-open-collector-short = OC
+pin-type-open-emitter = Open Emitter
+pin-type-open-emitter-short = OE
+pin-type-not-connected = Not Connected
+pin-type-not-connected-short = NC
+settings-preset-none = The Project has no Fab Presets.
+settings-preset-update = Update from Source…
+settings-preset-will-update = Updates from its source on Apply.
+settings-preset-keep = Keep Current
+settings-preset-save-user = Save as User Preset…
+settings-preset-user-name = User preset name
+settings-preset-save = Save
+settings-preset-saved = Saved as the user preset { $name }.
+settings-preset-not-saved = Could not save { $name }: { $error }
+settings-preset-no-source = Could not read the source: { $error }
+settings-preset-up-to-date = This copy already matches its source.
+settings-preset-preview = Updating from the source changes:
+settings-preset-field = Field
+settings-preset-project = This Project
+settings-preset-source = Source
+settings-preset-confirm = Update on Apply
+settings-preset-note = Updating a copy changes only the preset Output Jobs use. Board Setup has its own rules.
+settings-libraries-note = Folders relative to the Project folder, so they move with it.
+settings-library-path = Library folder { $number }
+settings-library-remove = Remove Library folder { $number }
+settings-library-add-path = Add Path
+settings-library-blank = Give a folder.
+settings-library-invalid = { $reason }
+settings-library-duplicate = { $path } is listed already.

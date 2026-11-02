@@ -7,6 +7,9 @@ use std::path::{Path, PathBuf};
 use reda_command::{
     CommandError, ElementLocation, FootprintCopyData, PartCopy, PartSource, Session, UserDirs,
 };
+/// How `project.library.add` stores a Project Library path, for front ends that check a
+/// path before running it.
+pub use reda_library::normalise_library_path;
 use reda_library::{ElementKind, LibraryFiles, LibraryIndex, LibraryRoot, Origin, scan};
 use reda_model::{Footprint, LibraryInfo, Part, Symbol, Uuid};
 

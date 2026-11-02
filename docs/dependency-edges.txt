@@ -117,4 +117,5 @@ reda-ui -> rfd
 reda-ui -> schemars
 reda-ui -> serde
 reda-ui -> serde_json
+reda-ui -> toml_edit
 reda-ui -> unic-langid

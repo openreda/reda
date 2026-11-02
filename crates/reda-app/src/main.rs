@@ -1,7 +1,9 @@
 //! The REDA GUI binary.
 //!
-//! Usage: `reda-app [PROJECT]`, where PROJECT is a `.reda` file or a Project folder to
-//! open at once. The OS-specific work happens here: the engine gets the OS trash for
+//! Usage: `reda-app [PROJECT]`, where PROJECT is a `.reda` file or a Project folder (or a
+//! `.redasch`/`.redapcb` Document file) to open at once. When a running instance already
+//! has that Project open, the file is handed to it over the bridge and this process exits.
+//! The OS-specific work happens here: the engine gets the OS trash for
 //! deleted Documents' files and the machine's installed fonts, then `reda-ui` runs the
 //! window.
 
@@ -39,6 +41,13 @@ fn main() -> ExitCode {
     }
 
     let dirs = user_dirs::discover();
+    // A file the OS opened with REDA (`.reda`, `.redasch`, `.redapcb`): if a running
+    // instance holds its Project, it focuses the file there and this one is not needed.
+    if let (Some(path), Some(dirs)) = (&project, &dirs)
+        && reda_ui::bridge::hand_off(dirs, path)
+    {
+        return ExitCode::SUCCESS;
+    }
     if let Some(dirs) = &dirs {
         // A panic leaves a local Crash Report, offered on the next start; never uploaded.
         reda_ui::crash::install(reda_ui::crash::reports_dir(dirs), env!("REDA_VERSION"));
