@@ -55,6 +55,9 @@ pub struct Frame {
     pub messages: Vec<panels::messages::Action>,
     /// Commands to call from the GUI, which ask for params they lack in a dialog.
     pub calls: Vec<(String, Value)>,
+    /// What the keys pressed in windows of their own bind, resolved: the main window's
+    /// keys are the App's.
+    pub keys: Vec<(String, Value)>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -260,6 +263,10 @@ impl Cx<'_> {
                 .inner;
             if ctx.input(|i| i.viewport().close_requested()) {
                 self.run("layout.window.close", json!({"window": window.id}));
+            }
+            if !ctx.text_edit_focused() {
+                let keys = crate::keymap::resolve_keys(&ctx, self.shell, None);
+                self.frame.keys.extend(keys);
             }
             let mut zones = std::mem::replace(&mut self.zones, Zones::empty(Rect::NOTHING));
             zones.area = area;

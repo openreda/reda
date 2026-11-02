@@ -101,6 +101,33 @@ impl Active {
     }
 }
 
+/// The Commands the keys pressed this frame in `ctx`'s window bind, resolved and ready to
+/// run; keys whose Command cannot run now are left out, as their greyed menu items. With a
+/// dialog open (`dialog` names its undo stack) only global keys apply. A focused Panel
+/// keeps the canvas's keys (Del, Mod+C, the Tools') off it, and a focused button keeps the
+/// plain keys (Space presses it).
+pub fn resolve_keys(
+    ctx: &egui::Context,
+    shell: &Shell,
+    dialog: Option<reda_engine::model::Scope>,
+) -> Vec<(String, serde_json::Value)> {
+    let mut active = active(shell);
+    let panel = matches!(shell.layout().focus, Some(crate::layout::TabKey::Panel(_)));
+    if dialog.is_some() || panel {
+        active = Active::default();
+    }
+    let widget_focused = ctx.egui_wants_keyboard_input();
+    let actions = ctx.input_mut(|i| {
+        let wanted = |chord: &Chord| !widget_focused || chord.passes_focused_widgets();
+        shell.keymap().take_where(i, &active, wanted)
+    });
+    let document = shell.active_document().map(|d| d.document);
+    actions
+        .iter()
+        .filter_map(|action| bars::resolve_in(shell, action, document, dialog).run.ok())
+        .collect()
+}
+
 /// What is active in `shell`: its Tool and its active Document's type.
 pub fn active(shell: &Shell) -> Active {
     Active {
