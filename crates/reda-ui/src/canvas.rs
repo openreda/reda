@@ -13,5 +13,5 @@ mod gpu;
 mod widget;
 
 pub use camera::{Camera, CanvasInput, grid_pitch};
-pub use gpu::{CanvasFrame, CanvasGpu, CanvasResources, SceneHandle, paint};
+pub use gpu::{CanvasFrame, CanvasGpu, CanvasResources, SceneHandle, SelectionHandle, paint};
 pub use widget::{canvas, canvas_id};

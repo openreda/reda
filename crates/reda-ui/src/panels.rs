@@ -1,4 +1,6 @@
-//! The Panels' contents. Each draws from `&Shell` and returns the Commands its clicks
-//! ask for; the docking layer runs them after the frame.
+//! The Panels' contents. Each draws from the [`Shell`](crate::shell::Shell) and returns
+//! what was clicked: the Commands to run, or actions for the window to apply after the
+//! frame.
 
+pub mod messages;
 pub mod properties;

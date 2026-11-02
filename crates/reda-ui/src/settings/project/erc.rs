@@ -54,20 +54,20 @@ fn severity_name(severity: Severity) -> String {
 /// An ERC check's name for the user.
 pub fn check_name(check: ErcCheck) -> String {
     match check {
-        ErcCheck::UnconnectedInput => tr!("erc-unconnected-input"),
-        ErcCheck::UnconnectedPin => tr!("erc-unconnected-pin"),
-        ErcCheck::PinConflict => tr!("erc-pin-conflict"),
-        ErcCheck::PinConflictMixed => tr!("erc-pin-conflict-mixed"),
-        ErcCheck::UndrivenPower => tr!("erc-undriven-power"),
-        ErcCheck::SinglePinNet => tr!("erc-single-pin-net"),
-        ErcCheck::DanglingWire => tr!("erc-dangling-wire"),
-        ErcCheck::UnattachedLabel => tr!("erc-unattached-label"),
-        ErcCheck::NoConnectConnected => tr!("erc-no-connect-connected"),
-        ErcCheck::MultipleNetNames => tr!("erc-multiple-net-names"),
-        ErcCheck::SingleSheetPort => tr!("erc-single-sheet-port"),
-        ErcCheck::DuplicateDesignator => tr!("erc-duplicate-designator"),
-        ErcCheck::UnplacedUnits => tr!("erc-unplaced-units"),
-        ErcCheck::UnitDataMismatch => tr!("erc-unit-data-mismatch"),
+        ErcCheck::UnconnectedInput => tr!("check-unconnected-input"),
+        ErcCheck::UnconnectedPin => tr!("check-unconnected-pin"),
+        ErcCheck::PinConflict => tr!("check-pin-conflict"),
+        ErcCheck::PinConflictMixed => tr!("check-pin-conflict-mixed"),
+        ErcCheck::UndrivenPower => tr!("check-undriven-power"),
+        ErcCheck::SinglePinNet => tr!("check-single-pin-net"),
+        ErcCheck::DanglingWire => tr!("check-dangling-wire"),
+        ErcCheck::UnattachedLabel => tr!("check-unattached-label"),
+        ErcCheck::NoConnectConnected => tr!("check-no-connect-connected"),
+        ErcCheck::MultipleNetNames => tr!("check-multiple-net-names"),
+        ErcCheck::SingleSheetPort => tr!("check-single-sheet-port"),
+        ErcCheck::DuplicateDesignator => tr!("check-duplicate-designator"),
+        ErcCheck::UnplacedUnits => tr!("check-unplaced-units"),
+        ErcCheck::UnitDataMismatch => tr!("check-unit-data-mismatch"),
     }
 }
 

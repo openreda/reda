@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use reda_ui::canvas::{CanvasFrame, CanvasResources, SceneHandle};
+use reda_ui::canvas::{CanvasFrame, CanvasResources, SceneHandle, SelectionHandle};
 use reda_ui::engine::model::Uuid;
 use reda_ui::engine::model::geom::{Millideg, Nm, Point};
 use reda_ui::engine::render::gpu::{GridSpec, Headless, wgpu};
@@ -54,6 +54,7 @@ fn frame(generation: u64, scene: &Arc<Scene>) -> CanvasFrame {
             radius_px: 1.0,
             color: Rgba([255, 255, 255, 128]),
         }),
+        selection: SelectionHandle::default(),
     }
 }
 
@@ -116,4 +117,26 @@ fn a_canvas_records_again_when_what_it_shows_changes() {
     assert_eq!(canvas.recorded(), 6);
     // The geometry went up twice: once at first, once for the edited Document.
     assert_eq!(canvas.writes().0.geometry, 2);
+}
+
+#[test]
+fn selecting_objects_rewrites_only_the_flags() {
+    let Some(gpu) = headless() else { return };
+    let mut res = CanvasResources::new(gpu.device(), wgpu::TextureFormat::Rgba8Unorm, 1);
+    let scene = Arc::new(paper());
+    let base = frame(1, &scene);
+    prepare(&gpu, &mut res, &base);
+    let before = res.canvas(base.canvas).unwrap().writes().0;
+    assert_eq!(before.flags, 0, "an empty selection writes no flags");
+
+    let mut selected = base.clone();
+    selected.selection = SelectionHandle {
+        generation: 7,
+        objects: Arc::from([Uuid::from_u128(1)]),
+    };
+    assert!(prepare(&gpu, &mut res, &selected), "a selection re-records");
+    assert!(!prepare(&gpu, &mut res, &selected));
+    let after = res.canvas(base.canvas).unwrap().writes().0;
+    assert_eq!(after.flags, 1);
+    assert_eq!(after.geometry, before.geometry);
 }

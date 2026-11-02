@@ -69,7 +69,8 @@ fn menu(h: &mut Harness<'static, App>, item: &str, action: &str) {
         None => h.get_by_label(item).click_secondary(),
     }
     h.run();
-    h.get_by_label(action).click();
+    // The toolbar may hold a button of the same name; the context menu is drawn last.
+    h.get_all_by_label(action).last().unwrap().click();
     h.run();
 }
 

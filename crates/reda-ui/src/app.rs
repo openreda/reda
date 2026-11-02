@@ -2,6 +2,7 @@
 //! canvases and Panels), and the status bar with the Panels button. Drawing only; the state
 //! lives in [`Shell`].
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -10,9 +11,12 @@ use reda_engine::Engine;
 use reda_engine::preferences;
 use serde_json::json;
 
+use crate::bars::draw::{self, Invocation};
+use crate::bars::{self, Request};
 use crate::canvas::{CanvasResources, canvas_id};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
+use crate::journal_panel::JournalAction;
 use crate::layout::PanelId;
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
@@ -70,17 +74,22 @@ impl App {
         if !self.theme_installed {
             let prefs = preferences::current(self.shell.engine().user_dirs());
             theme::install(&ctx, theme::preference(&prefs));
+            crate::icons::install_loaders(&ctx);
             self.theme_installed = true;
         }
         self.collect_picked_files();
         self.update_title(&ctx);
         self.undo_keys(&ctx);
 
-        Panel::top("menu-bar").show(ui, |ui| self.menu_bar(ui));
+        let clicked = self.bars(ui);
         Panel::bottom("status-bar").show(ui, |ui| self.status_bar(ui));
         let frame = docking::show(ui, &mut self.shell);
-        for (id, params) in frame.commands {
-            let _ = self.shell.run_reporting(id, params);
+        for (id, params) in clicked.into_iter().chain(frame.commands) {
+            let _ = self.shell.run_reporting(&id, params);
+        }
+        self.handle_requests(&ctx);
+        for action in frame.messages {
+            crate::panels::messages::apply(&mut self.shell, action);
         }
         if let Some(action) = frame.start {
             self.start_action(&ctx, action);
@@ -100,6 +109,9 @@ impl App {
             Some(ProjectsAction::EditJob(_)) | None => {}
         }
         self.show_settings(&ctx);
+        if let Some(JournalAction::Export) = frame.journal {
+            self.files.start(&ctx, Pick::ExportJournal);
+        }
         self.drop_closed_canvases();
 
         if let Some(form) = &mut self.new_project {
@@ -166,6 +178,9 @@ impl App {
                 let _ = self.shell.open_project(&path);
                 self.drop_closed_canvases();
             }
+            Some((Pick::ExportJournal, path)) => {
+                let _ = self.shell.export_journal(&path);
+            }
             Some((Pick::NewProjectLocation, path)) => {
                 if let Some(form) = &mut self.new_project {
                     form.location = path.display().to_string();
@@ -202,52 +217,45 @@ impl App {
         }
     }
 
-    fn menu_bar(&mut self, ui: &mut Ui) {
-        egui::MenuBar::new().ui(ui, |ui| {
-            ui.menu_button(tr!("menu-file"), |ui| {
-                if ui.button(tr!("menu-file-new-project")).clicked() {
-                    self.open_new_project();
-                }
-                if ui.button(tr!("menu-file-open-project")).clicked() {
-                    self.files.start(ui.ctx(), Pick::OpenProject);
-                }
-                let open = self.shell.engine().project().is_some();
-                if ui
-                    .add_enabled(open, egui::Button::new(tr!("menu-file-save-all")))
-                    .clicked()
-                {
-                    let _ = self.shell.run("project.save", json!({}));
-                }
-                ui.separator();
-                if ui.button(tr!("menu-file-quit")).clicked() {
-                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
-                }
-            });
-            ui.menu_button(tr!("menu-view"), |ui| {
-                if ui.button(tr!("menu-view-zoom-fit")).clicked()
-                    && let Some(tab) = self.shell.active_document_mut()
-                {
-                    tab.camera = None;
-                }
-                ui.menu_button(tr!("menu-view-theme"), |ui| {
-                    let current = ui.ctx().options(|o| o.theme_preference);
-                    for (choice, label, value) in [
-                        (ThemePreference::System, tr!("theme-follow-os"), "follow_os"),
-                        (ThemePreference::Dark, tr!("theme-dark"), "dark"),
-                        (ThemePreference::Light, tr!("theme-light"), "light"),
-                    ] {
-                        if ui.radio(current == choice, label).clicked() {
-                            ui.ctx().set_theme(choice);
-                            // Kept as the Preference when there is a per-user folder.
-                            let _ = self.shell.run(
-                                "app.preferences.set",
-                                json!({"key": "general.theme", "value": value}),
-                            );
-                        }
+    /// The menu bar and toolbar for the active Document's type, drawn from the bar data
+    /// files. Returns the item clicked, if any.
+    fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
+        let bars = bars::for_document(bars::active_type(&self.shell));
+        let checked =
+            BTreeMap::from([("view.theme.set", json!({ "theme": theme_value(ui.ctx()) }))]);
+        let cx = draw::Cx {
+            shell: &self.shell,
+            checked: &checked,
+            document: self.shell.active_document().map(|d| d.document),
+        };
+        let menu = Panel::top("menu-bar")
+            .show(ui, |ui| draw::menu_bar(ui, &cx, bars))
+            .inner;
+        let tool = Panel::top("toolbar")
+            .show(ui, |ui| draw::toolbar(ui, &cx, bars))
+            .inner;
+        menu.or(tool)
+    }
+
+    /// Carries out what the view Commands asked of the window.
+    fn handle_requests(&mut self, ctx: &egui::Context) {
+        for request in bars::take_requests(self.shell.engine()) {
+            match request {
+                Request::NewProject => self.open_new_project(),
+                Request::OpenProject => self.files.start(ctx, Pick::OpenProject),
+                Request::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                Request::ZoomFit(document) => {
+                    if let Some(tab) = self.shell.document_tab_mut(document) {
+                        tab.camera = None;
                     }
-                });
-            });
-        });
+                }
+                Request::Theme(choice) => ctx.set_theme(match choice {
+                    preferences::Theme::FollowOs => ThemePreference::System,
+                    preferences::Theme::Dark => ThemePreference::Dark,
+                    preferences::Theme::Light => ThemePreference::Light,
+                }),
+            }
+        }
     }
 
     fn status_bar(&mut self, ui: &mut Ui) {
@@ -325,6 +333,15 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         App::ui(self, ui);
+    }
+}
+
+/// The `general.theme` value of the theme the window shows.
+fn theme_value(ctx: &egui::Context) -> &'static str {
+    match ctx.options(|o| o.theme_preference) {
+        ThemePreference::System => "follow_os",
+        ThemePreference::Dark => "dark",
+        ThemePreference::Light => "light",
     }
 }
 
