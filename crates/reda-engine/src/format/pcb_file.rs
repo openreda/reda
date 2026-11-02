@@ -57,6 +57,9 @@
 //!       {"x":0,"y":0},
 //!       …
 //!     ],"copper":true,"vias":true}
+//!   ],
+//!   "waivers": [
+//!     {"uuid":"…","check":"clearance","objects":["…","…"],"comment":"…"}
 //!   ]
 //! }
 //! ```
@@ -66,16 +69,16 @@
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
-//! Footprints. `tracks`, `vias`, `free_pads`, `zones` and `keepouts` are left out while
-//! the board has none, `placement_origin` while it is not set. Zone fills are never stored
-//! here: they live in the `.reda/` cache.
+//! Footprints. `tracks`, `vias`, `free_pads`, `zones`, `keepouts` and `waivers` (of DRC
+//! Violations) are left out while the board has none, `placement_origin` while it is not
+//! set. Zone fills are never stored here: they live in the `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, FreePad, InDocument,
     Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, PlacementOrigin,
-    Rules, Track, Uuid, Via, Zone,
+    Rules, Track, Uuid, Via, Waiver, Zone,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -142,6 +145,9 @@ pub(crate) struct PcbFile {
     /// The Keepouts; left out while the board has none.
     #[serde(default)]
     keepouts: Vec<Keepout>,
+    /// The Waivers of DRC Violations, sorted by UUID; left out while the board has none.
+    #[serde(default)]
+    waivers: Vec<Waiver>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -210,6 +216,9 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     }
     if pcb.keepouts().next().is_some() {
         w.containers("keepouts", pcb.keepouts(), |k| k.uuid, "vertices")?;
+    }
+    if pcb.waivers().next().is_some() {
+        w.table("waivers", pcb.waivers(), |r| r.uuid)?;
     }
     Ok(w.finish())
 }
@@ -312,6 +321,11 @@ pub(crate) fn read_pcb_file(
         file.keepouts
             .into_iter()
             .map(|k| Object::Keepout(InDocument::new(doc, k))),
+    );
+    objects.extend(
+        file.waivers
+            .into_iter()
+            .map(|w| Object::Waiver(InDocument::new(doc, w))),
     );
     Ok(objects)
 }

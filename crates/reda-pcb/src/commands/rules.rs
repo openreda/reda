@@ -1,10 +1,11 @@
-//! The board-wide design rules and the DRC severities.
+//! The board-wide design rules and applying a Fab Preset's. The DRC severities are set
+//! with `drc.set_severity` ([`super::drc`]).
 
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
 };
 use reda_model::geom::Nm;
-use reda_model::{DrcCheck, InDocument, Object, Project, Rules, Severity, Uuid};
+use reda_model::{InDocument, Object, Project, Rules, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,6 @@ use super::{needs_pcb, optional_non_negative, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(RulesSet);
-    registry.add(SeveritySet);
     registry.add(FabPresetDiff);
     registry.add(FabPresetApply);
 }
@@ -91,44 +91,6 @@ impl Command for RulesSet {
         cx.tx()?
             .replace(Object::BoardSetup(InDocument::new(document, setup)))?;
         Ok(rules)
-    }
-}
-
-pub struct SeveritySet;
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SeveritySetParams {
-    /// The DRC check.
-    pub check: DrcCheck,
-    pub severity: Severity,
-}
-
-impl Command for SeveritySet {
-    const META: Meta = Meta {
-        id: "pcb.drc.set_severity",
-        title: "Set DRC Severity",
-        description: "Sets how one DRC check reports its Violations: `error`, `warning` or \
-                      `off`.",
-        category: "pcb",
-        icon: "severity",
-        kind: Kind::Edit,
-    };
-    type Params = SeveritySetParams;
-    type Output = ();
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        needs_pcb(cx)
-    }
-
-    fn run(&self, cx: &mut Context<'_>, p: SeveritySetParams) -> Result<(), CommandError> {
-        let pcb = pcb(cx)?;
-        let document = pcb.uuid;
-        let mut setup = pcb.setup().clone();
-        setup.severities.set(p.check, p.severity);
-        cx.tx()?
-            .replace(Object::BoardSetup(InDocument::new(document, setup)))?;
-        Ok(())
     }
 }
 
