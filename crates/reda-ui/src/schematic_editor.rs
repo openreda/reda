@@ -22,7 +22,7 @@ use serde_json::{Value, json};
 use crate::canvas::interact::{
     BoxMode, Combine, Pointer, SnapTargets, box_select, combine, hit_test,
 };
-use crate::canvas::{LiveHandle, Overlay};
+use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::shell::Shell;
 use crate::tools::Tool;
 
@@ -165,7 +165,11 @@ fn show(
             Vec::new(),
             (0.0, 0.0),
             Overlay {
-                rubber_band: Some((*from, *to, BoxMode::of_drag(*from, *to))),
+                rubber_band: Some(RubberBand {
+                    from: *from,
+                    to: *to,
+                    mode: BoxMode::of_drag(*from, *to),
+                }),
                 ..Overlay::default()
             },
         ),

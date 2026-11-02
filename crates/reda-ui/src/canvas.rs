@@ -17,4 +17,6 @@ pub use camera::{Camera, CanvasInput, grid_pitch};
 pub use gpu::{
     CanvasFrame, CanvasGpu, CanvasResources, LiveHandle, SceneHandle, SelectionHandle, paint,
 };
-pub use widget::{CanvasInputs, Overlay, canvas, canvas_id, canvas_input, canvas_paint};
+pub use widget::{
+    CanvasInputs, Overlay, RubberBand, canvas, canvas_id, canvas_input, canvas_paint,
+};

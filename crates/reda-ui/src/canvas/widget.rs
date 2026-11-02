@@ -31,12 +31,20 @@ const WIRE_NM: f64 = 152_400.0;
 /// What a Tool draws over the canvas this frame, besides the marks on the Scene's objects.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Overlay {
-    /// A selection box being dragged: its corners (nm) and how it picks.
-    pub rubber_band: Option<((f64, f64), (f64, f64), BoxMode)>,
+    /// A selection box being dragged.
+    pub rubber_band: Option<RubberBand>,
     /// Wires a drag in flight redraws, as (from, to).
     pub wires: Arc<[(Point, Point)]>,
     /// Where the pointer snapped to.
     pub cursor: Option<Point>,
+}
+
+/// A selection box being dragged out: its corners (nm) and how it picks.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RubberBand {
+    pub from: (f64, f64),
+    pub to: (f64, f64),
+    pub mode: BoxMode,
 }
 
 /// One frame of a canvas's layout and input.
@@ -150,7 +158,12 @@ fn overlay(ui: &Ui, rect: Rect, camera: &Camera, overlay: &Overlay, palette: &Pa
         painter.line_segment([c - egui::vec2(r, 0.0), c + egui::vec2(r, 0.0)], stroke);
         painter.line_segment([c - egui::vec2(0.0, r), c + egui::vec2(0.0, r)], stroke);
     }
-    if let Some((a, b, mode)) = overlay.rubber_band {
+    if let Some(RubberBand {
+        from: a,
+        to: b,
+        mode,
+    }) = overlay.rubber_band
+    {
         let band = Rect::from_two_pos(camera.screen_point(rect, a), camera.screen_point(rect, b));
         painter.rect_filled(band, 0.0, accent.gamma_multiply(0.12));
         let stroke = Stroke::new(1.0, accent);
