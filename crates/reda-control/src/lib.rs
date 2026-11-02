@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use reda_engine::Engine;
 use reda_engine::store;
 
-pub use server::{Call, ControlServer};
+pub use server::{Admission, Agent, Call, ControlServer};
 
 /// The open Project's file (`<folder>/<name>.reda`), [`normalize`]d, as instance files
 /// record it.

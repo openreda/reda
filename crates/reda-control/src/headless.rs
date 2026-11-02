@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use std::thread::JoinHandle;
 
 use reda_engine::Engine;
-use reda_engine::command::{Signals, UserDirs};
+use reda_engine::command::UserDirs;
 use reda_engine::journal::JournalEntry;
 
 use crate::{Call, ControlServer, project_file};
@@ -43,13 +43,9 @@ impl HeadlessHost {
             let _ = ready_tx.send((engine.registry().catalogue(), project_file(&engine)));
             if let Ok(Some((server, calls))) = start_rx.recv() {
                 for call in calls {
-                    let outcome = engine.run_from(
-                        call.source,
-                        &call.id,
-                        call.params.clone(),
-                        &Signals::default(),
-                    );
-                    call.reply(outcome);
+                    let source = call.source;
+                    let _ = call
+                        .run(|id, params, signals| engine.run_from(source, id, params, signals));
                     let _ = server.set_project(project_file(&engine));
                 }
             }

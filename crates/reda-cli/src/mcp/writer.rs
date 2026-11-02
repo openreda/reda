@@ -72,7 +72,9 @@ pub fn spawn_bridge(
 ) -> Result<(Writer, WriterThread, Value), CommandError> {
     let catalogue = connection.list()?;
     let (writer, thread) = serve(move |rx| {
-        drain(rx, |id, params, _signals| connection.run(id, params));
+        drain(rx, |id, params, signals| {
+            connection.run_with(id, params, signals)
+        });
         Leftover {
             project: None,
             dirty_files: 0,
@@ -90,7 +92,7 @@ fn serve(
 }
 
 /// Runs every Command sent until every [`Writer`] is dropped. A Command cancelled while
-/// queued is not run. Progress and cancellation are not forwarded over the bridge yet.
+/// queued is not run. Over the bridge, progress and cancellation cross the control port.
 fn drain(
     mut rx: mpsc::UnboundedReceiver<Message>,
     mut run: impl FnMut(&str, Value, &Signals) -> Outcome,

@@ -14,7 +14,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use reda_engine::command::{CommandError, FontFace, Kind};
+use reda_engine::command::{CommandError, FontFace, Kind, Signals};
+use reda_engine::journal::Source;
 use reda_engine::model::geom::Point;
 use reda_engine::model::{
     DocumentKind, HERSHEY_FONT, LayerKind, NOTO_SANS_FONT, Scope, Severity, Side, Uuid, Violation,
@@ -30,6 +31,7 @@ use crate::messages::{
 };
 use crate::recovery::{self, Recorder};
 use crate::selection::{self, Selection};
+pub use crate::tool_preview::ToolPreview;
 use crate::tr;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
 
@@ -107,6 +109,10 @@ pub struct Shell {
     asked_fonts: BTreeSet<String>,
     generation: u64,
     message: Option<String>,
+    /// A status-bar note that is not an error, such as a Tool a bridged edit cancelled.
+    note: Option<String>,
+    /// The preview of the Tool in use.
+    tool: Option<ToolPreview>,
     messages: Messages,
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
@@ -138,6 +144,8 @@ impl Shell {
             asked_fonts: BTreeSet::new(),
             generation: 0,
             message: None,
+            note: None,
+            tool: None,
             messages: Messages::default(),
             marked: SelectionHandle::default(),
             closed_views: BTreeMap::new(),
@@ -231,6 +239,92 @@ impl Shell {
 
     pub fn dismiss_message(&mut self) {
         self.message = None;
+    }
+
+    /// The status-bar note, if any: news that is not an error.
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
+    }
+
+    pub fn dismiss_note(&mut self) {
+        self.note = None;
+    }
+
+    /// Starts a Tool's preview, replacing any other.
+    pub fn begin_tool(&mut self, preview: ToolPreview) {
+        self.tool = Some(preview);
+    }
+
+    /// The preview of the Tool in use; `None` once it ends or a bridged edit cancels it.
+    pub fn tool(&self) -> Option<&ToolPreview> {
+        self.tool.as_ref()
+    }
+
+    /// Ends the Tool's preview: it committed or the user abandoned it.
+    pub fn end_tool(&mut self) {
+        self.tool = None;
+    }
+
+    /// Runs a Command an agent sent over the bridge, as [`Shell::run`] does, with its
+    /// source (for the Journal and the "MCP: …" undo label) and signals. If it modified
+    /// an object the Tool in use depends on, the Tool's preview is cancelled with a note.
+    pub fn run_bridged(
+        &mut self,
+        source: Source,
+        id: &str,
+        params: Value,
+        signals: &Signals,
+    ) -> Result<Value, CommandError> {
+        let out = self.engine.run_from(source, id, params, signals)?;
+        self.after_run(id);
+        if let Some(tool) = &self.tool
+            && tool.touched_by(&out)
+        {
+            self.note = Some(tr!(
+                "status-tool-cancelled",
+                tool = tool.title.as_str(),
+                source = source.label()
+            ));
+            self.tool = None;
+        }
+        Ok(out)
+    }
+
+    /// Shows the file the OS asked a second app to open, when it belongs to the open
+    /// Project: a Document file focuses that Document's tab, the Project file or folder
+    /// just the window. Anything else is `rejected`, so that app opens it itself.
+    pub fn open_in_place(&mut self, path: &Path) -> Result<(), CommandError> {
+        let document = document_file(path);
+        let project = match &document {
+            Some(_) => path.parent().unwrap_or(path),
+            None => path,
+        };
+        let wanted = store::resolve_project_file(project);
+        let same = |a: &Path, b: &Path| match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+            (Ok(a), Ok(b)) => a == b,
+            _ => false,
+        };
+        if !self.project_file().is_some_and(|open| same(&open, &wanted)) {
+            return Err(CommandError::rejected(format!(
+                "{} is not in the open Project",
+                path.display()
+            )));
+        }
+        if let Some((stem, kind)) = document {
+            let uuid = self.engine.project().and_then(|p| {
+                p.documents()
+                    .find(|d| d.kind == kind && d.name == stem)
+                    .map(|d| d.uuid)
+            });
+            let Some(uuid) = uuid else {
+                return Err(CommandError::not_found(format!(
+                    "the open Project has no Document {}",
+                    path.display()
+                )));
+            };
+            self.run("document.open", json!({ "document": uuid }))?;
+        }
+        Ok(())
     }
 
     /// The recent Projects from `state.json`, newest first.
@@ -395,6 +489,13 @@ impl Shell {
             self.save_view();
         }
         let out = self.engine.run(id, params)?;
+        self.after_run(id);
+        Ok(out)
+    }
+
+    /// Refreshes what a successful run of `id` may have changed.
+    fn after_run(&mut self, id: &str) {
+        let base = id.split(':').next().unwrap_or(id);
         match base {
             "project.open" | "project.new" => {
                 self.show_project();
@@ -410,7 +511,6 @@ impl Shell {
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
-        Ok(out)
     }
 
     /// The Undo stack `Mod+Z` uses: a focused Document tab's own, else the Project's.

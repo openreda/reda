@@ -6,15 +6,19 @@
 use std::path::Path;
 
 use reda_control::client::{self, Connection};
+use reda_engine::command::CommandError;
 use reda_engine::journal::Source;
 
 /// Commands that choose their own Project. Run on their own, they never bridge.
 const OWN_PROJECT: &[&str] = &["project.new", "project.open"];
 
 /// Connects to the instance to bridge to: the one with `project` open, or with no
-/// `project`, the only instance that has a Project open. `None` means run in-process.
-pub fn connect(project: Option<&str>, source: Source) -> Option<Connection> {
-    let dirs = reda_engine::user_dirs::discover()?;
+/// `project`, the only instance that has a Project open. `None` means run in-process; an
+/// error means that instance did not allow this agent (named by `REDA_AGENT`).
+pub fn connect(project: Option<&str>, source: Source) -> Result<Option<Connection>, CommandError> {
+    let Some(dirs) = reda_engine::user_dirs::discover() else {
+        return Ok(None);
+    };
     client::bridge(&dirs, project.map(Path::new), source)
 }
 

@@ -301,3 +301,48 @@ fn opening_a_project_starts_with_empty_stacks() {
     let err = engine.run_err("edit.undo", json!({"document": SHEET_1}));
     assert_eq!(err.code, ErrorCode::Unavailable);
 }
+
+#[test]
+fn a_bridged_edit_is_labelled_with_its_source_in_undo() {
+    use reda_engine::command::Signals;
+    use reda_engine::journal::Source;
+    let dir = TempDir::new("undo-source-label");
+    let mut engine = new_project(&dir);
+    let probes =
+        |value: i64| json!({"probes": [{"uuid": P1, "document": SHEET_1, "value": value}]});
+    // The engine's own source (the test engine is a CLI one) gets no prefix.
+    set_probes(
+        &mut engine,
+        json!([{"uuid": P1, "document": SHEET_1, "value": 1}]),
+    );
+    engine
+        .run_from(
+            Source::Mcp,
+            "test.probe.set",
+            probes(2),
+            &Signals::default(),
+        )
+        .unwrap();
+    let step = json!({"id": "test.probe.set", "params": probes(3)});
+    engine
+        .run_from(
+            Source::Gui,
+            "batch",
+            json!({ "commands": [step] }),
+            &Signals::default(),
+        )
+        .unwrap();
+
+    let undo = |engine: &mut TestEngine| {
+        let out = engine.run_ok("edit.undo", json!({"document": SHEET_1}));
+        out["result"]["label"].as_str().unwrap().to_owned()
+    };
+    assert_eq!(undo(&mut engine), "GUI: Batch");
+    assert_eq!(undo(&mut engine), "MCP: Set Probes");
+    assert_eq!(undo(&mut engine), "Set Probes");
+    // Redo keeps the label the entry was recorded with.
+    let out = engine.run_ok("edit.redo", json!({"document": SHEET_1}));
+    assert_eq!(out["result"]["label"], "Set Probes");
+    let out = engine.run_ok("edit.redo", json!({"document": SHEET_1}));
+    assert_eq!(out["result"]["label"], "MCP: Set Probes");
+}
