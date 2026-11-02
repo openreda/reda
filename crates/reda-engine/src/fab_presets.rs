@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use reda_command::{CommandError, UserDirs};
 use reda_model::FabPreset;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::format::{read_bytes, read_fab_file, write_fab_file};
 
@@ -22,7 +22,7 @@ pub fn dir(dirs: &UserDirs) -> PathBuf {
 }
 
 /// Where a preset comes from.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Origin {
     /// Shipped with REDA.
@@ -32,7 +32,7 @@ pub enum Origin {
 }
 
 /// A preset that can be picked, with where it comes from.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Available {
     pub preset: FabPreset,
     pub origin: Origin,

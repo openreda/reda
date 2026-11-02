@@ -40,7 +40,7 @@ fn copy(project: &Project, uuid: Uuid) -> Result<ProjectFabPreset, CommandError>
 
 pub struct PresetList;
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct PresetListResult {
     /// The shipped presets, then the user's.
     pub presets: Vec<Available>,

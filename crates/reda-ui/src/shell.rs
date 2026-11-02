@@ -976,18 +976,19 @@ impl Shell {
     /// The Fab Presets a new Project can start from (shipped, then the user's) and the
     /// default pick: the last one used, else Generic.
     pub fn fab_preset_choices(&mut self) -> (Vec<String>, String) {
+        use reda_engine::commands::fab_preset::PresetListResult;
         let list = self
             .engine
             .run("fab_preset.list", json!({}))
-            .unwrap_or_default();
-        let names = list["presets"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|p| p["preset"]["name"].as_str().map(str::to_owned))
-            .collect();
-        let default = list["default"].as_str().unwrap_or("Generic").to_owned();
-        (names, default)
+            .ok()
+            .and_then(|v| serde_json::from_value::<PresetListResult>(v).ok());
+        match list {
+            Some(list) => (
+                list.presets.into_iter().map(|p| p.preset.name).collect(),
+                list.default,
+            ),
+            None => (Vec::new(), "Generic".to_owned()),
+        }
     }
 
     /// Creates the Project `name` in a new folder inside `folder`, and opens it.
