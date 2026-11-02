@@ -316,7 +316,12 @@ fn a_bridged_edit_is_labelled_with_its_source_in_undo() {
         json!([{"uuid": P1, "document": SHEET_1, "value": 1}]),
     );
     engine
-        .run_from(Source::Mcp, "test.probe.set", probes(2), &Signals::default())
+        .run_from(
+            Source::Mcp,
+            "test.probe.set",
+            probes(2),
+            &Signals::default(),
+        )
         .unwrap();
     let step = json!({"id": "test.probe.set", "params": probes(3)});
     engine

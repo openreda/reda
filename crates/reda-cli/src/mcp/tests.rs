@@ -1,59 +1,20 @@
-//! The MCP server in-process, over an in-memory pipe, with a long-running test Command:
-//! progress notifications and cancellation reach the Command's signals.
+//! The MCP server over an in-memory pipe, in-process and bridged to a headless host, with
+//! a long-running test Command (`test.slow`): progress notifications and cancellation
+//! reach the Command's signals either way.
 
 use std::time::{Duration, Instant};
 
+use reda_control::headless::HeadlessHost;
 use reda_engine::Engine;
-use reda_engine::command::{Command, CommandError, Context, Kind, Meta};
-use reda_engine::model::Object;
-use schemars::JsonSchema;
-use serde::Deserialize;
+use reda_engine::command::UserDirs;
+use reda_engine::journal::Source;
+use reda_testkit::{TempDir, slow_commands};
 use serde_json::{Value, json};
 use tokio::io::{
     AsyncBufReadExt, AsyncWriteExt, BufReader, DuplexStream, Lines, ReadHalf, WriteHalf,
 };
 
 use super::{Server, serve, writer};
-
-/// Renames the Project to "slow", reports `steps` progress steps, then (with `wait`)
-/// waits for cancellation, giving up after ten seconds.
-struct Slow;
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-struct SlowParams {
-    steps: u32,
-    wait: bool,
-}
-
-impl Command for Slow {
-    const META: Meta = Meta {
-        id: "test.slow",
-        title: "Slow",
-        description: "A long-running edit for tests.",
-        category: "test",
-        icon: "slow",
-        kind: Kind::Edit,
-    };
-    type Params = SlowParams;
-    type Output = u32;
-
-    fn run(&self, cx: &mut Context<'_>, p: SlowParams) -> Result<u32, CommandError> {
-        let tx = cx.tx()?;
-        let mut props = tx.project().props().clone();
-        props.name = "slow".into();
-        tx.replace(Object::Project(props))?;
-        for step in 1..=p.steps {
-            cx.progress(f64::from(step), Some(f64::from(p.steps)), "working");
-        }
-        let start = Instant::now();
-        while p.wait && start.elapsed() < Duration::from_secs(10) {
-            cx.check_cancelled()?;
-            std::thread::sleep(Duration::from_millis(5));
-        }
-        Ok(p.steps)
-    }
-}
 
 struct Client {
     lines: Lines<BufReader<ReadHalf<DuplexStream>>>,
@@ -62,23 +23,73 @@ struct Client {
     thread: writer::WriterThread,
     /// Notifications seen while waiting for responses.
     notifications: Vec<Value>,
-    /// Where `project.new` writes the Project; removed on drop.
-    dir: reda_testkit::TempDir,
+    /// Where the Project is created; removed on drop.
+    dir: TempDir,
+    /// The host the server bridges to, and its per-user folder.
+    host: Option<(HeadlessHost, TempDir)>,
 }
 
 impl Client {
+    /// An in-process server; `project.new` (over MCP) creates the Project "Demo".
     async fn start() -> Client {
         let (writer, thread, catalogue) = writer::spawn(|| {
             Engine::builder()
                 .user_dirs(None)
-                .commands(|r| r.add(Slow))
+                .commands(slow_commands)
                 .build()
         });
+        let mut client = Client::connect(Server::new(writer, &catalogue), thread, None).await;
+        let path = client.dir.path().to_owned();
+        let created = client
+            .call(
+                2,
+                json!({"name": "run_command", "arguments": {
+                    "id": "project.new", "params": {"path": path, "name": "Demo"}
+                }}),
+            )
+            .await;
+        assert_eq!(created["result"]["isError"], false, "{created}");
+        client
+    }
+
+    /// A server bridged to a headless host that holds the Project "Demo".
+    async fn bridged() -> Client {
+        let dir = TempDir::new("mcp-unit-bridged");
+        let home = TempDir::new("mcp-unit-home");
+        let path = dir.path().to_owned();
+        let host = HeadlessHost::spawn(&UserDirs::under(home.path()), move || {
+            let mut engine = Engine::builder()
+                .user_dirs(None)
+                .commands(slow_commands)
+                .build();
+            engine
+                .run("project.new", json!({"path": path, "name": "Demo"}))
+                .unwrap();
+            engine
+        })
+        .unwrap();
+        let connection =
+            reda_control::client::bridge(&UserDirs::under(home.path()), None, Source::Mcp)
+                .unwrap()
+                .expect("bridges to the host");
+        let (writer, thread, catalogue) = writer::spawn_bridge(connection).unwrap();
+        let mut client = Client::connect(
+            Server::bridged(writer, &catalogue),
+            thread,
+            Some((host, home)),
+        )
+        .await;
+        client.dir = dir;
+        client
+    }
+
+    async fn connect(
+        server: Server,
+        thread: writer::WriterThread,
+        host: Option<(HeadlessHost, TempDir)>,
+    ) -> Client {
         let (ours, theirs) = tokio::io::duplex(1 << 16);
-        let server = tokio::spawn(serve(
-            Server::new(writer, &catalogue),
-            tokio::io::split(theirs),
-        ));
+        let server = tokio::spawn(serve(server, tokio::io::split(theirs)));
         let (read, out) = tokio::io::split(ours);
         let mut client = Client {
             lines: BufReader::new(read).lines(),
@@ -86,7 +97,8 @@ impl Client {
             server,
             thread,
             notifications: Vec::new(),
-            dir: reda_testkit::TempDir::new("mcp-unit"),
+            dir: TempDir::new("mcp-unit"),
+            host,
         };
         client
             .request(
@@ -102,16 +114,6 @@ impl Client {
         client
             .send(json!({"jsonrpc": "2.0", "method": "notifications/initialized"}))
             .await;
-        let path = client.dir.path().to_owned();
-        let created = client
-            .call(
-                2,
-                json!({"name": "run_command", "arguments": {
-                    "id": "project.new", "params": {"path": path, "name": "Demo"}
-                }}),
-            )
-            .await;
-        assert_eq!(created["result"]["isError"], false, "{created}");
         client
     }
 
@@ -158,13 +160,25 @@ impl Client {
         drop(self.out);
         drop(self.lines);
         self.server.await.unwrap().unwrap();
-        self.thread.finish()
+        let leftover = self.thread.finish();
+        if let Some((host, _home)) = self.host {
+            host.stop();
+        }
+        leftover
     }
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn progress_notifications_carry_the_request_progress_token() {
-    let mut client = Client::start().await;
+    progress_notifications(Client::start().await).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn progress_notifications_cross_the_bridge() {
+    progress_notifications(Client::bridged().await).await;
+}
+
+async fn progress_notifications(mut client: Client) {
     let done = client
         .call(
             3,
@@ -215,7 +229,16 @@ async fn no_progress_token_means_no_progress_notifications() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn cancelling_the_request_cancels_the_command_and_rolls_it_back() {
-    let mut client = Client::start().await;
+    let leftover = cancelling(Client::start().await).await;
+    assert_eq!(leftover.project.as_deref(), Some("Demo"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancelling_crosses_the_bridge() {
+    cancelling(Client::bridged().await).await;
+}
+
+async fn cancelling(mut client: Client) -> super::Leftover {
     client
         .send(json!({
             "jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -245,6 +268,5 @@ async fn cancelling_the_request_cancels_the_command_and_rolls_it_back() {
     let start = Instant::now();
     assert_eq!(client.name(4).await, "Demo");
     assert!(start.elapsed() < Duration::from_secs(5));
-    let leftover = client.finish().await;
-    assert_eq!(leftover.project.as_deref(), Some("Demo"));
+    client.finish().await
 }
