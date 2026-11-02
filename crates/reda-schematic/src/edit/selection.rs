@@ -46,7 +46,7 @@ pub(crate) fn resolve(
 }
 
 /// Whether `object` is drawn on a Schematic Sheet and can be selected there.
-pub(crate) fn selectable(object: &Object) -> bool {
+pub fn selectable(object: &Object) -> bool {
     matches!(
         object,
         Object::Unit(_)

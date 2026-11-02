@@ -119,6 +119,48 @@ pub(crate) fn place_anew(
     keep_connections: bool,
 ) -> Result<(), CommandError> {
     let body = &crate::sheet(cx.project()?, document)?.clone();
+    let plan = plan(body, moves, keep_connections)?;
+    let tx = cx.tx()?;
+    for uuid in plan.removed {
+        tx.remove(uuid)?;
+    }
+    for object in plan.replaced {
+        tx.replace(object)?;
+    }
+    // The corner Wires take their UUIDs from the Command's id source, in order.
+    for wire in plan.inserted {
+        let wire = Wire {
+            uuid: cx.new_id(),
+            ..wire
+        };
+        cx.tx()?
+            .insert(Object::Wire(InDocument::new(document, wire)))?;
+    }
+    for unit in plan.units {
+        split_wires_at_pins(cx, document, unit)?;
+    }
+    Ok(())
+}
+
+/// What placing a selection anew changes on its sheet, worked out without changing it.
+pub(crate) struct Plan {
+    /// Objects with their new contents: the selection and whatever follows it.
+    pub replaced: Vec<Object>,
+    /// Objects that fold away to nothing (Wires and lines of no length).
+    pub removed: Vec<Uuid>,
+    /// New Wires turning a rubber-banded Wire's corner; their UUIDs are placeholders.
+    pub inserted: Vec<Wire>,
+    /// The moved Units, whose Pins may now split Wires.
+    pub units: Vec<Uuid>,
+}
+
+/// Plans placing every selected object of `body` anew, as [`place_anew`] does.
+pub(crate) fn plan(
+    body: &SchematicSheet,
+    moves: &[(Object, Placement)],
+    keep_connections: bool,
+) -> Result<Plan, CommandError> {
+    let document = body.uuid;
     let mut followed: BTreeMap<Point, Point> = BTreeMap::new();
     let mut follow = |from: Point, to: Point| {
         followed.entry(from).or_insert(to);
@@ -220,29 +262,20 @@ pub(crate) fn place_anew(
     let mut inserted = vec![];
     if keep_connections && !followed.is_empty() {
         rubber_band(
-            cx,
             body,
             &selected,
             &followed,
             &mut replaced,
             &mut removed,
             &mut inserted,
-        )?;
+        );
     }
-    let tx = cx.tx()?;
-    for uuid in removed {
-        tx.remove(uuid)?;
-    }
-    for object in replaced {
-        tx.replace(object)?;
-    }
-    for wire in inserted {
-        tx.insert(Object::Wire(InDocument::new(document, wire)))?;
-    }
-    for unit in units {
-        split_wires_at_pins(cx, document, unit)?;
-    }
-    Ok(())
+    Ok(Plan {
+        replaced,
+        removed,
+        inserted,
+        units,
+    })
 }
 
 /// The connection points of placed Unit `unit` on `body`, in Pin order.
@@ -257,14 +290,13 @@ fn pins(body: &SchematicSheet, unit: &UnitInstance) -> Vec<Point> {
 
 /// Makes the unselected objects on `body` follow the moved connection points `followed`.
 fn rubber_band(
-    cx: &mut Context<'_>,
     body: &SchematicSheet,
     selected: &BTreeSet<Uuid>,
     followed: &BTreeMap<Point, Point>,
     replaced: &mut Vec<Object>,
     removed: &mut Vec<Uuid>,
     inserted: &mut Vec<Wire>,
-) -> Result<(), CommandError> {
+) {
     let document = body.uuid;
     let moved = |p: Point| followed.get(&p).copied().unwrap_or(p);
     for wire in body.wires().filter(|w| !selected.contains(&w.uuid)) {
@@ -309,7 +341,7 @@ fn rubber_band(
             },
         )));
         inserted.push(Wire {
-            uuid: cx.new_id(),
+            uuid: wire.uuid,
             from: turn.0,
             to: turn.1,
         });
@@ -342,5 +374,4 @@ fn rubber_band(
             replaced.push(Object::PowerPort(InDocument::new(document, new)));
         }
     }
-    Ok(())
 }
