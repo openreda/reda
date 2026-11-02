@@ -4,6 +4,7 @@
 
 mod component;
 pub mod connectivity;
+mod edit;
 mod find;
 mod library_element;
 mod natural;
@@ -22,6 +23,14 @@ use reda_model::{Project, SchematicSheet, Uuid};
 pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,
+};
+pub use edit::{
+    Align, AlignParams, AlignTo, Axis, Clipboard, Copy, CopyParams, Cut, Delete, DeleteParams,
+    DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
+    EditResult, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, Mirror,
+    MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
+    RotateParams, ShiftParams, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
+    TextSetParams,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{
@@ -74,6 +83,23 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(PortAdd);
     registry.add(PowerPortAdd);
     registry.add(ProjectNets);
+    registry.add(Delete);
+    registry.add(Copy);
+    registry.add(Cut);
+    registry.add(Paste);
+    registry.add(Duplicate);
+    registry.add(Move);
+    registry.add(Drag);
+    registry.add(Rotate);
+    registry.add(Mirror);
+    registry.add(Align);
+    registry.add(Distribute);
+    registry.add(SnapToGrid);
+    registry.add(TextAdd);
+    registry.add(TextSet);
+    registry.add(LineAdd);
+    registry.add(RectAdd);
+    registry.add(GraphicSet);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

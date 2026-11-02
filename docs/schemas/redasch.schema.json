@@ -980,6 +980,24 @@
       ],
       "type": "object"
     },
+    "SheetGraphic": {
+      "additionalProperties": false,
+      "description": "A free line or rectangle drawn on a sheet. It has no electrical meaning.",
+      "properties": {
+        "shape": {
+          "$ref": "#/$defs/SheetShape"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "shape"
+      ],
+      "type": "object"
+    },
     "SheetRow": {
       "additionalProperties": false,
       "properties": {
@@ -994,6 +1012,58 @@
       ],
       "type": "object"
     },
+    "SheetShape": {
+      "description": "What a [`SheetGraphic`] draws.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A straight line, at any angle.",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "line",
+              "type": "string"
+            },
+            "to": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "from",
+            "to"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An axis-aligned rectangle between two opposite corners.",
+          "properties": {
+            "filled": {
+              "type": "boolean"
+            },
+            "from": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "rect",
+              "type": "string"
+            },
+            "to": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "from",
+            "to"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "SheetSize": {
       "description": "A sheet's paper size. Sheets are landscape.",
       "enum": [
@@ -1007,6 +1077,42 @@
         "tabloid"
       ],
       "type": "string"
+    },
+    "SheetText": {
+      "additionalProperties": false,
+      "description": "Free text drawn on a sheet. It has no electrical meaning.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The left end of the first baseline."
+        },
+        "height": {
+          "description": "The capital height.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "rotation": {
+          "description": "Counter-clockwise about `at`.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "text": {
+          "description": "The text; `\\n` starts a new line.",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "text",
+        "at",
+        "height",
+        "rotation"
+      ],
+      "type": "object"
     },
     "SymbolGraphic": {
       "additionalProperties": false,
@@ -1219,6 +1325,14 @@
       "default": null,
       "description": "The sheet's frame settings. Without it the sheet is A4."
     },
+    "graphics": {
+      "default": [],
+      "description": "The free lines and rectangles, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/SheetGraphic"
+      },
+      "type": "array"
+    },
     "net_labels": {
       "default": [],
       "description": "The Net Labels, sorted by UUID.",
@@ -1262,6 +1376,14 @@
     "sheet": {
       "$ref": "#/$defs/SheetRow",
       "description": "The sheet's identity; it matches the sheet's entry in the Project file."
+    },
+    "texts": {
+      "default": [],
+      "description": "The free texts, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/SheetText"
+      },
+      "type": "array"
     },
     "units": {
       "default": [],

@@ -14,7 +14,8 @@ use crate::pcb::{
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
-    Port, PowerPort, ProjectProps, SheetFrame, Symbol, UnitInstance, Uuid, Wire,
+    Port, PowerPort, ProjectProps, SheetFrame, SheetGraphic, SheetText, Symbol, UnitInstance, Uuid,
+    Wire,
 };
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
@@ -46,6 +47,8 @@ pub enum Object {
     NoConnect(InDocument<NoConnect>),
     Port(InDocument<Port>),
     PowerPort(InDocument<PowerPort>),
+    SheetText(InDocument<SheetText>),
+    SheetGraphic(InDocument<SheetGraphic>),
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
     // Left out of schemas so the catalogue is the same with and without the feature.
@@ -105,6 +108,10 @@ pub enum ObjectType {
     Port,
     /// A Power Port on a Schematic Sheet, joining Nets across the Project.
     PowerPort,
+    /// Free text on a Schematic Sheet.
+    SheetText,
+    /// A free line or rectangle on a Schematic Sheet.
+    SheetGraphic,
     /// Free text on a PCB Layer.
     PcbText,
     /// A line, arc or rectangle on a PCB Layer.
@@ -140,6 +147,8 @@ impl Object {
             Object::NoConnect(o) => o.uuid,
             Object::Port(o) => o.uuid,
             Object::PowerPort(o) => o.uuid,
+            Object::SheetText(o) => o.uuid,
+            Object::SheetGraphic(o) => o.uuid,
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
             #[cfg(feature = "test-objects")]
@@ -171,6 +180,8 @@ impl Object {
             Object::NoConnect(_) => ObjectType::NoConnect,
             Object::Port(_) => ObjectType::Port,
             Object::PowerPort(_) => ObjectType::PowerPort,
+            Object::SheetText(_) => ObjectType::SheetText,
+            Object::SheetGraphic(_) => ObjectType::SheetGraphic,
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             #[cfg(feature = "test-objects")]
@@ -203,6 +214,8 @@ impl Object {
             Object::NoConnect(o) => Scope::Document(o.document),
             Object::Port(o) => Scope::Document(o.document),
             Object::PowerPort(o) => Scope::Document(o.document),
+            Object::SheetText(o) => Scope::Document(o.document),
+            Object::SheetGraphic(o) => Scope::Document(o.document),
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]

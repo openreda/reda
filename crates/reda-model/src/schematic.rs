@@ -61,7 +61,8 @@ pub struct SheetFrame {
 /// placed once per sheet and shared by every Unit placed from it. It is keyed by the
 /// Part's UUID ([`Part::uuid`]) plus [`PartEntry::hash`]: a sheet never holds two entries
 /// with the same pair, and a changed Part gets an entry of its own.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PartEntry {
     /// The entry's own UUID, which Units point at.
     pub uuid: Uuid,
@@ -75,7 +76,8 @@ pub struct PartEntry {
 
 /// A copy of a Library Footprint on a sheet, shared by every part-table entry that lists
 /// it. Keyed by the Footprint's UUID plus [`FootprintCopy::hash`].
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct FootprintCopy {
     pub uuid: Uuid,
     /// The content hash of the Footprint, as copied.
@@ -245,6 +247,75 @@ pub struct PowerPort {
     pub rotation: Millideg,
 }
 
+/// Free text drawn on a sheet. It has no electrical meaning.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SheetText {
+    pub uuid: Uuid,
+    /// The text; `\n` starts a new line.
+    pub text: String,
+    /// The left end of the first baseline.
+    pub at: Point,
+    /// The capital height.
+    pub height: Nm,
+    /// Counter-clockwise about `at`.
+    pub rotation: Millideg,
+}
+
+/// A free line or rectangle drawn on a sheet. It has no electrical meaning.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SheetGraphic {
+    pub uuid: Uuid,
+    pub shape: SheetShape,
+}
+
+/// What a [`SheetGraphic`] draws.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SheetShape {
+    /// A straight line, at any angle.
+    Line { from: Point, to: Point },
+    /// An axis-aligned rectangle between two opposite corners.
+    Rect {
+        from: Point,
+        to: Point,
+        #[serde(default, skip_serializing_if = "is_false")]
+        filled: bool,
+    },
+}
+
+impl SheetShape {
+    /// Its two defining points: a line's ends or a rectangle's opposite corners.
+    pub fn ends(&self) -> (Point, Point) {
+        match self {
+            SheetShape::Line { from, to } | SheetShape::Rect { from, to, .. } => (*from, *to),
+        }
+    }
+
+    /// Whether it draws nothing: a line with both ends together, or a rectangle with no
+    /// width or no height.
+    pub fn is_empty(&self) -> bool {
+        let (a, b) = self.ends();
+        match self {
+            SheetShape::Line { .. } => a == b,
+            SheetShape::Rect { .. } => a.x == b.x || a.y == b.y,
+        }
+    }
+
+    /// The same shape through two other defining points.
+    pub fn with_ends(&self, a: Point, b: Point) -> SheetShape {
+        match self {
+            SheetShape::Line { .. } => SheetShape::Line { from: a, to: b },
+            SheetShape::Rect { filled, .. } => SheetShape::Rect {
+                from: a,
+                to: b,
+                filled: *filled,
+            },
+        }
+    }
+}
+
 /// A mark on the Pin under `at` stating that it is deliberately left unconnected.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -270,6 +341,8 @@ pub struct SchematicSheet {
     pub(crate) no_connects: BTreeMap<Uuid, NoConnect>,
     pub(crate) ports: BTreeMap<Uuid, Port>,
     pub(crate) power_ports: BTreeMap<Uuid, PowerPort>,
+    pub(crate) texts: BTreeMap<Uuid, SheetText>,
+    pub(crate) graphics: BTreeMap<Uuid, SheetGraphic>,
 }
 
 impl SchematicSheet {
@@ -285,6 +358,8 @@ impl SchematicSheet {
             no_connects: BTreeMap::new(),
             ports: BTreeMap::new(),
             power_ports: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            graphics: BTreeMap::new(),
         }
     }
 
@@ -384,6 +459,24 @@ impl SchematicSheet {
         self.power_ports.get(&uuid)
     }
 
+    /// The free texts, sorted by UUID.
+    pub fn texts(&self) -> impl Iterator<Item = &SheetText> {
+        self.texts.values()
+    }
+
+    pub fn text(&self, uuid: Uuid) -> Option<&SheetText> {
+        self.texts.get(&uuid)
+    }
+
+    /// The free lines and rectangles, sorted by UUID.
+    pub fn graphics(&self) -> impl Iterator<Item = &SheetGraphic> {
+        self.graphics.values()
+    }
+
+    pub fn graphic(&self, uuid: Uuid) -> Option<&SheetGraphic> {
+        self.graphics.get(&uuid)
+    }
+
     /// The object with this UUID, if this sheet holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -404,7 +497,9 @@ impl SchematicSheet {
             net_labels => NetLabel,
             no_connects => NoConnect,
             ports => Port,
-            power_ports => PowerPort
+            power_ports => PowerPort,
+            texts => SheetText,
+            graphics => SheetGraphic
         )
     }
 
@@ -430,7 +525,9 @@ impl SchematicSheet {
             net_labels => NetLabel,
             no_connects => NoConnect,
             ports => Port,
-            power_ports => PowerPort
+            power_ports => PowerPort,
+            texts => SheetText,
+            graphics => SheetGraphic
         );
         out
     }
@@ -446,6 +543,8 @@ impl SchematicSheet {
         self.no_connects.remove(&uuid);
         self.ports.remove(&uuid);
         self.power_ports.remove(&uuid);
+        self.texts.remove(&uuid);
+        self.graphics.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -458,6 +557,8 @@ impl SchematicSheet {
             && self.no_connects.is_empty()
             && self.ports.is_empty()
             && self.power_ports.is_empty()
+            && self.texts.is_empty()
+            && self.graphics.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -554,6 +655,19 @@ impl SchematicSheet {
         for port in self.power_ports.values() {
             if port.name.trim().is_empty() {
                 return Err(format!("Power Port {} has no name", port.uuid));
+            }
+        }
+        for text in self.texts.values() {
+            if text.text.trim().is_empty() || text.height <= Nm::ZERO {
+                return Err(format!(
+                    "text {} needs some text and a positive height",
+                    text.uuid
+                ));
+            }
+        }
+        for graphic in self.graphics.values() {
+            if graphic.shape.is_empty() {
+                return Err(format!("graphic {} is empty", graphic.uuid));
             }
         }
         Ok(())

@@ -39,7 +39,8 @@ pub use probe::Probe;
 pub use project::{Project, ProjectProperties, ProjectProps};
 pub use schematic::{
     ComponentRef, FootprintCopy, NetLabel, NoConnect, PartEntry, Port, PortDirection, PowerPort,
-    PowerPortStyle, SchematicSheet, SheetFrame, SheetSize, UnitInstance, Wire,
+    PowerPortStyle, SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText,
+    UnitInstance, Wire,
 };
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};
