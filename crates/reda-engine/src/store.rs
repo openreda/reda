@@ -39,9 +39,10 @@ pub struct Opened {
     pub project: Project,
     /// The Project folder.
     pub folder: PathBuf,
-    /// Documents the Project file lists whose files are missing. They are left out of
-    /// `project`, so saving drops them from the Project file. Only a missing PCB Document
-    /// is tolerated; a missing Schematic Sheet fails the load.
+    /// Documents the Project file lists whose files are missing. A missing PCB Document
+    /// is left out of `project`, so saving drops it from the Project file; a missing
+    /// Schematic Sheet is recreated empty at its manifest path (a Recovery Snapshot may
+    /// then restore its contents), so saving writes it again.
     pub missing: Vec<DocumentEntry>,
 }
 
@@ -99,7 +100,14 @@ pub fn open_from(
         let entry = row.entry().map_err(invalid)?;
         let path = folder.join(entry.file_name());
         let objects = match entry.kind {
-            DocumentKind::Schematic => read_sheet_file(&path, &read(&path)?, entry.uuid)?,
+            DocumentKind::Schematic => match read(&path) {
+                Ok(bytes) => read_sheet_file(&path, &bytes, entry.uuid)?,
+                Err(LoadError::Missing(_)) => {
+                    missing.push(entry.clone());
+                    vec![]
+                }
+                Err(e) => return Err(e),
+            },
             DocumentKind::Pcb => match read(&path) {
                 Ok(bytes) => read_pcb_file(&path, &bytes, entry.uuid)?,
                 Err(LoadError::Missing(_)) => {

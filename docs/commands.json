@@ -22142,7 +22142,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject; left out when there are none. Only a PCB Document can be missing;\n`document.add {kind: pcb}` adds a new one.",
+            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. A missing PCB Document is left out of the open Project (`document.add {kind:\npcb}` adds a new one); a missing Schematic Sheet is recreated empty and unsaved.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },
@@ -22180,7 +22180,7 @@
     },
     {
       "category": "project",
-      "description": "Opens the Project at `path`: its `.reda` file or its folder. Any Project already open is closed without saving. A missing PCB Document file is reported in `missing` and left out, which dirties the Project file.",
+      "description": "Opens the Project at `path`: its `.reda` file or its folder. Any Project already open is closed without saving. Missing Document files are reported in `missing`: a PCB Document is left out, which dirties the Project file; a Schematic Sheet is recreated empty and unsaved.",
       "icon": "project_open",
       "id": "project.open",
       "kind": "file",
@@ -22267,7 +22267,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing, left out of the open\nProject; left out when there are none. Only a PCB Document can be missing;\n`document.add {kind: pcb}` adds a new one.",
+            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. A missing PCB Document is left out of the open Project (`document.add {kind:\npcb}` adds a new one); a missing Schematic Sheet is recreated empty and unsaved.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },
