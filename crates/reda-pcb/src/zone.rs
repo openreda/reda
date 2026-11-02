@@ -18,7 +18,8 @@ mod poly;
 pub use cache::{decode, encode};
 pub(crate) use fill::shape_copper;
 
-use crate::copper::Copper;
+use crate::copper::shape::Shape;
+use crate::copper::{Copper, Proposal};
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
 const FILL_VERSION: u32 = 1;
@@ -155,4 +156,35 @@ pub fn current(pcb: &PcbDocument, stored: Option<&ZoneFills>) -> ZoneFills {
         Some(f) if f.inputs == inputs_hash(pcb) => f.clone(),
         _ => fill(pcb, &mut |_, _| true).expect("an uncancelled fill finishes"),
     }
+}
+
+/// The Keepouts `proposal` would enter, sorted: a Track on a Layer where a Keepout
+/// forbids copper, a Via where one forbids Vias or copper on any Layer it spans. Touching
+/// the outline counts as entering.
+pub fn keepouts_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
+    let (shape, layers, is_via) = match *proposal {
+        Proposal::Track {
+            layer,
+            geometry,
+            width,
+            ..
+        } => (Shape::track(&geometry, width), vec![layer], false),
+        Proposal::Via { at, diameter, .. } => (
+            Shape::disc(at, diameter),
+            pcb.copper_layers().map(|l| l.uuid).collect(),
+            true,
+        ),
+    };
+    let copper = poly::union(poly::grown(&shape, 0));
+    pcb.keepouts()
+        .filter(|k| {
+            let forbids =
+                (k.copper || (is_via && k.vias)) && k.layers.iter().any(|l| layers.contains(l));
+            forbids && {
+                let area = poly::polygon(poly::contour(&k.vertices));
+                poly::overlaps(&area, &copper)
+            }
+        })
+        .map(|k| k.uuid)
+        .collect()
 }

@@ -15410,13 +15410,21 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "clear": {
-            "description": "Whether the copper keeps its clearance from everything.",
+            "description": "Whether the copper keeps its clearance from everything and stays out of Keepouts.",
             "type": "boolean"
           },
           "hits": {
             "description": "The copper of other Nets it comes too close to, sorted.",
             "items": {
               "$ref": "#/$defs/ClearanceHit"
+            },
+            "type": "array"
+          },
+          "keepouts": {
+            "description": "The Keepouts it would enter, sorted; left out when none.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
             },
             "type": "array"
           }
@@ -15646,13 +15654,21 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "clear": {
-            "description": "Whether the copper keeps its clearance from everything.",
+            "description": "Whether the copper keeps its clearance from everything and stays out of Keepouts.",
             "type": "boolean"
           },
           "hits": {
             "description": "The copper of other Nets it comes too close to, sorted.",
             "items": {
               "$ref": "#/$defs/ClearanceHit"
+            },
+            "type": "array"
+          },
+          "keepouts": {
+            "description": "The Keepouts it would enter, sorted; left out when none.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
             },
             "type": "array"
           }

@@ -199,6 +199,49 @@ fn a_keepout_restricts_copper_and_vias_on_its_layers() {
 }
 
 #[test]
+fn the_clearance_queries_report_the_keepouts_copper_would_enter() {
+    let dir = TempDir::new("keepout-clearance");
+    let mut engine = engine_with_pcb(&dir);
+    let copper = engine.run_ok(
+        "pcb.keepout.add",
+        json!({"layers": ["copper_top"], "vertices": square("0mm", "0mm", "2mm", "2mm"),
+               "vias": false}),
+    )["result"]["uuid"]
+        .clone();
+    let vias = engine.run_ok(
+        "pcb.keepout.add",
+        json!({"layers": ["copper_bottom"], "vertices": square("10mm", "0mm", "12mm", "2mm"),
+               "copper": false}),
+    )["result"]["uuid"]
+        .clone();
+    let track = |e: &mut TestEngine, layer: &str, x: &str| {
+        e.run_ok(
+            "pcb.clearance.track",
+            json!({"layer": layer, "from": {"x": x, "y": "-1mm"}, "to": {"x": x, "y": "3mm"}}),
+        )
+    };
+    let out = track(&mut engine, "copper_top", "1mm");
+    assert_eq!(out["clear"], false);
+    assert_eq!(out["keepouts"], json!([copper]));
+    let out = track(&mut engine, "copper_bottom", "1mm");
+    assert_eq!(out["clear"], true, "the Keepout is on the top only");
+    assert!(out.get("keepouts").is_none());
+    let out = track(&mut engine, "copper_bottom", "11mm");
+    assert_eq!(out["clear"], true, "Tracks may cross a Via Keepout");
+
+    let via = |e: &mut TestEngine, x: &str| {
+        e.run_ok("pcb.clearance.via", json!({"at": {"x": x, "y": "1mm"}}))
+    };
+    assert_eq!(via(&mut engine, "11mm")["keepouts"], json!([vias]));
+    assert_eq!(
+        via(&mut engine, "1mm")["keepouts"],
+        json!([copper]),
+        "a Via is copper too"
+    );
+    assert_eq!(via(&mut engine, "6mm")["clear"], true);
+}
+
+#[test]
 fn zones_and_keepouts_survive_save_and_open() {
     let dir = TempDir::new("zone-file");
     let mut engine = engine_with_pcb(&dir);

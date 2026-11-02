@@ -160,17 +160,22 @@ impl Command for Ratsnest {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ClearanceResult {
-    /// Whether the copper keeps its clearance from everything.
+    /// Whether the copper keeps its clearance from everything and stays out of Keepouts.
     pub clear: bool,
     /// The copper of other Nets it comes too close to, sorted.
     pub hits: Vec<ClearanceHit>,
+    /// The Keepouts it would enter, sorted; left out when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub keepouts: Vec<Uuid>,
 }
 
 fn check(pcb: &PcbDocument, proposal: Proposal, ignore: &[Uuid]) -> ClearanceResult {
     let hits = Copper::build(pcb).clearance(pcb, &proposal, ignore);
+    let keepouts = crate::zone::keepouts_hit(pcb, &proposal);
     ClearanceResult {
-        clear: hits.is_empty(),
+        clear: hits.is_empty() && keepouts.is_empty(),
         hits,
+        keepouts,
     }
 }
 
