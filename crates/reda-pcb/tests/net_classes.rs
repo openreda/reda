@@ -162,3 +162,21 @@ fn deleting_a_class_undoes_with_its_nets() {
     engine.run_ok("edit.undo", json!({"document": document}));
     assert_eq!(engine.project().unwrap(), &before);
 }
+
+#[test]
+fn a_net_class_is_added_with_its_nets_in_one_step() {
+    let dir = TempDir::new("class-add-nets");
+    let mut engine = engine_with_pcb(&dir);
+    let (vcc, gnd) = (add_net(&mut engine, "VCC"), add_net(&mut engine, "GND"));
+    let power = add_class(&mut engine, json!({"name": "Power", "nets": [vcc]}));
+    assert_eq!(pcb(&engine).net(vcc).unwrap().class, power);
+    let default = pcb(&engine).setup().default_net_class;
+    assert_eq!(pcb(&engine).net(gnd).unwrap().class, default);
+
+    let err = engine.run_err(
+        "pcb.net_class.add",
+        json!({"name": "Other", "nets": [gnd, power]}),
+    );
+    assert_eq!(err.code, ErrorCode::NotFound);
+    assert!(pcb(&engine).net_class_named("Other").is_none(), "nothing added");
+}
