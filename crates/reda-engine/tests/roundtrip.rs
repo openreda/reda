@@ -713,7 +713,8 @@ prop_compose! {
         pcb in prop::option::of(pcb_seed()),
         libraries in prop::collection::vec(any::<String>(), 0..3),
         settings in prop::option::of(settings()),
-        properties in prop::collection::vec(any::<String>(), 5),
+        properties in prop::collection::vec(any::<String>(), 6),
+        board_thickness in prop::option::of(1i64..10_000_000),
         erc in prop::collection::vec((0..ErcCheck::ALL.len(), 0..3u8), 0..4),
     ) -> Project {
         let mut severities = ErcSeverities::DEFAULT;
@@ -721,8 +722,12 @@ prop_compose! {
             let severity = [Severity::Error, Severity::Warning, Severity::Off][severity as usize];
             severities.set(ErcCheck::ALL[check], severity);
         }
-        let [title, revision, date, author, company] = <[String; 5]>::try_from(properties).unwrap();
-        let properties = ProjectProperties { title, revision, date, author, company };
+        let [title, revision, date, author, company, copper_weight] =
+            <[String; 6]>::try_from(properties).unwrap();
+        let board_thickness = board_thickness.map(Nm);
+        let properties = ProjectProperties {
+            title, revision, date, author, company, board_thickness, copper_weight,
+        };
         let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities });
         let mut tx = project.transaction();
         let mut order = vec![];
