@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use reda_engine::model::geom::Point;
 use reda_engine::model::{ObjectType, Uuid};
 use reda_engine::pcb::RatsnestVisibility;
 use reda_engine::preferences::InactiveLayerMode;
@@ -58,6 +59,9 @@ pub struct DocumentView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camera: Option<Camera>,
     pub layers: LayerView,
+    /// The board's user origin (`pcb.view.origin.set`); unset is the board's own.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_origin: Option<Point>,
 }
 
 /// The contents of `view.json`.

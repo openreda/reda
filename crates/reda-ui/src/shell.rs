@@ -924,11 +924,14 @@ impl Shell {
                 DocumentView {
                     camera: tab.camera,
                     layers: tab.layers.clone(),
+                    user_origin: None,
                 },
             );
         }
         if let Some(pcb) = project.pcb() {
-            documents.entry(pcb.uuid).or_default().layers = self.board_view().layers.clone();
+            let view = documents.entry(pcb.uuid).or_default();
+            view.layers = self.board_view().layers.clone();
+            view.user_origin = self.board_view().origin;
         }
         let file = ViewFile::new(self.layout().clone(), documents);
         Some((folder, file.encode()))
@@ -1544,6 +1547,7 @@ impl Shell {
         let mut board = BoardView::new(units);
         if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
             board.layers = view.layers.clone();
+            board.origin = view.user_origin;
         }
         *self.board_view_mut() = board;
         // A board's grid starts at the middle preset of the units the Preference picks.
@@ -1943,6 +1947,7 @@ impl Shell {
             let view = DocumentView {
                 camera: tab.camera,
                 layers: tab.layers,
+                user_origin: None,
             };
             self.closed_views.insert(tab.document, view);
         }
