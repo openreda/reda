@@ -6,6 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::annotate::{self, Order, Rename, Selection};
+use crate::sync::{self, NO_PCB};
 
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(Reannotate);
@@ -57,6 +58,11 @@ impl ReannotateParams {
     }
 
     fn plan(&self, cx: &Context<'_>) -> Result<ReannotateResult, CommandError> {
+        if self.order == Order::BoardPosition && cx.project()?.pcb().is_none() {
+            return Err(CommandError::unavailable(format!(
+                "Re-annotate by board position needs a board: {NO_PCB}"
+            )));
+        }
         let order = self.order.processing();
         let designators = annotate::plan(cx.project()?, &self.selection()?, order.as_ref())?;
         Ok(ReannotateResult { designators })
@@ -71,7 +77,9 @@ pub struct ReannotateResult {
 }
 
 const DESCRIPTION: &str = "Renumbers Designators in a processing order (across then down, \
-    across then up, down then across, up then across; sheets in Document order). Each \
+    across then up, down then across, up then across; sheets in Document order), or by \
+    board position (where the Footprints sit: top side, then bottom; the new Designators \
+    write through to the board, one undo entry per Document). Each \
     Component in the scope that is not Designator-locked gets the smallest free number for \
     its prefix; locked and out-of-scope Components keep theirs. Every Unit of a Component \
     gets the same Designator.";
@@ -119,6 +127,14 @@ impl Command for Reannotate {
         cx: &mut Context<'_>,
         p: ReannotateParams,
     ) -> Result<ReannotateResult, CommandError> {
+        if p.order == Order::BoardPosition {
+            // Started from the board, so it writes through like any PCB-side edit.
+            return sync::write_through(cx, |cx| {
+                let result = p.plan(cx)?;
+                annotate::apply(cx.tx()?, &result.designators)?;
+                Ok(result)
+            });
+        }
         let result = p.plan(cx)?;
         annotate::apply(cx.tx()?, &result.designators)?;
         Ok(result)

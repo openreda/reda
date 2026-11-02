@@ -214,7 +214,7 @@ impl Command for MechanicalSet {
         title: "Edit Mechanical Part",
         description: "Edits the Designator, value, fields or Not Fitted of Mechanical Parts \
                       placed on the PCB. Footprints synced from the schematic are edited \
-                      there.",
+                      with `pcb.footprint.set`, which writes through to the schematic.",
         category: "pcb",
         icon: "properties",
         kind: Kind::Edit,
@@ -360,7 +360,7 @@ fn mechanical(project: &Project, uuids: &[Uuid]) -> Result<Vec<FootprintInstance
                 return Err(CommandError::invalid_params(
                     &pointer,
                     format!(
-                        "{} comes from the schematic; edit its Component there",
+                        "{} comes from the schematic; edit it with pcb.footprint.set",
                         f.designator
                     ),
                 ));

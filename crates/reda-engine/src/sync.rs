@@ -10,11 +10,14 @@
 //! - Derived schematic Nets match stored PCB Nets by greatest Pad overlap, name breaking
 //!   ties ([`nets`]).
 //! - New Footprints go into a fresh cluster outside the board ([`placement`]).
+//! - Edits made from the PCB side write through ([`write_through`]): they change the
+//!   schematic and carry the Sync changes they cause to the board in the same edit.
 
 mod apply;
 mod components;
 mod nets;
 mod placement;
+mod write_through;
 
 use std::collections::BTreeSet;
 
@@ -25,6 +28,7 @@ use serde::Serialize;
 use crate::library::ContentHash;
 
 pub use apply::{Applied, apply};
+pub use write_through::write_through;
 
 /// The pending changes, grouped by kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]

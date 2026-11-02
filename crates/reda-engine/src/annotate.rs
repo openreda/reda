@@ -3,14 +3,14 @@
 //! [`plan`] works out old → new for every Component in a [`Selection`] that is not
 //! Designator-locked, and [`apply`] writes the plan to every placed Unit, on every sheet.
 //! The processing order is a [`ProcessingOrder`]: the schematic orders here sort by where
-//! the Units sit on their sheets; another order (such as by board position) only has to
-//! arrange the same [`Candidate`]s.
+//! the Units sit on their sheets, and the board position order by where their Footprints
+//! sit on the PCB.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_command::CommandError;
 use reda_model::geom::{Nm, Point};
-use reda_model::{InDocument, Object, Project, Transaction, UnitInstance, Uuid};
+use reda_model::{InDocument, Object, Project, Side, Transaction, UnitInstance, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -56,9 +56,13 @@ pub trait ProcessingOrder {
 /// count as level with each other, so Symbols of different sizes still line up.
 pub const BAND: Nm = Nm(12_700_000);
 
-/// The processing orders a Re-annotate can take. Sheets are always numbered in Document
-/// order; within a sheet, these say how to walk it. Sheet y grows upwards, so "down"
-/// starts at the top of the sheet.
+/// The row height of the board position order: Footprints whose origins fall in the same
+/// 5 mm band count as level with each other.
+pub const BOARD_BAND: Nm = Nm(5_000_000);
+
+/// The processing orders a Re-annotate can take. For the sheet orders, sheets are always
+/// numbered in Document order; within a sheet, the order says how to walk it. Sheet y
+/// grows upwards, so "down" starts at the top of the sheet.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Order {
@@ -70,12 +74,20 @@ pub enum Order {
     DownThenAcross,
     /// Columns from the left, each bottom to top.
     UpThenAcross,
+    /// By where the Footprints sit on the board: the top side first, in rows from the top
+    /// (board y grows upwards), each left to right; then the bottom side, in rows from the
+    /// top, each right to left as seen from below. Components with no Footprint on the
+    /// board come last, across then down on their sheets. Needs a PCB Document.
+    BoardPosition,
 }
 
 impl Order {
     /// The [`ProcessingOrder`] that carries out this order.
     pub fn processing(self) -> Box<dyn ProcessingOrder> {
-        Box::new(SheetOrder(self))
+        match self {
+            Order::BoardPosition => Box::new(BoardOrder),
+            sheet => Box::new(SheetOrder(sheet)),
+        }
     }
 }
 
@@ -88,7 +100,8 @@ impl SheetOrder {
         let band = |v: Nm| v.0.div_euclid(BAND.0);
         let (x, y) = (p.at.x, p.at.y);
         let (a, b, c) = match self.0 {
-            Order::AcrossThenDown => (-band(y), x.0, -y.0),
+            // Board position never walks a sheet; [`BoardOrder`] uses across then down.
+            Order::AcrossThenDown | Order::BoardPosition => (-band(y), x.0, -y.0),
             Order::AcrossThenUp => (band(y), x.0, y.0),
             Order::DownThenAcross => (band(x), -y.0, x.0),
             Order::UpThenAcross => (band(x), y.0, x.0),
@@ -107,6 +120,41 @@ impl ProcessingOrder for SheetOrder {
                 .cmp(&first(b))
                 .then_with(|| a.component.cmp(&b.component))
         });
+    }
+}
+
+/// The board position order: by where each Component's Footprint instance sits.
+struct BoardOrder;
+
+impl ProcessingOrder for BoardOrder {
+    fn arrange(&self, project: &Project, candidates: &mut Vec<Candidate>) {
+        let band = |v: Nm| v.0.div_euclid(BOARD_BAND.0);
+        let at: BTreeMap<Uuid, (Side, Point)> = project
+            .pcb()
+            .into_iter()
+            .flat_map(|pcb| pcb.footprints())
+            .filter_map(|f| {
+                let c = f.component.as_ref()?;
+                c.path.is_empty().then_some((c.uuid, (f.side, f.at)))
+            })
+            .collect();
+        // (side, row from the top, across), with the bottom seen from below.
+        let key = |c: &Candidate| {
+            at.get(&c.component).map(|&(side, p)| match side {
+                Side::Top => (0, -band(p.y), p.x.0, -p.y.0),
+                Side::Bottom => (1, -band(p.y), -p.x.0, -p.y.0),
+            })
+        };
+        let (mut on_board, mut off): (Vec<Candidate>, Vec<Candidate>) =
+            candidates.drain(..).partition(|c| key(c).is_some());
+        on_board.sort_by(|a, b| {
+            key(a)
+                .cmp(&key(b))
+                .then_with(|| a.component.cmp(&b.component))
+        });
+        SheetOrder(Order::AcrossThenDown).arrange(project, &mut off);
+        candidates.extend(on_board);
+        candidates.extend(off);
     }
 }
 
