@@ -557,3 +557,46 @@ fn snapshot_of_a_generated_params_form() {
     assert!(h.query_by_label("Split Tab").is_some());
     h.snapshot("params_form_dark");
 }
+
+/// Board Setup on `page`, on a board whose clearance differs from its Fab Preset, with
+/// the Default class's clearance override typed wrong so the flag shows.
+fn board_setup_snapshot(page: &str, name: &str) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    shell
+        .run("pcb.rules.set", json!({"clearance": "0.3mm"}))
+        .unwrap();
+    h.state_mut().open_board_setup();
+    h.run();
+    let field = "Default: Clearance";
+    h.get_by_role_and_label(Role::TextInput, field).click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, field)
+        .type_text("-1");
+    h.run();
+    h.get_by_label("Apply Generic Rules…").click();
+    h.run();
+    if page != "Clearance" {
+        h.get_by_role_and_label(Role::TreeItem, page).click();
+    }
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_board_setup_clearance_with_a_fab_preset_preview() {
+    board_setup_snapshot("Clearance", "board_setup_clearance_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_drc_severities() {
+    board_setup_snapshot("DRC", "board_setup_drc_dark");
+}

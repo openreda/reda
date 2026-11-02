@@ -18832,7 +18832,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a Net Class called `name`, optionally overriding the board-wide `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets.",
+      "description": "Adds a Net Class called `name`, optionally overriding the board-wide `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets, and moves `nets` into it.",
       "icon": "net_class_add",
       "id": "pcb.net_class.add",
       "kind": "edit",
@@ -18871,6 +18871,15 @@
           "name": {
             "description": "Unique among the board's Net Classes, ignoring case.",
             "type": "string"
+          },
+          "nets": {
+            "default": [],
+            "description": "Nets to move into the new class.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           },
           "track_width": {
             "anyOf": [
