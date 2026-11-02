@@ -227,6 +227,10 @@ fn a_new_part_gets_its_symbol_footprint_and_fields_from_its_form() {
 
     type_into(&mut h, "MPN", "RC0402");
     assert_eq!(part(&h, uuid).fields.mpn, "RC0402");
+    // The form is taller than the tab: bring the button into view first.
+    h.get_by_role_and_label(Role::Button, "Add Field")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Add Field").click();
     h.run();
     assert_eq!(part(&h, uuid).fields.custom[0].name, "Field 1");

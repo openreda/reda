@@ -53,7 +53,7 @@ reda-library -> reda-model
 reda-library -> reda-testkit [dev]
 reda-library -> schemars
 reda-library -> serde
-reda-library -> serde_json [dev]
+reda-library -> serde_json
 reda-model -> reda-geom
 reda-model -> schemars
 reda-model -> serde
