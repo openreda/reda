@@ -195,6 +195,11 @@ fn snapshot_skip_reason() -> Option<String> {
 /// A harness that renders through wgpu with the canvas installed, or `None` (after a
 /// message) when snapshots cannot be compared on this machine.
 fn snapshot_harness(home: &Path) -> Option<Harness<'static, App>> {
+    snapshot_harness_on(engine_in(home))
+}
+
+/// [`snapshot_harness`] on `engine`.
+fn snapshot_harness_on(engine: Engine) -> Option<Harness<'static, App>> {
     if let Some(why) = snapshot_skip_reason() {
         if std::env::var_os("REDA_PNG_SNAPSHOTS").is_some() {
             panic!("REDA_PNG_SNAPSHOTS is set but snapshots cannot run: {why}");
@@ -207,7 +212,7 @@ fn snapshot_harness(home: &Path) -> Option<Harness<'static, App>> {
         egui_wgpu::RendererOptions::PREDICTABLE,
     );
     reda_ui::install_canvas(&render_state, 1);
-    let app = App::new(Shell::new(engine_in(home)));
+    let app = App::new(Shell::new(engine));
     Some(
         builder()
             .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
@@ -334,6 +339,64 @@ fn snapshot_of_a_drag_in_flight() {
             > 0.0
     );
     h.snapshot("schematic_drag_in_flight_dark");
+}
+
+#[test]
+fn snapshot_of_the_library_panel_placing_a_part() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("library");
+    let file = make_project(&folder, "Library");
+    set_theme(home.path(), "dark");
+    let starter = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter");
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(Some(starter))
+        .headless(false)
+        .build();
+    let Some(mut h) = snapshot_harness_on(engine) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().expect("a sheet tab").document;
+    shell
+        .run("panel.show", json!({"panel": "library"}))
+        .unwrap();
+    h.run();
+    // Choose the dual op-amp (Units as tabs, a Footprint) and hover over the sheet: the
+    // Part follows the pointer, drawn but not placed.
+    h.get_by_role_and_label(Role::TextInput, "Search Parts")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Search Parts")
+        .type_text("OpAmp_Dual");
+    h.run();
+    // The first click takes the focus from the search box, which settles the panel's
+    // layout at this narrow width; the second lands on the row.
+    for _ in 0..2 {
+        h.get_by_role_and_label(Role::ListItem, "OpAmp_Dual")
+            .click();
+        h.run();
+    }
+    assert!(reda_ui::placement::placing(h.state().shell()).is_some());
+    let rect = h.get_by_role(Role::Canvas).rect();
+    h.hover_at(rect.center());
+    h.run();
+    h.hover_at(rect.center() + egui::vec2(4.0, 2.0));
+    h.run();
+    let units = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .schematic_sheet(sheet)
+        .unwrap()
+        .units()
+        .count();
+    assert_eq!(units, 0);
+    h.snapshot("library_placing_dark");
 }
 
 /// A board with no Board Outline: Free Pads, a Track and a Via, one Pad selected, with
