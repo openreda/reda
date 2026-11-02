@@ -141,7 +141,11 @@ fn a_project_copy_saved_as_a_user_preset_can_seed_a_new_project() {
         "fab_preset.save_user",
         json!({"preset": copy.uuid, "name": "My JLC"}),
     );
-    let path = home.path().join("config/fab-presets/My JLC.redafab");
+    let path = home
+        .path()
+        .join("config")
+        .join("fab-presets")
+        .join("My JLC.redafab");
     assert_eq!(out["path"], json!(path));
     let text = std::fs::read_to_string(&path).unwrap();
     assert!(
