@@ -53,7 +53,7 @@ fn summary(source: ElementSource, element: &LibraryElement) -> ElementSummary {
 
 /// Where to open an element: the open Project, else the workbench, started blank when
 /// no element is open yet.
-fn holder(session: &mut Session) -> &mut Project {
+pub(crate) fn holder(session: &mut Session) -> &mut Project {
     if session.project.is_none() && session.workbench.is_none() {
         session.workbench = Some(Project::new(ProjectProps {
             uuid: Uuid::NIL,
