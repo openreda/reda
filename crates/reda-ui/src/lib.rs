@@ -11,6 +11,7 @@ pub mod bars;
 pub mod canvas;
 mod dialogs;
 mod docking;
+pub mod help;
 pub mod i18n;
 pub mod icons;
 mod journal_panel;
