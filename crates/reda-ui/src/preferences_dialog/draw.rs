@@ -406,46 +406,53 @@ impl PreferencesDialog {
 
     fn shortcut_row(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, row: &Row) {
         let mac = cfg!(target_os = "macos");
-        ui.horizontal(|ui| {
+        ui.horizontal_top(|ui| {
             let changed = super::Shortcuts::is_changed(cx.shell, &row.binding);
             let mut title = RichText::new(row.title.as_str());
             if changed {
                 title = title.strong();
             }
             fixed_label(ui, LABEL_WIDTH, title).on_hover_text(row.id.as_str());
-            let mut remove = None;
-            for (context, chord) in super::Shortcuts::keys(cx.shell, &row.binding) {
-                let text = match &context {
-                    Context::Global => chord.label(mac),
-                    other => format!("{} ({other})", chord.label(mac)),
-                };
-                let chip = ui.add(Button::new(format!("{text}  ×")).small());
-                let name = tr!(
-                    "shortcuts-remove-named",
-                    key = text.as_str(),
-                    command = row.title.as_str()
-                );
-                chip.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
-                if chip.clicked() {
-                    remove = Some((context, chord));
-                }
-            }
-            if let Some((context, chord)) = remove {
-                self.shortcuts.remove_key(cx.shell, &context, &chord);
-            }
-            let add = ui.small_button(tr!("shortcuts-add"));
-            let name = tr!("shortcuts-add-named", command = row.title.as_str());
-            add.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
-            if add.clicked() {
-                self.shortcuts
-                    .start_recording_in(cx.shell, row.binding.clone());
-            }
-            let reset = ui.add_enabled(changed, Button::new(tr!("pref-reset")).small());
-            let name = tr!("pref-reset-named", setting = row.title.as_str());
-            reset.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
-            if reset.clicked() {
-                self.shortcuts.reset_binding(cx.shell, &row.binding);
-            }
+            // A Command bound in many contexts wraps its keys rather than widening the
+            // dialog.
+            let width = ui.available_width();
+            ui.allocate_ui(egui::vec2(width, 0.0), |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    let mut remove = None;
+                    for (context, chord) in super::Shortcuts::keys(cx.shell, &row.binding) {
+                        let text = match &context {
+                            Context::Global => chord.label(mac),
+                            other => format!("{} ({other})", chord.label(mac)),
+                        };
+                        let chip = ui.add(Button::new(format!("{text}  ×")).small());
+                        let name = tr!(
+                            "shortcuts-remove-named",
+                            key = text.as_str(),
+                            command = row.title.as_str()
+                        );
+                        chip.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
+                        if chip.clicked() {
+                            remove = Some((context, chord));
+                        }
+                    }
+                    if let Some((context, chord)) = remove {
+                        self.shortcuts.remove_key(cx.shell, &context, &chord);
+                    }
+                    let add = ui.small_button(tr!("shortcuts-add"));
+                    let name = tr!("shortcuts-add-named", command = row.title.as_str());
+                    add.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
+                    if add.clicked() {
+                        self.shortcuts
+                            .start_recording_in(cx.shell, row.binding.clone());
+                    }
+                    let reset = ui.add_enabled(changed, Button::new(tr!("pref-reset")).small());
+                    let name = tr!("pref-reset-named", setting = row.title.as_str());
+                    reset.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
+                    if reset.clicked() {
+                        self.shortcuts.reset_binding(cx.shell, &row.binding);
+                    }
+                });
+            });
         });
     }
 
