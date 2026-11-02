@@ -83,6 +83,28 @@ new-project-location = Location
 new-project-browse = Browse…
 new-project-create = Create
 
+## Properties panel
+
+properties-nothing-selected = Nothing selected
+properties-selected = { $count } selected
+properties-designator = Designator
+properties-value = Value
+properties-description = Description
+properties-datasheet = Datasheet
+properties-manufacturer = Manufacturer
+properties-mpn = MPN
+properties-keywords = Keywords
+properties-show-field = Show { $field } on the sheet
+properties-show-field-hint = Show on the sheet
+properties-footprint = Footprint
+properties-no-footprint = None
+properties-footprint-different-parts = The selected Components are different Parts, with different Footprints to choose from
+properties-not-fitted = Not Fitted
+properties-net-class = Net Class
+properties-new-field-name = New field
+properties-new-field-value = Value of the new field
+properties-add-field = Add Field
+
 ## Canvas
 
 canvas-description = Schematic canvas: { $document }

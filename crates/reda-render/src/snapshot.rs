@@ -8,7 +8,6 @@ use std::fmt::Write;
 
 use reda_model::geom::{Millideg, Nm, Point};
 
-use crate::color::ColorKey;
 use crate::scene::{HAlign, Primitive, Scene, SceneLayer, SceneSource, VAlign};
 
 impl Scene {
@@ -20,15 +19,18 @@ impl Scene {
             SceneSource::Schematic(uuid) => {
                 let _ = writeln!(out, "scene schematic {uuid}");
             }
+            SceneSource::Pcb(uuid) => {
+                let _ = writeln!(out, "scene pcb {uuid}");
+            }
         }
         for item in &self.items {
             let layer = match item.layer {
                 SceneLayer::Schematic => "sch".to_owned(),
                 SceneLayer::Board(uuid) => format!("layer:{uuid}"),
+                SceneLayer::Drill => "drill".to_owned(),
+                SceneLayer::Ratsnest => "ratsnest".to_owned(),
             };
-            let color = match item.color {
-                ColorKey::Schematic(c) => c.name(),
-            };
+            let color = item.color.name();
             let _ = write!(out, "{} {layer} {color} ", item.object);
             primitive(&mut out, &item.primitive);
             out.push('\n');

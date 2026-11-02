@@ -49,6 +49,8 @@ const PALETTE_SIZE: u64 = 16 * (1 + ColorKey::SLOTS as u64);
 pub struct Renderer {
     pipeline: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
+    composite: wgpu::RenderPipeline,
+    composite_layout: wgpu::BindGroupLayout,
     format: wgpu::TextureFormat,
 }
 
@@ -122,11 +124,22 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
+        let (composite, composite_layout) = composite_pipeline(device, format);
         Renderer {
             pipeline,
             layout,
+            composite,
+            composite_layout,
             format,
         }
+    }
+
+    /// Blends a Layer texture bound by `source` over a single-sample pass at `opacity`.
+    fn composite(&self, pass: &mut wgpu::RenderPass<'_>, source: &wgpu::BindGroup, opacity: f32) {
+        let thousandths = (opacity.clamp(0.0, 1.0) * 1000.0).round() as u32;
+        pass.set_pipeline(&self.composite);
+        pass.set_bind_group(0, source, &[]);
+        pass.draw(3 * thousandths..3 * thousandths + 3, 0..1);
     }
 
     pub fn format(&self) -> wgpu::TextureFormat {
@@ -161,6 +174,61 @@ impl Renderer {
             }
         }
     }
+}
+
+/// The pipeline that blends a resolved Layer texture over the frame (`gpu/composite.wgsl`).
+fn composite_pipeline(
+    device: &wgpu::Device,
+    format: wgpu::TextureFormat,
+) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("reda composite shader"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("gpu/composite.wgsl").into()),
+    });
+    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("reda composite source"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        }],
+    });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("reda composite layout"),
+        bind_group_layouts: &[Some(&layout)],
+        immediate_size: 0,
+    });
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("reda composite pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            compilation_options: Default::default(),
+            buffers: &[],
+        },
+        primitive: wgpu::PrimitiveState::default(),
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        multiview_mask: None,
+        cache: None,
+    });
+    (pipeline, layout)
 }
 
 /// How many times each kind of buffer has been written, for checking that a frame writes

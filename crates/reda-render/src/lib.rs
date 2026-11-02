@@ -5,12 +5,15 @@
 //! Layer. The wgpu backend, `document.render` and the PDF and SVG writers all draw from it.
 //! [`Scene::to_text`] serialises a Scene for snapshot tests.
 
+mod arc;
 mod base64;
 mod color;
 mod command;
 #[cfg(feature = "gpu")]
 pub mod gpu;
+mod layers;
 mod outline;
+mod pcb;
 mod pdf;
 mod polygon;
 mod scene;
@@ -22,14 +25,21 @@ mod transform;
 mod view;
 mod viewport;
 
-pub use color::{ColorKey, Palette, Rgba, SchematicColor, Theme};
+pub use color::{BoardColor, ColorKey, Palette, Rgba, SchematicColor, Theme};
 pub use command::{
-    DocumentRender, DocumentRenderParams, DocumentRenderResult, Junctions, RenderFormat,
-    RenderPoint, RenderTheme, RenderView, document_scene, register_all,
+    BoardParts, Derive, DocumentRender, DocumentRenderParams, DocumentRenderResult, Junctions,
+    RenderFormat, RenderPoint, RenderTheme, RenderView, document_scene, register_all,
+};
+pub use layers::{
+    Composite, DIMMED_OPACITY, InactiveLayers, LayerView, NORMAL_OPACITY, board_composites,
+};
+pub use pcb::{
+    BoardGeometry, BoardGraphic, BoardPad, BoardText, RatsnestLine, ZoneFillState, pcb_scene,
 };
 pub use pdf::{PdfInfo, to_pdf};
+pub use reda_text::{Mesh, Segment};
 pub use scene::{Align, GlyphRun, HAlign, Item, Primitive, Scene, SceneLayer, SceneSource, VAlign};
 pub use schematic::schematic_scene;
-pub use svg::to_svg;
+pub use svg::{to_svg, to_svg_layers};
 pub use view::View;
 pub use viewport::Viewport;
