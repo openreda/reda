@@ -6,9 +6,8 @@
 
 mod common;
 
-use common::{SHEET, at, created, engine, pcb, synced, synced_resistors};
+use common::{at, created, engine, pcb, synced, synced_resistors};
 use reda_model::Uuid;
-use reda_model::geom::Nm;
 use reda_testkit::{TempDir, TestEngine};
 use serde_json::{Value, json};
 
@@ -171,4 +170,77 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
     expected.sort();
     assert_eq!(found, expected, "{run:#}");
     assert_eq!(of(&run, "silkscreen_over_pads")[0]["severity"], "warning");
+}
+
+/// The schematic Component a synced Footprint stands for.
+fn component(engine: &TestEngine, footprint: Uuid) -> Uuid {
+    let instance = pcb(engine).footprint(footprint).unwrap();
+    instance.component.as_ref().unwrap().uuid
+}
+
+fn sync(engine: &mut TestEngine) {
+    let hash = engine.run_ok("sync.preview", json!({}))["hash"].clone();
+    engine.run_ok("sync.apply", json!({"hash": hash}));
+}
+
+#[test]
+fn a_board_out_of_sync_with_the_schematic_is_reported_until_synced() {
+    let dir = TempDir::new("drc-sync");
+    let mut engine = engine(&dir);
+    let [r1, r2] = synced_resistors(&mut engine);
+    let run = drc(&mut engine);
+    assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");
+
+    // A field and Not Fitted changed on the schematic only.
+    let (c1, c2) = (component(&engine, r1), component(&engine, r2));
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [c1], "fields": {"mpn": "RC0603FR-0710KL"}}),
+    );
+    let stale = engine.run_ok("drc.stale", json!({"design": run["design"]}));
+    assert_eq!(stale["stale"], true, "a schematic edit makes DRC stale");
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [c2], "not_fitted": true}),
+    );
+    let run = drc(&mut engine);
+    let found = of(&run, "out_of_sync");
+    assert_eq!(found.len(), 1, "{run:#}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["args"]["changes"], 2);
+    assert_eq!(found[0]["objects"], json!([]));
+
+    sync(&mut engine);
+    let run = drc(&mut engine);
+    assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");
+
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [c1], "value": "4k7"}),
+    );
+    engine.run_ok(
+        "drc.set_severity",
+        json!({"check": "out_of_sync", "severity": "off"}),
+    );
+    let run = drc(&mut engine);
+    assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");
+}
+
+#[test]
+fn an_out_of_sync_violation_can_be_waived() {
+    let dir = TempDir::new("drc-sync-waive");
+    let mut engine = engine(&dir);
+    let [r1, _] = synced_resistors(&mut engine);
+    let c1 = component(&engine, r1);
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [c1], "value": "4k7"}),
+    );
+    engine.run_ok(
+        "drc.waive",
+        json!({"check": "out_of_sync", "objects": [], "comment": "later"}),
+    );
+    let run = drc(&mut engine);
+    assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");
+    assert_eq!(run["waived"], 1);
 }

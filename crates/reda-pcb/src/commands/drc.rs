@@ -4,7 +4,9 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
-use reda_model::{DrcCheck, InDocument, Object, Severity, Uuid, Violation, Waiver, apply_waivers};
+use reda_model::{
+    DrcCheck, InDocument, Object, Project, Severity, Uuid, Violation, Waiver, apply_waivers,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -12,25 +14,62 @@ use super::{needs_pcb, pcb};
 use crate::drc::{check, design_fingerprint};
 use crate::zone;
 
-pub(super) fn register_all(registry: &mut Registry) {
-    registry.add(DrcRun);
-    registry.add(DrcStale);
+pub(super) fn register_all(registry: &mut Registry, sync: SyncCheck) {
+    registry.add(DrcRun { sync });
+    registry.add(DrcStale { sync });
     registry.add(DrcSetSeverity);
-    registry.add(DrcWaive);
+    registry.add(DrcWaive { sync });
     registry.add(DrcUnwaive);
 }
 
-/// The board's Violations now, ignoring Waivers, and whether the Zones had to be refilled
-/// for them.
-fn current(cx: &Context<'_>) -> Result<(Vec<Violation>, bool), CommandError> {
-    let pcb = pcb(cx)?;
-    let stored = cx.project()?.zone_fills(pcb.uuid);
-    let refilled = zone::status(pcb, stored).needs_refill;
-    let fills = zone::current(pcb, stored);
-    Ok((check(pcb, &fills, cx.fonts()), refilled))
+/// What DRC learns from comparing the board with the schematic, which the engine does
+/// (Sync lives there).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SyncState {
+    /// The `out_of_sync` Violation, when changes are pending and the check is not Off.
+    pub violation: Option<Violation>,
+    /// A hash of the pending Change List (empty when there is none), so a schematic edit
+    /// that changes what Sync would do makes DRC results stale.
+    pub changes: String,
 }
 
-pub struct DrcRun;
+/// Works out [`SyncState`] for a Project.
+pub type SyncCheck = fn(&Project) -> SyncState;
+
+/// The board's Violations now, ignoring Waivers, whether the Zones had to be refilled for
+/// them, and the fingerprint of what was checked.
+fn current(cx: &Context<'_>, sync: SyncCheck) -> Result<Checked, CommandError> {
+    let pcb = pcb(cx)?;
+    let project = cx.project()?;
+    let stored = project.zone_fills(pcb.uuid);
+    let refilled = zone::status(pcb, stored).needs_refill;
+    let fills = zone::current(pcb, stored);
+    let state = sync(project);
+    let mut violations = check(pcb, &fills, cx.fonts());
+    // `out_of_sync` is the last check of the DRC table.
+    violations.extend(state.violation);
+    Ok(Checked {
+        violations,
+        refilled,
+        design: fingerprint(pcb, &state.changes),
+    })
+}
+
+/// One DRC pass over the board.
+struct Checked {
+    violations: Vec<Violation>,
+    refilled: bool,
+    design: String,
+}
+
+/// The fingerprint of the board and of the Change List pending against it.
+fn fingerprint(pcb: &reda_model::PcbDocument, changes: &str) -> String {
+    reda_model::fingerprint(&[&design_fingerprint(pcb), &changes])
+}
+
+pub struct DrcRun {
+    sync: SyncCheck,
+}
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -78,20 +117,22 @@ impl Command for DrcRun {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: DrcRunParams) -> Result<DrcRunResult, CommandError> {
-        let (violations, refilled) = current(cx)?;
+        let checked = current(cx, self.sync)?;
         let pcb = pcb(cx)?;
-        let waived = apply_waivers(violations, pcb.waivers(), p.include_waived);
+        let waived = apply_waivers(checked.violations, pcb.waivers(), p.include_waived);
         Ok(DrcRunResult {
             violations: waived.violations,
             waived: waived.waived,
             unmatched_waivers: waived.unmatched,
-            refilled,
-            design: design_fingerprint(pcb),
+            refilled: checked.refilled,
+            design: checked.design,
         })
     }
 }
 
-pub struct DrcStale;
+pub struct DrcStale {
+    sync: SyncCheck,
+}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -110,8 +151,8 @@ impl Command for DrcStale {
     const META: Meta = Meta {
         id: "drc.stale",
         title: "Are DRC Results Stale",
-        description: "Tells whether the PCB, its rules, its DRC severities or its Waivers \
-                      changed since the `drc.run` that returned `design`.",
+        description: "Tells whether the PCB, its rules, its DRC severities, its Waivers \
+                      or the changes pending from the schematic changed since the `drc.run` that returned `design`.",
         category: "pcb",
         icon: "drc",
         kind: Kind::Query,
@@ -124,8 +165,9 @@ impl Command for DrcStale {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: DrcStaleParams) -> Result<DrcStaleResult, CommandError> {
+        let changes = (self.sync)(cx.project()?).changes;
         Ok(DrcStaleResult {
-            stale: design_fingerprint(pcb(cx)?) != p.design,
+            stale: fingerprint(pcb(cx)?, &changes) != p.design,
         })
     }
 }
@@ -168,7 +210,9 @@ impl Command for DrcSetSeverity {
     }
 }
 
-pub struct DrcWaive;
+pub struct DrcWaive {
+    sync: SyncCheck,
+}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -212,7 +256,7 @@ impl Command for DrcWaive {
     fn run(&self, cx: &mut Context<'_>, p: DrcWaiveParams) -> Result<DrcWaiveResult, CommandError> {
         let probe = Violation::new(p.check.id(), Severity::Error).objects(p.objects.clone());
         let candidate = Waiver::of(Uuid::from_u128(0), &probe, "");
-        let (violations, _) = current(cx)?;
+        let violations = current(cx, self.sync)?.violations;
         let Some(violation) = violations.into_iter().find(|v| candidate.matches(v)) else {
             return Err(CommandError::rejected(format!(
                 "no current {} Violation has exactly these objects",

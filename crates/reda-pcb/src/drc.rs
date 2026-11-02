@@ -1,11 +1,14 @@
-//! DRC: the design rules check over the PCB Document's copper, its severities and its
-//! Waivers.
+//! DRC: the design rules check over the PCB Document's copper, placement and silkscreen,
+//! its severities and its Waivers.
 //!
 //! [`check`] runs every check that is not Off against the board and a current set of Zone
 //! fills, and returns the Violations in the order of the DRC table, each check's in a
-//! fixed order. The `drc.*` Commands refill stale Zones first ([`crate::zone::current`]),
-//! lay the board's Waivers over the result ([`reda_model::apply_waivers`]) and fingerprint
-//! the board they read, so a front end can tell when results are stale.
+//! fixed order. Only `out_of_sync` is not among them: Sync lives in the engine, which
+//! hands the `drc.*` Commands a [`crate::SyncCheck`] for it. The Commands refill stale
+//! Zones first ([`crate::zone::current`]), add the `out_of_sync` Violation, lay the
+//! board's Waivers over the result ([`reda_model::apply_waivers`]) and fingerprint the
+//! board and the Change List pending against it, so a front end can tell when results
+//! are stale.
 
 mod connections;
 mod copper;

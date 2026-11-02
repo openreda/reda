@@ -238,14 +238,30 @@ pub fn pending_count(project: &Project) -> usize {
 /// DRC's `out_of_sync` Violation: present while changes are pending and the board's
 /// severity for the check is not Off.
 pub fn out_of_sync_violation(project: &Project) -> Option<Violation> {
-    let pcb = project.pcb()?;
-    let severity = pcb.setup().severities.get(DrcCheck::OutOfSync);
-    let count = pending_count(project);
-    if severity == Severity::Off || count == 0 {
-        return None;
+    drc_state(project).violation
+}
+
+/// What `drc.run` learns from Sync: the `out_of_sync` Violation and the pending Change
+/// List's hash. Handed to [`reda_pcb::register_all`].
+pub fn drc_state(project: &Project) -> reda_pcb::SyncState {
+    let Some(list) = plan(project) else {
+        return reda_pcb::SyncState::default();
+    };
+    let severity = project.pcb().map_or(Severity::Off, |pcb| {
+        pcb.setup().severities.get(DrcCheck::OutOfSync)
+    });
+    let violation = (severity != Severity::Off && list.count > 0).then(|| {
+        let count = i64::try_from(list.count).unwrap_or(i64::MAX);
+        Violation::new(DrcCheck::OutOfSync.id(), severity).arg("changes", count)
+    });
+    reda_pcb::SyncState {
+        violation,
+        changes: if list.count == 0 {
+            String::new()
+        } else {
+            list.hash
+        },
     }
-    let count = i64::try_from(count).unwrap_or(i64::MAX);
-    Some(Violation::new("out_of_sync", severity).arg("changes", count))
 }
 
 /// A planned Change List with what applying it needs.

@@ -836,7 +836,7 @@
     },
     {
       "category": "pcb",
-      "description": "Tells whether the PCB, its rules, its DRC severities or its Waivers changed since the `drc.run` that returned `design`.",
+      "description": "Tells whether the PCB, its rules, its DRC severities, its Waivers or the changes pending from the schematic changed since the `drc.run` that returned `design`.",
       "icon": "drc",
       "id": "drc.stale",
       "kind": "query",
