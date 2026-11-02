@@ -1,9 +1,12 @@
 //! Draws the docking [`Layout`]: the Docks (expanded, or as icon strips with a flyout),
 //! the centre's splits and tab groups, floating windows, and each tab's menu.
 //!
-//! Drawing never changes the layout. Every click becomes a layout Command in
-//! [`Frame::commands`], which the window runs after the frame, so the layout changes the
-//! same way from the mouse, the keyboard, scripts and MCP.
+//! Drawing never changes the layout. Every click and every drop of a dragged tab
+//! ([`drag`]) becomes a layout Command in [`Frame::commands`], which the window runs after
+//! the frame, so the layout changes the same way from the mouse, the keyboard, scripts and
+//! MCP.
+
+mod drag;
 
 use egui::containers::menu::menu_style;
 use egui::{
@@ -66,6 +69,11 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
         layout: &layout,
         recent: &recent,
         frame: Frame::default(),
+        zones: drag::Zones {
+            area: ui.available_rect_before_wrap(),
+            groups: Vec::new(),
+            docks: Vec::new(),
+        },
     };
     // The bottom Dock spans the window, so it goes first.
     for side in [DockSide::Bottom, DockSide::Left, DockSide::Right] {
@@ -84,6 +92,10 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
                 cx.node(ui, &window.root, Area::Window(window.id));
             });
     }
+    let shell = &*cx.shell;
+    if let Some(drop) = drag::show(ui.ctx(), &layout, &cx.zones, |tab| tab_title(shell, tab)) {
+        cx.frame.commands.push(drop);
+    }
     cx.frame
 }
 
@@ -92,6 +104,8 @@ struct Cx<'a> {
     layout: &'a Layout,
     recent: &'a [RecentProject],
     frame: Frame,
+    /// Where a dragged tab can be dropped, as drawn this frame.
+    zones: drag::Zones,
 }
 
 impl Cx<'_> {
@@ -115,6 +129,7 @@ impl Cx<'_> {
                 .resizable(false)
                 .exact_size(STRIP)
                 .show(ui, |ui| self.icon_strip(ui, side));
+            self.zones.docks.push((side, strip.response.rect));
             if let Some(tab) = &self.layout.flyout
                 && let Some(place) = self.layout.place(tab)
                 && place.area == Area::Dock(side)
@@ -128,7 +143,7 @@ impl Cx<'_> {
         } else {
             240.0
         };
-        panel
+        let shown = panel
             .resizable(true)
             .default_size(default)
             .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(0))
@@ -143,6 +158,7 @@ impl Cx<'_> {
                     self.group_at(ui, rect, group, Area::Dock(side));
                 }
             });
+        self.zones.docks.push((side, shown.response.rect));
     }
 
     fn icon_strip(&mut self, ui: &mut Ui, side: DockSide) {
@@ -224,11 +240,18 @@ impl Cx<'_> {
             .id_salt(("tab-group", group.id.0));
         ui.scope_builder(builder, |ui| {
             ui.set_clip_rect(rect);
-            ui.horizontal(|ui| {
+            let mut tabs = Vec::new();
+            let strip = ui.horizontal(|ui| {
                 ui.add_space(4.0);
                 for (i, tab) in group.tabs.iter().enumerate() {
-                    self.tab(ui, tab, i == group.active, area);
+                    tabs.push(self.tab(ui, tab, i == group.active, area));
                 }
+            });
+            self.zones.groups.push(drag::GroupZone {
+                group: group.id,
+                rect,
+                strip: Rect::from_x_y_ranges(rect.x_range(), strip.response.rect.y_range()),
+                tabs,
             });
             ui.separator();
             match group.active_tab() {
@@ -246,11 +269,15 @@ impl Cx<'_> {
         );
     }
 
-    fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) {
+    /// Draws a tab; returns its rect.
+    fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) -> Rect {
         let title = tab_title(self.shell, tab);
-        let response = ui.add(Button::selectable(active, title).sense(Sense::click()));
+        let response = ui.add(Button::selectable(active, title).sense(Sense::click_and_drag()));
         if response.clicked() && !active {
             self.run("layout.tab.activate", json!({"tab": tab.to_string()}));
+        }
+        if response.drag_started() {
+            drag::start(ui.ctx(), tab);
         }
         // The tab menu opens on a right-click, or from the keyboard with Shift+F10 or the
         // Menu key while the tab has focus.
@@ -274,6 +301,7 @@ impl Cx<'_> {
         };
         let shown = popup.show(|ui| self.tab_menu(ui, tab, area)).is_some();
         ui.data_mut(|d| d.insert_temp(by_key_id, by_key && shown));
+        response.rect
     }
 
     /// The tab menu: every keyboard docking move, each a layout Command. An item the
