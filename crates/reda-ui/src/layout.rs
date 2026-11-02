@@ -9,9 +9,11 @@
 
 mod commands;
 mod model;
+pub mod saved;
 
-pub use commands::register_all;
+pub use commands::{register_all, register_with_layouts};
 pub use model::{
     Area, Axis, Dock, DockSide, FloatingWindow, Group, GroupId, Layout, Node, PanelId, Place,
     SplitSide, TabKey, WindowId,
 };
+pub use saved::{SavedLayout, Slot};
