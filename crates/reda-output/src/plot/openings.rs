@@ -22,17 +22,22 @@ const PASTE_MARGIN: Nm = Nm::ZERO;
 /// The Solder Mask file of `side`.
 pub(super) fn mask(plot: &Plot<'_>, side: Side) -> Vec<u8> {
     let mut g = Gerber::new(plot.gerber.x2_attributes);
-    for pad in pads(plot) {
-        let on_side = match pad.kind {
-            PadKind::Smd => pad.side.unwrap_or(Side::Top) == side,
-            PadKind::PlatedThroughHole | PadKind::NonPlated => true,
-        };
-        if on_side && let Some(grown) = grown(&pad, pad.mask_margin.unwrap_or(MASK_MARGIN)) {
-            flash_pad(&mut g, &grown, &[]);
-        }
+    for opening in mask_openings(plot, side) {
+        flash_pad(&mut g, &opening, &[]);
     }
     let function = format!("Soldermask,{}", side_name(side));
     g.finish(&file_attributes_with(plot, function, "Negative"))
+}
+
+/// The Solder Mask openings on `side`: each Pad there grown by its mask margin.
+pub(super) fn mask_openings(plot: &Plot<'_>, side: Side) -> Vec<PlacedPad> {
+    pads(plot)
+        .filter(|pad| match pad.kind {
+            PadKind::Smd => pad.side.unwrap_or(Side::Top) == side,
+            PadKind::PlatedThroughHole | PadKind::NonPlated => true,
+        })
+        .filter_map(|pad| grown(&pad, pad.mask_margin.unwrap_or(MASK_MARGIN)))
+        .collect()
 }
 
 /// The Paste file of `side`.

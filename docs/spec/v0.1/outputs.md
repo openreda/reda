@@ -8,6 +8,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - mm, Protel file extensions, `.FileFunction` attributes
   - files for Top/Bottom Copper, Mask, Paste and Silkscreen, plus the Board Outline as the Profile
   - silkscreen text is plotted from the same text geometry as the canvas (`reda-text`)
+  - the silkscreen is cleared over the solder-mask openings on its side, so no ink lands on bare copper
 - **Excellon:** XNC-style, metric, with PTH and NPTH as separate files.
 - **CSV BOM** and **CSV CPL**.
 - Everything goes into one zip.

@@ -11,14 +11,18 @@ use reda_model::{GraphicShape, PcbText, Shape, Side, Uuid};
 use reda_pcb::placed::{self, Bounds};
 use reda_pcb::{PlacedText, board_layer, footprint_texts, text_geometry};
 
-use super::openings::side_name;
-use super::{Plot, file_attributes};
+use super::openings::{mask_openings, side_name};
+use super::{Plot, file_attributes, pad_template};
 use crate::gerber::{Gerber, NO_FUNCTION, Template};
 
-/// The Silkscreen file of the Silkscreen Layer `layer` on `side`.
+/// The Silkscreen file of the Silkscreen Layer `layer` on `side`, cleared over the Solder
+/// Mask openings on that side: ink cannot go on bare copper.
 pub(super) fn silkscreen(plot: &Plot<'_>, layer: Uuid, side: Side) -> Vec<u8> {
     let mut g = Gerber::new(plot.gerber.x2_attributes);
     draw_layer(&mut g, plot, layer, NO_FUNCTION);
+    for opening in mask_openings(plot, side) {
+        g.flash_clear(pad_template(&opening), opening.at);
+    }
     g.finish(&file_attributes(
         plot,
         format!("Legend,{}", side_name(side)),

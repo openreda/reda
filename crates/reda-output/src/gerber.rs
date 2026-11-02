@@ -270,6 +270,13 @@ impl Gerber {
         self.clear_attributes(attributes);
     }
 
+    /// Flashes `template` at `at` in clear polarity, removing what is under it.
+    pub(crate) fn flash_clear(&mut self, template: Template, at: Point) {
+        self.polarity(false);
+        self.select(template, NO_FUNCTION);
+        self.at(at, 3);
+    }
+
     /// Draws a straight line (`sweep` zero) or an arc with a round pen of `width`.
     pub(crate) fn draw(
         &mut self,
