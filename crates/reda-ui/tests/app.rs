@@ -279,6 +279,59 @@ fn snapshot_of_a_schematic_sheet_on_the_canvas() {
     h.snapshot("schematic_canvas_dark");
 }
 
+#[test]
+fn snapshot_of_a_drag_in_flight() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("drag");
+    let file = make_project(&folder, "Drag");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().expect("a sheet tab").document;
+    shell
+        .run(
+            "schematic.wire.add",
+            json!({"document": sheet,
+                   "points": [{"x": "50mm", "y": "100mm"}, {"x": "150mm", "y": "100mm"},
+                              {"x": "150mm", "y": "60mm"}]}),
+        )
+        .unwrap();
+    h.run();
+    // Grab the horizontal Wire and drag it up: it is drawn moved and selected, and the
+    // Wire down from its end is drawn rubber-banded, with nothing committed yet.
+    let rect = h.get_by_role(Role::Canvas).rect();
+    let camera = h
+        .state()
+        .shell()
+        .document_tab(sheet)
+        .unwrap()
+        .camera
+        .unwrap();
+    let grab = camera.screen_point(rect, (100e6, 100e6));
+    h.hover_at(grab);
+    h.run();
+    h.drag_at(grab);
+    h.run();
+    for step in 1..=4 {
+        h.hover_at(grab + egui::vec2(0.0, -10.0 * step as f32));
+        h.run();
+    }
+    assert!(
+        h.state()
+            .shell()
+            .document_tab(sheet)
+            .unwrap()
+            .moving_offset
+            .1
+            > 0.0
+    );
+    h.snapshot("schematic_drag_in_flight_dark");
+}
+
 /// A sheet of icons at the toolbar, menu and tab sizes, each row enabled then disabled.
 fn icon_sheet_snapshot(theme: egui::Theme) {
     if let Some(why) = snapshot_skip_reason() {
