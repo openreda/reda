@@ -22,6 +22,47 @@ MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leav
 | `wire` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `zone` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `zoom_fit` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `annotate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `arc` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `circle` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `component_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `drag` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `erc` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `export_pdf` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `find` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `footprint` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `footprint_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `footprint_generate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `line` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `mirror` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `net` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `net_class` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `net_class_add` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `no_connect` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `part_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `pin` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `polygon` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `port` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `rectangle` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `rotate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `flip` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `select_connected` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `select_similar` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `sheet_size` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `symbol_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `text` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `text_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `title_block` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `unit_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `library_add` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `library_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `library_element_new` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `library_element_open` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `library_import` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `library_remove` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `library_update` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `document_footprint` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `document_symbol` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 
 ## Placeholder icons
 
@@ -38,19 +79,15 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 |---|---|
 | `about` | Lucide `info` |
 | `align` | Tabler `layout-align-left` (outline) |
-| `annotate` | Tabler `list-numbers` (outline) |
-| `arc` | Tabler `vector-spline` (outline) |
 | `arrange` | Lucide `layout-grid` |
 | `batch` | Lucide `list-checks` |
 | `board_cutout` | Tabler `square-dashed` (outline) |
 | `board_outline` | Tabler `border-outer` (outline) |
 | `board_outline_from_lines` | Tabler `vector` (outline) |
 | `board_outline_rect` | Lucide `rectangle-horizontal` |
-| `circle` | Lucide `circle` |
 | `clearance` | Tabler `ruler-measure` (outline) |
 | `cli_install` | Lucide `square-terminal` |
 | `close` | Lucide `x` |
-| `component_place` | Lucide `cpu` |
 | `copy` | Lucide `copy` |
 | `cut` | Lucide `scissors` |
 | `delete` | Lucide `trash-2` |
@@ -59,24 +96,14 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `dock` | Lucide `panel-left` |
 | `dock_collapse` | Lucide `panel-left-close` |
 | `document_add` | Lucide `file-plus` |
-| `document_footprint` | Tabler `cpu-2` (outline) |
 | `document_open` | Lucide `file-input` |
 | `document_pcb` | Lucide `circuit-board` |
 | `document_schematic` | Tabler `schema` (outline) |
-| `document_symbol` | Tabler `triangle` (outline) |
-| `drag` | Lucide `move-diagonal` |
 | `drc` | Tabler `shield-check` (outline) |
 | `duplicate` | Lucide `copy-plus` |
-| `erc` | Tabler `list-check` (outline) |
-| `export_pdf` | Lucide `file-output` |
 | `fab_preset` | Tabler `building-factory` (outline) |
 | `fab_preset_add` | Tabler `building-factory-2` (outline) |
 | `fab_preset_update` | Lucide `refresh-cw` |
-| `find` | Lucide `search` |
-| `flip` | Lucide `flip-horizontal` |
-| `footprint` | Tabler `cpu` (outline) |
-| `footprint_edit` | Tabler `cpu-2` (outline) |
-| `footprint_generate` | Lucide `wand` |
 | `grid` | Lucide `grid-3x3` |
 | `home` | Lucide `house` |
 | `inspect` | Lucide `scan-search` |
@@ -88,21 +115,8 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `layer_visible` | Lucide `eye` |
 | `layout` | Lucide `layout-dashboard` |
 | `layout_save` | Lucide `layout-template` |
-| `library_add` | Lucide `library-big` |
-| `library_edit` | Lucide `book-open` |
-| `library_element_new` | Lucide `book-plus` |
-| `library_element_open` | Lucide `book-open-check` |
-| `library_import` | Lucide `import` |
-| `library_remove` | Lucide `book-x` |
-| `library_update` | Lucide `book-up` |
-| `line` | Lucide `minus` |
 | `lock` | Lucide `lock` |
 | `measure` | Tabler `ruler-2` (outline) |
-| `mirror` | Lucide `flip-horizontal-2` |
-| `net` | Tabler `topology-star` (outline) |
-| `net_class` | Tabler `topology-ring` (outline) |
-| `net_class_add` | Tabler `topology-ring-2` (outline) |
-| `no_connect` | Lucide `circle-x` |
 | `origin` | Lucide `crosshair` |
 | `output_job_add` | Lucide `file-plus-2` |
 | `output_job_edit` | Lucide `file-cog` |
@@ -116,43 +130,29 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `panel_messages` | Lucide `message-square-warning` |
 | `panel_projects` | Lucide `folder-tree` |
 | `panel_properties` | Lucide `sliders-horizontal` |
-| `part_edit` | Lucide `package` |
 | `paste` | Lucide `clipboard-paste` |
-| `pin` | Tabler `point` (outline) |
-| `polygon` | Lucide `pentagon` |
-| `port` | Tabler `arrow-big-right` (outline) |
 | `preferences` | Lucide `settings` |
 | `project_new` | Lucide `folder-plus` |
 | `project_open` | Lucide `folder-open` |
 | `properties` | Lucide `sliders-horizontal` |
 | `quit` | Lucide `log-out` |
 | `ratsnest` | Tabler `route` (outline) |
-| `rectangle` | Lucide `square` |
 | `redo` | Lucide `redo-2` |
 | `rename` | Lucide `pencil` |
 | `render` | Lucide `image` |
 | `reorder` | Lucide `arrow-up-down` |
-| `rotate` | Lucide `rotate-cw` |
 | `rule` | Lucide `ruler` |
 | `rules` | Tabler `ruler-2` (outline) |
 | `save_all` | Lucide `save-all` |
 | `search` | Lucide `search` |
-| `select_connected` | Tabler `link` (outline) |
-| `select_similar` | Lucide `boxes` |
 | `severity` | Lucide `triangle-alert` |
-| `sheet_size` | Tabler `dimensions` (outline) |
 | `split` | Lucide `columns-2` |
-| `symbol_edit` | Tabler `triangle-square-circle` (outline) |
 | `sync` | Lucide `refresh-ccw-dot` |
 | `tab` | Lucide `app-window` |
 | `tab_move` | Lucide `move-right` |
-| `text` | Lucide `type` |
-| `text_edit` | Lucide `text-cursor-input` |
 | `theme_dark` | Lucide `moon` |
 | `theme_follow_os` | Lucide `sun-moon` |
 | `theme_light` | Lucide `sun` |
-| `title_block` | Tabler `table` (outline) |
-| `unit_place` | Tabler `triangle-plus` (outline) |
 | `units` | Lucide `ruler` |
 | `update_check` | Lucide `cloud-download` |
 | `user_origin` | Tabler `focus-2` (outline) |
