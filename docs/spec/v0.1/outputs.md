@@ -40,12 +40,13 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 
 ## What blocks a run and what only warns
 
-- **Blocks:**
+- **Blocks:** the output files read only the job's PCB, so every blocking check reads only the PCB.
   - duplicate Designators
   - a Board Outline that is not closed
-  - Components without a Footprint, when the job asks for a BOM or CPL
+  - a Footprint on the PCB that the outputs cannot use, because the PCB does not hold its Footprint copy. The PCB keeps its own copy of every Footprint it places, so a committed Project never has one; the check stops the writers from leaving such a Footprint out silently.
 - **Warns** (summarised in the run report):
   - the PCB is out of sync
+  - a fitted Standard Component on a sheet with no Footprint assigned. It can never reach the PCB, so the warning says to assign a Footprint and Sync.
   - DRC errors and ERC errors
   - the board's rules allow less than the preset's minimums, for example "board allows 0.10 mm clearance, OSH Park requires 0.152 mm"
   - a text font that is missing on this machine

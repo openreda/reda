@@ -323,23 +323,30 @@ fn footprintless(dir: &TempDir) -> TestEngine {
 }
 
 #[test]
-fn components_without_a_footprint_block_a_run_that_writes_a_bom_or_cpl() {
+fn a_component_without_a_footprint_only_warns_even_when_the_job_writes_a_bom_and_cpl() {
+    // The BOM and CPL read only the job's PCB, which the footprintless U1 never reaches.
     let dir = TempDir::new("output-no-footprint");
     let mut engine = footprintless(&dir);
-    let err = engine.run_err("output.job.run", json!({"job": JOB}));
-    assert_eq!(blockers(&err), ["missing_footprint"]);
-    let blocker = &err.details.as_ref().unwrap()["blockers"][0];
-    assert_eq!(blocker["args"]["designator"], "U1");
-
-    engine.run_ok(
-        "output.job.set",
-        json!({"job": JOB, "outputs": {"bom": false, "cpl": false}}),
-    );
     let out = run(&mut engine);
+    let functions: Vec<&str> = out["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["function"].as_str().unwrap())
+        .collect();
     assert!(
-        checks(&out["warnings"]).contains(&"erc_errors".to_string()),
+        functions.contains(&"bom") && functions.contains(&"cpl"),
         "{out}"
     );
+    let unassigned = out["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|w| w["check"] == "unassigned_footprint")
+        .unwrap_or_else(|| panic!("no unassigned_footprint in {out}"));
+    assert_eq!(unassigned["severity"], "warning");
+    assert_eq!(unassigned["args"]["designator"], "U1");
+    assert_eq!(unassigned["objects"].as_array().unwrap().len(), 1);
     let erc = out["warnings"]
         .as_array()
         .unwrap()
