@@ -104,13 +104,22 @@ pub fn label(pitch: Nm) -> String {
 pub struct Grids(pub BTreeMap<Uuid, Nm>);
 
 impl Grids {
-    /// `document`'s grid: the one picked, else its type's default.
+    /// `document`'s grid: the one picked, else its type's default. `document` may also be
+    /// an open Library element, whose editor's grids follow its kind.
     pub fn of(&self, project: Option<&Project>, document: Uuid) -> Nm {
-        self.0.get(&document).copied().unwrap_or_else(|| {
-            project
-                .and_then(|p| p.document(document))
-                .map_or(SCHEMATIC_DEFAULT, |d| default_grid(d.kind))
-        })
+        if let Some(grid) = self.0.get(&document) {
+            return *grid;
+        }
+        let Some(project) = project else {
+            return SCHEMATIC_DEFAULT;
+        };
+        match project.document(document) {
+            Some(d) => default_grid(d.kind),
+            None => project
+                .element(document)
+                .and_then(crate::element_editor::grid_presets)
+                .map_or(SCHEMATIC_DEFAULT, |(_, default)| default),
+        }
     }
 }
 
@@ -163,10 +172,13 @@ fn document_presets(
     document: Uuid,
 ) -> Result<(Nm, &'static [Nm]), CommandError> {
     let project = cx.project()?;
-    let Some(entry) = project.document(document) else {
-        return Err(CommandError::not_found(format!("no Document {document}")));
+    let (presets, default) = match project.document(document) {
+        Some(entry) => (presets(entry.kind), default_grid(entry.kind)),
+        None => project
+            .element(document)
+            .and_then(crate::element_editor::grid_presets)
+            .ok_or_else(|| CommandError::not_found(format!("no Document {document}")))?,
     };
-    let (presets, default) = (presets(entry.kind), default_grid(entry.kind));
     if presets.is_empty() {
         return Err(CommandError::rejected(
             "this Document type has no grid presets yet",

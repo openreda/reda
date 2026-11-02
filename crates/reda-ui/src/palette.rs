@@ -40,10 +40,9 @@ pub struct Entry {
 /// Every Command and Preset in `shell`'s registry, as they stand now.
 pub fn entries(shell: &Shell, shortcut: Shortcuts<'_>) -> Vec<Entry> {
     let registry = shell.engine().registry();
-    let project = shell.engine().project();
     let entry = |id: String, title: String, icon: &str, description: &str| {
         // The window is never headless.
-        let unavailable = registry.available(&id, project, false).err();
+        let unavailable = shell.engine().available(&id, false).err();
         Entry {
             shortcut: shortcut(&id),
             unavailable: unavailable.map(|e| e.message),

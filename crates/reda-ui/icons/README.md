@@ -23,6 +23,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `board_outline` | Tabler `border-outer` (outline) |
 | `board_outline_from_lines` | Tabler `vector` (outline) |
 | `board_outline_rect` | Lucide `rectangle-horizontal` |
+| `circle` | Lucide `circle` |
 | `clearance` | Tabler `ruler-measure` (outline) |
 | `cli_install` | Lucide `square-terminal` |
 | `close` | Lucide `x` |

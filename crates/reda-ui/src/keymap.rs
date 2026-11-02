@@ -116,14 +116,7 @@ pub fn shortcut_of(shell: &Shell, id: &str) -> Option<String> {
 /// What is active for the canvas of `document` (or, with `None`, for no Document): the
 /// active Tool and that Document's type. An Active Bar shows its own canvas's shortcuts.
 pub fn active_for(shell: &Shell, document: Option<Uuid>) -> Active {
-    let document = document.and_then(|uuid| {
-        let entry = shell
-            .engine()
-            .project()?
-            .documents()
-            .find(|d| d.uuid == uuid)?;
-        Some(DocumentType::from(entry.kind))
-    });
+    let document = document.and_then(|uuid| bars::document_type(shell, uuid));
     Active {
         document,
         ..active(shell)

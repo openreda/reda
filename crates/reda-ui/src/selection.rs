@@ -107,10 +107,10 @@ fn dedup<T: PartialEq>(items: Vec<T>) -> Vec<T> {
     out
 }
 
-/// Refuses anything that is not in the Project.
+/// Refuses anything that is not in the Project or a part of an open Library element.
 fn check(project: &Project, selection: &Selection) -> Result<(), CommandError> {
     for uuid in &selection.objects {
-        if project.object(*uuid).is_none() {
+        if project.object(*uuid).is_none() && !crate::element_editor::part_of(project, *uuid) {
             return Err(CommandError::not_found(format!("no object {uuid}")));
         }
     }

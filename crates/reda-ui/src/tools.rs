@@ -28,6 +28,16 @@ pub enum Tool {
     /// The selection follows the pointer with its Wires rubber-banding, until a click puts
     /// it down (D).
     Drag,
+    /// Footprint editor: each click places a Pad from the Pad Tool's settings (P).
+    Pad,
+    /// Footprint editor: a drag draws a line on the drawing Layer.
+    Line,
+    /// Footprint editor: a drag draws a rectangle between its corners.
+    Rect,
+    /// Footprint editor: a drag draws a circle from its centre.
+    Circle,
+    /// Footprint editor: a click moves the Footprint's origin there, then Select is back.
+    Origin,
 }
 
 impl Tool {
@@ -37,6 +47,11 @@ impl Tool {
             Tool::Select => "select",
             Tool::Move => "move",
             Tool::Drag => "drag",
+            Tool::Pad => "pad",
+            Tool::Line => "line",
+            Tool::Rect => "rect",
+            Tool::Circle => "circle",
+            Tool::Origin => "origin",
         }
     }
 }
@@ -74,7 +89,9 @@ impl Command for ToolActivate {
         title: "Activate Tool",
         description: "Makes a canvas Tool active. Move and Drag pick up the selection, which \
                       then follows the pointer until a click puts it down; Select (also \
-                      what Escape returns to) cancels a Tool in flight.",
+                      what Escape returns to) cancels a Tool in flight. On a Footprint, \
+                      Pad places Pads, Line, Rect and Circle draw on the drawing Layer and \
+                      Origin moves the origin.",
         category: "tool",
         icon: "select",
         kind: Kind::View,
@@ -87,6 +104,16 @@ impl Command for ToolActivate {
             Preset::new("select", "Select", "select", json!({"tool": "select"})),
             Preset::new("move", "Move", "move", json!({"tool": "move"})),
             Preset::new("drag", "Drag", "drag", json!({"tool": "drag"})),
+            Preset::new("pad", "Place Pad", "pad", json!({"tool": "pad"})),
+            Preset::new("line", "Draw Line", "line", json!({"tool": "line"})),
+            Preset::new(
+                "rect",
+                "Draw Rectangle",
+                "rectangle",
+                json!({"tool": "rect"}),
+            ),
+            Preset::new("circle", "Draw Circle", "circle", json!({"tool": "circle"})),
+            Preset::new("origin", "Set Origin", "origin", json!({"tool": "origin"})),
         ]
     }
 
@@ -95,7 +122,8 @@ impl Command for ToolActivate {
         cx: &mut Context<'_>,
         p: ToolActivateParams,
     ) -> Result<ToolActivateResult, CommandError> {
-        if p.tool != Tool::Select && cx.view::<Selection>()?.objects.is_empty() {
+        let picks_up = matches!(p.tool, Tool::Move | Tool::Drag);
+        if picks_up && cx.view::<Selection>()?.objects.is_empty() {
             return Err(CommandError::rejected(
                 "nothing is selected: select what to move first",
             ));

@@ -198,3 +198,62 @@ command = "tool.flip"
 context = "pcb"
 key = "Esc"
 command = "tool.activate:select"
+
+# The Footprint editor. "$selection" is what is selected on the Footprint: Pads, graphics
+# and the Designator and value text (Del hides a text rather than removing it). Tools: P
+# places Pads, L, R and C draw lines, rectangles and circles, O moves the origin. Mod+S
+# saves the Footprint to its Library.
+
+[[bind]]
+context = "footprint"
+key = "Mod+S"
+command = "library.element.save"
+params = { element = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Del"
+command = "library.footprint.delete"
+params = { footprint = "$active_document", objects = "$selection" }
+
+[[bind]]
+context = "footprint"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }
+
+[[bind]]
+context = "footprint"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "P"
+command = "tool.activate:pad"
+
+[[bind]]
+context = "footprint"
+key = "L"
+command = "tool.activate:line"
+
+[[bind]]
+context = "footprint"
+key = "R"
+command = "tool.activate:rect"
+
+[[bind]]
+context = "footprint"
+key = "C"
+command = "tool.activate:circle"
+
+[[bind]]
+context = "footprint"
+key = "O"
+command = "tool.activate:origin"
+
+[[bind]]
+context = "footprint"
+key = "Esc"
+command = "tool.activate:select"

@@ -557,3 +557,87 @@ fn snapshot_of_a_generated_params_form() {
     assert!(h.query_by_label("Split Tab").is_some());
     h.snapshot("params_form_dark");
 }
+
+#[test]
+fn snapshot_of_the_footprint_editor() {
+    let home = TempDir::new("app-home");
+    let lib = home.path().join("lib");
+    std::fs::create_dir_all(&lib).unwrap();
+    let library = "000000aa-0000-4000-8000-000000000000";
+    let info = reda_ui::engine::model::LibraryInfo {
+        uuid: library.parse().unwrap(),
+        name: "Mine".into(),
+        description: String::new(),
+    };
+    std::fs::write(
+        lib.join("Mine.redalib"),
+        reda_ui::engine::format::library::write_library_info(&info).unwrap(),
+    )
+    .unwrap();
+    let dirs = UserDirs::under(home.path());
+    preferences::set(&dirs, "libraries.paths", json!([lib])).unwrap();
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    let out = shell
+        .run(
+            "library.element.new",
+            json!({"library": library, "kind": "footprint", "name": "SOT-23-ish"}),
+        )
+        .unwrap();
+    let fp = out["element"].clone();
+    let mut pads = Vec::new();
+    for (number, x, y) in [
+        ("1", "-1mm", "-1.1mm"),
+        ("2", "1mm", "-1.1mm"),
+        ("3", "0mm", "1.1mm"),
+    ] {
+        let out = shell
+            .run(
+                "library.footprint.pad.add",
+                json!({"footprint": fp, "number": number, "kind": "smd",
+                       "shape": "rounded_rect", "at": {"x": x, "y": y},
+                       "width": "0.6mm", "height": "0.9mm"}),
+            )
+            .unwrap();
+        pads.push(out["result"]["pad"].clone());
+    }
+    shell
+        .run(
+            "library.footprint.pad.add",
+            json!({"footprint": fp, "number": "4", "kind": "plated_through_hole",
+                   "shape": "oval", "at": {"x": "3mm", "y": 0}, "width": "1.2mm",
+                   "height": "2mm", "hole": {"width": "0.6mm", "height": "1.2mm"}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "library.footprint.graphic.add",
+            json!({"footprint": fp, "layer": "courtyard_top",
+                   "shape": {"kind": "rect", "start": {"x": "-2mm", "y": "-2mm"},
+                             "end": {"x": "4mm", "y": "2mm"}}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "library.footprint.text.set",
+            json!({"footprint": fp, "text": "designator", "at": {"x": 0, "y": "3mm"}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "library.footprint.text.set",
+            json!({"footprint": fp, "text": "value", "at": {"x": 0, "y": "-3mm"},
+                   "size": "0.6mm"}),
+        )
+        .unwrap();
+    shell
+        .run("selection.set", json!({"objects": [pads[0]]}))
+        .unwrap();
+    h.run();
+    h.run();
+    h.snapshot("footprint_editor_dark");
+}

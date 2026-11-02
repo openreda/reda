@@ -339,14 +339,13 @@ impl Cx<'_> {
                 crate::pcb::canvas::pointer(self.shell, document, input);
                 Vec::new()
             }
-            None => Vec::new(),
+            None => crate::element_editor::edit(self.shell, document, input),
         }
     }
 
     /// The Active Bar over the canvas of `document`, for its Document type.
     fn active_bar(&self, ui: &mut Ui, document: Uuid, id: Id, rect: Rect) -> Option<Invocation> {
-        let project = self.shell.engine().project()?;
-        let kind = project.documents().find(|d| d.uuid == document)?.kind;
+        let kind = bars::document_type(self.shell, document)?;
         let checked =
             BTreeMap::from([("tool.activate", json!({ "tool": self.shell.tool().id() }))]);
         let cx = draw::Cx {
@@ -354,7 +353,7 @@ impl Cx<'_> {
             checked: &checked,
             document: Some(document),
         };
-        draw::active_bar(ui, &cx, bars::for_document(Some(kind.into())), id, rect)
+        draw::active_bar(ui, &cx, bars::for_document(Some(kind)), id, rect)
     }
 
     fn flyout(&mut self, ui: &mut Ui, side: DockSide, strip: Rect, tab: &TabKey) {
@@ -535,7 +534,20 @@ impl Cx<'_> {
                 }
             }
             TabKey::Document(uuid) => {
-                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
+                let start = self.frame.commands.len();
+                if crate::element_editor::is_element(self.shell.engine(), *uuid) {
+                    let id = Id::NULL.with(("element-side-panel", *uuid));
+                    let panel = egui::Panel::right(id)
+                        .resizable(false)
+                        .exact_size(crate::footprint_editor::inspector::WIDTH);
+                    let commands = panel
+                        .show(ui, |ui| {
+                            crate::element_editor::side_panel(ui, self.shell, *uuid)
+                        })
+                        .inner;
+                    self.frame.commands.extend(commands);
+                }
+                let rect = ui.available_rect_before_wrap();
                 let theme = theme::canvas_theme(ui.ctx().theme());
                 let Some(doc) = self.shell.document_tab_mut(*uuid) else {
                     return;
