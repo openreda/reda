@@ -4,6 +4,7 @@
 //! [`Engine::run`]. Tests build one with `reda_testkit::test_engine()`.
 
 pub mod annotate;
+mod board_geometry;
 mod builders;
 pub mod canonical;
 pub mod commands;
