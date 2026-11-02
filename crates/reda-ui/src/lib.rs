@@ -12,6 +12,7 @@ mod dialogs;
 mod docking;
 pub mod i18n;
 pub mod layout;
+mod panels;
 pub mod properties;
 pub mod selection;
 pub mod shell;
