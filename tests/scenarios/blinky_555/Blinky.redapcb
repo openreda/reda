@@ -106,7 +106,7 @@
       {"uuid":"9edad386-0f34-46d8-aff4-d0ee06a92a3e","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-975000,"y":2450000},{"x":1950000,"y":2450000},{"x":1950000,"y":-2450000},{"x":-1950000,"y":-2450000},{"x":-1950000,"y":1475000}]},"width":100000},
       {"uuid":"d884077c-c431-4cd6-a0da-87bcddbac1de","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":-2560000},"end":{"x":2000000,"y":-2560000}},"width":120000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000008e","hash":"97110a739d5555464c7fc97a3012ad8f","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated"},"text":{"designator":{"at":{"x":0,"y":4050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000008e","hash":"f70bf0fa3206b7813aa7951df835f326","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762"},"text":{"designator":{"at":{"x":0,"y":4050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
       {"uuid":"732e356d-ae3f-4ac3-9110-707295538d10","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
       {"uuid":"4b5efa83-470e-4f52-b548-506a36d274ea","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
