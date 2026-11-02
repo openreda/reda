@@ -139,7 +139,19 @@ impl Server {
             let _ = forwarder.await;
         }
         match outcome {
-            Ok(Value::Object(result)) => CallToolResult::structured(Value::Object(result)),
+            Ok(Value::Object(mut result)) => match result.remove("png") {
+                // `document.render`'s PNG goes to the model as an image, not base64 text.
+                Some(Value::String(png)) => {
+                    let mut out = CallToolResult::structured(Value::Object(result));
+                    out.content.insert(0, ContentBlock::image(png, "image/png"));
+                    out
+                }
+                Some(other) => {
+                    result.insert("png".into(), other);
+                    CallToolResult::structured(Value::Object(result))
+                }
+                None => CallToolResult::structured(Value::Object(result)),
+            },
             Ok(result) => CallToolResult::success(vec![ContentBlock::text(result.to_string())]),
             Err(err) => failure(&err),
         }

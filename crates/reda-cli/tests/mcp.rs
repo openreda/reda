@@ -258,6 +258,35 @@ fn a_project_that_does_not_open_is_an_error_before_serving() {
 }
 
 #[test]
+fn document_render_returns_a_png_as_an_image_block() {
+    let dir = TempDir::new("mcp-render");
+    let mut client = Client::spawn(&[]);
+    client.call("run_command", new_project(dir.path()));
+    let overview = client.call("project.overview", json!({}));
+    let sheet = overview["structuredContent"]["documents"][0]["uuid"].clone();
+    let out = client.call("document.render", json!({"document": sheet, "size": 64}));
+    if out["isError"] == true {
+        // No GPU or software adapter here: the error names the cause.
+        assert_eq!(out["structuredContent"]["code"], "unavailable", "{out}");
+        eprintln!("skipping: {}", out["structuredContent"]["message"]);
+        client.finish();
+        return;
+    }
+    let image = &out["content"][0];
+    assert_eq!(image["type"], "image", "{out}");
+    assert_eq!(image["mimeType"], "image/png");
+    assert!(image["data"].as_str().unwrap().starts_with("iVBORw0KGgo"));
+    let structured = &out["structuredContent"];
+    assert_eq!(structured["format"], "png");
+    assert_eq!(structured["width"], 64);
+    assert!(
+        structured.get("png").is_none(),
+        "the PNG is not repeated as text"
+    );
+    client.finish();
+}
+
+#[test]
 fn unexpected_arguments_are_usage_errors() {
     let home = TempDir::new("mcp-home");
     let out = Command::new(env!("CARGO_BIN_EXE_reda"))

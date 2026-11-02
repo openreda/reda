@@ -110,11 +110,16 @@ pub struct DocumentRenderParams {
     /// `{"objects": [uuid…]}`.
     #[serde(default)]
     pub view: RenderView,
-    /// The image's longer side in pixels.
+    /// The image's longer side in pixels, 1 to 8192; 1024 by default.
     #[serde(default = "default_size")]
     pub size: u32,
     #[serde(default)]
     pub theme: RenderTheme,
+    /// The PCB Layers to show (every Layer by default). A Schematic Sheet has a single
+    /// Layer, so leave this out for one.
+    pub layers: Option<Vec<Uuid>>,
+    /// The PCB Layer drawn last, on top. Leave this out for a Schematic Sheet.
+    pub active_layer: Option<Uuid>,
     /// Objects to highlight: everything else is dimmed.
     #[serde(default)]
     pub highlight: Vec<Uuid>,
@@ -126,6 +131,9 @@ fn default_size() -> u32 {
     1024
 }
 
+/// The longest image side, in pixels (WebGPU's default texture limit).
+pub const MAX_SIZE: u32 = 8192;
+
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct DocumentRenderResult {
     pub format: RenderFormat,
@@ -135,6 +143,10 @@ pub struct DocumentRenderResult {
     /// The SVG document, for `format: "svg"`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub svg: Option<String>,
+    /// The PNG file, base64-encoded, for `format: "png"`. Over MCP it comes back as an
+    /// image content block.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub png: Option<String>,
 }
 
 impl Command for DocumentRender {
@@ -143,8 +155,9 @@ impl Command for DocumentRender {
         title: "Render Document",
         description: "Draws a Document as an image, through the same Scene as the canvas. \
                       The view, size, theme and highlight are explicit and independent of \
-                      the user's view. `svg` returns vector SVG text; `png` needs the GPU \
-                      backend.",
+                      the user's view. `png` (the default) is drawn by the canvas renderer, \
+                      headless on a software adapter, and fails naming the cause when no \
+                      adapter is available; `svg` returns vector SVG text.",
         category: "document",
         icon: "render",
         kind: Kind::Query,
@@ -157,11 +170,26 @@ impl Command for DocumentRender {
         cx: &mut Context<'_>,
         p: DocumentRenderParams,
     ) -> Result<DocumentRenderResult, CommandError> {
-        let scene = document_scene(cx.project()?, p.document, self.junctions)?;
-        if p.size == 0 {
+        let project = cx.project()?;
+        let scene = document_scene(project, p.document, self.junctions)?;
+        if let Some(DocumentKind::Schematic) = project.document(p.document).map(|d| d.kind) {
+            if p.layers.is_some() {
+                return Err(CommandError::invalid_params(
+                    "/layers",
+                    "a Schematic Sheet has a single Layer: leave out layers",
+                ));
+            }
+            if p.active_layer.is_some() {
+                return Err(CommandError::invalid_params(
+                    "/active_layer",
+                    "a Schematic Sheet has a single Layer: leave out active_layer",
+                ));
+            }
+        }
+        if !(1..=MAX_SIZE).contains(&p.size) {
             return Err(CommandError::invalid_params(
                 "/size",
-                "size must be at least 1",
+                format!("size must be 1 to {MAX_SIZE} pixels"),
             ));
         }
         let (min, max) = match &p.view {
@@ -178,10 +206,18 @@ impl Command for DocumentRender {
         .ok_or_else(|| CommandError::rejected("nothing to frame: the view is empty"))?;
         let view = Viewport::fit(min, max, p.size);
         match p.format {
-            RenderFormat::Png => Err(CommandError::unavailable(
-                "PNG rendering needs the GPU backend, which this build does not have; \
-                 use format \"svg\"",
-            )),
+            RenderFormat::Png => {
+                cx.check_cancelled()?;
+                let palette = Palette::shipped(p.theme.into());
+                let png = png(&scene, &view, &palette, &p.highlight)?;
+                Ok(DocumentRenderResult {
+                    format: RenderFormat::Png,
+                    width: view.width,
+                    height: view.height,
+                    svg: None,
+                    png: Some(crate::base64::encode(&png)),
+                })
+            }
             RenderFormat::Svg => {
                 let svg = to_svg(
                     &scene,
@@ -194,6 +230,7 @@ impl Command for DocumentRender {
                     width: view.width,
                     height: view.height,
                     svg: Some(svg),
+                    png: None,
                 })
             }
         }
@@ -213,4 +250,54 @@ fn objects_bounds(scene: &Scene, objects: &[Uuid]) -> Option<(Point, Point)> {
                 Point::new(hi.x.max(h.x), hi.y.max(h.y)),
             )
         })
+}
+
+/// Draws a PNG on the shared headless device.
+#[cfg(feature = "gpu")]
+fn png(
+    scene: &Scene,
+    view: &Viewport,
+    palette: &Palette,
+    highlight: &[Uuid],
+) -> Result<Vec<u8>, CommandError> {
+    use crate::gpu::{Flags, Headless, Highlight, RenderError};
+    use std::sync::OnceLock;
+
+    // One device per process: opening an adapter is slow, and a missing one stays missing.
+    static HEADLESS: OnceLock<Result<Headless, RenderError>> = OnceLock::new();
+    let gpu = HEADLESS
+        .get_or_init(Headless::new)
+        .as_ref()
+        .map_err(|e| no_renderer(e.to_string()))?;
+    let mut marks = Highlight::new();
+    marks.mark_all(highlight.iter().copied(), Flags::HIGHLIGHTED);
+    let image = gpu
+        .render(scene, &crate::View::of(view), palette, &marks)
+        .map_err(|e| match e {
+            RenderError::NoAdapter(_) | RenderError::NoDevice(_) => no_renderer(e.to_string()),
+            _ => CommandError::internal(e.to_string()),
+        })?;
+    Ok(image.to_png())
+}
+
+#[cfg(not(feature = "gpu"))]
+fn png(
+    _scene: &Scene,
+    _view: &Viewport,
+    _palette: &Palette,
+    _highlight: &[Uuid],
+) -> Result<Vec<u8>, CommandError> {
+    Err(no_renderer(
+        "no GPU or software renderer is available: this build has no GPU backend; use \
+         format \"svg\""
+            .into(),
+    ))
+}
+
+/// `unavailable`, naming the cause, with `details.cause = "no_renderer"`.
+fn no_renderer(message: String) -> CommandError {
+    CommandError {
+        details: Some(serde_json::json!({"cause": "no_renderer"})),
+        ..CommandError::unavailable(message)
+    }
 }

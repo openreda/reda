@@ -298,7 +298,7 @@
     },
     {
       "category": "document",
-      "description": "Draws a Document as an image, through the same Scene as the canvas. The view, size, theme and highlight are explicit and independent of the user's view. `svg` returns vector SVG text; `png` needs the GPU backend.",
+      "description": "Draws a Document as an image, through the same Scene as the canvas. The view, size, theme and highlight are explicit and independent of the user's view. `png` (the default) is drawn by the canvas renderer, headless on a software adapter, and fails naming the cause when no adapter is available; `svg` returns vector SVG text.",
       "icon": "render",
       "id": "document.render",
       "kind": "query",
@@ -412,6 +412,14 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "active_layer": {
+            "description": "The PCB Layer drawn last, on top. Leave this out for a Schematic Sheet.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "document": {
             "description": "The Document to draw.",
             "format": "uuid",
@@ -430,9 +438,20 @@
             },
             "type": "array"
           },
+          "layers": {
+            "description": "The PCB Layers to show (every Layer by default). A Schematic Sheet has a single\nLayer, so leave this out for one.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "size": {
             "default": 1024,
-            "description": "The image's longer side in pixels.",
+            "description": "The image's longer side in pixels, 1 to 8192; 1024 by default.",
             "format": "uint32",
             "minimum": 0,
             "type": "integer"
@@ -478,6 +497,13 @@
             "format": "uint32",
             "minimum": 0,
             "type": "integer"
+          },
+          "png": {
+            "description": "The PNG file, base64-encoded, for `format: \"png\"`. Over MCP it comes back as an\nimage content block.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "svg": {
             "description": "The SVG document, for `format: \"svg\"`.",
