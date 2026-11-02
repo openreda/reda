@@ -40,13 +40,16 @@
 //!   ],
 //!   "graphics": [
 //!     {"uuid":"…","shape":{"kind":"rect","from":{…},"to":{…}}}
+//!   ],
+//!   "waivers": [
+//!     {"uuid":"…","check":"unconnected_pin","objects":["…","…"],"comment":"test point"}
 //!   ]
 //! }
 //! ```
 //!
 //! `frame` is written only when the sheet has one, and the three tables only when the sheet
-//! holds any Component; `wires`, `net_labels`, `no_connects`, `ports`, `power_ports`, `texts`
-//! and `graphics` only when not empty. Nets
+//! holds any Component; `wires`, `net_labels`, `no_connects`, `ports`, `power_ports`, `texts`,
+//! `graphics` and `waivers` only when not empty. Nets
 //! and Junctions are derived from the drawing, never written. A part-table entry (`parts`) holds the
 //! keys of a `.redapart` file (`part`, `footprints`, `fields`, `pin_map`) and of a
 //! `.redasym` file (`symbol`, `units`, `pins`, `graphics`) with the same shapes, plus its own `uuid`,
@@ -60,7 +63,7 @@ use std::path::Path;
 use reda_model::{
     Fields, FootprintCopy, FootprintGraphic, InDocument, NetLabel, NoConnect, Object, Pad,
     PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet, SheetFrame, SheetGraphic,
-    SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Wire,
+    SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Waiver, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -113,6 +116,9 @@ pub(crate) struct SheetFile {
     /// The free lines and rectangles, sorted by UUID.
     #[serde(default)]
     graphics: Vec<SheetGraphic>,
+    /// The Waivers of ERC Violations whose objects are on this sheet, sorted by UUID.
+    #[serde(default)]
+    waivers: Vec<Waiver>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -247,6 +253,9 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
     if sheet.graphics().next().is_some() {
         w.table("graphics", sheet.graphics(), |r| r.uuid)?;
     }
+    if sheet.waivers().next().is_some() {
+        w.table("waivers", sheet.waivers(), |r| r.uuid)?;
+    }
     Ok(w.finish())
 }
 
@@ -315,6 +324,9 @@ pub(crate) fn read_sheet_file(
     }
     for graphic in file.graphics {
         objects.push(Object::SheetGraphic(InDocument::new(sheet, graphic)));
+    }
+    for waiver in file.waivers {
+        objects.push(Object::Waiver(InDocument::new(sheet, waiver)));
     }
     Ok(objects)
 }

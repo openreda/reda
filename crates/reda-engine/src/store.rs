@@ -91,6 +91,7 @@ pub fn open_from(
         documents: vec![],
         libraries: file.libraries.clone(),
         properties: file.properties.clone(),
+        erc: file.erc,
     });
     let mut missing = vec![];
     let mut tx = project.transaction();

@@ -10,7 +10,7 @@ use crate::document::{DocumentEntry, DocumentKind};
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::PcbDocument;
 use crate::schematic::SchematicSheet;
-use crate::{ElementSource, LibraryElement, TxError, Uuid};
+use crate::{ElementSource, ErcSeverities, LibraryElement, TxError, Uuid};
 
 /// Project-wide properties, stored in `<name>.reda`.
 ///
@@ -29,6 +29,9 @@ pub struct ProjectProps {
     /// The Project properties that fill the sheets' title blocks.
     #[serde(default)]
     pub properties: ProjectProperties,
+    /// The ERC severities.
+    #[serde(default)]
+    pub erc: ErcSeverities,
 }
 
 /// The Project properties: fixed free-text fields that fill each sheet's title block.
@@ -225,6 +228,8 @@ impl Project {
             Object::PowerPort(o) => return self.check_sheet(o.document),
             Object::SheetText(o) => return self.check_sheet(o.document),
             Object::SheetGraphic(o) => return self.check_sheet(o.document),
+            // Only sheets hold Waivers so far; the PCB Document gets a table with DRC.
+            Object::Waiver(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
             Object::FootprintInstance(o) => o.document,
@@ -372,6 +377,9 @@ impl Project {
             }
             Some(Object::SheetGraphic(o)) => {
                 self.sheet_mut(o.document).graphics.insert(uuid, o.object);
+            }
+            Some(Object::Waiver(o)) => {
+                self.sheet_mut(o.document).waivers.insert(uuid, o.object);
             }
             Some(Object::PcbText(o)) => {
                 self.pcb_mut(o.document).texts.insert(uuid, o.object);

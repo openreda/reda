@@ -237,6 +237,7 @@ impl Command for Create {
             documents: vec![],
             libraries: vec![],
             properties: Default::default(),
+            erc: Default::default(),
         }));
         Ok(uuid)
     }

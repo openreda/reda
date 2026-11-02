@@ -16,7 +16,7 @@ use crate::pcb::{
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
     Port, PowerPort, ProjectProps, SheetFrame, SheetGraphic, SheetText, Symbol, UnitInstance, Uuid,
-    Wire,
+    Waiver, Wire,
 };
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
@@ -50,6 +50,7 @@ pub enum Object {
     PowerPort(InDocument<PowerPort>),
     SheetText(InDocument<SheetText>),
     SheetGraphic(InDocument<SheetGraphic>),
+    Waiver(InDocument<Waiver>),
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
     FootprintInstance(InDocument<FootprintInstance>),
@@ -114,6 +115,8 @@ pub enum ObjectType {
     SheetText,
     /// A free line or rectangle on a Schematic Sheet.
     SheetGraphic,
+    /// A Waiver of one Violation, in the Document holding its objects.
+    Waiver,
     /// Free text on a PCB Layer.
     PcbText,
     /// A line, arc or rectangle on a PCB Layer.
@@ -153,6 +156,7 @@ impl Object {
             Object::PowerPort(o) => o.uuid,
             Object::SheetText(o) => o.uuid,
             Object::SheetGraphic(o) => o.uuid,
+            Object::Waiver(o) => o.uuid,
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
             Object::FootprintInstance(o) => o.uuid,
@@ -187,6 +191,7 @@ impl Object {
             Object::PowerPort(_) => ObjectType::PowerPort,
             Object::SheetText(_) => ObjectType::SheetText,
             Object::SheetGraphic(_) => ObjectType::SheetGraphic,
+            Object::Waiver(_) => ObjectType::Waiver,
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             Object::FootprintInstance(_) => ObjectType::FootprintInstance,
@@ -222,6 +227,7 @@ impl Object {
             Object::PowerPort(o) => Scope::Document(o.document),
             Object::SheetText(o) => Scope::Document(o.document),
             Object::SheetGraphic(o) => Scope::Document(o.document),
+            Object::Waiver(o) => Scope::Document(o.document),
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
             Object::FootprintInstance(o) => Scope::Document(o.document),

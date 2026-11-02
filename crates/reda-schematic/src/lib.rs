@@ -1,10 +1,11 @@
 //! Schematic Sheet behaviour: placing Components, the sheet frame and its title block, the
 //! schematic Commands, and the connectivity derived from the drawing ([`connectivity`]).
-//! ERC joins later.
+//! ERC ([`erc`]) checks it.
 
 mod component;
 pub mod connectivity;
 mod edit;
+pub mod erc;
 mod find;
 mod library_element;
 mod natural;
@@ -100,6 +101,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(LineAdd);
     registry.add(RectAdd);
     registry.add(GraphicSet);
+    erc::register_all(registry);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

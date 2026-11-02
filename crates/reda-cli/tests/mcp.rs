@@ -118,6 +118,7 @@ fn lists_the_generic_tools_and_the_query_commands() {
             "project.overview",
             "objects.query",
             "object.get",
+            "erc.run",
             "sync.preview",
             "document.render",
         ]

@@ -16,7 +16,8 @@
 //!   "output_jobs": [
 //!     {"uuid":"…","name":"JLCPCB","pcb":"…","fab_preset":"…","outputs":{…}}
 //!   ],
-//!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"}
+//!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"},
+//!   "erc": {"unconnected_input":"error",…,"single_pin_net":"off",…}
 //! }
 //! ```
 //!
@@ -28,7 +29,8 @@
 use std::path::Path;
 
 use reda_model::{
-    DocumentEntry, DocumentKind, OutputJob, Project, ProjectFabPreset, ProjectProperties, Uuid,
+    DocumentEntry, DocumentKind, ErcSeverities, OutputJob, Project, ProjectFabPreset,
+    ProjectProperties, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -64,6 +66,10 @@ pub(crate) struct ProjectFile {
     /// is set.
     #[serde(default)]
     pub properties: ProjectProperties,
+    /// The ERC severities, `error`, `warning` or `off` per check. Written only when any
+    /// differs from its default; a check left out has its default.
+    #[serde(default)]
+    pub erc: ErcSeverities,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -145,6 +151,10 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     let properties = &project.props().properties;
     if !properties.is_empty() {
         w.field("properties", properties)?;
+    }
+    let erc = &project.props().erc;
+    if !erc.is_default() {
+        w.field("erc", erc)?;
     }
     Ok(w.finish())
 }

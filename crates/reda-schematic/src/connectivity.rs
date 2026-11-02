@@ -250,7 +250,7 @@ pub fn project_nets(project: &Project) -> Vec<ProjectNet> {
 
 /// Every sheet's connectivity, Project-named, and the Project-wide Nets as lists of
 /// `(sheet index, Net index)` in sheet order, in order of their first member.
-fn joined(project: &Project) -> (Vec<SheetConnectivity>, Vec<Vec<(usize, usize)>>) {
+pub(crate) fn joined(project: &Project) -> (Vec<SheetConnectivity>, Vec<Vec<(usize, usize)>>) {
     let mut sheets: Vec<SheetConnectivity> = project
         .documents()
         .filter_map(|d| project.schematic_sheet(d.uuid))
