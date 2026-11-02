@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use egui::{Align, Button, Layout, RichText, Role, Ui, WidgetInfo};
+use egui::{Align, Button, Label, Layout, RichText, Role, Ui, WidgetInfo};
 
 use crate::shell::RecentProject;
 use crate::tr;
@@ -66,7 +66,8 @@ fn recent_row(ui: &mut Ui, project: &RecentProject) -> Option<StartAction> {
             .parent()
             .map(|p| p.display().to_string())
             .unwrap_or_default();
-        ui.add_enabled_ui(!project.missing, |ui| ui.weak(location));
+        // The remove button is laid out first so a long location truncates instead of
+        // pushing it out of the row.
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let name = project.name.clone();
             let remove = ui
@@ -82,6 +83,12 @@ fn recent_row(ui: &mut Ui, project: &RecentProject) -> Option<StartAction> {
             if remove.clicked() {
                 action = Some(StartAction::RemoveRecent(project.path.clone()));
             }
+            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                ui.add_enabled(
+                    !project.missing,
+                    Label::new(RichText::new(location).weak()).truncate(),
+                );
+            });
         });
     });
     action
