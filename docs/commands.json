@@ -198,7 +198,7 @@
     },
     {
       "category": "project",
-      "description": "Deletes a Document and everything in it, as one undoable step on the Project's stack. Its file is left on disk.",
+      "description": "Deletes a Document and everything in it, as one undoable step on the Project's stack. Its file goes to the OS trash when the Project file is next saved.",
       "icon": "delete",
       "id": "document.delete",
       "kind": "edit",
@@ -225,6 +225,126 @@
         "type": "null"
       },
       "title": "Delete Document"
+    },
+    {
+      "category": "project",
+      "description": "Sets a Document's title. Its file stem becomes the title with the characters file names cannot hold replaced, made unique by a number suffix. The file is renamed on save.",
+      "icon": "rename",
+      "id": "document.rename",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Document's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": {
+            "description": "The new title, kept as typed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "title"
+        ],
+        "title": "DocumentRenameParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic",
+              "pcb"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/DocumentKind"
+          },
+          "name": {
+            "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+            "type": "string"
+          },
+          "title": {
+            "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "kind",
+          "name",
+          "title"
+        ],
+        "title": "DocumentEntry",
+        "type": "object"
+      },
+      "title": "Rename Document"
+    },
+    {
+      "category": "project",
+      "description": "Moves a Document to `index` in the Project's Document list. The order of the Schematic Sheets gives \"sheet n of m\" and the PDF page order.",
+      "icon": "reorder",
+      "id": "document.reorder",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Document's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "index": {
+            "description": "Its new 0-based position in the Project's Document list; past the end moves it last.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document",
+          "index"
+        ],
+        "title": "DocumentReorderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "documents": {
+            "description": "Every Document's UUID in the new order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "documents"
+        ],
+        "title": "DocumentOrder",
+        "type": "object"
+      },
+      "title": "Reorder Documents"
     },
     {
       "category": "edit",
@@ -12844,7 +12964,7 @@
     },
     {
       "category": "project",
-      "description": "Writes the Project file and every Document to the Project folder, each through a temp file and a rename. With `document`, writes only that Document's file, or only the Project file for `\"project\"`.",
+      "description": "Writes the Project file and every Document to the Project folder, each through a temp file and a rename. With `document`, writes only that Document's file, or only the Project file for `\"project\"`. Saving the Project file also renames the files of renamed Documents and sends those of deleted Documents to the OS trash.",
       "icon": "save_all",
       "id": "project.save",
       "kind": "file",
@@ -12884,11 +13004,43 @@
       },
       "presets": [],
       "result": {
+        "$defs": {
+          "RenamedFile": {
+            "description": "A file renamed on save, relative to the Project folder.",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "path": {
             "description": "The Project file.",
             "type": "string"
+          },
+          "renamed": {
+            "description": "Files of renamed Documents moved to their new names; left out when none.",
+            "items": {
+              "$ref": "#/$defs/RenamedFile"
+            },
+            "type": "array"
+          },
+          "trashed": {
+            "description": "Files of deleted Documents sent to the trash; left out when none.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "written": {
             "description": "Every file written, relative to the Project folder.",

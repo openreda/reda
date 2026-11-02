@@ -54,6 +54,53 @@ fn project_new_writes_the_project_folder() {
     );
 }
 
+/// `document.delete --save` sends the sheet's file to the freedesktop.org trash, here a
+/// home trash under a temp `XDG_DATA_HOME` on the same file system as the Project.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_deleted_sheets_file_goes_to_the_os_trash_on_save() {
+    let dir = TempDir::new("cli-trash");
+    let data = dir.path().join("data");
+    let params = new_params(dir.path());
+    stdout_json(&reda(&["run", "project.new", "--params", &params]));
+    let folder = dir.path().join("Demo");
+    let project = folder.join("Demo.reda");
+    let add = reda(&[
+        "run",
+        "document.add",
+        "--kind",
+        "schematic",
+        "--project",
+        path(&project),
+        "--save",
+    ]);
+    let sheet = stdout_json(&add)["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(folder.join("sheet-2.redasch").is_file());
+
+    let home = TempDir::new("cli-home");
+    let out = Command::new(env!("CARGO_BIN_EXE_reda"))
+        .args([
+            "run",
+            "document.delete",
+            "--document",
+            &sheet,
+            "--project",
+            path(&project),
+            "--save",
+        ])
+        .env("REDA_HOME", home.path())
+        .env("XDG_DATA_HOME", &data)
+        .output()
+        .expect("run reda");
+    stdout_json(&out);
+    assert!(!folder.join("sheet-2.redasch").exists());
+    assert!(data.join("Trash/files/sheet-2.redasch").is_file());
+    assert!(data.join("Trash/info/sheet-2.redasch.trashinfo").is_file());
+}
+
 #[test]
 fn an_edit_writes_nothing_without_save() {
     let dir = TempDir::new("cli-edit-nosave");
@@ -76,7 +123,7 @@ fn an_edit_writes_nothing_without_save() {
     let mut with_save = add.to_vec();
     with_save.push("--save");
     stdout_json(&reda(&with_save));
-    assert!(folder.join("Sheet 2.redasch").is_file());
+    assert!(folder.join("sheet-2.redasch").is_file());
 }
 
 #[test]

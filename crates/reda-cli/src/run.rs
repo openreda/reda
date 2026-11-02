@@ -111,7 +111,9 @@ pub fn execute(args: RunArgs) -> ExitCode {
         .flatten()
     {
         Some(connection) => Runner::Bridged(connection, Vec::new()),
-        None => Runner::Local(Box::new(Engine::new())),
+        None => Runner::Local(Box::new(
+            Engine::builder().trash(crate::os_trash::OsTrash).build(),
+        )),
     };
     match &args.target {
         Target::Command(id) => execute_command(&mut runner, id, &args),

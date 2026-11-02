@@ -1,10 +1,11 @@
 //! The headless engine: a registry, a session and the injected inputs.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use reda_command::{
     Clock, CommandError, Env, Fonts, History, IdSource, RandomIds, Registry, Session, Signals,
-    SystemClock, UserDirs,
+    SystemClock, Trash, UserDirs,
 };
 use reda_model::{Project, Scope};
 use serde_json::Value;
@@ -180,6 +181,7 @@ pub struct EngineBuilder {
     source: Source,
     user_dirs: Option<UserDirs>,
     starter_library: Option<PathBuf>,
+    trash: Option<Arc<dyn Trash>>,
 }
 
 impl Default for EngineBuilder {
@@ -194,6 +196,7 @@ impl Default for EngineBuilder {
             source: Source::default(),
             user_dirs: crate::user_dirs::discover(),
             starter_library: None,
+            trash: None,
         }
     }
 }
@@ -240,6 +243,13 @@ impl EngineBuilder {
         self
     }
 
+    /// Where `project.save` sends deleted Documents' files: the OS trash in the CLI and the
+    /// app. Without one (the default), they are left on disk.
+    pub fn trash(mut self, trash: impl Trash + 'static) -> EngineBuilder {
+        self.trash = Some(Arc::new(trash));
+        self
+    }
+
     /// Adds Commands beyond the full [`registry`], such as test-only ones.
     pub fn commands(mut self, register_all: impl FnOnce(&mut Registry)) -> EngineBuilder {
         register_all(&mut self.registry);
@@ -257,6 +267,7 @@ impl EngineBuilder {
         session.history.set_depth(self.undo_depth);
         session.user_dirs = self.user_dirs;
         session.starter_library = self.starter_library;
+        session.trash = self.trash;
         Engine {
             registry: self.registry,
             session,

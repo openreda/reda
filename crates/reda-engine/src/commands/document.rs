@@ -1,10 +1,11 @@
-//! `document.add` and `document.delete`: Documents come and go on the Project's own undo
-//! stack, each with its contents.
+//! `document.add`, `document.delete`, `document.rename` and `document.reorder`: Documents
+//! come, go, change name and move on the Project's own undo stack, each with its contents.
+//! The files follow on save (see `store::save`).
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_model::{DocumentEntry, DocumentKind, Project, Uuid};
+use reda_model::{DocumentEntry, DocumentKind, Object, Project, Uuid};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::project::check_file_stem;
 use crate::builders::{add_document, remove_document};
@@ -12,6 +13,8 @@ use crate::builders::{add_document, remove_document};
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(DocumentAdd);
     registry.add(DocumentDelete);
+    registry.add(DocumentRename);
+    registry.add(DocumentReorder);
 }
 
 pub struct DocumentAdd;
@@ -52,14 +55,16 @@ impl Command for DocumentAdd {
                 "the Project already has a PCB Document",
             ));
         }
-        let title = match p.title {
+        let (title, name) = match p.title {
             Some(title) if title.trim().is_empty() => {
                 return Err(CommandError::invalid_params("/title", "the title is empty"));
             }
-            Some(title) => title,
-            None => default_title(project, p.kind),
+            Some(title) => {
+                let name = free_name(project, p.kind, &title, None);
+                (title, name)
+            }
+            None => default_names(project, p.kind),
         };
-        let name = free_name(project, p.kind, &title);
         let uuid = cx.new_id();
         let contents = match p.kind {
             DocumentKind::Schematic => vec![],
@@ -82,19 +87,37 @@ impl Command for DocumentAdd {
     }
 }
 
-fn default_title(project: &Project, kind: DocumentKind) -> String {
+/// The title and file stem of a Document added without a title: "Sheet <n>" in
+/// `sheet-<n>` for a sheet, with the first `n` from the sheet count up that neither takes;
+/// the Project name for the PCB Document.
+fn default_names(project: &Project, kind: DocumentKind) -> (String, String) {
     match kind {
         DocumentKind::Schematic => {
-            let sheets = project.documents().filter(|d| d.kind == kind).count();
-            format!("Sheet {}", sheets + 1)
+            let sheets: Vec<&DocumentEntry> =
+                project.documents().filter(|d| d.kind == kind).collect();
+            let taken = |title: &str, name: &str| {
+                sheets.iter().any(|d| {
+                    d.title.to_lowercase() == title.to_lowercase() || d.name.to_lowercase() == name
+                })
+            };
+            let mut n = sheets.len() + 1;
+            while taken(&format!("Sheet {n}"), &format!("sheet-{n}")) {
+                n += 1;
+            }
+            (format!("Sheet {n}"), format!("sheet-{n}"))
         }
-        DocumentKind::Pcb => project.props().name.clone(),
+        DocumentKind::Pcb => {
+            let title = project.props().name.clone();
+            let name = free_name(project, kind, &title, None);
+            (title, name)
+        }
     }
 }
 
 /// A file stem for a Document titled `title`: the title with characters file names cannot
-/// hold replaced, made unique among the Documents of the same kind by a number suffix.
-fn free_name(project: &Project, kind: DocumentKind, title: &str) -> String {
+/// hold replaced, made unique among the Documents of the same kind (other than `except`)
+/// by a number suffix.
+fn free_name(project: &Project, kind: DocumentKind, title: &str, except: Option<Uuid>) -> String {
     let mut base: String = title
         .trim()
         .chars()
@@ -110,6 +133,7 @@ fn free_name(project: &Project, kind: DocumentKind, title: &str) -> String {
     let taken = |name: &str| {
         project
             .documents()
+            .filter(|d| Some(d.uuid) != except)
             .any(|d| d.kind == kind && d.name.to_lowercase() == name.to_lowercase())
     };
     let mut name = base.clone();
@@ -135,7 +159,7 @@ impl Command for DocumentDelete {
         id: "document.delete",
         title: "Delete Document",
         description: "Deletes a Document and everything in it, as one undoable step on the \
-                      Project's stack. Its file is left on disk.",
+                      Project's stack. Its file goes to the OS trash when the Project file is next saved.",
         category: "project",
         icon: "delete",
         kind: Kind::Edit,
@@ -152,5 +176,104 @@ impl Command for DocumentDelete {
         }
         remove_document(cx.tx()?, p.document)?;
         Ok(())
+    }
+}
+
+/// The Document with this UUID, or `not_found`.
+fn entry(project: &Project, uuid: Uuid) -> Result<&DocumentEntry, CommandError> {
+    project
+        .document(uuid)
+        .ok_or_else(|| CommandError::not_found(format!("no Document has UUID {uuid}")))
+}
+
+pub struct DocumentRename;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DocumentRenameParams {
+    /// The Document's UUID.
+    pub document: Uuid,
+    /// The new title, kept as typed.
+    pub title: String,
+}
+
+impl Command for DocumentRename {
+    const META: Meta = Meta {
+        id: "document.rename",
+        title: "Rename Document",
+        description: "Sets a Document's title. Its file stem becomes the title with the \
+                      characters file names cannot hold replaced, made unique by a number \
+                      suffix. The file is renamed on save.",
+        category: "project",
+        icon: "rename",
+        kind: Kind::Edit,
+    };
+    type Params = DocumentRenameParams;
+    type Output = DocumentEntry;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: DocumentRenameParams,
+    ) -> Result<DocumentEntry, CommandError> {
+        if p.title.trim().is_empty() {
+            return Err(CommandError::invalid_params("/title", "the title is empty"));
+        }
+        let project = cx.project()?;
+        let old = entry(project, p.document)?;
+        let entry = DocumentEntry {
+            name: free_name(project, old.kind, &p.title, Some(old.uuid)),
+            title: p.title,
+            ..old.clone()
+        };
+        cx.tx()?.replace(Object::Document(entry.clone()))?;
+        Ok(entry)
+    }
+}
+
+pub struct DocumentReorder;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DocumentReorderParams {
+    /// The Document's UUID.
+    pub document: Uuid,
+    /// Its new 0-based position in the Project's Document list; past the end moves it last.
+    pub index: usize,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct DocumentOrder {
+    /// Every Document's UUID in the new order.
+    pub documents: Vec<Uuid>,
+}
+
+impl Command for DocumentReorder {
+    const META: Meta = Meta {
+        id: "document.reorder",
+        title: "Reorder Documents",
+        description: "Moves a Document to `index` in the Project's Document list. The order \
+                      of the Schematic Sheets gives \"sheet n of m\" and the PDF page order.",
+        category: "project",
+        icon: "reorder",
+        kind: Kind::Edit,
+    };
+    type Params = DocumentReorderParams;
+    type Output = DocumentOrder;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: DocumentReorderParams,
+    ) -> Result<DocumentOrder, CommandError> {
+        let project = cx.project()?;
+        entry(project, p.document)?;
+        let mut props = project.props().clone();
+        props.documents.retain(|d| *d != p.document);
+        let index = p.index.min(props.documents.len());
+        props.documents.insert(index, p.document);
+        let documents = props.documents.clone();
+        cx.tx()?.replace(Object::Project(props))?;
+        Ok(DocumentOrder { documents })
     }
 }

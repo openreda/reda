@@ -214,7 +214,7 @@ fn saves_only_through_project_save() {
         "run_command",
         json!({"id": "document.add", "params": {"kind": "schematic"}}),
     );
-    let sheet_2 = dir.path().join("Demo").join("Sheet 2.redasch");
+    let sheet_2 = dir.path().join("Demo").join("sheet-2.redasch");
     assert!(!sheet_2.exists());
     let saved = client.call("run_command", json!({"id": "project.save"}));
     assert_eq!(saved["isError"], false, "{saved}");
