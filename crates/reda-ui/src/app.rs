@@ -29,6 +29,7 @@ use crate::palette::{self, Palette, PaletteOutcome};
 use crate::preferences_dialog::{Outcome as PreferencesOutcome, PageId, PreferencesDialog};
 use crate::projects_panel::{self, ProjectsAction};
 use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
+use crate::schematic_dialogs::{self, DialogKind, SchematicDialog};
 use crate::settings::{self, Outcome, SettingsDialog};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
@@ -76,6 +77,8 @@ pub struct App {
     /// The shortcut of a Command or Preset id, for the Palette (the Keymap's lookup).
     shortcuts: palette::ShortcutLookup,
     help: crate::help::Dialogs,
+    /// The open schematic dialog (Find, Re-annotate…), if any.
+    schematic_dialog: Option<SchematicDialog>,
 }
 
 impl App {
@@ -100,7 +103,12 @@ impl App {
             theme_installed: false,
             help: Default::default(),
             palette: None,
-            dialogs: Dialogs::new(),
+            dialogs: {
+                let mut dialogs = Dialogs::new();
+                schematic_dialogs::register_dialogs(&mut dialogs);
+                dialogs
+            },
+            schematic_dialog: None,
             params_dialog: None,
             shortcuts: Box::new(|_, _| None),
             bridge: Bridge::off(),
@@ -257,6 +265,11 @@ impl App {
         self.crash_recovery(&ctx);
         self.show_palette(&ctx);
         self.show_params_dialog(&ctx);
+        if let Some(dialog) = &mut self.schematic_dialog
+            && !dialog.show(&ctx, &mut self.shell)
+        {
+            self.schematic_dialog = None;
+        }
 
         if let Some(form) = &mut self.new_project {
             match form.show(&ctx) {
@@ -329,6 +342,10 @@ impl App {
             || self.preferences.is_some()
             || self.palette.is_some()
             || self.params_dialog.is_some()
+            || matches!(
+                self.schematic_dialog,
+                Some(ref d) if !matches!(d, SchematicDialog::Find(_))
+            )
         {
             return;
         }
@@ -510,6 +527,9 @@ impl App {
             Some((Pick::ExportJournal, path)) => {
                 let _ = self.shell.export_journal(&path);
             }
+            Some((Pick::ExportPdf, path)) => {
+                let _ = schematic_dialogs::export_pdf(&mut self.shell, &path);
+            }
             Some((Pick::NewProjectLocation, path)) => {
                 if let Some(form) = &mut self.new_project {
                     form.location = path.display().to_string();
@@ -598,6 +618,13 @@ impl App {
                     preferences::Theme::Light => ThemePreference::Light,
                 }),
                 Request::About => self.help.open_about(),
+                Request::Schematic(DialogKind::ExportPdf) => {
+                    let name = schematic_dialogs::pdf_file_name(&self.shell);
+                    self.files.start_save(ctx, Pick::ExportPdf, name);
+                }
+                Request::Schematic(kind) => {
+                    self.schematic_dialog = SchematicDialog::open(kind, &mut self.shell);
+                }
             }
         }
     }

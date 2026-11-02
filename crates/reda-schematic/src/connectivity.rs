@@ -248,6 +248,61 @@ pub fn project_nets(project: &Project) -> Vec<ProjectNet> {
     nets
 }
 
+/// A Project-wide Net picked for highlighting: its name and every object on it, on every
+/// sheet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NetObjects {
+    /// The Net's winning name; `None` for a Net with neither a name nor a Pin.
+    pub name: Option<String>,
+    /// Its Wires, Net Labels, Ports, Power Ports, No-Connect Markers and the Units with a
+    /// Pin on it, on every sheet, sorted by UUID.
+    pub objects: Vec<Uuid>,
+}
+
+/// The Project-wide Net under `object` on `sheet`: the Net of a Wire, Net Label, Port,
+/// Power Port or No-Connect Marker, or for a Unit the Net of its Pin nearest `at`, with
+/// what Ports and Power Ports join to it on other sheets. `None` when `object` carries
+/// no Net (text, graphics, an unknown UUID).
+pub fn net_at(project: &Project, sheet: Uuid, object: Uuid, at: Point) -> Option<NetObjects> {
+    let (sheets, groups) = joined(project);
+    let s = sheets.iter().position(|c| c.document == sheet)?;
+    let conn = &sheets[s];
+    let distance = |p: Point| {
+        let (dx, dy) = ((p.x.0 - at.x.0) as f64, (p.y.0 - at.y.0) as f64);
+        dx.hypot(dy)
+    };
+    let n = (0..conn.nets.len())
+        .filter_map(|n| {
+            let net = &conn.nets[n];
+            let pin = net.pins.iter().filter(|p| p.unit == object);
+            match pin.map(|p| distance(p.at)).min_by(f64::total_cmp) {
+                Some(d) => Some((n, d)),
+                None => net.objects().any(|o| o == object).then_some((n, 0.0)),
+            }
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))?
+        .0;
+    let members = groups.iter().find(|m| m.contains(&(s, n)))?;
+    let mut objects: BTreeSet<Uuid> = BTreeSet::new();
+    for &(s, n) in members {
+        objects.extend(sheets[s].nets[n].objects());
+    }
+    Some(NetObjects {
+        name: conn.nets[n].name.clone(),
+        objects: objects.into_iter().collect(),
+    })
+}
+
+/// Every object on the Nets named `name`, on every sheet, sorted by UUID. Nets that only
+/// share a name (Net Labels on different sheets) are all included.
+pub fn nets_named(project: &Project, name: &str) -> Vec<Uuid> {
+    let objects: BTreeSet<Uuid> = project_connectivity(project)
+        .iter()
+        .flat_map(|c| c.objects_named(name))
+        .collect();
+    objects.into_iter().collect()
+}
+
 /// Every sheet's connectivity, Project-named, and the Project-wide Nets as lists of
 /// `(sheet index, Net index)` in sheet order, in order of their first member.
 pub(crate) fn joined(project: &Project) -> (Vec<SheetConnectivity>, Vec<Vec<(usize, usize)>>) {

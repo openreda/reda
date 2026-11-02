@@ -24,6 +24,7 @@ use serde_json::{Map, Value, json};
 use crate::shell::Shell;
 use crate::{i18n, tr};
 
+pub(crate) use commands::request;
 pub use commands::{Request, install, register_all, take_requests};
 pub use data::parse;
 

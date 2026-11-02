@@ -23,6 +23,8 @@ pub enum Pick {
     PreferencesFolder,
     /// Where to save the exported Journal.
     ExportJournal,
+    /// Where to write the schematic PDF.
+    ExportPdf,
 }
 
 /// Native file pickers. Each runs on its own thread, so the window keeps drawing; the
@@ -40,6 +42,11 @@ impl FileDialogs {
 
     /// Opens a picker for `pick`, unless one is already open.
     pub fn start(&mut self, ctx: &egui::Context, pick: Pick) {
+        self.start_save(ctx, pick, String::new());
+    }
+
+    /// Opens a picker for `pick`, suggesting `file_name` when it saves a file.
+    pub fn start_save(&mut self, ctx: &egui::Context, pick: Pick, file_name: String) {
         if self.busy() {
             return;
         }
@@ -59,6 +66,10 @@ impl FileDialogs {
                 .set_title(tr!("journal-export-title"))
                 .add_filter(tr!("journal-export-filter"), &["jsonl"])
                 .set_file_name("journal.jsonl"),
+            Pick::ExportPdf => rfd::AsyncFileDialog::new()
+                .set_title(tr!("export-pdf-title"))
+                .add_filter(tr!("export-pdf-filter"), &["pdf"])
+                .set_file_name(file_name),
         };
         std::thread::spawn(move || {
             let picked = match pick {
@@ -67,7 +78,7 @@ impl FileDialogs {
                 | Pick::LibraryFolder
                 | Pick::SettingsFolder
                 | Pick::PreferencesFolder => block_on(dialog.pick_folder()),
-                Pick::ExportJournal => block_on(dialog.save_file()),
+                Pick::ExportJournal | Pick::ExportPdf => block_on(dialog.save_file()),
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();
