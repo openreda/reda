@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"0e644f21-6432-456f-a5a2-ca83fb776142","name":"PMOS","designator_prefix":"Q","description":"P-channel enhancement MOSFET"},
+  "units": [
+    {"uuid":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"cc4682cf-55c5-464e-a7cf-e66193a7ef3f","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","name":"G","number":"1","electrical_type":"input","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"d4055530-605f-4752-a7df-3fcb9238808f","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","name":"D","number":"3","electrical_type":"passive","at":{"x":2540000,"y":5080000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"eee876f3-2e3a-41db-bb6b-3651cae34bef","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","name":"S","number":"2","electrical_type":"passive","at":{"x":2540000,"y":-5080000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"02c9cd4e-692a-42de-9f6e-1581ea738228","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"polygon","points":[{"x":1270000,"y":0},{"x":254000,"y":508000},{"x":254000,"y":-508000}]},"width":254000,"fill":true},
+    {"uuid":"0841512a-3721-4162-a853-b04e37659bc4","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"circle","center":{"x":762000,"y":0},"radius":3302000},"width":254000},
+    {"uuid":"1ed8fe51-cae6-4c07-8602-37b6f4f4e929","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":2540000,"y":1651000},"end":{"x":2540000,"y":2540000}},"width":254000},
+    {"uuid":"3fde1732-59c3-4d55-9709-b0993aae6d21","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-762000,"y":0},"end":{"x":2540000,"y":0}},"width":254000},
+    {"uuid":"4619ed48-e4da-44ba-a442-3d584a7277df","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-762000,"y":1651000},"end":{"x":2540000,"y":1651000}},"width":254000},
+    {"uuid":"48091087-048a-468e-b11a-572b5e71f5f9","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":2540000,"y":0},"end":{"x":2540000,"y":-1651000}},"width":254000},
+    {"uuid":"74f74f39-5a32-427f-96e3-dcc84355d89e","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-762000,"y":1143000},"end":{"x":-762000,"y":2159000}},"width":254000},
+    {"uuid":"797d605a-f3c6-4ee5-806d-1f9db5a4f153","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-2540000,"y":-1270000},"end":{"x":-1524000,"y":-1270000}},"width":254000},
+    {"uuid":"a60cc497-4560-4253-b5af-c3b71ac5f8c8","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-762000,"y":-1651000},"end":{"x":2540000,"y":-1651000}},"width":254000},
+    {"uuid":"b2571062-938d-4834-8653-49a1071fbcf1","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-1524000,"y":-1905000},"end":{"x":-1524000,"y":1905000}},"width":254000},
+    {"uuid":"c130dee7-cc3a-4507-aa8d-55e398e09c4b","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-762000,"y":-2159000},"end":{"x":-762000,"y":-1143000}},"width":254000},
+    {"uuid":"d376ec29-0a67-4438-bdbf-b75687e442c6","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":2540000,"y":-1651000},"end":{"x":2540000,"y":-2540000}},"width":254000},
+    {"uuid":"ff98bb01-c917-43db-848a-c9de7b22502d","unit":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","shape":{"kind":"line","start":{"x":-762000,"y":-508000},"end":{"x":-762000,"y":508000}},"width":254000}
+  ]
+}

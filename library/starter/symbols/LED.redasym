@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},
+  "units": [
+    {"uuid":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"4c45e5ee-3d76-48d7-9fbf-f1aac5cb4e5c","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"75361418-310a-4139-9a47-ee2c610da56c","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A","number":"2","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"0b591420-33b8-4837-a6c7-0b29f7d20254","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"polygon","points":[{"x":2794000,"y":-2286000},{"x":2032000,"y":-2032000},{"x":2540000,"y":-1524000}]},"width":254000,"fill":true},
+    {"uuid":"4d554065-ace9-4083-be74-07c3b00c28b9","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"polygon","points":[{"x":2794000,"y":-1270000},{"x":2032000,"y":-1016000},{"x":2540000,"y":-508000}]},"width":254000,"fill":true},
+    {"uuid":"53ce9cd5-824f-4cba-9ccc-c06faba619f3","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"line","start":{"x":1524000,"y":0},"end":{"x":2794000,"y":-1270000}},"width":254000},
+    {"uuid":"878e80b8-be56-4614-97e2-3e4b62f796d4","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"polygon","points":[{"x":-1270000,"y":1270000},{"x":1270000,"y":1270000},{"x":0,"y":-1270000}]},"width":254000},
+    {"uuid":"a8b4eb77-3821-4730-b8a1-82a1217d18b0","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"line","start":{"x":1524000,"y":-1016000},"end":{"x":2794000,"y":-2286000}},"width":254000},
+    {"uuid":"ad15be61-8d76-47ec-a1fb-ce4b40a118f1","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"line","start":{"x":-1270000,"y":-1270000},"end":{"x":1270000,"y":-1270000}},"width":254000}
+  ]
+}

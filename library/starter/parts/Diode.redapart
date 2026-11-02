@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "part": {"uuid":"86097406-e09d-421b-bcec-85b562fcab20","name":"Diode","component_type":"standard","symbol":"4b324015-989b-4479-95fe-83588e1620c6"},
+  "footprints": [
+    "994846c1-6dfb-48a2-babf-ae60f86398b2",
+    "d7207e2b-b137-4fb4-a47b-9c233f186cc7",
+    "fc63d2e4-35d0-43e8-87a8-bd01d8595462"
+  ],
+  "fields": {"value":"1N4148","description":"Diode","keywords":"D diode rectifier signal"},
+  "pin_map": {}
+}

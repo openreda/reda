@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"e356671a-dc13-4373-be78-3f1eda81f1d5","name":"SKT254P1X3","description":"Socket, 1 × 3, 2.54 mm pitch"},
+  "text": {"designator":{"at":{"x":0,"y":4800000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"2f93675a-8cca-499b-9403-5c8ac22cdaaa","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"62b7263e-3104-4ce6-908e-4e565d73d74f","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"e065b57f-f855-40a8-82b8-d33361c0a3a5","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"6f78eb26-b279-4df3-b0e6-b383ecada85c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-3870000},"end":{"x":1330000,"y":-3870000}},"width":120000},
+    {"uuid":"7986b5c9-b165-4952-a11c-246401bb7a9e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":3870000},"end":{"x":1330000,"y":3870000}},"width":120000},
+    {"uuid":"b5d07169-d560-4b25-93c3-9a51a08ca97e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-3870000},"end":{"x":1330000,"y":3870000}},"width":120000},
+    {"uuid":"c8dd3418-3371-4d03-be2e-9c6750ad8b2f","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-4100000},"end":{"x":1550000,"y":4100000}},"width":50000},
+    {"uuid":"cafb86f7-ea32-44d0-ab12-72754e80737d","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-3870000},"end":{"x":-1330000,"y":3870000}},"width":120000},
+    {"uuid":"e94415c9-428e-4de8-b181-0d932e993f47","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":3810000},{"x":1270000,"y":3810000},{"x":1270000,"y":-3810000},{"x":-1270000,"y":-3810000},{"x":-1270000,"y":3175000}]},"width":100000}
+  ]
+}

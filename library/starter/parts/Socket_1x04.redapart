@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"57014649-ee2c-45b8-8c27-cf510c802d22","name":"Socket_1x04","component_type":"standard","symbol":"e0980f62-b37a-4e55-89a2-27e68b3106cb"},
+  "footprints": [
+    "cc5713dd-2957-4e74-96c5-3078849cf54b",
+    "5e0d63ca-6ae0-4dc8-8fa2-bfcb1f13fdbb"
+  ],
+  "fields": {"value":"Socket 1x4","description":"1 × 4 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},
+  "pin_map": {}
+}

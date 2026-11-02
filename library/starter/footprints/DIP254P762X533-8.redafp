@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"a3c5aa5c-0015-43fb-8fe0-b72305a1157d","name":"DIP254P762X533-8","description":"DIP-8, 7.62 mm row spacing, IPC-7251 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":6050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"156982c5-e9ee-420e-9943-ede343b58d43","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-3810000,"y":3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"52f2fad0-d8a3-4abf-9b70-df5a17c23fa4","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":3810000,"y":-1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"99cfbbac-e230-4921-94e8-baac539201d3","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":-3810000,"y":-3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"a143b1fa-c671-4860-ba06-faf576ac655d","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":3810000,"y":-3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"a7398972-1396-4b23-a238-dbd81bbd1967","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":-3810000,"y":1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"a9424923-3a06-45d4-86bb-126e0893ee8a","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":3810000,"y":3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"c455e897-2615-4715-a242-ba40dd0c6d7d","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-3810000,"y":-1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"cbb3c55f-509d-48f1-af0a-3676f8feec54","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":3810000,"y":1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}}
+  ],
+  "graphics": [
+    {"uuid":"2601ff17-87c1-4152-ad96-80e794bd5839","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2850000,"y":-5140000},"end":{"x":-2850000,"y":5140000}},"width":120000},
+    {"uuid":"32befb3d-51cc-42d0-bb22-d9bc5957415d","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2850000,"y":-5140000},"end":{"x":2850000,"y":-5140000}},"width":120000},
+    {"uuid":"84514f82-db5d-449d-9857-c3d74c0fa2da","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-2302500,"y":5080000},{"x":3302500,"y":5080000},{"x":3302500,"y":-5080000},{"x":-3302500,"y":-5080000},{"x":-3302500,"y":4080000}]},"width":100000},
+    {"uuid":"84c5190f-0a92-4abf-9f8f-d685f53781c6","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2850000,"y":-5140000},"end":{"x":2850000,"y":5140000}},"width":120000},
+    {"uuid":"bc996311-44c0-422f-9a00-bec2ba32a897","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2850000,"y":5140000},"end":{"x":2850000,"y":5140000}},"width":120000},
+    {"uuid":"d9cfe212-5e77-49e2-9ba3-7e14e7272acf","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4800000,"y":-5350000},"end":{"x":4800000,"y":5350000}},"width":50000}
+  ]
+}
