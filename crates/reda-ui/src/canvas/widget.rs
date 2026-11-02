@@ -1,7 +1,8 @@
 //! The canvas widget: lays out the canvas, turns pointer input into camera moves and adds
 //! the paint callback.
 
-use egui::{PointerButton, Role, Sense, Ui, WidgetInfo};
+use egui::{Color32, PointerButton, Rect, Role, Sense, Stroke, Ui, WidgetInfo};
+use reda_engine::model::Severity;
 use reda_engine::render::gpu::GridSpec;
 use reda_engine::render::{Palette, Theme};
 
@@ -29,6 +30,9 @@ pub fn canvas(ui: &mut Ui, tab: &mut DocumentTab, theme: Theme) {
         )
     });
 
+    if let Some((lo, hi)) = tab.zoom_to.take() {
+        tab.camera = Some(Camera::fit(lo, hi, rect.size()));
+    }
     let camera = tab.camera.get_or_insert_with(|| {
         let (lo, hi) = tab.scene.scene.bounds().unwrap_or_else(|| {
             use reda_engine::model::geom::{Nm, Point};
@@ -52,6 +56,7 @@ pub fn canvas(ui: &mut Ui, tab: &mut DocumentTab, theme: Theme) {
         input.pan = response.drag_delta();
     }
     camera.apply(rect, &input);
+    let camera = *camera;
 
     let ppp = ui.ctx().pixels_per_point();
     let view = camera.view(rect, ppp);
@@ -68,8 +73,52 @@ pub fn canvas(ui: &mut Ui, tab: &mut DocumentTab, theme: Theme) {
         theme,
         view,
         grid,
+        selection: tab.selection.clone(),
     };
     paint(ui.painter(), rect, frame);
+    markers(ui, rect, &camera, tab);
+}
+
+/// The marker's radius in points.
+const MARKER_RADIUS: f32 = 7.0;
+
+/// Draws a ring with an exclamation mark at each Violation, over the canvas: red for
+/// errors, amber for warnings, faded when waived, thicker for the one last gone to.
+fn markers(ui: &Ui, rect: Rect, camera: &Camera, tab: &DocumentTab) {
+    let painter = ui.painter_at(rect);
+    let visuals = ui.visuals();
+    for marker in tab.markers.iter() {
+        let at = camera.screen_point(rect, (marker.at.x.0 as f64, marker.at.y.0 as f64));
+        if !rect.expand(MARKER_RADIUS).contains(at) {
+            continue;
+        }
+        let mut color = match marker.severity {
+            Severity::Error => visuals.error_fg_color,
+            _ => visuals.warn_fg_color,
+        };
+        if marker.waived {
+            color = color.gamma_multiply(0.4);
+        }
+        let (radius, width) = if marker.current {
+            (MARKER_RADIUS * 1.4, 3.0)
+        } else {
+            (MARKER_RADIUS, 2.0)
+        };
+        painter.circle(
+            at,
+            radius,
+            Color32::from_black_alpha(96),
+            Stroke::new(width, color),
+        );
+        painter.line_segment(
+            [
+                at + egui::vec2(0.0, -radius * 0.55),
+                at + egui::vec2(0.0, radius * 0.1),
+            ],
+            Stroke::new(2.0, color),
+        );
+        painter.circle_filled(at + egui::vec2(0.0, radius * 0.4), 1.2, color);
+    }
 }
 
 /// The id a tab's canvas keeps its GPU state under.

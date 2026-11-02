@@ -397,7 +397,7 @@ fn toolbar_and_active_bar_buttons_run_their_commands() {
     h.get_all_by_label("Zoom to Fit").last().unwrap().click();
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "view.zoom_fit");
-    h.get_by_label("Run ERC").click();
+    h.get_all_by_label("Run ERC").next().unwrap().click();
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "erc.run");
 }
