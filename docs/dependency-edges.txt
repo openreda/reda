@@ -94,3 +94,13 @@ reda-text -> harfrust
 reda-text -> i_triangle
 reda-text -> reda-geom
 reda-text -> skrifa
+reda-ui -> eframe
+reda-ui -> egui
+reda-ui -> egui-wgpu
+reda-ui -> egui_kittest [dev]
+reda-ui -> fluent-bundle
+reda-ui -> reda-engine
+reda-ui -> reda-testkit [dev]
+reda-ui -> rfd
+reda-ui -> serde_json
+reda-ui -> unic-langid
