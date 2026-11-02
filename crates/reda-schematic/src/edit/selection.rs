@@ -7,7 +7,8 @@ use reda_model::{Object, Project, Scope, Uuid};
 
 /// Resolves a selection by UUID to the objects themselves, in the given order without
 /// repeats. Only objects drawn on a Schematic Sheet can be selected: Units, Wires, Net
-/// Labels, No-Connect Markers, text and graphics. `pointer` names the param.
+/// Labels, No-Connect Markers, Ports, Power Ports, text and graphics. `pointer` names the
+/// param.
 pub(crate) fn resolve(
     project: &Project,
     uuids: &[Uuid],
@@ -52,6 +53,8 @@ pub(crate) fn selectable(object: &Object) -> bool {
             | Object::Wire(_)
             | Object::NetLabel(_)
             | Object::NoConnect(_)
+            | Object::Port(_)
+            | Object::PowerPort(_)
             | Object::SheetText(_)
             | Object::SheetGraphic(_)
     )

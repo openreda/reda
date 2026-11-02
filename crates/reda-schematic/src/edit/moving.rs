@@ -13,7 +13,7 @@ use crate::component::At;
 #[serde(deny_unknown_fields)]
 pub struct ShiftParams {
     /// The objects to move, by UUID, all on one sheet: Units, Wires, Net Labels,
-    /// No-Connect Markers, text and graphics.
+    /// No-Connect Markers, Ports, Power Ports, text and graphics.
     pub objects: Vec<Uuid>,
     /// How far to move them.
     pub by: At,
@@ -55,7 +55,8 @@ impl Command for Drag {
         description: "Moves the selected objects by an offset and keeps their connections: \
                       the ends of unselected Wires on a moved Pin, Wire end or Net Label \
                       follow it, turning a corner where a Wire would go diagonal, and Net \
-                      Labels and No-Connect Markers on a moved Pin come along.",
+                      Labels, No-Connect Markers, Ports and Power Ports on a moved Pin come \
+                      along.",
         category: "schematic",
         icon: "drag",
         kind: Kind::Edit,

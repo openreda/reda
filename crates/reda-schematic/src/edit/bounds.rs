@@ -39,26 +39,30 @@ impl Bounds {
     }
 }
 
-/// Where `object` sits: a Unit's origin, a label's, marker's or text's point, or the middle
-/// of a Wire or graphic. A lone object turns and flips about it.
+/// Where `object` sits: a Unit's origin, a label's, marker's, Port's, Power Port's or text's
+/// point, or the middle of a Wire or graphic. A lone object turns and flips about it.
 pub(crate) fn anchor(body: &SchematicSheet, object: &Object) -> Point {
     match object {
         Object::Unit(u) => u.at,
         Object::NetLabel(l) => l.at,
         Object::NoConnect(m) => m.at,
+        Object::Port(p) => p.at,
+        Object::PowerPort(p) => p.at,
         Object::SheetText(t) => t.at,
         _ => bounds(body, object).center(),
     }
 }
 
 /// The box `object` covers on `body`: a Unit's Pins and body drawing, a Wire's or graphic's
-/// ends, or a label's, marker's or text's point.
+/// ends, or a label's, marker's, Port's, Power Port's or text's point.
 pub(crate) fn bounds(body: &SchematicSheet, object: &Object) -> Bounds {
     let points: Vec<Point> = match object {
         Object::Unit(u) => unit_points(body, u),
         Object::Wire(w) => vec![w.from, w.to],
         Object::NetLabel(l) => vec![l.at],
         Object::NoConnect(m) => vec![m.at],
+        Object::Port(p) => vec![p.at],
+        Object::PowerPort(p) => vec![p.at],
         Object::SheetText(t) => vec![t.at],
         Object::SheetGraphic(g) => {
             let (a, b) = g.shape.ends();

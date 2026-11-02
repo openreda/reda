@@ -689,3 +689,101 @@ fn duplicate_pastes_a_copy_offset_on_the_same_sheet() {
     engine.run_ok("edit.undo", json!({"document": SHEET}));
     assert_eq!(designators(&mut engine, SHEET), ["R1", "R2"]);
 }
+
+fn port(engine: &mut TestEngine, name: &str, x: i64, y: i64) -> Value {
+    engine.run_ok(
+        "schematic.port.add",
+        json!({"document": SHEET, "name": name, "at": at(x, y), "direction": "out"}),
+    )["result"]["port"]
+        .clone()
+}
+
+fn power_port(engine: &mut TestEngine, name: &str, x: i64, y: i64) -> Value {
+    engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": name, "at": at(x, y)}),
+    )["result"]["power_port"]
+        .clone()
+}
+
+#[test]
+fn ports_and_power_ports_move_turn_flip_and_delete_like_labels() {
+    let dir = TempDir::new("edit-ports");
+    let mut engine = demo(&dir);
+    let sda = port(&mut engine, "SDA", 1000, 0);
+    let gnd = power_port(&mut engine, "GND", 2000, 500);
+    shift(&mut engine, "schematic.move", &[&sda, &gnd], 100, 100);
+    assert_eq!(pose(&mut engine, &sda), (point(1100, 100), json!(0)));
+    assert_eq!(pose(&mut engine, &gnd), (point(2100, 600), json!(0)));
+    engine.run_ok(
+        "schematic.rotate",
+        json!({"objects": [sda, gnd], "center": at(0, 0)}),
+    );
+    assert_eq!(pose(&mut engine, &sda), (point(-100, 1100), json!(90_000)));
+    assert_eq!(pose(&mut engine, &gnd), (point(-600, 2100), json!(90_000)));
+    // A lone Port turns about its own point.
+    engine.run_ok("schematic.rotate", json!({"objects": [sda]}));
+    assert_eq!(pose(&mut engine, &sda), (point(-100, 1100), json!(180_000)));
+    engine.run_ok(
+        "schematic.mirror",
+        json!({"objects": [gnd], "axis": "x", "center": at(0, 0)}),
+    );
+    assert_eq!(pose(&mut engine, &gnd), (point(600, 2100), json!(90_000)));
+    engine.run_ok(
+        "schematic.align",
+        json!({"objects": [sda, gnd], "to": "left"}),
+    );
+    assert_eq!(at_mil(&mut engine, &gnd), (-100, 2100));
+    engine.run_ok("schematic.delete", json!({"objects": [sda, gnd]}));
+    assert_eq!(count(&mut engine, "port"), 0);
+    assert_eq!(count(&mut engine, "power_port"), 0);
+}
+
+#[test]
+fn drag_brings_ports_and_power_ports_on_a_moved_pin() {
+    let dir = TempDir::new("drag-ports");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let sda = port(&mut engine, "SDA", 0, 150);
+    let gnd = power_port(&mut engine, "GND", 0, -150);
+    let away = power_port(&mut engine, "VCC", 500, 150);
+    shift(&mut engine, "schematic.drag", &[&r1], 200, 0);
+    assert_eq!(object(&mut engine, &sda)["at"], point(200, 150));
+    assert_eq!(object(&mut engine, &gnd)["at"], point(200, -150));
+    assert_eq!(object(&mut engine, &away)["at"], point(500, 150));
+    // A detached move leaves them behind.
+    shift(&mut engine, "schematic.move", &[&r1], 200, 0);
+    assert_eq!(object(&mut engine, &sda)["at"], point(200, 150));
+}
+
+#[test]
+fn ports_and_power_ports_copy_paste_and_duplicate_with_their_names() {
+    let dir = TempDir::new("paste-ports");
+    let mut engine = demo(&dir);
+    let sda = port(&mut engine, "SDA", 1000, 0);
+    let gnd = power_port(&mut engine, "GND", 2000, 0);
+    let other = add_sheet(&mut engine);
+    let copied = engine.run_ok("schematic.copy", json!({"objects": [sda, gnd]}));
+    let out = engine.run_ok(
+        "schematic.paste",
+        json!({"document": other, "clipboard": copied, "at": at(0, 0)}),
+    );
+    let pasted = out["result"]["objects"].as_array().unwrap().clone();
+    assert_eq!(pasted.len(), 2);
+    let p = object(&mut engine, &pasted[0]);
+    assert_eq!((&p["type"], &p["name"]), (&json!("port"), &json!("SDA")));
+    assert_eq!(p["direction"], "out");
+    assert_eq!(p["at"], point(0, 0));
+    let g = object(&mut engine, &pasted[1]);
+    assert_eq!(
+        (&g["type"], &g["name"]),
+        (&json!("power_port"), &json!("GND"))
+    );
+    assert_eq!(g["style"], "ground");
+    assert_eq!(g["at"], point(1000, 0));
+
+    let out = engine.run_ok("schematic.duplicate", json!({"objects": [sda, gnd]}));
+    assert_eq!(out["result"]["objects"].as_array().unwrap().len(), 2);
+    assert_eq!(count(&mut engine, "port"), 2);
+    assert_eq!(count(&mut engine, "power_port"), 2);
+}

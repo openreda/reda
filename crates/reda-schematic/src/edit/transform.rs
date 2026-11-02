@@ -33,7 +33,7 @@ pub(crate) enum Placement {
     /// Flipped about a centre.
     Mirror { center: Point, axis: Axis },
     /// Each of its anchor points moved to the nearest grid point (a Unit's origin, a
-    /// Wire's or line's ends, a label's point).
+    /// Wire's or line's ends, a label's or Port's point).
     Snap(Nm),
 }
 
@@ -63,7 +63,7 @@ impl Placement {
     }
 
     /// The new direction of something drawn at `rotation` with no mirror flag of its own
-    /// (a label or a text).
+    /// (a label, a Port, a Power Port or a text).
     fn direction(self, rotation: Millideg) -> Millideg {
         match self {
             Placement::Rotate { angle, .. } => (rotation + angle).normalized(),
@@ -108,7 +108,7 @@ fn snap(v: Nm, grid: Nm) -> Nm {
 }
 
 /// Places every selected object anew on `document`. With `keep_connections`, the Wire ends,
-/// Net Labels and No-Connect Markers of the rest of the sheet that sat on a moved
+/// Net Labels, No-Connect Markers, Ports and Power Ports of the rest of the sheet that sat on a moved
 /// connection point follow it, bending a Wire with a corner where it would go diagonal
 /// (drag); without, they stay put (a detached move). Either way, moved Pins that land
 /// partway along a Wire split it and connect.
@@ -169,6 +169,20 @@ pub(crate) fn place_anew(
                 new.at = how.point(m.at);
                 follow(m.at, new.at);
                 replaced.push(Object::NoConnect(InDocument::new(document, new)));
+            }
+            Object::Port(p) => {
+                let mut new = p.object.clone();
+                new.at = how.point(p.at);
+                new.rotation = how.direction(p.rotation);
+                follow(p.at, new.at);
+                replaced.push(Object::Port(InDocument::new(document, new)));
+            }
+            Object::PowerPort(p) => {
+                let mut new = p.object.clone();
+                new.at = how.point(p.at);
+                new.rotation = how.direction(p.rotation);
+                follow(p.at, new.at);
+                replaced.push(Object::PowerPort(InDocument::new(document, new)));
             }
             Object::SheetText(t) => {
                 let mut new = t.object.clone();
@@ -312,6 +326,20 @@ fn rubber_band(
             let mut new = marker.clone();
             new.at = at;
             replaced.push(Object::NoConnect(InDocument::new(document, new)));
+        }
+    }
+    for port in body.ports().filter(|p| !selected.contains(&p.uuid)) {
+        if let Some(&at) = followed.get(&port.at) {
+            let mut new = port.clone();
+            new.at = at;
+            replaced.push(Object::Port(InDocument::new(document, new)));
+        }
+    }
+    for port in body.power_ports().filter(|p| !selected.contains(&p.uuid)) {
+        if let Some(&at) = followed.get(&port.at) {
+            let mut new = port.clone();
+            new.at = at;
+            replaced.push(Object::PowerPort(InDocument::new(document, new)));
         }
     }
     Ok(())

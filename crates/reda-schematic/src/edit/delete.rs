@@ -12,8 +12,8 @@ use super::selection::{prune_part_table, resolve, sheet_of};
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteParams {
-    /// The objects to delete, by UUID: Units, Wires, Net Labels, No-Connect Markers, text
-    /// and graphics, on any sheets.
+    /// The objects to delete, by UUID: Units, Wires, Net Labels, No-Connect Markers,
+    /// Ports, Power Ports, text and graphics, on any sheets.
     pub objects: Vec<Uuid>,
 }
 

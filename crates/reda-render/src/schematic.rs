@@ -2,6 +2,7 @@
 
 mod drawing;
 mod frame;
+mod ports;
 mod unit;
 
 use reda_model::geom::Point;
@@ -18,7 +19,7 @@ use crate::text::{TextStyle, glyph_run};
 /// `schematic.nets` result's `junctions`).
 ///
 /// Draw order: the paper, frame and title block, then Units (body, Pins, fields), Wires,
-/// Junctions, Net Labels and No-Connect Markers; each kind in UUID order.
+/// Junctions, Net Labels, No-Connect Markers, Ports and Power Ports; each kind in UUID order.
 pub fn schematic_scene(project: &Project, sheet: Uuid, junctions: &[Point]) -> Option<Scene> {
     let body = project.schematic_sheet(sheet)?;
     let mut b = Builder {
@@ -30,6 +31,8 @@ pub fn schematic_scene(project: &Project, sheet: Uuid, junctions: &[Point]) -> O
     drawing::junctions(&mut b, body, junctions);
     drawing::net_labels(&mut b, body);
     drawing::no_connects(&mut b, body);
+    ports::ports(&mut b, body);
+    ports::power_ports(&mut b, body);
     Some(b.scene)
 }
 

@@ -37,7 +37,7 @@ pub enum AlignTo {
 pub struct AlignParams {
     /// The objects to align, by UUID, all on one sheet. Each one's extent is its Pins
     /// and body drawing (Units), its ends (Wires, graphics) or its point (labels,
-    /// markers, text).
+    /// markers, Ports, Power Ports, text).
     pub objects: Vec<Uuid>,
     pub to: AlignTo,
     /// Keep connections as a drag does. Off by default (detached).

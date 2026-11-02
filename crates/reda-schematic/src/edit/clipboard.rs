@@ -11,8 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use reda_command::{Command, CommandError, Context, Kind, Meta};
 use reda_model::geom::{Nm, Point};
 use reda_model::{
-    ComponentRef, FootprintCopy, InDocument, NetLabel, NoConnect, Object, PartEntry, Project,
-    SheetGraphic, SheetText, UnitInstance, Uuid, Wire,
+    ComponentRef, FootprintCopy, InDocument, NetLabel, NoConnect, Object, PartEntry, Port,
+    PowerPort, Project, SheetGraphic, SheetText, UnitInstance, Uuid, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,10 @@ pub struct Clipboard {
     pub net_labels: Vec<NetLabel>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub no_connects: Vec<NoConnect>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<Port>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub power_ports: Vec<PowerPort>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub texts: Vec<SheetText>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -120,7 +124,7 @@ pub struct PasteParams {
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct PasteResult {
     /// The new objects, in clipboard order (Units, Wires, Net Labels, No-Connect Markers,
-    /// texts, graphics), ready to select.
+    /// Ports, Power Ports, texts, graphics), ready to select.
     pub objects: Vec<Uuid>,
 }
 
@@ -199,6 +203,8 @@ fn copy(project: &Project, objects: &[Object]) -> Result<Clipboard, CommandError
         wires: vec![],
         net_labels: vec![],
         no_connects: vec![],
+        ports: vec![],
+        power_ports: vec![],
         texts: vec![],
         graphics: vec![],
     };
@@ -212,6 +218,8 @@ fn copy(project: &Project, objects: &[Object]) -> Result<Clipboard, CommandError
             Object::Wire(w) => clip.wires.push(w.object.clone()),
             Object::NetLabel(l) => clip.net_labels.push(l.object.clone()),
             Object::NoConnect(m) => clip.no_connects.push(m.object.clone()),
+            Object::Port(p) => clip.ports.push(p.object.clone()),
+            Object::PowerPort(p) => clip.power_ports.push(p.object.clone()),
             Object::SheetText(t) => clip.texts.push(t.object.clone()),
             Object::SheetGraphic(g) => clip.graphics.push(g.object.clone()),
             _ => unreachable!("selections hold only sheet objects"),
@@ -332,6 +340,20 @@ fn paste(
         pasted.push(marker.uuid);
         cx.tx()?
             .insert(Object::NoConnect(InDocument::new(document, marker)))?;
+    }
+    for mut port in clip.ports {
+        port.uuid = cx.new_id();
+        port.at = port.at + offset;
+        pasted.push(port.uuid);
+        cx.tx()?
+            .insert(Object::Port(InDocument::new(document, port)))?;
+    }
+    for mut port in clip.power_ports {
+        port.uuid = cx.new_id();
+        port.at = port.at + offset;
+        pasted.push(port.uuid);
+        cx.tx()?
+            .insert(Object::PowerPort(InDocument::new(document, port)))?;
     }
     for mut text in clip.texts {
         text.uuid = cx.new_id();
