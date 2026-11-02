@@ -11,9 +11,13 @@
 //! - [`Canvas`]: the per-canvas view transform and palette. A frame writes only the view.
 //! - [`Renderer::draw`] records the draw into any render pass with the renderer's format
 //!   and [`SAMPLE_COUNT`]; [`Target`] is an offscreen MSAA texture with its resolve texture.
+//! - [`Grid`]: the canvas grid, drawn by a shader into the canvas pass after the Scene.
+//! - [`Blit`]: copies a [`Target`]'s frame into a window's pass (egui's, in the app).
 //! - [`Headless`]: a device of its own (a software adapter when there is one) that renders
 //!   a Scene to an [`Image`].
 
+mod blit;
+mod grid;
 mod headless;
 mod instances;
 mod target;
@@ -27,6 +31,8 @@ use crate::color::{ColorKey, Palette, Rgba};
 use crate::scene::{Scene, SceneLayer};
 use crate::view::View;
 
+pub use blit::{Blit, BlitSource};
+pub use grid::{Grid, GridSpec};
 pub use headless::{Headless, Image, RenderError};
 pub use instances::{Flags, Highlight};
 pub use target::Target;

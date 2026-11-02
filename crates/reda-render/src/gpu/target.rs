@@ -71,6 +71,20 @@ impl Target {
         scene: &GpuScene,
         layers: Option<&[SceneLayer]>,
     ) {
+        self.record_with(encoder, renderer, canvas, scene, layers, |_| {});
+    }
+
+    /// [`record`](Self::record), then `over` draws into the same pass before it resolves:
+    /// the grid, or other overlays in the canvas's format and sample count.
+    pub fn record_with(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        renderer: &Renderer,
+        canvas: &Canvas,
+        scene: &GpuScene,
+        layers: Option<&[SceneLayer]>,
+        over: impl FnOnce(&mut wgpu::RenderPass<'_>),
+    ) {
         let bg = canvas.background().0.map(|v| f64::from(v) / 255.0);
         let bg = if renderer.format().is_srgb() {
             bg.map(srgb_to_linear)
@@ -99,6 +113,7 @@ impl Target {
             multiview_mask: None,
         });
         renderer.draw(&mut pass, canvas, scene, layers);
+        over(&mut pass);
     }
 }
 

@@ -202,6 +202,18 @@ impl Headless {
         canvas: &mut Canvas,
         view: &View,
     ) -> Result<Image, RenderError> {
+        self.render_frame_with(scene, canvas, view, |_| {})
+    }
+
+    /// [`render_frame`](Self::render_frame), with `over` drawing into the pass after the
+    /// Scene (see [`Target::record_with`]).
+    pub fn render_frame_with(
+        &self,
+        scene: &GpuScene,
+        canvas: &mut Canvas,
+        view: &View,
+        over: impl FnOnce(&mut wgpu::RenderPass<'_>),
+    ) -> Result<Image, RenderError> {
         let (width, height) = (view.width, view.height);
         if width == 0 || height == 0 || width > MAX_SIDE || height > MAX_SIDE {
             return Err(RenderError::BadSize { width, height });
@@ -221,7 +233,7 @@ impl Headless {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("reda headless frame"),
             });
-        target.record(&mut encoder, &self.renderer, canvas, scene, None);
+        target.record_with(&mut encoder, &self.renderer, canvas, scene, None, over);
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: target.texture(),
