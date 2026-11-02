@@ -1,8 +1,12 @@
 //! The driver the starter Library script runs on: an engine with a writable Library, and
 //! helpers that run the library editing Commands and the Footprint generators.
 //!
-//! UUIDs come from [`KeyedIds`]: each element's UUIDs hash the element's key and a
-//! counter, so adding, removing or editing one element never changes another's UUIDs.
+//! UUIDs come from [`KeyedIds`] and are frozen in `uuids.tsv` beside this file: each
+//! element has a key (`symbol/Resistor`, `part/Resistor`, `generate/chip/{…}`) and its
+//! UUIDs, in the order the script draws them, are read from the table under that key.
+//! Renaming an element in the script and its key in the table keeps its UUIDs, so
+//! Projects that placed it still find it; a key the table lacks gets fresh UUIDs, hashed
+//! from the key, which `REDA_BLESS=1` adds to the table.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -18,20 +22,91 @@ use serde_json::{Value, json};
 pub const LIBRARY: &str = "5a7e0000-0000-4000-8000-000000000001";
 pub const NAME: &str = "Starter";
 
-/// UUIDs hashed from the current key (set by the script before each element) and a
-/// per-key counter.
+/// The key of UUIDs drawn outside any element (the scratch Project), which never reach the
+/// Library and so are not frozen.
+const SESSION: &str = "session";
+
+/// The checked-in table of frozen UUIDs.
+pub fn uuids_path() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/starter_library/uuids.tsv")
+}
+
+/// Each element key's UUIDs, in the order the script draws them: the text of `uuids.tsv`,
+/// one `key<TAB>uuid` line per UUID.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Uuids(BTreeMap<String, Vec<Uuid>>);
+
+impl Uuids {
+    pub fn parse(text: &str) -> Uuids {
+        let mut table = Uuids::default();
+        for line in text.lines().filter(|l| !l.is_empty() && !l.starts_with('#')) {
+            let (key, uuid) = line
+                .split_once('\t')
+                .unwrap_or_else(|| panic!("uuids.tsv: no tab in {line:?}"));
+            let uuid = uuid
+                .parse()
+                .unwrap_or_else(|_| panic!("uuids.tsv: bad UUID in {line:?}"));
+            table.0.entry(key.to_owned()).or_default().push(uuid);
+        }
+        table
+    }
+
+    /// The checked-in table.
+    pub fn checked_in() -> Uuids {
+        Uuids::parse(&std::fs::read_to_string(uuids_path()).unwrap_or_default())
+    }
+
+    pub fn to_text(&self) -> String {
+        let mut text = String::from(
+            "# The starter Library's frozen UUIDs: key<TAB>UUID, each key's UUIDs in the order\n\
+             # the script draws them. To rename an element, rename its key here too. Written by\n\
+             # REDA_BLESS=1 cargo test -p reda-engine --test starter_library.\n",
+        );
+        for (key, uuids) in &self.0 {
+            for uuid in uuids {
+                text.push_str(&format!("{key}\t{uuid}\n"));
+            }
+        }
+        text
+    }
+
+    /// The keys here that `used` never drew from: elements removed or renamed.
+    pub fn unused_keys(&self, used: &Uuids) -> Vec<String> {
+        self.0
+            .keys()
+            .filter(|key| !used.0.contains_key(*key))
+            .cloned()
+            .collect()
+    }
+}
+
+/// UUIDs for the current key (set by the script before each element): the frozen ones
+/// first, then ones hashed from the key and a per-key counter.
 #[derive(Clone, Default)]
 pub struct KeyedIds(Arc<Mutex<Keys>>);
 
 #[derive(Default)]
 pub struct Keys {
     key: String,
-    counts: BTreeMap<String, u64>,
+    counts: BTreeMap<String, usize>,
+    frozen: Uuids,
+    used: Uuids,
 }
 
 impl KeyedIds {
+    fn new(frozen: Uuids) -> KeyedIds {
+        KeyedIds(Arc::new(Mutex::new(Keys {
+            frozen,
+            ..Keys::default()
+        })))
+    }
+
     fn set(&self, key: &str) {
         self.0.lock().unwrap().key = key.to_owned();
+    }
+
+    fn used(&self) -> Uuids {
+        self.0.lock().unwrap().used.clone()
     }
 }
 
@@ -41,7 +116,15 @@ impl IdSource for KeyedIds {
         let key = keys.key.clone();
         let count = keys.counts.entry(key.clone()).or_default();
         *count += 1;
-        Uuid::v4_from_bits(hash(format!("reda-starter\0{key}\0{count}").as_bytes()))
+        let count = *count;
+        let uuid = match keys.frozen.0.get(&key).and_then(|u| u.get(count - 1)) {
+            Some(&uuid) => uuid,
+            None => Uuid::v4_from_bits(hash(format!("reda-starter\0{key}\0{count}").as_bytes())),
+        };
+        if key != SESSION {
+            keys.used.0.entry(key).or_default().push(uuid);
+        }
+        uuid
     }
 }
 
@@ -192,10 +275,16 @@ pub struct Script {
 }
 
 impl Script {
-    /// A Project in `dir` whose Project Library `lib` is where the script writes.
+    /// A Project in `dir` whose Project Library `lib` is where the script writes, with the
+    /// checked-in UUIDs.
     pub fn new(dir: &Path) -> Script {
-        let ids = KeyedIds::default();
-        ids.set("session");
+        Script::with_uuids(dir, Uuids::checked_in())
+    }
+
+    /// [`Script::new`] with the frozen UUIDs `frozen`.
+    pub fn with_uuids(dir: &Path, frozen: Uuids) -> Script {
+        let ids = KeyedIds::new(frozen);
+        ids.set(SESSION);
         let engine = Engine::builder()
             .ids(ids.clone())
             .clock(FixedClock::EPOCH)
@@ -227,6 +316,11 @@ impl Script {
     /// The Library folder written so far.
     pub fn library(&self) -> &Path {
         &self.library
+    }
+
+    /// The UUIDs every element drew so far, by key: what `uuids.tsv` should hold.
+    pub fn uuids(&self) -> Uuids {
+        self.ids.used()
     }
 
     pub fn run(&mut self, id: &str, params: Value) -> Value {

@@ -4,8 +4,13 @@
 //! `REDA_BLESS=1 cargo test -p reda-engine --test starter_library` after changing the
 //! script, and review the diff.
 //!
-//! Keep UUIDs stable for users who placed starter Parts: an element's UUIDs come from its
-//! name (see [`script::KeyedIds`]), so renaming an element gives it new UUIDs.
+//! Keep UUIDs stable for users who placed starter Parts: they are frozen in `uuids.tsv`
+//! (see [`script::Uuids`]), so renaming an element means renaming its key there too.
+//!
+//! The hand-drawn Footprints are checked against a named datasheet drawing or IPC
+//! nominal, cited in a comment beside each and in its description. Through-hole lands
+//! follow IPC-2222 Level B unless the datasheet recommends a hole: hole = largest lead
+//! (or lead diagonal) + 0.20 mm, pad = hole + 0.60 mm at least.
 
 mod connectors;
 mod ics;
@@ -20,29 +25,38 @@ use std::path::{Path, PathBuf};
 use reda_testkit::{TempDir, read_tree, test_engine_with_library};
 use serde_json::{Value, json};
 
-use script::{LIBRARY, Script};
+use script::{LIBRARY, Script, Uuids};
 
 /// The checked-in starter Library.
 fn starter() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter")
 }
 
-/// Runs the whole script into a new Library under `dir` and returns its folder.
-fn build(dir: &Path) -> PathBuf {
+/// Runs the whole script into a new Library under `dir` and returns its folder and the
+/// UUIDs its elements drew.
+fn build(dir: &Path) -> (PathBuf, Uuids) {
     let mut s = Script::new(dir);
     passives::build(&mut s);
     semis::build(&mut s);
     ics::build(&mut s);
     connectors::build(&mut s);
     mechanical::build(&mut s);
-    s.library().to_owned()
+    (s.library().to_owned(), s.uuids())
 }
 
 #[test]
 fn the_checked_in_library_is_what_the_script_builds() {
     let dir = TempDir::new("starter-library");
-    let built = read_tree(&build(dir.path()));
+    let (library, uuids) = build(dir.path());
+    let built = read_tree(&library);
     let target = starter();
+    let unused = Uuids::checked_in().unused_keys(&uuids);
+    assert!(
+        unused.is_empty(),
+        "uuids.tsv has keys no element drew from: {unused:?}. If you renamed an element, \
+         rename its key in uuids.tsv so Projects that placed it keep finding it; if you \
+         removed it, delete its lines."
+    );
     if std::env::var_os("REDA_BLESS").is_some() {
         let _ = std::fs::remove_dir_all(&target);
         for (rel, bytes) in &built {
@@ -50,8 +64,14 @@ fn the_checked_in_library_is_what_the_script_builds() {
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, bytes).unwrap();
         }
+        std::fs::write(script::uuids_path(), uuids.to_text()).unwrap();
         return;
     }
+    assert!(
+        uuids == Uuids::checked_in(),
+        "uuids.tsv is not the UUIDs the script draws; run REDA_BLESS=1 cargo test -p \
+         reda-engine --test starter_library and review the diff"
+    );
     let checked_in = read_tree(&target);
     let mut problems = vec![];
     for (rel, bytes) in &built {
@@ -70,6 +90,56 @@ fn the_checked_in_library_is_what_the_script_builds() {
          reda-engine --test starter_library and review the diff:\n{}",
         problems.join("\n")
     );
+}
+
+/// Makes a one-Unit Symbol and a Part on it, both called `name`, and returns the UUIDs a
+/// user's Project would hold on to: the Symbol, its Unit and the Part.
+fn symbol_and_part(s: &mut Script, name: &str) -> [String; 3] {
+    let sym = s.symbol(name, "U", "A test Symbol");
+    s.pin(&sym, script::left("A", "1", "passive", -200, 0));
+    let unit = sym.unit.clone();
+    let symbol = s.finish_symbol(sym);
+    let part = s.part(script::PartSpec {
+        name,
+        symbol: Some(&symbol),
+        footprints: vec![],
+        fields: json!({"value": name}),
+        pin_map: None,
+        mechanical: false,
+    });
+    [symbol, unit, part]
+}
+
+#[test]
+fn renaming_an_element_keeps_its_uuids_once_its_key_is_renamed_in_the_uuid_table() {
+    let dir = TempDir::new("starter-uuids-before");
+    let mut s = Script::with_uuids(dir.path(), Uuids::default());
+    let before = symbol_and_part(&mut s, "Widget");
+    // The rename, as a maintainer makes it in uuids.tsv.
+    let table = s
+        .uuids()
+        .to_text()
+        .replace("symbol/Widget\t", "symbol/Gadget\t")
+        .replace("part/Widget\t", "part/Gadget\t");
+
+    let dir = TempDir::new("starter-uuids-after");
+    let mut s = Script::with_uuids(dir.path(), Uuids::parse(&table));
+    let after = symbol_and_part(&mut s, "Gadget");
+    assert_eq!(after, before);
+    assert_eq!(s.uuids().to_text(), table);
+}
+
+#[test]
+fn a_new_element_gets_fresh_uuids_and_an_entry_in_the_uuid_table() {
+    let dir = TempDir::new("starter-uuids-new");
+    let mut s = Script::with_uuids(dir.path(), Uuids::default());
+    let first = symbol_and_part(&mut s, "Widget");
+    let second = symbol_and_part(&mut s, "Gadget");
+    for (a, b) in first.iter().zip(&second) {
+        assert_ne!(a, b);
+    }
+    let table = s.uuids().to_text();
+    assert!(table.contains(&format!("part/Gadget\t{}\n", second[2])), "{table}");
 }
 
 /// Every Part of the checked-in Library, by name.
