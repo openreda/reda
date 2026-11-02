@@ -357,6 +357,20 @@ impl<T> Default for Dock<T> {
 pub struct FloatingWindow<T = TabKey> {
     pub id: WindowId,
     pub root: Node<T>,
+    /// Where the window was last put on screen, kept so it reopens there; unset until
+    /// the OS window first shows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rect: Option<WindowRect>,
+}
+
+/// A window's place on screen, in points: its outer top-left corner and inner size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WindowRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
 }
 
 /// Which part of the layout holds a group.
@@ -694,6 +708,7 @@ impl Layout {
             l.windows.push(FloatingWindow {
                 id: window,
                 root: Node::Group(Group::new(group, vec![tab.clone()])),
+                rect: None,
             });
             Ok(l.activate_in_place(tab))
         })
@@ -764,6 +779,19 @@ impl Layout {
     }
 
     /// Closes the window `window` with every tab in it, as when its OS window is closed.
+    /// Records where the window `window` is on screen.
+    pub fn place_window(&mut self, window: WindowId, rect: WindowRect) -> Result<(), CommandError> {
+        self.apply(|l| {
+            let w = l
+                .windows
+                .iter_mut()
+                .find(|w| w.id == window)
+                .ok_or_else(|| CommandError::not_found(format!("no window {}", window.0)))?;
+            w.rect = Some(rect);
+            Ok(())
+        })
+    }
+
     pub fn close_window(&mut self, window: WindowId) -> Result<(), CommandError> {
         self.apply(|l| {
             let before = l.windows.len();
@@ -970,7 +998,14 @@ impl Layout {
         }
         self.windows = std::mem::take(&mut self.windows)
             .into_iter()
-            .filter_map(|w| w.root.tidy().map(|root| FloatingWindow { id: w.id, root }))
+            .filter_map(|w| {
+                let rect = w.rect;
+                w.root.tidy().map(|root| FloatingWindow {
+                    id: w.id,
+                    root,
+                    rect,
+                })
+            })
             .collect();
         for g in self.groups_mut() {
             g.active = g.active.min(g.tabs.len().saturating_sub(1));

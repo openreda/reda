@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::{DockSide, GroupId, Layout, PanelId, SplitSide, TabKey, WindowId, saved};
+use super::{DockSide, GroupId, Layout, PanelId, SplitSide, TabKey, WindowId, WindowRect, saved};
 
 /// Adds the layout Commands to `registry`, with no `layout.apply:<name>` Presets.
 pub fn register_all(registry: &mut Registry) {
@@ -26,6 +26,7 @@ pub fn register_with_layouts(registry: &mut Registry, dirs: Option<UserDirs>) {
     registry.add(Split);
     registry.add(Close);
     registry.add(CloseWindow);
+    registry.add(PlaceWindow);
     registry.add(Collapse);
     registry.add(ShowPanel);
     registry.add(OpenDocument);
@@ -284,6 +285,45 @@ impl Command for CloseWindow {
 
     fn run(&self, cx: &mut Context<'_>, p: WindowParams) -> Result<Done, CommandError> {
         layout(cx)?.close_window(p.window)?;
+        Ok(Done {})
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PlaceParams {
+    /// The window's id, as the layout gives it.
+    window: WindowId,
+    /// Its outer top-left corner on screen, in points.
+    x: i32,
+    y: i32,
+    /// Its inner size, in points.
+    width: u32,
+    height: u32,
+}
+
+struct PlaceWindow;
+
+impl Command for PlaceWindow {
+    const META: Meta = Meta {
+        id: "layout.window.place",
+        title: "Place Window",
+        description: "Records where a window of its own is on screen, so it reopens there. The window runs this when the user moves or resizes it.",
+        category: "layout",
+        icon: "move",
+        kind: Kind::View,
+    };
+    type Params = PlaceParams;
+    type Output = Done;
+
+    fn run(&self, cx: &mut Context<'_>, p: PlaceParams) -> Result<Done, CommandError> {
+        let rect = WindowRect {
+            x: p.x,
+            y: p.y,
+            width: p.width,
+            height: p.height,
+        };
+        layout(cx)?.place_window(p.window, rect)?;
         Ok(Done {})
     }
 }

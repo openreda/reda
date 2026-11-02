@@ -17,6 +17,6 @@ pub use commands::{register_all, register_with_layouts};
 pub use drop::{DropOutcome, DropPlan, DropTarget};
 pub use model::{
     Area, Axis, Dock, DockSide, FloatingWindow, Group, GroupId, Layout, Node, PanelId, Place,
-    SplitSide, TabKey, WindowId,
+    SplitSide, TabKey, WindowId, WindowRect,
 };
 pub use saved::{SavedLayout, Slot};
