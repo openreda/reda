@@ -79,3 +79,4 @@ canvas-description = Schematic canvas: { $document }
 
 error-command = { $error }
 error-state-file = Could not update the recent Projects list: { $error }
+status-last-project-missing = The last Project, { $project }, was not reopened: it is missing at { $path }

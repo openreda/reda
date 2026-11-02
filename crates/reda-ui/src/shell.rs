@@ -5,19 +5,26 @@
 //! Every change to the design or the layout goes through [`Shell::run`], which runs a
 //! Command and then refreshes what the tabs show (their Scenes) and the fonts the engine
 //! has. The Layout lives in the engine's view state, where the layout Commands change it.
+//!
+//! Each Project's view (the layout and each Document's camera and Layers) is kept in its
+//! `.reda/view.json`: see [`view_state`](crate::view_state).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Instant;
 
 use reda_engine::command::{CommandError, FontFace, Kind};
 use reda_engine::model::{DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Uuid};
-use reda_engine::{Engine, state, store};
+use reda_engine::{Engine, preferences, state, store};
 use serde_json::{Value, json};
 
 use crate::canvas::{Camera, SceneHandle};
-use crate::layout::{self, Layout, TabKey};
+use crate::layout::{self, Layout, TabKey, saved};
 use crate::tr;
+use crate::view_state::{self, Debounce, DocumentView, ViewFile};
+
+pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
 
 /// Where the engine gets the bytes of fonts installed on the machine. The app scans the
 /// OS font folders; tests pass a fake.
@@ -43,6 +50,8 @@ pub struct DocumentTab {
     pub title: String,
     /// The canvas camera; `None` until the canvas first lays out, which fits the Document.
     pub camera: Option<Camera>,
+    /// Which Layers show, and how inactive ones are drawn.
+    pub layers: LayerView,
     /// What the canvas draws.
     pub scene: SceneHandle,
 }
@@ -68,6 +77,9 @@ pub struct Shell {
     asked_fonts: BTreeSet<String>,
     generation: u64,
     message: Option<String>,
+    /// The saved view of Documents without a tab, kept for when `view.json` is next saved.
+    closed_views: BTreeMap<Uuid, DocumentView>,
+    view_saves: Debounce,
 }
 
 impl Shell {
@@ -75,7 +87,8 @@ impl Shell {
     /// Default Layout. It adds the layout Commands to the engine.
     pub fn new(mut engine: Engine) -> Shell {
         if engine.registry().get("panel.show").is_none() {
-            engine.register(layout::register_all);
+            let dirs = engine.user_dirs().cloned();
+            engine.register(|r| layout::register_with_layouts(r, dirs));
         }
         engine.view_mut().set(Layout::default());
         let mut shell = Shell {
@@ -85,6 +98,8 @@ impl Shell {
             asked_fonts: BTreeSet::new(),
             generation: 0,
             message: None,
+            closed_views: BTreeMap::new(),
+            view_saves: Debounce::default(),
         };
         if shell.engine.project().is_some() {
             shell.show_project();
@@ -188,6 +203,72 @@ impl Shell {
         }
     }
 
+    /// Opens the last Project, when the Preferences ask for it. A last Project that is
+    /// gone is not reopened, and the status bar says so.
+    pub fn reopen_last_project(&mut self) {
+        let Some(dirs) = self.engine.user_dirs() else {
+            return;
+        };
+        if !preferences::current(Some(dirs)).general.reopen_last_project {
+            return;
+        }
+        let Some(last) = self.recent_projects().into_iter().next() else {
+            return;
+        };
+        if last.missing {
+            self.message = Some(tr!(
+                "status-last-project-missing",
+                project = last.name.as_str(),
+                path = last.path.display().to_string()
+            ));
+            return;
+        }
+        let _ = self.open_project(&last.path);
+    }
+
+    /// Saves the open Project's view state now, as when it closes.
+    pub fn save_view(&mut self) {
+        let Some((folder, bytes)) = self.view_bytes() else {
+            return;
+        };
+        // The view state is disposable: a failed write loses nothing worth reporting.
+        if view_state::write(&folder, &bytes).is_ok() {
+            self.view_saves.saved(bytes);
+        }
+    }
+
+    /// Saves the open Project's view state once it has stayed unchanged for
+    /// [`VIEW_SAVE_DELAY`]. The window calls this every frame.
+    pub fn save_view_if_due(&mut self, now: Instant) {
+        let Some((folder, bytes)) = self.view_bytes() else {
+            return;
+        };
+        if let Some(bytes) = self.view_saves.poll(bytes, now)
+            && view_state::write(&folder, &bytes).is_ok()
+        {
+            self.view_saves.saved(bytes);
+        }
+    }
+
+    /// The open Project's folder and its view state as `view.json` bytes.
+    fn view_bytes(&self) -> Option<(PathBuf, Vec<u8>)> {
+        let folder = self.engine.location()?.to_path_buf();
+        let project = self.engine.project()?;
+        let mut documents = self.closed_views.clone();
+        documents.retain(|uuid, _| project.documents().any(|d| d.uuid == *uuid));
+        for tab in &self.documents {
+            documents.insert(
+                tab.document,
+                DocumentView {
+                    camera: tab.camera,
+                    layers: tab.layers.clone(),
+                },
+            );
+        }
+        let file = ViewFile::new(self.layout().clone(), documents);
+        Some((folder, file.encode()))
+    }
+
     /// Opens the Project at `path` (its `.reda` file or folder), replacing any open one.
     pub fn open_project(&mut self, path: &Path) -> Result<(), CommandError> {
         self.run_reporting("project.open", json!({ "path": path }))?;
@@ -205,8 +286,11 @@ impl Shell {
     /// Runs a Command, then refreshes the tabs when it may have changed the design or
     /// closed a Document's tab.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
-        let out = self.engine.run(id, params)?;
         let base = id.split(':').next().unwrap_or(id);
+        if matches!(base, "project.open" | "project.new" | "project.close") {
+            self.save_view();
+        }
+        let out = self.engine.run(id, params)?;
         match self.engine.registry().get(base).map(|meta| meta.kind) {
             Some(Kind::Query) => {}
             Some(Kind::View) => self.forget_closed_documents(),
@@ -242,27 +326,78 @@ impl Shell {
         Some(std::fs::canonicalize(&file).unwrap_or(file))
     }
 
-    /// Shows the open Project in the Default Layout, with its first sheet in the centre.
+    /// Shows the open Project as its `view.json` left it, or else in the default layout
+    /// with its first sheet in the centre.
     fn show_project(&mut self) {
-        let first_sheet = self.engine.project().and_then(|p| {
-            p.documents()
-                .find(|d| d.kind == DocumentKind::Schematic)
-                .map(|d| (d.uuid, d.title.clone()))
-        });
-        let mut layout = Layout::with_centre(Vec::new());
+        let Some(project) = self.engine.project() else {
+            return;
+        };
+        let titles: BTreeMap<Uuid, String> = project
+            .documents()
+            .map(|d| (d.uuid, d.title.clone()))
+            .collect();
+        let first_sheet = project
+            .documents()
+            .find(|d| d.kind == DocumentKind::Schematic)
+            .map(|d| d.uuid);
+        let restored = self.engine.location().and_then(view_state::read);
+        let (layout, mut views) = match restored {
+            Some(file) => {
+                let mut layout = file.layout;
+                layout.retain_tabs(|t| match t {
+                    TabKey::Document(uuid) => titles.contains_key(uuid),
+                    TabKey::Start => false,
+                    TabKey::Panel(_) => true,
+                });
+                (layout, file.documents)
+            }
+            None => (self.default_layout(first_sheet), BTreeMap::new()),
+        };
         self.documents.clear();
-        if let Some((document, title)) = first_sheet {
-            layout.open_document(document);
+        let open: Vec<Uuid> = layout
+            .groups()
+            .into_iter()
+            .flat_map(|(_, g)| g.tabs.iter())
+            .filter_map(|t| match t {
+                TabKey::Document(uuid) => Some(*uuid),
+                _ => None,
+            })
+            .collect();
+        for document in open {
+            let view = views.remove(&document).unwrap_or_default();
             let scene = self.scene_of(document);
             self.documents.push(DocumentTab {
                 document,
-                title,
-                camera: None,
+                title: titles[&document].clone(),
+                camera: view.camera,
+                layers: view.layers,
                 scene,
             });
         }
+        self.closed_views = views;
         *self.layout_mut() = layout;
         self.load_fonts();
+        let bytes = self.view_bytes().map(|(_, bytes)| bytes);
+        self.view_saves = Debounce::default();
+        if let Some(bytes) = bytes {
+            self.view_saves.saved(bytes);
+        }
+    }
+
+    /// The layout a Project opens in without saved view state: the user's default Saved
+    /// Layout when there is a usable one, else the Default Layout, with `document` open.
+    fn default_layout(&self, document: Option<Uuid>) -> Layout {
+        let mut layout = Layout::with_centre(Vec::new());
+        if let Some(document) = document {
+            layout.open_document(document);
+        }
+        let dirs = self.engine.user_dirs();
+        let chosen = preferences::current(dirs).general.default_layout;
+        let saved = dirs
+            .zip(chosen)
+            .and_then(|(dirs, name)| saved::load(dirs, &name).ok())
+            .and_then(|saved| saved.apply_to(&layout).ok());
+        saved.unwrap_or(layout)
     }
 
     /// Rebuilds every tab's Scene and closes tabs whose Document is gone. With no
