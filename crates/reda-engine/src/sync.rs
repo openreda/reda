@@ -264,6 +264,28 @@ pub fn drc_state(project: &Project) -> reda_pcb::SyncState {
     }
 }
 
+/// A schematic Net and the PCB Net Sync matches it with: what Net highlighting maps across.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NetLink {
+    /// The PCB Net.
+    pub pcb: Uuid,
+    /// The schematic Net's name.
+    pub name: String,
+    /// The schematic objects on the Net, on every sheet: Wires, Net Labels, Ports, Power
+    /// Ports, No-Connect Markers and the Units with a Pin on it, sorted by UUID.
+    pub objects: Vec<Uuid>,
+}
+
+/// Every schematic Net that matches a PCB Net, by the same matching Sync uses. Empty
+/// without a PCB Document.
+pub fn net_links(project: &Project) -> Vec<NetLink> {
+    let Some(pcb) = project.pcb() else {
+        return Vec::new();
+    };
+    let components = components::Components::gather(project);
+    nets::links(project, pcb, &components)
+}
+
 /// A planned Change List with what applying it needs.
 pub(crate) struct Plan {
     pub(crate) list: ChangeList,

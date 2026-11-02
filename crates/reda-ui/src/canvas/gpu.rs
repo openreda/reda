@@ -33,7 +33,8 @@ pub struct SceneHandle {
 pub struct SelectionHandle {
     pub generation: u64,
     pub objects: Arc<[Uuid]>,
-    /// Highlighted objects (a Net): while there are any, everything else is dimmed.
+    /// Cross-probed or Net-highlighted objects: marked highlighted, and everything else
+    /// on a canvas that shows any of them dims.
     pub highlighted: Arc<[Uuid]>,
 }
 
