@@ -2,6 +2,7 @@
 //! state. Each is refused headless, and a refused action leaves the layout as it was.
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Preset, Registry};
+use reda_engine::model::Uuid;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -18,6 +19,40 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Close);
     registry.add(Collapse);
     registry.add(ShowPanel);
+    registry.add(OpenDocument);
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OpenDocumentParams {
+    /// The Document's UUID.
+    document: Uuid,
+}
+
+struct OpenDocument;
+
+impl Command for OpenDocument {
+    const META: Meta = Meta {
+        id: "document.open",
+        title: "Open Document",
+        description: "Opens a Document in a tab beside the active Document, or shows its tab if it is open, and focuses it.",
+        category: "layout",
+        icon: "document_open",
+        kind: Kind::View,
+    };
+    type Params = OpenDocumentParams;
+    type Output = TabPlaced;
+
+    fn run(&self, cx: &mut Context<'_>, p: OpenDocumentParams) -> Result<TabPlaced, CommandError> {
+        if cx.project()?.document(p.document).is_none() {
+            return Err(CommandError::not_found(format!(
+                "no Document {}",
+                p.document
+            )));
+        }
+        let group = layout(cx)?.open_document(p.document);
+        Ok(TabPlaced { group })
+    }
 }
 
 fn tab(raw: &str) -> Result<TabKey, CommandError> {
