@@ -1,7 +1,8 @@
 # The interim placeholder icons: one line per semantic icon key, `<key> <set>:<icon>`, where
 # <set> is `lucide` (lucide-static) or `tabler` (@tabler/icons, outline style).
 # `cargo xtask icons` vendors each one as <key>.svg and regenerates ../src/icons/table.rs
-# and README.md. REDA's own set replaces all of them before the first public release.
+# and README.md. Keys with REDA's own art are listed in reda.txt instead; each one left here
+# is a tracked placeholder until REDA's own art for it is drawn to the style guide in #32.
 about lucide:info
 align tabler:layout-align-left
 annotate tabler:list-numbers
@@ -52,7 +53,6 @@ layer_next lucide:chevron-down
 layer_previous lucide:chevron-up
 layer_swap lucide:arrow-up-down
 layer_visible lucide:eye
-layers lucide:layers-2
 layout lucide:layout-dashboard
 layout_save lucide:layout-template
 library_add lucide:library-big
@@ -66,11 +66,9 @@ line lucide:minus
 lock lucide:lock
 measure tabler:ruler-2
 mirror lucide:flip-horizontal-2
-move lucide:move
 net tabler:topology-star
 net_class tabler:topology-ring
 net_class_add tabler:topology-ring-2
-net_label lucide:tag
 no_connect lucide:circle-x
 origin lucide:crosshair
 output_job_add lucide:file-plus-2
@@ -90,7 +88,6 @@ paste lucide:clipboard-paste
 pin tabler:point
 polygon lucide:pentagon
 port tabler:arrow-big-right
-power_port tabler:bolt
 preferences lucide:settings
 project_new lucide:folder-plus
 project_open lucide:folder-open
@@ -105,10 +102,8 @@ reorder lucide:arrow-up-down
 rotate lucide:rotate-cw
 rule lucide:ruler
 rules tabler:ruler-2
-save lucide:save
 save_all lucide:save-all
 search lucide:search
-select lucide:mouse-pointer-2
 select_connected tabler:link
 select_similar lucide:boxes
 severity lucide:triangle-alert
@@ -124,17 +119,11 @@ theme_dark lucide:moon
 theme_follow_os lucide:sun-moon
 theme_light lucide:sun
 title_block tabler:table
-track tabler:route-2
-undo lucide:undo-2
 unit_place tabler:triangle-plus
 units lucide:ruler
 update_check lucide:cloud-download
 user_origin tabler:focus-2
-via lucide:circle-dot
 view_flip lucide:flip-horizontal-2
 waive lucide:shield-check
 window_new lucide:app-window-mac
-wire tabler:line
-zone tabler:polygon
 zone_fill tabler:paint
-zoom_fit lucide:scan

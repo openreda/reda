@@ -228,11 +228,12 @@ impl Palette {
         }
     }
 
-    /// The canvas grid's dots.
+    /// The canvas grid's dots: opaque and quiet, about 1.4:1 on the sheet's paper in either
+    /// theme, as in the main window prototype.
     pub fn grid(&self) -> Rgba {
         match self.theme {
-            Theme::Dark => Rgba([0xb4, 0xb8, 0xc0, 0x80]),
-            Theme::Light => Rgba([0x40, 0x44, 0x4c, 0x80]),
+            Theme::Dark => Rgba::rgb(0x33, 0x37, 0x3d),
+            Theme::Light => Rgba::rgb(0xdc, 0xdc, 0xd7),
         }
     }
 

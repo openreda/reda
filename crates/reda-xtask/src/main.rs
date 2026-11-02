@@ -7,7 +7,8 @@ const USAGE: &str = "\
 Usage:
   cargo xtask icons [--from <dir>]
       Vendors the placeholder icons named in crates/reda-ui/icons/sources.txt, and
-      regenerates the set's README and crates/reda-ui/src/icons/table.rs. The npm
+      regenerates the set's README and crates/reda-ui/src/icons/table.rs. REDA's own
+      icons, listed in crates/reda-ui/icons/reda.txt, are left alone. The npm
       packages are downloaded with curl into target/xtask, unless --from names a folder
       holding them unpacked as lucide/package and tabler/package.";
 

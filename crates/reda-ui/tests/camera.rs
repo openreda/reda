@@ -176,8 +176,11 @@ fn the_grid_coarsens_by_tens_when_its_dots_crowd() {
     let mil50 = 1_270_000.0;
     // 50 mil spans 20 px: drawn as it is.
     assert_eq!(grid_pitch(mil50, mil50 / 20.0), Some(mil50));
+    // Dots 6 px apart are still drawn; closer than 6 px they coarsen.
+    assert_eq!(grid_pitch(mil50, mil50 / 6.0), Some(mil50));
+    assert_eq!(grid_pitch(mil50, mil50 / 5.9), Some(10.0 * mil50));
     // 50 mil spans 3 px: every tenth dot, 500 mil.
     assert_eq!(grid_pitch(mil50, mil50 / 3.0), Some(10.0 * mil50));
-    // 50 mil spans 0.05 px: even 5000 mil is under 8 px, so no grid.
+    // 50 mil spans 0.05 px: even 5000 mil is under 6 px, so no grid.
     assert_eq!(grid_pitch(mil50, mil50 / 0.05), None);
 }

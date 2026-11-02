@@ -136,6 +136,43 @@ fn a_right_click_tab_menu_splits_and_moves_to_a_new_window() {
 }
 
 #[test]
+fn a_docks_header_button_collapses_it() {
+    let mut h = harness();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Collapse Left Dock")
+        .click();
+    h.run();
+    assert!(h.state().shell().layout().dock(DockSide::Left).collapsed);
+    assert_eq!(
+        journal(&h),
+        [("layout.dock.collapse".to_owned(), json!({"dock": "left"}))]
+    );
+}
+
+#[test]
+fn the_active_tabs_close_button_closes_it() {
+    let mut h = harness();
+    h.run();
+    // Each group's active tab shows its close button.
+    assert!(h.query_by_label("Close Projects").is_some());
+    assert!(h.query_by_label("Close Start").is_some());
+    h.get_by_role_and_label(Role::Button, "Close Projects")
+        .click();
+    h.run();
+    assert_eq!(
+        journal(&h),
+        [("layout.tab.close".to_owned(), json!({"tab": "projects"}))]
+    );
+    assert!(
+        h.state()
+            .shell()
+            .layout()
+            .place(&TabKey::Panel(PanelId::Projects))
+            .is_none()
+    );
+}
+
+#[test]
 fn a_collapsed_dock_shows_icons_that_open_flyouts() {
     let mut h = harness();
     h.run();

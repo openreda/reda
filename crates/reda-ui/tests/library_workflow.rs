@@ -111,6 +111,10 @@ fn filter(h: &mut Harness<'_, App>, text: &str) {
 
 /// Types `text` into the text field `label` and presses Enter.
 fn type_into(h: &mut Harness<'_, App>, label: &str, text: &str) {
+    // The form can be taller than its tab: bring the field into view first.
+    h.get_by_role_and_label(Role::TextInput, label)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TextInput, label).click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, label)

@@ -703,35 +703,52 @@ impl App {
                     }
                     ui.colored_label(ui.visuals().warn_fg_color, tr!("status-zones-stale"));
                 }
-                if let Some(document) = self.shell.active_document().map(|d| d.document) {
-                    let grid = crate::grid::label(self.shell.grid(document));
-                    ui.label(tr!("status-grid", grid = grid));
-                }
-                ui.with_layout(
-                    egui::Layout::left_to_right(egui::Align::Center),
-                    |ui| match (self.shell.message(), self.shell.note()) {
-                        (Some(message), _) => {
-                            let message = message.to_owned();
-                            ui.colored_label(ui.visuals().error_fg_color, message);
-                            if ui.small_button(tr!("status-dismiss")).clicked() {
-                                self.shell.dismiss_message();
-                            }
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    // Active: <kind> | X … Y … | Grid: …, then any message or note.
+                    let readout = crate::status_bar::readout(&self.shell);
+                    let parts = [readout.kind, readout.cursor, readout.grid];
+                    let mut first = true;
+                    for part in parts.into_iter().flatten() {
+                        if !first {
+                            ui.separator();
                         }
-                        (None, Some(note)) => {
-                            ui.label(note.to_owned());
-                            if ui.small_button(tr!("status-dismiss")).clicked() {
-                                self.shell.dismiss_note();
-                            }
-                        }
-                        (None, None) => {
-                            ui.weak(tr!("status-ready"));
-                        }
-                    },
-                );
+                        ui.label(part);
+                        first = false;
+                    }
+                    if !first && (self.shell.message().is_some() || self.shell.note().is_some()) {
+                        ui.separator();
+                    }
+                    self.status_message(ui, first);
+                });
             });
         })
         .response
         .rect
+    }
+
+    /// The status bar's error or note with its Dismiss button, or "Ready" when the bar
+    /// shows nothing else (`idle`).
+    fn status_message(&mut self, ui: &mut Ui, idle: bool) {
+        match (self.shell.message(), self.shell.note()) {
+            (Some(message), _) => {
+                let message = message.to_owned();
+                ui.colored_label(ui.visuals().error_fg_color, message);
+                if ui.small_button(tr!("status-dismiss")).clicked() {
+                    self.shell.dismiss_message();
+                }
+            }
+            (None, Some(note)) => {
+                ui.label(note.to_owned());
+                if ui.small_button(tr!("status-dismiss")).clicked() {
+                    self.shell.dismiss_note();
+                }
+            }
+            (None, None) => {
+                if idle {
+                    ui.weak(tr!("status-ready"));
+                }
+            }
+        }
     }
 
     /// The Panels button: shows any Panel, reopening a closed one in its usual Dock.

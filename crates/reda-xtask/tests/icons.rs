@@ -1,7 +1,9 @@
 //! The placeholder icon vendoring: reading the sources list, rewriting the SVGs, and the
-//! generated table and README.
+//! generated table and README, and leaving REDA's own icons alone.
 
-use reda_xtask::icons::{IconSet, Source, parse_sources, readme, table_rs, vendor_svg};
+use reda_xtask::icons::{
+    IconSet, Owned, Source, parse_owned, parse_sources, readme, table_rs, vendor, vendor_svg,
+};
 
 #[test]
 fn sources_list_one_icon_per_key_and_skip_comments() {
@@ -61,7 +63,7 @@ fn table_includes_every_key_in_order() {
 #[test]
 fn readme_records_each_icons_provenance() {
     let sources = parse_sources("save lucide:save\nwire tabler:line\n").unwrap();
-    let text = readme(&sources);
+    let text = readme(&[], &sources);
     assert!(text.contains("| `save` | Lucide `save` |"), "{text}");
     assert!(
         text.contains("| `wire` | Tabler `line` (outline) |"),
@@ -70,4 +72,85 @@ fn readme_records_each_icons_provenance() {
     assert!(text.contains("lucide-static"));
     assert!(text.contains("@tabler/icons"));
     assert!(text.contains("LICENSE-lucide.txt") && text.contains("LICENSE-tabler.txt"));
+}
+
+#[test]
+fn reda_owned_icons_list_their_provenance() {
+    let owned =
+        parse_owned("# comment\nwire | Claude (Opus 5.5), hand-written SVG | none | none\n")
+            .unwrap();
+    assert_eq!(
+        owned,
+        vec![Owned {
+            key: "wire".into(),
+            drawn_by: "Claude (Opus 5.5), hand-written SVG".into(),
+            reference: "none".into(),
+            cleaned_up_by: "none".into(),
+        }]
+    );
+    assert!(parse_owned("wire | only two | fields\n").is_err());
+    assert!(parse_owned("Wire | a | b | c\n").is_err());
+    assert!(parse_owned("wire | a | b | c\nwire | a | b | c\n").is_err());
+
+    let sources = parse_sources("save lucide:save\n").unwrap();
+    let text = readme(&owned, &sources);
+    assert!(
+        text.contains("| `wire` | Claude (Opus 5.5), hand-written SVG | none | none |"),
+        "{text}"
+    );
+    assert!(text.contains("| `save` | Lucide `save` |"), "{text}");
+}
+
+/// A scratch folder holding a small reda-ui (its sources, owned list and one owned SVG)
+/// and the two unpacked packages.
+fn scratch(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("reda-xtask-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let write = |path: &str, text: &str| {
+        let path = dir.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    write("ui/src/icons/.keep", "");
+    write("ui/icons/sources.txt", "save lucide:save\n");
+    write("ui/icons/reda.txt", "wire | Claude | none | none\n");
+    write("ui/icons/wire.svg", "<svg stroke=\"#2fb36b\"/>\n");
+    write("ui/icons/stale.svg", "<svg/>\n");
+    write(
+        "pkg/lucide/package/icons/save.svg",
+        "<svg stroke=\"currentColor\"/>",
+    );
+    write("pkg/lucide/package/LICENSE", "ISC");
+    write("pkg/tabler/package/LICENSE", "MIT");
+    dir
+}
+
+#[test]
+fn vendoring_leaves_reda_owned_icons_alone() {
+    let dir = scratch("owned");
+    let n = vendor(&dir.join("ui"), Some(&dir.join("pkg")), &dir.join("cache")).unwrap();
+    assert_eq!(n, 1);
+    let icons = dir.join("ui/icons");
+    let read = |f: &str| std::fs::read_to_string(icons.join(f)).unwrap();
+    assert_eq!(read("wire.svg"), "<svg stroke=\"#2fb36b\"/>\n");
+    assert_eq!(read("save.svg"), "<svg stroke=\"#fff\"/>\n");
+    assert!(!icons.join("stale.svg").exists());
+    let table = std::fs::read_to_string(dir.join("ui/src/icons/table.rs")).unwrap();
+    assert!(
+        table.contains("\"save\"") && table.contains("\"wire\""),
+        "{table}"
+    );
+    assert!(read("README.md").contains("| `wire` | Claude | none | none |"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_key_both_owned_and_vendored_is_refused() {
+    let dir = scratch("both");
+    std::fs::write(dir.join("ui/icons/sources.txt"), "wire tabler:line\n").unwrap();
+    let error = vendor(&dir.join("ui"), Some(&dir.join("pkg")), &dir.join("cache")).unwrap_err();
+    assert!(error.contains("wire"), "{error}");
+    // Nothing was touched.
+    assert!(dir.join("ui/icons/stale.svg").exists());
+    std::fs::remove_dir_all(&dir).unwrap();
 }

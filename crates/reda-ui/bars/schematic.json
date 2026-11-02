@@ -107,12 +107,6 @@
     "separator",
     { "id": "active_bar.wire", "command": "tool.activate:wire" },
     { "id": "active_bar.net_label", "command": "tool.activate:net_label" },
-    { "id": "active_bar.port", "command": "tool.activate:port" },
-    { "id": "active_bar.power_port", "command": "tool.activate:power_port" },
-    { "id": "active_bar.no_connect", "command": "tool.activate:no_connect" },
-    "separator",
-    { "id": "active_bar.text", "command": "tool.activate:text" },
-    { "id": "active_bar.line", "command": "tool.activate:line" },
-    { "id": "active_bar.rect", "command": "tool.activate:rect" }
+    { "id": "active_bar.power_port", "command": "tool.activate:power_port" }
   ]
 }

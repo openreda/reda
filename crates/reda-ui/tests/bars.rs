@@ -351,6 +351,63 @@ fn the_active_document_picks_the_bars() {
     assert_eq!(bars::active_type(&shell), Some(DocumentType::Schematic));
 }
 
+#[test]
+fn the_active_bar_holds_only_the_most_used_tools() {
+    for (kind, most) in [
+        (DocumentType::Schematic, 6),
+        (DocumentType::Pcb, 5),
+        (DocumentType::Symbol, 5),
+        (DocumentType::Footprint, 5),
+    ] {
+        let bar = &bars::for_document(Some(kind)).active_bar;
+        let buttons = bar.iter().filter(|i| matches!(i, Item::Action(_))).count();
+        assert!(buttons <= most, "{kind:?} has {buttons} Active Bar buttons");
+    }
+    // Undo, Redo, units and the view flip live on the toolbar.
+    let pcb = bars::for_document(Some(DocumentType::Pcb));
+    let commands = |items: &[Item]| -> Vec<String> {
+        items
+            .iter()
+            .filter_map(|i| match i {
+                Item::Action(a) => Some(match &a.binding {
+                    Binding::Command(c) | Binding::Preset(c) => c.clone(),
+                    Binding::Raw { command, .. } => command.clone(),
+                }),
+                _ => None,
+            })
+            .collect()
+    };
+    let toolbar = commands(&pcb.toolbar);
+    for command in [
+        "edit.undo",
+        "edit.redo",
+        "view.units.toggle",
+        "pcb.view.from_bottom",
+    ] {
+        assert!(
+            toolbar.iter().any(|c| c == command),
+            "{command}: {toolbar:?}"
+        );
+        assert!(!commands(&pcb.active_bar).iter().any(|c| c == command));
+    }
+}
+
+#[test]
+fn a_narrow_canvas_moves_the_active_bar_tools_that_do_not_fit_into_a_menu() {
+    // Select, Move, Drag | Wire, Net Label, Power Port: 32 px buttons 2 px apart, a 7 px
+    // separator, in a frame 8 px wider than its row, 8 px in from each canvas edge.
+    let sheet = &bars::for_document(Some(DocumentType::Schematic)).active_bar;
+    assert_eq!(sheet.len(), 7);
+    assert_eq!(bars::draw::active_bar_fit(sheet, 1000.0), 7);
+    assert_eq!(bars::draw::active_bar_fit(sheet, 235.0), 7);
+    // One point less: Net Label and Power Port go to the overflow menu.
+    assert_eq!(bars::draw::active_bar_fit(sheet, 234.0), 5);
+    // A separator never ends the row.
+    assert_eq!(bars::draw::active_bar_fit(sheet, 200.0), 3);
+    assert_eq!(bars::draw::active_bar_fit(sheet, 100.0), 1);
+    assert_eq!(bars::draw::active_bar_fit(sheet, 40.0), 0);
+}
+
 // The window.
 
 fn builder() -> HarnessBuilder<App> {
@@ -457,6 +514,28 @@ fn toolbar_and_active_bar_buttons_run_their_commands() {
     h.get_all_by_label("Run ERC").next().unwrap().click();
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "erc.run");
+}
+
+#[test]
+fn the_tools_that_do_not_fit_a_narrow_canvas_are_in_the_more_tools_menu() {
+    let home = TempDir::new("bars-home");
+    let work = TempDir::new("bars-work");
+    let file = make_project(work.path(), "Narrow");
+    let app = App::new(Shell::new(engine_in(home.path())));
+    let mut h = Harness::builder()
+        .with_size([720.0, 640.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), app);
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.run();
+    // Power Port, last on the sheet's Active Bar, has no room on the bar.
+    assert!(h.query_by_label_contains("Power Port").is_none());
+    h.get_by_role_and_label(Role::Button, "More Tools").click();
+    h.run();
+    // The menu item reads with its shortcut.
+    h.get_by_label_contains("Power Port").click();
+    h.run();
+    assert_eq!(journal_ids(&h).last().unwrap(), "tool.activate:power_port");
 }
 
 #[test]

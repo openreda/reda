@@ -127,12 +127,12 @@ impl Camera {
 }
 
 /// The smallest gap between grid dots, in pixels, before the grid coarsens.
-const MIN_GRID_PX: f64 = 8.0;
+const MIN_GRID_PX: f64 = 6.0;
 /// How many times the grid may coarsen by ten before it is hidden.
 const MAX_COARSENING: u32 = 2;
 
 /// The pitch (nm) to draw a `base` grid at when one pixel is `nm_per_px`: `base`, or ten
-/// or a hundred times it when the dots would crowd closer than 8 px; `None` hides the grid.
+/// or a hundred times it when the dots would crowd closer than 6 px; `None` hides the grid.
 pub fn grid_pitch(base: f64, nm_per_px: f64) -> Option<f64> {
     let mut pitch = base;
     for _ in 0..=MAX_COARSENING {
