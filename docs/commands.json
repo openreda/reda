@@ -16237,6 +16237,55 @@
     },
     {
       "category": "pcb",
+      "description": "Sets the Board Outline to the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. Their ends must meet exactly. Replaces any Board Outline the board already has.",
+      "icon": "board_outline_from_lines",
+      "id": "pcb.board_outline.add_from_graphics",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "graphics": {
+            "description": "Free lines, arcs and outlined rectangles whose ends meet exactly, forming one loop,\nsuch as the selection.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keep": {
+            "default": false,
+            "description": "Keep the graphics as well; by default they become the outline and are removed.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "graphics"
+        ],
+        "title": "OutlineAddFromGraphicsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Board Outline from Selection"
+    },
+    {
+      "category": "pcb",
       "description": "Sets the Board Outline to the closed loop that `segments`, lines and arcs in any order and direction, form. Their ends must meet exactly, with no branches and no second loop. Replaces any Board Outline the board already has.",
       "icon": "board_outline_from_lines",
       "id": "pcb.board_outline.add_from_segments",

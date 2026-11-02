@@ -1,9 +1,9 @@
 //! The routing Tool's keys and select connected, as view Commands. What a route has in
 //! flight lives in the window, so the Commands that act on it (`tool.cycle_corner`,
-//! `tool.undo_segment`, `pcb.route.add_via`, `pcb.route.finish`, `pcb.route.width`) only
-//! check that the routing Tool is active and say what was asked; the window's Shell
-//! applies it to the [`Router`](super::route::Router) after they run, as it does for
-//! `tool.rotate`.
+//! `pcb.route.add_via`, `pcb.route.finish`, `pcb.route.width`) only check that the
+//! routing Tool is active and say what was asked; the window's Shell applies it to the
+//! [`Router`](super::route::Router) after they run, as it does for `tool.rotate`.
+//! Backspace's `tool.undo_segment` is shared with the drawing Tools (`crate::tools`).
 
 use reda_engine::command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams, Preset,
@@ -22,7 +22,6 @@ use crate::tools::{ActiveTool, Tool};
 /// Adds the routing Commands to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(CycleCorner);
-    registry.add(UndoSegment);
     registry.add(AddVia);
     registry.add(Finish);
     registry.add(Width);
@@ -90,13 +89,6 @@ route_key!(
     "Switches the route's corners between straight-then-45°, 45°-then-straight, \
      horizontal-then-vertical and vertical-then-horizontal.",
     "line"
-);
-route_key!(
-    UndoSegment,
-    "tool.undo_segment",
-    "Remove Last Segment",
-    "Takes back the route's last corner or Via; with nothing placed, drops the route.",
-    "undo"
 );
 route_key!(
     AddVia,

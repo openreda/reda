@@ -389,3 +389,61 @@ command = "tool.activate:origin"
 context = "footprint"
 key = "Esc"
 command = "tool.activate:select"
+
+# The board's drawing Tools: Z draws a Zone, K a Keepout. While a polygon or an arc is
+# being drawn, Backspace takes back the last corner and Enter finishes the shape.
+
+[[bind]]
+context = "pcb"
+key = "Z"
+command = "tool.activate:zone"
+
+[[bind]]
+context = "pcb"
+key = "K"
+command = "tool.activate:keepout"
+
+[[bind]]
+context = "tool:board_outline"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:board_outline"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:board_cutout"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:board_cutout"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:zone"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:zone"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:keepout"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:keepout"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:arc"
+key = "Backspace"
+command = "tool.undo_segment"

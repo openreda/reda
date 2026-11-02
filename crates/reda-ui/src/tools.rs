@@ -30,6 +30,34 @@ pub enum Tool {
     /// The selection follows the pointer with its Wires rubber-banding, until a click puts
     /// it down (D).
     Drag,
+    /// Draws the Board Outline as a polygon: each click adds a corner, a click on the
+    /// first (or the last again) or Enter closes it.
+    BoardOutline,
+    /// Draws the Board Outline as a rectangle between two corners.
+    BoardOutlineRect,
+    /// Draws a Board Cutout as a polygon.
+    BoardCutout,
+    /// Draws a Zone on the active copper Layer as a polygon (Z).
+    Zone,
+    /// Draws a Keepout on every copper Layer as a polygon (K).
+    Keepout,
+    /// Places text on the active Layer.
+    Text,
+    /// Draws a line on the active Layer (on a Footprint: the drawing Layer, by a drag).
+    Line,
+    /// Draws an arc on the active Layer: its two ends, then a point it passes through.
+    Arc,
+    /// Draws a rectangle on the active Layer between two corners (on a Footprint: the
+    /// drawing Layer, by a drag).
+    Rect,
+    /// Places Free Pads.
+    FreePad,
+    /// Places (or moves) the Placement Origin.
+    PlacementOrigin,
+    /// Sets the user origin the cursor position is measured from.
+    UserOrigin,
+    /// Measures between two points.
+    Measure,
     /// Routes Tracks on the board: clicks place corners, same-Net copper ends the route (T).
     Route,
     /// Places stitching Vias on the board, one per click (V).
@@ -49,10 +77,6 @@ pub enum Tool {
     NoConnect,
     /// Footprint editor: each click places a Pad from the Pad Tool's settings (P).
     Pad,
-    /// Footprint editor: a drag draws a line on the drawing Layer.
-    Line,
-    /// Footprint editor: a drag draws a rectangle between its corners.
-    Rect,
     /// Footprint editor: a drag draws a circle from its centre.
     Circle,
     /// Footprint editor: a click moves the Footprint's origin there, then Select is back.
@@ -66,6 +90,19 @@ impl Tool {
             Tool::Select => "select",
             Tool::Move => "move",
             Tool::Drag => "drag",
+            Tool::BoardOutline => "board_outline",
+            Tool::BoardOutlineRect => "board_outline_rect",
+            Tool::BoardCutout => "board_cutout",
+            Tool::Zone => "zone",
+            Tool::Keepout => "keepout",
+            Tool::Text => "text",
+            Tool::Line => "line",
+            Tool::Arc => "arc",
+            Tool::Rect => "rect",
+            Tool::FreePad => "free_pad",
+            Tool::PlacementOrigin => "placement_origin",
+            Tool::UserOrigin => "user_origin",
+            Tool::Measure => "measure",
             Tool::Route => "route",
             Tool::Via => "via",
             Tool::Place => "place",
@@ -75,8 +112,6 @@ impl Tool {
             Tool::PowerPort => "power_port",
             Tool::NoConnect => "no_connect",
             Tool::Pad => "pad",
-            Tool::Line => "line",
-            Tool::Rect => "rect",
             Tool::Circle => "circle",
             Tool::Origin => "origin",
         }
@@ -86,15 +121,43 @@ impl Tool {
     pub fn moves_selection(self) -> bool {
         matches!(self, Tool::Move | Tool::Drag)
     }
+
+    /// Whether the Tool draws or places on the board (see [`crate::pcb::draw`]); routing
+    /// and Vias have their own Tool (`pcb::route`), Library Parts theirs
+    /// (`crate::placement`), and sheet and Footprint Tools their editors'.
+    pub fn draws_on_board(self) -> bool {
+        BOARD_TOOLS.iter().any(|(tool, _, _)| *tool == self)
+    }
 }
+
+/// The PCB drawing Tools with a Preset each: (Tool, title, icon).
+const BOARD_TOOLS: [(Tool, &str, &str); 13] = [
+    (Tool::BoardOutline, "Board Outline", "board_outline"),
+    (
+        Tool::BoardOutlineRect,
+        "Board Outline Rectangle",
+        "board_outline_rect",
+    ),
+    (Tool::BoardCutout, "Board Cutout", "board_cutout"),
+    (Tool::Zone, "Zone", "zone"),
+    (Tool::Keepout, "Keepout", "keepout"),
+    (Tool::Text, "Text", "text"),
+    (Tool::Line, "Line", "line"),
+    (Tool::Arc, "Arc", "arc"),
+    (Tool::Rect, "Rectangle", "rectangle"),
+    (Tool::FreePad, "Free Pad", "pad"),
+    (Tool::PlacementOrigin, "Placement Origin", "origin"),
+    (Tool::UserOrigin, "User Origin", "user_origin"),
+    (Tool::Measure, "Measure", "measure"),
+];
 
 /// The active Tool, in the engine's view state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ActiveTool(pub Tool);
 
 /// Adds `tool.activate` and the in-flight Commands (`tool.rotate`, `tool.mirror`,
-/// `tool.flip`, `tool.corner`, `tool.remove_last`) to `registry`. The Shell does this for
-/// its engine.
+/// `tool.flip`, `tool.corner`, `tool.remove_last`, `tool.undo_segment`, `tool.finish`)
+/// to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(ToolActivate);
     registry.add(ToolRotate);
@@ -102,6 +165,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ToolFlip);
     registry.add(ToolCorner);
     registry.add(ToolRemoveLast);
+    registry.add(ToolUndoSegment);
+    registry.add(ToolFinish);
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -138,7 +203,7 @@ impl Command for ToolActivate {
     type Output = ToolActivateResult;
 
     fn presets(&self) -> Vec<Preset> {
-        vec![
+        let mut presets = vec![
             Preset::new("select", "Select", "select", json!({"tool": "select"})),
             Preset::new("move", "Move", "move", json!({"tool": "move"})),
             Preset::new("drag", "Drag", "drag", json!({"tool": "drag"})),
@@ -165,16 +230,14 @@ impl Command for ToolActivate {
                 json!({"tool": "no_connect"}),
             ),
             Preset::new("pad", "Place Pad", "pad", json!({"tool": "pad"})),
-            Preset::new("line", "Draw Line", "line", json!({"tool": "line"})),
-            Preset::new(
-                "rect",
-                "Draw Rectangle",
-                "rectangle",
-                json!({"tool": "rect"}),
-            ),
             Preset::new("circle", "Draw Circle", "circle", json!({"tool": "circle"})),
             Preset::new("origin", "Set Origin", "origin", json!({"tool": "origin"})),
-        ]
+        ];
+        for (tool, title, icon) in BOARD_TOOLS {
+            let id = tool.id();
+            presets.push(Preset::new(id, title, icon, json!({ "tool": id })));
+        }
+        presets
     }
 
     fn run(
@@ -199,7 +262,7 @@ impl Command for ToolActivate {
     }
 }
 
-/// What `tool.rotate` and `tool.flip` return.
+/// What `tool.rotate`, `tool.flip`, `tool.undo_segment` and `tool.finish` return.
 #[derive(Serialize, JsonSchema)]
 pub struct Turned {}
 
@@ -341,6 +404,49 @@ impl Command for ToolRemoveLast {
                       left, the run ends without drawing anything.",
         category: "tool",
         icon: "wire",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = Turned;
+
+    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        Ok(Turned {})
+    }
+}
+
+/// `tool.undo_segment` (Backspace): takes back the last corner or point the active Tool
+/// has put down; applied by the window's Shell as [`ToolRotate`] is.
+struct ToolUndoSegment;
+
+impl Command for ToolUndoSegment {
+    const META: Meta = Meta {
+        id: "tool.undo_segment",
+        title: "Remove Last Point",
+        description: "Takes back the last corner or point the active Tool has put down.",
+        category: "tool",
+        icon: "undo",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = Turned;
+
+    fn run(&self, _: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        Ok(Turned {})
+    }
+}
+
+/// `tool.finish` (Enter): finishes the shape the active Tool is drawing, such as closing
+/// a polygon; applied by the window's Shell as [`ToolRotate`] is.
+struct ToolFinish;
+
+impl Command for ToolFinish {
+    const META: Meta = Meta {
+        id: "tool.finish",
+        title: "Finish Shape",
+        description: "Finishes the shape the active Tool is drawing, such as closing a \
+                      polygon.",
+        category: "tool",
+        icon: "select",
         kind: Kind::View,
     };
     type Params = NoParams;

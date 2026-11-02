@@ -172,6 +172,7 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ),
     ("line", egui::include_image!("../../icons/line.svg")),
     ("lock", egui::include_image!("../../icons/lock.svg")),
+    ("measure", egui::include_image!("../../icons/measure.svg")),
     ("mirror", egui::include_image!("../../icons/mirror.svg")),
     ("move", egui::include_image!("../../icons/move.svg")),
     ("net", egui::include_image!("../../icons/net.svg")),
@@ -327,6 +328,10 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     (
         "update_check",
         egui::include_image!("../../icons/update_check.svg"),
+    ),
+    (
+        "user_origin",
+        egui::include_image!("../../icons/user_origin.svg"),
     ),
     ("via", egui::include_image!("../../icons/via.svg")),
     (

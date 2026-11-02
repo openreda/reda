@@ -577,6 +577,12 @@ impl App {
                 if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
                     self.open_preferences(Some(PageId::Agents));
                 }
+                if self.shell.zones_need_refill() {
+                    if ui.small_button(tr!("status-zones-refill")).clicked() {
+                        let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
+                    }
+                    ui.colored_label(ui.visuals().warn_fg_color, tr!("status-zones-stale"));
+                }
                 if let Some(document) = self.shell.active_document().map(|d| d.document) {
                     let grid = crate::grid::label(self.shell.grid(document));
                     ui.label(tr!("status-grid", grid = grid));

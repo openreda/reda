@@ -1,0 +1,67 @@
+//! Geometry the drawing Tools need: rectangle corners and arcs through three points.
+
+use std::f64::consts::TAU;
+
+use reda_engine::model::geom::{Millideg, Nm, Point};
+
+/// The corners of the axis-aligned rectangle with opposite corners `a` and `b`, in order
+/// from `a`.
+pub(super) fn rect_corners(a: Point, b: Point) -> [Point; 4] {
+    [a, Point::new(b.x, a.y), b, Point::new(a.x, b.y)]
+}
+
+/// The circle through `a`, `b` and `c`: centre and the three points' angles (radians),
+/// or `None` when they lie on one line.
+fn circle(a: Point, b: Point, c: Point) -> Option<((f64, f64), [f64; 3])> {
+    let f = |p: Point| (p.x.0 as f64, p.y.0 as f64);
+    let ((ax, ay), (bx, by), (cx, cy)) = (f(a), f(b), f(c));
+    let d = 2.0 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+    if d.abs() < 1e-6 * (ax.abs() + bx.abs() + cx.abs() + ay.abs() + by.abs() + cy.abs() + 1.0) {
+        return None;
+    }
+    let (a2, b2, c2) = (ax * ax + ay * ay, bx * bx + by * by, cx * cx + cy * cy);
+    let ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d;
+    let uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d;
+    let angle = |(x, y): (f64, f64)| (y - uy).atan2(x - ux);
+    Some((
+        (ux, uy),
+        [angle((ax, ay)), angle((bx, by)), angle((cx, cy))],
+    ))
+}
+
+/// The counter-clockwise turn from angle `from` to `to`, in [0, 2π).
+fn ccw(from: f64, to: f64) -> f64 {
+    (to - from).rem_euclid(TAU)
+}
+
+/// The sweep (counter-clockwise when positive) of the arc from `from` to `to` that
+/// passes through `through`, or `None` when the three lie on one line.
+pub fn arc_through(from: Point, to: Point, through: Point) -> Option<Millideg> {
+    let (_, [a, b, c]) = circle(from, to, through)?;
+    let sweep = ccw(a, b);
+    let sweep = if ccw(a, c) < sweep {
+        sweep
+    } else {
+        sweep - TAU
+    };
+    Some(Millideg((sweep.to_degrees() * 1000.0).round() as i64))
+}
+
+/// Points along the arc from `from` to `to` through `through`, at most 5° apart.
+pub(super) fn arc_points(from: Point, to: Point, through: Point) -> Option<Vec<Point>> {
+    let ((ux, uy), [a, _, _]) = circle(from, to, through)?;
+    let sweep = (arc_through(from, to, through)?.0 as f64 / 1000.0).to_radians();
+    let r = ((from.x.0 as f64 - ux).powi(2) + (from.y.0 as f64 - uy).powi(2)).sqrt();
+    let steps = ((sweep.abs().to_degrees() / 5.0).ceil() as usize).max(1);
+    let mut points: Vec<Point> = (0..steps)
+        .map(|i| {
+            let t = a + sweep * i as f64 / steps as f64;
+            Point::new(
+                Nm((ux + r * t.cos()).round() as i64),
+                Nm((uy + r * t.sin()).round() as i64),
+            )
+        })
+        .collect();
+    points.push(to);
+    Some(points)
+}

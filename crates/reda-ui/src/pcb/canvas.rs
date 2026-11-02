@@ -28,9 +28,7 @@ const SNAP_POINTS: f64 = 10.0;
 /// tab's [`Overlay`](crate::canvas::Overlay), drawn as the sheet's is.
 pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
     let nm_per_point = input.camera.nm_per_point;
-    shell
-        .pcb_tool_mut()
-        .set_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
+    shell.set_pcb_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
     shell
         .router_mut()
         .set_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
@@ -89,9 +87,110 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
 /// position, the context menu and the "No Board Outline" hint.
 pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) {
     super::route::draw(ui, shell, input);
+    drawing(ui, shell, input);
     overlay(ui, shell, input);
     context_menu(shell, input);
     outline_hint(ui, shell, input);
+    text_form(ui, shell, input);
+}
+
+/// What the drawing Tools show over the canvas: the shape in progress, a measurement,
+/// the Mechanical Part being placed, and the user origin.
+fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
+    let painter = ui.painter_at(shown.rect);
+    let accent = ui.visuals().selection.stroke.color;
+    let stroke = Stroke::new(1.5, accent);
+    let screen = |p: Point| shown.screen_point((p.x.0 as f64, p.y.0 as f64));
+    let draw = shell.pcb_draw();
+    if let Some(preview) = draw.preview() {
+        let mut points: Vec<_> = preview.points.iter().map(|p| screen(*p)).collect();
+        if preview.closed
+            && let Some(first) = points.first().copied()
+        {
+            points.push(first);
+        }
+        if points.len() > 1 {
+            painter.add(egui::Shape::line(points.clone(), stroke));
+        }
+        for p in &points {
+            painter.circle_stroke(*p, 3.0, Stroke::new(1.0, accent));
+        }
+    }
+    if let Some(m) = draw.measurement() {
+        let (a, b) = (screen(m.from), screen(m.to));
+        painter.line_segment([a, b], stroke);
+        painter.circle_stroke(a, 3.0, Stroke::new(1.0, accent));
+        painter.circle_stroke(b, 3.0, Stroke::new(1.0, accent));
+        let units = shell.board_view().units;
+        let label = tr!(
+            "pcb-measure",
+            dx = format_length(m.to.x - m.from.x, units),
+            dy = format_length(m.to.y - m.from.y, units),
+            distance = format_length(m.distance(), units)
+        );
+        painter.text(
+            b + vec2(8.0, -8.0),
+            Align2::LEFT_BOTTOM,
+            label,
+            FontId::proportional(12.0),
+            accent,
+        );
+    }
+    if let Some(origin) = shell.board_view().origin {
+        let c = screen(origin);
+        let r = 7.0;
+        painter.circle_stroke(c, r * 0.6, Stroke::new(1.0, accent));
+        painter.line_segment(
+            [c - vec2(r, 0.0), c + vec2(r, 0.0)],
+            Stroke::new(1.0, accent),
+        );
+        painter.line_segment(
+            [c - vec2(0.0, r), c + vec2(0.0, r)],
+            Stroke::new(1.0, accent),
+        );
+    }
+}
+
+/// While text waits for its words: a small form that places it.
+fn text_form(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
+    if shell.pcb_draw().pending_text().is_none() {
+        return;
+    }
+    let id = Id::NULL.with(("pcb-text-form", shown.response.id));
+    let mut words = ui.data(|d| d.get_temp::<String>(id)).unwrap_or_default();
+    let (mut place, mut cancel) = (false, false);
+    let modal = Modal::new(id.with("modal")).show(ui.ctx(), |ui| {
+        ui.heading(tr!("pcb-text-title"));
+        let field = ui.text_edit_singleline(&mut words);
+        field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-text-words")));
+        field.request_focus();
+        if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            place = true;
+        }
+        ui.horizontal(|ui| {
+            if ui.button(tr!("pcb-text-place")).clicked() {
+                place = true;
+            }
+            if ui.button(tr!("pcb-text-cancel")).clicked() {
+                cancel = true;
+            }
+        });
+    });
+    if modal.should_close() {
+        cancel = true;
+    }
+    if place {
+        shell.pcb_draw_text(&words);
+    } else if cancel {
+        shell.pcb_cancel_text();
+    }
+    ui.data_mut(|d| {
+        if place || cancel {
+            d.remove::<String>(id);
+        } else {
+            d.insert_temp(id, words);
+        }
+    });
 }
 
 fn board_point((x, y): (f64, f64)) -> Point {
@@ -103,7 +202,9 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     let painter = ui.painter_at(shown.rect);
     let accent = ui.visuals().selection.stroke.color;
     let screen = |p: Point| shown.screen_point((p.x.0 as f64, p.y.0 as f64));
-    let hovered = shown.response.hovered() || shell.pcb_tool().moving();
+    let hovered = shown.response.hovered()
+        || shell.pcb_tool().moving()
+        || shell.pcb_draw().preview().is_some();
     let snapped = match shell.tool() {
         Tool::Route | Tool::Via => shell.router().snap(),
         _ => shell.pcb_snap(),
@@ -134,12 +235,15 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         .and_then(|p| p.pcb())
         .map_or(crate::grid::pcb_default(units), |pcb| shell.grid(pcb.uuid));
     let text = match snapped.filter(|_| hovered) {
-        Some((at, _)) => tr!(
-            "pcb-cursor",
-            x = format_length(at.x, units),
-            y = format_length(at.y, units),
-            grid = format_length(grid, units)
-        ),
+        Some((at, _)) => {
+            let at = shell.pcb_cursor_from_origin(at);
+            tr!(
+                "pcb-cursor",
+                x = format_length(at.x, units),
+                y = format_length(at.y, units),
+                grid = format_length(grid, units)
+            )
+        }
         None => tr!("pcb-grid", grid = format_length(grid, units)),
     };
     let font = FontId::proportional(12.0);
@@ -153,7 +257,8 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     painter.galley(back.min + vec2(4.0, 2.0), galley, Color32::WHITE);
 }
 
-/// Right-click without dragging: Rotate, Flip Side, Lock and Unlock for the selection.
+/// Right-click without dragging: Rotate, Flip Side, Lock, Unlock and Board Outline from
+/// Selection for the selection.
 fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
     let selected = !shell.selection().objects.is_empty();
     let mut clicked: Option<&str> = None;
@@ -163,6 +268,7 @@ fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
             (tr!("pcb-flip"), "flip"),
             (tr!("pcb-lock"), "lock"),
             (tr!("pcb-unlock"), "unlock"),
+            (tr!("pcb-outline-from-selection"), "outline"),
         ] {
             if ui.add_enabled(selected, egui::Button::new(title)).clicked() {
                 clicked = Some(action);
@@ -173,6 +279,15 @@ fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
     match clicked {
         Some("rotate") => shell.pcb_rotate(),
         Some("flip") => shell.pcb_flip(),
+        Some("outline") => {
+            let graphics = selected_graphics(shell);
+            if !graphics.is_empty() {
+                let _ = shell.run_reporting(
+                    "pcb.board_outline.add_from_graphics",
+                    json!({ "graphics": graphics }),
+                );
+            }
+        }
         Some(action) => {
             let footprints = selected_footprints(shell);
             if !footprints.is_empty() {
@@ -197,6 +312,19 @@ fn selected_footprints(shell: &Shell) -> Vec<Uuid> {
         .iter()
         .copied()
         .filter(|o| pcb.footprint(*o).is_some())
+        .collect()
+}
+
+fn selected_graphics(shell: &Shell) -> Vec<Uuid> {
+    let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
+        return Vec::new();
+    };
+    shell
+        .selection()
+        .objects
+        .iter()
+        .copied()
+        .filter(|o| pcb.graphic(*o).is_some())
         .collect()
 }
 

@@ -69,6 +69,34 @@ fn zone_fills_are_drawn_filled_stale_or_not_at_all() {
 }
 
 #[test]
+fn keepouts_are_outlined_on_each_of_their_layers_and_the_placement_origin_is_marked() {
+    let dir = TempDir::new("pcb-keepouts");
+    let mut engine = demo(&dir);
+    let board = sample_board(&mut engine);
+    let keepout = engine.run_ok(
+        "pcb.keepout.add",
+        json!({"vertices": rect(2.0, 2.0, 6.0, 6.0), "layers": ["copper_bottom"]}),
+    );
+    let keepout = uuid(&keepout["result"]["uuid"]);
+    let origin = engine.run_ok(
+        "pcb.placement_origin.set",
+        json!({"at": {"x": "1mm", "y": "1mm"}}),
+    );
+    let origin = uuid(&origin["result"]["uuid"]);
+    let scene = engine.document_scene(board.pcb).unwrap();
+
+    let bottom = layer(&engine, LayerKind::Copper, Some(Side::Bottom));
+    let items: Vec<_> = scene.items_of(keepout).collect();
+    assert_eq!(items.len(), 4, "one stroke per edge");
+    assert!(items.iter().all(|i| i.layer == SceneLayer::Board(bottom)));
+
+    let outline = layer(&engine, LayerKind::BoardOutline, None);
+    let marks: Vec<_> = scene.items_of(origin).collect();
+    assert!(!marks.is_empty());
+    assert!(marks.iter().all(|i| i.layer == SceneLayer::Board(outline)));
+}
+
+#[test]
 fn pads_and_tracks_carry_view_only_labels() {
     let dir = TempDir::new("pcb-labels");
     let mut engine = demo(&dir);

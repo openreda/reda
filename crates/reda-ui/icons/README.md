@@ -75,6 +75,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `library_update` | Lucide `book-up` |
 | `line` | Lucide `minus` |
 | `lock` | Lucide `lock` |
+| `measure` | Tabler `ruler-2` (outline) |
 | `mirror` | Lucide `flip-horizontal-2` |
 | `move` | Lucide `move` |
 | `net` | Tabler `topology-star` (outline) |
@@ -138,6 +139,7 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 | `unit_place` | Tabler `triangle-plus` (outline) |
 | `units` | Lucide `ruler` |
 | `update_check` | Lucide `cloud-download` |
+| `user_origin` | Tabler `focus-2` (outline) |
 | `via` | Lucide `circle-dot` |
 | `view_flip` | Lucide `flip-horizontal-2` |
 | `waive` | Lucide `shield-check` |

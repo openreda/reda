@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use reda_engine::model::geom::Nm;
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{LayerKind, ObjectType, PcbDocument, Project, Side, Uuid};
 use reda_engine::preferences::{InactiveLayerMode, Preferences, Units};
 use reda_engine::render::{
@@ -34,6 +34,9 @@ pub struct BoardView {
     pub layers: LayerView,
     /// The units lengths show in.
     pub units: Units,
+    /// The user origin the cursor position reads from (`pcb.view.origin.set`); `None`
+    /// is the board's own origin.
+    pub origin: Option<Point>,
 }
 
 impl Default for BoardView {
@@ -48,6 +51,7 @@ impl BoardView {
         BoardView {
             layers: LayerView::default(),
             units,
+            origin: None,
         }
     }
 
