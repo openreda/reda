@@ -9,7 +9,7 @@ use reda_model::{
     PcbText, Shape, Side, Uuid,
 };
 
-use crate::placed::{self, Frame};
+use crate::placed::{self, Bounds, Frame};
 
 /// Footprint text pens are this share of the text height.
 const PEN: (i64, i64) = (3, 20);
@@ -101,7 +101,9 @@ fn pcb_text(
     }
 }
 
-/// A Designator or value text centred on its placement, mirrored on a bottom Layer.
+/// A Designator or value text centred on its placement, mirrored on a bottom Layer: the
+/// centre of the glyphs' box (strokes and fill) lands on `at`. This is the one place the
+/// canvas and the Gerber silkscreen centre Footprint text; DRC must centre it the same way.
 fn centred_text(
     pcb: &PcbDocument,
     object: Uuid,
@@ -117,7 +119,7 @@ fn centred_text(
             | FootprintLayer::AssemblyBottom
     );
     let size = placement.size;
-    // Lay it out at the origin to find its width, then move its centre onto `at`.
+    // Lay it out upright at the origin to find its centre, then move that onto `at`.
     let probe = pcb_text(
         object,
         layer,
@@ -128,22 +130,15 @@ fn centred_text(
         false,
     );
     let laid = super::text_geometry(&probe, fonts);
-    let xs = laid.strokes.iter().flat_map(|s| [s.a.x, s.b.x]);
-    let xs = xs.chain(laid.fill.points.iter().map(|p| p.x));
-    let (lo, hi) = xs.fold((Nm(i64::MAX), Nm(i64::MIN)), |(lo, hi), x| {
-        (lo.min(x), hi.max(x))
-    });
-    let span = if lo <= hi { (hi + lo).0 } else { 0 };
-    let lines = text.split('\n').count() as i64;
-    let pitch = size.0 * super::LINE_PITCH.0 / super::LINE_PITCH.1;
-    // The middle of the block, from the start of the first baseline, unmirrored.
-    let (cx, cy) = (span / 2, size.0 / 2 - (lines - 1) * pitch / 2);
-    let cx = if mirrored { -cx } else { cx };
-    let d = placed::rotate(
-        Point::new(Nm(cx), Nm(cy)),
-        Point::default(),
-        placement.rotation,
-    );
+    let points = laid.strokes.iter().flat_map(|s| [s.a, s.b]);
+    let points = points.chain(laid.fill.points.iter().copied());
+    let centre = Bounds::of_points(points).map_or(Point::default(), |b| b.center());
+    let centre = if mirrored {
+        Point::new(-centre.x, centre.y)
+    } else {
+        centre
+    };
+    let d = placed::rotate(centre, Point::default(), placement.rotation);
     let position = Point::new(placement.at.x - d.x, placement.at.y - d.y);
     Some(pcb_text(
         object,
