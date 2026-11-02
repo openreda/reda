@@ -121,8 +121,23 @@ fn lists_the_generic_tools_and_the_query_commands() {
             "erc.run",
             "sync.preview",
             "document.render",
+            "pcb.copper.connected",
+            "pcb.ratsnest",
+            "pcb.clearance.track",
+            "pcb.clearance.via",
         ]
     );
+    for id in [
+        "pcb.copper.connected",
+        "pcb.ratsnest",
+        "pcb.clearance.track",
+        "pcb.clearance.via",
+    ] {
+        let tool = tools.iter().find(|t| t["name"] == id).unwrap();
+        let catalogue = reda_engine::registry().describe(id).unwrap();
+        assert_eq!(tool["inputSchema"], catalogue["params"], "{id}");
+        assert_eq!(tool["annotations"]["readOnlyHint"], true, "{id}");
+    }
     let overview = &tools[3];
     let catalogue = reda_engine::registry()
         .describe("project.overview")
