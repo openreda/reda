@@ -206,8 +206,14 @@ fn space_and_x_while_placing_turn_only_the_part_in_flight_not_the_selection() {
     let from = shell.engine().journal().len();
     press(&mut shell, sheet(), "Space");
     press(&mut shell, sheet(), "X");
-    assert_eq!(journal_since(&shell, from), ["tool.rotate", "tool.mirror:x"]);
-    let first = units(&shell).into_iter().find(|u| u.uuid == placed).unwrap();
+    assert_eq!(
+        journal_since(&shell, from),
+        ["tool.rotate", "tool.mirror:x"]
+    );
+    let first = units(&shell)
+        .into_iter()
+        .find(|u| u.uuid == placed)
+        .unwrap();
     assert_eq!(first.rotation, Millideg::from_deg(0));
     assert!(!first.mirror);
 }
