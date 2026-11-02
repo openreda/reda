@@ -14,6 +14,13 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  # A push to main starts Release and this workflow together, so the new release's
+  # screenshots may not exist yet; and a release published by Release's GITHUB_TOKEN fires
+  # no `release` event. Rebuilding once Release has finished picks its screenshots up.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
 
 # One deployment at a time; a newer run waits rather than cancelling one half-way.
 concurrency:
@@ -29,9 +36,12 @@ env:
 jobs:
   build:
     name: Build the site
+    # After Release, only when it succeeded; every other trigger always builds.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       # A release event would check out its tag; the site always shows the newest main.
+      # (A workflow_run event already runs on main, the default branch.)
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'release' && github.event.repository.default_branch || github.ref }}
