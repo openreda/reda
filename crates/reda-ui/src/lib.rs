@@ -18,6 +18,7 @@ mod panels;
 mod projects_panel;
 pub mod properties;
 pub mod selection;
+pub mod settings;
 pub mod shell;
 mod start_page;
 pub mod theme;

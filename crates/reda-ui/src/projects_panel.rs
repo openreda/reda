@@ -24,6 +24,8 @@ pub enum ProjectsAction {
     ShowInFolder(PathBuf),
     /// Open an Output Job's dialog.
     EditJob(Uuid),
+    /// Open the Project Settings dialog.
+    ProjectSettings,
 }
 
 /// The panel's own UI state.
@@ -118,7 +120,9 @@ impl Tree<'_> {
                 self.libraries(ui);
             });
         header.header_response.context_menu(|ui| {
-            item(ui, tr!("projects-settings"), Some(tr!("projects-not-yet")));
+            if item(ui, tr!("projects-settings"), None) {
+                self.action = Some(ProjectsAction::ProjectSettings);
+            }
             if item(ui, tr!("projects-save-all"), None) {
                 self.run("project.save", json!({}));
             }
