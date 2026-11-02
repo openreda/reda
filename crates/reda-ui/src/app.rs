@@ -20,6 +20,7 @@ use crate::canvas::{CanvasResources, canvas_id};
 use crate::command_dialog::{self, Call, Dialogs, ParamsDialog};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
+use crate::job_run::JobRuns;
 use crate::journal_panel::JournalAction;
 use crate::layout::{PanelId, TabKey};
 use crate::new_project::{FormAction, NewProjectForm};
@@ -37,8 +38,10 @@ pub struct App {
     shell: Shell,
     files: FileDialogs,
     new_project: Option<NewProjectForm>,
-    /// The open settings dialog (Project Settings or Board Setup), if any.
+    /// The open settings dialog (Project Settings, Board Setup or an Output Job), if any.
     settings: Option<SettingsDialog>,
+    /// The running Output Job, or the report of the last run.
+    jobs: JobRuns,
     window_title: String,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
@@ -71,6 +74,7 @@ impl App {
             files: FileDialogs::default(),
             new_project: None,
             settings: None,
+            jobs: JobRuns::default(),
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
@@ -185,10 +189,15 @@ impl App {
             }
             Some(ProjectsAction::ProjectSettings) => self.open_project_settings(),
             Some(ProjectsAction::BoardSetup) => self.open_board_setup(),
-            // The Output Job dialog is still to come.
-            Some(ProjectsAction::EditJob(_)) | None => {}
+            Some(ProjectsAction::EditJob(job)) => self.open_output_job(job),
+            Some(ProjectsAction::RunJob(job)) => self.jobs.start(&ctx, &mut self.shell, job),
+            None => {}
         }
         self.show_settings(&ctx);
+        if let Some(dialog) = &mut self.settings {
+            self.jobs.run_from_dialog(&ctx, &mut self.shell, dialog);
+        }
+        self.jobs.show(&ctx, &mut self.shell);
         if let Some(JournalAction::Export) = frame.journal {
             self.files.start(&ctx, Pick::ExportJournal);
         }
@@ -304,6 +313,13 @@ impl App {
             && project.pcb().is_some()
         {
             self.settings = Some(settings::board_setup::dialog(project));
+        }
+    }
+
+    /// Opens the Output Job dialog on `job`, if the open Project has it.
+    pub fn open_output_job(&mut self, job: reda_engine::model::Uuid) {
+        if let Some(project) = self.shell.engine().project() {
+            self.settings = settings::output_job::dialog(project, job);
         }
     }
 
