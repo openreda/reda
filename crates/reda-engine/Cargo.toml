@@ -15,6 +15,7 @@ reda-library = { path = "../reda-library" }
 reda-model = { path = "../reda-model" }
 reda-output = { path = "../reda-output" }
 reda-pcb = { path = "../reda-pcb" }
+reda-render = { path = "../reda-render" }
 reda-schematic = { path = "../reda-schematic" }
 schemars.workspace = true
 serde.workspace = true

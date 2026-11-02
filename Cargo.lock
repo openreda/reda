@@ -619,6 +619,7 @@ dependencies = [
  "reda-model",
  "reda-output",
  "reda-pcb",
+ "reda-render",
  "reda-schematic",
  "reda-testkit",
  "schemars",
@@ -698,9 +699,12 @@ name = "reda-render"
 version = "0.0.0"
 dependencies = [
  "i_triangle",
+ "reda-command",
  "reda-model",
  "reda-testkit",
  "reda-text",
+ "schemars",
+ "serde",
  "serde_json",
 ]
 

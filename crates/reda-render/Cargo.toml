@@ -10,11 +10,15 @@ publish.workspace = true
 
 [dependencies]
 i_triangle.workspace = true
+reda-command = { path = "../reda-command" }
 reda-model = { path = "../reda-model" }
 reda-text = { path = "../reda-text" }
+schemars.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 reda-testkit = { path = "../reda-testkit" }
+serde.workspace = true
 serde_json.workspace = true
 
 [lints]
