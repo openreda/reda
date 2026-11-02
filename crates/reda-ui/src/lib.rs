@@ -9,7 +9,9 @@
 mod app;
 pub mod canvas;
 mod dialogs;
+mod docking;
 pub mod i18n;
+pub mod layout;
 pub mod shell;
 mod start_page;
 pub mod theme;

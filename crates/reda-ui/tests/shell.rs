@@ -7,7 +7,8 @@ use std::sync::{Arc, Mutex};
 use reda_testkit::TempDir;
 use reda_ui::engine::command::{FontFace, UserDirs};
 use reda_ui::engine::{Engine, state};
-use reda_ui::shell::{InstalledFonts, Shell, Tab};
+use reda_ui::layout::{Node, TabKey};
+use reda_ui::shell::{InstalledFonts, Shell};
 use serde_json::json;
 
 fn engine_in(home: &Path) -> Engine {
@@ -19,6 +20,14 @@ fn engine_in(home: &Path) -> Engine {
 }
 
 /// Creates a Project named `name` in `folder` with a throwaway engine; returns its file.
+/// The tabs of the centre's one group.
+fn centre_tabs(shell: &Shell) -> Vec<TabKey> {
+    match &shell.layout().centre {
+        Node::Group(g) => g.tabs.clone(),
+        other => panic!("expected one centre group, got {other:?}"),
+    }
+}
+
 fn make_project(folder: &Path, name: &str) -> PathBuf {
     let mut engine = Engine::builder()
         .user_dirs(None)
@@ -34,8 +43,8 @@ fn make_project(folder: &Path, name: &str) -> PathBuf {
 fn with_no_project_the_shell_shows_only_the_start_page() {
     let home = TempDir::new("shell-home");
     let shell = Shell::new(engine_in(home.path()));
-    assert_eq!(shell.tabs(), [Tab::Start]);
-    assert_eq!(shell.active(), Some(&Tab::Start));
+    assert_eq!(centre_tabs(&shell), [TabKey::Start]);
+    assert!(shell.document_tabs().is_empty());
 }
 
 #[test]
@@ -84,8 +93,9 @@ fn opening_a_project_closes_the_start_page_and_shows_the_first_sheet() {
 
     let project = shell.engine().project().unwrap();
     let first_sheet = project.documents().next().unwrap().clone();
-    match shell.tabs() {
-        [Tab::Document(tab)] => {
+    assert_eq!(centre_tabs(&shell), [TabKey::Document(first_sheet.uuid)]);
+    match shell.document_tabs() {
+        [tab] => {
             assert_eq!(tab.document, first_sheet.uuid);
             assert_eq!(tab.title, "Sheet 1");
             assert!(
@@ -107,7 +117,7 @@ fn a_project_that_does_not_open_leaves_the_start_page_with_a_message() {
     let mut shell = Shell::new(engine_in(home.path()));
     let err = shell.open_project(Path::new("/no/such/Project.reda"));
     assert!(err.is_err());
-    assert_eq!(shell.tabs(), [Tab::Start]);
+    assert_eq!(centre_tabs(&shell), [TabKey::Start]);
     assert!(shell.message().is_some());
 }
 
@@ -118,7 +128,7 @@ fn a_new_project_is_created_and_opened() {
     let mut shell = Shell::new(engine_in(home.path()));
     shell.new_project(work.path(), "Fresh").unwrap();
     assert!(work.path().join("Fresh/Fresh.reda").is_file());
-    assert!(matches!(shell.tabs(), [Tab::Document(_)]));
+    assert!(matches!(centre_tabs(&shell)[..], [TabKey::Document(_)]));
     assert_eq!(shell.recent_projects()[0].name, "Fresh");
 }
 
@@ -128,9 +138,7 @@ fn an_edit_rebuilds_the_scene_of_open_tabs() {
     let work = TempDir::new("shell-work");
     let mut shell = Shell::new(engine_in(home.path()));
     shell.new_project(work.path(), "Edits").unwrap();
-    let Some(Tab::Document(before)) = shell.active().cloned() else {
-        panic!("no sheet tab")
-    };
+    let before = shell.active_document().cloned().expect("a sheet tab");
     shell
         .run(
             "schematic.wire.add",
@@ -138,18 +146,14 @@ fn an_edit_rebuilds_the_scene_of_open_tabs() {
                    "points": [{"x": "10mm", "y": "10mm"}, {"x": "30mm", "y": "10mm"}]}),
         )
         .unwrap();
-    let Some(Tab::Document(after)) = shell.active() else {
-        panic!("no sheet tab")
-    };
+    let after = shell.active_document().expect("a sheet tab");
     assert_ne!(after.scene.generation, before.scene.generation);
     assert!(after.scene.scene.items.len() > before.scene.scene.items.len());
 
     // A query changes nothing, so the Scene is kept.
     let generation = after.scene.generation;
     shell.run("project.overview", json!({})).unwrap();
-    let Some(Tab::Document(same)) = shell.active() else {
-        panic!("no sheet tab")
-    };
+    let same = shell.active_document().expect("a sheet tab");
     assert_eq!(same.scene.generation, generation);
 }
 
