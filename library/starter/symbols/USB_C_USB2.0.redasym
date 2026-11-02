@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39","name":"USB_C_USB2.0","designator_prefix":"J","description":"USB 2.0 Type-C receptacle"},
+  "units": [
+    {"uuid":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"145f4f48-67a9-4f99-8fe8-82c7f099d1b5","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"VBUS","number":"A4","electrical_type":"passive","at":{"x":10160000,"y":7620000},"rotation":180000,"length":2540000},
+    {"uuid":"25ab8337-0894-4997-8115-2743ef8270e4","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"D-","number":"A7","electrical_type":"passive","at":{"x":10160000,"y":-3810000},"rotation":180000,"length":2540000},
+    {"uuid":"4eeecc3c-0c43-48b3-9097-05cf3e7355e1","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"SHIELD","number":"S1","electrical_type":"passive","at":{"x":-5080000,"y":-13970000},"rotation":90000,"length":2540000},
+    {"uuid":"ae4f94d8-e01a-4181-a6d8-d62062accf4d","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"SBU1","number":"A8","electrical_type":"passive","at":{"x":10160000,"y":-6350000},"rotation":180000,"length":2540000},
+    {"uuid":"b31c31dd-8956-428c-b058-4ed5ec31d3ba","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"SBU2","number":"B8","electrical_type":"passive","at":{"x":10160000,"y":-8890000},"rotation":180000,"length":2540000},
+    {"uuid":"b91982c7-1e2f-47cf-a3c1-4f3a221b7835","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"CC2","number":"B5","electrical_type":"passive","at":{"x":10160000,"y":1270000},"rotation":180000,"length":2540000},
+    {"uuid":"c10816a6-35cf-4d2c-b27b-4dfca9a2830b","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"GND","number":"A1","electrical_type":"passive","at":{"x":0,"y":-13970000},"rotation":90000,"length":2540000},
+    {"uuid":"c5a9443c-b38c-41ee-87cd-ff0399906ce4","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"D+","number":"A6","electrical_type":"passive","at":{"x":10160000,"y":-1270000},"rotation":180000,"length":2540000},
+    {"uuid":"ea65e34c-8566-463c-beae-2f3b1b343b7f","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"CC1","number":"A5","electrical_type":"passive","at":{"x":10160000,"y":3810000},"rotation":180000,"length":2540000}
+  ],
+  "graphics": [
+    {"uuid":"f7e0f145-3134-4c6b-a312-4c266167104b","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","shape":{"kind":"rect","start":{"x":-7620000,"y":-11430000},"end":{"x":7620000,"y":10160000}},"width":254000}
+  ]
+}

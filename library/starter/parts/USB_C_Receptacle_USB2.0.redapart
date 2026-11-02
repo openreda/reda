@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"8888e4af-6def-4590-a0f3-9b2bb26386ec","name":"USB_C_Receptacle_USB2.0","component_type":"standard","symbol":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39"},
+  "footprints": [
+    "13f78ea2-b54f-4c17-86db-609c54392855"
+  ],
+  "fields": {"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},
+  "pin_map": {"pins":[{"pin":"A1","pads":["A1","B1"]},{"pin":"A4","pads":["A4","B4"]},{"pin":"A6","pads":["A6","B6"]},{"pin":"A7","pads":["A7","B7"]},{"pin":"S1","pads":["S1","S2","S3","S4"]}]}
+}
