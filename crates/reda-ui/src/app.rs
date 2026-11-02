@@ -13,6 +13,7 @@ use serde_json::json;
 use crate::canvas::{CanvasResources, canvas_id};
 use crate::dialogs::{FileDialogs, FormAction, NewProjectForm, Pick};
 use crate::docking::{self, panel_title};
+use crate::journal_panel::JournalAction;
 use crate::layout::PanelId;
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
@@ -77,6 +78,9 @@ impl App {
         if let Some(action) = frame.start {
             self.start_action(&ctx, action);
         }
+        if let Some(JournalAction::Export) = frame.journal {
+            self.files.start(&ctx, Pick::ExportJournal);
+        }
         self.drop_closed_canvases();
 
         if let Some(form) = &mut self.new_project {
@@ -100,6 +104,9 @@ impl App {
             Some((Pick::OpenProject, path)) => {
                 let _ = self.shell.open_project(&path);
                 self.drop_closed_canvases();
+            }
+            Some((Pick::ExportJournal, path)) => {
+                let _ = self.shell.export_journal(&path);
             }
             Some((Pick::NewProjectLocation, path)) => {
                 if let Some(form) = &mut self.new_project {

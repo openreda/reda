@@ -17,6 +17,8 @@ pub enum Pick {
     OpenProject,
     /// The folder a new Project is created in.
     NewProjectLocation,
+    /// Where to save the exported Journal.
+    ExportJournal,
 }
 
 /// Native file pickers. Each runs on its own thread, so the window keeps drawing; the
@@ -46,11 +48,16 @@ impl FileDialogs {
             Pick::NewProjectLocation => {
                 rfd::AsyncFileDialog::new().set_title(tr!("dialog-location-title"))
             }
+            Pick::ExportJournal => rfd::AsyncFileDialog::new()
+                .set_title(tr!("journal-export-title"))
+                .add_filter(tr!("journal-export-filter"), &["jsonl"])
+                .set_file_name("journal.jsonl"),
         };
         std::thread::spawn(move || {
             let picked = match pick {
                 Pick::OpenProject => block_on(dialog.pick_file()),
                 Pick::NewProjectLocation => block_on(dialog.pick_folder()),
+                Pick::ExportJournal => block_on(dialog.save_file()),
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();

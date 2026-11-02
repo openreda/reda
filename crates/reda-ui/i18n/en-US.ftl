@@ -44,6 +44,28 @@ tab-menu-close = Close
 tab-menu-collapse-dock = Collapse Dock
 tab-menu-not-in-dock = This tab is not in a Dock.
 
+## Journal panel
+
+journal-export = Export…
+journal-export-hint = Save this session's Commands as JSON lines that `reda run --script` replays. Layout and Panel Commands are left out.
+journal-export-title = Export the Journal
+journal-export-filter = Journal script
+journal-count = { $count ->
+    [one] 1 Command
+   *[other] { $count } Commands
+}
+journal-empty = No Commands run yet.
+journal-column-number = #
+journal-column-command = Command
+journal-column-source = Source
+journal-column-result = Result
+journal-ok = OK
+journal-error = { $code }: { $message }
+journal-source-gui = App
+journal-source-cli = CLI
+journal-source-mcp = MCP
+journal-export-failed = Could not export the Journal: { $error }
+
 ## Menus
 
 menu-file = File

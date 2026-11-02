@@ -13,6 +13,7 @@ use egui::{
 use serde_json::{Value, json};
 
 use crate::canvas::canvas;
+use crate::journal_panel::{self, JournalAction};
 use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
@@ -25,6 +26,8 @@ pub struct Frame {
     pub commands: Vec<(&'static str, Value)>,
     /// A Start page button, if one was clicked.
     pub start: Option<StartAction>,
+    /// A Journal panel button, if one was clicked.
+    pub journal: Option<JournalAction>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -346,6 +349,11 @@ impl Cx<'_> {
                 let theme = theme::canvas_theme(ui.ctx().theme());
                 if let Some(doc) = self.shell.document_tab_mut(*uuid) {
                     canvas(ui, doc, theme);
+                }
+            }
+            TabKey::Panel(PanelId::Journal) => {
+                if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
+                    self.frame.journal = Some(action);
                 }
             }
             TabKey::Panel(_) => {

@@ -11,6 +11,7 @@ pub mod canvas;
 mod dialogs;
 mod docking;
 pub mod i18n;
+mod journal_panel;
 pub mod layout;
 pub mod shell;
 mod start_page;
