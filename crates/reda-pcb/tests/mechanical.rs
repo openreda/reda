@@ -201,3 +201,18 @@ fn a_mechanical_part_survives_save_and_open() {
     assert!(again.not_fitted);
     assert_eq!(again.side, Side::Bottom);
 }
+
+#[test]
+fn a_mechanical_part_places_with_fields_from_the_placement_tool() {
+    let dir = TempDir::new("mechanical-place-fields");
+    let mut engine = engine(&dir);
+    let hole = place(
+        &mut engine,
+        MOUNTING_HOLE_M3,
+        json!({"designator": "H9", "fields": {"value": "M3 plated", "LCSC": "C1"}}),
+    );
+    let hole = footprint(&engine, hole);
+    assert_eq!(hole.designator, "H9");
+    assert_eq!(hole.fields.value, "M3 plated");
+    assert_eq!(hole.fields.get("LCSC"), "C1");
+}
