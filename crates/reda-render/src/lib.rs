@@ -5,8 +5,11 @@
 //! Layer. The wgpu backend, `document.render` and the PDF and SVG writers all draw from it.
 //! [`Scene::to_text`] serialises a Scene for snapshot tests.
 
+mod base64;
 mod color;
 mod command;
+#[cfg(feature = "gpu")]
+pub mod gpu;
 mod outline;
 mod pdf;
 mod polygon;
@@ -16,6 +19,7 @@ mod snapshot;
 mod svg;
 mod text;
 mod transform;
+mod view;
 mod viewport;
 
 pub use color::{ColorKey, Palette, Rgba, SchematicColor, Theme};
@@ -27,4 +31,5 @@ pub use pdf::{PdfInfo, to_pdf};
 pub use scene::{Align, GlyphRun, HAlign, Item, Primitive, Scene, SceneLayer, SceneSource, VAlign};
 pub use schematic::schematic_scene;
 pub use svg::to_svg;
+pub use view::View;
 pub use viewport::Viewport;
