@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"e8c3bdb4-e23e-4fb9-b8cf-ba3138ef0a3e","name":"Conn_1x08","designator_prefix":"J","description":"Generic connector, 1 × 8 pins"},
+  "units": [
+    {"uuid":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"3145c234-fcaf-42eb-abcd-04973ff565a8","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_6","number":"6","electrical_type":"passive","at":{"x":-5080000,"y":-3810000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"46fbac83-d5c3-4a48-a96e-f645595088c1","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_7","number":"7","electrical_type":"passive","at":{"x":-5080000,"y":-6350000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"844c1b02-a453-4cd9-ab19-cbe3f7aaa479","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_8","number":"8","electrical_type":"passive","at":{"x":-5080000,"y":-8890000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"96eac5de-cec1-428a-a559-45bca72b2575","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_4","number":"4","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"ace71802-9644-4bbd-a2e3-00531f5d8537","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_3","number":"3","electrical_type":"passive","at":{"x":-5080000,"y":3810000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"addce464-6980-42ce-adcb-08962b47cefd","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":8890000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"ccac3344-9f06-4bc2-99c5-85e99d9258bb","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_5","number":"5","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"e572d46c-e5fe-4a57-b22f-b6b40b28f0ef","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":6350000},"rotation":0,"length":2540000,"name_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"94bf785d-9d42-46db-ab90-c7f135553648","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","shape":{"kind":"rect","start":{"x":-2540000,"y":-10160000},"end":{"x":0,"y":10160000}},"width":254000}
+  ]
+}

@@ -14,6 +14,7 @@ pub mod fs;
 pub mod journal;
 pub mod library;
 pub mod preferences;
+pub mod starter;
 pub mod state;
 pub mod store;
 pub mod user_dirs;

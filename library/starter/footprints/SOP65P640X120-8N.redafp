@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"1eee5576-e7a8-4341-988c-d5ee460361b9","name":"SOP65P640X120-8N","description":"TSSOP-8, 0.65 mm pitch, IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":2500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"08ef4d84-4f6c-4bf2-9a77-8c75dd9d02e0","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
+    {"uuid":"18daa7f0-15fb-4cbb-b86a-8353b63a2c99","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
+    {"uuid":"3695f528-ff3e-44d1-88a1-7bae9463fbab","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
+    {"uuid":"61b22bfe-824a-4990-bccd-eb0fb370262a","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
+    {"uuid":"766e915f-f661-448c-8330-d6a47d1b7532","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
+    {"uuid":"9f258dbd-b4e5-43b3-b688-3baa05f5e38a","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
+    {"uuid":"f4607b25-22b7-41a0-bb8d-3826eeaee22a","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
+    {"uuid":"fa70da88-0e61-411a-992e-c8e664702ba2","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000}
+  ],
+  "graphics": [
+    {"uuid":"4e33f867-cede-4a1a-9548-6ffbf63d4659","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1450000,"y":1500000},{"x":2200000,"y":1500000},{"x":2200000,"y":-1500000},{"x":-2200000,"y":-1500000},{"x":-2200000,"y":750000}]},"width":100000},
+    {"uuid":"6eff74bd-31b4-426b-ad86-c177506c0fc9","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3950000,"y":-1800000},"end":{"x":3950000,"y":1800000}},"width":50000},
+    {"uuid":"96fac6b6-2ae3-43cf-9c45-26d2974316b6","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2250000,"y":-1610000},"end":{"x":2250000,"y":-1610000}},"width":120000},
+    {"uuid":"a564d871-55a8-4b1b-83cd-827a20edbdaa","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3675000,"y":1610000},"end":{"x":2250000,"y":1610000}},"width":120000}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated"},
+  "text": {"designator":{"at":{"x":0,"y":3550000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"75642a11-54f0-4eca-aa68-869bb07502e9","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2700000,"height":2700000,"hole":{"width":2700000,"height":2700000}}
+  ],
+  "graphics": [
+    {"uuid":"442904a3-35fb-4ac2-a25b-1fb5c222df7e","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2250000},"width":100000},
+    {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":50000},
+    {"uuid":"bc47949f-9342-4e7a-9b99-781a4700f43e","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":120000}
+  ]
+}

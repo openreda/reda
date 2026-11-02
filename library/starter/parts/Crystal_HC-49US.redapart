@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"0ca66931-90b6-45a1-9271-3f96214d9ab8","name":"Crystal_HC-49US","component_type":"standard","symbol":"8fcb03df-c1bf-43e6-b1e5-7975262989c7"},
+  "footprints": [
+    "05961479-c2ed-4f9e-9d0e-a89337f482e1"
+  ],
+  "fields": {"value":"16MHz","description":"Quartz crystal, HC-49/US","keywords":"Y crystal quartz"},
+  "pin_map": {}
+}

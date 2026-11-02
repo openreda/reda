@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"c2fd8c06-bc8a-46e4-b90b-b70d09bcd7d9","name":"OpAmp_Dual","designator_prefix":"U","description":"Dual operational amplifier, standard 8-pin pinout"},
+  "units": [
+    {"uuid":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","name":"A"},
+    {"uuid":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","name":"B"},
+    {"uuid":"13b32ae3-6f3b-4d47-a483-1958097a7c8a","name":"Power"}
+  ],
+  "pins": [
+    {"uuid":"14c7df98-714e-43a2-aaa1-abdec0b8f24b","unit":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","name":"~","number":"7","electrical_type":"output","at":{"x":6350000,"y":0},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"19c8a4c7-eaa1-4e43-b4d4-535f3d0bbb35","unit":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","name":"-","number":"2","electrical_type":"input","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"73682872-8de2-42d8-875d-e3e1483d7e58","unit":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","name":"+","number":"3","electrical_type":"input","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"9fffbb4d-6649-4b68-831e-f58f779dbaf9","unit":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","name":"-","number":"6","electrical_type":"input","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"cc53d5d9-ac78-4f76-b438-83cf49275928","unit":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","name":"~","number":"1","electrical_type":"output","at":{"x":6350000,"y":0},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"d017c811-3edc-4423-bfff-d4a8c3b1318c","unit":"13b32ae3-6f3b-4d47-a483-1958097a7c8a","name":"V+","number":"8","electrical_type":"power_in","at":{"x":0,"y":5080000},"rotation":270000,"length":2540000},
+    {"uuid":"dafd953e-96ec-43d4-b6bc-9f53d8dc1212","unit":"13b32ae3-6f3b-4d47-a483-1958097a7c8a","name":"V-","number":"4","electrical_type":"power_in","at":{"x":0,"y":-5080000},"rotation":90000,"length":2540000},
+    {"uuid":"fe4faa4f-f5be-4c8c-955a-60184b30698d","unit":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","name":"+","number":"5","electrical_type":"input","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"020c54e9-7296-410b-b124-0ad3194b539a","unit":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","shape":{"kind":"line","start":{"x":-1778000,"y":889000},"end":{"x":-1778000,"y":1651000}},"width":254000},
+    {"uuid":"219a59a9-3b5b-4f13-aa19-2aa0a4dc268a","unit":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","shape":{"kind":"line","start":{"x":-2159000,"y":-1270000},"end":{"x":-1397000,"y":-1270000}},"width":254000},
+    {"uuid":"2fea3925-32b8-49cb-b770-69a341b40ae0","unit":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","shape":{"kind":"line","start":{"x":-2159000,"y":1270000},"end":{"x":-1397000,"y":1270000}},"width":254000},
+    {"uuid":"332af791-c6b4-4109-96c2-e9beef6c77c1","unit":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","shape":{"kind":"line","start":{"x":-2159000,"y":-1270000},"end":{"x":-1397000,"y":-1270000}},"width":254000},
+    {"uuid":"408de55d-88af-4a38-8d62-100c168ff509","unit":"13b32ae3-6f3b-4d47-a483-1958097a7c8a","shape":{"kind":"rect","start":{"x":-1270000,"y":-2540000},"end":{"x":1270000,"y":2540000}},"width":254000},
+    {"uuid":"67e1d799-3ab0-4351-a6f3-3dec3683281b","unit":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","shape":{"kind":"polygon","points":[{"x":-2540000,"y":3810000},{"x":-2540000,"y":-3810000},{"x":3810000,"y":0}]},"width":254000},
+    {"uuid":"9d9600bc-d3e3-4410-83e7-1ecfb2e8add4","unit":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","shape":{"kind":"line","start":{"x":-1778000,"y":889000},"end":{"x":-1778000,"y":1651000}},"width":254000},
+    {"uuid":"e4a04277-77ab-4bbc-b2aa-2a64c9e3932b","unit":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","shape":{"kind":"polygon","points":[{"x":-2540000,"y":3810000},{"x":-2540000,"y":-3810000},{"x":3810000,"y":0}]},"width":254000},
+    {"uuid":"fc6e8fe6-f080-4cad-9597-05a7da54a454","unit":"a66b4ef9-07e9-475b-9447-f89bea51fdb3","shape":{"kind":"line","start":{"x":-2159000,"y":1270000},"end":{"x":-1397000,"y":1270000}},"width":254000}
+  ]
+}

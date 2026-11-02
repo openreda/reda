@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"638110c3-5661-4ecf-ae38-b1969913715a","name":"INDC3225X65N","description":"Chip inductor, 1210 (3225 metric), IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":2350000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"8a95631c-9e65-4ee2-9b50-2533c86df066","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":2750000,"corner_radius":250000},
+    {"uuid":"d88c6c41-d706-476e-9903-34e2078c537b","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":2750000,"corner_radius":250000}
+  ],
+  "graphics": [
+    {"uuid":"8a83cb2e-2029-4afd-a518-54e0e6e37395","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-1250000},"end":{"x":1600000,"y":1250000}},"width":100000},
+    {"uuid":"fff5c4f9-fe29-4643-b4e1-2257607b9e31","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1650000},"end":{"x":2350000,"y":1650000}},"width":50000}
+  ]
+}

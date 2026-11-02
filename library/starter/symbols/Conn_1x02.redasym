@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"0d12434e-5c88-4016-a415-e4bec26351fe","name":"Conn_1x02","designator_prefix":"J","description":"Generic connector, 1 × 2 pins"},
+  "units": [
+    {"uuid":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"1b766ffd-a0c4-461e-ad0f-e59c6ee1a3ea","unit":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"2d22b9f3-6975-4745-8821-d0318eb81bd2","unit":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"93bd7004-ea72-466f-b3dc-d56f21592d70","unit":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","shape":{"kind":"rect","start":{"x":-2540000,"y":-2540000},"end":{"x":0,"y":2540000}},"width":254000}
+  ]
+}

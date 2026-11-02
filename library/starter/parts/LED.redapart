@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "part": {"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},
+  "footprints": [
+    "dc181a05-7861-4a1b-b740-ff448eb58ad6",
+    "4e42a296-3583-4c92-a62e-f371552e358c",
+    "6265ffd0-3a84-4eb5-baff-7024f3c43c7a",
+    "d1dde49b-9032-429b-ba14-75bfc08d5a03",
+    "a98b17f8-5ccd-4961-80a0-035239726052"
+  ],
+  "fields": {"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},
+  "pin_map": {}
+}

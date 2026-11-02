@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"a424eeb2-4fa8-44b9-9b13-62bfa4f2c075","name":"Screw_Terminal_1x02","component_type":"standard","symbol":"0d12434e-5c88-4016-a415-e4bec26351fe"},
+  "footprints": [
+    "279b0c57-2dcb-4d73-9fc5-a41b91ab587b",
+    "df89425e-24b7-466d-a207-2644c9443b67"
+  ],
+  "fields": {"value":"Terminal 1x2","description":"Screw terminal block, 2 positions","keywords":"J connector terminal screw"},
+  "pin_map": {}
+}

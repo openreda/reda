@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"4b09f27b-e1a9-46d0-af71-1fa9775f2c85","name":"NPN","designator_prefix":"Q","description":"NPN bipolar transistor"},
+  "units": [
+    {"uuid":"eef34e01-3eaa-4235-9c77-311ca9ae4643","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"1a06ef2d-a8af-4686-b57e-ac53a624b979","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","name":"C","number":"3","electrical_type":"passive","at":{"x":2540000,"y":5080000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"73665b31-23d4-45d9-9dbc-0ff8b28a4bae","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","name":"E","number":"2","electrical_type":"passive","at":{"x":2540000,"y":-5080000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"de2520b1-fb84-43d6-88ff-1b9aca774f07","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","name":"B","number":"1","electrical_type":"input","at":{"x":-5080000,"y":0},"rotation":0,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"0b5c7fd6-1d22-43b7-8c31-8a945382c589","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","shape":{"kind":"polygon","points":[{"x":1778000,"y":-2159000},{"x":1193800,"y":-1447800},{"x":838200,"y":-2108200}]},"width":254000,"fill":true},
+    {"uuid":"2e4100c4-7bc6-4dca-ab0d-c6eb6a8ae7ef","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","shape":{"kind":"line","start":{"x":-762000,"y":889000},"end":{"x":2540000,"y":2540000}},"width":254000},
+    {"uuid":"5dbb9618-0a23-4c2d-ba45-a6c110a8d786","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","shape":{"kind":"line","start":{"x":-2540000,"y":0},"end":{"x":-762000,"y":0}},"width":254000},
+    {"uuid":"76b3024e-9476-4581-aeec-5646a43ebb18","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","shape":{"kind":"line","start":{"x":-762000,"y":-889000},"end":{"x":2540000,"y":-2540000}},"width":254000},
+    {"uuid":"a20d4c39-c293-437b-94c8-1b87f7575f48","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","shape":{"kind":"circle","center":{"x":762000,"y":0},"radius":3302000},"width":254000},
+    {"uuid":"a2423974-e3b7-4e83-9170-65266e9a7504","unit":"eef34e01-3eaa-4235-9c77-311ca9ae4643","shape":{"kind":"line","start":{"x":-762000,"y":-1905000},"end":{"x":-762000,"y":1905000}},"width":254000}
+  ]
+}
