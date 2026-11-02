@@ -110,6 +110,11 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ("home", egui::include_image!("../../icons/home.svg")),
     ("inspect", egui::include_image!("../../icons/inspect.svg")),
     ("keepout", egui::include_image!("../../icons/keepout.svg")),
+    ("layout", egui::include_image!("../../icons/layout.svg")),
+    (
+        "layout_save",
+        egui::include_image!("../../icons/layout_save.svg"),
+    ),
     (
         "library_add",
         egui::include_image!("../../icons/library_add.svg"),
