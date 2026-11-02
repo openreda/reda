@@ -233,6 +233,8 @@ impl Project {
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
             Object::FootprintInstance(o) => o.document,
+            Object::Track(o) => o.document,
+            Object::Via(o) => o.document,
             _ => return Ok(()),
         };
         match self.pcb_documents.contains_key(&pcb) {
@@ -389,6 +391,12 @@ impl Project {
             }
             Some(Object::FootprintInstance(o)) => {
                 self.pcb_mut(o.document).footprints.insert(uuid, o.object);
+            }
+            Some(Object::Track(o)) => {
+                self.pcb_mut(o.document).tracks.insert(uuid, o.object);
+            }
+            Some(Object::Via(o)) => {
+                self.pcb_mut(o.document).vias.insert(uuid, o.object);
             }
             #[cfg(feature = "test-objects")]
             Some(Object::Probe(probe)) => {

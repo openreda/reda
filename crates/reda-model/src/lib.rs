@@ -34,8 +34,9 @@ pub use output::{
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, FootprintInstance,
-    GraphicShape, HERSHEY_FONT, InDocument, Layer, LayerKind, LayerSet, NOTO_SANS_FONT, Net,
-    NetClass, PadNet, PcbDocument, PcbGraphic, PcbText, Rules, Side,
+    GraphicShape, HERSHEY_FONT, InDocument, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT,
+    Net, NetClass, PadNet, PcbDocument, PcbGraphic, PcbText, Rules, Side, Track, TrackGeometry,
+    Via,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

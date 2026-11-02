@@ -15,8 +15,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{FootprintCopy, Object, Severity, Uuid};
 
+mod copper;
 mod footprint;
 mod graphics;
+
+pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 
 pub use footprint::{FootprintInstance, PadNet};
 
@@ -243,6 +246,8 @@ pub struct PcbDocument {
     pub(crate) graphics: BTreeMap<Uuid, PcbGraphic>,
     pub(crate) footprint_copies: BTreeMap<Uuid, FootprintCopy>,
     pub(crate) footprints: BTreeMap<Uuid, FootprintInstance>,
+    pub(crate) tracks: BTreeMap<Uuid, Track>,
+    pub(crate) vias: BTreeMap<Uuid, Via>,
 }
 
 impl PcbDocument {
@@ -259,6 +264,8 @@ impl PcbDocument {
             graphics: BTreeMap::new(),
             footprint_copies: BTreeMap::new(),
             footprints: BTreeMap::new(),
+            tracks: BTreeMap::new(),
+            vias: BTreeMap::new(),
         }
     }
 
@@ -356,6 +363,45 @@ impl PcbDocument {
         self.footprints.get(&uuid)
     }
 
+    /// The Tracks, sorted by UUID.
+    pub fn tracks(&self) -> impl Iterator<Item = &Track> {
+        self.tracks.values()
+    }
+
+    pub fn track(&self, uuid: Uuid) -> Option<&Track> {
+        self.tracks.get(&uuid)
+    }
+
+    /// The Vias, sorted by UUID.
+    pub fn vias(&self) -> impl Iterator<Item = &Via> {
+        self.vias.values()
+    }
+
+    pub fn via(&self, uuid: Uuid) -> Option<&Via> {
+        self.vias.get(&uuid)
+    }
+
+    /// The copper Layers, top to bottom.
+    pub fn copper_layers(&self) -> impl Iterator<Item = &Layer> {
+        self.layers()
+            .layers
+            .iter()
+            .filter(|l| l.kind == LayerKind::Copper)
+    }
+
+    /// The copper Layers a Via's span joins, top to bottom; empty when the span names a
+    /// Layer that is not copper.
+    pub fn span_layers(&self, span: LayerSpan) -> Vec<Uuid> {
+        let copper: Vec<Uuid> = self.copper_layers().map(|l| l.uuid).collect();
+        let (Some(a), Some(b)) = (
+            copper.iter().position(|l| *l == span.from),
+            copper.iter().position(|l| *l == span.to),
+        ) else {
+            return Vec::new();
+        };
+        copper[a.min(b)..=a.max(b)].to_vec()
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -377,7 +423,9 @@ impl PcbDocument {
             texts => PcbText,
             graphics => PcbGraphic,
             footprint_copies => FootprintCopy,
-            footprints => FootprintInstance
+            footprints => FootprintInstance,
+            tracks => Track,
+            vias => Via
         )
     }
 
@@ -404,7 +452,9 @@ impl PcbDocument {
             texts => PcbText,
             graphics => PcbGraphic,
             footprint_copies => FootprintCopy,
-            footprints => FootprintInstance
+            footprints => FootprintInstance,
+            tracks => Track,
+            vias => Via
         );
         out
     }
@@ -421,6 +471,8 @@ impl PcbDocument {
         self.graphics.remove(&uuid);
         self.footprint_copies.remove(&uuid);
         self.footprints.remove(&uuid);
+        self.tracks.remove(&uuid);
+        self.vias.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -434,6 +486,8 @@ impl PcbDocument {
             && self.graphics.is_empty()
             && self.footprint_copies.is_empty()
             && self.footprints.is_empty()
+            && self.tracks.is_empty()
+            && self.vias.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -493,7 +547,48 @@ impl PcbDocument {
                 ));
             }
         }
-        self.check_footprints()
+        self.check_footprints()?;
+        self.check_copper()
+    }
+
+    fn check_copper(&self) -> Result<(), String> {
+        let is_copper = |layer: Uuid| {
+            self.layers()
+                .layer(layer)
+                .is_some_and(|l| l.kind == LayerKind::Copper)
+        };
+        let net_exists = |net: Option<Uuid>| net.is_none_or(|n| self.nets.contains_key(&n));
+        for track in self.tracks.values() {
+            let uuid = track.uuid;
+            if !is_copper(track.layer) {
+                return Err(format!("Track {uuid} is not on a copper Layer"));
+            }
+            if !net_exists(track.net) {
+                return Err(format!("Track {uuid} is on a Net that does not exist"));
+            }
+            if track.width <= Nm::ZERO {
+                return Err(format!("Track {uuid} has no width"));
+            }
+            let (from, to) = track.geometry.ends();
+            if from == to {
+                return Err(format!("Track {uuid} has no length"));
+            }
+        }
+        for via in self.vias.values() {
+            let uuid = via.uuid;
+            if !is_copper(via.span.from) || !is_copper(via.span.to) {
+                return Err(format!("Via {uuid} spans a Layer that is not copper"));
+            }
+            if !net_exists(via.net) {
+                return Err(format!("Via {uuid} is on a Net that does not exist"));
+            }
+            if via.hole <= Nm::ZERO || via.diameter <= via.hole {
+                return Err(format!(
+                    "Via {uuid} needs a hole and a diameter larger than it"
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn check_footprints(&self) -> Result<(), String> {

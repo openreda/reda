@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, FootprintInstance, InDocument, LayerSet, Net, NetClass,
-    PcbGraphic, PcbText,
+    PcbGraphic, PcbText, Track, Via,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -54,6 +54,8 @@ pub enum Object {
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
     FootprintInstance(InDocument<FootprintInstance>),
+    Track(InDocument<Track>),
+    Via(InDocument<Via>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -123,6 +125,10 @@ pub enum ObjectType {
     PcbGraphic,
     /// A Footprint placed on the board, with its Component's data and a Net per Pad.
     FootprintInstance,
+    /// One copper segment on a copper Layer.
+    Track,
+    /// A plated hole joining copper on several Layers.
+    Via,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -160,6 +166,8 @@ impl Object {
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
             Object::FootprintInstance(o) => o.uuid,
+            Object::Track(o) => o.uuid,
+            Object::Via(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -195,6 +203,8 @@ impl Object {
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
             Object::FootprintInstance(_) => ObjectType::FootprintInstance,
+            Object::Track(_) => ObjectType::Track,
+            Object::Via(_) => ObjectType::Via,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -231,6 +241,8 @@ impl Object {
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
             Object::FootprintInstance(o) => Scope::Document(o.document),
+            Object::Track(o) => Scope::Document(o.document),
+            Object::Via(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }
