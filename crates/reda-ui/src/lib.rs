@@ -9,6 +9,7 @@
 mod app;
 pub mod bars;
 pub mod canvas;
+pub mod command_dialog;
 mod dialogs;
 mod docking;
 pub mod i18n;
@@ -18,6 +19,7 @@ pub mod layout;
 pub mod messages;
 mod new_project;
 mod os;
+pub mod palette;
 mod panels;
 mod projects_panel;
 pub mod properties;

@@ -378,3 +378,41 @@ fn snapshot_of_a_tab_drag_the_layout_would_refuse() {
     // The Start page is alone in its group, so it cannot split from it.
     drag_snapshot("Start", "Drop Below", "drag_refused_dark");
 }
+
+/// Opens the Command Palette with `query` typed into it.
+fn palette_with(h: &mut Harness<'static, App>, query: &str) {
+    h.run();
+    h.key_press_modifiers(
+        egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+        egui::Key::P,
+    );
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Command Palette")
+        .type_text(query);
+    h.run();
+}
+
+#[test]
+fn snapshot_of_the_command_palette() {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    palette_with(&mut h, "show");
+    h.snapshot("command_palette_dark");
+}
+
+#[test]
+fn snapshot_of_a_generated_params_form() {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    palette_with(&mut h, "split tab");
+    h.key_press(egui::Key::Enter);
+    h.run();
+    assert!(h.query_by_label("Split Tab").is_some());
+    h.snapshot("params_form_dark");
+}
