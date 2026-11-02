@@ -71,6 +71,7 @@ reda-pcb -> rstar
 reda-pcb -> schemars
 reda-pcb -> serde
 reda-pcb -> serde_json
+reda-release -> toml_edit
 reda-render -> i_triangle
 reda-render -> png
 reda-render -> reda-command
