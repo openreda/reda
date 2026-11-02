@@ -22,6 +22,23 @@ status-dismiss = Dismiss
 status-panels = Panels
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
+status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
+
+## The bridge: agents connecting through the control port
+
+bridge-indicator-off = Agents: off
+bridge-indicator-on = Agents: on
+bridge-indicator-connected = Agents: { $count } connected
+bridge-switch = Let agents connect
+bridge-connected = Connected now
+bridge-allowed = Allowed agents
+bridge-none-allowed = None yet
+bridge-forget = Forget
+bridge-error = The bridge could not start: { $error }
+bridge-ask-title = Allow this agent?
+bridge-ask-body = { $agent } ({ $source }) wants to read and edit the open Project. It can't save: its changes show here as unsaved, and you can undo them.
+bridge-allow = Allow
+bridge-deny = Deny
 
 ## Docking
 
@@ -230,6 +247,23 @@ violation-out-of-sync = The PCB is out of sync with the schematic
 messages-general = General
 message-preferences = Preferences: { $warning }
 message-missing-font = Font “{ $font }” is not installed; its text is drawn in Noto Sans
+
+## The Keymap's load errors, shown in Messages
+
+keymap-unreadable = Keymap { $file } could not be read: { $error }
+keymap-unknown-section = Keymap { $file }: “{ $section }” is not a section; use [[bind]] or [[unbind]]
+keymap-bad-entry = Keymap { $file }: { $error }
+keymap-unknown-field = a binding has an unknown field “{ $field }”
+keymap-missing-field = a binding has no “{ $field }”
+keymap-missing-field-for = the binding of { $key } has no “{ $field }”
+keymap-not-a-string = “{ $field }” must be a string
+keymap-bad-key = “{ $key }” is not a key: { $error }
+keymap-bad-context = the binding of { $key } names “{ $context }”, which is not a context
+keymap-preset-params = the binding of { $key } names a Preset, which has fixed params; give none
+keymap-bad-number = a number in the params is not finite
+keymap-clash = Keymap { $file }: { $key } is bound twice in the { $context } context; the first binding is kept
+keymap-base-unbind = Keymap { $file }: only keymap.toml can unbind keys ({ $key })
+keymap-unknown-command = Keymap { $file }: { $key } names { $command }, which is not a Command or Preset
 messages-run-erc = Run ERC
 messages-run-drc = Run DRC
 messages-show-waived = Show waived

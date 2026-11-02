@@ -175,6 +175,21 @@ impl History {
         self.stacks.entry(scope).or_default().saved = None;
     }
 
+    /// Where the history stands now, for [`History::prefix_labels_since`].
+    pub fn mark(&self) -> u64 {
+        self.last_id
+    }
+
+    /// Puts `prefix` before the label of every entry recorded since `mark`, such as
+    /// "MCP: " for an edit a bridged agent made.
+    pub fn prefix_labels_since(&mut self, mark: u64, prefix: &str) {
+        let stacks = self.stacks.values_mut();
+        let entries = stacks.flat_map(|s| s.undo.iter_mut().chain(s.redo.iter_mut()));
+        for entry in entries.filter(|e| e.id > mark) {
+            entry.label.insert_str(0, prefix);
+        }
+    }
+
     fn entry(&mut self, label: &str, changes: ChangeSet) -> Entry {
         self.last_id += 1;
         Entry {

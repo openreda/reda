@@ -7,6 +7,7 @@ mod files;
 mod pcb;
 mod probe;
 mod scenario;
+mod slow;
 
 pub use engine::{
     FolderTrash, TestEngine, test_engine, test_engine_in, test_engine_with_library,
@@ -15,6 +16,7 @@ pub use engine::{
 pub use files::{TempDir, read_tree};
 pub use probe::{probe_commands, probe_engine};
 pub use scenario::{run_scenarios, scenario_failures};
+pub use slow::slow_commands;
 
 use std::path::Path;
 

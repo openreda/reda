@@ -6,8 +6,10 @@
 //! `reda-app` builds the engine (with the OS trash and the machine's fonts) and hands it to
 //! [`run`].
 
+mod agents;
 mod app;
 pub mod bars;
+pub mod bridge;
 pub mod canvas;
 pub mod crash;
 mod dialogs;
@@ -15,6 +17,7 @@ mod docking;
 pub mod i18n;
 pub mod icons;
 mod journal_panel;
+pub mod keymap;
 pub mod layout;
 pub mod messages;
 mod new_project;
@@ -29,8 +32,11 @@ pub mod settings;
 pub mod shell;
 mod start_page;
 pub mod theme;
+mod tool_preview;
 pub mod view_state;
 
 pub use app::{App, install_canvas, run};
+/// The control port, re-exported for tests that act as agents.
+pub use reda_control as control;
 /// The engine, re-exported so the app depends only on the UI.
 pub use reda_engine as engine;

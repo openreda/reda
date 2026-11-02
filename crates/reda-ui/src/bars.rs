@@ -180,6 +180,17 @@ pub fn resolve(shell: &Shell, action: &Action) -> Resolved {
 /// [`resolve`], with [`ACTIVE_DOCUMENT`] standing for `document`: an Active Bar acts on
 /// its own canvas's Document.
 pub fn resolve_for(shell: &Shell, action: &Action, document: Option<Uuid>) -> Resolved {
+    resolve_in(shell, action, document, false)
+}
+
+/// [`resolve_for`], with a Project dialog open (`project_dialog`): [`UNDO_STACK`] then
+/// stands for the Project's stack, as [`Shell::undo_scope`] says.
+pub fn resolve_in(
+    shell: &Shell,
+    action: &Action,
+    document: Option<Uuid>,
+    project_dialog: bool,
+) -> Resolved {
     let registry = shell.engine().registry();
     let (run_id, command, mut params) = match &action.binding {
         Binding::Command(id) => (id.clone(), id.clone(), json!({})),
@@ -229,7 +240,7 @@ pub fn resolve_for(shell: &Shell, action: &Action, document: Option<Uuid>) -> Re
         title = i18n::translate(key, &[]);
     }
     let active = document.map(|d| d.to_string());
-    let undo = shell.undo_scope(false).map(|scope| match scope {
+    let undo = shell.undo_scope(project_dialog).map(|scope| match scope {
         Scope::Document(uuid) => uuid.to_string(),
         _ => "project".to_owned(),
     });
