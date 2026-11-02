@@ -35,7 +35,7 @@ use crate::messages::{
 use crate::pcb::snap::SnapKind;
 use crate::pcb::{self, BoardView};
 use crate::recovery::{self, Recorder};
-use crate::schematic_editor::Interaction;
+use crate::schematic_editor::{Interaction, Turn};
 use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
 use crate::tools::{self, ActiveTool, Tool};
@@ -1234,6 +1234,19 @@ impl Shell {
                 self.pcb_cancel();
             }
             "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
+            "tool.rotate" | "tool.mirror" | "tool.corner" | "tool.remove_last" => {
+                if let Some(sheet) = self.active_sheet() {
+                    match (id, out["axis"].as_str()) {
+                        ("tool.corner", _) => crate::schematic_editor::corner(self, sheet),
+                        ("tool.remove_last", _) => {
+                            crate::schematic_editor::remove_last(self, sheet)
+                        }
+                        ("tool.mirror", Some("x")) => self.sheet_turn(sheet, Turn::MirrorX),
+                        ("tool.mirror", _) => self.sheet_turn(sheet, Turn::MirrorY),
+                        _ => self.sheet_turn(sheet, Turn::Rotate),
+                    }
+                }
+            }
             "tool.flip" if self.board_is_active() => self.pcb_flip(),
             "schematic.paste" | "schematic.duplicate" => {
                 let objects = out["result"]["objects"].clone();
@@ -1260,16 +1273,39 @@ impl Shell {
         }
     }
 
-    /// Drops the moves put down on every canvas, once their Command has run.
+    /// Drops the moves and Wire runs put down on every canvas, once their Command has run.
     fn end_committed_moves(&mut self) {
         for tab in &mut self.documents {
-            if matches!(&tab.interaction, Interaction::Flight(f) if f.committing) {
-                tab.interaction = Interaction::Idle;
-                tab.live = LiveHandle::default();
-                tab.moving_offset = (0.0, 0.0);
-                tab.overlay = Overlay::default();
-            }
+            crate::schematic_editor::end_commit(tab);
         }
+    }
+
+    /// The active Document when it is a Schematic Sheet.
+    fn active_sheet(&self) -> Option<Uuid> {
+        let document = self.active_document()?.document;
+        self.engine.project()?.schematic_sheet(document)?;
+        Some(document)
+    }
+
+    /// Space, X or Y on a sheet: turns what its canvas carries, else the selection.
+    fn sheet_turn(&mut self, document: Uuid, how: Turn) {
+        if crate::schematic_editor::turn(self, document, how) {
+            return;
+        }
+        let objects = self.selection().objects.clone();
+        if objects.is_empty() {
+            return;
+        }
+        let _ = match how {
+            Turn::Rotate => self.run_reporting("schematic.rotate", json!({ "objects": objects })),
+            Turn::MirrorX | Turn::MirrorY => {
+                let axis = if how == Turn::MirrorX { "x" } else { "y" };
+                self.run_reporting(
+                    "schematic.mirror",
+                    json!({ "objects": objects, "axis": axis }),
+                )
+            }
+        };
     }
 
     /// Hands every canvas the [`Selection`]'s objects to mark, with a new generation

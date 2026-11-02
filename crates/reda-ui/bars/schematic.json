@@ -55,6 +55,17 @@
       ]
     },
     {
+      "id": "place",
+      "title": "menu-place",
+      "items": [
+        { "id": "place.wire", "command": "tool.activate:wire" },
+        { "id": "place.net_label", "command": "tool.activate:net_label" },
+        { "id": "place.port", "command": "tool.activate:port" },
+        { "id": "place.power_port", "command": "tool.activate:power_port" },
+        { "id": "place.no_connect", "command": "tool.activate:no_connect" }
+      ]
+    },
+    {
       "id": "design",
       "title": "menu-design",
       "items": [
@@ -69,6 +80,12 @@
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },
     { "id": "active_bar.move", "command": "tool.activate:move" },
-    { "id": "active_bar.drag", "command": "tool.activate:drag" }
+    { "id": "active_bar.drag", "command": "tool.activate:drag" },
+    "separator",
+    { "id": "active_bar.wire", "command": "tool.activate:wire" },
+    { "id": "active_bar.net_label", "command": "tool.activate:net_label" },
+    { "id": "active_bar.port", "command": "tool.activate:port" },
+    { "id": "active_bar.power_port", "command": "tool.activate:power_port" },
+    { "id": "active_bar.no_connect", "command": "tool.activate:no_connect" }
   ]
 }
