@@ -17,6 +17,7 @@ pub mod preferences;
 pub mod starter;
 pub mod state;
 pub mod store;
+pub mod sync;
 pub mod user_dirs;
 
 pub use engine::{Engine, EngineBuilder, registry};

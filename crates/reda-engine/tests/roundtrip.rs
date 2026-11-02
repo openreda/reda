@@ -11,11 +11,11 @@ use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, FabPreset, FileNaming, FootprintCopy,
-    GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net, NetClass, NetLabel,
-    NoConnect, Object, OutputJob, Outputs, PartEntry, PcbGraphic, PcbText, Port, PortDirection,
-    PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules,
-    Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, UnitInstance, Uuid,
-    Wire,
+    FootprintInstance, GerberSettings, GraphicShape, InDocument, Layer, LayerKind, LayerSet, Net,
+    NetClass, NetLabel, NoConnect, Object, OutputJob, Outputs, PadNet, PartEntry, PcbGraphic,
+    PcbText, Port, PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset,
+    ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetGraphic, SheetShape,
+    SheetSize, SheetText, Side, UnitInstance, Uuid, Wire,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -67,6 +67,8 @@ struct PcbSeed {
     nets: Vec<(String, usize)>,
     texts: Vec<TextSeed>,
     graphics: Vec<(usize, Nm, GraphicShape)>,
+    /// A Footprint instance: Designator, position, linked and flags, first Pad's Net index.
+    footprint: Option<(String, Point, bool, usize)>,
 }
 
 /// A text object; the Layer is an index into the seed's Layers.
@@ -140,10 +142,11 @@ prop_compose! {
         nets in prop::collection::vec((any::<String>(), any::<usize>()), 0..4),
         texts in prop::collection::vec(text_seed(), 0..3),
         graphics in prop::collection::vec((any::<usize>(), length(), shape()), 0..3),
+        footprint in prop::option::of((any::<String>(), point(), any::<bool>(), any::<usize>())),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
-            graphics,
+            graphics, footprint,
         }
     }
 }
@@ -260,16 +263,49 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             },
         )));
     }
+    let mut nets = vec![];
     for (name, class) in seed.nets {
         let class = classes[class % classes.len()].uuid;
-        objects.push(Object::Net(InDocument::new(
-            doc,
-            Net {
-                uuid: id(),
-                name,
-                class,
-            },
-        )));
+        let uuid = id();
+        nets.push(uuid);
+        objects.push(Object::Net(InDocument::new(doc, Net { uuid, name, class })));
+    }
+    if let Some((designator, at, flag, net)) = seed.footprint {
+        let footprint = read_footprint(Path::new("x"), FOOTPRINT.as_bytes()).unwrap();
+        let copy = FootprintCopy {
+            uuid: id(),
+            hash: "e".repeat(32),
+            footprint,
+        };
+        let mut pads: Vec<PadNet> = copy
+            .footprint
+            .pads
+            .iter()
+            .map(|p| PadNet {
+                pad: p.uuid,
+                net: None,
+            })
+            .collect();
+        pads.sort_by_key(|p| p.pad);
+        if !nets.is_empty() {
+            pads[0].net = Some(nets[net % nets.len()]);
+        }
+        let instance = FootprintInstance {
+            uuid: id(),
+            component: flag.then(|| ComponentRef::new(Uuid::v4_from_bits(seed.base ^ 7))),
+            footprint: copy.uuid,
+            at,
+            rotation: Millideg(if flag { 180_000 } else { 0 }),
+            side: if flag { Side::Bottom } else { Side::Top },
+            locked: flag,
+            designator,
+            fields: Default::default(),
+            not_fitted: !flag,
+            designator_text: None,
+            pads,
+        };
+        objects.push(Object::FootprintCopy(InDocument::new(doc, copy)));
+        objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
     }
     let layer_ids: Vec<Uuid> = layers_of(&objects);
     for t in seed.texts {

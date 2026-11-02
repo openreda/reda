@@ -81,7 +81,7 @@
     },
     "FootprintCopyRow": {
       "additionalProperties": false,
-      "description": "One copied Footprint: a `.redafp` file's keys in one row.",
+      "description": "One copied Footprint: a `.redafp` file's keys in one row. The PCB file's part table\nuses the same rows.",
       "properties": {
         "footprint": {
           "$ref": "#/$defs/FootprintRow"
