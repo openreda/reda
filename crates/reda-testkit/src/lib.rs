@@ -9,7 +9,7 @@ mod probe;
 mod scenario;
 
 pub use engine::{
-    FolderTrash, TestEngine, test_engine, test_engine_in, test_engine_with_library,
+    FolderTrash, TestEngine, starter_library, test_engine, test_engine_in, test_engine_with_library,
     test_engine_with_trash,
 };
 pub use files::{TempDir, read_tree};
