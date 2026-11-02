@@ -11,7 +11,7 @@ const FIT_MARGIN: f64 = 0.03;
 const WHEEL_ZOOM_PER_POINT: f64 = 0.004;
 
 /// A canvas's view of its Document.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Camera {
     /// The Document point (nm) at the canvas centre.
     pub center: (f64, f64),

@@ -28,6 +28,7 @@ pub mod shell;
 mod start_page;
 pub mod theme;
 mod tool_preview;
+pub mod view_state;
 
 pub use app::{App, install_canvas, run};
 /// The control port, re-exported for tests that act as agents.

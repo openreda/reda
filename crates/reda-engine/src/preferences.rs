@@ -53,6 +53,8 @@ pub struct General {
     pub reopen_last_project: bool,
     /// The most undo steps kept per Document. Unset means unlimited.
     pub undo_depth: Option<NonZeroU32>,
+    /// The Saved Layout new Projects start from. Unset means REDA's Default Layout.
+    pub default_layout: Option<String>,
 }
 
 impl Default for General {
@@ -62,6 +64,7 @@ impl Default for General {
             ui_scale: 1.0,
             reopen_last_project: true,
             undo_depth: None,
+            default_layout: None,
         }
     }
 }
