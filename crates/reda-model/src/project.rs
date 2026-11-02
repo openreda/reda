@@ -155,9 +155,6 @@ impl Project {
         self.schematic_sheets.get(&uuid)
     }
 
-    /// Opens a Library element for editing, outside any transaction: opening is not an
-    /// edit and is never undone. Its edits then [`crate::Transaction::replace`] it, on the
-    /// undo scope `Scope::Element(uuid)`. Refused when its UUID is taken.
     /// The last computed Zone fills of PCB Document `document`, current or stale.
     pub fn zone_fills(&self, document: Uuid) -> Option<&ZoneFills> {
         self.zone_fills.get(&document)
@@ -173,6 +170,9 @@ impl Project {
         };
     }
 
+    /// Opens a Library element for editing, outside any transaction: opening is not an
+    /// edit and is never undone. Its edits then [`crate::Transaction::replace`] it, on the
+    /// undo scope `Scope::Element(uuid)`. Refused when its UUID is taken.
     pub fn open_element(
         &mut self,
         source: ElementSource,
