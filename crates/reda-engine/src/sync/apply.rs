@@ -226,8 +226,8 @@ impl<'c, 'e> Applier<'c, 'e> {
     }
 
     /// Sync never deletes copper: the copper on a removed Net that Sync does not manage
-    /// through Pad Net changes moves to the Net it merged into, or to no Net. Every kind
-    /// of copper that carries a Net belongs here (Zones too, once they exist).
+    /// through Pad Net changes moves to the Net it merged into, or to no Net: Tracks, Vias,
+    /// Free Pads and Zones. Every kind of copper that carries a Net belongs here.
     fn reassign_copper(&mut self, merges: &Merges) -> Result<(), CommandError> {
         if merges.0.is_empty() {
             return Ok(());
@@ -253,6 +253,13 @@ impl<'c, 'e> Applier<'c, 'e> {
                     let mut pad = pad.clone();
                     pad.net = to;
                     moved.push(Object::FreePad(InDocument::new(pcb.uuid, pad)));
+                }
+            }
+            for zone in pcb.zones() {
+                if let Some(to) = merges.follow(zone.net) {
+                    let mut zone = zone.clone();
+                    zone.net = to;
+                    moved.push(Object::Zone(InDocument::new(pcb.uuid, zone)));
                 }
             }
         }

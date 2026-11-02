@@ -371,6 +371,12 @@ fn merged_nets_keep_the_one_with_the_largest_overlap() {
         json!({"at": {"x": "110mm", "y": 0}, "net": small}),
     )["result"]["uuid"]
         .clone();
+    let zone = engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_bottom", "net": small, "vertices": [
+            {"x": "100mm", "y": 0}, {"x": "110mm", "y": 0}, {"x": "110mm", "y": "10mm"}]}),
+    )["result"]["uuid"]
+        .clone();
 
     wire(&mut engine, &[(20.0, -3.81), (30.0, -3.81)]);
     let list = preview(&mut engine);
@@ -384,7 +390,7 @@ fn merged_nets_keep_the_one_with_the_largest_overlap() {
     let after = nets(&mut engine);
     assert_eq!(after.len(), 1);
     assert_eq!(after[0]["uuid"], big);
-    for object in [track, via] {
+    for object in [track, via, zone] {
         let got = engine.run_ok("object.get", json!({"uuid": object}));
         assert_eq!(got["object"]["net"], big, "{got}");
     }
@@ -918,6 +924,12 @@ fn copper_on_a_removed_net_with_no_merge_target_becomes_unassigned() {
         json!({"at": {"x": "110mm", "y": 0}, "net": small}),
     )["result"]["uuid"]
         .clone();
+    let zone = engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_bottom", "net": small, "vertices": [
+            {"x": "100mm", "y": 0}, {"x": "110mm", "y": 0}, {"x": "110mm", "y": "10mm"}]}),
+    )["result"]["uuid"]
+        .clone();
 
     // SMALL's label and Wire go: its Pads are left on no Net, so nothing absorbs it.
     for object in engine.run_ok("objects.query", json!({"type": "wire"}))["objects"]
@@ -939,7 +951,7 @@ fn copper_on_a_removed_net_with_no_merge_target_becomes_unassigned() {
 
     sync(&mut engine);
     assert_eq!(pad_net(&mut engine, &part, &pad), Value::Null);
-    for object in [track, via] {
+    for object in [track, via, zone] {
         let got = engine.run_ok("object.get", json!({"uuid": object}));
         assert!(got["object"].get("net").is_none(), "{got}");
     }

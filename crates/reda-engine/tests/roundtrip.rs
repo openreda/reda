@@ -12,12 +12,12 @@ use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck, ErcSeverities, FabPreset,
     FileNaming, FootprintCopy, FootprintInstance, FootprintText, FreePad, GerberSettings,
-    GraphicShape, Hole, InDocument, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel,
-    NoConnect, Object, OutputJob, Outputs, PadKind, PadNet, PadShape, PartEntry, PcbGraphic,
-    PcbText, PlacementOrigin, Port, PortDirection, PowerPort, PowerPortStyle, Project,
-    ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity, SheetFrame, SheetGraphic,
-    SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver,
-    Wire,
+    GraphicShape, Hole, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass,
+    NetLabel, NoConnect, Object, OutputJob, Outputs, PadConnection, PadKind, PadNet, PadShape,
+    PartEntry, PcbGraphic, PcbText, PlacementOrigin, Port, PortDirection, PowerPort,
+    PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity,
+    SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry,
+    UnitInstance, Uuid, Via, Waiver, Wire, Zone,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -402,6 +402,44 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 },
             },
         )));
+        let third = Point::new(Nm(to.x.0 + 1000), Nm(to.y.0 + 7));
+        if third != from {
+            let vertices = vec![
+                Vertex::arc(from, Millideg(sweep)),
+                Vertex::at(to),
+                Vertex::at(third),
+            ];
+            objects.push(Object::Zone(InDocument::new(
+                doc,
+                Zone {
+                    uuid: id(),
+                    layer,
+                    net,
+                    vertices: vertices.clone(),
+                    clearance: width,
+                    min_width: Nm(width.0 + 1),
+                    pad_connection: if bottom {
+                        PadConnection::Solid
+                    } else {
+                        PadConnection::Thermal
+                    },
+                    thermal_gap: width,
+                    thermal_spoke_width: Nm(width.0 + 2),
+                    remove_islands: bottom,
+                    priority: width.0 as u32 % 7,
+                },
+            )));
+            objects.push(Object::Keepout(InDocument::new(
+                doc,
+                Keepout {
+                    uuid: id(),
+                    layers: vec![layer],
+                    vertices,
+                    copper: true,
+                    vias: !bottom,
+                },
+            )));
+        }
     }
     for (layer, width, shape) in seed.graphics {
         objects.push(Object::PcbGraphic(InDocument::new(
