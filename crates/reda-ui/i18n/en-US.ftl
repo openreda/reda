@@ -274,7 +274,16 @@ library-refresh = Refresh
 
 ## Canvas
 
-canvas-description = Schematic canvas: { $document }
+tab-switcher-title = Switch Tab
+canvas-name-schematic = Schematic canvas: { $document }
+canvas-name-pcb = PCB canvas: { $document }
+canvas-name-symbol = Symbol canvas: { $document }
+canvas-name-footprint = Footprint canvas: { $document }
+canvas-nothing-selected = Nothing selected
+canvas-selected = { $count ->
+    [one] 1 object selected
+   *[other] { $count } objects selected
+}
 
 ## Layers panel
 

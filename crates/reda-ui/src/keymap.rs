@@ -292,10 +292,21 @@ impl Keymap {
     /// Takes the key presses this Keymap binds in `active` out of `input`, and returns
     /// their bindings in the order pressed. Other keys stay for the widgets.
     pub fn take(&self, input: &mut InputState, active: &Active) -> Vec<Action> {
+        self.take_where(input, active, |_| true)
+    }
+
+    /// [`Keymap::take`], for the chords `wanted` accepts only.
+    pub fn take_where(
+        &self,
+        input: &mut InputState,
+        active: &Active,
+        wanted: impl Fn(&Chord) -> bool,
+    ) -> Vec<Action> {
         let mut actions = Vec::new();
         input.events.retain(|event| {
             let found = Chord::from_event(event)
                 .iter()
+                .filter(|chord| wanted(chord))
                 .find_map(|chord| self.lookup(chord, active));
             match found {
                 Some(action) => {

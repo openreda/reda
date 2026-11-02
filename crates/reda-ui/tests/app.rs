@@ -259,6 +259,32 @@ fn snapshot_of_the_light_theme() {
     start_page_snapshot("light");
 }
 
+/// Keyboard focus is visible: after F6 a ring marks the focused tab, and Ctrl+Tab held
+/// shows the tab switcher.
+#[test]
+fn snapshot_of_keyboard_focus_and_the_tab_switcher() {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    h.key_press(egui::Key::F6);
+    h.run();
+    h.event(egui::Event::ModifiersChanged(egui::Modifiers::CTRL));
+    for pressed in [true, false] {
+        h.event(egui::Event::Key {
+            key: egui::Key::Tab,
+            pressed,
+            modifiers: egui::Modifiers::CTRL,
+            repeat: false,
+            physical_key: None,
+        });
+    }
+    h.run();
+    h.snapshot("keyboard_focus_dark");
+}
+
 #[test]
 fn snapshot_of_a_schematic_sheet_on_the_canvas() {
     let home = TempDir::new("app-home");

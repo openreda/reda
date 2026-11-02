@@ -204,6 +204,7 @@ impl Shell {
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
         engine.view_mut().set(BoardView::new(units));
+        engine.view_mut().set(layout::focus::Focus::default());
         crate::bars::install(&mut engine);
         crate::help::install(&mut engine);
         let mut shell = Shell {
@@ -238,6 +239,7 @@ impl Shell {
             shell.show_project();
             shell.recorder.opened(&shell.engine);
         }
+        shell.note_focus();
         shell
     }
 
@@ -265,6 +267,58 @@ impl Shell {
             .view_mut()
             .get_mut::<Layout>()
             .expect("the Shell installs its Layout")
+    }
+
+    fn focus_state(&mut self) -> &mut layout::focus::Focus {
+        self.engine
+            .view_mut()
+            .get_mut::<layout::focus::Focus>()
+            .expect("the Shell installs its Focus")
+    }
+
+    /// Remembers the focused tab as the most recently used.
+    fn note_focus(&mut self) {
+        if let Some(tab) = self.layout().focus.clone() {
+            self.focus_state().used(&tab);
+        }
+    }
+
+    /// The tab switcher (Ctrl+Tab), while it is open.
+    pub fn tab_switch(&self) -> Option<&layout::focus::TabSwitch> {
+        self.engine
+            .view()
+            .get::<layout::focus::Focus>()
+            .and_then(|f| f.switching.as_ref())
+    }
+
+    /// Picks the switcher's tab at `index`.
+    pub fn pick_tab_switch(&mut self, index: usize) {
+        if let Some(switch) = &mut self.focus_state().switching
+            && index < switch.tabs.len()
+        {
+            switch.index = index;
+        }
+    }
+
+    /// Closes the tab switcher; with `commit`, shows and focuses the tab it picked
+    /// (through `layout.tab.activate`).
+    pub fn end_tab_switch(&mut self, commit: bool) {
+        let Some(switch) = self.focus_state().switching.take() else {
+            return;
+        };
+        if commit && let Some(tab) = switch.picked() {
+            let tab = tab.clone();
+            let params = json!({"tab": tab.to_string()});
+            if self.run_reporting("layout.tab.activate", params).is_ok() {
+                self.focus_state().request = Some(tab);
+            }
+        }
+    }
+
+    /// Takes the tab whose strip button should take the keyboard focus, after a Command
+    /// moved focus to it from the keyboard.
+    pub fn take_focus_request(&mut self) -> Option<TabKey> {
+        self.focus_state().request.take()
     }
 
     /// What is selected; it changes through `selection.set`.
@@ -865,6 +919,7 @@ impl Shell {
         }
         self.sync_selection();
         self.sync_board_view();
+        self.note_focus();
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
         }
