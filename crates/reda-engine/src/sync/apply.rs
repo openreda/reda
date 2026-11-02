@@ -189,9 +189,14 @@ impl<'c, 'e> Applier<'c, 'e> {
         }
 
         let mut removed_nets = BTreeSet::new();
+        let mut merges = BTreeMap::new();
         for change in included() {
-            if let ChangeKind::RemoveNet { net, .. } = &change.change {
+            if let ChangeKind::RemoveNet {
+                net, merge_into, ..
+            } = &change.change
+            {
                 removed_nets.insert(*net);
+                merges.insert(*net, *merge_into);
             }
         }
         // Pads Sync does not manage (Mechanical Parts placed on the PCB) lose a removed Net.
@@ -204,10 +209,59 @@ impl<'c, 'e> Applier<'c, 'e> {
         }
 
         self.write(&pcb)?;
+        self.reassign_copper(&merges)?;
+        let free_pads: Vec<_> = self
+            .cx
+            .project()?
+            .pcb()
+            .into_iter()
+            .flat_map(|p| p.free_pads())
+            .filter(|p| p.net.is_some_and(|n| removed_nets.contains(&n)))
+            .cloned()
+            .collect();
+        for mut pad in free_pads {
+            pad.net = None;
+            self.cx
+                .tx()?
+                .replace(Object::FreePad(InDocument::new(self.pcb, pad)))?;
+        }
         for net in removed_nets {
             self.cx.tx()?.remove(net)?;
         }
         self.prune_copies()
+    }
+
+    /// Sync never deletes copper: Tracks and Vias on a removed Net move to the Net it
+    /// merged into, or to no Net.
+    fn reassign_copper(
+        &mut self,
+        merges: &BTreeMap<Uuid, Option<Uuid>>,
+    ) -> Result<(), CommandError> {
+        if merges.is_empty() {
+            return Ok(());
+        }
+        let target = |net: Option<Uuid>| net.and_then(|n| merges.get(&n).copied());
+        let mut moved = Vec::new();
+        if let Some(pcb) = self.cx.project()?.pcb() {
+            for track in pcb.tracks() {
+                if let Some(to) = target(track.net) {
+                    let mut track = track.clone();
+                    track.net = to;
+                    moved.push(Object::Track(InDocument::new(pcb.uuid, track)));
+                }
+            }
+            for via in pcb.vias() {
+                if let Some(to) = target(via.net) {
+                    let mut via = via.clone();
+                    via.net = to;
+                    moved.push(Object::Via(InDocument::new(pcb.uuid, via)));
+                }
+            }
+        }
+        for object in moved {
+            self.cx.tx()?.replace(object)?;
+        }
+        Ok(())
     }
 
     fn net(&self, uuid: Uuid) -> Result<Net, CommandError> {

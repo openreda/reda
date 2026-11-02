@@ -31,6 +31,10 @@ pub const QUERY_TOOLS: &[&str] = &[
     "drc.run",
     "sync.preview",
     "document.render",
+    "pcb.copper.connected",
+    "pcb.ratsnest",
+    "pcb.clearance.track",
+    "pcb.clearance.via",
 ];
 
 const INSTRUCTIONS: &str = "\

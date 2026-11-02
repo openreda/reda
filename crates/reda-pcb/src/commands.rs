@@ -1,13 +1,19 @@
 //! The PCB Commands. Each one edits the Project's PCB Document and is unavailable while
 //! the Project has none.
 
+mod copper;
+mod free_pad;
 mod graphic;
 mod layer;
+mod mechanical;
 mod net_class;
 mod outline;
+mod placement;
 mod rules;
 mod text;
 mod text_geometry;
+mod track;
+mod via;
 
 pub use outline::rect_outline;
 
@@ -27,6 +33,12 @@ pub fn register_all(registry: &mut Registry) {
     text::register_all(registry);
     registry.add(text_geometry::TextGeometry);
     graphic::register_all(registry);
+    track::register_all(registry);
+    via::register_all(registry);
+    copper::register_all(registry);
+    placement::register_all(registry);
+    mechanical::register_all(registry);
+    free_pad::register_all(registry);
 }
 
 /// Why a PCB Command cannot run in a Project without a PCB Document.

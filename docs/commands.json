@@ -8731,6 +8731,186 @@
             ],
             "type": "object"
           },
+          "InDocument22": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "geometry": {
+                "$ref": "#/$defs/TrackGeometry"
+              },
+              "layer": {
+                "description": "The copper Layer it is on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "net": {
+                "description": "Its PCB Net; left out for copper on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The copper width; the ends are round.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "geometry"
+            ],
+            "type": "object"
+          },
+          "InDocument23": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The centre."
+              },
+              "diameter": {
+                "description": "The copper pad diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "description": "The drilled hole diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Via on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "span": {
+                "$ref": "#/$defs/LayerSpan",
+                "description": "The copper Layers it joins."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at",
+              "diameter",
+              "hole",
+              "span"
+            ],
+            "type": "object"
+          },
+          "InDocument24": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad centre."
+              },
+              "corner_radius": {
+                "description": "The corner radius of a rounded-rectangle Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The drilled hole; SMD Pads have none, the others must."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind",
+                "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "Counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The copper side of an SMD Pad; left out for Pads with a hole."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "InDocument25": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at"
+            ],
+            "type": "object"
+          },
           "InDocument3": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -8963,6 +9143,25 @@
               "documentation"
             ],
             "type": "string"
+          },
+          "LayerSpan": {
+            "additionalProperties": false,
+            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\nA through Via spans the outermost copper Layers.",
+            "properties": {
+              "from": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "to": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -9624,6 +9823,58 @@
                 "properties": {
                   "type": {
                     "const": "footprint_instance",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument22",
+                "properties": {
+                  "type": {
+                    "const": "track",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument23",
+                "properties": {
+                  "type": {
+                    "const": "via",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument24",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument25",
+                "properties": {
+                  "type": {
+                    "const": "placement_origin",
                     "type": "string"
                   }
                 },
@@ -10468,6 +10719,61 @@
             ],
             "type": "object"
           },
+          "TrackGeometry": {
+            "description": "The centreline of a [`Track`]. v0.1 creates only lines.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight segment.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "Unit": {
             "additionalProperties": false,
             "description": "One independently placeable section of a Symbol.",
@@ -10687,6 +10993,26 @@
               {
                 "const": "footprint_instance",
                 "description": "A Footprint placed on the board, with its Component's data and a Net per Pad.",
+                "type": "string"
+              },
+              {
+                "const": "track",
+                "description": "One copper segment on a copper Layer.",
+                "type": "string"
+              },
+              {
+                "const": "via",
+                "description": "A plated hole joining copper on several Layers.",
+                "type": "string"
+              },
+              {
+                "const": "free_pad",
+                "description": "A Pad placed directly on the board, belonging to no Footprint.",
+                "type": "string"
+              },
+              {
+                "const": "placement_origin",
+                "description": "The point manufacturing outputs measure Footprint positions from.",
                 "type": "string"
               }
             ]
@@ -11851,6 +12177,186 @@
             ],
             "type": "object"
           },
+          "InDocument22": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "geometry": {
+                "$ref": "#/$defs/TrackGeometry"
+              },
+              "layer": {
+                "description": "The copper Layer it is on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "net": {
+                "description": "Its PCB Net; left out for copper on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The copper width; the ends are round.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "geometry"
+            ],
+            "type": "object"
+          },
+          "InDocument23": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The centre."
+              },
+              "diameter": {
+                "description": "The copper pad diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "description": "The drilled hole diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Via on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "span": {
+                "$ref": "#/$defs/LayerSpan",
+                "description": "The copper Layers it joins."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at",
+              "diameter",
+              "hole",
+              "span"
+            ],
+            "type": "object"
+          },
+          "InDocument24": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad centre."
+              },
+              "corner_radius": {
+                "description": "The corner radius of a rounded-rectangle Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The drilled hole; SMD Pads have none, the others must."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind",
+                "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "Counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The copper side of an SMD Pad; left out for Pads with a hole."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "InDocument25": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at"
+            ],
+            "type": "object"
+          },
           "InDocument3": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -12083,6 +12589,25 @@
               "documentation"
             ],
             "type": "string"
+          },
+          "LayerSpan": {
+            "additionalProperties": false,
+            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\nA through Via spans the outermost copper Layers.",
+            "properties": {
+              "from": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "to": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -12744,6 +13269,58 @@
                 "properties": {
                   "type": {
                     "const": "footprint_instance",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument22",
+                "properties": {
+                  "type": {
+                    "const": "track",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument23",
+                "properties": {
+                  "type": {
+                    "const": "via",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument24",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument25",
+                "properties": {
+                  "type": {
+                    "const": "placement_origin",
                     "type": "string"
                   }
                 },
@@ -13609,6 +14186,61 @@
             ],
             "type": "object"
           },
+          "TrackGeometry": {
+            "description": "The centreline of a [`Track`]. v0.1 creates only lines.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight segment.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "Unit": {
             "additionalProperties": false,
             "description": "One independently placeable section of a Symbol.",
@@ -14047,6 +14679,196 @@
         "type": "object"
       },
       "title": "Edit Output Job"
+    },
+    {
+      "category": "pcb",
+      "description": "Aligns the selected Footprints' (and Free Pads') left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y. Refused when any of them is locked.",
+      "icon": "align",
+      "id": "pcb.align",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "AlignTo": {
+            "description": "What [`Align`] lines up. Up is +y.",
+            "oneOf": [
+              {
+                "const": "left",
+                "description": "Left edges on the leftmost.",
+                "type": "string"
+              },
+              {
+                "const": "right",
+                "description": "Right edges on the rightmost.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Top edges on the topmost.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Bottom edges on the bottommost.",
+                "type": "string"
+              },
+              {
+                "const": "center_x",
+                "description": "Centres on one vertical line through the middle of the selection's extent.",
+                "type": "string"
+              },
+              {
+                "const": "center_y",
+                "description": "Centres on one horizontal line through the middle of the selection's extent.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "The Footprints, Free Pads and Placement Origin to align, by UUID. A Footprint's\nextent is its Pads and drawing.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "to": {
+            "$ref": "#/$defs/AlignTo"
+          }
+        },
+        "required": [
+          "objects",
+          "to"
+        ],
+        "title": "AlignParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Align"
+    },
+    {
+      "category": "pcb",
+      "description": "Packs the selected Footprints into a rectangle in rows, from its top-left corner, left to right and then down, in Designator order, `spacing` (1 mm) apart. Their rotation and side are kept. Refused when they do not fit or any of them is locked.",
+      "icon": "arrange",
+      "id": "pcb.arrange_in_rect",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/PointParam",
+            "description": "One corner of the rectangle."
+          },
+          "objects": {
+            "description": "The Footprints and Free Pads to arrange, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "spacing": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The space left between neighbours; 1 mm when left out."
+          },
+          "to": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The opposite corner."
+          }
+        },
+        "required": [
+          "objects",
+          "from",
+          "to"
+        ],
+        "title": "ArrangeInRectParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Arrange Within Rectangle"
     },
     {
       "category": "pcb",
@@ -14495,6 +15317,809 @@
     },
     {
       "category": "pcb",
+      "description": "Whether a proposed Track segment keeps its clearance from copper of other Nets; where two Net Classes meet, the larger clearance applies.",
+      "icon": "clearance",
+      "id": "pcb.clearance.track",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "ignore": {
+            "default": [],
+            "description": "Objects to leave out, such as the Tracks being dragged.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "layer": {
+            "description": "The copper Layer.",
+            "type": "string"
+          },
+          "net": {
+            "default": null,
+            "description": "The Net the segment would be on; left out, none.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The width; left out, the Net Class's track width."
+          }
+        },
+        "required": [
+          "layer",
+          "from",
+          "to"
+        ],
+        "title": "ClearanceTrackParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ClearanceHit": {
+            "description": "Copper of another Net that a proposal comes too close to.",
+            "properties": {
+              "actual": {
+                "description": "The gap there is, 0 where the copper overlaps.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "item": {
+                "$ref": "#/$defs/Item"
+              },
+              "layer": {
+                "description": "The copper Layer where they come too close.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "net": {
+                "description": "The other copper's Net; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "required": {
+                "description": "The clearance the rules require: the larger of the two Net Classes'.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "item",
+              "layer",
+              "required",
+              "actual"
+            ],
+            "type": "object"
+          },
+          "Item": {
+            "description": "One piece of copper on the board.",
+            "oneOf": [
+              {
+                "description": "A Pad of a placed Footprint.",
+                "properties": {
+                  "footprint": {
+                    "description": "The Footprint instance.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "pad",
+                    "type": "string"
+                  },
+                  "pad": {
+                    "description": "The Pad of its Footprint copy.",
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "pad"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Pad placed on the board on its own.",
+                "properties": {
+                  "kind": {
+                    "const": "free_pad",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "via",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "track",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "clear": {
+            "description": "Whether the copper keeps its clearance from everything.",
+            "type": "boolean"
+          },
+          "hits": {
+            "description": "The copper of other Nets it comes too close to, sorted.",
+            "items": {
+              "$ref": "#/$defs/ClearanceHit"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "clear",
+          "hits"
+        ],
+        "title": "ClearanceResult",
+        "type": "object"
+      },
+      "title": "Check Track Clearance"
+    },
+    {
+      "category": "pcb",
+      "description": "Whether a proposed through Via keeps its clearance from copper of other Nets on every copper Layer.",
+      "icon": "clearance",
+      "id": "pcb.clearance.via",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam"
+          },
+          "diameter": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The diameter; left out, the Net Class's Via diameter."
+          },
+          "ignore": {
+            "default": [],
+            "description": "Objects to leave out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "net": {
+            "default": null,
+            "description": "The Net the Via would be on; left out, none.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "ClearanceViaParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ClearanceHit": {
+            "description": "Copper of another Net that a proposal comes too close to.",
+            "properties": {
+              "actual": {
+                "description": "The gap there is, 0 where the copper overlaps.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "item": {
+                "$ref": "#/$defs/Item"
+              },
+              "layer": {
+                "description": "The copper Layer where they come too close.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "net": {
+                "description": "The other copper's Net; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "required": {
+                "description": "The clearance the rules require: the larger of the two Net Classes'.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "item",
+              "layer",
+              "required",
+              "actual"
+            ],
+            "type": "object"
+          },
+          "Item": {
+            "description": "One piece of copper on the board.",
+            "oneOf": [
+              {
+                "description": "A Pad of a placed Footprint.",
+                "properties": {
+                  "footprint": {
+                    "description": "The Footprint instance.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "pad",
+                    "type": "string"
+                  },
+                  "pad": {
+                    "description": "The Pad of its Footprint copy.",
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "pad"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Pad placed on the board on its own.",
+                "properties": {
+                  "kind": {
+                    "const": "free_pad",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "via",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "track",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "clear": {
+            "description": "Whether the copper keeps its clearance from everything.",
+            "type": "boolean"
+          },
+          "hits": {
+            "description": "The copper of other Nets it comes too close to, sorted.",
+            "items": {
+              "$ref": "#/$defs/ClearanceHit"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "clear",
+          "hits"
+        ],
+        "title": "ClearanceResult",
+        "type": "object"
+      },
+      "title": "Check Via Clearance"
+    },
+    {
+      "category": "pcb",
+      "description": "The copper physically connected to a Track, Via, Pad or Free Pad: everything reachable through touching copper on any Layer and through Vias and plated holes, whatever its Net.",
+      "icon": "select_connected",
+      "id": "pcb.copper.connected",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "object": {
+            "description": "A Track, a Via, a Free Pad, or a Footprint instance.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "pad": {
+            "default": null,
+            "description": "With a Footprint instance: one of its Pads. Left out, the copper connected to any\nof its Pads.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "object"
+        ],
+        "title": "ConnectedParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Item": {
+            "description": "One piece of copper on the board.",
+            "oneOf": [
+              {
+                "description": "A Pad of a placed Footprint.",
+                "properties": {
+                  "footprint": {
+                    "description": "The Footprint instance.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "pad",
+                    "type": "string"
+                  },
+                  "pad": {
+                    "description": "The Pad of its Footprint copy.",
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "pad"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Pad placed on the board on its own.",
+                "properties": {
+                  "kind": {
+                    "const": "free_pad",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "via",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "track",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "items": {
+            "description": "The connected copper, the object's own included, sorted.",
+            "items": {
+              "$ref": "#/$defs/Item"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ConnectedResult",
+        "type": "object"
+      },
+      "title": "Select Connected Copper"
+    },
+    {
+      "category": "pcb",
+      "description": "Moves, turns, resizes or hides one Footprint's Designator text. `at` and `rotation` are on the board; the text keeps its place relative to the Footprint when the Footprint moves. `reset` goes back to the Footprint's own placement. Allowed on locked Footprints.",
+      "icon": "text",
+      "id": "pcb.designator_text.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the text centre goes on the board."
+          },
+          "footprint": {
+            "description": "The Footprint whose Designator text to change.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "reset": {
+            "default": false,
+            "description": "Go back to the Footprint's own placement; nothing else may be given with it.",
+            "type": "boolean"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Its direction on the board, counter-clockwise."
+          },
+          "size": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The text height."
+          },
+          "visible": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "footprint"
+        ],
+        "title": "DesignatorTextSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Set Designator Text"
+    },
+    {
+      "category": "pcb",
+      "description": "Spaces the selected Footprints' centres evenly, horizontally or vertically, between the two outermost, which stay put. Refused when any of them is locked.",
+      "icon": "distribute",
+      "id": "pcb.distribute",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Direction": {
+            "description": "Which way [`Distribute`] spaces objects.",
+            "enum": [
+              "horizontal",
+              "vertical"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "$ref": "#/$defs/Direction"
+          },
+          "objects": {
+            "description": "The Footprints, Free Pads and Placement Origin to space out, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "direction"
+        ],
+        "title": "DistributeParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Distribute"
+    },
+    {
+      "category": "pcb",
       "description": "Sets how one DRC check reports its Violations: `error`, `warning` or `off`.",
       "icon": "severity",
       "id": "pcb.drc.set_severity",
@@ -14616,6 +16241,425 @@
         "type": "null"
       },
       "title": "Set DRC Severity"
+    },
+    {
+      "category": "pcb",
+      "description": "Moves Footprints and SMD Free Pads to the other side of the board, mirroring them left-right: their Pads and silkscreen, courtyard and assembly drawing go to the other face, mirrored. A lone object flips in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
+      "icon": "flip",
+      "id": "pcb.flip",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "center": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A point on the vertical line to mirror about: by default a lone object's own\nposition, else the middle of the selection's extent. Only its x counts."
+          },
+          "objects": {
+            "description": "The Footprints, Free Pads and Placement Origin to flip, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "FlipParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Flip Side"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds a Pad that belongs to no Footprint: plated (SMD or through-hole) and optionally on a Net, or non-plated (a bare hole). For mounting holes, fiducials and test points.",
+      "icon": "pad",
+      "id": "pcb.free_pad.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "A drilled hole param.",
+            "properties": {
+              "height": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "A slot when it differs from the width; round when left out."
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "width"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "enum": [
+              "circle",
+              "rect",
+              "rounded_rect",
+              "oval"
+            ],
+            "type": "string"
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The Pad centre."
+          },
+          "corner_radius": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "For a rounded rectangle."
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The width when left out."
+          },
+          "hole": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/HoleParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The drilled hole; required unless the Pad is SMD, which has none."
+          },
+          "kind": {
+            "$ref": "#/$defs/PadKind",
+            "description": "`smd` (plated, no hole: fiducials, test points), `plated_through_hole` or\n`non_plated` (a bare hole)."
+          },
+          "net": {
+            "default": null,
+            "description": "The PCB Net, by UUID; non-plated Pads have none.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Counter-clockwise; 0 when left out."
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadShape"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Circle when left out."
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Side"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The copper side of an SMD Pad; top when left out. Pads with a hole have none."
+          },
+          "width": {
+            "$ref": "#/$defs/Length"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "width"
+        ],
+        "title": "FreePadAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Free Pad"
+    },
+    {
+      "category": "pcb",
+      "description": "Removes Free Pads from the board.",
+      "icon": "delete",
+      "id": "pcb.free_pad.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "pads": {
+            "description": "The Free Pads, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "pads"
+        ],
+        "title": "FreePadDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Delete Free Pad"
+    },
+    {
+      "category": "pcb",
+      "description": "Puts plated Free Pads on a Net, or takes them off any Net (`net: null`).",
+      "icon": "net",
+      "id": "pcb.free_pad.set_net",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "net": {
+            "description": "The PCB Net, by UUID; null takes them off any Net.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pads": {
+            "description": "The Free Pads, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "pads"
+        ],
+        "title": "FreePadSetNetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Set Free Pad Net"
     },
     {
       "category": "pcb",
@@ -14954,6 +16998,423 @@
     },
     {
       "category": "pcb",
+      "description": "Locks Footprints against moving, turning and flipping, or unlocks them. Their Designator text and data stay editable.",
+      "icon": "lock",
+      "id": "pcb.lock",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprints": {
+            "description": "The Footprints to lock or unlock, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "locked": {
+            "description": "True locks them against moving, turning and flipping; false unlocks them.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "footprints",
+          "locked"
+        ],
+        "title": "LockParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Lock"
+    },
+    {
+      "category": "pcb",
+      "description": "Removes Mechanical Parts placed on the PCB, and any Footprint copy no Footprint uses any more. Footprints synced from the schematic go away by deleting their Component and syncing.",
+      "icon": "delete",
+      "id": "pcb.mechanical.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprints": {
+            "description": "The Mechanical Parts' Footprint instances, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprints"
+        ],
+        "title": "MechanicalDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Delete Mechanical Part"
+    },
+    {
+      "category": "pcb",
+      "description": "Places a Mechanical Part (a mounting hole, fiducial and the like) from a Library straight onto the board, with no Component behind it; Sync leaves it alone. The Designator prefix is the Symbol's, else the Part's first keyword when it is in capitals, else `MP`. Standard Parts reach the board only through Sync.",
+      "icon": "footprint",
+      "id": "pcb.mechanical.place",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "Where its Footprint origin goes."
+          },
+          "designator": {
+            "default": null,
+            "description": "The Designator; by default the next free one for the Part's prefix.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "footprint": {
+            "default": null,
+            "description": "One of the Part's alternate Footprints, by UUID; its first when left out.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "part": {
+            "description": "The Mechanical Part, by UUID, from any registered Library.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Counter-clockwise; 0 when left out."
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Side"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The board side; top when left out."
+          }
+        },
+        "required": [
+          "part",
+          "at"
+        ],
+        "title": "MechanicalPlaceParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What [`MechanicalPlace`] returns.",
+        "properties": {
+          "designator": {
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint instance.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "footprint_copy": {
+            "description": "The PCB's copy of the Footprint it was placed from.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "footprint",
+          "designator",
+          "footprint_copy"
+        ],
+        "title": "MechanicalPlaced",
+        "type": "object"
+      },
+      "title": "Place Mechanical Part"
+    },
+    {
+      "category": "pcb",
+      "description": "Edits the Designator, value, fields or Not Fitted of Mechanical Parts placed on the PCB. Footprints synced from the schematic are edited there.",
+      "icon": "properties",
+      "id": "pcb.mechanical.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "designator": {
+            "default": null,
+            "description": "A new Designator; only with a single Footprint.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "default": {},
+            "description": "Fields to set by name (`mpn`, `description`… or a free-form name); null or empty\nclears a field.",
+            "type": "object"
+          },
+          "footprints": {
+            "description": "The Mechanical Parts' Footprint instances, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_fitted": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "value": {
+            "default": null,
+            "description": "A new value.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "footprints"
+        ],
+        "title": "MechanicalSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Edit Mechanical Part"
+    },
+    {
+      "category": "pcb",
+      "description": "Moves Footprints, Free Pads and the Placement Origin by an offset. Refused when any of them is a locked Footprint.",
+      "icon": "move",
+      "id": "pcb.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/PointParam",
+            "description": "How far to move them."
+          },
+          "objects": {
+            "description": "The Footprints, Free Pads and Placement Origin to move, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "by"
+        ],
+        "title": "MoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Move"
+    },
+    {
+      "category": "pcb",
       "description": "Assigns each of `nets` to the Net Class `class`.",
       "icon": "net_class",
       "id": "pcb.net.set_class",
@@ -15253,6 +17714,413 @@
         "type": "null"
       },
       "title": "Set Net Class Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Removes the Placement Origin, so the outputs measure from the lower-left corner of the Board Outline's bounding box again.",
+      "icon": "delete",
+      "id": "pcb.placement_origin.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Remove Placement Origin"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets the point the CPL measures Footprint positions from, creating the Placement Origin or moving the existing one. Without it the outputs measure from the lower-left corner of the Board Outline's bounding box.",
+      "icon": "origin",
+      "id": "pcb.placement_origin.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "Where Footprint positions are measured from in the manufacturing outputs."
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "PlacementOriginSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Set Placement Origin"
+    },
+    {
+      "category": "pcb",
+      "description": "The Ratsnest: for each Net, the shortest set of lines that would join the islands its copper forms. Connections copper already makes are left out.",
+      "icon": "ratsnest",
+      "id": "pcb.ratsnest",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "nets": {
+            "default": null,
+            "description": "Only these Nets; left out, every Net.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "RatsnestParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Item": {
+            "description": "One piece of copper on the board.",
+            "oneOf": [
+              {
+                "description": "A Pad of a placed Footprint.",
+                "properties": {
+                  "footprint": {
+                    "description": "The Footprint instance.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "pad",
+                    "type": "string"
+                  },
+                  "pad": {
+                    "description": "The Pad of its Footprint copy.",
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "pad"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Pad placed on the board on its own.",
+                "properties": {
+                  "kind": {
+                    "const": "free_pad",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "via",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "track",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "RatsnestLine": {
+            "description": "One connection the Net still needs.",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/Point"
+              },
+              "from_item": {
+                "$ref": "#/$defs/Item",
+                "description": "The copper at `from`."
+              },
+              "net": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "to": {
+                "$ref": "#/$defs/Point"
+              },
+              "to_item": {
+                "$ref": "#/$defs/Item",
+                "description": "The copper at `to`."
+              }
+            },
+            "required": [
+              "net",
+              "from",
+              "to",
+              "from_item",
+              "to_item"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "lines": {
+            "description": "The connections copper does not make yet: per Net (in UUID order) the lines of a\nminimum spanning tree over its copper islands.",
+            "items": {
+              "$ref": "#/$defs/RatsnestLine"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "title": "RatsnestResult",
+        "type": "object"
+      },
+      "title": "Ratsnest"
+    },
+    {
+      "category": "pcb",
+      "description": "Turns Footprints, Free Pads and the Placement Origin counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
+      "icon": "rotate",
+      "id": "pcb.rotate",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "angle": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Counter-clockwise; 90° when left out. Any angle is allowed."
+          },
+          "center": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The point to turn about: by default a lone object's own position, else the middle\nof the selection's extent."
+          },
+          "objects": {
+            "description": "The Footprints, Free Pads and Placement Origin to turn, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "RotateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Rotate"
     },
     {
       "category": "pcb",
@@ -16047,6 +18915,315 @@
         "type": "null"
       },
       "title": "Edit Text"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds a route on a copper Layer: one straight Track per pair of neighbouring `points`. The Net and width default from the copper the route starts on and its Net Class.",
+      "icon": "track",
+      "id": "pcb.track.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "description": "The copper Layer, such as `copper_top`.",
+            "type": "string"
+          },
+          "net": {
+            "default": null,
+            "description": "The Net's UUID. Left out, the route takes the Net of the copper under its first\npoint on this Layer (a Pad, Track or Via), or else of the copper under its last\npoint; on neither, it is on no Net.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "points": {
+            "description": "The route's corners, start to end; each pair of neighbours becomes one Track.",
+            "items": {
+              "$ref": "#/$defs/PointParam"
+            },
+            "type": "array"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The width; left out, the Net Class's track width, else the board's rule."
+          }
+        },
+        "required": [
+          "layer",
+          "points"
+        ],
+        "title": "TrackAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "net": {
+            "description": "The Net they are on; left out for none.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tracks": {
+            "description": "The new Tracks, in route order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tracks"
+        ],
+        "title": "TrackAddResult",
+        "type": "object"
+      },
+      "title": "Add Track"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes Track segments, or with `whole` every segment of their Tracks up to a Pad, Via or branch.",
+      "icon": "delete",
+      "id": "pcb.track.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "tracks": {
+            "description": "The Track segments' UUIDs.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "whole": {
+            "default": false,
+            "description": "Deletes each whole Track instead: every segment joined end to end with it on the\nsame Layer, up to a Pad, a Via or a branch.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tracks"
+        ],
+        "title": "TrackDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "deleted": {
+            "description": "Every deleted Track, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "TrackDeleteResult",
+        "type": "object"
+      },
+      "title": "Delete Track"
+    },
+    {
+      "category": "pcb",
+      "description": "Places a through Via. Its Net defaults to the copper under it, its sizes to its Net Class.",
+      "icon": "via",
+      "id": "pcb.via.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The centre."
+          },
+          "diameter": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The copper diameter; left out, the Net Class's Via diameter, else the board's rule."
+          },
+          "hole": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The hole; left out, the Net Class's Via hole, else the board's rule."
+          },
+          "net": {
+            "default": null,
+            "description": "The Net's UUID. Left out, the Via takes the Net of the copper under its centre on\nany copper Layer, or else no Net.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "ViaAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "net": {
+            "description": "Its Net; left out for none.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The new Via.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "ViaAddResult",
+        "type": "object"
+      },
+      "title": "Add Via"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes Vias.",
+      "icon": "delete",
+      "id": "pcb.via.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "vias": {
+            "description": "The Vias' UUIDs.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "vias"
+        ],
+        "title": "ViaDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Via"
     },
     {
       "category": "library",
