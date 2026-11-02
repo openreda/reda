@@ -27,5 +27,9 @@ pub use journal::{JournalEntry, Source};
 pub use reda_command as command;
 /// The design-data model, re-exported so front ends depend only on the engine.
 pub use reda_model as model;
+/// The PCB domain (text geometry, missing fonts), re-exported for the UI.
+pub use reda_pcb as pcb;
 /// Scenes and the canvas renderer, re-exported so the app draws with the engine's copy.
 pub use reda_render as render;
+/// The schematic domain (connectivity, Pin positions), re-exported for the UI.
+pub use reda_schematic as schematic;
