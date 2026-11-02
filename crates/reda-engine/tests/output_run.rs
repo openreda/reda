@@ -69,12 +69,18 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         .iter()
         .map(|f| f["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, ["Demo.GTL", "Demo.GBL", "Demo.GKO"]);
+    assert_eq!(
+        names,
+        [
+            "Demo.GTL", "Demo.GBL", "Demo.GTS", "Demo.GBS", "Demo.GTP", "Demo.GBP", "Demo.GTO",
+            "Demo.GBO", "Demo.GKO"
+        ]
+    );
     assert_eq!(out["files"][0]["function"], "copper_top");
 
     let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
-    assert_eq!(archive.len(), 3);
+    assert_eq!(archive.len(), 9);
     for name in names {
         let loose = std::fs::read(folder.join(name)).unwrap();
         let mut entry = archive.by_name(name).unwrap();
@@ -106,7 +112,9 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
         json!({"job": JOB, "outputs": {"gerber": false}}),
     );
     run(&mut engine);
-    assert!(!folder.join("Demo.GTL").exists(), "Gerber turned off");
+    for name in ["Demo.GTL", "Demo.GTS", "Demo.GBP", "Demo.GTO"] {
+        assert!(!folder.join(name).exists(), "Gerber turned off: {name}");
+    }
     assert!(folder.join("Demo-Generic.zip").exists());
     assert_eq!(
         std::fs::read(folder.join("notes.txt")).unwrap(),

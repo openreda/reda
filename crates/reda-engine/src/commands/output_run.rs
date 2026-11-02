@@ -40,7 +40,8 @@ pub struct JobRunParams {
 pub struct WrittenFile {
     /// The file name, such as `Demo.GTL`.
     pub name: String,
-    /// What it holds: `copper_top`, `copper_bottom` or `profile`.
+    /// What it holds: `copper_top`, `copper_bottom`, `solder_mask_top`, `solder_mask_bottom`,
+    /// `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom` or `profile`.
     pub function: &'static str,
 }
 
@@ -65,7 +66,8 @@ impl Command for JobRun {
         id: "output.job.run",
         title: "Run Output Job",
         description: "Runs an Output Job: refills stale Zones, plots the Gerber X2 files \
-                      (top and bottom copper, the Board Outline as the Profile) and writes \
+                      (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board \
+                      Outline as the Profile) and writes \
                       them with their zip, `<project>-<job>.zip`, to the job's destination \
                       (default `outputs/<job>/`), replacing the last run's files. Duplicate \
                       Designators, an open Board Outline and, when the job writes a BOM or \
@@ -166,6 +168,7 @@ impl Command for JobRun {
             pcb: &pcb,
             fills: &fills,
             gerber: preset.gerber,
+            fonts: &fonts,
             created,
         });
         let known: Vec<String> = every_gerber.iter().map(|f| f.name.clone()).collect();

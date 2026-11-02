@@ -45,6 +45,7 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
         pcb,
         fills: &fills,
         gerber: preset.gerber,
+        fonts: &reda_command::Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })
 }
@@ -61,11 +62,17 @@ fn names(files: &[OutputFile]) -> Vec<&str> {
 }
 
 #[test]
-fn copper_and_profile_files_are_named_the_protel_way() {
+fn the_files_are_named_the_protel_way() {
     let dir = TempDir::new("gerber-names");
     let engine = board(&dir);
     let files = plot(&engine);
-    assert_eq!(names(&files), ["Demo.GTL", "Demo.GBL", "Demo.GKO"]);
+    assert_eq!(
+        names(&files),
+        [
+            "Demo.GTL", "Demo.GBL", "Demo.GTS", "Demo.GBS", "Demo.GTP", "Demo.GBP", "Demo.GTO",
+            "Demo.GBO", "Demo.GKO"
+        ]
+    );
     let top = read(&file(&files, "Demo.GTL").bytes);
     assert!(top.ended);
     assert_eq!(top.file[".FileFunction"], "Copper,L1,Top");
@@ -415,10 +422,30 @@ fn demo(dir: &TempDir) -> TestEngine {
     let sig = net(&mut engine, "SIG");
     engine.run_ok(
         "test.footprint.add",
-        json!({"at": pt(8.0, 10.0), "rotation": "45deg", "pads": [
+        json!({"at": pt(8.0, 10.0), "rotation": "45deg", "designator": "C1", "pads": [
             {"at": pt(-1.0, 0.0), "width": "1mm", "height": "0.6mm", "net": sig,
-             "shape": "rounded_rect", "corner_radius": "0.1mm"},
-            {"at": pt(1.0, 0.0), "width": "1mm", "height": "0.6mm", "net": gnd}]}),
+             "shape": "rounded_rect", "corner_radius": "0.1mm", "mask_margin": "0.05mm",
+             "paste_margin": "-0.025mm"},
+            {"at": pt(1.0, 0.0), "width": "1mm", "height": "0.6mm", "net": gnd}],
+            "graphics": [
+                {"layer": "silkscreen_top", "width": "0.12mm",
+                 "shape": {"kind": "line", "start": pt(-1.8, 0.6), "end": pt(1.8, 0.6)}},
+                {"layer": "silkscreen_top", "width": "0.12mm",
+                 "shape": {"kind": "arc", "center": pt(-1.8, 0.0), "start": pt(-1.8, 0.6),
+                           "sweep": 180000}}]}),
+    );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer": "silkscreen_top", "text": "REDA", "x": "3mm", "y": "16mm"}),
+    );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer": "silkscreen_bottom", "text": "B", "x": "25mm", "y": "3mm",
+               "font": "Noto Sans"}),
+    );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer": "copper_top", "text": "v1", "x": "22mm", "y": "16mm"}),
     );
     engine.run_ok(
         "test.footprint.add",
@@ -476,6 +503,7 @@ fn without_x2_attributes_the_files_are_plain_x1() {
             x2_attributes: false,
             naming: reda_model::FileNaming::Protel,
         },
+        fonts: &reda_command::Fonts::default(),
         created: Timestamp(0),
     });
     let with = plot(&engine);
