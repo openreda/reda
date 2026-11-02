@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 
 use crate::canvas::canvas;
 use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
+use crate::projects_panel::{self, ProjectsAction};
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::{theme, tr};
@@ -25,6 +26,8 @@ pub struct Frame {
     pub commands: Vec<(&'static str, Value)>,
     /// A Start page button, if one was clicked.
     pub start: Option<StartAction>,
+    /// What the Projects panel asks of the window, if anything.
+    pub projects: Option<ProjectsAction>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -343,15 +346,46 @@ impl Cx<'_> {
                 }
             }
             TabKey::Document(uuid) => {
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
                 let theme = theme::canvas_theme(ui.ctx().theme());
                 if let Some(doc) = self.shell.document_tab_mut(*uuid) {
                     canvas(ui, doc, theme);
                 }
+                self.focus_on_press(ui, rect, tab, start);
+            }
+            TabKey::Panel(PanelId::Projects) => {
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
+                let action = projects_panel::show(ui, self.shell, &mut self.frame.commands);
+                if action.is_some() {
+                    self.frame.projects = action;
+                }
+                self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(_) => {
                 ui.add_space(8.0);
                 ui.vertical_centered(|ui| ui.weak(tr!("panel-empty")));
             }
+        }
+    }
+
+    /// Focuses `tab` when a pointer button goes down on its content, `rect`: focus picks
+    /// the undo stack and what the menus follow. It runs before the commands the content
+    /// pushed from `start` on, so a Document a double-click opens keeps the focus.
+    fn focus_on_press(&mut self, ui: &Ui, rect: Rect, tab: &TabKey, start: usize) {
+        if self.layout.focus.as_ref() == Some(tab) {
+            return;
+        }
+        let pressed_at = ui.input(|i| {
+            i.pointer
+                .any_pressed()
+                .then(|| i.pointer.interact_pos())
+                .flatten()
+        });
+        let pressed_here = pressed_at
+            .is_some_and(|p| rect.contains(p) && ui.ctx().layer_id_at(p) == Some(ui.layer_id()));
+        if pressed_here {
+            let activate = ("layout.tab.activate", json!({"tab": tab.to_string()}));
+            self.frame.commands.insert(start, activate);
         }
     }
 }

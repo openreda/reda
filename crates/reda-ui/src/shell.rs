@@ -156,6 +156,11 @@ impl Shell {
         self.message.as_deref()
     }
 
+    /// Shows `message` in the status bar, as for a failed Command.
+    pub fn report(&mut self, message: String) {
+        self.message = Some(message);
+    }
+
     pub fn dismiss_message(&mut self) {
         self.message = None;
     }

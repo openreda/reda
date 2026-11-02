@@ -15,6 +15,8 @@ pub enum Pick {
     OpenProject,
     /// The folder a new Project is created in.
     NewProjectLocation,
+    /// A folder to add as a Project Library.
+    LibraryFolder,
 }
 
 /// Native file pickers. Each runs on its own thread, so the window keeps drawing; the
@@ -44,11 +46,14 @@ impl FileDialogs {
             Pick::NewProjectLocation => {
                 rfd::AsyncFileDialog::new().set_title(tr!("dialog-location-title"))
             }
+            Pick::LibraryFolder => {
+                rfd::AsyncFileDialog::new().set_title(tr!("dialog-library-folder-title"))
+            }
         };
         std::thread::spawn(move || {
             let picked = match pick {
                 Pick::OpenProject => block_on(dialog.pick_file()),
-                Pick::NewProjectLocation => block_on(dialog.pick_folder()),
+                Pick::NewProjectLocation | Pick::LibraryFolder => block_on(dialog.pick_folder()),
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();

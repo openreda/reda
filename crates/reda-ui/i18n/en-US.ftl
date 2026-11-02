@@ -44,6 +44,45 @@ tab-menu-close = Close
 tab-menu-collapse-dock = Collapse Dock
 tab-menu-not-in-dock = This tab is not in a Dock.
 
+## Projects panel
+
+projects-none = No Project is open.
+projects-dirty = { $name } *
+projects-settings = Project Settings…
+projects-save-all = Save All
+projects-show-in-folder = Show in Folder
+projects-not-yet = Not available yet.
+projects-schematic = Schematic
+projects-add-sheet = Add Sheet
+projects-open = Open
+projects-rename = Rename
+projects-rename-field = New name for { $name }
+projects-move-up = Move Up
+projects-move-down = Move Down
+projects-cannot-move = It cannot move further.
+projects-delete = Delete
+projects-delete-sheet = Delete Sheet
+projects-confirm-delete = Delete { $name }? It holds { $count } { $count ->
+    [one] Component, which is
+   *[other] Components, which are
+} deleted with it.
+projects-pcb = PCB
+projects-no-pcb = No PCB Document.
+projects-add-pcb = Add PCB Document
+projects-pcb-exists = The Project already has a PCB Document.
+projects-board-setup = Board Setup…
+projects-output-jobs = Output Jobs
+projects-no-jobs = No Output Jobs.
+projects-new-job = New Job
+projects-no-fab-preset = The Project has no Fab Preset for a job to use.
+projects-run-job = Run
+projects-edit-job = Edit…
+projects-duplicate = Duplicate
+projects-libraries = Libraries
+projects-no-libraries = No Library folders.
+projects-add-folder = Add Folder…
+projects-remove = Remove
+
 ## Menus
 
 menu-file = File
@@ -64,6 +103,7 @@ dialog-cancel = Cancel
 dialog-open-project-title = Open Project
 dialog-project-filter = REDA Project
 dialog-location-title = Choose Where to Create the Project
+dialog-library-folder-title = Choose a Library Folder
 new-project-title = New Project
 new-project-default-name = Untitled
 new-project-name = Name
@@ -86,4 +126,5 @@ canvas-description = Schematic canvas: { $document }
 ## Errors
 
 error-command = { $error }
-error-state-file = Could not update the recent Projects list: { $error }
+error-show-in-folder = Could not open the file manager: { $error }
+error-state-file =Could not update the recent Projects list: { $error }

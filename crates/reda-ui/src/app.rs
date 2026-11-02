@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use egui::{Panel, ThemePreference, Ui};
+use egui::{Key, Modifiers, Panel, ThemePreference, Ui};
 use reda_engine::Engine;
 use reda_engine::preferences;
 use serde_json::json;
@@ -15,6 +15,8 @@ use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
 use crate::layout::PanelId;
 use crate::new_project::{FormAction, NewProjectForm};
+use crate::os;
+use crate::projects_panel::{self, ProjectsAction};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
 use crate::{theme, tr};
@@ -68,6 +70,7 @@ impl App {
         }
         self.collect_picked_files();
         self.update_title(&ctx);
+        self.undo_keys(&ctx);
 
         Panel::top("menu-bar").show(ui, |ui| self.menu_bar(ui));
         Panel::bottom("status-bar").show(ui, |ui| self.status_bar(ui));
@@ -77,6 +80,19 @@ impl App {
         }
         if let Some(action) = frame.start {
             self.start_action(&ctx, action);
+        }
+        match frame.projects {
+            Some(ProjectsAction::AddLibraryFolder) => {
+                self.files.start(&ctx, Pick::LibraryFolder);
+            }
+            Some(ProjectsAction::ShowInFolder(folder)) => {
+                if let Err(e) = os::show_in_folder(&folder) {
+                    self.shell
+                        .report(tr!("error-show-in-folder", error = e.to_string()));
+                }
+            }
+            // The Output Job dialog is still to come.
+            Some(ProjectsAction::EditJob(_)) | None => {}
         }
         self.drop_closed_canvases();
 
@@ -97,6 +113,23 @@ impl App {
         }
     }
 
+    /// Mod+Z undoes and Mod+Shift+Z (or Mod+Y) redoes, on the stack focus picks, unless a
+    /// text field has the keyboard.
+    fn undo_keys(&mut self, ctx: &egui::Context) {
+        if ctx.egui_wants_keyboard_input() || self.new_project.is_some() {
+            return;
+        }
+        let (redo, undo) = ctx.input_mut(|i| {
+            let redo = i.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
+                || i.consume_key(Modifiers::COMMAND, Key::Y);
+            (redo, i.consume_key(Modifiers::COMMAND, Key::Z))
+        });
+        if undo || redo {
+            let dialog = projects_panel::dialog_open(ctx);
+            let _ = self.shell.undo(redo, dialog);
+        }
+    }
+
     fn open_new_project(&mut self) {
         let (presets, default) = self.shell.fab_preset_choices();
         self.new_project = Some(NewProjectForm::new(presets, default));
@@ -111,6 +144,15 @@ impl App {
             Some((Pick::NewProjectLocation, path)) => {
                 if let Some(form) = &mut self.new_project {
                     form.location = path.display().to_string();
+                }
+            }
+            Some((Pick::LibraryFolder, path)) => {
+                if let Some(folder) = self.shell.engine().location() {
+                    let relative = os::relative_path(folder, &path);
+                    let path = relative.to_string_lossy().replace('\\', "/");
+                    let _ = self
+                        .shell
+                        .run_reporting("project.library.add", json!({ "path": path }));
                 }
             }
             None => {}

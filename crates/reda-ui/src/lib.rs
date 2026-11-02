@@ -13,6 +13,8 @@ mod docking;
 pub mod i18n;
 pub mod layout;
 mod new_project;
+mod os;
+mod projects_panel;
 pub mod shell;
 mod start_page;
 pub mod theme;

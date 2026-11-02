@@ -79,7 +79,8 @@ fn the_start_page_greys_missing_projects_removes_and_opens_them() {
     // The Start page closed; the first sheet shows in a tab, drawn by the canvas.
     assert!(h.query_by_label("Start").is_none());
     assert!(h.query_by_label("Welcome to REDA").is_none());
-    h.get_by_label("Sheet 1");
+    // Its tab, and its item in the Projects panel.
+    assert_eq!(h.query_all_by_label("Sheet 1").count(), 2);
     h.get_by_role_and_label(Role::Canvas, "Schematic canvas: Sheet 1");
     assert_eq!(
         h.state().shell().engine().project().unwrap().props().name,
