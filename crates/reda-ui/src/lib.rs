@@ -15,6 +15,8 @@ pub mod command_dialog;
 pub mod crash;
 mod dialogs;
 mod docking;
+pub mod element_editor;
+pub mod footprint_editor;
 pub mod grid;
 pub mod help;
 pub mod i18n;

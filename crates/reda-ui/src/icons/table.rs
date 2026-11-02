@@ -24,6 +24,7 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
         "board_outline_rect",
         egui::include_image!("../../icons/board_outline_rect.svg"),
     ),
+    ("circle", egui::include_image!("../../icons/circle.svg")),
     (
         "clearance",
         egui::include_image!("../../icons/clearance.svg"),

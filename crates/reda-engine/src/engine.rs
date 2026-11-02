@@ -7,7 +7,7 @@ use reda_command::{
     Clock, CommandError, Env, Fonts, History, IdSource, PartCopy, PartSource, RandomIds, Registry,
     SeededIds, Session, Signals, SystemClock, Trash, UserDirs, ViewState,
 };
-use reda_model::{Project, Scope};
+use reda_model::{ElementSource, LibraryElement, Project, Scope, Uuid};
 use serde_json::Value;
 
 use crate::journal::{JournalEntry, Source};
@@ -166,6 +166,35 @@ impl Engine {
         self.session.project.as_ref()
     }
 
+    /// Whether the Command or Preset `id` can run now, and if not, why: what menus grey
+    /// out. Sees the open Project and, with none, the open Library elements. A window
+    /// asks with `headless` false whatever the engine was built with.
+    pub fn available(&self, id: &str, headless: bool) -> Result<(), CommandError> {
+        self.registry.available_with(
+            id,
+            self.session.project.as_ref(),
+            self.session.workbench.as_ref(),
+            headless,
+        )
+    }
+
+    /// An open Library element, in the open Project or, with none open, on its own.
+    pub fn element(&self, uuid: Uuid) -> Option<&LibraryElement> {
+        self.session.elements()?.element(uuid)
+    }
+
+    /// Where an open Library element came from.
+    pub fn element_source(&self, uuid: Uuid) -> Option<ElementSource> {
+        self.session.elements()?.element_source(uuid)
+    }
+
+    /// The Project holding the open Library elements: the open Project, else the blank
+    /// one elements open in while no Project is open. Read elements from it; its other
+    /// contents are empty.
+    pub fn elements(&self) -> Option<&Project> {
+        self.session.elements()
+    }
+
     /// The open Project's folder.
     pub fn location(&self) -> Option<&Path> {
         self.session.location.as_deref()
@@ -184,8 +213,8 @@ impl Engine {
         let exists = |scope: &Scope| match (scope, &self.session.project) {
             (Scope::Project, _) => true,
             (Scope::Document(uuid), Some(project)) => project.document(*uuid).is_some(),
-            (Scope::Element(uuid), Some(project)) => project.element(*uuid).is_some(),
-            (Scope::Document(_) | Scope::Element(_), None) => false,
+            (Scope::Element(uuid), _) => self.element(*uuid).is_some(),
+            (Scope::Document(_), None) => false,
         };
         let mut dirty = self.session.history.dirty_scopes();
         dirty.retain(exists);

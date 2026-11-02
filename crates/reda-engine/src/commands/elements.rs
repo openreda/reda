@@ -6,13 +6,13 @@
 use std::path::PathBuf;
 
 use reda_command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry, Session,
-    Unavailable,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_ELEMENTS, Registry,
+    Session, Unavailable,
 };
 use reda_library::{ElementKind, LibraryIndex, Origin, check_element_name};
 use reda_model::{
     ComponentType, ElementSource, Fields, Footprint, FootprintText, LibraryElement, Part, PinMap,
-    Project, Scope, Symbol, Unit, Uuid,
+    Project, ProjectProps, Scope, Symbol, Unit, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -51,20 +51,30 @@ fn summary(source: ElementSource, element: &LibraryElement) -> ElementSummary {
     }
 }
 
-fn need_project(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-    match cx.project {
-        Some(_) => Ok(()),
-        None => Err(Unavailable {
-            reason: NO_PROJECT.into(),
-        }),
+/// Where to open an element: the open Project, else the workbench, started blank when
+/// no element is open yet.
+fn holder(session: &mut Session) -> &mut Project {
+    if session.project.is_none() && session.workbench.is_none() {
+        session.workbench = Some(Project::new(ProjectProps {
+            uuid: Uuid::NIL,
+            name: String::new(),
+            documents: vec![],
+            libraries: vec![],
+            properties: Default::default(),
+            erc: Default::default(),
+        }));
     }
+    session.elements_mut().expect("a Project or the workbench")
 }
 
-fn project_mut(session: &mut Session) -> Result<&mut Project, CommandError> {
+fn need_elements(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+    cx.elements()
+}
+
+fn elements_mut(session: &mut Session) -> Result<&mut Project, CommandError> {
     session
-        .project
-        .as_mut()
-        .ok_or_else(|| CommandError::unavailable(NO_PROJECT))
+        .elements_mut()
+        .ok_or_else(|| CommandError::unavailable(NO_ELEMENTS))
 }
 
 pub struct ElementNew;
@@ -93,10 +103,6 @@ impl Command for ElementNew {
     };
     type Params = ElementNewParams;
     type Output = ElementSummary;
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        need_project(cx)
-    }
 
     fn run(
         &self,
@@ -132,7 +138,7 @@ impl Command for ElementNew {
             read_only: false,
         };
         let out = summary(source, &element);
-        project_mut(session)?
+        holder(session)
             .open_element(source, element)
             .map_err(CommandError::conflict)?;
         session.history.forget(Scope::Element(uuid));
@@ -196,7 +202,8 @@ impl Command for ElementOpen {
         description: "Opens a Symbol, Footprint or Part of a registered Library for editing \
                       on its own undo stack, keyed by its UUID. Starter Library elements \
                       open read-only. Opening an element that is already open returns it \
-                      unchanged.",
+                      unchanged. No Project needs to be open; elements open then stay open \
+                      when a Project opens.",
         category: "library",
         icon: "library_element_open",
         kind: Kind::File,
@@ -204,17 +211,14 @@ impl Command for ElementOpen {
     type Params = ElementParams;
     type Output = ElementSummary;
 
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        need_project(cx)
-    }
-
     fn run(&self, cx: &mut Context<'_>, p: ElementParams) -> Result<ElementSummary, CommandError> {
         let session = cx.session()?;
-        let project = project_mut(session)?;
-        if let (Some(source), Some(element)) = (
-            project.element_source(p.element),
-            project.element(p.element),
-        ) {
+        if let Some(project) = session.elements()
+            && let (Some(source), Some(element)) = (
+                project.element_source(p.element),
+                project.element(p.element),
+            )
+        {
             return Ok(summary(source, element));
         }
         let index = scan_registered(session);
@@ -231,7 +235,7 @@ impl Command for ElementOpen {
             read_only: library.origin == Origin::Starter,
         };
         let out = summary(source, &element);
-        project_mut(session)?
+        holder(session)
             .open_element(source, element)
             .map_err(CommandError::conflict)?;
         session.history.forget(Scope::Element(p.element));
@@ -271,7 +275,7 @@ impl Command for ElementSave {
     type Output = ElementSaveResult;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        need_project(cx)
+        need_elements(cx)
     }
 
     fn run(
@@ -281,9 +285,8 @@ impl Command for ElementSave {
     ) -> Result<ElementSaveResult, CommandError> {
         let session = cx.session()?;
         let project = session
-            .project
-            .as_ref()
-            .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
+            .elements()
+            .ok_or_else(|| CommandError::unavailable(NO_ELEMENTS))?;
         let wanted: Vec<(ElementSource, LibraryElement)> = match p.element {
             Some(uuid) => {
                 let (Some(source), Some(element)) =
@@ -382,12 +385,12 @@ impl Command for ElementClose {
     type Output = ElementSummary;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        need_project(cx)
+        need_elements(cx)
     }
 
     fn run(&self, cx: &mut Context<'_>, p: ElementParams) -> Result<ElementSummary, CommandError> {
         let session = cx.session()?;
-        let project = project_mut(session)?;
+        let project = elements_mut(session)?;
         let source = project.element_source(p.element).ok_or_else(|| {
             CommandError::not_found(format!("no open Library element has UUID {}", p.element))
         })?;
@@ -395,6 +398,14 @@ impl Command for ElementClose {
             .close_element(p.element)
             .expect("the element is open");
         session.history.forget(Scope::Element(p.element));
+        // The workbench goes with its last element.
+        if session
+            .workbench
+            .as_ref()
+            .is_some_and(|w| w.elements().next().is_none())
+        {
+            session.workbench = None;
+        }
         Ok(summary(source, &element))
     }
 }

@@ -73,8 +73,12 @@ fn search_covers_every_command_and_preset_by_title_id_or_key() {
 
     assert!(ids(page.matching(&shell, "save all")).contains(&"project.save".to_owned()));
     assert!(ids(page.matching(&shell, "PROJECT.SAVE")).contains(&"project.save".to_owned()));
-    // By key: Mod+S as the portable form.
-    assert_eq!(ids(page.matching(&shell, "mod+s")), ["project.save"]);
+    // By key: Mod+S as the portable form, saving the Project or, in the footprint editor,
+    // the open element.
+    assert_eq!(
+        ids(page.matching(&shell, "mod+s")),
+        ["project.save", "library.element.save"]
+    );
 }
 
 #[test]

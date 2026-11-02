@@ -12,6 +12,7 @@ board_cutout tabler:square-dashed
 board_outline tabler:border-outer
 board_outline_from_lines tabler:vector
 board_outline_rect lucide:rectangle-horizontal
+circle lucide:circle
 clearance tabler:ruler-measure
 cli_install lucide:square-terminal
 close lucide:x

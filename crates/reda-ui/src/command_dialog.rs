@@ -81,9 +81,7 @@ impl Dialogs {
     /// cannot run now, to report why), else returns the dialog that asks for the rest.
     pub fn call(&self, shell: &mut Shell, id: &str, params: Value) -> Call {
         let registry = shell.engine().registry();
-        let available = registry
-            .available(id, shell.engine().project(), false)
-            .is_ok();
+        let available = shell.engine().available(id, false).is_ok();
         if !available || !lacks_required(registry, id, &params) {
             return Call::Ran(shell.run_reporting(id, params));
         }

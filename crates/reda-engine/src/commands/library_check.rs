@@ -120,7 +120,7 @@ impl Command for LibraryCheck {
         let index = scan_registered(session);
         let overlay = Overlay {
             index: &index,
-            project: session.project.as_ref(),
+            project: session.elements(),
         };
         let elements = match (p.element, p.library) {
             (Some(_), Some(_)) => {

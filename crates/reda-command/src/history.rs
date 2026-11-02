@@ -131,8 +131,10 @@ impl History {
     }
 
     /// Forgets every stack and saved marker, keeping the depth: for a newly opened Project.
+    /// Open Library elements' stacks stay, since the elements stay open.
     pub fn clear(&mut self) {
-        self.stacks.clear();
+        self.stacks
+            .retain(|scope, _| matches!(scope, Scope::Element(_)));
     }
 
     /// Forgets one scope's stack and saved marker: for a Library element opened or closed.
@@ -163,10 +165,13 @@ impl History {
         stack.saved = Some(stack.state());
     }
 
-    /// Marks every scope's current state as written to disk.
+    /// Marks the Project file's and every Document's current state as written to disk.
+    /// Open Library elements save to their own Libraries, so they are left as they are.
     pub fn mark_all_saved(&mut self) {
-        for stack in self.stacks.values_mut() {
-            stack.saved = Some(stack.state());
+        for (scope, stack) in &mut self.stacks {
+            if !matches!(scope, Scope::Element(_)) {
+                stack.saved = Some(stack.state());
+            }
         }
     }
 

@@ -21,7 +21,8 @@ mod user;
 mod view;
 
 pub use command::{
-    AvailabilityContext, Command, Kind, Meta, NO_PROJECT, NoParams, Preset, Unavailable,
+    AvailabilityContext, Command, Kind, Meta, NO_ELEMENTS, NO_PROJECT, NoParams, Preset,
+    Unavailable,
 };
 pub use context::{Context, Env, Session};
 pub use error::{CommandError, ErrorCode};

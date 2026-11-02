@@ -3,7 +3,9 @@
 
 use std::collections::BTreeSet;
 
-use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
+use reda_command::{
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
+};
 use reda_model::{ComponentType, Field, PinMap, PinPads, Uuid};
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -49,6 +51,10 @@ impl Command for PartEdit {
     type Params = PartEditParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: PartEditParams) -> Result<(), CommandError> {
         if let Some(name) = &p.name {
             check_element_name(name).map_err(invalid("/name"))?;
@@ -86,6 +92,10 @@ impl Command for PartSymbolSet {
     type Params = PartSymbolSetParams;
     type Output = ();
 
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: PartSymbolSetParams) -> Result<(), CommandError> {
         edit_part(cx, p.part, |part| {
             part.symbol = p.symbol;
@@ -114,6 +124,10 @@ impl Command for PartFootprintsSet {
     );
     type Params = PartFootprintsSetParams;
     type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: PartFootprintsSetParams) -> Result<(), CommandError> {
         let mut seen = BTreeSet::new();
@@ -155,6 +169,10 @@ impl Command for PartPinMapSet {
     );
     type Params = PartPinMapSetParams;
     type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: PartPinMapSetParams) -> Result<(), CommandError> {
         let map = pin_map(p.pins, p.unconnected)?;
@@ -249,6 +267,10 @@ impl Command for PartFieldsSet {
     );
     type Params = PartFieldsSetParams;
     type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: PartFieldsSetParams) -> Result<(), CommandError> {
         if let Some(custom) = &p.custom {

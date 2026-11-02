@@ -629,6 +629,55 @@ tool-drag-track = Drag Track
 route-blocked = Too close to other copper: { $actual } where { $required } is needed
 route-keepout = That would put copper in a Keepout
 
+# Library element editors (shared) and the Library check.
+element-read-only-title = { $name } (read-only)
+library-check-line = { $element }: { $text }
+library-check-clean = Library check: no problems in { $element }
+violation-off-grid-pin = Pin { $pin } is off the { $grid } grid
+violation-duplicate-pin-number = Pin number { $number } is used more than once
+violation-pin-without-pad = Pin { $pin } has no Pad in { $footprint }
+violation-unmapped-pad = Pad { $pad } of { $footprint } is mapped to no Pin
+violation-missing-courtyard = The Footprint has no courtyard
+violation-broken-reference = Broken { $kind } reference { $reference }
+
+# The Footprint editor.
+footprint-read-only = Read-only: this Footprint is in the starter Library.
+footprint-save = Save
+footprint-check = Library Check
+footprint-pad-tool = Pad Tool
+footprint-drawing = Drawing
+footprint-layer = Layer
+footprint-pad-kind = Kind
+footprint-pad-shape = Shape
+footprint-pad-number = Number
+footprint-pad-width = Width
+footprint-pad-height = Height
+footprint-hole-width = Hole width
+footprint-hole-height = Hole height
+footprint-mask-margin = Mask margin
+footprint-paste-margin = Paste margin
+footprint-rotation = Rotation
+footprint-stroke-width = Stroke width
+footprint-text-size = Size
+footprint-text-visible = Visible
+footprint-selected-pad = Pad
+footprint-selected-graphic = Graphic
+footprint-designator-text = Designator text
+footprint-value-text = Value text
+footprint-pad-smd = SMD
+footprint-pad-pth = Plated through-hole
+footprint-pad-npth = Non-plated hole
+footprint-shape-circle = Circle
+footprint-shape-rect = Rectangle
+footprint-shape-rounded-rect = Rounded rectangle
+footprint-shape-oval = Oval
+footprint-layer-silkscreen-top = Silkscreen top
+footprint-layer-silkscreen-bottom = Silkscreen bottom
+footprint-layer-courtyard-top = Courtyard top
+footprint-layer-courtyard-bottom = Courtyard bottom
+footprint-layer-assembly-top = Assembly top
+footprint-layer-assembly-bottom = Assembly bottom
+
 ## Board Setup
 
 board-setup-title = Board Setup

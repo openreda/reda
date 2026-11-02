@@ -4,12 +4,44 @@
       "id": "library",
       "title": "menu-library",
       "items": [
-        { "id": "library.save", "command": "library.element.save" },
-        { "id": "library.check", "command": "library.check" }
+        { "id": "library.save", "command": "library.element.save", "params": { "element": "$active_document" } },
+        { "id": "library.save_all", "command": "library.element.save" },
+        { "id": "library.check", "command": "library.check", "params": { "element": "$active_document" } },
+        "separator",
+        { "id": "library.close", "command": "library.element.close", "params": { "element": "$active_document" } }
+      ]
+    },
+    {
+      "id": "place",
+      "title": "menu-place",
+      "items": [
+        { "id": "place.pad", "command": "tool.activate:pad" },
+        { "id": "place.line", "command": "tool.activate:line" },
+        { "id": "place.rect", "command": "tool.activate:rect" },
+        { "id": "place.circle", "command": "tool.activate:circle" },
+        "separator",
+        { "id": "place.origin", "command": "tool.activate:origin" }
+      ]
+    },
+    {
+      "id": "view",
+      "title": "menu-view",
+      "items": [
+        { "id": "view.grid_cycle", "command": "view.grid.cycle", "params": { "document": "$active_document" } }
       ]
     }
   ],
   "active_bar": [
+    { "id": "active_bar.undo", "command": "edit.undo", "params": { "document": "$active_document" } },
+    { "id": "active_bar.redo", "command": "edit.redo", "params": { "document": "$active_document" } },
+    "separator",
+    { "id": "active_bar.select", "command": "tool.activate:select" },
+    { "id": "active_bar.pad", "command": "tool.activate:pad" },
+    { "id": "active_bar.line", "command": "tool.activate:line" },
+    { "id": "active_bar.rect", "command": "tool.activate:rect" },
+    { "id": "active_bar.circle", "command": "tool.activate:circle" },
+    { "id": "active_bar.origin", "command": "tool.activate:origin" },
+    "separator",
     { "id": "active_bar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
   ]
 }

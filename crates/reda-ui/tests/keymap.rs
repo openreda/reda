@@ -23,6 +23,37 @@ fn engine_in(home: &Path) -> Engine {
         .build()
 }
 
+/// Registers a user Library under `folder` and opens a new Footprint in it.
+fn new_footprint(shell: &mut Shell, folder: &Path) {
+    let lib = folder.join("lib");
+    // A fresh Library each time: an earlier binding may have saved the Footprint.
+    let _ = std::fs::remove_dir_all(&lib);
+    std::fs::create_dir_all(&lib).unwrap();
+    let uuid = "000000aa-0000-4000-8000-000000000000";
+    let info = reda_ui::engine::model::LibraryInfo {
+        uuid: uuid.parse().unwrap(),
+        name: "Mine".into(),
+        description: String::new(),
+    };
+    std::fs::write(
+        lib.join("Mine.redalib"),
+        reda_ui::engine::format::library::write_library_info(&info).unwrap(),
+    )
+    .unwrap();
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "libraries.paths", "value": [lib]}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "library.element.new",
+            json!({"library": uuid, "kind": "footprint", "name": "Bound"}),
+        )
+        .unwrap();
+}
+
 fn make_project(folder: &Path, name: &str) -> PathBuf {
     let mut engine = Engine::builder()
         .user_dirs(None)
@@ -120,6 +151,10 @@ fn every_default_binding_names_a_command_or_preset_and_fits_its_params() {
     for b in keymap.bindings() {
         let mut shell = Shell::new(engine_in(home.path()));
         shell.open_project(&file).unwrap();
+        if b.context.to_string() == "footprint" {
+            // Footprint keys act on the active footprint tab: open a new one.
+            new_footprint(&mut shell, work.path());
+        }
         let item = bars::resolve(&shell, &b.action);
         assert!(!item.title.is_empty());
         let Ok((id, params)) = item.run else {

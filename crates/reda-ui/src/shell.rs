@@ -283,7 +283,7 @@ impl Shell {
         self.engine
             .view()
             .get::<Grids>()
-            .map(|g| g.of(self.engine.project(), document))
+            .map(|g| g.of(self.engine.elements(), document))
             .unwrap_or(grid::SCHEMATIC_DEFAULT)
     }
 
@@ -758,6 +758,9 @@ impl Shell {
         let out = out?;
         self.after_edit(base, &out);
         self.after_run(id);
+        if matches!(base, "library.element.open" | "library.element.new") {
+            crate::element_editor::after_open(self, &out);
+        }
         Ok(out)
     }
 
@@ -796,7 +799,18 @@ impl Shell {
     /// Project stack, and so do the Project dialogs, which the window says by
     /// `project_dialog`.
     pub fn undo_scope(&self, project_dialog: bool) -> Option<Scope> {
-        self.engine.project()?;
+        if self.engine.project().is_none() {
+            // With no Project open, only open Library elements have stacks.
+            return match &self.layout().focus {
+                Some(TabKey::Document(uuid)) if self.engine.element(*uuid).is_some() => {
+                    Some(Scope::Document(*uuid))
+                }
+                _ => self
+                    .active_document()
+                    .filter(|t| self.engine.element(t.document).is_some())
+                    .map(|t| Scope::Document(t.document)),
+            };
+        }
         if project_dialog {
             return Some(Scope::Project);
         }
@@ -994,9 +1008,14 @@ impl Shell {
     }
 
     /// Replaces the Messages panel lines `source` reports, such as an Output Job run's
-    /// blockers and warnings.
+    /// blockers and warnings or a Library check's Violations.
     pub fn set_notes(&mut self, source: &str, notes: Vec<Note>) {
         self.messages.set_notes(source, notes);
+    }
+
+    /// Shows `note` in the status bar: news, not an error.
+    pub(crate) fn set_note(&mut self, note: String) {
+        self.note = Some(note);
     }
 
     /// Journals a run detached from the engine (see [`JobRunner`](crate::job_run::JobRunner))
@@ -1250,6 +1269,18 @@ impl Shell {
         }
         self.closed_views = views;
         *self.layout_mut() = layout;
+        // Library elements opened before the Project stay open in their tabs.
+        for element in crate::element_editor::open_elements(&self.engine) {
+            if self.layout().place(&TabKey::Document(element)).is_none() {
+                self.layout_mut().open_document(element);
+            }
+            if self.document_tab(element).is_none() {
+                let title = crate::element_editor::title(&self.engine, element);
+                let scene = self.scene_of(element);
+                let tab = DocumentTab::new(element, title.unwrap_or_default(), scene);
+                self.documents.push(tab);
+            }
+        }
         self.engine.view_mut().set(Selection::default());
         self.sync_selection();
         self.messages.clear_runs();
@@ -1280,19 +1311,28 @@ impl Shell {
     /// Rebuilds every tab's Scene and closes tabs whose Document is gone. With no
     /// Project open, the centre shows the Start page again.
     fn refresh(&mut self) {
-        let Some(project) = self.engine.project() else {
+        let elements: Vec<(Uuid, String)> = crate::element_editor::open_elements(&self.engine)
+            .into_iter()
+            .filter_map(|e| Some((e, crate::element_editor::title(&self.engine, e)?)))
+            .collect();
+        let project = self.engine.project();
+        if project.is_none() && elements.is_empty() {
             self.documents.clear();
             *self.layout_mut() = Layout::default();
             self.messages.clear_runs();
             self.messages.set_notes(FONTS, Vec::new());
             return;
-        };
-        let open: Vec<(Uuid, String)> = project
-            .documents()
+        }
+        let no_project = project.is_none();
+        let mut open: Vec<(Uuid, String)> = project
+            .iter()
+            .flat_map(|p| p.documents())
             .map(|d| (d.uuid, d.title.clone()))
             .collect();
+        open.extend(elements);
         self.layout_mut().retain_tabs(|t| match t {
-            TabKey::Start => false,
+            // The Start page stays beside Library element tabs while no Project is open.
+            TabKey::Start => no_project,
             TabKey::Document(uuid) => open.iter().any(|(u, _)| u == uuid),
             TabKey::Panel(_) => true,
         });
@@ -1330,6 +1370,7 @@ impl Shell {
                 .project()
                 .and_then(|p| p.document(document))
                 .map(|d| d.title.clone())
+                .or_else(|| crate::element_editor::title(&self.engine, document))
                 .unwrap_or_default();
             let scene = self.scene_of(document);
             let mut tab = DocumentTab::new(document, title, scene);
@@ -1355,6 +1396,9 @@ impl Shell {
                 let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
                 for document in documents {
                     crate::schematic_editor::cancel(self, document);
+                    if self.engine.element(document).is_some() {
+                        crate::footprint_editor::cancel(self, document);
+                    }
                 }
                 self.pcb_cancel();
                 self.with_router(|r, shell| r.cancel(shell));
@@ -1404,7 +1448,7 @@ impl Shell {
             }
             _ => {}
         }
-        let Some(project) = self.engine.project() else {
+        let Some(project) = self.engine.elements() else {
             return;
         };
         let gone: Vec<Uuid> = self
@@ -1412,7 +1456,9 @@ impl Shell {
             .objects
             .iter()
             .copied()
-            .filter(|o| project.object(*o).is_none())
+            .filter(|o| {
+                project.object(*o).is_none() && !crate::element_editor::has_part(&self.engine, *o)
+            })
             .collect();
         if !gone.is_empty()
             && let Some(selection) = self.engine.view_mut().get_mut::<Selection>()
@@ -1473,7 +1519,7 @@ impl Shell {
             .get::<Grids>()
             .cloned()
             .unwrap_or_default();
-        let project = self.engine.project();
+        let project = self.engine.elements();
         for tab in &mut self.documents {
             if tab.selection.generation != self.marked.generation {
                 tab.selection = self.marked.clone();
@@ -1519,6 +1565,13 @@ impl Shell {
 
     fn scene_of(&mut self, document: Uuid) -> SceneHandle {
         self.generation += 1;
+        if let Some((scene, layers)) = crate::element_editor::scene(&self.engine, document) {
+            return SceneHandle {
+                generation: self.generation,
+                scene: Arc::new(scene),
+                layers,
+            };
+        }
         let handle = match self.engine.project() {
             Some(project) => self.build_scene(project, document),
             None => SceneHandle {

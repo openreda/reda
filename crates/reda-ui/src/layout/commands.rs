@@ -51,7 +51,7 @@ impl Command for OpenDocument {
     const META: Meta = Meta {
         id: "document.open",
         title: "Open Document",
-        description: "Opens a Document in a tab beside the active Document, or shows its tab if it is open, and focuses it.",
+        description: "Opens a Document, or an open Library element, in a tab beside the active Document, or shows its tab if it is open, and focuses it.",
         category: "layout",
         icon: "document_open",
         kind: Kind::View,
@@ -60,7 +60,8 @@ impl Command for OpenDocument {
     type Output = TabPlaced;
 
     fn run(&self, cx: &mut Context<'_>, p: OpenDocumentParams) -> Result<TabPlaced, CommandError> {
-        if cx.project()?.document(p.document).is_none() {
+        let project = cx.project()?;
+        if project.document(p.document).is_none() && project.element(p.document).is_none() {
             return Err(CommandError::not_found(format!(
                 "no Document {}",
                 p.document

@@ -158,13 +158,19 @@ pub fn for_document(document: Option<DocumentType>) -> &'static Bars {
 
 /// The type of the active Document, the one last interacted with in any window.
 pub fn active_type(shell: &Shell) -> Option<DocumentType> {
-    let document = shell.active_document()?.document;
+    document_type(shell, shell.active_document()?.document)
+}
+
+/// The type of the Document, or open Library element, in the tab `document`.
+pub fn document_type(shell: &Shell, document: Uuid) -> Option<DocumentType> {
     let entry = shell
         .engine()
-        .project()?
-        .documents()
-        .find(|d| d.uuid == document)?;
-    Some(entry.kind.into())
+        .project()
+        .and_then(|p| p.documents().find(|d| d.uuid == document));
+    match entry {
+        Some(entry) => Some(entry.kind.into()),
+        None => crate::element_editor::document_type(shell.engine(), document),
+    }
 }
 
 /// An item as the window shows it.
@@ -298,7 +304,7 @@ pub fn resolve_in(
         Err(reason) => Err(reason),
         Ok(()) => {
             // The window is never headless.
-            match registry.available(&run_id, shell.engine().project(), false) {
+            match shell.engine().available(&run_id, false) {
                 Ok(()) => Ok((run_id, params.clone())),
                 Err(e) => Err(e.message),
             }
@@ -319,6 +325,9 @@ pub fn resolve_in(
 
 /// The selected objects on `document`, in selection order.
 fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
+    if crate::element_editor::is_element(shell.engine(), document) {
+        return crate::element_editor::selected_on(shell, document);
+    }
     let Some(project) = shell.engine().project() else {
         return Vec::new();
     };
@@ -337,6 +346,9 @@ fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
 
 /// Everything selectable on `document`, sorted.
 fn selectable_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
+    if crate::element_editor::is_element(shell.engine(), document) {
+        return crate::element_editor::parts(shell.engine(), document);
+    }
     let Some(project) = shell.engine().project() else {
         return Vec::new();
     };

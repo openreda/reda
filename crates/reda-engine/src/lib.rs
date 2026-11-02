@@ -11,6 +11,7 @@ pub mod commands;
 mod detached;
 mod engine;
 pub mod fab_presets;
+pub mod footprint_scene;
 pub mod format;
 pub mod fs;
 pub mod journal;
@@ -25,6 +26,7 @@ pub mod user_dirs;
 
 pub use detached::{Detached, Finished};
 pub use engine::{Engine, EngineBuilder, document_scene, registry};
+pub use footprint_scene::{FootprintScene, footprint_scene};
 pub use journal::{JournalEntry, Source};
 
 /// The Command system, re-exported so front ends depend only on the engine.

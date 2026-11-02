@@ -1,6 +1,8 @@
 //! `edit.undo` and `edit.redo`: one step back or forward on one undo stack.
 
-use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
+use reda_command::{
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
+};
 use reda_model::Scope;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -50,6 +52,11 @@ impl Command for EditUndo {
     type Params = StackParams;
     type Output = StepResult;
 
+    /// An open Library element has a stack with no Project open.
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
     fn run(&self, cx: &mut Context<'_>, p: StackParams) -> Result<StepResult, CommandError> {
         let scope = stack(cx, p.document)?;
         let label = cx.undo(scope)?;
@@ -72,6 +79,11 @@ impl Command for EditRedo {
     };
     type Params = StackParams;
     type Output = StepResult;
+
+    /// An open Library element has a stack with no Project open.
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: StackParams) -> Result<StepResult, CommandError> {
         let scope = stack(cx, p.document)?;

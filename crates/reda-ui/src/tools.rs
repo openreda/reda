@@ -47,6 +47,16 @@ pub enum Tool {
     PowerPort,
     /// Marks Pins as deliberately left open, one per click (Q).
     NoConnect,
+    /// Footprint editor: each click places a Pad from the Pad Tool's settings (P).
+    Pad,
+    /// Footprint editor: a drag draws a line on the drawing Layer.
+    Line,
+    /// Footprint editor: a drag draws a rectangle between its corners.
+    Rect,
+    /// Footprint editor: a drag draws a circle from its centre.
+    Circle,
+    /// Footprint editor: a click moves the Footprint's origin there, then Select is back.
+    Origin,
 }
 
 impl Tool {
@@ -64,6 +74,11 @@ impl Tool {
             Tool::Port => "port",
             Tool::PowerPort => "power_port",
             Tool::NoConnect => "no_connect",
+            Tool::Pad => "pad",
+            Tool::Line => "line",
+            Tool::Rect => "rect",
+            Tool::Circle => "circle",
+            Tool::Origin => "origin",
         }
     }
 
@@ -112,7 +127,9 @@ impl Command for ToolActivate {
                       then follows the pointer until a click puts it down; Route and Via \
                       draw copper on the board; Wire draws Wire runs, and Net Label, Port, \
                       Power Port and No-Connect place one object per click; Select (also \
-                      what Escape returns to) cancels a Tool in flight.",
+                      what Escape returns to) cancels a Tool in flight. On a Footprint, Pad \
+                      places Pads, Line, Rect and Circle draw on the drawing Layer and \
+                      Origin moves the origin.",
         category: "tool",
         icon: "select",
         kind: Kind::View,
@@ -147,6 +164,16 @@ impl Command for ToolActivate {
                 "no_connect",
                 json!({"tool": "no_connect"}),
             ),
+            Preset::new("pad", "Place Pad", "pad", json!({"tool": "pad"})),
+            Preset::new("line", "Draw Line", "line", json!({"tool": "line"})),
+            Preset::new(
+                "rect",
+                "Draw Rectangle",
+                "rectangle",
+                json!({"tool": "rect"}),
+            ),
+            Preset::new("circle", "Draw Circle", "circle", json!({"tool": "circle"})),
+            Preset::new("origin", "Set Origin", "origin", json!({"tool": "origin"})),
         ]
     }
 
