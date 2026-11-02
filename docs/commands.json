@@ -17025,6 +17025,57 @@
     },
     {
       "category": "pcb",
+      "description": "Deletes Track segments and Vias together, or with `whole` every segment of the Tracks up to a Pad, Via or branch.",
+      "icon": "delete",
+      "id": "pcb.copper.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "Track segments and Vias, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "whole": {
+            "default": false,
+            "description": "Deletes each Track's whole Track instead of the segment: every segment joined end\nto end with it on the same Layer, up to a Pad, a Via or a branch.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "CopperDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "deleted": {
+            "description": "Every deleted Track and Via, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "CopperDeleteResult",
+        "type": "object"
+      },
+      "title": "Delete Copper"
+    },
+    {
+      "category": "pcb",
       "description": "Moves, turns, resizes or hides one Footprint's Designator text. `at` and `rotation` are on the board; the text keeps its place relative to the Footprint when the Footprint moves. `reset` goes back to the Footprint's own placement. Allowed on locked Footprints.",
       "icon": "text",
       "id": "pcb.designator_text.set",
@@ -20480,6 +20531,101 @@
         "type": "object"
       },
       "title": "Delete Track"
+    },
+    {
+      "category": "pcb",
+      "description": "Moves a Track segment. Its neighbours stay attached: Tracks ending at its ends stretch to follow, and an end that leaves a Pad or Via gets a new segment back to it. With `detach` only the segment moves.",
+      "icon": "drag",
+      "id": "pcb.track.drag",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/PointParam",
+            "description": "How far to move it."
+          },
+          "detach": {
+            "default": false,
+            "description": "Moves the segment alone, leaving its neighbours where they are.",
+            "type": "boolean"
+          },
+          "track": {
+            "description": "The Track segment.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "track",
+          "by"
+        ],
+        "title": "TrackDragParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "deleted": {
+            "description": "Neighbours squeezed to nothing, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tracks": {
+            "description": "The Tracks moved, stretched or added, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tracks",
+          "deleted"
+        ],
+        "title": "TrackDragResult",
+        "type": "object"
+      },
+      "title": "Drag Track"
     },
     {
       "category": "pcb",
