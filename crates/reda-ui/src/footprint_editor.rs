@@ -7,7 +7,7 @@
 //! - Pad places a Pad per click from the Pad Tool's settings ([`PadTemplate`]: SMD,
 //!   plated or non-plated; circle, rectangle, rounded rectangle or oval; a round hole or a
 //!   slot; mask and paste margins), numbered one past the highest number.
-//! - Line, Rect and Circle draw on the drawing Layer ([`Options::layer`]: Silkscreen,
+//! - Line, Rect and Circle draw on the drawing Layer ([`ToolSettings::layer`]: Silkscreen,
 //!   Courtyard or Assembly, top or bottom) by dragging.
 //! - Origin moves the origin to a click, then hands back to Select.
 //!
@@ -21,6 +21,7 @@ pub mod inspector;
 
 use std::collections::BTreeMap;
 
+use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Uuid};
@@ -43,7 +44,8 @@ const PICK_POINTS: f64 = 5.0;
 const CIRCLE_SEGMENTS: usize = 48;
 
 /// What the Pad Tool places.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct PadTemplate {
     pub kind: PadKind,
     pub shape: PadShape,
@@ -114,15 +116,15 @@ impl PadTemplate {
 
 /// The Footprint Tools' settings, shared by every Footprint tab.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Options {
+pub struct ToolSettings {
     pub pad: PadTemplate,
     /// The Layer Line, Rect and Circle draw on.
     pub layer: FootprintLayer,
 }
 
-impl Default for Options {
-    fn default() -> Options {
-        Options {
+impl Default for ToolSettings {
+    fn default() -> ToolSettings {
+        ToolSettings {
             pad: PadTemplate::default(),
             layer: FootprintLayer::SilkscreenTop,
         }
@@ -153,7 +155,7 @@ pub enum Interaction {
 /// The Footprint editor's view state: the Tools' settings and each canvas's interaction.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct EditorState {
-    pub options: Options,
+    pub settings: ToolSettings,
     pub canvases: BTreeMap<Uuid, Interaction>,
 }
 
@@ -175,18 +177,62 @@ fn state_mut(shell: &mut Shell) -> &mut EditorState {
 }
 
 /// The Footprint Tools' settings.
-pub fn options(shell: &Shell) -> Options {
-    state(shell).options
+pub fn tool_settings(shell: &Shell) -> ToolSettings {
+    state(shell).settings
 }
 
-/// Sets what the Pad Tool places.
-pub fn set_pad_template(shell: &mut Shell, pad: PadTemplate) {
-    state_mut(shell).options.pad = pad;
+/// Sets what the Pad Tool places (`view.footprint_tool.set`).
+pub fn set_pad_template(shell: &mut Shell, pad: PadTemplate) -> Result<Value, CommandError> {
+    shell.run("view.footprint_tool.set", json!({ "pad": pad }))
 }
 
-/// Sets the Layer Line, Rect and Circle draw on.
-pub fn set_layer(shell: &mut Shell, layer: FootprintLayer) {
-    state_mut(shell).options.layer = layer;
+/// Sets the Layer Line, Rect and Circle draw on (`view.footprint_tool.set`).
+pub fn set_layer(shell: &mut Shell, layer: FootprintLayer) -> Result<Value, CommandError> {
+    shell.run("view.footprint_tool.set", json!({ "layer": layer }))
+}
+
+/// Adds `view.footprint_tool.set` to `registry`. The Shell does this for its engine.
+pub fn register_all(registry: &mut Registry) {
+    registry.add(ToolSet);
+}
+
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ToolSetParams {
+    /// What the Pad Tool places.
+    #[serde(default)]
+    pub pad: Option<PadTemplate>,
+    /// The Layer Line, Rect and Circle draw on.
+    #[serde(default)]
+    pub layer: Option<FootprintLayer>,
+}
+
+struct ToolSet;
+
+impl Command for ToolSet {
+    const META: Meta = Meta {
+        id: "view.footprint_tool.set",
+        title: "Set Footprint Tool Settings",
+        description: "Sets what the Footprint editor's Pad Tool places and the Layer its \
+                      Line, Rect and Circle Tools draw on. View state, shared by every \
+                      Footprint tab.",
+        category: "view",
+        icon: "pad",
+        kind: Kind::View,
+    };
+    type Params = ToolSetParams;
+    type Output = Value;
+
+    fn run(&self, cx: &mut Context<'_>, p: ToolSetParams) -> Result<Value, CommandError> {
+        let settings = &mut cx.view::<EditorState>()?.settings;
+        if let Some(pad) = p.pad {
+            settings.pad = pad;
+        }
+        if let Some(layer) = p.layer {
+            settings.layer = layer;
+        }
+        Ok(json!({ "pad": settings.pad, "layer": settings.layer }))
+    }
 }
 
 /// Everything selectable on `footprint`: Pads, graphics, then the visible texts.
@@ -447,7 +493,9 @@ impl Cx<'_> {
                 let number = next_number(self.footprint) + self.pads_added;
                 self.pads_added += 1;
                 let number = number.to_string();
-                let params = options(self.shell).pad.params(self.element, &number, at);
+                let params = tool_settings(self.shell)
+                    .pad
+                    .params(self.element, &number, at);
                 self.run("library.footprint.pad.add", params);
             }
             Tool::Origin => {
@@ -497,7 +545,7 @@ impl Cx<'_> {
             Tool::Line if from != to => json!({"kind": "line", "start": p(from), "end": p(to)}),
             _ => return,
         };
-        let layer = options(self.shell).layer;
+        let layer = tool_settings(self.shell).layer;
         self.run(
             "library.footprint.graphic.add",
             json!({"footprint": self.element, "layer": layer, "shape": shape}),

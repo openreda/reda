@@ -25,10 +25,7 @@ pub enum Action {
 pub fn apply(shell: &mut Shell, action: Action) {
     let _ = match action {
         Action::Run(kind) => shell.run_check(kind),
-        Action::ShowWaived(show) => {
-            shell.set_show_waived(show);
-            Ok(())
-        }
+        Action::ShowWaived(show) => shell.set_show_waived(show).map(|_| ()),
         Action::GoTo(key) => {
             shell.go_to(key);
             Ok(())

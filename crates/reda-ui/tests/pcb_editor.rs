@@ -170,8 +170,8 @@ fn space_and_l_turn_and_flip_in_flight_and_release_is_one_undo_step() {
 
     b.shell.pcb_press(mm(0.0, 0.0), false, TOLERANCE);
     b.shell.pcb_drag(mm(2.0, 0.0));
-    b.shell.pcb_rotate();
-    b.shell.pcb_flip();
+    b.shell.run("tool.rotate", json!({})).unwrap();
+    b.shell.run("tool.flip", json!({})).unwrap();
     b.shell.pcb_drag(mm(4.0, 1.0));
     let entries = b.shell.engine().journal().len();
     b.shell.pcb_release();
@@ -197,10 +197,10 @@ fn space_and_l_turn_and_flip_the_selection_when_nothing_is_in_flight() {
     let [f1, _] = b.footprints;
     click(&mut b, mm(0.0, 0.0), false);
 
-    b.shell.pcb_rotate();
+    b.shell.run("tool.rotate", json!({})).unwrap();
     assert_eq!(journal_ids(&b).last().unwrap(), "pcb.rotate");
     assert_eq!(footprint(&b, f1).rotation, Millideg::from_deg(90));
-    b.shell.pcb_flip();
+    b.shell.run("tool.flip", json!({})).unwrap();
     assert_eq!(journal_ids(&b).last().unwrap(), "pcb.flip");
     assert_eq!(footprint(&b, f1).side, Side::Bottom);
 }

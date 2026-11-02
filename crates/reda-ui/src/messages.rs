@@ -16,6 +16,56 @@ pub use locate::{Location, locate};
 
 use crate::{i18n, tr};
 
+/// Whether the Messages panel lists waived Violations: view state, set by
+/// `view.messages.show_waived`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ShowWaived(pub bool);
+
+/// Adds `view.messages.show_waived` to `registry`. The Shell does this for its engine.
+pub fn register_all(registry: &mut reda_engine::command::Registry) {
+    registry.add(ShowWaivedSet);
+}
+
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ShowWaivedParams {
+    /// List waived Violations or not; it flips when left out.
+    #[serde(default)]
+    show: Option<bool>,
+}
+
+/// Whether waived Violations are now listed.
+#[derive(serde::Serialize, schemars::JsonSchema)]
+pub struct ShowWaivedResult {
+    pub show: bool,
+}
+
+struct ShowWaivedSet;
+
+impl reda_engine::command::Command for ShowWaivedSet {
+    const META: reda_engine::command::Meta = reda_engine::command::Meta {
+        id: "view.messages.show_waived",
+        title: "Show Waived Violations",
+        description: "Lists waived Violations in the Messages panel (and marks them on the \
+                      canvas), or hides them again. View state only.",
+        category: "view",
+        icon: "waive",
+        kind: reda_engine::command::Kind::View,
+    };
+    type Params = ShowWaivedParams;
+    type Output = ShowWaivedResult;
+
+    fn run(
+        &self,
+        cx: &mut reda_engine::command::Context<'_>,
+        p: ShowWaivedParams,
+    ) -> Result<ShowWaivedResult, reda_engine::command::CommandError> {
+        let state = cx.view::<ShowWaived>()?;
+        state.0 = p.show.unwrap_or(!state.0);
+        Ok(ShowWaivedResult { show: state.0 })
+    }
+}
+
 /// Arguments that are lengths in nm, shown in millimetres.
 const LENGTH_ARGS: &[&str] = &["x", "y", "actual", "required", "minimum", "grid", "board"];
 

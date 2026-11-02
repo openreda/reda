@@ -257,18 +257,28 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     painter.galley(back.min + vec2(4.0, 2.0), galley, Color32::WHITE);
 }
 
+/// What the board's context menu offers for the selection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MenuAction {
+    Rotate,
+    Flip,
+    Lock,
+    Unlock,
+    Outline,
+}
+
 /// Right-click without dragging: Rotate, Flip Side, Lock, Unlock and Board Outline from
-/// Selection for the selection.
+/// Selection for the selection, each through its Command.
 fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
     let selected = !shell.selection().objects.is_empty();
-    let mut clicked: Option<&str> = None;
+    let mut clicked: Option<MenuAction> = None;
     shown.response.context_menu(|ui| {
         for (title, action) in [
-            (tr!("pcb-rotate"), "rotate"),
-            (tr!("pcb-flip"), "flip"),
-            (tr!("pcb-lock"), "lock"),
-            (tr!("pcb-unlock"), "unlock"),
-            (tr!("pcb-outline-from-selection"), "outline"),
+            (tr!("pcb-rotate"), MenuAction::Rotate),
+            (tr!("pcb-flip"), MenuAction::Flip),
+            (tr!("pcb-lock"), MenuAction::Lock),
+            (tr!("pcb-unlock"), MenuAction::Unlock),
+            (tr!("pcb-outline-from-selection"), MenuAction::Outline),
         ] {
             if ui.add_enabled(selected, egui::Button::new(title)).clicked() {
                 clicked = Some(action);
@@ -276,10 +286,17 @@ fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
             }
         }
     });
-    match clicked {
-        Some("rotate") => shell.pcb_rotate(),
-        Some("flip") => shell.pcb_flip(),
-        Some("outline") => {
+    let Some(action) = clicked else {
+        return;
+    };
+    match action {
+        MenuAction::Rotate => {
+            let _ = shell.run_reporting("tool.rotate", json!({}));
+        }
+        MenuAction::Flip => {
+            let _ = shell.run_reporting("tool.flip", json!({}));
+        }
+        MenuAction::Outline => {
             let graphics = selected_graphics(shell);
             if !graphics.is_empty() {
                 let _ = shell.run_reporting(
@@ -288,17 +305,16 @@ fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
                 );
             }
         }
-        Some(action) => {
+        MenuAction::Lock | MenuAction::Unlock => {
             let footprints = selected_footprints(shell);
             if !footprints.is_empty() {
-                let locked = action == "lock";
+                let locked = action == MenuAction::Lock;
                 let _ = shell.run_reporting(
                     "pcb.lock",
                     json!({"footprints": footprints, "locked": locked}),
                 );
             }
         }
-        None => {}
     }
 }
 

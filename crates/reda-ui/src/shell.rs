@@ -223,6 +223,12 @@ impl Shell {
         if engine.registry().get("library.symbol.unit.show").is_none() {
             engine.register(crate::symbol_editor::register_all);
         }
+        if engine.registry().get("view.footprint_tool.set").is_none() {
+            engine.register(crate::footprint_editor::register_all);
+        }
+        if engine.registry().get("view.messages.show_waived").is_none() {
+            engine.register(messages::register_all);
+        }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
@@ -233,6 +239,10 @@ impl Shell {
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
         engine.view_mut().set(CrossProbe::default());
+        engine.view_mut().set(messages::ShowWaived::default());
+        engine
+            .view_mut()
+            .set(crate::footprint_editor::EditorState::default());
         engine.view_mut().set(BoardView::new(units));
         engine
             .view_mut()
@@ -502,14 +512,14 @@ impl Shell {
     }
 
     /// Space: turns the move in flight, or the selection, by 90°.
-    pub fn pcb_rotate(&mut self) {
+    pub(crate) fn pcb_rotate(&mut self) {
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.rotate(self);
         self.pcb_tool = tool;
     }
 
     /// L: flips the move in flight, or the selection, to the other side.
-    pub fn pcb_flip(&mut self) {
+    pub(crate) fn pcb_flip(&mut self) {
         let mut tool = std::mem::take(&mut self.pcb_tool);
         tool.flip(self);
         self.pcb_tool = tool;
@@ -1068,6 +1078,7 @@ impl Shell {
             self.reload_preferences();
         }
         self.sync_selection();
+        self.sync_show_waived();
         self.sync_board_view();
         self.note_focus();
         if matches!(base, "project.open" | "project.new" | "project.save") {
@@ -1176,10 +1187,22 @@ impl Shell {
         Ok(())
     }
 
-    /// Lists waived Violations too, or hides them again.
-    pub fn set_show_waived(&mut self, show: bool) {
-        self.messages.set_show_waived(show);
-        self.update_markers();
+    /// Lists waived Violations too, or hides them again (`view.messages.show_waived`).
+    pub fn set_show_waived(&mut self, show: bool) -> Result<Value, CommandError> {
+        self.run_reporting("view.messages.show_waived", json!({ "show": show }))
+    }
+
+    /// Follows `view.messages.show_waived` into the Messages panel and the markers.
+    fn sync_show_waived(&mut self) {
+        let show = self
+            .engine
+            .view()
+            .get::<messages::ShowWaived>()
+            .is_some_and(|s| s.0);
+        if show != self.messages.show_waived() {
+            self.messages.set_show_waived(show);
+            self.update_markers();
+        }
     }
 
     /// Goes to a line's Violation: opens its Document (`document.open`), zooms to it and
@@ -1357,12 +1380,6 @@ impl Shell {
     /// `keymap.toml` laid over it.
     pub fn keymap(&self) -> &Keymap {
         &self.keymap
-    }
-
-    /// Makes `tool` the active Tool, whose `tool:<id>` Keymap context then comes first,
-    /// without the checks of `tool.activate` (which the window and agents use).
-    pub fn set_active_tool(&mut self, tool: Tool) {
-        self.engine.view_mut().set(ActiveTool(tool));
     }
 
     /// Reads the Keymap again (after `keymap.toml` or `keymap.base` changed) and lists its
