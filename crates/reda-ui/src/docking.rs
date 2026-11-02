@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 
 use crate::canvas::canvas;
 use crate::layout::{Area, Axis, DockSide, Group, Layout, Node, PanelId, SplitSide, TabKey};
+use crate::panels;
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::{theme, tr};
@@ -25,6 +26,8 @@ pub struct Frame {
     pub commands: Vec<(&'static str, Value)>,
     /// A Start page button, if one was clicked.
     pub start: Option<StartAction>,
+    /// Clicks in the Messages panel.
+    pub messages: Vec<panels::messages::Action>,
 }
 
 /// The size of a collapsed Dock's icon strip.
@@ -347,6 +350,10 @@ impl Cx<'_> {
                 if let Some(doc) = self.shell.document_tab_mut(*uuid) {
                     canvas(ui, doc, theme);
                 }
+            }
+            TabKey::Panel(PanelId::Messages) => {
+                let actions = panels::messages::show(ui, self.shell);
+                self.frame.messages.extend(actions);
             }
             TabKey::Panel(_) => {
                 ui.add_space(8.0);

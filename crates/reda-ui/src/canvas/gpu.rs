@@ -8,8 +8,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use reda_engine::model::Uuid;
 use reda_engine::render::gpu::{
-    Blit, BlitSource, Canvas, GpuScene, Grid, GridSpec, Renderer, Target, Writes, wgpu,
+    Blit, BlitSource, Canvas, Flags, GpuScene, Grid, GridSpec, Highlight, Renderer, Target, Writes,
+    wgpu,
 };
 use reda_engine::render::{Palette, Scene, Theme, View};
 
@@ -19,6 +21,23 @@ use reda_engine::render::{Palette, Scene, Theme, View};
 pub struct SceneHandle {
     pub generation: u64,
     pub scene: Arc<Scene>,
+}
+
+/// The selected objects shared with the paint callback. `generation` changes whenever the
+/// selection does, so the GPU knows when to rewrite the flags.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SelectionHandle {
+    pub generation: u64,
+    pub objects: Arc<[Uuid]>,
+}
+
+impl Default for SelectionHandle {
+    fn default() -> SelectionHandle {
+        SelectionHandle {
+            generation: 0,
+            objects: Arc::from([]),
+        }
+    }
 }
 
 /// Everything one frame of one canvas shows.
@@ -31,12 +50,15 @@ pub struct CanvasFrame {
     /// The view in physical pixels; its size is the offscreen target's.
     pub view: View,
     pub grid: Option<GridSpec>,
+    /// The objects drawn selected.
+    pub selection: SelectionHandle,
 }
 
 /// What a recorded frame depended on.
 #[derive(Clone, Copy, PartialEq)]
 struct FrameKey {
     generation: u64,
+    selection: u64,
     theme: Theme,
     view: View,
     grid: Option<GridSpec>,
@@ -46,6 +68,7 @@ impl FrameKey {
     fn of(frame: &CanvasFrame) -> FrameKey {
         FrameKey {
             generation: frame.scene.generation,
+            selection: frame.selection.generation,
             theme: frame.theme,
             view: frame.view,
             grid: frame.grid,
@@ -57,6 +80,8 @@ impl FrameKey {
 pub struct CanvasGpu {
     scene: GpuScene,
     generation: u64,
+    /// The selection generation the flags were last written for.
+    selection: Option<u64>,
     canvas: Canvas,
     theme: Option<Theme>,
     grid: Grid,
@@ -70,6 +95,7 @@ impl CanvasGpu {
         CanvasGpu {
             scene: GpuScene::new(device, &frame.scene.scene),
             generation: frame.scene.generation,
+            selection: None,
             canvas: Canvas::new(device, renderer),
             theme: None,
             grid: Grid::new(device, renderer),
@@ -139,6 +165,17 @@ impl CanvasResources {
         if gpu.generation != frame.scene.generation {
             gpu.scene.replace(device, &frame.scene.scene);
             gpu.generation = frame.scene.generation;
+            // A new Scene starts with no marks.
+            gpu.selection = None;
+        }
+        if gpu.selection != Some(frame.selection.generation) {
+            // A Scene with no marks needs no write for an empty selection.
+            if gpu.selection.is_some() || !frame.selection.objects.is_empty() {
+                let mut highlight = Highlight::new();
+                highlight.mark_all(frame.selection.objects.iter().copied(), Flags::SELECTED);
+                gpu.scene.set_highlight(queue, &highlight);
+            }
+            gpu.selection = Some(frame.selection.generation);
         }
         if gpu.theme != Some(frame.theme) {
             gpu.canvas

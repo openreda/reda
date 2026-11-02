@@ -12,6 +12,8 @@ mod dialogs;
 mod docking;
 pub mod i18n;
 pub mod layout;
+pub mod messages;
+mod panels;
 pub mod shell;
 mod start_page;
 pub mod theme;

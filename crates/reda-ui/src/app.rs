@@ -74,6 +74,9 @@ impl App {
         for (id, params) in frame.commands {
             let _ = self.shell.run_reporting(id, params);
         }
+        for action in frame.messages {
+            crate::panels::messages::apply(&mut self.shell, action);
+        }
         if let Some(action) = frame.start {
             self.start_action(&ctx, action);
         }
