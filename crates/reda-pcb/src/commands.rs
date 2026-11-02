@@ -18,6 +18,7 @@ mod via;
 mod zone;
 mod zone_fill;
 
+pub use drc::{SyncCheck, SyncState};
 pub use mechanical::{MechanicalSet, MechanicalSetParams};
 pub use outline::rect_outline;
 pub use placement::Placed;
@@ -30,8 +31,9 @@ use reda_model::{PcbDocument, Uuid};
 use schemars::JsonSchema;
 use serde::Serialize;
 
-/// Adds every PCB Command.
-pub fn register_all(registry: &mut Registry) {
+/// Adds every PCB Command. `sync` tells DRC whether the board is out of sync with the
+/// schematic, which only the engine can work out.
+pub fn register_all(registry: &mut Registry, sync: SyncCheck) {
     outline::register_all(registry);
     rules::register_all(registry);
     net_class::register_all(registry);
@@ -41,7 +43,7 @@ pub fn register_all(registry: &mut Registry) {
     track::register_all(registry);
     via::register_all(registry);
     copper::register_all(registry);
-    drc::register_all(registry);
+    drc::register_all(registry, sync);
     zone::register_all(registry);
     zone_fill::register_all(registry);
     placement::register_all(registry);
