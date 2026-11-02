@@ -16335,6 +16335,106 @@
     },
     {
       "category": "pcb",
+      "description": "Sets the Designator, value, fields, Not Fitted or Footprint of Footprints from the PCB side. A Footprint synced from the schematic writes through: every Unit of its Component changes too, and the board takes the change as Sync would (a new Footprint is swapped in place and its Pads rejoin their Nets), with one undo entry in each Document and nothing left pending. Mechanical Parts placed only on the PCB are edited there.",
+      "icon": "properties",
+      "id": "pcb.footprint.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "designator": {
+            "default": null,
+            "description": "The new Designator. Only with a single Footprint, and not one another Component\nor Footprint uses.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "default": {},
+            "description": "Fields to set, by name: the built-in `description`, `datasheet`, `manufacturer`,\n`mpn` and `keywords`, or any free-form name such as `LCSC`. An empty value or\n`null` clears a built-in field and removes a free-form one.",
+            "type": "object"
+          },
+          "footprint": {
+            "default": null,
+            "description": "The Footprint, by Library Footprint UUID: one of each Component's Part's\nalternates. Only for synced Footprints; it is swapped in place as Sync would.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "footprints": {
+            "description": "The Footprint instances to edit, by UUID: synced Footprints, Mechanical Parts or\nboth.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "not_fitted": {
+            "default": null,
+            "description": "Whether the Footprints are left off the board and out of the BOM.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "value": {
+            "default": null,
+            "description": "The new value.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "footprints"
+        ],
+        "title": "FootprintSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What an edit changed.",
+        "properties": {
+          "footprints": {
+            "description": "The Footprint instances edited, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "units": {
+            "description": "Every Unit rewritten on the schematic, Component by Component in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprints",
+          "units"
+        ],
+        "title": "FootprintSetResult",
+        "type": "object"
+      },
+      "title": "Edit Footprint Properties"
+    },
+    {
+      "category": "pcb",
       "description": "Adds a Pad that belongs to no Footprint: plated (SMD or through-hole) and optionally on a Net, or non-plated (a bare hole). For mounting holes, fiducials and test points.",
       "icon": "pad",
       "id": "pcb.free_pad.add",
@@ -17249,7 +17349,7 @@
     },
     {
       "category": "pcb",
-      "description": "Edits the Designator, value, fields or Not Fitted of Mechanical Parts placed on the PCB. Footprints synced from the schematic are edited there.",
+      "description": "Edits the Designator, value, fields or Not Fitted of Mechanical Parts placed on the PCB. Footprints synced from the schematic are edited with `pcb.footprint.set`, which writes through to the schematic.",
       "icon": "properties",
       "id": "pcb.mechanical.set",
       "kind": "edit",
@@ -27015,14 +27115,14 @@
     },
     {
       "category": "schematic",
-      "description": "Renumbers Designators in a processing order (across then down, across then up, down then across, up then across; sheets in Document order). Each Component in the scope that is not Designator-locked gets the smallest free number for its prefix; locked and out-of-scope Components keep theirs. Every Unit of a Component gets the same Designator.",
+      "description": "Renumbers Designators in a processing order (across then down, across then up, down then across, up then across; sheets in Document order), or by board position (where the Footprints sit: top side, then bottom; the new Designators write through to the board, one undo entry per Document). Each Component in the scope that is not Designator-locked gets the smallest free number for its prefix; locked and out-of-scope Components keep theirs. Every Unit of a Component gets the same Designator.",
       "icon": "annotate",
       "id": "schematic.reannotate",
       "kind": "edit",
       "params": {
         "$defs": {
           "Order": {
-            "description": "The processing orders a Re-annotate can take. Sheets are always numbered in Document\norder; within a sheet, these say how to walk it. Sheet y grows upwards, so \"down\"\nstarts at the top of the sheet.",
+            "description": "The processing orders a Re-annotate can take. For the sheet orders, sheets are always\nnumbered in Document order; within a sheet, the order says how to walk it. Sheet y\ngrows upwards, so \"down\" starts at the top of the sheet.",
             "oneOf": [
               {
                 "const": "across_then_down",
@@ -27042,6 +27142,11 @@
               {
                 "const": "up_then_across",
                 "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "board_position",
+                "description": "By where the Footprints sit on the board: the top side first, in rows from the top\n(board y grows upwards), each left to right; then the bottom side, in rows from the\ntop, each right to left as seen from below. Components with no Footprint on the\nboard come last, across then down on their sheets. Needs a PCB Document.",
                 "type": "string"
               }
             ]
@@ -27156,7 +27261,7 @@
       "params": {
         "$defs": {
           "Order": {
-            "description": "The processing orders a Re-annotate can take. Sheets are always numbered in Document\norder; within a sheet, these say how to walk it. Sheet y grows upwards, so \"down\"\nstarts at the top of the sheet.",
+            "description": "The processing orders a Re-annotate can take. For the sheet orders, sheets are always\nnumbered in Document order; within a sheet, the order says how to walk it. Sheet y\ngrows upwards, so \"down\" starts at the top of the sheet.",
             "oneOf": [
               {
                 "const": "across_then_down",
@@ -27176,6 +27281,11 @@
               {
                 "const": "up_then_across",
                 "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "board_position",
+                "description": "By where the Footprints sit on the board: the top side first, in rows from the top\n(board y grows upwards), each left to right; then the bottom side, in rows from the\ntop, each right to left as seen from below. Components with no Footprint on the\nboard come last, across then down on their sheets. Needs a PCB Document.",
                 "type": "string"
               }
             ]
