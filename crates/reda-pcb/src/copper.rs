@@ -1,8 +1,8 @@
 //! Copper connectivity: which pieces of copper on the board touch, kept in an `rstar`
 //! index per copper Layer and updated from each transaction's change set.
 //!
-//! The copper is every Pad of every placed Footprint (non-plated Pads have none), every
-//! Track and every Via. Copper on one Layer connects where it touches or overlaps; a Via
+//! The copper is every Pad of every placed Footprint and every Free Pad (non-plated Pads
+//! have none), every Track and every Via. Copper on one Layer connects where it touches or overlaps; a Via
 //! and a plated through-hole Pad connect their copper on every Layer they reach.
 //!
 //! [`Copper`] answers:
@@ -41,6 +41,10 @@ pub enum Item {
         /// The Pad of its Footprint copy.
         pad: Uuid,
     },
+    /// A Pad placed on the board on its own.
+    FreePad {
+        uuid: Uuid,
+    },
     Via {
         uuid: Uuid,
     },
@@ -54,7 +58,7 @@ impl Item {
     pub fn object(&self) -> Uuid {
         match *self {
             Item::Pad { footprint, .. } => footprint,
-            Item::Track { uuid } | Item::Via { uuid } => uuid,
+            Item::FreePad { uuid } | Item::Track { uuid } | Item::Via { uuid } => uuid,
         }
     }
 }
@@ -116,6 +120,9 @@ impl Copper {
         for instance in pcb.footprints() {
             copper.add_footprint(pcb, instance.uuid);
         }
+        for pad in pcb.free_pads() {
+            copper.add_free_pad(pcb, pad.uuid);
+        }
         for track in pcb.tracks() {
             copper.add_track(pcb, track.uuid);
         }
@@ -127,9 +134,12 @@ impl Copper {
 
     /// Brings the index up to date with a change set committed to the Project that `pcb`
     /// belongs to (`pcb` is the PCB Document after it). Only the copper the change set
-    /// touches is re-indexed; a change to the Layers re-indexes everything.
+    /// touches is re-indexed: a Footprint instance that moved, turned, flipped or changed
+    /// a Pad's Net has all its Pads re-indexed. A change to the Layers re-indexes
+    /// everything.
     pub fn apply(&mut self, pcb: &PcbDocument, changes: &ChangeSet) {
         let mut footprints = BTreeSet::new();
+        let mut free_pads = BTreeSet::new();
         let mut tracks = BTreeSet::new();
         let mut vias = BTreeSet::new();
         for (uuid, change) in changes.iter() {
@@ -149,6 +159,9 @@ impl Copper {
                             .map(|f| f.uuid),
                     );
                 }
+                Some(Object::FreePad(_)) => {
+                    free_pads.insert(*uuid);
+                }
                 Some(Object::Track(_)) => {
                     tracks.insert(*uuid);
                 }
@@ -163,6 +176,10 @@ impl Copper {
                 self.remove(item);
             }
             self.add_footprint(pcb, footprint);
+        }
+        for uuid in free_pads {
+            self.remove(Item::FreePad { uuid });
+            self.add_free_pad(pcb, uuid);
         }
         for uuid in tracks {
             self.remove(Item::Track { uuid });
@@ -220,8 +237,8 @@ impl Copper {
         found
     }
 
-    /// The Net of the copper on `layer` under `point`: Pads first, then Vias, then
-    /// Tracks, the first on a Net.
+    /// The Net of the copper on `layer` under `point`: Pads first, then Free Pads, then
+    /// Vias, then Tracks, the first on a Net.
     pub fn net_at(&self, layer: Uuid, point: Point) -> Option<Uuid> {
         self.items_at(layer, point)
             .into_iter()
@@ -312,19 +329,12 @@ impl Copper {
         let Some(copy) = pcb.footprint_copy(instance.footprint) else {
             return;
         };
-        let copper: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
-        let outer = match instance.side {
-            Side::Top => pcb.copper_layers().find(|l| l.side == Some(Side::Top)),
-            Side::Bottom => pcb.copper_layers().find(|l| l.side == Some(Side::Bottom)),
-        }
-        .map(|l| l.uuid);
         let mut items = Vec::new();
         for pad in &copy.footprint.pads {
-            let layers = match pad.kind {
-                PadKind::NonPlated => continue,
-                PadKind::PlatedThroughHole => copper.clone(),
-                PadKind::Smd => outer.into_iter().collect(),
-            };
+            let layers = pad_layers(pcb, pad.kind, instance.side);
+            if layers.is_empty() {
+                continue;
+            }
             let item = Item::Pad {
                 footprint: uuid,
                 pad: pad.uuid,
@@ -342,6 +352,21 @@ impl Copper {
             items.push(item);
         }
         self.pads.insert(uuid, items);
+    }
+
+    fn add_free_pad(&mut self, pcb: &PcbDocument, uuid: Uuid) {
+        let Some(pad) = pcb.free_pad(uuid) else {
+            return;
+        };
+        let layers = pad_layers(pcb, pad.kind, pad.side.unwrap_or(Side::Top));
+        if layers.is_empty() {
+            return;
+        }
+        let info = Info {
+            net: pad.net,
+            anchors: vec![pad.at],
+        };
+        self.insert(Item::FreePad { uuid }, info, layers, Shape::free_pad(pad));
     }
 
     fn add_track(&mut self, pcb: &PcbDocument, uuid: Uuid) {
@@ -426,6 +451,21 @@ impl Copper {
             }
         }
         self.info.remove(&item);
+    }
+}
+
+/// The copper Layers a Pad of this kind has copper on: an SMD Pad the outer Layer of its
+/// side, a plated through-hole Pad every copper Layer, a non-plated Pad none.
+fn pad_layers(pcb: &PcbDocument, kind: PadKind, side: Side) -> Vec<Uuid> {
+    match kind {
+        PadKind::NonPlated => Vec::new(),
+        PadKind::PlatedThroughHole => pcb.copper_layers().map(|l| l.uuid).collect(),
+        PadKind::Smd => pcb
+            .copper_layers()
+            .find(|l| l.side == Some(side))
+            .map(|l| l.uuid)
+            .into_iter()
+            .collect(),
     }
 }
 
