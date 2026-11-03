@@ -3,37 +3,3 @@
 # `cargo xtask icons` vendors each one as <key>.svg and regenerates ../src/icons/table.rs
 # and README.md. Keys with REDA's own art are listed in reda.txt instead; each one left here
 # is a tracked placeholder until REDA's own art for it is drawn to the style guide in #32.
-board_cutout tabler:square-dashed
-board_outline tabler:border-outer
-board_outline_from_lines tabler:vector
-board_outline_rect lucide:rectangle-horizontal
-clearance tabler:ruler-measure
-document_pcb lucide:circuit-board
-drc tabler:shield-check
-fab_preset tabler:building-factory
-fab_preset_add tabler:building-factory-2
-fab_preset_update lucide:refresh-cw
-grid lucide:grid-3x3
-keepout lucide:ban
-layer_active lucide:pencil-line
-layer_next lucide:chevron-down
-layer_previous lucide:chevron-up
-layer_swap lucide:arrow-up-down
-layer_visible lucide:eye
-measure tabler:ruler-2
-origin lucide:crosshair
-output_job_add lucide:file-plus-2
-output_job_edit lucide:file-cog
-output_run lucide:play
-pad lucide:square
-ratsnest tabler:route
-rule lucide:ruler
-rules tabler:ruler-2
-severity lucide:triangle-alert
-split lucide:columns-2
-sync lucide:refresh-ccw-dot
-units lucide:ruler
-user_origin tabler:focus-2
-view_flip lucide:flip-horizontal-2
-waive lucide:shield-check
-zone_fill tabler:paint

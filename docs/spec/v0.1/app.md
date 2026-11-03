@@ -231,7 +231,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - A test fails when a key has no art.
 - **Style:**
   - Line art where colour carries meaning: what already exists is grey, what the action creates is in its role colour, and the points you click are pink dots.
-  - Five role colours. Each SVG is drawn with the dark-theme values, which are swapped for the light-theme values on load.
+  - Six role colours: the five of the style guide, plus a yellow for the Board Outline, Board Cutouts and Keepouts, which are not copper. Each SVG is drawn with the dark-theme values, which are swapped for the light-theme values on load. Every role reaches at least 3:1 on its theme's panel.
   - SVG on a 24 px grid, rendered through `egui_extras` and resvg.
 - **Sizes:**
   - 24 px on toolbars and the Active Bar

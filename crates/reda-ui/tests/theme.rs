@@ -167,3 +167,22 @@ fn installing_the_theme_sets_both_variants_and_the_preference() {
     ctx.set_theme(Theme::Dark);
     assert_eq!(ctx.global_style().visuals, theme::visuals(Theme::Dark));
 }
+
+#[test]
+fn every_icon_role_colour_reaches_3_to_1_on_its_theme() {
+    // The icon style guide (issue #32): each role colour, as its theme draws it, reaches at
+    // least 3:1 on that theme's panel.
+    let (dark_panel, light_panel) = (
+        theme::visuals(Theme::Dark).panel_fill,
+        theme::visuals(Theme::Light).panel_fill,
+    );
+    for (dark, light) in reda_ui::icons::role_colours() {
+        let on_dark = contrast_ratio(dark, dark_panel);
+        let on_light = contrast_ratio(light, light_panel);
+        assert!(on_dark >= 3.0, "{dark:?} on the dark panel: {on_dark:.2}:1");
+        assert!(
+            on_light >= 3.0,
+            "{light:?} on the light panel: {on_light:.2}:1"
+        );
+    }
+}

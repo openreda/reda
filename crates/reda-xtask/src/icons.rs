@@ -237,6 +237,17 @@ pub fn readme(owned: &[Owned], sources: &[Source]) -> String {
          One SVG per semantic icon key (docs/spec/v0.1/app.md#icons). Every key gets REDA's \
          own art, drawn to the style guide in issue #32; until then a Lucide or Tabler \
          placeholder stands in.\n\n\
+         ## Role colours\n\n\
+         REDA's own icons use only these colours, written as the dark-theme value; reda-ui \
+         swaps each for its light-theme value on load (`ROLES` in `src/icons.rs`). Each \
+         reaches at least 3:1 on its theme's panel.\n\n\
+         | Role | Dark (in file) | Light |\n|---|---|---|\n\
+         | Existing / context (pins, pads, frames, the thing acted on) | `#8a93a0` | `#727984` |\n\
+         | Created, schematic (Wire, Net Label, Power Port…) | `#2fb36b` | `#228a51` |\n\
+         | Created, PCB copper (Track, Via, Zone, Pad…) | `#e08a2e` | `#ac6921` |\n\
+         | Created, general (file, edit, view, selection, checks) | `#3d8fd6` | `#347dbc` |\n\
+         | Picked point | `#ec4f7a` | `#d2456c` |\n\
+         | Created, board edge and keepout (Board Outline, Board Cutout, Keepout) | `#d4c03c` | `#8a7a12` |\n\n\
          ## REDA's own icons\n\n\
          MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leaves \
          alone.\n\n\

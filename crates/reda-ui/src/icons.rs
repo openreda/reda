@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use egui::load::Bytes;
-use egui::{Image, ImageSource, Theme, Vec2};
+use egui::{Color32, Image, ImageSource, Theme, Vec2};
 use reda_engine::model::DocumentKind;
 
 use crate::layout::PanelId;
@@ -70,16 +70,29 @@ fn source(key: &str) -> Option<&'static [u8]> {
     }
 }
 
-/// The dark-theme colours the SVGs are drawn with, and their light-theme values. The first
-/// five are the style guide's role colours; white is what the placeholders are drawn in.
-const LIGHT_SWAP: [(u32, u32); 6] = [
+/// The style guide's role colours (issue #32): each one's dark-theme value, which the SVGs
+/// are drawn with, and its light-theme value.
+const ROLES: [(u32, u32); 6] = [
     (0x8a93a0, 0x727984), // existing / context
     (0x2fb36b, 0x228a51), // created, schematic
     (0xe08a2e, 0xac6921), // created, PCB copper
     (0x3d8fd6, 0x347dbc), // created, general
     (0xec4f7a, 0xd2456c), // picked point
-    (0xffffff, 0x1f2329), // placeholder art: the light theme's text colour
+    (0xd4c03c, 0x8a7a12), // created, board edge and keepout (not copper)
 ];
+
+/// White, what the placeholders are drawn in, and its light-theme value: the light theme's
+/// text colour.
+const PLACEHOLDER: (u32, u32) = (0xffffff, 0x1f2329);
+
+/// The role colours as (dark theme, light theme) pairs: the only colours REDA's own icons
+/// may use.
+pub fn role_colours() -> impl Iterator<Item = (Color32, Color32)> {
+    let colour = |c: u32| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8);
+    ROLES
+        .iter()
+        .map(move |(dark, light)| (colour(*dark), colour(*light)))
+}
 
 /// How far a disabled icon's greys are pulled toward mid grey.
 const DISABLED_PULL: f32 = 0.4;
@@ -130,8 +143,9 @@ fn parse_hex(digits: &str) -> Option<u32> {
 fn map_colour(colour: u32, theme: Theme, enabled: bool) -> u32 {
     let colour = match theme {
         Theme::Dark => colour,
-        Theme::Light => LIGHT_SWAP
+        Theme::Light => ROLES
             .iter()
+            .chain([&PLACEHOLDER])
             .find(|(dark, _)| *dark == colour)
             .map_or(colour, |(_, light)| *light),
     };

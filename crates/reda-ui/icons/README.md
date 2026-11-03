@@ -4,6 +4,19 @@
 
 One SVG per semantic icon key (docs/spec/v0.1/app.md#icons). Every key gets REDA's own art, drawn to the style guide in issue #32; until then a Lucide or Tabler placeholder stands in.
 
+## Role colours
+
+REDA's own icons use only these colours, written as the dark-theme value; reda-ui swaps each for its light-theme value on load (`ROLES` in `src/icons.rs`). Each reaches at least 3:1 on its theme's panel.
+
+| Role | Dark (in file) | Light |
+|---|---|---|
+| Existing / context (pins, pads, frames, the thing acted on) | `#8a93a0` | `#727984` |
+| Created, schematic (Wire, Net Label, Power Port…) | `#2fb36b` | `#228a51` |
+| Created, PCB copper (Track, Via, Zone, Pad…) | `#e08a2e` | `#ac6921` |
+| Created, general (file, edit, view, selection, checks) | `#3d8fd6` | `#347dbc` |
+| Picked point | `#ec4f7a` | `#d2456c` |
+| Created, board edge and keepout (Board Outline, Board Cutout, Keepout) | `#d4c03c` | `#8a7a12` |
+
 ## REDA's own icons
 
 MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leaves alone.
@@ -12,10 +25,19 @@ MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leav
 |---|---|---|---|
 | `about` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `align` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `annotate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `arc` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `arrange` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `batch` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `board_cutout` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `board_outline` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `board_outline_from_lines` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `board_outline_rect` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `circle` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `clearance` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `cli_install` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `close` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `component_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `copy` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `cut` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `delete` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
@@ -24,85 +46,36 @@ MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leav
 | `dock` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `dock_collapse` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `document_add` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `document_footprint` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `document_open` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `document_pcb` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `document_schematic` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `duplicate` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `home` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `inspect` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `layers` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `layout` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `layout_save` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `lock` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `move` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `net_label` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `overview` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `panel` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `panel_journal` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `panel_layers` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `panel_library` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `panel_messages` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `panel_projects` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `panel_properties` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `paste` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `power_port` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `preferences` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `project_new` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `project_open` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `properties` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `quit` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `redo` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `rename` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `render` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `reorder` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `save` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `save_all` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `search` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `select` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `tab` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `tab_move` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `theme_dark` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `theme_follow_os` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `theme_light` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `track` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `undo` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `update_check` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `via` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `window_new` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `wire` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `zone` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `zoom_fit` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
-| `annotate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `arc` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `circle` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `component_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `document_symbol` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `drag` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `drc` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `duplicate` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `erc` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `export_pdf` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `fab_preset` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `fab_preset_add` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `fab_preset_update` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `find` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `flip` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `footprint` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `footprint_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `footprint_generate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `line` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `mirror` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `net` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `net_class` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `net_class_add` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `no_connect` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `part_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `pin` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `polygon` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `port` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `rectangle` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `rotate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `flip` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `select_connected` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `select_similar` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `sheet_size` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `symbol_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `text` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `text_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `title_block` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `unit_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `grid` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `home` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `inspect` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `keepout` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_active` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_next` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_previous` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_swap` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layer_visible` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `layers` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `layout` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `layout_save` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `library_add` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `library_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `library_element_new` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
@@ -110,8 +83,82 @@ MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leav
 | `library_import` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `library_remove` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `library_update` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `document_footprint` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
-| `document_symbol` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `line` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `lock` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `measure` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `mirror` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `move` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `net` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `net_class` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `net_class_add` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `net_label` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `no_connect` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `origin` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `output_job_add` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `output_job_edit` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `output_run` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `overview` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `pad` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `panel` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_journal` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_layers` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_library` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_messages` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_projects` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_properties` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `part_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `paste` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `pin` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `polygon` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `port` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `power_port` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `preferences` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `project_new` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `project_open` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `properties` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `quit` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `ratsnest` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `rectangle` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `redo` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `rename` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `render` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `reorder` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `rotate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `rule` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `rules` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `save` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `save_all` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `search` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `select` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `select_connected` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `select_similar` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `severity` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `sheet_size` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `split` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `symbol_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `sync` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `tab` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `tab_move` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `text` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `text_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `theme_dark` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `theme_follow_os` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `theme_light` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `title_block` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `track` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `undo` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `unit_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `units` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `update_check` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `user_origin` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `via` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `view_flip` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `waive` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `window_new` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `wire` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `zone` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `zone_fill` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
+| `zoom_fit` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 
 ## Placeholder icons
 
@@ -126,37 +173,3 @@ Every icon below was drawn by its set's authors and vendored unmodified apart fr
 
 | Key | Source |
 |---|---|
-| `board_cutout` | Tabler `square-dashed` (outline) |
-| `board_outline` | Tabler `border-outer` (outline) |
-| `board_outline_from_lines` | Tabler `vector` (outline) |
-| `board_outline_rect` | Lucide `rectangle-horizontal` |
-| `clearance` | Tabler `ruler-measure` (outline) |
-| `document_pcb` | Lucide `circuit-board` |
-| `drc` | Tabler `shield-check` (outline) |
-| `fab_preset` | Tabler `building-factory` (outline) |
-| `fab_preset_add` | Tabler `building-factory-2` (outline) |
-| `fab_preset_update` | Lucide `refresh-cw` |
-| `grid` | Lucide `grid-3x3` |
-| `keepout` | Lucide `ban` |
-| `layer_active` | Lucide `pencil-line` |
-| `layer_next` | Lucide `chevron-down` |
-| `layer_previous` | Lucide `chevron-up` |
-| `layer_swap` | Lucide `arrow-up-down` |
-| `layer_visible` | Lucide `eye` |
-| `measure` | Tabler `ruler-2` (outline) |
-| `origin` | Lucide `crosshair` |
-| `output_job_add` | Lucide `file-plus-2` |
-| `output_job_edit` | Lucide `file-cog` |
-| `output_run` | Lucide `play` |
-| `pad` | Lucide `square` |
-| `ratsnest` | Tabler `route` (outline) |
-| `rule` | Lucide `ruler` |
-| `rules` | Tabler `ruler-2` (outline) |
-| `severity` | Lucide `triangle-alert` |
-| `split` | Lucide `columns-2` |
-| `sync` | Lucide `refresh-ccw-dot` |
-| `units` | Lucide `ruler` |
-| `user_origin` | Tabler `focus-2` (outline) |
-| `view_flip` | Lucide `flip-horizontal-2` |
-| `waive` | Lucide `shield-check` |
-| `zone_fill` | Tabler `paint` (outline) |
