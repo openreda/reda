@@ -5,12 +5,9 @@ use std::process::ExitCode;
 
 const USAGE: &str = "\
 Usage:
-  cargo xtask icons [--from <dir>]
-      Vendors the placeholder icons named in crates/reda-ui/icons/sources.txt, and
-      regenerates the set's README and crates/reda-ui/src/icons/table.rs. REDA's own
-      icons, listed in crates/reda-ui/icons/reda.txt, are left alone. The npm
-      packages are downloaded with curl into target/xtask, unless --from names a folder
-      holding them unpacked as lucide/package and tabler/package.
+  cargo xtask icons
+      Regenerates the icon set's README and crates/reda-ui/src/icons/table.rs from
+      crates/reda-ui/icons/reda.txt; fails when a listed key has no SVG.
   cargo xtask showcase --out <dir> [--version <version>]
       Draws the website's screenshots with the real window on Mesa's llvmpipe (the
       reda-ui `showcase` test), in the dark and light themes, into <dir> with a
@@ -24,15 +21,8 @@ fn main() -> ExitCode {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let ui = root.join("crates/reda-ui");
-    let cache = root.join("target/xtask");
     let result = match args.as_slice() {
-        ["icons"] => {
-            reda_xtask::icons::vendor(&ui, None, &cache).map(|n| format!("vendored {n} icons"))
-        }
-        ["icons", "--from", dir] => {
-            reda_xtask::icons::vendor(&ui, Some(&PathBuf::from(dir)), &cache)
-                .map(|n| format!("vendored {n} icons"))
-        }
+        ["icons"] => reda_xtask::icons::regenerate(&ui).map(|n| format!("listed {n} icons")),
         ["showcase", rest @ ..] => options(rest, &["--out"], &["--version"]).and_then(|o| {
             let out = PathBuf::from(o[0].unwrap());
             reda_xtask::showcase::render(&root, &out, o[1])

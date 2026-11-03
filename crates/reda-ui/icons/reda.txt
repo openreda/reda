@@ -1,8 +1,8 @@
 # REDA's own icons, drawn to the style guide in issue #32 (MIT, like the repo). One line per
 # semantic icon key: `<key> | <drawn by> | <reference or generator, with prompt> | <cleaned up by>`.
-# `cargo xtask icons` leaves these SVGs alone, adds them to ../src/icons/table.rs and lists
-# them in README.md. The twelve whose reference names the Recraft sheets come from the icon
-# style prototype that settled #32.
+# `cargo xtask icons` adds them to ../src/icons/table.rs and lists them in README.md. The
+# twelve whose reference names the Recraft sheets come from the icon style prototype that
+# settled #32.
 about | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 align | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 annotate | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5)

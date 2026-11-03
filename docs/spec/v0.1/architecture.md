@@ -27,7 +27,7 @@ Each crate lives in `crates/reda-<name>/`, and the directory name is the package
 | `reda-cli` | the `reda` binary. It is the only crate that depends on `rmcp`. | engine, control |
 | `reda-testkit` | dev-only: `assert_golden`, the test-engine builder, the scenario harness | (dev-dependency only) |
 | `reda-release` | CI-only, never shipped: the `reda-release` binary the release workflow runs to pick the next version, stamp it into the workspace and write the release notes; it also renders the package icons | — (`toml_edit` only) |
-| `reda-xtask` | dev-only, never shipped: `cargo xtask` chores, so far vendoring the interim placeholder icons into `reda-ui` | — (std only) |
+| `reda-xtask` | dev-only, never shipped: `cargo xtask` chores, such as regenerating `reda-ui`'s icon tables and building the website | — (std only) |
 
 Rules:
 - Domain crates (library, schematic, pcb, render, output) don't depend on each other except where the table says so. Cross-Document work happens only in `reda-engine`.

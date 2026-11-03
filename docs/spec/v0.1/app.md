@@ -241,13 +241,12 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - State shows on the button, never on the icon's colours. Active shows as an accent background, and hover as a hover background.
   - Disabled icons are a greyscale copy made on load. The disabled button fades it once, to about 47 %, never twice.
   - Live-state icons, such as the active-Layer swatch, are painted.
-- **Interim art:**
-  - REDA's own art comes first: the twelve icons of the [icon style prototype](https://github.com/openreda/reda/tree/prototype/icon-style) (Wire, Net Label, Power Port, Track, Via, Zone, Save, Undo, Zoom Fit, Layers, Select, Move) are in the set, listed in `icons/reda.txt` with their provenance.
-  - Every icon key must eventually get REDA art drawn to the [issue #32](https://github.com/openreda/reda/issues/32) style guide. Until a key has it, a Lucide or Tabler placeholder stands in. The placeholders are temporary and tracked: `icons/sources.txt` lists exactly the keys still waiting for REDA art.
-  - A small `xtask` vendors the placeholder SVGs (rewriting `currentColor` to `#fff`) into a `reda-ui` icons module and generates the key → `include_image!` table. It leaves the keys in `icons/reda.txt` alone, and refuses a key listed in both files.
-  - The set's README records each icon's provenance: who drew it, any reference or generator, and who cleaned it up for REDA art; the package and icon for a placeholder.
+- **Art:**
+  - Every key has REDA art drawn to the [issue #32](https://github.com/openreda/reda/issues/32) style guide, listed in `icons/reda.txt` with its provenance; a test fails when a key has no art.
+  - A small `xtask` generates the key → `include_image!` table and the set's README from `icons/reda.txt`, and fails when a listed key has no SVG.
+  - The README records each icon's provenance: who drew it, any reference or generator, and who cleaned it up.
 - **Third-party notices:**
-  - A `THIRD_PARTY_NOTICES` file is generated at release time. Crate licences come from `cargo-about`, a dev tool. A hand-kept list covers vendored data: placeholder icons, Noto Sans and the Hershey font.
+  - A `THIRD_PARTY_NOTICES` file is generated at release time. Crate licences come from `cargo-about`, a dev tool. A hand-kept list covers vendored data: Noto Sans, the Hershey font and egui's default UI fonts.
   - It is embedded in the binary and shown under **Help → About → Licences**.
   - A test checks that every vendored asset directory has an entry.
 

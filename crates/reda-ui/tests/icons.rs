@@ -1,5 +1,5 @@
-//! Icons: every semantic icon key the UI can show has art, the vendored set matches its
-//! table and README, and the dark-theme SVGs are recoloured on load for the light theme
+//! Icons: every semantic icon key the UI can show has art, the set matches its table and
+//! README, and the dark-theme SVGs are recoloured on load for the light theme
 //! and for disabled buttons.
 
 use std::collections::BTreeSet;
@@ -49,7 +49,7 @@ fn every_command_preset_panel_and_document_icon_key_has_art() {
     let missing: Vec<&String> = keys.iter().filter(|k| !icons::has(k)).collect();
     assert!(
         missing.is_empty(),
-        "icon keys without art (add them to icons/sources.txt and run `cargo xtask icons`): {missing:?}"
+        "icon keys without art (draw them, list them in icons/reda.txt and run `cargo xtask icons`): {missing:?}"
     );
 }
 
@@ -61,7 +61,7 @@ fn a_key_without_art_is_reported_missing() {
 }
 
 #[test]
-fn the_vendored_set_matches_its_table_and_readme() {
+fn the_set_matches_its_table_and_readme() {
     let readme = std::fs::read_to_string(icons_dir().join("README.md")).unwrap();
     let mut files = BTreeSet::new();
     for entry in std::fs::read_dir(icons_dir()).unwrap() {
@@ -88,12 +88,12 @@ fn the_vendored_set_matches_its_table_and_readme() {
 }
 
 #[test]
-fn the_light_theme_swaps_the_role_colours_and_the_placeholder_white() {
-    let dark = r##"<svg stroke="#fff"><path stroke="#8a93a0"/><path stroke="#2fb36b"/><path stroke="#e08a2e"/><path stroke="#3d8fd6"/><circle fill="#EC4F7A"/><path stroke="#ffffff"/></svg>"##;
+fn the_light_theme_swaps_the_role_colours() {
+    let dark = r##"<svg><path stroke="#8a93a0"/><path stroke="#2fb36b"/><path stroke="#e08a2e"/><path stroke="#3d8fd6"/><circle fill="#EC4F7A"/><path stroke="#d4c03c"/></svg>"##;
     assert_eq!(icons::recolour(dark, Theme::Dark, true), dark);
     assert_eq!(
         icons::recolour(dark, Theme::Light, true),
-        r##"<svg stroke="#1f2329"><path stroke="#727984"/><path stroke="#228a51"/><path stroke="#ac6921"/><path stroke="#347dbc"/><circle fill="#d2456c"/><path stroke="#1f2329"/></svg>"##
+        r##"<svg><path stroke="#727984"/><path stroke="#228a51"/><path stroke="#ac6921"/><path stroke="#347dbc"/><circle fill="#d2456c"/><path stroke="#8a7a12"/></svg>"##
     );
 }
 
@@ -115,22 +115,6 @@ fn disabled_icons_are_a_greyscale_copy_that_the_disabled_button_fades_once() {
 
 #[test]
 fn icons_load_for_both_themes_and_states() {
-    // A placeholder, while any is left, is drawn in white; `save` is REDA's own art.
-    let sources = std::fs::read_to_string(icons_dir().join("sources.txt")).unwrap();
-    let placeholder = sources
-        .lines()
-        .find(|l| !l.trim().is_empty() && !l.starts_with('#'))
-        .and_then(|l| l.split_whitespace().next());
-    if let Some(key) = placeholder {
-        let dark = String::from_utf8(icons::svg(key, Theme::Dark, true).unwrap().to_vec()).unwrap();
-        let light =
-            String::from_utf8(icons::svg(key, Theme::Light, true).unwrap().to_vec()).unwrap();
-        assert!(dark.contains("#fff"), "{key}: {dark}");
-        assert!(
-            light.contains("#1f2329") && !light.contains("#fff"),
-            "{key}: {light}"
-        );
-    }
     let save = String::from_utf8(icons::svg("save", Theme::Light, true).unwrap().to_vec()).unwrap();
     assert!(
         save.contains("#347dbc") && !save.contains("#3d8fd6"),
@@ -150,7 +134,7 @@ fn a_silhouette_makes_every_colour_white_and_keeps_none() {
 }
 
 #[test]
-fn reda_own_icons_use_only_the_role_colours_and_plain_shapes() {
+fn icons_use_only_the_role_colours_and_plain_shapes() {
     let roles: Vec<String> = icons::role_colours()
         .map(|(dark, _)| format!("#{:02x}{:02x}{:02x}", dark.r(), dark.g(), dark.b()))
         .collect();

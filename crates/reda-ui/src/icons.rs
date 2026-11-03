@@ -4,9 +4,9 @@
 //! `"panel_layers"`); [`ICONS`](table::ICONS) maps each key to its SVG in `icons/`. Each
 //! SVG is drawn with the dark-theme colours. On load, [`recolour`] swaps them for the light
 //! theme's, and makes the greyscale copy disabled buttons show (the button fades it, once);
-//! state otherwise shows on the button, never on the icon. REDA's own art, listed in
-//! `icons/reda.txt`, comes first; each key without it shows a Lucide or Tabler placeholder
-//! vendored by `cargo xtask icons` until it gets REDA art (see `icons/README.md`).
+//! state otherwise shows on the button, never on the icon. Every icon is REDA's own art,
+//! listed with its provenance in `icons/reda.txt`; `cargo xtask icons` regenerates the
+//! table from it (see `icons/README.md`).
 
 mod table;
 
@@ -81,12 +81,7 @@ const ROLES: [(u32, u32); 6] = [
     (0xd4c03c, 0x8a7a12), // created, board edge and keepout (not copper)
 ];
 
-/// White, what the placeholders are drawn in, and its light-theme value: the light theme's
-/// text colour.
-const PLACEHOLDER: (u32, u32) = (0xffffff, 0x1f2329);
-
-/// The role colours as (dark theme, light theme) pairs: the only colours REDA's own icons
-/// may use.
+/// The role colours as (dark theme, light theme) pairs: the only colours the icons may use.
 pub fn role_colours() -> impl Iterator<Item = (Color32, Color32)> {
     let colour = |c: u32| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8);
     ROLES
@@ -145,7 +140,6 @@ fn map_colour(colour: u32, theme: Theme, enabled: bool) -> u32 {
         Theme::Dark => colour,
         Theme::Light => ROLES
             .iter()
-            .chain([&PLACEHOLDER])
             .find(|(dark, _)| *dark == colour)
             .map_or(colour, |(_, light)| *light),
     };

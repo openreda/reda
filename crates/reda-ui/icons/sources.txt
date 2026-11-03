@@ -1,5 +1,0 @@
-# The interim placeholder icons: one line per semantic icon key, `<key> <set>:<icon>`, where
-# <set> is `lucide` (lucide-static) or `tabler` (@tabler/icons, outline style).
-# `cargo xtask icons` vendors each one as <key>.svg and regenerates ../src/icons/table.rs
-# and README.md. Keys with REDA's own art are listed in reda.txt instead; each one left here
-# is a tracked placeholder until REDA's own art for it is drawn to the style guide in #32.
