@@ -162,7 +162,9 @@ fn every_default_binding_names_a_command_or_preset_and_fits_its_params() {
         let Ok((id, params)) = item.run else {
             continue;
         };
-        if id == "app.quit" {
+        // Not run: one ends the app, the other (offered on macOS only) links the CLI into
+        // the real /usr/local/bin.
+        if id == "app.quit" || id == "app.cli.install" {
             continue;
         }
         if let Err(e) = shell.run(&id, params.clone()) {
