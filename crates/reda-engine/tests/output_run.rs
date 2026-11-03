@@ -60,7 +60,8 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
     let dir = TempDir::new("output-run");
     let mut engine = board(&dir);
     let out = run(&mut engine);
-    let folder = dir.path().join("Demo/outputs/Generic");
+    // One component at a time: the path is compared as a JSON string.
+    let folder = dir.path().join("Demo").join("outputs").join("Generic");
     assert_eq!(out["destination"], json!(folder));
     assert_eq!(out["zip"], json!(folder.join("Demo-Generic.zip")));
     let names: Vec<&str> = out["files"]
@@ -200,7 +201,8 @@ fn a_custom_destination_is_taken_from_the_project_folder() {
         json!({"job": JOB, "destination": "fab/out"}),
     );
     let out = run(&mut engine);
-    assert_eq!(out["destination"], json!(dir.path().join("Demo/fab/out")));
+    let destination = dir.path().join("Demo").join("fab").join("out");
+    assert_eq!(out["destination"], json!(destination));
     assert!(dir.path().join("Demo/fab/out/Demo-Generic.zip").exists());
 }
 

@@ -188,7 +188,8 @@ impl Command for JobRun {
 
         cx.progress(4.0, Some(STEPS), "Writing files");
         cx.check_cancelled()?;
-        let destination = folder.join(job.destination());
+        // The Job's `/`-separated destination, with the platform's separators.
+        let destination: PathBuf = folder.join(job.destination()).components().collect();
         write_all(&destination, &known, &files, &zip_name, &zip)?;
         cx.progress(STEPS, Some(STEPS), "Done");
 

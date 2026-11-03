@@ -319,7 +319,8 @@ fn user_names(engine: &mut TestEngine) -> Vec<String> {
 fn a_user_preset_is_renamed_with_its_file() {
     let (home, dir) = (TempDir::new("fab-rename-home"), TempDir::new("fab-rename"));
     let mut engine = with_user_preset(&home, &dir);
-    let folder = home.path().join("config/fab-presets");
+    // One component at a time: the path is compared as a JSON string.
+    let folder = home.path().join("config").join("fab-presets");
     let out = engine.run_ok(
         "fab_preset.rename_user",
         json!({"name": "my jlc", "new_name": "JLC Fast"}),
