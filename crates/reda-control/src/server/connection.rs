@@ -5,7 +5,7 @@
 //! the running Command. Writes share one lock, so lines never interleave.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Sender};
@@ -23,6 +23,8 @@ use crate::protocol;
 /// The longest the first message may take to arrive, and the most bytes it may have.
 const AUTH_TIMEOUT: Duration = Duration::from_secs(10);
 const AUTH_LIMIT: u64 = 64 * 1024;
+/// How often a connection waiting for its next request checks whether the server stopped.
+const STOP_POLL: Duration = Duration::from_millis(100);
 
 /// Commands a bridged session may not run: saving belongs to the host, and opening or
 /// creating a Project would replace the one the host holds.
@@ -51,7 +53,11 @@ pub(super) fn serve(shared: &Shared, stream: &TcpStream, calls: &Sender<Call>) {
     let Some((agent, auth_id)) = authenticate(shared, &writer, &line) else {
         return;
     };
-    let _ = reader.get_ref().set_read_timeout(None);
+    // From here the reader wakes now and then to see whether the server stopped: shutting
+    // the socket down from another handle does not wake a blocked read on Windows.
+    if reader.get_ref().set_read_timeout(Some(STOP_POLL)).is_err() {
+        return;
+    }
     // Listed before the client hears it is in, so the host's indicator never lags.
     let number = shared.next_connection.fetch_add(1, Ordering::SeqCst);
     shared
@@ -70,8 +76,7 @@ pub(super) fn serve(shared: &Shared, stream: &TcpStream, calls: &Sender<Call>) {
 
     let in_flight = InFlight::default();
     let mut waiters: Vec<JoinHandle<()>> = Vec::new();
-    for line in reader.lines() {
-        let Ok(line) = line else { break };
+    while let Some(line) = next_line(&mut reader, shared) {
         if line.trim().is_empty() {
             continue;
         }
@@ -101,6 +106,35 @@ pub(super) fn serve(shared: &Shared, stream: &TcpStream, calls: &Sender<Call>) {
         let _ = waiter.join();
     }
     forget();
+}
+
+/// The next line from the client, without its line ending, or `None` once it closes, sends
+/// something that is not UTF-8, fails, or the server stops. A line split across read
+/// timeouts is kept whole.
+fn next_line(reader: &mut BufReader<TcpStream>, shared: &Shared) -> Option<String> {
+    let mut bytes = Vec::new();
+    loop {
+        match reader.read_until(b'\n', &mut bytes) {
+            Ok(0) if bytes.is_empty() => return None,
+            // A full line, or the last one before the client closed.
+            Ok(_) => break,
+            Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                if shared.stopped.load(Ordering::SeqCst) {
+                    return None;
+                }
+            }
+            Err(e) if e.kind() == ErrorKind::Interrupted => {}
+            Err(_) => return None,
+        }
+    }
+    let mut line = String::from_utf8(bytes).ok()?;
+    if line.ends_with('\n') {
+        line.pop();
+        if line.ends_with('\r') {
+            line.pop();
+        }
+    }
+    Some(line)
 }
 
 /// Checks the first message and, when the host gates agents, waits for it to admit this
