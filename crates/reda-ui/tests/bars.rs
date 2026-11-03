@@ -15,6 +15,7 @@ use reda_ui::bars::{self, Bars, Binding, DocumentType, Item, Request};
 use reda_ui::engine::command::{ErrorCode, UserDirs};
 use reda_ui::engine::{Engine, preferences};
 use reda_ui::i18n;
+use reda_ui::keymap::Chord;
 use reda_ui::shell::Shell;
 use serde_json::json;
 
@@ -437,11 +438,8 @@ fn an_unavailable_menu_item_is_greyed_with_the_reason_on_hover() {
     h.get_by_role_and_label(Role::Button, "File").click();
     h.run();
     // The menu item reads with its shortcut, which tells it from the toolbar's Save All.
-    let shortcut = if cfg!(target_os = "macos") {
-        "Cmd+S"
-    } else {
-        "Ctrl+S"
-    };
+    // Labelled as on the platform egui reports.
+    let shortcut = Chord::parse("Mod+S").unwrap().label(h.ctx.os().is_mac());
     let label = format!("Save All {shortcut}");
     let save = h.get_by_role_and_label(Role::Button, &label);
     assert!(save.accesskit_node().is_disabled());

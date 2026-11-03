@@ -4,6 +4,7 @@
 //! one element that describes its Document and the selection.
 
 use egui::accesskit::Role;
+use egui::os::OperatingSystem;
 use egui::{Event, Key, Modifiers};
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
@@ -11,6 +12,7 @@ use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::engine::Engine;
 use reda_ui::engine::model::DocumentKind;
+use reda_ui::keymap::Chord;
 use reda_ui::layout::{PanelId, TabKey};
 use reda_ui::shell::Shell;
 use serde_json::json;
@@ -24,8 +26,14 @@ fn engine() -> Engine {
 }
 
 fn harness_on(shell: Shell) -> Harness<'static, App> {
+    harness_as(shell, OperatingSystem::Nix)
+}
+
+/// A harness whose egui context reports `os`, which picks the key names shortcuts show.
+fn harness_as(shell: Shell, os: OperatingSystem) -> Harness<'static, App> {
     let mut h = Harness::builder()
         .with_size([1000.0, 640.0])
+        .with_os(os)
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     h.run();
     h
@@ -33,6 +41,11 @@ fn harness_on(shell: Shell) -> Harness<'static, App> {
 
 fn harness() -> Harness<'static, App> {
     harness_on(Shell::new(engine()))
+}
+
+/// The portable chord `key` (`"Mod+N"`) as `h`'s platform writes it.
+fn shown(h: &Harness<'_, App>, key: &str) -> String {
+    Chord::parse(key).unwrap().label(h.ctx.os().is_mac())
 }
 
 fn description(h: &Harness<'_, App>, role: Role, label: &str) -> Option<String> {
@@ -72,7 +85,15 @@ fn press_held(h: &mut Harness<'_, App>, modifiers: Modifiers, key: Key) {
 
 #[test]
 fn icon_buttons_tabs_and_dock_icons_are_named_by_title_and_described_by_shortcut() {
-    let mut h = harness();
+    // The keys read as the platform writes them: checked as egui's default and as macOS,
+    // whose names differ (Cmd, Option).
+    for os in [OperatingSystem::Nix, OperatingSystem::Mac] {
+        named_by_title_and_described_by_shortcut(os);
+    }
+}
+
+fn named_by_title_and_described_by_shortcut(os: OperatingSystem) {
+    let mut h = harness_as(Shell::new(engine()), os);
     // A toolbar icon: its Command's title, its key. (The toolbar's comes before the Start
     // page's button of the same name.)
     let toolbar = h
@@ -81,20 +102,20 @@ fn icon_buttons_tabs_and_dock_icons_are_named_by_title_and_described_by_shortcut
         .unwrap()
         .accesskit_node()
         .description();
-    assert_eq!(toolbar.as_deref(), Some("Ctrl+N"));
+    assert_eq!(toolbar, Some(shown(&h, "Mod+N")));
     assert_eq!(
-        description(&h, Role::Button, "Save All").as_deref(),
-        Some("Ctrl+S")
+        description(&h, Role::Button, "Save All"),
+        Some(shown(&h, "Mod+S"))
     );
     // Tabs: the Panel's title, and the key of its show Preset; a tab without one has no
     // description.
     assert_eq!(
-        description(&h, Role::Tab, "Projects").as_deref(),
-        Some("Alt+1")
+        description(&h, Role::Tab, "Projects"),
+        Some(shown(&h, "Alt+1"))
     );
     assert_eq!(
-        description(&h, Role::Tab, "Messages").as_deref(),
-        Some("Alt+3")
+        description(&h, Role::Tab, "Messages"),
+        Some(shown(&h, "Alt+3"))
     );
     assert_eq!(description(&h, Role::Tab, "Start"), None);
     assert!(
@@ -112,8 +133,8 @@ fn icon_buttons_tabs_and_dock_icons_are_named_by_title_and_described_by_shortcut
     h.get_by_label("Collapse Dock").click();
     h.run();
     assert_eq!(
-        description(&h, Role::Button, "Projects").as_deref(),
-        Some("Alt+1")
+        description(&h, Role::Button, "Projects"),
+        Some(shown(&h, "Alt+1"))
     );
     h.get_by_role_and_label(Role::Button, "Expand Dock");
 }

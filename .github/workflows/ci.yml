@@ -93,15 +93,17 @@ jobs:
         run: cargo test --locked -p reda-ui --test app --test canvas_gpu
       # The website (pages.yml deploys it from main): draw its screenshots with the app and
       # assemble it, so a change that breaks either shows here first. Nothing is deployed.
+      # The site goes to _site, outside target/: rust-cache restores target/ with files
+      # pruned, and the xtask refuses a non-empty folder that no longer looks like a build.
       - name: Build the website
         run: |
           cargo xtask showcase --out target/showcase
-          cargo xtask site --screenshots target/showcase --out target/site
+          cargo xtask site --screenshots target/showcase --out _site
       - name: Upload the website preview
         uses: actions/upload-artifact@v4
         with:
           name: site-preview
-          path: target/site
+          path: _site
           retention-days: 7
       - name: Upload the differing images
         if: failure()

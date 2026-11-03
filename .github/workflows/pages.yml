@@ -57,7 +57,10 @@ jobs:
       - name: Fetch the released versions' screenshots
         env:
           GH_TOKEN: ${{ github.token }}
+        # Start empty: rust-cache restores target/, which may hold pruned or since-deleted
+        # versions from an earlier run.
         run: |
+          rm -rf target/versions target/archives
           mkdir -p target/versions target/archives
           gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName' \
             | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \

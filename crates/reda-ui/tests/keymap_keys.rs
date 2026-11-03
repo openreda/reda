@@ -11,6 +11,7 @@ use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
+use reda_ui::keymap::Chord;
 use reda_ui::shell::Shell;
 use reda_ui::tools::Tool;
 
@@ -174,13 +175,10 @@ fn menus_show_the_shortcut_of_each_item() {
     let mut h = harness(&home, "");
     h.get_by_label("File").click();
     h.run();
-    let label = if cfg!(target_os = "macos") {
-        "Cmd+S"
-    } else {
-        "Ctrl+S"
-    };
+    // Labelled as on the platform egui reports.
+    let label = Chord::parse("Mod+S").unwrap().label(h.ctx.os().is_mac());
     assert!(
-        h.query_by_label_contains(label).is_some(),
+        h.query_by_label_contains(&label).is_some(),
         "the File menu shows {label} beside Save All"
     );
 }

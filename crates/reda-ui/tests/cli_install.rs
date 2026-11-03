@@ -3,7 +3,6 @@
 //! tested in temporary folders; the Command itself never runs here against the real
 //! `/usr/local/bin`.
 
-use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::ErrorCode;
 use reda_ui::shell::Shell;
@@ -46,6 +45,7 @@ fn elsewhere_the_command_refuses_to_run() {
 mod linking {
     use std::path::{Path, PathBuf};
 
+    use reda_testkit::TempDir;
     use reda_ui::help::{CliInstalled, InstallError, install_cli};
 
     use super::*;

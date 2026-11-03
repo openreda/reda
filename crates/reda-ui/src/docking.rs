@@ -115,10 +115,15 @@ fn tab_icon_key(shell: &Shell, tab: &TabKey) -> Option<&'static str> {
     })
 }
 
-/// The key that shows `tab`: a Panel's show Preset's, as the platform writes it.
-fn tab_shortcut(shell: &Shell, tab: &TabKey) -> Option<String> {
+/// The key that shows `tab`: a Panel's show Preset's, labelled for the OS `ctx` reports,
+/// as the bars label theirs.
+fn tab_shortcut(ctx: &egui::Context, shell: &Shell, tab: &TabKey) -> Option<String> {
     match tab {
-        TabKey::Panel(panel) => keymap::shortcut_of(shell, &format!("panel.show:{}", panel.id())),
+        TabKey::Panel(panel) => keymap::shortcut_label(
+            shell,
+            &format!("panel.show:{}", panel.id()),
+            ctx.os().is_mac(),
+        ),
         _ => None,
     }
 }
@@ -446,7 +451,7 @@ impl Cx<'_> {
                         icon.request_focus();
                     }
                     let icon = icon.on_hover_text(&title);
-                    let shortcut = tab_shortcut(self.shell, tab);
+                    let shortcut = tab_shortcut(ui.ctx(), self.shell, tab);
                     a11y::name(&icon, Role::Button, true, &title, None, shortcut.as_deref());
                     if icon.clicked() {
                         if open {
@@ -694,7 +699,7 @@ impl Cx<'_> {
         if close.as_ref().is_some_and(Response::clicked) {
             self.run("layout.tab.close", json!({"tab": tab.to_string()}));
         }
-        let shortcut = tab_shortcut(self.shell, tab);
+        let shortcut = tab_shortcut(&response.ctx, self.shell, tab);
         // The badge is read out with the tab's name.
         let name = if pending > 0 {
             tr!("tab-out-of-sync", tab = title.as_str(), count = pending)

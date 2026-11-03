@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
-use reda_ui::keymap;
+use reda_ui::keymap::{self, Chord};
 use reda_ui::palette::{self, Entry};
 use reda_ui::shell::Shell;
 use serde_json::json;
@@ -101,20 +101,15 @@ fn the_window_s_lookup_reads_the_keymap() {
     let shell = Shell::new(engine_in(home.path()));
     let lookup = |id: &str| keymap::shortcut_of(&shell, id);
     let entries = palette::entries(&shell, &lookup);
-    let (save, palette) = if cfg!(target_os = "macos") {
-        ("Cmd+S", "Cmd+Shift+P")
-    } else {
-        ("Ctrl+S", "Ctrl+Shift+P")
-    };
+    // Labelled as on this OS.
+    let shown = |key: &str| Chord::parse(key).unwrap().label(cfg!(target_os = "macos"));
     assert_eq!(
-        entry(&entries, "project.save").shortcut.as_deref(),
-        Some(save)
+        entry(&entries, "project.save").shortcut,
+        Some(shown("Mod+S"))
     );
     assert_eq!(
-        entry(&entries, "app.dialog.open:command_palette")
-            .shortcut
-            .as_deref(),
-        Some(palette)
+        entry(&entries, "app.dialog.open:command_palette").shortcut,
+        Some(shown("Mod+Shift+P"))
     );
     assert_eq!(entry(&entries, "app.quit").shortcut, None);
 }

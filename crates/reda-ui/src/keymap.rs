@@ -143,13 +143,19 @@ pub fn active(shell: &Shell) -> Active {
 /// The shortcut of the Command or Preset `id` (`<command>:<preset>`) in what is active in
 /// `shell` now, labelled as on this OS: the Command Palette's lookup.
 pub fn shortcut_of(shell: &Shell, id: &str) -> Option<String> {
+    shortcut_label(shell, id, cfg!(target_os = "macos"))
+}
+
+/// [`shortcut_of`], labelled as on macOS (`mac`) or elsewhere. Widgets pass the OS their
+/// egui context reports, as the bars do.
+pub fn shortcut_label(shell: &Shell, id: &str, mac: bool) -> Option<String> {
     let binding = if id.contains(':') {
         Binding::Preset(id.to_owned())
     } else {
         Binding::Command(id.to_owned())
     };
     let chord = shell.keymap().shortcut(&binding, &active(shell))?;
-    Some(chord.label(cfg!(target_os = "macos")))
+    Some(chord.label(mac))
 }
 
 /// What is active for the canvas of `document` (or, with `None`, for no Document): the
