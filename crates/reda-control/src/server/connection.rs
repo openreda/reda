@@ -41,7 +41,9 @@ pub(super) fn serve(shared: &Shared, stream: &TcpStream, calls: &Sender<Call>) {
     };
     let writer: Writer = Arc::new(Mutex::new(write));
     let mut reader = BufReader::new(read);
-    let _ = stream.set_read_timeout(Some(AUTH_TIMEOUT));
+    // On the handle read from: on Windows a `try_clone`d socket does not share the
+    // original's read timeout.
+    let _ = reader.get_ref().set_read_timeout(Some(AUTH_TIMEOUT));
     let mut line = String::new();
     if (&mut reader).take(AUTH_LIMIT).read_line(&mut line).is_err() {
         return;
@@ -49,7 +51,7 @@ pub(super) fn serve(shared: &Shared, stream: &TcpStream, calls: &Sender<Call>) {
     let Some((agent, auth_id)) = authenticate(shared, &writer, &line) else {
         return;
     };
-    let _ = stream.set_read_timeout(None);
+    let _ = reader.get_ref().set_read_timeout(None);
     // Listed before the client hears it is in, so the host's indicator never lags.
     let number = shared.next_connection.fetch_add(1, Ordering::SeqCst);
     shared

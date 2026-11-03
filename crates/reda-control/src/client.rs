@@ -122,13 +122,15 @@ impl Connection {
     ) -> std::io::Result<Connection> {
         let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, instance.port));
         let stream = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT)?;
-        stream.set_read_timeout(Some(AUTH_TIMEOUT))?;
         let mut connection = Connection {
             reader: BufReader::new(stream.try_clone()?),
             stream,
             next_id: 0,
             project: None,
         };
+        connection
+            .read_half()
+            .set_read_timeout(Some(AUTH_TIMEOUT))?;
         let params = json!({ "token": instance.token, "source": source, "agent": agent });
         let reply = connection
             .request(protocol::AUTH, params, &Signals::default())
@@ -194,8 +196,8 @@ impl Connection {
         };
         let request = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
         self.send(&request).map_err(lost)?;
-        let previous = self.stream.read_timeout().map_err(lost)?;
-        self.stream
+        let previous = self.read_half().read_timeout().map_err(lost)?;
+        self.read_half()
             .set_read_timeout(Some(CANCEL_POLL))
             .map_err(lost)?;
         let mut waited = Duration::ZERO;
@@ -238,8 +240,14 @@ impl Connection {
                 Err(e) => return Err(lost(e)),
             }
         };
-        self.stream.set_read_timeout(None).map_err(lost)?;
+        self.read_half().set_read_timeout(None).map_err(lost)?;
         answer(id, response)
+    }
+
+    /// The handle replies are read from. Its read timeout is the one that counts: on
+    /// Windows a `try_clone`d socket does not share the original's.
+    fn read_half(&self) -> &TcpStream {
+        self.reader.get_ref()
     }
 
     fn send(&mut self, message: &Value) -> std::io::Result<()> {
