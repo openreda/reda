@@ -139,3 +139,12 @@ fn icons_load_for_both_themes_and_states() {
     let off = String::from_utf8(icons::svg("save", Theme::Light, false).unwrap().to_vec()).unwrap();
     assert!(!off.contains("#347dbc"), "{off}");
 }
+
+#[test]
+fn a_silhouette_makes_every_colour_white_and_keeps_none() {
+    let svg = r##"<path stroke="#3d8fd6" fill="none"/><circle fill="#d4c03c" stroke="#abc"/>"##;
+    assert_eq!(
+        icons::silhouette(svg),
+        r##"<path stroke="#ffffff" fill="none"/><circle fill="#ffffff" stroke="#ffffff"/>"##
+    );
+}

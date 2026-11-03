@@ -95,7 +95,12 @@ pub(crate) fn tab_icon(
     tab: &TabKey,
     theme: egui::Theme,
 ) -> Option<egui::Image<'static>> {
-    let key = match tab {
+    icons::image(tab_icon_key(shell, tab)?, icons::TAB, theme, true)
+}
+
+/// The icon key of `tab`: its Panel's, its Document type's, or the Start page's.
+fn tab_icon_key(shell: &Shell, tab: &TabKey) -> Option<&'static str> {
+    Some(match tab {
         TabKey::Start => icons::START_PAGE,
         TabKey::Panel(panel) => icons::panel_icon(*panel),
         TabKey::Document(uuid) => {
@@ -107,8 +112,7 @@ pub(crate) fn tab_icon(
                 .kind;
             icons::document_icon(kind)
         }
-    };
-    icons::image(key, icons::TAB, theme, true)
+    })
 }
 
 /// The key that shows `tab`: a Panel's show Preset's, as the platform writes it.
@@ -621,8 +625,11 @@ impl Cx<'_> {
                 badge_text,
             )
         });
-        // The light art, tinted to the title's colour: the bar is blue on both themes.
-        let icon = tab_icon(self.shell, tab, egui::Theme::Dark).map(|i| i.tint(colour));
+        // The icon's silhouette in the title's colour: the bar is blue on both themes, and
+        // the role colours would be faint on it.
+        let icon = tab_icon_key(self.shell, tab)
+            .and_then(|key| icons::silhouette_image(key, icons::TAB))
+            .map(|i| i.tint(colour));
         // | 8 | icon 4 | title | 4 badge | 4 × 4 |
         let close_size = 14.0;
         let width = 8.0

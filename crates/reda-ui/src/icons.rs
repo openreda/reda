@@ -173,6 +173,46 @@ pub fn svg(key: &str, theme: Theme, enabled: bool) -> Option<&'static [u8]> {
         .map(Vec::as_slice)
 }
 
+/// `svg` with every colour made white: a silhouette for [`Image::tint`] to colour, for
+/// icons drawn on a coloured ground (the tabs' blue bars) rather than in their role colours.
+pub fn silhouette(svg: &str) -> String {
+    let mut out = String::with_capacity(svg.len());
+    let mut rest = svg;
+    while let Some(at) = rest.find('#') {
+        out.push_str(&rest[..at]);
+        let tail = &rest[at + 1..];
+        let digits = tail.bytes().take_while(u8::is_ascii_hexdigit).count();
+        out.push('#');
+        match parse_hex(&tail[..digits]) {
+            Some(_) => out.push_str("ffffff"),
+            None => out.push_str(&tail[..digits]),
+        }
+        rest = &tail[digits..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The white silhouette of `key` at `size` points, to [`Image::tint`] to one colour;
+/// `None` when the key has no art. Drawing it needs [`install_loaders`].
+pub fn silhouette_image(key: &str, size: f32) -> Option<Image<'static>> {
+    static LOADED: OnceLock<BTreeMap<&'static str, Vec<u8>>> = OnceLock::new();
+    let key = keys().find(|k| *k == key)?;
+    let loaded = LOADED.get_or_init(|| {
+        keys()
+            .map(|key| {
+                let svg = String::from_utf8_lossy(source(key).expect("the table holds bytes"));
+                (key, silhouette(&svg).into_bytes())
+            })
+            .collect()
+    });
+    let source = ImageSource::Bytes {
+        uri: format!("bytes://reda-icons/silhouette/{key}.svg").into(),
+        bytes: Bytes::Static(loaded.get(key)?.as_slice()),
+    };
+    Some(Image::new(source).fit_to_exact_size(Vec2::splat(size)))
+}
+
 /// Lets `ctx` draw icons: installs `egui_extras`' image loaders, which render SVG with
 /// resvg. The window does this on its first frame.
 pub fn install_loaders(ctx: &egui::Context) {
