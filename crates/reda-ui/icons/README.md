@@ -162,14 +162,4 @@ MIT, like the repo. Each is listed in `reda.txt`, which `cargo xtask icons` leav
 
 ## Placeholder icons
 
-Interim art, tracked until REDA's own replaces every one of them. Each SVG is copied from the npm package below, with comments and `class` attributes removed and `currentColor` rewritten to `#fff`, the dark-theme colour reda-ui swaps for the light theme on load. To change one, edit `sources.txt` and run `cargo xtask icons`.
-
-| Set | Package | Licence |
-|---|---|---|
-| Lucide | `lucide-static@1.66.0` | ISC (parts MIT, from Feather), in `LICENSE-lucide.txt` |
-| Tabler | `@tabler/icons@3.50.0` | MIT, in `LICENSE-tabler.txt` |
-
-Every icon below was drawn by its set's authors and vendored unmodified apart from the rewrite above.
-
-| Key | Source |
-|---|---|
+None: every key has REDA's own art. A placeholder added to `sources.txt` is vendored and listed here by `cargo xtask icons`.

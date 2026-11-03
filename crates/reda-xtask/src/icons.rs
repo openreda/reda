@@ -260,6 +260,14 @@ pub fn readme(owned: &[Owned], sources: &[Source]) -> String {
             o.key, o.drawn_by, o.reference, o.cleaned_up_by
         );
     }
+    if sources.is_empty() {
+        out.push_str(
+            "\n## Placeholder icons\n\n\
+             None: every key has REDA's own art. A placeholder added to `sources.txt` is \
+             vendored and listed here by `cargo xtask icons`.\n",
+        );
+        return out;
+    }
     out.push_str(
         "\n## Placeholder icons\n\n\
          Interim art, tracked until REDA's own replaces every one of them. Each SVG is copied \

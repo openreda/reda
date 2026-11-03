@@ -75,6 +75,13 @@ fn readme_records_each_icons_provenance() {
 }
 
 #[test]
+fn readme_without_placeholders_says_so_instead_of_an_empty_table() {
+    let text = readme(&[], &[]);
+    assert!(text.contains("## Placeholder icons\n\nNone: every key has REDA's own art."));
+    assert!(!text.contains("| Key | Source |"), "{text}");
+}
+
+#[test]
 fn reda_owned_icons_list_their_provenance() {
     let owned =
         parse_owned("# comment\nwire | Claude (Opus 5.5), hand-written SVG | none | none\n")
