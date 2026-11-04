@@ -66,7 +66,7 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   - Groups have no borders: they sit 3 px apart, and the gaps show the gap colour. The gap at a Dock's inner edge is its splitter, and it turns the accent (at 60 %) while hovered or dragged.
   - An expanded Dock has no header. It collapses from the View menu's Docks submenu (Collapse Left, Right or Bottom Dock, the `layout.dock.collapse` Presets), or from Collapse Dock on any of its tabs' menus. A collapsed Dock is a 24 px faint icon strip, with no frame around it.
 - **Status bar:** from the left, "Active: <Document kind>" (Schematic Sheet, PCB Document, Symbol, Footprint, Part), the cursor's X and Y in the Document's units, and its grid; then notes such as "Zones need refilling", the "out of sync: N changes" badge, the bridge indicator and the Panels button, all flat buttons.
-  - The cursor on a board is where it last snapped, measured from the Placement Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. mm read to two decimals, mil to whole mil.
+  - The cursor on a board is where it last snapped, measured from the Output Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. mm read to two decimals, mil to whole mil.
 - **Command Palette** (`Mod+Shift+P`):
   - It does a fuzzy search over every Command and Preset in the current context.
   - It shows each shortcut, and the reason for any that are unavailable.
@@ -130,7 +130,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
     - Each page has the board-wide values, an override table with one row per Net Class, the line "Net Class values override the board value", that check's DRC severity, and the [strictest Fab Preset limit](checks.md#fab-presets-and-the-rules) beside each value.
     - Each page has **Reset page to Fab Preset**, the Apply Fab Preset preview filtered to that page.
   - *Mask & Paste:* mask expansion (top and bottom, with a link toggle), from hole edge, Via tenting and paste expansion (absolute or percent). It has no DRC severity ([pcb](pcb.md#mask-and-paste)).
-  - *Stackup:* thickness, copper and dielectric entries, finish and colours, with a live cross-section ([pcb](pcb.md#stackup)).
+  - *Stackup:* thickness, copper and dielectric entries, finish and colours, with a live cross-section ([pcb](pcb.md#stackup)), and the free text for [Fab Notes](outputs.md#fab-notes).
   - *Net Classes:*
     - **Grid:** one bold Default row, which edits the board-wide records, and one row per class in rank order, with a column per value for clearance, Track width and Via size. Drag a row to change its rank. Inherited values are grey and overrides normal, with a "show only overrides" filter, a search filter, an `enabled` checkbox per override and a comment column. Cells copy and paste, and Delete clears an override back to inherited.
     - **Typing in the grid:** typing `min` or `preferred` for a class with no record of that kind fills the record's empty `min`, `preferred` and `max` with the same value. Delete clears any of them.

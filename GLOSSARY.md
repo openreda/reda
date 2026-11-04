@@ -210,11 +210,19 @@ _Avoid_: Rule set, constraint file
 One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class.
 _Avoid_: Constraint
 
-**Placement Origin**:
-The point on a PCB Document from which Component positions are measured in manufacturing outputs.
-_Avoid_: Aux origin, drill origin, datum, zero point
+**Output Origin**:
+A point the user can place on a PCB Document, from which manufacturing files measure their coordinates when the Fab Preset asks for a relative origin.
+_Avoid_: Placement Origin, aux origin, drill origin, datum, zero point
 
 ## Manufacturing
+
+**Fab Notes**:
+A plain-text file in an Output Job's zip telling a person at the fab what the board is, such as its thickness, finish, minimum features and deliberate shorts.
+_Avoid_: README, fab drawing, order notes
+
+**Output Manifest**:
+The file beside an Output Job's zip that records what the run wrote, with a hash of each file and of the zip, so what was sent can be proved later.
+_Avoid_: Release manifest, file list
 
 **Fab Preset**:
 A named description of what one fabrication house expects, such as its minimum design rules, file conventions and BOM columns.

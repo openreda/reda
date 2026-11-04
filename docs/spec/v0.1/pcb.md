@@ -14,6 +14,7 @@ Source: [Which features make up the v0.1 PCB editor?](https://github.com/openred
   - It may start with a rectangular Board Outline from the New Project dialog. Otherwise the canvas shows a hint: "No Board Outline: draw one, or **Create rectangle…**" (`pcb.board_outline.add_rect {width, height, corner_radius?}`).
   - The PCB Document can be deleted after confirmation. **Add PCB Document** (`document.add {kind: pcb}`) is available only while the Project has none. Output Jobs that name a missing PCB are flagged as broken until they are re-pointed. A Project opened without its PCB file shows an error in Messages and offers Add PCB Document.
 - The board owns its [Stackup](#stackup), edited in **Board Setup**.
+- `fab_notes` is optional free text stored in the PCB Document, edited on the Stackup page of Board Setup with `pcb.fab_notes.set`. It is copied into [Fab Notes](outputs.md#fab-notes).
 - The board owns its design rules and DRC severities ([checks](checks.md#design-rules)). A Fab Preset seeds them when the board is created. They are edited in **Board Setup** ([app](app.md#settings-dialogs)).
 
 ## Stackup
@@ -26,9 +27,9 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
   - `entries`, ordered top to bottom:
     - copper: `{layer, thickness}`
     - dielectric: `{uuid, thickness?}`
-  - `finish`, `mask_color`, `silk_color`: optional text with suggestions, written as typed in fab notes and left out when unset.
+  - `finish`, `mask_color`, `silk_color`: optional text with suggestions, written as typed in [Fab Notes](outputs.md#fab-notes) and left out when unset.
 - A 2-layer board is copper, one dielectric with no thickness, copper. Solder mask, silkscreen and paste are not entries.
-- **Copper units:** thickness is stored in nm and can be entered in µm, mm, mil or oz, where 1 oz is exactly 35 µm. Fab notes show both for a standard weight, such as "1 oz (35 µm)", and µm only otherwise.
+- **Copper units:** thickness is stored in nm and can be entered in µm, mm, mil or oz, where 1 oz is exactly 35 µm. Fab Notes show both for a standard weight, such as "1 oz (35 µm)", and µm only otherwise.
 - **Totals:**
   - A dielectric left blank takes the remainder of `thickness`. A negative remainder is an error on the field.
   - If every dielectric is typed in, `thickness` stays as stored and any mismatch shows as a warning.
@@ -64,7 +65,7 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
   - Each Footprint has a movable, rotatable Designator text.
 - Pads come from the Library part and can be [edited on the board](#placed-pad-edits).
 - **Free Pads** are plated or non-plated Pads with no Footprint, optionally on a Net. They serve as mounting holes and fiducials, as Mechanical Parts can. They have the whole [Pad model](library.md#pad-model).
-- **Placement Origin:** an optional object that sets the CPL origin ([outputs](outputs.md#cpl)).
+- **Output Origin:** an optional object that sets where a `relative` Fab Preset measures Gerber, drill and CPL coordinates from ([outputs](outputs.md#output-origin)).
 
 ### Placed Pad edits
 

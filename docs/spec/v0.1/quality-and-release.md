@@ -19,7 +19,8 @@ Source: [How is REDA tested?](https://github.com/openreda/reda/issues/29).
   - A dev-only crate holding `assert_golden(path, bytes)` (rewritten with `REDA_BLESS=1`), the test-engine builder and the scenario harness.
   - It does not use `insta`.
 - **Manufacturing outputs:**
-  - Byte-exact goldens of the Gerber, Excellon, BOM/CPL and PDF for each reference Project, with a fixed `Clock`.
+  - Byte-exact goldens of the Gerber, Excellon, BOM/CPL, Fab Notes, drill report, job file, Output Manifest and PDF for each reference Project, with a fixed `Clock` and REDA version.
+  - **Fab acceptance check, by hand, before the first release:** upload a reference Project's zip to JLCPCB's and PCBWay's viewers, and open it in the publisher's reference Gerber viewer. Check X2 attributes, drill and non-plated slots, text shapes and the job file. A failure reopens the decision it tests.
   - A Gerber read-back test parses REDA's output with a permissive reader (`gerber_parser` if it fits, otherwise a minimal in-house reader for the subset REDA writes) and compares the geometry with the model.
   - No GPL tools, even in CI.
 - **Rendering:**
