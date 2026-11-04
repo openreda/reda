@@ -80,7 +80,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 - **Supplier part search** in a new `reda-supplier`, above the engine:
   - It shows stock and price.
   - It can only deep-link to a vendor's part page and pass the downloaded zip to Import part. The vendors' terms forbid automated fetching ([research](https://github.com/openreda/reda/issues/19)).
-- **Library extras:** other IPC density levels, BGA generators, De Morgan bodies, custom polygon Pads, Graphical Parts, and similar.
+- **Library extras:** other IPC density levels, BGA generators, De Morgan bodies, custom polygon Pads, Footprint copper graphics (usable as Net Tie copper), Graphical Parts, and similar.
 
 ### Outputs (v0.7), in `reda-output`
 - Assembly PDFs, IPC-D-356 and ODB++.

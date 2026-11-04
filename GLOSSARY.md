@@ -63,8 +63,20 @@ One placed instance of a Part in a Project, shown as one or more Units on Schema
 _Avoid_: Part (when an instance is meant), device
 
 **Component Type**:
-The kind of a part that decides whether its Components go into the BOM and whether they may exist on the board without a schematic counterpart, such as Standard or Mechanical.
-_Avoid_: Part class, category, BOM flag
+The kind of a part that decides whether its Components may exist on the board without a schematic counterpart and how checks treat their copper, such as Standard, Mechanical or Net Tie. It also sets the defaults for In BOM and In CPL.
+_Avoid_: Part class, category
+
+**In BOM**:
+Whether a Component is a line to buy on every build, and so is listed in the BOM. A Part sets the default and each Component can change it.
+_Avoid_: Exclude from BOM, No BOM
+
+**In CPL**:
+Whether a Component is placed by the assembler's machine, and so is listed in the CPL. A Part sets the default and each Component can change it.
+_Avoid_: Exclude from position file, pick-and-place flag
+
+**Net Tie**:
+A Component Type whose Footprint deliberately joins two or more Nets through its own copper, while the Nets stay separate in the design.
+_Avoid_: Net bridge, star point, jumper (a fitted link is a different thing)
 
 **Unit**:
 One independently placeable section of a Symbol, such as one amplifier of a dual op-amp or its power section; a single-unit Symbol has exactly one.
@@ -181,7 +193,7 @@ A saved, named recipe in a Project that produces a chosen set of manufacturing f
 _Avoid_: OutJob, export settings, plot settings, fab output
 
 **Not Fitted**:
-The state of a Component that stays in the design and on the board but is left out of assembly.
+The state of a Component that stays in the design and on the board but is left out of assembly on this build. In BOM says whether it is ever a line to buy; Not Fitted says this build leaves it off.
 _Avoid_: DNP, DNF, do not populate, excluded
 
 **Variant**:

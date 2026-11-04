@@ -81,6 +81,7 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
 - A route ends on its own when it reaches a Pad or Track of the same Net.
 - **Clearance:**
   - A clearance violation stops or flags the route, checked live through engine queries.
+  - Tracks on a Net Tie's Nets follow the [Net Tie rule](checks.md#net-ties), the same one DRC uses.
   - Nothing shoves.
 - **Editing Tracks:**
   - Dragging a segment keeps its neighbours attached. `Mod`+drag detaches it.

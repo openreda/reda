@@ -61,9 +61,10 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
   - Nets follow live from Wires, Net Labels, Ports and Power Ports, using fixed scope rules (see [schematic](schematic.md#connectivity)).
   - Derivation is incremental, driven by change sets. A full re-derive per transaction is an acceptable v0.1 fallback. There is no "compile" step.
 - **Component data:**
-  - The schematic is the master. Each Unit carries the Component UUID and a duplicated copy of Designator, value, fields, Footprint choice, Component Type and Not Fitted. Commands keep the copies equal, and ERC flags a mismatch.
-  - The PCB Document holds a **Footprint instance** linked by Component UUID. It has its own copy of Designator, value, fields, Footprint and Not Fitted, and a Net per Pad, so outputs read only the PCB Document ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
-  - Mechanical Components may exist only on the PCB. They keep their fields and Not Fitted on their Footprint instance, which has no Component link.
+  - The schematic is the master. Each Unit carries the Component UUID and a duplicated copy of Designator, value, fields, Footprint choice, Component Type, In BOM, In CPL and Not Fitted. Commands keep the copies equal, and ERC flags a mismatch.
+  - The PCB Document holds a **Footprint instance** linked by Component UUID. It has its own copy of Designator, value, fields, Footprint, Component Type, In BOM, In CPL and Not Fitted, and a Net per Pad, so outputs and DRC read the type and flags from the PCB Document ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125)). The BOM's one exception is in [outputs](outputs.md#bom).
+  - Mechanical Components may exist only on the PCB. They keep their fields, In BOM, In CPL and Not Fitted on their Footprint instance, which has no Component link.
+  - A Mechanical Component may also exist only on a sheet, with no Footprint choice. It never reaches the PCB.
 - **PCB Nets** are stored objects with a UUID, a name and a Net Class. Pads, Tracks, Vias, Zones and Free Pads reference them by UUID. Net Classes live on the PCB side.
 - **Undo and redo:**
   - One Command is one transaction. It records a before/after change set per object, keyed by UUID.
@@ -91,7 +92,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
 
 ## Reserved names
 
-Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124).
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125).
 
 These names are held for later milestones. They are additive, so they stay out of the v0.1 schema and nothing else may use them for another meaning.
 
@@ -109,10 +110,15 @@ These names are held for later milestones. They are additive, so they stay out o
 | Placed objects | `group` | v0.5 |
 | PCB Document | `grids`, `guides` | later |
 | Pad | Polygon shape | v0.6 |
+| Pad | `jumper_id` | v0.2 |
 | Pad | per-Layer pad stack mode | later |
 | Part | `part_choices`, body style, alternate Pin names | v0.6 |
 | Part | swap groups, equivalence id, pair group, per-Component pin permutation | v0.5 |
 | Footprint | `bodies` | v0.3 |
+| Footprint | `copper` graphics | v0.6 |
+| Component Type | `Jumper` | v0.2 |
+| Component Type | `Graphical` | v0.6 |
+| Component Type | `SimulationOnly` | later |
 | Part | `attachments` | later |
 | Project file | `parameters` | later |
 | Project file | `net_scope`, Document `parent` | v0.5 |
@@ -140,8 +146,8 @@ Sources: [What does REDA's native file format look like?](https://github.com/ope
   - A Document's name is its file stem. Renaming a Document renames its file on save. Adding or deleting a Document reaches disk on save, and a deleted Document's file goes to the OS trash ([app](app.md#projects-and-settings)).
 - **Part tables:**
   - Each Document stores its part copies once, in a table keyed by library element UUID + content hash. Instances point at the table. A locally edited copy gets its own entry by hash.
-  - A Schematic Sheet stores the whole Part: Symbol, pin-map overrides, fields, Component Type, and every alternate Footprint deduplicated by hash. The PCB stores only the Footprints in use.
-  - Per-Component data (Designator, value, MPN and other fields, Footprint choice, Component Type, Not Fitted) stays on the instances.
+  - A Schematic Sheet stores the whole Part: Symbol, pin-map overrides, fields, Component Type, In BOM, In CPL, and every alternate Footprint deduplicated by hash. The PCB stores only the Footprints in use.
+  - Per-Component data (Designator, value, MPN and other fields, Footprint choice, Component Type, In BOM, In CPL, Not Fitted) stays on the instances.
   - Library elements use exactly the same JSON shape, so placing a part is a literal copy.
   - A Project opens and produces outputs with no Library present.
 - **Versioning:**

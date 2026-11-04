@@ -21,7 +21,8 @@ Default severity: **E** = Error, **W** = Warning.
 | Port on only one sheet | W |
 | Duplicate Designators | E |
 | Unplaced Units of a placed multi-unit Component | W |
-| Unit data mismatch: Designator, value, fields, Footprint choice, Component Type or Not Fitted differing between the Units of one Component ([model](architecture.md#design-data-model)) | E |
+| All of a Net Tie's Pins on one Net, so the tie does nothing | W |
+| Unit data mismatch: Designator, value, fields, Footprint choice, Component Type, In BOM, In CPL or Not Fitted differing between the Units of one Component ([model](architecture.md#design-data-model)) | E |
 
 The pin-type matrix is built in and fixed. Individual cells can't be edited, but the whole pin-conflict check can be switched Off.
 
@@ -33,6 +34,8 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
 |---|---|
 | Clearance between copper of different Nets (per Net Class) | E |
 | Short circuit: different Nets touching (reported apart from clearance) | E |
+| `shorted_copper`: Pads with different numbers touching on a Part that isn't a Net Tie | E |
+| `net_tie_not_joined`: a Net Tie's Footprint isn't a valid tie ([Net Ties](#net-ties)) | E |
 | Track width below the minimum | E |
 | Via or Pad hole below the minimum | E |
 | Annular ring below the minimum | E |
@@ -45,7 +48,7 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
 | Dangling Tracks and Vias | W |
 | Courtyard overlap | W |
 | Silkscreen over exposed Pads | W |
-| PCB out of sync with the schematic, including differing fields and Not Fitted | W |
+| PCB out of sync with the schematic, including differing fields, In BOM, In CPL and Not Fitted | W |
 
 - Before checking, DRC refills stale Zones, so it never checks against an old fill.
 - Deferred: solder-mask slivers, acid traps, silk-to-silk spacing.
@@ -105,9 +108,22 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
   - Clicking a Violation opens its Document, zooms to it and selects the objects involved.
   - The canvas shows a marker at each Violation.
 
+## Net Ties
+
+Sources: [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125).
+
+A Net Tie needs no Waiver. DRC and the Track Tool share one rule, based on the Net, so they always agree, however a Track was made:
+
+- **Pads of one tie** may touch each other, with no clearance between them.
+- **Tracks and Vias on one of the tie's Nets** need no clearance to the tie's other Pads, because a Track leaving a small tie can't keep clearance from the Pad beside it. Touching another Net's Pad is still a short.
+- **Everything else follows the normal rules:** other Nets, other Footprints, and Zones, even Zones on the tie's own Nets.
+- **Nets stay separate.** A tie never merges Nets, and each keeps its own Ratsnest.
+
+`net_tie_not_joined` fires when a tie's Pads don't form one connected copper group on one Layer, aren't all SMD, or have fewer than two different numbers. It and `shorted_copper` use the same geometry in the Library check and in DRC. DRC reads the placed copies, which catches a Footprint swap or a type change.
+
 ## Waivers
 
-- A single Violation can be waived, for example a deliberate net tie or an unconnected test Pin.
+- A single Violation can be waived, for example an unconnected test Pin.
 - **Storage:**
   - A Waiver is stored in the Document that holds the objects.
   - It records the check id and the UUIDs of the objects involved, with an optional comment.

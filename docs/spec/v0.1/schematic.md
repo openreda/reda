@@ -56,6 +56,7 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
   - The chosen Footprint, from the Part's alternates.
   - Free-form fields (MPN, `LCSC`, notes…) that flow into the BOM.
   - A Not Fitted flag ([outputs](outputs.md#not-fitted)).
+  - In BOM and In CPL, defaulted from the Part ([library](library.md#elements)).
   - Which fields are visible on the sheet.
 - **Multi-select editing:**
   - The panel shows the shared fields, with `<mixed>` where values differ.
