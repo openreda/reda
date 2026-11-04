@@ -122,7 +122,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - They are dialogs, not Document tabs, because none of them is mainly graphical. The Stackup page draws a live cross-section of the dialog's values, and the full Stackup editor in v0.2 is a tab.
 - **Project Settings** (stored in `.reda`):
   - *Properties:* title, revision, date, author, company. These are fixed fields only, with no free Project parameters or text variables in v0.1.
-  - *ERC:* the severity of each check, with the fixed pin-type matrix shown read-only beside the conflict check ([checks](checks.md#severities)).
+  - *ERC:* the severity of each check, in a grouped grid with multi-select and **Reset to defaults**, beside the editable [Pin Matrix](checks.md#pin-matrix) ([checks](checks.md#severities)).
   - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview) and "Save as user preset" ([outputs](outputs.md#fab-presets)).
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):
@@ -135,7 +135,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
     - **Grid:** one bold Default row, which edits the board-wide records, and one row per class in rank order, with a column per value for clearance, Track width and Via size. Drag a row to change its rank. Inherited values are grey and overrides normal, with a "show only overrides" filter, a search filter, an `enabled` checkbox per override and a comment column. Cells copy and paste, and Delete clears an override back to inherited.
     - **Typing in the grid:** typing `min` or `preferred` for a class with no record of that kind fills the record's empty `min`, `preferred` and `max` with the same value. Delete clears any of them.
     - **Net table:** Net → Net Classes, filterable by name, with multi-select, **New Class** from the selection and **Assign by pattern…**. Add, rename and delete classes here.
-  - *DRC:* every check's severity, including checks with no rule, such as Courtyard overlap.
+  - *DRC:* every check's severity, including checks with no rule page. The `courtyard_clearance`, `dangling` and `micro_segment` values sit beside their checks here. `silk_to_edge` is on the Board Edge page and `silk_to_mask` on the Silkscreen page.
   - **Show on board** on each grid and rule row hides the dialog and keeps its pending edits. The objects are highlighted, the canvas is view-only, and a banner gives the count and **Back to Board Setup**.
   - **Undo:** `Mod+Z` inside Board Setup steps back through pending edits. After Apply they are one undo entry.
   - **Dialog actions:** **Apply Fab Preset rules…**, **Save rules as Fab Preset…**, **Export rules…** and **Import rules…** ([checks](checks.md#design-rules)).
@@ -280,7 +280,8 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
   - A modal Preferences dialog with a page list, a search box over every setting, and "Reset to default" on each setting.
   - Changes apply live, with no OK or Cancel.
 - **v0.1 settings:**
-  - **General:** theme dark / light / follow OS (default: follow OS); UI scale; reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default).
+  - **General:** theme dark / light / follow OS (default: follow OS); UI scale; reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default); `user.name`, the author of [Waivers](checks.md#waivers) (default: the OS user name).
+  - **Checks:** the [marker display](checks.md#canvas-markers): overlay style (layer colour, solid, warning pattern or cross pattern, default cross pattern); overlay when zoomed out (pattern scales, layer colour dominates or override colour dominates, default override colour); the per-check Details and Overlay grid; `checks.max_markers` (500).
   - **Schematic** and **PCB** (editing):
     - default units mm/mil (mm)
     - repeat placement (on)

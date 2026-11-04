@@ -1,6 +1,6 @@
 # v0.1 ERC and DRC
 
-Source: [What are the v0.1 ERC and DRC rule sets?](https://github.com/openreda/reda/issues/15). ERC lives in `reda-schematic` and DRC in `reda-pcb`. The Library check is in [library](library.md#library-check).
+Sources: [What are the v0.1 ERC and DRC rule sets?](https://github.com/openreda/reda/issues/15), [What do Violations carry, and what do ERC and DRC add?](https://github.com/openreda/reda/issues/128). ERC lives in `reda-schematic` and DRC in `reda-pcb`. The Library check is in [library](library.md#library-check).
 
 ## ERC checks
 
@@ -8,47 +8,83 @@ Default severity: **E** = Error, **W** = Warning.
 
 | Check | Default |
 |---|---|
-| Unconnected Pin: Input and Power In | E |
-| Unconnected Pin: other types. Pins of type Not Connected, and Pins with a No-Connect Marker, are exempt. | W |
-| Pin-type conflict on a Net: Output↔Output, Output↔Power Out, Power Out↔Power Out | E |
-| Pin-type conflict on a Net: mixes such as Tri-state↔Output and Open Collector↔Output | W |
+| `unconnected_pin`: a Pin connected to nothing. A Pin with a No-Connect Marker, or on an unplaced Unit, is exempt. | [Pin Matrix](#pin-matrix) |
+| `pin_conflict`: two Pins or Ports on a Net whose types conflict | [Pin Matrix](#pin-matrix) |
 | Undriven power: a Net with Power In Pins and no Power Out Pin. A Power Port counts as a driver, so no "power flag" symbol is needed. | W |
-| Single-Pin Net | W |
-| Dangling Wire end | W |
-| Net Label or Port attached to nothing | W |
+| `no_driving_source`: a Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open Emitter or Power Out Pin, and no Power Port | Off |
+| Single-Pin Net. Nets with a No-Connect Marker, and Nets whose only Pin is on a Mechanical Component, are exempt. | W |
+| Dangling Wire end. A Wire with both ends dangling is one Violation. | W |
+| Net Label, Port or Power Port attached to nothing | W |
 | No-Connect Marker on a connected Pin | W |
-| One Net with several names | W |
+| One Net with several names. The message lists every name and says which won and why. Names differing only in case are one name. | W |
+| `duplicate_nets`: different Nets with the same name, such as one Net Label on two sheets. [What are the schematic editing contracts?](https://github.com/openreda/reda/issues/132) decides the board naming. | E |
 | Port on only one sheet | W |
+| `port_no_driver`: a Net whose Ports are all `in` | Off |
 | Duplicate Designators | E |
 | Unplaced Units of a placed multi-unit Component | W |
+| `unit_placed_twice`: one Unit of a Component placed more than once | E |
+| `no_footprint_choice`: a Standard or Net Tie Component with no Footprint choice | W |
 | All of a Net Tie's Pins on one Net, so the tie does nothing | W |
 | Unit data mismatch: Designator, value, fields, Footprint choice, Component Type, In BOM, In CPL or Not Fitted differing between the Units of one Component ([model](architecture.md#design-data-model)) | E |
+| `off_grid`: a Pin or Wire vertex off the Project's connection grid | W |
+| `off_sheet`: an object outside the sheet border | W |
+| `library_out_of_date`: a placed Component whose Library source has changed ([What exactly do Update from Library and Replace Part change?](https://github.com/openreda/reda/issues/134)) | Off |
 
-The pin-type matrix is built in and fixed. Individual cells can't be edited, but the whole pin-conflict check can be switched Off.
+There is no Fatal level, because [Output Job blocks](outputs.md#what-blocks-a-run-and-what-only-warns) do that job.
 
 Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-edited or merged file. There is no automatic fix in v0.1: the user makes the Units agree in the Properties panel, which shows `<mixed>` where they differ ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
+
+### Pin Matrix
+
+The Pin Matrix sets the severity of `unconnected_pin` and `pin_conflict`, one cell at a time. Neither check has its own severity.
+
+- **Rows and columns:** the ten Pin types and Port `in`, `out` and `bidirectional`, plus an Unconnected column for Pin types. The matrix is symmetric.
+- **Each cell** is Error, Warning or Off. The cells that aren't Off by default:
+
+  | Cell | Default |
+  |---|---|
+  | Output↔Output, Output↔Power Out, Power Out↔Power Out | E |
+  | Tri-state, Open Collector or Open Emitter↔Output or Power Out | W |
+  | Bidirectional↔Power Out | W |
+  | Open Collector↔Open Emitter or Tri-state, Open Emitter↔Tri-state | W |
+  | Input or Power In↔Unconnected | E |
+  | Output, Bidirectional, Tri-state, Passive, Power Out, Open Collector or Open Emitter↔Unconnected | W |
+  | Output, Power Out or Bidirectional↔Port `in`, on one sheet | W |
+  | Port `out`↔Port `out` | W |
+
+- **What is compared:**
+  - Pin to Pin and Port to Port across the whole Net.
+  - Pin to Port only within one sheet, because a driver on one sheet and an `in` Port on another is how a signal crosses sheets.
+- **Storage:** `erc.pin_matrix_overrides` in `.reda` holds only cells that differ from the default, as `{"output|output": "warning", "passive|unconnected": "off"}`. Each key's two names follow the Pin type table's order, so a pair has one spelling.
+- **`erc.set_pin_matrix {cells: [{a, b, severity | null}]}`** sets one cell, many or all, as one undo step. A null severity resets the cell.
+- **The page:** [Project Settings ▸ ERC](app.md#settings-dialogs) draws one triangle. A click cycles Off, Warning, Error. Each cell shows its level by colour and a letter, a dot when it isn't default, and a hover sentence such as "Output Pin connected to Output Pin: Error". Right-click offers All Off, All Warning, All Error and Default.
+- **From Messages:** **Set severity** on one of these Violations changes that pair's cell, and the menu says so.
 
 ## DRC checks
 
 | Check | Default |
 |---|---|
 | Clearance between copper of different Nets (per Net Class) | E |
-| Short circuit: different Nets touching (reported apart from clearance) | E |
+| Short circuit: different Nets touching. One Violation per Net pair and Layer, with the contact point, and no clearance Violation for that pair. | E |
 | `shorted_copper`: Pads with different numbers touching on a Part that isn't a Net Tie | E |
 | `net_tie_not_joined`: a Net Tie's Footprint isn't a valid tie ([Net Ties](#net-ties)) | E |
 | Track width outside `track_width` | E |
 | Via diameter or hole outside `via_size` | E |
 | Pad, Free Pad or non-plated hole outside `hole_size` | E |
-| Annular ring below the minimum | E |
-| Hole-to-hole spacing | E |
-| Copper too close to the Board Outline or a Board Cutout | E |
+| Annular ring below the minimum. A land smaller than its hole has its own message. | E |
+| Hole-to-hole spacing. Coincident holes have their own message. | E |
+| Copper too close to the Board Outline, a Board Cutout or the edge of a non-plated hole, using `edge_clearance` | E |
 | Keepout violation | E |
-| Footprint outside the Board Outline | E |
-| Unrouted connections (any Ratsnest left) | E |
+| Footprint outside the Board Outline, using its courtyard or the [fallback box](#courtyards) | E |
+| Unrouted connections (any Ratsnest left), with completion %, sub-net count and unrouted length as arguments | E |
 | Copper with no Net | W |
-| Dangling Tracks and Vias | W |
-| Courtyard overlap | W |
-| Silkscreen over exposed Pads or untented Vias, using the [resolved openings](pcb.md#mask-and-paste) | W |
+| Dangling Tracks and Vias, ignoring stubs up to the `dangling` tolerance | W |
+| `poor_connection`: a Track end touches copper, but its centre lies outside that copper | W |
+| `via_under_smd`: a Via inside an SMD Pad. Off means allowed. | W |
+| Courtyard overlap, closer than `courtyard_clearance`. [Courtyards](#courtyards) that exactly touch pass at 0. | W |
+| `silk_to_mask`: silkscreen closer than `silk_to_mask` to exposed copper or to a mask opening, using the [resolved openings](pcb.md#mask-and-paste) | W |
+| `silk_to_edge`: silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout | W |
+| `zero_length_track`, `micro_segment`, `duplicate_copper` and `zero_area_zone`: [health checks](#health-checks) | W |
 | `opening_collapsed`: a mask or paste opening with nothing left after a negative value | W |
 | PCB out of sync with the schematic, including differing fields, In BOM, In CPL and Not Fitted | W |
 | `rule_invalid`: a [blocking rule problem](#validation) in the file, which only a hand edit or a merge can cause | E |
@@ -56,6 +92,19 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
 
 - Before checking, DRC refills stale Zones, so it never checks against an old fill.
 - Deferred: solder-mask slivers, acid traps, silk-to-silk spacing.
+
+### Courtyards
+
+A Footprint with no courtyard uses a fallback box around its copper, silk and mechanical shapes, ignoring Designator text, so it can't escape the courtyard and outline checks.
+
+### Health checks
+
+Health checks find data that passes the other checks but harms outputs. They are ordinary DRC checks with one severity list and one report.
+
+- **Run on open:** only this group runs when a board opens. It never opens Messages or dirties the file.
+- **`drc.fix {check, objects?}`** removes the zero-length Tracks, micro-segments, duplicates or zero-area Zones it is given, or all of them, as one undo step.
+- A rotation stored as 360° is normalised on load, so it needs no check.
+- The [check summary](#check-summary) lists them with **Fix**.
 
 ## Design rules
 
@@ -78,10 +127,15 @@ The PCB Document holds one `rules` table of `{uuid, kind, scope, values, enabled
 | `hole_size` | `min`, `max`. Pad, Free Pad and non-plated holes. Via holes use `via_size`. |
 | `annular_ring` | `min` |
 | `hole_to_hole` | `min` |
-| `edge_clearance` | `value` |
+| `edge_clearance` | `value`. Also applies to the edges of non-plated holes. |
+| `silk_to_edge` | `value`, seeded at 0.254 mm |
+| `silk_to_mask` | `value`, seeded at 0.10 mm; `mode`, `exposed_copper` (default) or `mask_opening` |
+| `courtyard_clearance` | `value`, default 0 |
+| `dangling` | `tolerance`, default 0 |
+| `micro_segment` | `max_length`, default 0.01 mm |
 | [`mask_expansion`, `paste_expansion`](pcb.md#mask-and-paste) | These shape outputs rather than set a limit, so they have no DRC severity. |
 
-[What do Violations carry, and what do ERC and DRC add?](https://github.com/openreda/reda/issues/128) adds the silk, courtyard and dangling values. [How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137) adds the Zone connection defaults.
+[How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137) adds the Zone connection defaults.
 
 ### Which value applies
 
@@ -162,7 +216,7 @@ One function serves the dialog, `pcb.rules.set` and `pcb.rules.validate`.
 - Each check is set to Error, Warning or Off.
 - ERC severities are stored in the Project (`.reda`). DRC severities are stored in the PCB Document, next to its rules.
 - **Where they are edited** ([How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38)):
-  - ERC severities on the ERC page of **Project Settings**, beside the read-only pin-type matrix.
+  - ERC severities on the ERC page of **Project Settings**, in a grouped grid with multi-select **Set severity** and **Reset to defaults**. The [Pin Matrix](#pin-matrix) checks show as "Set by matrix", linking to it.
   - DRC severities in **Board Setup**: on each rule's page beside the rule, and all together on its DRC page ([app](app.md#settings-dialogs)).
   - Right-clicking a Violation in Messages offers **Set severity of "<check>" → Error / Warning / Off**, next to **Waive**.
 
@@ -170,18 +224,91 @@ One function serves the dialog, `pcb.rules.set` and `pcb.rules.validate`.
 
 - On demand, through `erc.run` and `drc.run` (query Commands), from the GUI, the CLI and MCP.
 - There is no background online DRC in v0.1.
-- Results stay on show until the next run. They are marked stale once the design is edited after the run.
+- **Parameters:**
+  - `drc.run {objects?, area?, layers?, checks?, include_waived?}`
+  - `erc.run {documents?, objects?, checks?, include_waived?}`
+- **Scope:** a Violation is in scope when any of its objects is. The whole design is still checked for connectivity, then the result is filtered. A narrowed run returns `partial: true`.
+- **Never stops at a count.** Results are never capped. Only the [markers drawn](#canvas-markers) are.
+- **The Run dialog** holds the check ticks, scope and report path, with its last choices in per-Project view state, so a user can test in stages. Severities stay in Board Setup and Project Settings.
+- **Partial runs in the GUI** replace only the Violations that run covered.
+- **Staleness:** results stay on show until the next run or `view.checks.clear`. `erc.stale` and `drc.stale` mark them stale once the design is edited after the run, and undoing back to the checked design clears the mark.
+- **`view.checks.clear`** clears the list and markers. It is view state and resolves nothing, so the next run lists them again.
 
 ## Reporting
 
-- **Violations:**
-  - A run produces a list of Violations.
-  - Each has a check id, a severity, structured message arguments and the UUIDs of the objects involved.
-  - The UI turns the check id and arguments into text ([i18n](app.md#internationalisation)). The Command result carries the same structured list, so agents can read it.
-- **Messages panel:**
-  - The list appears in the shared Messages panel, grouped by Document.
-  - Clicking a Violation opens its Document, zooms to it and selects the objects involved.
-  - The canvas shows a marker at each Violation.
+### Violations
+
+A run produces a list of Violations. The UI turns the check id and arguments into text ([i18n](app.md#internationalisation)). The Command result carries the same structured list, so agents can read it.
+
+| Field | Meaning |
+|---|---|
+| `check` | The check id |
+| `severity` | Error or Warning |
+| `args` | Structured message arguments |
+| `objects` | The UUIDs of the objects involved, the most specific last |
+| `waiver?` | The Waiver that waives it |
+| `measured?`, `required?` | A tagged value, such as `{"length": 120000}` in nm. v0.1 has `length` and `area`. |
+| `limit?` | `min` when `measured` is below `required`, `max` when it is above |
+| `at?`, `document?` | The marker point and the Document it is in |
+| `points?` | The two closest points, on distance checks |
+| `layers?` | The Layers involved |
+| `rule?` | The UUID of the rule record that set the limit. A board-wide limit names the board-wide record. Where a pair's two values tie, it names the first object's record. |
+
+What each kind of check fills in:
+
+| Checks | `measured`, `required`, `limit` | `points` | `layers` | `rule` |
+|---|---|---|---|---|
+| `clearance`, `hole_to_hole`, `edge_clearance`, `silk_to_edge`, `silk_to_mask`, courtyard overlap | yes | yes | yes | yes |
+| `track_width`, `via_size`, `hole_size`, `annular_ring`, `micro_segment` | yes | | yes | yes |
+| Dangling Tracks and Vias | | | yes | yes |
+| `rule_outside_preset`: the rule's value against the preset limit, with `preset` in `args` | yes | | | yes |
+| `rule_invalid` | | | | yes |
+| Short circuit, `poor_connection`, `via_under_smd` and other DRC checks | | | yes | |
+| ERC checks | | | | |
+
+`at` and `document` are set wherever the Violation has a place, which is every check except `rule_outside_preset` and `rule_invalid`.
+
+### Canvas markers
+
+- **Detail marker:** a ring at `at`, at every zoom. Zoomed in far enough to read, it adds the value, over or under, and a line between the closest points. There are no per-check glyphs.
+- **Overlay:** colours the whole offending object, in a style set in [Preferences](app.md#preferences).
+- **Per-check display:** Preferences has a grid with Details and Overlay columns per check. Details are on for all, and Overlay is on for clearance, Track width and courtyard overlap. The grid never changes what is detected.
+- **Layers:** markers draw only on the Layers involved. Clicking one makes its Layer active, if shown.
+- **Waived Violations** draw muted, with a view toggle that is on by default. On a sheet, this muted marker is how a Waiver shows.
+- **Stale results** draw dimmed, and a deleted object's marker stays at `at`.
+- **Cap:** the `checks.max_markers` Preference (500) caps markers drawn, with "N not shown".
+
+### Messages panel
+
+- **The list:** Group By Document (default), check or severity, with sorting, severity chips and next and previous Violation keys.
+- **Clicking a Violation** opens its Document, zooms to it and selects the objects involved.
+- **Details pane:** under the list, the selected Violation's message and its objects, each clickable.
+- **Right-click:** Details, Waive, Unwaive, Set severity, Run this check only, and Show rule.
+- **Auto-open:** the panel opens only when a run finds Errors.
+- **On the canvas:** right-click an object ▸ Violations, and a key that lists the Violations under the cursor.
+- **Groups:** waived Violations and stale Waivers each have a collapsed group.
+
+### Violation Details
+
+A window, opened by double-clicking a Violation or from its right-click menu. The canvas stays usable while it is open, so Highlight and Jump can be seen working.
+
+- the check, and measured against required
+- the rule, with a link to its Board Setup page
+- the objects, with their Layers and locations
+- **Highlight** and **Jump**
+- the Waiver's author, date and reason, which can be edited there, with **Waive** and **Unwaive**
+
+### Check summary
+
+Properties with nothing selected has a Checks section: last run time, stale flag, Error, Warning and waived counts, **Run**, and [health checks](#health-checks) with **Fix**. A board shows DRC and a sheet shows ERC.
+
+### Report files
+
+`checks.report {kind, path, format, ...}` runs a check with the same parameters as its run Command and writes a file. `erc.run` and `drc.run` stay pure queries.
+
+- **Formats:** JSON, and HTML with a per-check summary and waived, stale-Waiver and health sections.
+- **Export** in Messages uses it.
+- HTML rows don't cross-probe in v0.1, because that needs a registered URL handler.
 
 ## Net Ties
 
@@ -198,9 +325,11 @@ A Net Tie needs no Waiver. DRC and the Track Tool share one rule, based on the N
 
 ## Waivers
 
-- A single Violation can be waived, for example an unconnected test Pin.
+- **Waiving:** `drc.waive` and `erc.waive` take a list of Violations with one reason, as one undo step. In Messages, Waive opens a small window for the reason, covering everything selected. An unconnected test Pin is a typical case, and one connector whose silk crosses the edge is a typical batch.
+- **Unwaiving:** `drc.unwaive` and `erc.unwaive`, from Messages or Violation Details.
 - **Storage:**
   - A Waiver is stored in the Document that holds the objects.
-  - It records the check id and the UUIDs of the objects involved, with an optional comment.
-- A Waiver stops matching once those objects no longer break that check.
-- Waived Violations are hidden by default, with a toggle to show them.
+  - It records the check id and the UUIDs of the objects involved, plus `author`, `created` and an optional `reason`.
+  - `author` comes from the `user.name` [Preference](app.md#preferences), which falls back to the OS user name. `created` comes from the Clock.
+- **Re-applied each run:** everything is always detected, and Waivers are laid over the result. A Waiver stops matching once those objects no longer break that check.
+- **Stale Waivers:** a Waiver is stale when its check ran across the whole design and it matched nothing. A scoped run, or a check set to Off, makes no Waiver stale. Stale Waivers have their own group and report section, with **Delete**. They are never removed automatically, because an undo or a revert can make one match again.

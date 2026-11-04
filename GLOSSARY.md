@@ -250,6 +250,18 @@ _Avoid_: Error (that is one severity), marker, issue, DRC error
 A recorded acceptance that a particular Violation is intentional, so checks stop reporting it.
 _Avoid_: Exclusion, ignore, suppression
 
+**Stale Waiver**:
+A Waiver that no longer matches any Violation, because its objects no longer break its check.
+_Avoid_: Orphan waiver, expired waiver
+
+**Pin Matrix**:
+The Project's table of how strongly ERC reports each pairing of Pin types and Port directions on a Net, and each Pin type left unconnected.
+_Avoid_: Connection matrix, pin-type grid
+
+**Health Check**:
+A DRC check for data that breaks no design rule but harms outputs, such as a zero-length Track.
+_Avoid_: Monitor, cleanup check
+
 ## Sync
 
 **Sync**:

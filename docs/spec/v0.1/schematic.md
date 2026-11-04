@@ -31,7 +31,8 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
 - **No-Connect Markers** mark Pins that are deliberately left open.
 - **Net names:**
   - An unnamed Net gets a stable auto-name `Net-(<Designator>-<Pin number>)`, such as `Net-(R1-1)`, from its lowest Designator and then its lowest Pin number in natural sort (R2 before R10, Pin 2 before 10). It uses the Pin number, never the Pin name, and has no Unit suffix, because Pin numbers are unique across the whole Component. The name does not renumber when unrelated parts change ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
-  - When a Net has several names, the winner is chosen by priority: Power Port > Port > Net Label > auto-name. ERC warns about the conflict.
+  - Names compare case-insensitively everywhere, in connectivity, Sync, `duplicate_nets` and Assign by pattern, so `abc` and `ABC` are one Net ([What do Violations carry, and what do ERC and DRC add?](https://github.com/openreda/reda/issues/128)).
+  - When a Net has several names, the winner is chosen by priority: Power Port > Port > Net Label > auto-name, and then the lowest by code point. ERC warns about the conflict, unless the names differ only in case.
 - Nets are derived live from the drawing. They are never stored ([architecture](architecture.md#design-data-model)).
 
 ## Components
