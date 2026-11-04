@@ -130,7 +130,10 @@ These names are held for later milestones. They are additive, so they stay out o
 | Project file | `parameters` | later |
 | Project file | `net_scope`, Document `parent` | v0.5 |
 | Commands | `project.new {template?}` | v0.2 |
-| ERC | sparse pin-matrix overrides | later |
+| Violation | measurement tags `delay`, `count`, `ratio`, `angle` | v0.4 |
+| Waiver | `active`, `checks` | later |
+| Waiver, Violation | an `objects` entry as `{uuid, instance}` beside a plain UUID, which means every Sheet Instance | v0.5 |
+| Report files | `reda://` cross-probe links | later |
 | Preferences | `network.*`, several shortcuts per Command in `keymap.toml` | later |
 
 ## File format
