@@ -9,5 +9,6 @@ REDA stores every design rule, board-wide and per Net Class, as a record in one 
 ## Consequences
 
 - The file must hold exactly one undeletable board-wide record per kind, checked on load.
-- Fab Presets keep flat minimums, because a fab's limits have no scope.
+- A Net can be in several Net Classes. Records have no priority field: the winner comes from a rank on the Net Class, one per class rather than one per rule kind, until the query language brings typed priorities.
+- Fab Presets keep flat limits, because a fab's limits have no scope.
 - Scope filters on PCB objects must use their own names: `objects.query`'s `net` means a schematic Net.

@@ -49,13 +49,13 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - the PCB is out of sync
   - a fitted Standard or Net Tie Component on a sheet with no Footprint assigned. It can never reach the PCB, so the warning says to assign a Footprint and Sync.
   - DRC errors and ERC errors
-  - the board's rules allow less than the preset's minimums, for example "board allows 0.10 mm clearance, OSH Park requires 0.152 mm"
+  - `rule_outside_preset` for this job's preset: the board's rules allow less than the preset's limits, for example "board allows 0.10 mm clearance, OSH Park requires 0.152 mm"
   - a text font that is missing on this machine
 
 ## Fab Presets
 
 - **A Fab Preset holds:**
-  - seed DRC rules
+  - flat rule limits, and [preferred seeds](checks.md#fab-presets-and-the-rules)
   - seed mask expansion, Via tenting and paste expansion:
 
     | Preset | Mask expansion | Vias | Paste expansion |
@@ -71,7 +71,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - Users can duplicate and edit presets.
   - User presets are `.redafab` canonical-JSON files in the per-user config folder ([app](app.md#per-user-state)), in the same shape as the shipped presets and the Project copies.
 - **Project copies:** the Project keeps its own copy of every preset its jobs use, so outputs come out the same on another machine. They are managed on the Fab Presets page of Project Settings, each with "Update from source" (after a preview) and "Save as user preset".
-- **The board owns its rules** ([checks](checks.md#design-rules)). A job only checks the board's rules against its preset's minimums.
+- **The board owns its rules** ([checks](checks.md#design-rules)). A job only checks the board's rules against its preset's limits.
 
 ## BOM
 
