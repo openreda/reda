@@ -1,4 +1,6 @@
-# Every merge to main releases (docs/spec/v0.1/quality-and-release.md#releases):
+# Releases are started by hand until the first release is ready; merges to main do not publish
+# (docs/spec/v0.1/quality-and-release.md#releases). To turn automatic releases back on, restore
+# the `push: branches: [main]` trigger below. A run does this:
 #   1. CI runs (ci.yml, called below).
 #   2. `plan` decides whether this push releases, and as which version. Every release bumps
 #      the patch; the merged PR's `release:minor` / `release:major` label bumps more, and
@@ -16,8 +18,6 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       bump:

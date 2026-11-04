@@ -97,10 +97,11 @@ Sources: [How is REDA packaged, distributed and updated?](https://github.com/ope
 
 ## Releases
 
-- **Every merge to `main` releases:**
-  - The merge runs CI, builds every package, and publishes an immutable `vX.Y.Z` release (marked Latest) plus the rolling `latest`.
+- **Releases are started by hand for now:** merges to `main` don't publish. Run the Release workflow with the chosen bump when a release is ready. Restoring the workflow's `push` trigger makes every merge to `main` release again, and the rules below for labels and markers then apply.
+- **A release:**
+  - The run does CI, builds every package, and publishes an immutable `vX.Y.Z` release (marked Latest) plus the rolling `latest`.
   - Release notes come from PR titles. There is no CHANGELOG.
-- **Skipping and forcing:**
+- **Skipping and forcing, once automatic:**
   - `release:skip` or `[skip release]` skips a release.
   - `workflow_dispatch` can force a bump.
 - **Version bumps while the version is 0.x:**
