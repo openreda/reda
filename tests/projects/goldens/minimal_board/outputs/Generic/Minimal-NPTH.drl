@@ -1,0 +1,12 @@
+M48
+; #@! TF.GenerationSoftware,openreda,REDA
+; #@! TF.CreationDate,2026-01-01T00:00:00+00:00
+; #@! TF.ProjectId,Minimal,00000000-0000-4000-8000-000000000001,A
+; #@! TF.SameCoordinates,00000000-0000-4000-8000-000000000003
+; #@! TF.FileFunction,NonPlated,1,2,NPTH
+FMAT,2
+METRIC
+%
+G90
+G05
+M30

@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"2cd4d46f-5827-4e37-a0e9-6b64a24b342d","name":"SW_Push_6x6mm_SMD","description":"Tactile switch, 6 × 6 mm, SMD. Lands per Omron B3FS datasheet, PCB Pad"},
+  "text": {"designator":{"at":{"x":0,"y":4050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"c1685048-9bba-426c-97d7-d4d80f1c9fd1","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":4000000,"y":-2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000},
+    {"uuid":"c2a6d95f-913b-481a-911e-88d44f88ed34","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":4000000,"y":2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000},
+    {"uuid":"d1b0fd80-f55b-40cc-9679-00c5ea7aa46f","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-4000000,"y":2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000},
+    {"uuid":"fb2c9cfe-5911-4c4c-b6fe-5d989b2db656","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-4000000,"y":-2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000}
+  ],
+  "graphics": [
+    {"uuid":"21bfbee2-5102-43dc-b235-3a6f54c9593a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":3060000},"end":{"x":2000000,"y":3060000}},"width":120000},
+    {"uuid":"7e3d0616-0ccc-482c-913c-bd5aeb1f7880","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-5050000,"y":-3250000},"end":{"x":5050000,"y":3250000}},"width":50000},
+    {"uuid":"87019ebd-898d-4e16-b2d3-153393eddbc9","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3060000,"y":-1000000},"end":{"x":-3060000,"y":1000000}},"width":120000},
+    {"uuid":"bc0ff722-65a4-43a7-b98d-6dcc68912608","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":3060000,"y":-1000000},"end":{"x":3060000,"y":1000000}},"width":120000},
+    {"uuid":"d892c4dd-568d-491c-bd3e-3c4d6d62345e","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1750000},"width":100000},
+    {"uuid":"df97c01e-f4b8-4ba8-a0f7-3c93a13ef326","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":-3060000},"end":{"x":2000000,"y":-3060000}},"width":120000},
+    {"uuid":"ee762612-9c6c-48d2-a2cc-e4cb629531a4","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3000000,"y":-3000000},"end":{"x":3000000,"y":3000000}},"width":100000}
+  ]
+}

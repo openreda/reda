@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOP65P780X200-20N","description":"SSOP-20, 0.65 mm pitch, IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":4650000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":2925000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":2275000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":1625000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":975000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":325000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":-325000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":-975000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":-1625000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":-2275000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":-2925000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-00000000000c","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":-2925000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":-2275000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":-1625000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":-975000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000010","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":-325000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000011","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":325000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000012","number":"17","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":975000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000013","number":"18","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":1625000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000014","number":"19","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":2275000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
+    {"uuid":"00000000-0000-4000-8000-000000000015","number":"20","kind":"smd","shape":"rounded_rect","at":{"x":3512500,"y":2925000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-000000000016","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4750000,"y":-3950000},"end":{"x":4750000,"y":3950000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000017","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1650000,"y":3600000},{"x":2650000,"y":3600000},{"x":2650000,"y":-3600000},{"x":-2650000,"y":-3600000},{"x":-2650000,"y":2600000}]},"width":100000},
+    {"uuid":"00000000-0000-4000-8000-000000000018","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4475000,"y":3760000},"end":{"x":2800000,"y":3760000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000019","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2800000,"y":-3760000},"end":{"x":2800000,"y":-3760000}},"width":120000}
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"213962d8-cdc6-43ba-ad5f-738eeaed19f6","name":"Button","designator_prefix":"SW","description":"Push button, normally open"},
+  "units": [
+    {"uuid":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"2497e650-12e9-46cb-b4b1-c455a9224adb","unit":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","name":"~","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":0},"rotation":0,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"b006011f-9415-44ff-a688-9153bffb8ff6","unit":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","name":"~","number":"2","electrical_type":"passive","at":{"x":5080000,"y":0},"rotation":180000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"0f2efed5-10a6-400d-b1cd-7f403b9eefc7","unit":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","shape":{"kind":"circle","center":{"x":-2032000,"y":0},"radius":508000},"width":254000},
+    {"uuid":"321743ec-7c28-44ef-9c2f-34d61d2c4f88","unit":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","shape":{"kind":"line","start":{"x":0,"y":1270000},"end":{"x":0,"y":2540000}},"width":254000},
+    {"uuid":"3bc2a491-9d70-4cf9-8187-1212673bf837","unit":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","shape":{"kind":"line","start":{"x":-2540000,"y":1270000},"end":{"x":2540000,"y":1270000}},"width":254000},
+    {"uuid":"b4b43bc5-690a-49ef-818a-af3d253fcf39","unit":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","shape":{"kind":"line","start":{"x":-1016000,"y":2540000},"end":{"x":1016000,"y":2540000}},"width":254000},
+    {"uuid":"d81f88d6-747f-4496-9dec-3d217f677aea","unit":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","shape":{"kind":"circle","center":{"x":2032000,"y":0},"radius":508000},"width":254000}
+  ]
+}

@@ -1,0 +1,142 @@
+//! The Scene the Footprint editor draws: one Footprint, unplaced, on the fixed v0.1 board
+//! Layers, through the same PCB Scene builder as a board, so Pads, mask, paste, holes,
+//! drawing and text look exactly as they will once placed.
+//!
+//! Every item is tagged with what the editor selects: a Pad or graphic with its own UUID,
+//! the Designator and value text with [`DESIGNATOR_TEXT`] and [`VALUE_TEXT`].
+
+use reda_command::Fonts;
+use reda_model::geom::Nm;
+use reda_model::{
+    DocumentEntry, DocumentKind, Footprint, Layer, PadKind, Project, ProjectProps, Rules, Shape,
+    Side, Uuid,
+};
+use reda_pcb::{ElementText, board_layer, element_texts, new_board, text_geometry};
+use reda_render::{BoardGeometry, BoardGraphic, BoardPad, BoardText, Mesh, Scene, Segment};
+
+use crate::builders::add_document;
+
+pub use reda_library::edit::{DESIGNATOR_TEXT, VALUE_TEXT};
+
+/// What the Designator shows in the Footprint editor.
+pub const DESIGNATOR_PLACEHOLDER: &str = "REF**";
+
+/// A Footprint drawn for its editor: the Scene and the board Layers it is drawn on, for
+/// compositing.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FootprintScene {
+    pub scene: Scene,
+    pub layers: Vec<Layer>,
+}
+
+/// The Scene of `footprint` at its own origin, seen from the top: its Pads (copper, mask,
+/// paste and holes, numbered), drawing and text, with the Designator as
+/// [`DESIGNATOR_PLACEHOLDER`] and the value as the Footprint's name.
+pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
+    let (project, document) = board_for(footprint.uuid);
+    let pcb = project.pcb_document(document).expect("just added");
+    let mut geometry = BoardGeometry::default();
+    for pad in &footprint.pads {
+        geometry.pads.push(BoardPad {
+            object: pad.uuid,
+            number: pad.number.clone(),
+            kind: pad.kind,
+            shape: pad.shape,
+            at: pad.at,
+            rotation: pad.rotation,
+            width: pad.width,
+            height: pad.height,
+            corner_radius: pad.corner_radius,
+            hole: pad.hole,
+            side: (pad.kind == PadKind::Smd).then_some(Side::Top),
+            net: None,
+        });
+    }
+    for g in &footprint.graphics {
+        if matches!(g.shape, Shape::Text { .. }) {
+            continue;
+        }
+        if let Some(layer) = board_layer(pcb, g.layer) {
+            geometry.graphics.push(BoardGraphic {
+                object: g.uuid,
+                layer,
+                shape: g.shape.clone(),
+                width: g.width,
+                fill: g.fill,
+            });
+        }
+    }
+    let shown = (DESIGNATOR_PLACEHOLDER, footprint.name.as_str());
+    for (which, text) in element_texts(pcb, footprint, shown, fonts) {
+        let object = match which {
+            ElementText::Graphic(uuid) => uuid,
+            ElementText::Designator => DESIGNATOR_TEXT,
+            ElementText::Value => VALUE_TEXT,
+        };
+        let laid = text_geometry(&text, fonts);
+        geometry.texts.push(BoardText {
+            object,
+            layer: text.layer,
+            text: text.text.clone(),
+            at: text.position,
+            height: text.height,
+            rotation: text.rotation,
+            strokes: laid
+                .strokes
+                .iter()
+                .map(|s| Segment::new(s.a, s.b))
+                .collect(),
+            stroke_width: laid.stroke_width,
+            fill: Mesh {
+                points: laid.fill.points,
+                indices: laid.fill.indices,
+            },
+        });
+    }
+    let scene = reda_render::pcb_scene(&project, document, &geometry).unwrap_or_default();
+    FootprintScene {
+        scene,
+        layers: pcb.layers().layers.clone(),
+    }
+}
+
+/// A blank Project holding one empty board with the v0.1 Layers, whose UUIDs follow from
+/// `seed` so a Footprint's Scene is the same on every build.
+fn board_for(seed: Uuid) -> (Project, Uuid) {
+    let mut next = seed.as_u128();
+    let mut new_id = move || {
+        next = next.wrapping_add(1);
+        Uuid::from_u128(next)
+    };
+    let mut project = Project::new(ProjectProps {
+        uuid: new_id(),
+        name: String::new(),
+        documents: vec![],
+        libraries: vec![],
+        properties: Default::default(),
+        erc: Default::default(),
+    });
+    let document = new_id();
+    let rules = Rules {
+        clearance: Nm(0),
+        track_width: Nm(0),
+        via_diameter: Nm(0),
+        via_hole: Nm(0),
+        annular_ring: Nm(0),
+        hole_to_hole: Nm(0),
+        edge_clearance: Nm(0),
+    };
+    let mut tx = project.transaction();
+    let entry = DocumentEntry {
+        uuid: document,
+        kind: DocumentKind::Pcb,
+        name: String::new(),
+        title: String::new(),
+    };
+    add_document(&mut tx, entry).expect("a blank Project takes a board");
+    for object in new_board(document, rules, &mut new_id) {
+        tx.insert(object).expect("a new board's objects fit");
+    }
+    tx.commit().expect("a new board commits");
+    (project, document)
+}

@@ -1,0 +1,60 @@
+# cargo-deny policy. Licences follow ADR-0002 (docs/adr/0002-permissive-licensing-and-third-party-data.md):
+# permissive only, no GPL or LGPL. MPL-2.0 and the bundled-font licences are allowed case by
+# case, as a per-crate `[[licenses.exceptions]]` entry with a comment pointing at the reason.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    # zvariant, zvariant_derive and zbus_names were folded into zbus and are no longer published
+    # separately. They reach us only through egui's Linux accessibility stack (accesskit_unix,
+    # atspi); drop these once accesskit moves to the merged zbus.
+    { id = "RUSTSEC-2026-0370", reason = "via accesskit_unix; awaiting upstream" },
+    { id = "RUSTSEC-2026-0371", reason = "via accesskit_unix; awaiting upstream" },
+    { id = "RUSTSEC-2026-0372", reason = "via accesskit_unix; awaiting upstream" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+]
+exceptions = [
+    # A two-function helper crate pulled in by `directories` (via dirs-sys), used unmodified,
+    # to find the per-user folders. MPL-2.0 is file-level copyleft only.
+    { allow = ["MPL-2.0"], crate = "option-ext" },
+    # eframe's default UI fonts (egui's bundled font data); allowed by ADR-0002 "Bundled font data".
+    { allow = ["OFL-1.1", "Ubuntu-font-1.0"], crate = "epaint_default_fonts" },
+    # Windows clipboard access for egui (via arboard). BSL-1.0 is a permissive, OSI-approved licence.
+    { allow = ["BSL-1.0"], crate = "clipboard-win" },
+    # clipboard-win's error type crate, from the same author under the same licence.
+    { allow = ["BSL-1.0"], crate = "error-code" },
+]
+# The list above is the policy, not an inventory of what is in use today.
+unused-allowed-license = "allow"
+
+[licenses.private]
+# Workspace crates are never published (publish = false); their licence is the repo's MIT.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Path dependencies between workspace crates carry no version requirement.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

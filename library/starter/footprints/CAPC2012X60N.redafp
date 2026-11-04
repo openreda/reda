@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","name":"CAPC2012X60N","description":"Chip capacitor, 0805 (2012 metric), IPC-7351 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":1700000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":620000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000},
+    {"uuid":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000}
+  ],
+  "graphics": [
+    {"uuid":"5b33eed9-1982-475a-ad63-257d16634887","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000},
+    {"uuid":"7c799cd7-6425-477d-80a2-28efbec8f762","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
+  ]
+}

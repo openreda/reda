@@ -1,0 +1,45 @@
+{
+  "fields": {
+    "custom": [
+      {
+        "name": "LCSC",
+        "value": "C7950"
+      },
+      {
+        "name": "DigiKey",
+        "value": "296-1395-1-ND"
+      }
+    ],
+    "datasheet": "https://example.com/lm358.pdf",
+    "description": "Dual op-amp",
+    "keywords": "opamp amplifier",
+    "manufacturer": "Generic",
+    "mpn": "LM358DR",
+    "value": "LM358"
+  },
+  "footprints": [
+    "00000030-0000-4000-8000-000000000000",
+    "00000060-0000-4000-8000-000000000000"
+  ],
+  "format": 2,
+  "part": {
+    "component_type": "standard",
+    "name": "LM358",
+    "symbol": "00000010-0000-4000-8000-000000000000",
+    "uuid": "00000050-0000-4000-8000-000000000000"
+  },
+  "pin_map": {
+    "pins": [
+      {
+        "pads": [
+          "4",
+          "9"
+        ],
+        "pin": "4"
+      }
+    ],
+    "unconnected": [
+      "EP"
+    ]
+  }
+}

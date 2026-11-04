@@ -1,0 +1,36 @@
+# cargo-fuzz targets (nightly only): `cargo +nightly fuzz run load_project` and
+# `cargo +nightly fuzz run import_kicad`.
+# Kept out of the main workspace, so stable builds, cargo-deny and the dependency-edge
+# check never see libfuzzer-sys. Run weekly by .github/workflows/fuzz.yml; never a merge gate.
+[package]
+name = "reda-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+reda-engine = { path = "../crates/reda-engine" }
+reda-import-kicad = { path = "../crates/reda-import-kicad" }
+
+# Its own workspace, so cargo does not treat it as a missing member of the root one.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "load_project"
+path = "fuzz_targets/load_project.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "import_kicad"
+path = "fuzz_targets/import_kicad.rs"
+test = false
+doc = false
+bench = false

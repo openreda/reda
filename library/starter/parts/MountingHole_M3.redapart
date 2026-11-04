@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical"},
+  "footprints": [
+    "5b59cdab-565f-4f43-8563-7b49605b64f5"
+  ],
+  "fields": {"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},
+  "pin_map": {}
+}

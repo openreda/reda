@@ -1,0 +1,633 @@
+# REDA's default Keymap (docs/spec/v0.1/app.md#keymap), the `keymap.base` "reda".
+#
+# Each [[bind]] binds one key, written portably by logical key ("Mod+Shift+Z"; Mod is Cmd
+# on macOS and Ctrl elsewhere), in one context: global (the default), schematic, pcb,
+# symbol, footprint, part or tool:<name>. The most specific context wins: the active Tool, then
+# the active Document's type, then global. A key binds once per context.
+#
+# `command` names a Command or a Preset ("panel.show:projects"); `params` makes it a raw
+# {command, params} binding. "$active_document" stands for the active Document's UUID and
+# "$undo_stack" for the stack focus picks (a focused Document's, else the Project's).
+#
+# The user's keymap.toml uses this format too, plus [[unbind]] entries, and applies last.
+
+# File and edit: OS-standard shortcuts.
+
+[[bind]]
+key = "Mod+N"
+command = "app.dialog.open:new_project"
+
+[[bind]]
+key = "Mod+O"
+command = "app.dialog.open:open_project"
+
+[[bind]]
+key = "Mod+,"
+command = "app.dialog.open:preferences"
+
+[[bind]]
+key = "Mod+S"
+command = "project.save"
+
+[[bind]]
+key = "Mod+Z"
+command = "edit.undo"
+params = { document = "$undo_stack" }
+
+[[bind]]
+key = "Mod+Shift+Z"
+command = "edit.redo"
+params = { document = "$undo_stack" }
+
+[[bind]]
+key = "Mod+Y"
+command = "edit.redo"
+params = { document = "$undo_stack" }
+
+# The Command Palette.
+
+[[bind]]
+key = "Mod+Shift+P"
+command = "app.dialog.open:command_palette"
+
+# Update PCB from Schematic: the Change List dialog.
+
+[[bind]]
+key = "F8"
+command = "app.dialog.open:change_list"
+
+# Panels: only Projects, Properties and Messages have keys by default.
+
+[[bind]]
+key = "Alt+1"
+command = "panel.show:projects"
+
+[[bind]]
+key = "Alt+2"
+command = "panel.show:properties"
+
+[[bind]]
+key = "Alt+3"
+command = "panel.show:messages"
+
+# Focus: F6 / Shift+F6 visit the tab groups and Docks in layout order; Ctrl+Tab /
+# Ctrl+Shift+Tab switch tabs, most recently used first, through a popup that stays open
+# while Ctrl is held.
+
+[[bind]]
+key = "F6"
+command = "layout.focus.cycle:next"
+
+[[bind]]
+key = "Shift+F6"
+command = "layout.focus.cycle:previous"
+
+[[bind]]
+key = "Ctrl+Tab"
+command = "layout.tab.switch:next"
+
+[[bind]]
+key = "Ctrl+Shift+Tab"
+command = "layout.tab.switch:previous"
+
+# View: F zooms to fit on a canvas, and Home to the selection.
+
+[[bind]]
+context = "schematic"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "F"
+command = "view.zoom_fit"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Home"
+command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+# The schematic canvas. "$selection" is what is selected on the sheet, "$selectable"
+# everything that can be, "$clipboard" what was last copied or cut, and "$cursor" where the
+# pointer last was over the sheet, on its grid.
+
+[[bind]]
+context = "schematic"
+key = "Del"
+command = "schematic.delete"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+X"
+command = "schematic.cut"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+C"
+command = "schematic.copy"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+V"
+command = "schematic.paste"
+params = { document = "$active_document", clipboard = "$clipboard", at = "$cursor" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+D"
+command = "schematic.duplicate"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "schematic"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }
+
+[[bind]]
+context = "schematic"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+# Move (detach) and Drag pick the selection up; Esc puts back what is in flight and returns
+# to Select, from any Tool.
+
+[[bind]]
+context = "schematic"
+key = "M"
+command = "tool.activate:move"
+
+[[bind]]
+context = "schematic"
+key = "D"
+command = "tool.activate:drag"
+
+[[bind]]
+context = "schematic"
+key = "Esc"
+command = "tool.activate:select"
+
+# The wiring Tools. A Wire run fixes a corner per click and ends on a Pin or Wire; `/`
+# turns its corner the other way and Backspace takes its last segment off. The other Tools
+# place one object per click until Esc.
+
+[[bind]]
+context = "schematic"
+key = "W"
+command = "tool.activate:wire"
+
+[[bind]]
+context = "schematic"
+key = "N"
+command = "tool.activate:net_label"
+
+[[bind]]
+context = "schematic"
+key = "P"
+command = "tool.activate:port"
+
+[[bind]]
+context = "schematic"
+key = "B"
+command = "tool.activate:power_port"
+
+[[bind]]
+context = "schematic"
+key = "Q"
+command = "tool.activate:no_connect"
+
+[[bind]]
+context = "tool:wire"
+key = "/"
+command = "tool.cycle_corner"
+
+[[bind]]
+context = "tool:wire"
+key = "Backspace"
+command = "tool.undo_segment"
+
+# Find (Mod+F) searches every sheet by Designator, value or Net name.
+
+[[bind]]
+context = "schematic"
+key = "Mod+F"
+command = "schematic.dialog.open:find"
+
+# The sheet's graphics Tools: T places free text (Space turns it before the click), L draws
+# a polyline (Backspace takes back the last point, Enter or a click on the last point again
+# finishes it) and R a rectangle between two corners.
+
+[[bind]]
+context = "schematic"
+key = "T"
+command = "tool.activate:text"
+
+[[bind]]
+context = "schematic"
+key = "L"
+command = "tool.activate:line"
+
+[[bind]]
+context = "schematic"
+key = "R"
+command = "tool.activate:rect"
+
+[[bind]]
+context = "tool:line"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:line"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:rect"
+key = "Backspace"
+command = "tool.undo_segment"
+
+# Space turns, X and Y mirror what is in flight on the sheet (a move or drag, a label or
+# Port being placed), else the selection.
+
+[[bind]]
+context = "schematic"
+key = "Space"
+command = "tool.rotate"
+
+[[bind]]
+context = "schematic"
+key = "X"
+command = "tool.mirror:x"
+
+[[bind]]
+context = "schematic"
+key = "Y"
+command = "tool.mirror:y"
+
+# The board canvas: Layers, the view, and the select-and-place Tool. Space and L turn or
+# flip what is being moved (else the selection); Esc drops it and returns to Select.
+
+[[bind]]
+context = "pcb"
+key = "+"
+command = "pcb.layer.step:next"
+
+[[bind]]
+context = "pcb"
+key = "-"
+command = "pcb.layer.step:previous"
+
+[[bind]]
+context = "pcb"
+key = "*"
+command = "pcb.layer.swap_side"
+
+[[bind]]
+context = "pcb"
+key = "Shift+S"
+command = "pcb.view.inactive_layers"
+
+[[bind]]
+context = "pcb"
+key = "Ctrl+Q"
+command = "view.units.toggle"
+
+[[bind]]
+context = "pcb"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Space"
+command = "tool.rotate"
+
+[[bind]]
+context = "pcb"
+key = "L"
+command = "tool.flip"
+
+[[bind]]
+context = "pcb"
+key = "Esc"
+command = "tool.activate:select"
+
+# Routing: T routes Tracks and V places stitching Vias. While routing, `/` cycles the
+# corner mode, Backspace takes back the last corner, V drops a Via and switches Layer,
+# W / Shift+W step the width and Enter finishes. Del deletes the selected Tracks and Vias
+# (Shift+Del whole Tracks) and U selects the copper connected to the selection.
+
+[[bind]]
+context = "pcb"
+key = "T"
+command = "tool.activate:route"
+
+[[bind]]
+context = "pcb"
+key = "V"
+command = "tool.activate:via"
+
+[[bind]]
+context = "tool:route"
+key = "/"
+command = "tool.cycle_corner"
+
+[[bind]]
+context = "tool:route"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:route"
+key = "V"
+command = "pcb.route.add_via"
+
+[[bind]]
+context = "tool:route"
+key = "Enter"
+command = "pcb.route.finish"
+
+[[bind]]
+context = "tool:route"
+key = "W"
+command = "pcb.route.width:next"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+W"
+command = "pcb.route.width:previous"
+
+[[bind]]
+context = "pcb"
+key = "Del"
+command = "pcb.copper.delete"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Del"
+command = "pcb.copper.delete"
+params = { objects = "$selection", whole = true }
+
+[[bind]]
+context = "pcb"
+key = "U"
+command = "pcb.selection.connected"
+
+# Placing a Part from the Library panel: Space, X, Y, L and Esc come from the sheet and
+# board bindings above (they turn the Part in flight first); Tab opens Properties to edit
+# it, and later placements keep the edits.
+
+[[bind]]
+context = "tool:place"
+key = "Tab"
+command = "panel.show:properties"
+
+# The Footprint editor. "$selection" is what is selected on the Footprint: Pads, graphics
+# and the Designator and value text (Del hides a text rather than removing it). Tools: P
+# places Pads, L, R and C draw lines, rectangles and circles, O moves the origin. Mod+S
+# saves the Footprint to its Library.
+
+[[bind]]
+context = "footprint"
+key = "Mod+S"
+command = "library.element.save"
+params = { element = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Del"
+command = "library.footprint.delete"
+params = { footprint = "$active_document", objects = "$selection" }
+
+[[bind]]
+context = "footprint"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }
+
+[[bind]]
+context = "footprint"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "P"
+command = "tool.activate:pad"
+
+[[bind]]
+context = "footprint"
+key = "L"
+command = "tool.activate:line"
+
+[[bind]]
+context = "footprint"
+key = "R"
+command = "tool.activate:rect"
+
+[[bind]]
+context = "footprint"
+key = "C"
+command = "tool.activate:circle"
+
+[[bind]]
+context = "footprint"
+key = "O"
+command = "tool.activate:origin"
+
+[[bind]]
+context = "footprint"
+key = "Esc"
+command = "tool.activate:select"
+
+# The Symbol editor. "$selection" is what is selected on the shown Unit: Pins and
+# graphics. Tools: P places Pins (Space turns the next one), L, R, A, C, O and T draw
+# lines, rectangles, arcs, circles, polygons and text. While a polygon is being drawn,
+# Backspace takes back the last corner and Enter closes it. Mod+S saves the Symbol to its
+# Library.
+
+[[bind]]
+context = "symbol"
+key = "Mod+S"
+command = "library.element.save"
+params = { element = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Del"
+command = "library.symbol.delete"
+params = { symbol = "$active_document", objects = "$selection" }
+
+[[bind]]
+context = "symbol"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }
+
+[[bind]]
+context = "symbol"
+key = "G"
+command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "P"
+command = "tool.activate:pin"
+
+[[bind]]
+context = "symbol"
+key = "Space"
+command = "tool.rotate"
+
+[[bind]]
+context = "symbol"
+key = "L"
+command = "tool.activate:line"
+
+[[bind]]
+context = "symbol"
+key = "R"
+command = "tool.activate:rect"
+
+[[bind]]
+context = "symbol"
+key = "A"
+command = "tool.activate:arc"
+
+[[bind]]
+context = "symbol"
+key = "C"
+command = "tool.activate:circle"
+
+[[bind]]
+context = "symbol"
+key = "O"
+command = "tool.activate:polygon"
+
+[[bind]]
+context = "symbol"
+key = "T"
+command = "tool.activate:text"
+
+[[bind]]
+context = "symbol"
+key = "Esc"
+command = "tool.activate:select"
+
+[[bind]]
+context = "tool:polygon"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:polygon"
+key = "Enter"
+command = "tool.finish"
+
+# The board's drawing Tools: Z draws a Zone, K a Keepout. While a polygon or an arc is
+# being drawn, Backspace takes back the last corner and Enter finishes the shape.
+
+[[bind]]
+context = "pcb"
+key = "Z"
+command = "tool.activate:zone"
+
+[[bind]]
+context = "pcb"
+key = "K"
+command = "tool.activate:keepout"
+
+[[bind]]
+context = "tool:board_outline"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:board_outline"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:board_cutout"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:board_cutout"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:zone"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:zone"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:keepout"
+key = "Backspace"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:keepout"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:arc"
+key = "Backspace"
+command = "tool.undo_segment"
+
+# Part tabs.
+
+[[bind]]
+context = "part"
+key = "Mod+S"
+command = "library.element.save"
+params = { element = "$active_document" }

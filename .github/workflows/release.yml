@@ -1,0 +1,306 @@
+# Every merge to main releases (docs/spec/v0.1/quality-and-release.md#releases):
+#   1. CI runs (ci.yml, called below).
+#   2. `plan` decides whether this push releases, and as which version. Every release bumps
+#      the patch; the merged PR's `release:minor` / `release:major` label bumps more, and
+#      `release:skip` or `[skip release]` in the commit message skips. Running this workflow
+#      by hand (workflow_dispatch) forces a release with the chosen bump.
+#   3. `package` stamps the version into the workspace (not committed: the tag is the source
+#      of truth) and builds unsigned packages with cargo-packager on each OS.
+#   4. `publish` creates the immutable vX.Y.Z release (marked Latest) and refreshes the
+#      rolling `latest` release, whose assets have no version in their names.
+#
+# A manual run on any branch other than main builds and uploads the packages as workflow
+# artifacts but publishes nothing, which is how to try a packaging change.
+#
+# Signing is off in v0.1. The places to add it later are marked SIGNING below.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Release now with this version bump
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+# One release at a time, in push order; never cancel one half-way through publishing.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Pinned: packaging/windows/installer.nsi is a copy of this version's template.
+  CARGO_PACKAGER_VERSION: 0.11.8
+  CARGO_ABOUT_VERSION: 0.9.3
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  plan:
+    name: Plan the release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      previous_tag: ${{ steps.plan.outputs.previous_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # every tag, to find the previous release
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: Read the merged pull request's labels
+        id: labels
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].labels[]?.name')
+          echo "Labels: ${labels:-none}"
+          { echo "labels<<REDA_EOF"; echo "$labels"; echo "REDA_EOF"; } >> "$GITHUB_OUTPUT"
+      - name: Decide
+        id: plan
+        env:
+          LABELS: ${{ steps.labels.outputs.labels }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+          BUMP: ${{ inputs.bump }}
+        run: |
+          git tag --list 'v*' \
+            | cargo run --locked --quiet -p reda-release -- plan \
+                --labels "$LABELS" --message "$MESSAGE" --bump "${BUMP:-none}" \
+            | tee -a "$GITHUB_OUTPUT"
+
+  package:
+    name: Package (${{ matrix.name }})
+    needs: [ci, plan]
+    if: needs.plan.outputs.release == 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # Apple Silicon only for now; nothing stops adding macos-13 (Intel) here.
+          - name: macos-arm64
+            os: macos-14
+          - name: windows-x86_64
+            os: windows-latest
+          # Ubuntu 22.04 keeps the glibc floor low enough for Debian 12 and Ubuntu 22.04.
+          - name: linux-x86_64
+            os: ubuntu-22.04
+          - name: linux-aarch64
+            os: ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      # Asset names: REDA-<version>-<os>-<arch>.<ext>; the `latest` release drops -<version>.
+      STEM: REDA-${{ needs.plan.outputs.version }}-${{ matrix.name }}
+      # build.rs: report the plain version, not -dev+<hash>.
+      REDA_RELEASE: "1"
+      # reda-ui's build script puts these crate licences into THIRD_PARTY_NOTICES (shown under
+      # Help > About > Licences); a release build fails without them.
+      REDA_CRATE_NOTICES: ${{ github.workspace }}/target/crate-notices.txt
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-packager@${{ env.CARGO_PACKAGER_VERSION }},cargo-about@${{ env.CARGO_ABOUT_VERSION }}
+      - name: Stamp the version into the workspace (not committed)
+        run: cargo run --locked --quiet -p reda-release -- stamp "$VERSION"
+      - name: Generate the crate licences for THIRD_PARTY_NOTICES
+        run: |
+          mkdir -p target
+          cargo about generate --locked --workspace --fail \
+            --config packaging/notices/about.toml \
+            -o "$REDA_CRATE_NOTICES" packaging/notices/about.hbs
+      - name: Check the binaries report it
+        run: |
+          cargo build --release --locked -p reda-app -p reda-cli
+          test "$(target/release/reda --version)" = "reda $VERSION"
+          test "$(target/release/reda-app --version)" = "reda-app $VERSION"
+      - run: mkdir dist
+
+      - name: Package for Linux (.deb, AppImage)
+        if: runner.os == 'Linux'
+        env:
+          # The AppImage tools are AppImages themselves; runners have no FUSE.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          cargo packager --release -p reda-app --formats deb,appimage
+          mv target/packages/*.deb "dist/$STEM.deb"
+          mv target/packages/*.AppImage "dist/$STEM.AppImage"
+      - name: Package for macOS (.dmg)
+        if: runner.os == 'macOS'
+        # SIGNING: replace the ad-hoc signature ("-") with a Developer ID identity, then
+        # notarize and staple the .dmg. An ad-hoc signature is still needed unsigned: without
+        # one, Apple Silicon Macs call a downloaded app "damaged" instead of offering
+        # Open Anyway.
+        run: |
+          cargo packager --release -p reda-app --formats app
+          codesign --force --deep --sign - target/packages/REDA.app
+          mkdir dmg-root
+          cp -R target/packages/REDA.app dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname REDA -srcfolder dmg-root -fs HFS+ -format UDZO "dist/$STEM.dmg"
+      - name: Package for Windows (NSIS .exe)
+        if: runner.os == 'Windows'
+        # SIGNING: set `windows.signCommand` in crates/reda-app/Cargo.toml.
+        run: |
+          cargo packager --release -p reda-app --formats nsis
+          mv target/packages/*-setup.exe "dist/$STEM-setup.exe"
+
+      # The plain archive: the app with the `reda` CLI beside it.
+      - name: Archive (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$STEM/share/mime/packages" "$STEM/share/icons"
+          cp target/release/reda-app target/release/reda LICENSE "$STEM/"
+          cp packaging/linux/reda-mime.xml "$STEM/share/mime/packages/reda.xml"
+          cp packaging/icons/src/*.svg "$STEM/share/icons/"
+          tar -czf "dist/$STEM.tar.gz" "$STEM"
+      - name: Archive (macOS)
+        if: runner.os == 'macOS'
+        # The CLI is inside the app: REDA.app/Contents/MacOS/reda.
+        run: tar -czf "dist/$STEM.tar.gz" -C target/packages REDA.app
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory $env:STEM | Out-Null
+          Copy-Item target/release/reda-app.exe, target/release/reda.exe, LICENSE $env:STEM
+          Compress-Archive -Path $env:STEM -DestinationPath "dist/$env:STEM.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  # The release's screenshots, drawn by the app as it is released, become the asset
+  # screenshots-<version>.tar.gz, which the website's Versions page shows (pages.yml).
+  # Uploaded as a `packages-*` artifact, so `publish` attaches it with the packages.
+  screenshots:
+    name: Screenshots
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - name: Install Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgl1-mesa-dri libgles2
+      - uses: Swatinem/rust-cache@v2
+      - name: Draw and archive the screenshots
+        # Start empty, so no stale image from the restored target/ cache lands in the archive.
+        run: |
+          rm -rf "target/screenshots-$VERSION"
+          cargo xtask showcase --out "target/screenshots-$VERSION" --version "$VERSION"
+          mkdir dist
+          tar -czf "dist/screenshots-$VERSION.tar.gz" -C "target/screenshots-$VERSION" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-screenshots
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish ${{ needs.plan.outputs.tag }}
+    needs: [plan, package, screenshots]
+    if: needs.plan.outputs.release == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create releases and tags
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      PREVIOUS_TAG: ${{ needs.plan.outputs.previous_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the history since the previous release, for the notes
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+
+      - name: Gather the pull requests since the previous release
+        run: |
+          range="${PREVIOUS_TAG:+$PREVIOUS_TAG..}$GITHUB_SHA"
+          for sha in $(git rev-list --first-parent --reverse "$range"); do
+            pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" \
+                   --jq '.[0] | select(. != null) | "\(.number)\t\(.title)"')
+            if [ -n "$pr" ]; then
+              echo "$pr"
+            else
+              printf '\t%s\n' "$(git log -1 --format=%s "$sha")"
+            fi
+          done > changes.tsv
+          cat changes.tsv
+      - name: Write the release notes
+        run: cargo run --locked --quiet -p reda-release -- notes "$VERSION" < changes.tsv > notes.md
+
+      # Immutable: this release and its tag are never edited after this step.
+      - name: Publish ${{ needs.plan.outputs.tag }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "REDA $VERSION" \
+            --notes-file notes.md \
+            --latest
+
+      # The rolling `latest` release: the same files without the version in their names, so
+      # openreda.com can link to e.g. .../releases/download/latest/REDA-macos-arm64.dmg.
+      - name: Refresh the rolling latest release
+        run: |
+          mkdir latest
+          for f in dist/*; do
+            name=$(basename "$f")
+            [ "$name" = SHA256SUMS ] && continue
+            # The screenshots belong to their version only; `latest` holds the downloads.
+            [ "$name" = "screenshots-$VERSION.tar.gz" ] && continue
+            cp "$f" "latest/${name/-$VERSION/}"
+          done
+          (cd latest && sha256sum -- * > SHA256SUMS)
+          title="Latest build (REDA $VERSION)"
+          notes="The newest build of REDA, currently [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG). This release is replaced on every merge to main; link to its files to always get the newest version."
+          if gh release view latest > /dev/null 2>&1; then
+            # Move the tag and replace the files in place, so the links never break.
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/latest" -f sha="$GITHUB_SHA" -F force=true
+            gh release upload latest latest/* --clobber
+            gh release edit latest --title "$title" --notes "$notes" --latest=false
+          else
+            gh release create latest latest/* --target "$GITHUB_SHA" \
+              --title "$title" --notes "$notes" --latest=false
+          fi

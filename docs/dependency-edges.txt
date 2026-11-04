@@ -1,0 +1,121 @@
+# Allowed dependency edges of the workspace crates: `crate -> dependency [kind, target]`.
+# Checked against `cargo metadata` by crates/reda-testkit/tests/dependency_edges.rs.
+# After adding a dependency, regenerate with
+#   REDA_BLESS=1 cargo test -p reda-testkit --test dependency_edges
+# and check that the new edge follows the layering in docs/spec/v0.1/architecture.md#crates.
+reda-app -> reda-ui
+reda-cli -> reda-control
+reda-cli -> reda-engine
+reda-cli -> reda-testkit [dev]
+reda-cli -> rmcp
+reda-cli -> schemars [dev]
+reda-cli -> serde [dev]
+reda-cli -> serde_json
+reda-cli -> tokio
+reda-cli -> tokio [dev]
+reda-command -> reda-model
+reda-command -> schemars
+reda-command -> serde
+reda-command -> serde_json
+reda-control -> getrandom
+reda-control -> reda-engine
+reda-control -> reda-testkit [dev]
+reda-control -> serde
+reda-control -> serde_json
+reda-control -> trash
+reda-engine -> directories [cfg(not(target_arch = "wasm32"))]
+reda-engine -> proptest [dev]
+reda-engine -> reda-command
+reda-engine -> reda-import-kicad
+reda-engine -> reda-library
+reda-engine -> reda-model
+reda-engine -> reda-output
+reda-engine -> reda-pcb
+reda-engine -> reda-render
+reda-engine -> reda-render [cfg(not(target_arch = "wasm32"))]
+reda-engine -> reda-schematic
+reda-engine -> reda-testkit [dev]
+reda-engine -> schemars
+reda-engine -> serde
+reda-engine -> serde_json
+reda-engine -> toml_edit
+reda-engine -> zip [dev]
+reda-geom -> schemars
+reda-geom -> serde
+reda-geom -> serde_json [dev]
+reda-import-kicad -> reda-library
+reda-import-kicad -> reda-model
+reda-import-kicad -> schemars
+reda-import-kicad -> serde
+reda-library -> reda-command
+reda-library -> reda-model
+reda-library -> reda-testkit [dev]
+reda-library -> schemars
+reda-library -> serde
+reda-library -> serde_json
+reda-model -> reda-geom
+reda-model -> schemars
+reda-model -> serde
+reda-model -> serde_json [dev]
+reda-output -> reda-command
+reda-output -> reda-model
+reda-output -> reda-pcb
+reda-output -> reda-testkit [dev]
+reda-output -> schemars
+reda-output -> serde
+reda-output -> serde_json [dev]
+reda-output -> zip
+reda-pcb -> i_overlay
+reda-pcb -> i_triangle
+reda-pcb -> proptest [dev]
+reda-pcb -> reda-command
+reda-pcb -> reda-model
+reda-pcb -> reda-testkit [dev]
+reda-pcb -> reda-text
+reda-pcb -> rstar
+reda-pcb -> schemars
+reda-pcb -> serde
+reda-pcb -> serde_json
+reda-release -> toml_edit
+reda-render -> i_triangle
+reda-render -> png
+reda-render -> reda-command
+reda-render -> reda-model
+reda-render -> reda-testkit [dev]
+reda-render -> reda-text
+reda-render -> schemars
+reda-render -> serde
+reda-render -> serde [dev]
+reda-render -> serde_json
+reda-render -> wgpu
+reda-schematic -> reda-command
+reda-schematic -> reda-model
+reda-schematic -> reda-testkit [dev]
+reda-schematic -> schemars
+reda-schematic -> serde
+reda-schematic -> serde_json [dev]
+reda-testkit -> reda-engine
+reda-testkit -> reda-model
+reda-testkit -> schemars
+reda-testkit -> serde
+reda-testkit -> serde_json
+reda-text -> harfrust
+reda-text -> i_triangle
+reda-text -> reda-geom
+reda-text -> skrifa
+reda-ui -> eframe
+reda-ui -> egui
+reda-ui -> egui-wgpu
+reda-ui -> egui_extras
+reda-ui -> egui_kittest [dev]
+reda-ui -> fluent-bundle
+reda-ui -> reda-control
+reda-ui -> reda-engine
+reda-ui -> reda-testkit [dev]
+reda-ui -> rfd
+reda-ui -> schemars
+reda-ui -> serde
+reda-ui -> serde_json
+reda-ui -> toml_edit
+reda-ui -> unic-langid
+reda-xtask -> serde_json

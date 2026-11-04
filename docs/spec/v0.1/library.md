@@ -56,6 +56,7 @@ Not in v0.1: full KiCad project or library import (v0.6), direct EasyEDA/LCSC im
   - the starter Library
   - user Libraries, listed in Preferences (Libraries page)
   - Project Libraries, listed in the `.reda` file by relative path
+- **New Library** (`library.create`) writes the `.redalib` into a new or empty folder. It is offered in the Library panel's New… menu and on the Project Settings Libraries page. A user Library is added to Preferences at once; a Project Library is then registered with `project.library.add`, which is undoable.
 
 ## Library panel
 
@@ -132,4 +133,5 @@ A Command. It never blocks saving, and it runs automatically after an import or 
 - a generic op-amp, a 555 and an LDO
 - headers, sockets and screw terminals
 - Mechanical mounting holes and fiducials
-- no vendor MCUs
+- a small, curated set of popular vendor parts (for example the STM32F042F6P6 MCU and a USB-C receptacle). Each is drawn by hand, or with a generator, from the manufacturer's datasheet: its pinout, Pin types and Footprint are checked against the datasheet, and the element's description and source comment name the datasheet, its document number and the figure used. No vendor CAD files are copied in.
+- hand-drawn Footprints cite their source: a named manufacturer drawing or the IPC-7351 nominal

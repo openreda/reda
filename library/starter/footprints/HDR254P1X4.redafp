@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"c239ed4d-de6f-416c-9865-3fb339411b89","name":"HDR254P1X4","description":"Pin header, 1 × 4, 2.54 mm pitch"},
+  "text": {"designator":{"at":{"x":0,"y":6050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"2aa58479-d4ef-4600-aa4b-1e6ceaa05122","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"630b4687-6797-44b1-ace2-7cbafe731de5","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"8556e45b-0558-4819-8ec5-aa0b694a8447","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"d54feacc-4311-4e7e-a422-f6a1e854a853","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"171680de-50f7-4073-8841-aeb015c32078","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":5140000},"end":{"x":1330000,"y":5140000}},"width":120000},
+    {"uuid":"30039cff-bb27-4864-8c6f-517021596b97","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-5140000},"end":{"x":-1330000,"y":5140000}},"width":120000},
+    {"uuid":"8c2850be-11c6-4428-b149-6c038cc4ba66","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-5140000},"end":{"x":1330000,"y":5140000}},"width":120000},
+    {"uuid":"a9fc45ea-cbd0-4407-a6e9-acacebbd1d66","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-5140000},"end":{"x":1330000,"y":-5140000}},"width":120000},
+    {"uuid":"bfc88b6b-d913-4abc-bb03-02389f8942bc","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-5350000},"end":{"x":1550000,"y":5350000}},"width":50000},
+    {"uuid":"d188695b-b3d6-4679-9e6f-bb9c3a39f41e","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":5080000},{"x":1270000,"y":5080000},{"x":1270000,"y":-5080000},{"x":-1270000,"y":-5080000},{"x":-1270000,"y":4445000}]},"width":100000}
+  ]
+}

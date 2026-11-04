@@ -10,7 +10,7 @@ Each crate lives in `crates/reda-<name>/`, and the directory name is the package
 
 | Crate | Holds | Depends on |
 |---|---|---|
-| `reda-geom` | nm and millidegree types, unit-string parsing, Line\|Arc shapes, wrappers over `i_overlay` and `rstar` | — |
+| `reda-geom` | nm and millidegree types, unit-string parsing, Line\|Arc shapes, rotation and boxes | — |
 | `reda-text` | font loading from bytes, Hershey parsing, shaping (`harfrust`), outlines (`skrifa`), glyph triangulation (`i_triangle`) | geom |
 | `reda-model` | every persisted type (Project, Schematic Sheet, PCB Document, Symbol, Footprint, Part), UUIDs, transactions, change sets, serde derives. Data only. | geom |
 | `reda-command` | the Command trait, kinds, `available(ctx)`, error codes, the edit result envelope, `batch`, cancellation and progress, the registry | model |
@@ -26,6 +26,8 @@ Each crate lives in `crates/reda-<name>/`, and the directory name is the package
 | `reda-app` | the thin GUI binary, plus OS-specific work such as finding installed fonts (it hands font bytes to the engine) | ui |
 | `reda-cli` | the `reda` binary. It is the only crate that depends on `rmcp`. | engine, control |
 | `reda-testkit` | dev-only: `assert_golden`, the test-engine builder, the scenario harness | (dev-dependency only) |
+| `reda-release` | CI-only, never shipped: the `reda-release` binary the release workflow runs to pick the next version, stamp it into the workspace and write the release notes; it also renders the package icons | — (`toml_edit` only) |
+| `reda-xtask` | dev-only, never shipped: `cargo xtask` chores, such as regenerating `reda-ui`'s icon tables and building the website | — (std only) |
 
 Rules:
 - Domain crates (library, schematic, pcb, render, output) don't depend on each other except where the table says so. Cross-Document work happens only in `reda-engine`.
@@ -35,11 +37,13 @@ Rules:
   - CI builds every crate below `reda-control` for `wasm32-unknown-unknown`.
   - A workspace test checks `cargo metadata` against a checked-in allow-list of dependency edges. That test also checks that `reda-testkit` appears only as a dev-dependency.
 - Third-party crates already chosen:
-  - geometry and fonts: `i_overlay`, `i_triangle`, `rstar`, `skrifa`, `harfrust`
-  - outputs: `gerber-types`; the Excellon writer is REDA's own
+  - geometry and fonts: `i_overlay` and `rstar` (used directly by `reda-pcb`, which alone needs polygon booleans and a spatial index), `i_triangle`, `skrifa`, `harfrust`
+  - outputs: `zip` (pure-Rust deflate) for the Output Job zip; the Gerber and Excellon writers are REDA's own (`gerber-types` was dropped: a small writer covers what REDA plots, X2 attributes included)
+  - images: `png`, for `document.render` output
   - Commands and MCP: `schemars` 1.x, `rmcp`
-  - window and UI: egui/eframe and `egui_wgpu`, `egui_extras` (SVG through resvg), `rfd`, `muda`, `egui_kittest`
+  - window and UI: egui/eframe and `egui_wgpu`, `egui_extras` (SVG through resvg), `rfd`, `egui_kittest` (`muda` was dropped: the menus are egui's own, drawn from the bars data)
   - per-user state: `directories`, `toml_edit`
+  - the OS trash for deleted Documents' files: `trash`, in `reda-control`'s `OsTrash`, which the front ends hand the engine (the engine takes a `Trash` and has no OS code)
   - i18n: `fluent-bundle`
   - REDA stays on upstream egui and winit, with no forks ([research](https://github.com/openreda/reda/issues/2)).
 
@@ -170,6 +174,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 - **Catalogue:**
   - `reda commands --json` dumps the registry, including Presets.
   - A generated `docs/commands.json` is checked in and verified by a test.
+  - The app registers its own view Commands on top of the engine's: the layout Commands (`layout.tab.*`, `layout.dock.collapse`) and `panel.show`. They are not in the engine's registry, so `reda commands` and `docs/commands.json` leave them out. An app-side test holds them to the Command coverage rule.
 
 ### Tools and dialogs
 - **Tools are not Commands.** A Tool (place, Wire, route, drag-move…) is a GUI-side state machine:
@@ -185,7 +190,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 - **SDK:** `rmcp`, with a hand-written `ServerHandler` driven by the registry.
 - **Tools:**
   - Generic: `search_commands`, `describe_command` and `run_command {id, params}`.
-  - Query Commands, also reachable from the CLI: `project.overview`, `objects.query` (by Document, object type, Net, Designator or region), `object.get`, `erc.run`, `drc.run`, `sync.preview` and `document.render`.
+  - Query Commands, also reachable from the CLI: `project.overview`, `objects.query` (by Document, object type, Net, Designator or region), `object.get`, `erc.run`, `drc.run`, `sync.preview`, `document.render`, `pcb.copper.connected`, `pcb.ratsnest`, `pcb.clearance.track`, `pcb.clearance.via`, `pcb.zone.fill_status` and `pcb.zone.fills`.
 - **`document.render`** params are explicit and independent of the user's view:
   - view: fit the Document (default), a rectangle in nm, or fit a set of object UUIDs
   - size: in pixels (default 1024 px on the long side)
@@ -208,7 +213,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
   - If a running instance has the target Project open, the CLI bridges to it. Otherwise it runs in-process.
   - With no `--project` and exactly one instance running, it bridges to that instance.
 - **Saving:**
-  - In-process `reda run` writes nothing to disk without `--save` or `project.save`.
+  - In-process `reda run` writes edits to disk only with `--save` or `project.save`. File Commands write what they always write: `project.new` writes the new Project ([app](app.md#new-project)).
   - In-process `reda mcp` saves only through `project.save`, and warns on stderr when it discards changes on exit.
   - Bridged sessions never save. Their edits show as unsaved changes in the app.
 - **Control port:**

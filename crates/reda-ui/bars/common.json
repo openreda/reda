@@ -1,0 +1,83 @@
+{
+  "menus": [
+    {
+      "id": "file",
+      "title": "menu-file",
+      "items": [
+        { "id": "file.new_project", "command": "app.dialog.open:new_project" },
+        { "id": "file.open_project", "command": "app.dialog.open:open_project" },
+        { "id": "file.save_all", "command": "project.save" },
+        "separator",
+        { "id": "file.preferences", "command": "app.dialog.open:preferences" },
+        "separator",
+        { "id": "file.quit", "command": "app.quit" }
+      ]
+    },
+    {
+      "id": "edit",
+      "title": "menu-edit",
+      "items": [
+        { "id": "edit.undo", "command": "edit.undo", "params": { "document": "$undo_stack" } },
+        { "id": "edit.redo", "command": "edit.redo", "params": { "document": "$undo_stack" } }
+      ]
+    },
+    {
+      "id": "view",
+      "title": "menu-view",
+      "items": [
+        { "id": "view.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } },
+        "separator",
+        {
+          "id": "view.panels",
+          "title": "menu-view-panels",
+          "items": [
+            { "id": "view.panels.projects", "command": "panel.show:projects" },
+            { "id": "view.panels.properties", "command": "panel.show:properties" },
+            { "id": "view.panels.messages", "command": "panel.show:messages" },
+            { "id": "view.panels.library", "command": "panel.show:library" },
+            { "id": "view.panels.layers", "command": "panel.show:layers" },
+            { "id": "view.panels.journal", "command": "panel.show:journal" }
+          ]
+        },
+        {
+          "id": "view.docks",
+          "title": "menu-view-docks",
+          "items": [
+            { "id": "view.docks.collapse_left", "command": "layout.dock.collapse:left" },
+            { "id": "view.docks.collapse_right", "command": "layout.dock.collapse:right" },
+            { "id": "view.docks.collapse_bottom", "command": "layout.dock.collapse:bottom" }
+          ]
+        },
+        {
+          "id": "view.theme",
+          "title": "menu-view-theme",
+          "items": [
+            { "id": "view.theme.follow_os", "command": "view.theme.set:follow_os" },
+            { "id": "view.theme.dark", "command": "view.theme.set:dark" },
+            { "id": "view.theme.light", "command": "view.theme.set:light" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "title": "menu-help",
+      "items": [
+        { "id": "help.check_updates", "command": "app.update.check" },
+        { "id": "help.cli_install", "command": "app.cli.install" },
+        "separator",
+        { "id": "help.about", "command": "app.dialog.open:about" }
+      ]
+    }
+  ],
+  "toolbar": [
+    { "id": "toolbar.new_project", "command": "app.dialog.open:new_project" },
+    { "id": "toolbar.open_project", "command": "app.dialog.open:open_project" },
+    { "id": "toolbar.save_all", "command": "project.save" },
+    "separator",
+    { "id": "toolbar.undo", "command": "edit.undo", "params": { "document": "$undo_stack" } },
+    { "id": "toolbar.redo", "command": "edit.redo", "params": { "document": "$undo_stack" } },
+    "separator",
+    { "id": "toolbar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
+  ]
+}

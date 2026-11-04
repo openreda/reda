@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- REDA's app icon: a copper "R" routed on a solder-mask tile. Placeholder art for v0.1. -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#123047"/>
+  <g fill="none" stroke="#e8a33d" stroke-width="80" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M352 736 V288 H560 A128 128 0 0 1 560 544 H352"/>
+    <path d="M544 544 L672 736"/>
+  </g>
+  <g fill="#123047" stroke="#e8a33d" stroke-width="44">
+    <circle cx="352" cy="752" r="68"/>
+    <circle cx="680" cy="752" r="68"/>
+  </g>
+</svg>

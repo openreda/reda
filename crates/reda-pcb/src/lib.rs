@@ -1,0 +1,29 @@
+//! PCB behaviour above the model: building a new board, text geometry, placed Footprint
+//! geometry ([`placed`]), and the PCB Commands for its outline, cutouts, rules, DRC
+//! severities, Net Classes, free text and graphics, and placement: moving, turning,
+//! flipping, locking and arranging Footprints, their Designator text, Mechanical Parts,
+//! Free Pads and the Placement Origin.
+//!
+//! Copper connectivity and the Ratsnest are in [`copper`], the per-Net rules in
+//! [`net_rules`], Zone fill in [`zone`], the design rules check in [`drc`].
+
+mod board;
+mod commands;
+pub mod copper;
+pub mod drc;
+pub mod net_rules;
+pub mod placed;
+mod text;
+pub mod zone;
+
+pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board};
+pub use commands::placement::arrange::natural_cmp;
+pub use commands::{
+    MechanicalSet, MechanicalSetParams, Placed, PlacementOp, SyncCheck, SyncState, TrackDragPlan,
+    placement_anchor, placement_preview, rect_outline, register_all, track_drag_plan,
+};
+pub use copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility};
+pub use text::{
+    ElementText, FOOTPRINT_TEXT_PEN, Fill, LINE_PITCH, PlacedText, Stroke, board_layer,
+    element_texts, font_is_missing, footprint_texts, missing_fonts, text_geometry,
+};

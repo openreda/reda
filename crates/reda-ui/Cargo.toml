@@ -1,0 +1,31 @@
+[package]
+name = "reda-ui"
+description = "The window shell, the Start page, Document canvases and the UI string catalogue."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+egui-wgpu.workspace = true
+egui_extras.workspace = true
+fluent-bundle.workspace = true
+reda-control = { path = "../reda-control" }
+reda-engine = { path = "../reda-engine" }
+rfd.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml_edit.workspace = true
+unic-langid.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
+reda-testkit = { path = "../reda-testkit" }
+
+[lints]
+workspace = true

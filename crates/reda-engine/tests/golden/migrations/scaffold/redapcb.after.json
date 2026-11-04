@@ -1,0 +1,186 @@
+{
+  "board": {
+    "default_net_class": "00000000-0000-4000-8000-000000000014",
+    "uuid": "00000000-0000-4000-8000-000000000015"
+  },
+  "board_cutouts": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000017",
+      "vertices": [
+        {
+          "x": 10000000,
+          "y": 10000000
+        },
+        {
+          "x": 20000000,
+          "y": 10000000
+        },
+        {
+          "x": 20000000,
+          "y": 20000000
+        }
+      ]
+    }
+  ],
+  "board_outline": {
+    "uuid": "00000000-0000-4000-8000-000000000016",
+    "vertices": [
+      {
+        "x": 2000000,
+        "y": 0
+      },
+      {
+        "sweep": 90000,
+        "x": 98000000,
+        "y": 0
+      },
+      {
+        "x": 100000000,
+        "y": 2000000
+      },
+      {
+        "sweep": 90000,
+        "x": 100000000,
+        "y": 78000000
+      },
+      {
+        "x": 98000000,
+        "y": 80000000
+      },
+      {
+        "sweep": 90000,
+        "x": 2000000,
+        "y": 80000000
+      },
+      {
+        "x": 0,
+        "y": 78000000
+      },
+      {
+        "sweep": 90000,
+        "x": 0,
+        "y": 2000000
+      }
+    ]
+  },
+  "format": 2,
+  "layers": {
+    "layers": [
+      {
+        "kind": "courtyard",
+        "side": "top",
+        "uuid": "00000000-0000-4000-8000-000000000005"
+      },
+      {
+        "kind": "assembly",
+        "side": "top",
+        "uuid": "00000000-0000-4000-8000-000000000006"
+      },
+      {
+        "kind": "silkscreen",
+        "side": "top",
+        "uuid": "00000000-0000-4000-8000-000000000007"
+      },
+      {
+        "kind": "paste",
+        "side": "top",
+        "uuid": "00000000-0000-4000-8000-000000000008"
+      },
+      {
+        "kind": "solder_mask",
+        "side": "top",
+        "uuid": "00000000-0000-4000-8000-000000000009"
+      },
+      {
+        "kind": "copper",
+        "side": "top",
+        "uuid": "00000000-0000-4000-8000-00000000000a"
+      },
+      {
+        "kind": "copper",
+        "side": "bottom",
+        "uuid": "00000000-0000-4000-8000-00000000000b"
+      },
+      {
+        "kind": "solder_mask",
+        "side": "bottom",
+        "uuid": "00000000-0000-4000-8000-00000000000c"
+      },
+      {
+        "kind": "paste",
+        "side": "bottom",
+        "uuid": "00000000-0000-4000-8000-00000000000d"
+      },
+      {
+        "kind": "silkscreen",
+        "side": "bottom",
+        "uuid": "00000000-0000-4000-8000-00000000000e"
+      },
+      {
+        "kind": "assembly",
+        "side": "bottom",
+        "uuid": "00000000-0000-4000-8000-00000000000f"
+      },
+      {
+        "kind": "courtyard",
+        "side": "bottom",
+        "uuid": "00000000-0000-4000-8000-000000000010"
+      },
+      {
+        "kind": "board_outline",
+        "uuid": "00000000-0000-4000-8000-000000000011"
+      },
+      {
+        "kind": "mechanical",
+        "uuid": "00000000-0000-4000-8000-000000000012"
+      },
+      {
+        "kind": "documentation",
+        "uuid": "00000000-0000-4000-8000-000000000013"
+      }
+    ],
+    "uuid": "00000000-0000-4000-8000-000000000004"
+  },
+  "net_classes": [
+    {
+      "name": "Default",
+      "uuid": "00000000-0000-4000-8000-000000000014"
+    },
+    {
+      "clearance": 300000,
+      "name": "Power",
+      "track_width": 500000,
+      "uuid": "00000000-0000-4000-8000-000000000018"
+    }
+  ],
+  "nets": [],
+  "pcb": {
+    "uuid": "00000000-0000-4000-8000-000000000003"
+  },
+  "rules": {
+    "annular_ring": 200000,
+    "clearance": 160000,
+    "edge_clearance": 400000,
+    "hole_to_hole": 500000,
+    "track_width": 200000,
+    "via_diameter": 700000,
+    "via_hole": 300000
+  },
+  "severities": {
+    "annular_ring": "error",
+    "clearance": "error",
+    "copper_without_net": "warning",
+    "courtyard_overlap": "warning",
+    "dangling": "warning",
+    "edge_clearance": "error",
+    "footprint_outside_board": "error",
+    "hole_size": "error",
+    "hole_to_hole": "error",
+    "keepout": "error",
+    "out_of_sync": "warning",
+    "short_circuit": "error",
+    "silkscreen_over_pads": "warning",
+    "track_width": "error",
+    "unrouted": "error"
+  }
+}

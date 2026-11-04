@@ -1,0 +1,130 @@
+# The merge gate (docs/spec/v0.1/quality-and-release.md#ci-and-merge-gate).
+# Every job runs on the toolchain pinned in rust-toolchain.toml; `rustup toolchain install`
+# with no arguments installs exactly that.
+name: CI
+
+on:
+  pull_request:
+  # Pushes to main run CI through release.yml, which calls this workflow before packaging.
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: fmt, clippy, test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+
+  wasm:
+    name: wasm32 build of the engine crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain and the wasm32 target
+        run: |
+          rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # Every crate below reda-control in docs/spec/v0.1/architecture.md#crates must build for
+      # wasm32. The crates at or above it, the dev-only testkit and xtask, and the CI-only
+      # release tool are excluded by name, so a new engine-side crate is covered without
+      # touching this file. Excluding a crate that does not exist yet only warns.
+      - name: Build for wasm32-unknown-unknown
+        run: >
+          cargo build --locked --target wasm32-unknown-unknown --workspace
+          --exclude reda-control
+          --exclude reda-ui
+          --exclude reda-app
+          --exclude reda-cli
+          --exclude reda-testkit
+          --exclude reda-release
+          --exclude reda-xtask
+
+  png-snapshots:
+    name: PNG snapshots (Mesa llvmpipe)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      # Mesa's software renderer, reached through EGL/OpenGL as when the goldens were blessed.
+      - name: Install Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgl1-mesa-dri libgles2
+      - uses: Swatinem/rust-cache@v2
+      # REDA_PNG_SNAPSHOTS=1 turns a missing or non-llvmpipe adapter into a failure, and makes
+      # the snapshot tests compare instead of skip. Failures leave the actual and diff images
+      # in target/tmp/png-snapshots.
+      - name: Render and compare
+        env:
+          WGPU_BACKEND: gl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          REDA_PNG_SNAPSHOTS: "1"
+        run: cargo test --locked -p reda-render --features gpu --test png_snapshots --test gpu --test document_render_png
+      # The app's theme and canvas snapshots (egui_kittest), plus the canvas GPU tests.
+      # egui_kittest leaves <name>.new.png and <name>.diff.png beside a failing snapshot.
+      - name: Render and compare the app
+        env:
+          WGPU_BACKEND: gl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          REDA_PNG_SNAPSHOTS: "1"
+        run: cargo test --locked -p reda-ui --test app --test canvas_gpu
+      # The website (pages.yml deploys it from main): draw its screenshots with the app and
+      # assemble it, so a change that breaks either shows here first. Nothing is deployed.
+      # The site goes to _site, outside target/: rust-cache restores target/ with files
+      # pruned, and the xtask refuses a non-empty folder that no longer looks like a build.
+      - name: Build the website
+        run: |
+          cargo xtask showcase --out target/showcase
+          cargo xtask site --screenshots target/showcase --out _site
+      - name: Upload the website preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-preview
+          path: _site
+          retention-days: 7
+      - name: Upload the differing images
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: png-snapshot-diffs
+          path: |
+            target/tmp/png-snapshots/
+            crates/reda-ui/tests/snapshots/*.new.png
+            crates/reda-ui/tests/snapshots/*.diff.png
+          if-no-files-found: ignore
+
+  deny:
+    name: cargo-deny (licences, advisories, bans, sources)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      # Policy in deny.toml; the licence allow-list enforces ADR-0002.
+      - run: cargo deny --locked check advisories licenses bans sources

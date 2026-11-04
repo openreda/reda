@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"2005fad2-b621-4a39-9292-e48e5832b969","name":"Header_1x06","component_type":"standard","symbol":"595a0c81-2c35-4b8a-af0f-ea2a53b1f271"},
+  "footprints": [
+    "4f868252-862f-4062-80cf-58ab93eefc03",
+    "6bd88354-9029-48cc-8d92-87a5fb58a81b"
+  ],
+  "fields": {"value":"Header 1x6","description":"1 × 6 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},
+  "pin_map": {}
+}

@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"3cbd9f5e-8409-483a-a47e-a5709169bf79","name":"Socket_1x10","component_type":"standard","symbol":"d9a8adcb-0853-418a-bb67-cc2cc6286b83"},
+  "footprints": [
+    "a8512398-f677-49a3-8416-ca08437e790c",
+    "4635584b-379c-4e85-a5ba-b15841765d98"
+  ],
+  "fields": {"value":"Socket 1x10","description":"1 × 10 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},
+  "pin_map": {}
+}

@@ -1,0 +1,19 @@
+[package]
+name = "reda-testkit"
+description = "Dev-only test support: goldens, the test-engine builder, the scenario harness."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+reda-engine = { path = "../reda-engine" }
+reda-model = { path = "../reda-model", features = ["test-objects"] }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

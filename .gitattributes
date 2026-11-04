@@ -1,0 +1,5 @@
+# Byte-exact goldens and checked-in generated files must not gain CRLF on Windows checkouts.
+* text=auto eol=lf
+# Binary goldens are never text, whatever their first bytes look like.
+*.pdf binary
+*.zip binary

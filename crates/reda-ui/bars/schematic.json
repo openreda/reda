@@ -1,0 +1,112 @@
+{
+  "menus": [
+    {
+      "id": "file",
+      "title": "menu-file",
+      "items": [
+        { "id": "file.export_pdf", "command": "schematic.dialog.open:export_pdf" }
+      ]
+    },
+    {
+      "id": "edit",
+      "title": "menu-edit",
+      "items": [
+        { "id": "edit.cut", "command": "schematic.cut", "params": { "objects": "$selection" }, "title": "menu-edit-cut" },
+        { "id": "edit.copy", "command": "schematic.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
+        { "id": "edit.paste", "command": "schematic.paste", "params": { "document": "$active_document", "clipboard": "$clipboard" }, "title": "menu-edit-paste" },
+        { "id": "edit.duplicate", "command": "schematic.duplicate", "params": { "objects": "$selection" }, "title": "menu-edit-duplicate" },
+        { "id": "edit.delete", "command": "schematic.delete", "params": { "objects": "$selection" }, "title": "menu-edit-delete" },
+        "separator",
+        { "id": "edit.rotate", "command": "schematic.rotate", "params": { "objects": "$selection" }, "title": "menu-edit-rotate" },
+        { "id": "edit.mirror_x", "command": "schematic.mirror", "params": { "objects": "$selection", "axis": "x" }, "title": "menu-edit-mirror-x" },
+        { "id": "edit.mirror_y", "command": "schematic.mirror", "params": { "objects": "$selection", "axis": "y" }, "title": "menu-edit-mirror-y" },
+        {
+          "id": "edit.align",
+          "title": "menu-edit-align",
+          "items": [
+            { "id": "edit.align.left", "command": "schematic.align", "params": { "objects": "$selection", "to": "left" }, "title": "menu-edit-align-left" },
+            { "id": "edit.align.right", "command": "schematic.align", "params": { "objects": "$selection", "to": "right" }, "title": "menu-edit-align-right" },
+            { "id": "edit.align.top", "command": "schematic.align", "params": { "objects": "$selection", "to": "top" }, "title": "menu-edit-align-top" },
+            { "id": "edit.align.bottom", "command": "schematic.align", "params": { "objects": "$selection", "to": "bottom" }, "title": "menu-edit-align-bottom" },
+            { "id": "edit.align.center_x", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_x" }, "title": "menu-edit-align-center-x" },
+            { "id": "edit.align.center_y", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_y" }, "title": "menu-edit-align-center-y" },
+            "separator",
+            { "id": "edit.distribute.horizontal", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "horizontal" }, "title": "menu-edit-distribute-horizontal" },
+            { "id": "edit.distribute.vertical", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "vertical" }, "title": "menu-edit-distribute-vertical" }
+          ]
+        },
+        { "id": "edit.snap_to_grid", "command": "schematic.snap_to_grid", "params": { "objects": "$selection", "grid": "$grid" }, "title": "menu-edit-snap-to-grid" },
+        "separator",
+        { "id": "edit.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } },
+        "separator",
+        { "id": "edit.find", "command": "schematic.dialog.open:find" },
+        { "id": "edit.select_similar", "command": "schematic.dialog.open:select_similar" }
+      ]
+    },
+    {
+      "id": "view",
+      "title": "menu-view",
+      "items": [
+        {
+          "id": "view.grid",
+          "title": "menu-view-grid",
+          "items": [
+            { "id": "view.grid.ten_mil", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 254000 }, "title": "menu-view-grid-10mil" },
+            { "id": "view.grid.twenty_five_mil", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 635000 }, "title": "menu-view-grid-25mil" },
+            { "id": "view.grid.fifty_mil", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 1270000 }, "title": "menu-view-grid-50mil" },
+            { "id": "view.grid.hundred_mil", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 2540000 }, "title": "menu-view-grid-100mil" },
+            "separator",
+            { "id": "view.grid.quarter_mm", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 250000 }, "title": "menu-view-grid-0-25mm" },
+            { "id": "view.grid.half_mm", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 500000 }, "title": "menu-view-grid-0-5mm" },
+            { "id": "view.grid.one_mm", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 1000000 }, "title": "menu-view-grid-1mm" },
+            { "id": "view.grid.two_and_a_half_mm", "command": "view.grid.set", "params": { "document": "$active_document", "grid": 2500000 }, "title": "menu-view-grid-2-5mm" },
+            "separator",
+            { "id": "view.grid.cycle", "command": "view.grid.cycle", "params": { "document": "$active_document" } }
+          ]
+        },
+        { "id": "view.clear_highlight", "command": "view.highlight", "params": {}, "title": "menu-view-clear-highlight" },
+        "separator",
+        { "id": "view.cross_select", "command": "view.cross_select.toggle" },
+        { "id": "view.net_cross_probe", "command": "view.net_cross_probe.toggle" }
+      ]
+    },
+    {
+      "id": "place",
+      "title": "menu-place",
+      "items": [
+        { "id": "place.wire", "command": "tool.activate:wire" },
+        { "id": "place.net_label", "command": "tool.activate:net_label" },
+        { "id": "place.port", "command": "tool.activate:port" },
+        { "id": "place.power_port", "command": "tool.activate:power_port" },
+        { "id": "place.no_connect", "command": "tool.activate:no_connect" },
+        "separator",
+        { "id": "place.text", "command": "tool.activate:text" },
+        { "id": "place.line", "command": "tool.activate:line" },
+        { "id": "place.rect", "command": "tool.activate:rect" }
+      ]
+    },
+    {
+      "id": "design",
+      "title": "menu-design",
+      "items": [
+        { "id": "design.erc", "command": "erc.run" },
+        { "id": "design.sync", "command": "app.dialog.open:change_list" },
+        "separator",
+        { "id": "design.reannotate", "command": "schematic.dialog.open:reannotate" },
+        { "id": "design.update_from_library", "command": "schematic.dialog.open:update_from_library" }
+      ]
+    }
+  ],
+  "toolbar": [
+    { "id": "toolbar.erc", "command": "erc.run" }
+  ],
+  "active_bar": [
+    { "id": "active_bar.select", "command": "tool.activate:select" },
+    { "id": "active_bar.move", "command": "tool.activate:move" },
+    { "id": "active_bar.drag", "command": "tool.activate:drag" },
+    "separator",
+    { "id": "active_bar.wire", "command": "tool.activate:wire" },
+    { "id": "active_bar.net_label", "command": "tool.activate:net_label" },
+    { "id": "active_bar.power_port", "command": "tool.activate:power_port" }
+  ]
+}

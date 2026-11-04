@@ -1,0 +1,206 @@
+{
+  "$defs": {
+    "ComponentType": {
+      "description": "Whether a part's Components go into the BOM and may exist only on the board.",
+      "enum": [
+        "standard",
+        "mechanical"
+      ],
+      "type": "string"
+    },
+    "Field": {
+      "additionalProperties": false,
+      "description": "One free-form field.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Fields": {
+      "additionalProperties": false,
+      "description": "A Part's default fields, copied onto each Component placed from it.",
+      "properties": {
+        "custom": {
+          "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+          "items": {
+            "$ref": "#/$defs/Field"
+          },
+          "type": "array"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "PartRow": {
+      "additionalProperties": false,
+      "properties": {
+        "component_type": {
+          "$ref": "#/$defs/ComponentType"
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "description": "The Symbol by UUID. Mechanical Parts may have none.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "component_type"
+      ],
+      "type": "object"
+    },
+    "PinMap": {
+      "additionalProperties": false,
+      "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+      "properties": {
+        "pins": {
+          "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+          "items": {
+            "$ref": "#/$defs/PinPads"
+          },
+          "type": "array"
+        },
+        "unconnected": {
+          "description": "Pad numbers deliberately left unconnected, sorted.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PinPads": {
+      "additionalProperties": false,
+      "description": "One Pin mapped to an explicit set of Pads.",
+      "properties": {
+        "pads": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "pin": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "pin",
+        "pads"
+      ],
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+      "properties": {
+        "copyright": {
+          "description": "Copyright lines found in the imported files, kept verbatim.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "service": {
+          "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+          "type": "string"
+        },
+        "terms_url": {
+          "description": "The service's terms of use, when known.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Part file (`.redapart`).",
+  "properties": {
+    "fields": {
+      "$ref": "#/$defs/Fields",
+      "description": "The default fields, copied onto each Component placed from the Part."
+    },
+    "footprints": {
+      "description": "The alternate Footprints by UUID, in order; the first is the default.",
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "part": {
+      "$ref": "#/$defs/PartRow"
+    },
+    "pin_map": {
+      "$ref": "#/$defs/PinMap",
+      "description": "Exceptions to the implicit map, where a Pin connects to the Pads with its number."
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where an imported element came from: the service, its terms and any copyright\nlines. Elements made in REDA have none."
+    }
+  },
+  "required": [
+    "format",
+    "part",
+    "footprints",
+    "fields",
+    "pin_map"
+  ],
+  "title": "REDA Part file",
+  "type": "object"
+}

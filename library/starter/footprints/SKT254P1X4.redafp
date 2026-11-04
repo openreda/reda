@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"cc5713dd-2957-4e74-96c5-3078849cf54b","name":"SKT254P1X4","description":"Socket, 1 × 4, 2.54 mm pitch"},
+  "text": {"designator":{"at":{"x":0,"y":6050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"2153739d-e4cd-4f48-9aa7-253d1d574a1b","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"5b678a7d-7c2d-4625-83c1-a0b7a51f03de","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"922c8243-74ef-4ebb-aa57-b8460153a8d0","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"cc6c85d4-6b78-4b49-ac54-f70deb576306","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"03136a37-8f91-4d0a-8e78-0a0ae192b81e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-5350000},"end":{"x":1550000,"y":5350000}},"width":50000},
+    {"uuid":"23bb0f60-2712-4c70-a0ac-62455663b4a1","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-5140000},"end":{"x":1330000,"y":5140000}},"width":120000},
+    {"uuid":"5dc51b4b-fca6-4e70-8ea9-99a30bfd935a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":5140000},"end":{"x":1330000,"y":5140000}},"width":120000},
+    {"uuid":"c4f19b67-a0b8-4839-bcd9-5cfcfbb88c6e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-5140000},"end":{"x":1330000,"y":-5140000}},"width":120000},
+    {"uuid":"f9c136cd-8011-4400-b759-7d728f998ac2","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":5080000},{"x":1270000,"y":5080000},{"x":1270000,"y":-5080000},{"x":-1270000,"y":-5080000},{"x":-1270000,"y":4445000}]},"width":100000},
+    {"uuid":"fd920973-e809-4e55-b3c2-761b4de6420b","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-5140000},"end":{"x":-1330000,"y":5140000}},"width":120000}
+  ]
+}

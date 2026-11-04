@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"a0000000-0000-4000-8000-000000000200","name":"Logic","designator_prefix":"U"},
+  "units": [
+    {"uuid":"a0000000-0000-4000-8000-000000000201","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"a0000000-0000-4000-8000-000000000202","unit":"a0000000-0000-4000-8000-000000000201","name":"IN","number":"1","electrical_type":"input","at":{"x":0,"y":0},"rotation":0,"length":2540000},
+    {"uuid":"a0000000-0000-4000-8000-000000000203","unit":"a0000000-0000-4000-8000-000000000201","name":"OUT","number":"2","electrical_type":"output","at":{"x":0,"y":-2540000},"rotation":0,"length":2540000},
+    {"uuid":"a0000000-0000-4000-8000-000000000204","unit":"a0000000-0000-4000-8000-000000000201","name":"TRI","number":"3","electrical_type":"tri_state","at":{"x":0,"y":-5080000},"rotation":0,"length":2540000},
+    {"uuid":"a0000000-0000-4000-8000-000000000205","unit":"a0000000-0000-4000-8000-000000000201","name":"OC","number":"4","electrical_type":"open_collector","at":{"x":0,"y":-7620000},"rotation":0,"length":2540000},
+    {"uuid":"a0000000-0000-4000-8000-000000000206","unit":"a0000000-0000-4000-8000-000000000201","name":"PWR","number":"5","electrical_type":"power_out","at":{"x":0,"y":-10160000},"rotation":0,"length":2540000},
+    {"uuid":"a0000000-0000-4000-8000-000000000207","unit":"a0000000-0000-4000-8000-000000000201","name":"VCC","number":"6","electrical_type":"power_in","at":{"x":0,"y":-12700000},"rotation":0,"length":2540000},
+    {"uuid":"a0000000-0000-4000-8000-000000000208","unit":"a0000000-0000-4000-8000-000000000201","name":"NC","number":"7","electrical_type":"not_connected","at":{"x":0,"y":-15240000},"rotation":0,"length":2540000},
+    {"uuid":"a0000000-0000-4000-8000-000000000209","unit":"a0000000-0000-4000-8000-000000000201","name":"IO","number":"8","electrical_type":"bidirectional","at":{"x":0,"y":-17780000},"rotation":0,"length":2540000}
+  ]
+}

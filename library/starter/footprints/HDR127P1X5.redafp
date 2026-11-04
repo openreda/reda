@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"4d7572bd-ed85-485a-80e6-254ad6c66519","name":"HDR127P1X5","description":"Pin header, 1 × 5, 1.27 mm pitch"},
+  "text": {"designator":{"at":{"x":0,"y":4150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":630000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"439cb620-b8a9-4a4e-8ffa-e7307989ffa1","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"5fa73d23-be96-4e50-b444-35f2a87ef7b3","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"6acdfcd8-aa15-44b2-8e57-b857c58d9f52","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"8e47704d-3bc3-40e3-b694-bf6bfc4d3773","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"e5216c0a-6f87-4254-b449-bf053004023b","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
+  ],
+  "graphics": [
+    {"uuid":"1d3ac0c7-b5be-4fac-9020-66b3b23c860f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":3300000},"end":{"x":760000,"y":3300000}},"width":120000},
+    {"uuid":"4a454048-c4c4-4df2-9aba-4341b9ce5666","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":760000,"y":-3300000},"end":{"x":760000,"y":3300000}},"width":120000},
+    {"uuid":"4ac0f30e-f9c2-45d6-a090-915183f2bc7a","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-3450000},"end":{"x":900000,"y":3450000}},"width":50000},
+    {"uuid":"750fcff4-5a69-4f09-86ea-59019da5a105","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-3300000},"end":{"x":760000,"y":-3300000}},"width":120000},
+    {"uuid":"acad2d20-0e55-4ddd-9c0e-18fa8c0afbea","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-3300000},"end":{"x":-760000,"y":3300000}},"width":120000},
+    {"uuid":"ee5dbc1e-e9bf-433e-b294-76d57bda2708","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":3175000},{"x":635000,"y":3175000},{"x":635000,"y":-3175000},{"x":-635000,"y":-3175000},{"x":-635000,"y":2857500}]},"width":100000}
+  ]
+}

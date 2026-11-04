@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"a0000000-0000-4000-8000-000000000040","name":"R_0603"},
+  "pads": [
+    {"uuid":"a0000000-0000-4000-8000-000000000041","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-800000,"y":0},"rotation":0,"width":800000,"height":950000},
+    {"uuid":"a0000000-0000-4000-8000-000000000042","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":800000,"y":0},"rotation":0,"width":800000,"height":950000}
+  ]
+}

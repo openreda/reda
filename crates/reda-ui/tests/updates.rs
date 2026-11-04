@@ -1,0 +1,245 @@
+//! `app.update.check` (docs/spec/v0.1/quality-and-release.md#packaging): asks for the newest
+//! release only when it runs, off the UI thread, and links to it when it is newer. Only the
+//! user runs it. The release source here is a fake; no test reaches the network.
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use reda_testkit::TempDir;
+use reda_ui::engine::Engine;
+use reda_ui::engine::command::{ErrorCode, Signals, UserDirs};
+use reda_ui::engine::journal::Source;
+use reda_ui::help::{self, Release, ReleaseSource, UpdateCheck};
+use reda_ui::shell::Shell;
+use serde_json::json;
+
+/// Answers with a fixed release and counts the calls.
+struct FakeReleases {
+    answer: Mutex<Result<Release, String>>,
+    calls: AtomicUsize,
+}
+
+impl FakeReleases {
+    fn new(answer: Result<Release, String>) -> Arc<FakeReleases> {
+        Arc::new(FakeReleases {
+            answer: Mutex::new(answer),
+            calls: AtomicUsize::new(0),
+        })
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+impl ReleaseSource for FakeReleases {
+    fn latest(&self) -> Result<Release, String> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        self.answer.lock().unwrap().clone()
+    }
+}
+
+fn release(version: &str) -> Release {
+    Release {
+        version: version.to_owned(),
+        url: format!("https://github.com/openreda/reda/releases/tag/v{version}"),
+    }
+}
+
+fn engine_in(home: &TempDir) -> Engine {
+    Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(None)
+        .headless(false)
+        .build()
+}
+
+/// A Shell whose build reports `version` and whose releases come from `source`.
+fn shell_with(home: &TempDir, version: &str, source: Arc<FakeReleases>) -> Shell {
+    let mut engine = engine_in(home);
+    help::configure(&mut engine, version, Some(source));
+    Shell::new(engine)
+}
+
+/// Runs the check and waits for what it found.
+fn check(shell: &mut Shell) -> UpdateCheck {
+    finish(shell).unwrap()
+}
+
+/// Runs the check, which returns at once, and waits for its outcome.
+fn finish(shell: &mut Shell) -> Result<UpdateCheck, String> {
+    shell.run("app.update.check", json!({})).unwrap();
+    wait_for_check(shell)
+}
+
+fn wait_for_check(shell: &Shell) -> Result<UpdateCheck, String> {
+    let start = Instant::now();
+    loop {
+        if let Some(found) = help::take_checks(shell.engine()).pop() {
+            return found;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "the check never finished"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// Answers only once the test lets it.
+struct HeldReleases(Mutex<mpsc::Receiver<()>>);
+
+impl ReleaseSource for HeldReleases {
+    fn latest(&self) -> Result<Release, String> {
+        self.0.lock().unwrap().recv().ok();
+        Ok(release("0.2.0"))
+    }
+}
+
+#[test]
+fn a_newer_release_is_linked() {
+    let home = TempDir::new("updates");
+    let source = FakeReleases::new(Ok(release("0.2.0")));
+    let mut shell = shell_with(&home, "0.1.3", source.clone());
+    assert_eq!(
+        check(&mut shell),
+        UpdateCheck {
+            current: "0.1.3".into(),
+            latest: "0.2.0".into(),
+            newer: true,
+            url: Some("https://github.com/openreda/reda/releases/tag/v0.2.0".into()),
+        }
+    );
+    assert_eq!(source.calls(), 1);
+}
+
+#[test]
+fn the_same_or_an_older_release_is_not_an_update() {
+    let home = TempDir::new("updates");
+    for (latest, current) in [("0.1.3", "0.1.3"), ("0.1.2", "0.1.3"), ("0.9.0", "1.0.0")] {
+        let source = FakeReleases::new(Ok(release(latest)));
+        let mut shell = shell_with(&home, current, source);
+        let found = check(&mut shell);
+        assert!(!found.newer, "{latest} is not newer than {current}");
+        assert_eq!(found.url, None);
+    }
+}
+
+#[test]
+fn a_local_build_is_older_than_the_release_of_its_version() {
+    let home = TempDir::new("updates");
+    let source = FakeReleases::new(Ok(release("0.1.3")));
+    let mut shell = shell_with(&home, "0.1.3-dev+1a2b3c4", source);
+    assert!(check(&mut shell).newer);
+
+    let source = FakeReleases::new(Ok(release("0.1.3")));
+    let mut shell = shell_with(&home, "0.1.4-dev+1a2b3c4", source);
+    assert!(!check(&mut shell).newer);
+}
+
+#[test]
+fn versions_compare_by_number_not_text() {
+    assert!(help::is_newer("0.10.0", "0.9.9"));
+    assert!(help::is_newer("1.0.0", "1.0.0-rc.1"));
+    assert!(help::is_newer("1.0.0-rc.11", "1.0.0-rc.2"));
+    assert!(!help::is_newer("0.1.0+abc", "0.1.0+def"));
+    assert!(!help::is_newer("not a version", "0.1.0"));
+}
+
+#[test]
+fn nothing_asks_for_releases_until_the_check_runs() {
+    let home = TempDir::new("updates");
+    let source = FakeReleases::new(Ok(release("9.9.9")));
+    let mut shell = shell_with(&home, "0.1.0", source.clone());
+    shell
+        .run("project.new", json!({"path": home.path(), "name": "Quiet"}))
+        .unwrap();
+    shell.run("project.save", json!({})).unwrap();
+    assert_eq!(
+        source.calls(),
+        0,
+        "no network call on startup or on other Commands"
+    );
+
+    check(&mut shell);
+    assert_eq!(source.calls(), 1);
+}
+
+#[test]
+fn without_a_release_source_the_check_is_unavailable() {
+    // Tests and headless engines have none: reda-ui has no network code of its own.
+    let home = TempDir::new("updates");
+    let mut shell = Shell::new(engine_in(&home));
+    let e = shell.run("app.update.check", json!({})).unwrap_err();
+    assert_eq!(e.code, ErrorCode::Unavailable);
+}
+
+#[test]
+fn a_failed_check_reports_why() {
+    let home = TempDir::new("updates");
+    let source = FakeReleases::new(Err("could not resolve api.github.com".into()));
+    let mut shell = shell_with(&home, "0.1.0", source);
+    let why = finish(&mut shell).unwrap_err();
+    assert!(why.contains("could not resolve api.github.com"), "{why}");
+}
+
+#[test]
+fn the_check_does_not_hold_up_the_window() {
+    let home = TempDir::new("updates");
+    let (release_now, held) = mpsc::channel();
+    let mut engine = engine_in(&home);
+    help::configure(
+        &mut engine,
+        "0.1.3",
+        Some(Arc::new(HeldReleases(Mutex::new(held)))),
+    );
+    let mut shell = Shell::new(engine);
+    // The source has not answered yet, and the Command has returned anyway.
+    shell.run("app.update.check", json!({})).unwrap();
+    assert!(help::take_checks(shell.engine()).is_empty());
+
+    release_now.send(()).unwrap();
+    assert!(wait_for_check(&shell).unwrap().newer);
+}
+
+#[test]
+fn an_agent_cannot_make_reda_go_online() {
+    let home = TempDir::new("updates");
+    let source = FakeReleases::new(Ok(release("0.2.0")));
+    let mut shell = shell_with(&home, "0.1.3", source.clone());
+    for agent in [Source::Mcp, Source::Cli] {
+        let e = shell
+            .run_bridged(agent, "app.update.check", json!({}), &Signals::default())
+            .unwrap_err();
+        assert_eq!(e.code, ErrorCode::Rejected);
+    }
+    std::thread::sleep(Duration::from_millis(20));
+    assert_eq!(source.calls(), 0);
+}
+
+#[test]
+fn the_window_is_handed_each_check_once() {
+    let home = TempDir::new("updates");
+    let source = FakeReleases::new(Ok(release("0.2.0")));
+    let mut shell = shell_with(&home, "0.1.0", source);
+    shell.run("app.update.check", json!({})).unwrap();
+    wait_for_check(&shell).unwrap();
+    assert!(help::take_checks(shell.engine()).is_empty());
+}
+
+#[test]
+fn github_release_json_is_read() {
+    let json = r#"{"tag_name": "v0.1.7", "html_url": "https://github.com/openreda/reda/releases/tag/v0.1.7", "name": "REDA 0.1.7", "draft": false}"#;
+    assert_eq!(
+        help::parse_github_release(json),
+        Ok(Release {
+            version: "0.1.7".into(),
+            url: "https://github.com/openreda/reda/releases/tag/v0.1.7".into(),
+        })
+    );
+    assert!(help::parse_github_release("{}").is_err());
+    assert!(help::parse_github_release(r#"{"tag_name": "latest", "html_url": "x"}"#).is_err());
+    assert!(help::parse_github_release("<html>").is_err());
+}

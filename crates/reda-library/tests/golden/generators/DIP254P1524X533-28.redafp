@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"DIP254P1524X533-28","description":"DIP-28, 15.24 mm row spacing, IPC-7251 Nominal"},
+  "text": {"designator":{"at":{"x":0,"y":18750000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-7620000,"y":16510000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":13970000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":11430000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":8890000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":6350000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":-1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":-3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":-6350000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000c","number":"11","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":-8890000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","number":"12","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":-11430000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","number":"13","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":-13970000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","number":"14","kind":"plated_through_hole","shape":"circle","at":{"x":-7620000,"y":-16510000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000010","number":"15","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":-16510000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000011","number":"16","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":-13970000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000012","number":"17","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":-11430000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000013","number":"18","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":-8890000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000014","number":"19","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":-6350000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000015","number":"20","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":-3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000016","number":"21","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":-1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000017","number":"22","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000018","number":"23","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-000000000019","number":"24","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":6350000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001a","number":"25","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":8890000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001b","number":"26","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":11430000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001c","number":"27","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":13970000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001d","number":"28","kind":"plated_through_hole","shape":"circle","at":{"x":7620000,"y":16510000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-00000000001e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-8600000,"y":-18050000},"end":{"x":8600000,"y":18050000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-00000000001f","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-5762500,"y":17780000},{"x":6762500,"y":17780000},{"x":6762500,"y":-17780000},{"x":-6762500,"y":-17780000},{"x":-6762500,"y":16780000}]},"width":100000},
+    {"uuid":"00000000-0000-4000-8000-000000000020","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-6660000,"y":17840000},"end":{"x":6660000,"y":17840000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000021","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":6660000,"y":-17840000},"end":{"x":6660000,"y":17840000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000022","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-6660000,"y":-17840000},"end":{"x":6660000,"y":-17840000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000023","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-6660000,"y":-17840000},"end":{"x":-6660000,"y":17840000}},"width":120000}
+  ]
+}

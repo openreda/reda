@@ -8,6 +8,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - mm, Protel file extensions, `.FileFunction` attributes
   - files for Top/Bottom Copper, Mask, Paste and Silkscreen, plus the Board Outline as the Profile
   - silkscreen text is plotted from the same text geometry as the canvas (`reda-text`)
+  - the silkscreen is cleared over the solder-mask openings on its side, so no ink lands on bare copper
 - **Excellon:** XNC-style, metric, with PTH and NPTH as separate files.
 - **CSV BOM** and **CSV CPL**.
 - Everything goes into one zip.
@@ -39,12 +40,13 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 
 ## What blocks a run and what only warns
 
-- **Blocks:**
+- **Blocks:** the output files read only the job's PCB, so every blocking check reads only the PCB.
   - duplicate Designators
   - a Board Outline that is not closed
-  - Components without a Footprint, when the job asks for a BOM or CPL
+  - a Footprint on the PCB that the outputs cannot use, because the PCB does not hold its Footprint copy. The PCB keeps its own copy of every Footprint it places, so a committed Project never has one; the check stops the writers from leaving such a Footprint out silently.
 - **Warns** (summarised in the run report):
   - the PCB is out of sync
+  - a fitted Standard Component on a sheet with no Footprint assigned. It can never reach the PCB, so the warning says to assign a Footprint and Sync.
   - DRC errors and ERC errors
   - the board's rules allow less than the preset's minimums, for example "board allows 0.10 mm clearance, OSH Park requires 0.152 mm"
   - a text font that is missing on this machine
@@ -65,8 +67,8 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 ## BOM
 
 - One row per group of Part + chosen Footprint + value fields.
-- Designators are listed in natural order ("R1, R2, R10"), with a quantity column.
-- The columns come from the Fab Preset's mapping.
+- Designators are listed in natural order ("R1, R2, R10").
+- The columns come from the Fab Preset's mapping. The Generic and PCBWay presets have a Quantity column; the JLCPCB preset follows JLCPCB's BOM template (Comment, Designator, Footprint, LCSC Part #), which has none.
 - Mechanical and Not Fitted Components are left out.
 - The BOM and CPL read only the job's PCB Document. Each Footprint instance carries the Component's fields and Not Fitted, kept current by Sync ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
 

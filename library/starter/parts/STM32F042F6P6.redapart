@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"b72ceef7-e0ba-41e5-a2c0-bfbc744436eb","name":"STM32F042F6P6","component_type":"standard","symbol":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc"},
+  "footprints": [
+    "5082bf81-7326-4bbd-8274-54c43985cd53"
+  ],
+  "fields": {"value":"STM32F042F6P6","description":"Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)","datasheet":"STM32F042x4/x6 datasheet, DocID025832","manufacturer":"STMicroelectronics","mpn":"STM32F042F6P6","keywords":"U microcontroller MCU USB STM32 Cortex-M0"},
+  "pin_map": {}
+}

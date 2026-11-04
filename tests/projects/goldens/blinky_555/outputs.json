@@ -1,0 +1,65 @@
+[
+  {
+    "destination": "outputs/JLCPCB",
+    "files": [
+      {
+        "function": "copper_top",
+        "name": "Blinky.GTL"
+      },
+      {
+        "function": "copper_bottom",
+        "name": "Blinky.GBL"
+      },
+      {
+        "function": "solder_mask_top",
+        "name": "Blinky.GTS"
+      },
+      {
+        "function": "solder_mask_bottom",
+        "name": "Blinky.GBS"
+      },
+      {
+        "function": "paste_top",
+        "name": "Blinky.GTP"
+      },
+      {
+        "function": "paste_bottom",
+        "name": "Blinky.GBP"
+      },
+      {
+        "function": "silkscreen_top",
+        "name": "Blinky.GTO"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "name": "Blinky.GBO"
+      },
+      {
+        "function": "profile",
+        "name": "Blinky.GKO"
+      },
+      {
+        "function": "drill_plated",
+        "name": "Blinky-PTH.drl"
+      },
+      {
+        "function": "drill_non_plated",
+        "name": "Blinky-NPTH.drl"
+      },
+      {
+        "function": "bom",
+        "name": "Blinky-BOM.csv"
+      },
+      {
+        "function": "cpl",
+        "name": "Blinky-CPL.csv"
+      }
+    ],
+    "warnings": [],
+    "zip": "outputs/JLCPCB/Blinky-JLCPCB.zip"
+  },
+  {
+    "pages": 1,
+    "path": "outputs/schematic.pdf"
+  }
+]

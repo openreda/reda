@@ -1,0 +1,40 @@
+[package]
+name = "reda-render"
+description = "Canvas rendering: GPU-free Scenes built from Documents, for the wgpu backend, PDF and SVG."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# The wgpu backend and PNG output. Off by default so the Scene builds for wasm32; the engine
+# turns it on for native targets.
+gpu = ["dep:wgpu", "dep:png"]
+
+[dependencies]
+i_triangle.workspace = true
+png = { workspace = true, optional = true }
+reda-command = { path = "../reda-command" }
+reda-model = { path = "../reda-model" }
+reda-text = { path = "../reda-text" }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+wgpu = { workspace = true, optional = true }
+
+[dev-dependencies]
+reda-testkit = { path = "../reda-testkit" }
+serde.workspace = true
+
+[lints]
+workspace = true
+
+[[test]]
+name = "gpu"
+required-features = ["gpu"]
+
+[[test]]
+name = "png_snapshots"
+required-features = ["gpu"]

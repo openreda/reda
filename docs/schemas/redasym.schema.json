@@ -1,0 +1,411 @@
+{
+  "$defs": {
+    "Pin": {
+      "additionalProperties": false,
+      "description": "A connection point of a Symbol.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The connection end of the Pin, relative to the Symbol origin."
+        },
+        "electrical_type": {
+          "$ref": "#/$defs/PinType"
+        },
+        "length": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_visible": {
+          "description": "Whether the Pin's name is drawn.",
+          "type": "boolean"
+        },
+        "number": {
+          "description": "Unique across the Symbol; Pins map to the Pads with the same number unless the\nPart overrides it.",
+          "type": "string"
+        },
+        "number_visible": {
+          "description": "Whether the Pin's number is drawn.",
+          "type": "boolean"
+        },
+        "rotation": {
+          "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "unit": {
+          "description": "The Unit it belongs to.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "unit",
+        "name",
+        "number",
+        "electrical_type",
+        "at",
+        "rotation",
+        "length"
+      ],
+      "type": "object"
+    },
+    "PinType": {
+      "description": "A Pin's electrical type, which ERC checks.",
+      "enum": [
+        "input",
+        "output",
+        "bidirectional",
+        "tri_state",
+        "passive",
+        "power_in",
+        "power_out",
+        "open_collector",
+        "open_emitter",
+        "not_connected"
+      ],
+      "type": "string"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+      "properties": {
+        "x": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "y": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+      "properties": {
+        "copyright": {
+          "description": "Copyright lines found in the imported files, kept verbatim.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "service": {
+          "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+          "type": "string"
+        },
+        "terms_url": {
+          "description": "The service's terms of use, when known.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "type": "object"
+    },
+    "Shape": {
+      "description": "A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "end": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "line",
+              "type": "string"
+            },
+            "start": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An axis-aligned rectangle between two opposite corners.",
+          "properties": {
+            "end": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "rect",
+              "type": "string"
+            },
+            "start": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "arc",
+              "type": "string"
+            },
+            "start": {
+              "$ref": "#/$defs/Point"
+            },
+            "sweep": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "center",
+            "start",
+            "sweep"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "circle",
+              "type": "string"
+            },
+            "radius": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "center",
+            "radius"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A closed polygon through its corners.",
+          "properties": {
+            "kind": {
+              "const": "polygon",
+              "type": "string"
+            },
+            "points": {
+              "items": {
+                "$ref": "#/$defs/Point"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "points"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Point",
+              "description": "The text's anchor."
+            },
+            "kind": {
+              "const": "text",
+              "type": "string"
+            },
+            "rotation": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "size": {
+              "description": "The text height.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "at",
+            "text",
+            "size",
+            "rotation"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "SymbolGraphic": {
+      "additionalProperties": false,
+      "description": "One shape of a Symbol Unit's body.",
+      "properties": {
+        "fill": {
+          "description": "Whether a closed shape is filled.",
+          "type": "boolean"
+        },
+        "shape": {
+          "$ref": "#/$defs/Shape"
+        },
+        "unit": {
+          "description": "The Unit it is drawn on.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "The stroke width.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uuid",
+        "unit",
+        "shape",
+        "width"
+      ],
+      "type": "object"
+    },
+    "SymbolRow": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "designator_prefix": {
+          "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "designator_prefix"
+      ],
+      "type": "object"
+    },
+    "Unit": {
+      "additionalProperties": false,
+      "description": "One independently placeable section of a Symbol.",
+      "properties": {
+        "name": {
+          "description": "Such as `A`, or `Power` for a power section.",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Symbol file (`.redasym`).",
+  "properties": {
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "graphics": {
+      "default": [],
+      "description": "The body drawing of every Unit, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/SymbolGraphic"
+      },
+      "type": "array"
+    },
+    "pins": {
+      "description": "Every Pin of every Unit, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/Pin"
+      },
+      "type": "array"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where an imported element came from: the service, its terms and any copyright\nlines. Elements made in REDA have none."
+    },
+    "symbol": {
+      "$ref": "#/$defs/SymbolRow"
+    },
+    "units": {
+      "description": "The Units in order (A, B, C…). A single-unit Symbol has exactly one.",
+      "items": {
+        "$ref": "#/$defs/Unit"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "format",
+    "symbol",
+    "units",
+    "pins"
+  ],
+  "title": "REDA Symbol file",
+  "type": "object"
+}

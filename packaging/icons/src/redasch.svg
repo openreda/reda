@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- A Schematic Sheet (.redasch): a resistor between two wires, with a junction. -->
+  <path d="M208 64 H640 L832 256 V928 A32 32 0 0 1 800 960 H208 A32 32 0 0 1 176 928 V96 A32 32 0 0 1 208 64 Z" fill="#ffffff" stroke="#5b6b7a" stroke-width="24"/>
+  <path d="M640 64 V224 A32 32 0 0 0 672 256 H832" fill="#dde3e9" stroke="#5b6b7a" stroke-width="24" stroke-linejoin="round"/>
+  <g fill="none" stroke="#1f5fa8" stroke-width="40" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 576 H352 L384 496 L432 656 L480 496 L528 656 L576 496 L624 656 L656 576 H752"/>
+    <path d="M704 576 V768 H512"/>
+  </g>
+  <circle cx="704" cy="576" r="36" fill="#1f5fa8"/>
+  <rect x="176" y="832" width="656" height="96" fill="#1f5fa8"/>
+</svg>

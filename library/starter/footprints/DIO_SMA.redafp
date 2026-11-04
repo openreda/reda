@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"d7207e2b-b137-4fb4-a47b-9c233f186cc7","name":"DIO_SMA","description":"Diode, SMA (DO-214AC), 4.32 × 2.60 mm body. Lands per onsemi SMA case 403D, Recommended Mounting Footprint"},
+  "text": {"designator":{"at":{"x":0,"y":2470000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "pads": [
+    {"uuid":"41235380-81b9-49ab-8718-60fbe7a66b35","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2000000,"y":0},"rotation":0,"width":2000000,"height":2000000,"corner_radius":500000},
+    {"uuid":"596bd2f7-da2f-48c6-9572-07e2620244d4","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":2000000,"y":0},"rotation":0,"width":2000000,"height":2000000,"corner_radius":500000}
+  ],
+  "graphics": [
+    {"uuid":"02efdd7c-01e1-4d8b-a1d6-c95e6f7380a3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3260000,"y":-1360000},"end":{"x":2160000,"y":-1360000}},"width":120000},
+    {"uuid":"55599826-1bb0-47fb-9eb1-41c6b25fbe56","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2160000,"y":-1300000},"end":{"x":2160000,"y":1300000}},"width":100000},
+    {"uuid":"58e98e38-e665-480b-8f16-538d36aee710","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3570000,"y":-1670000},"end":{"x":3570000,"y":1670000}},"width":50000},
+    {"uuid":"5a81897e-4d7b-4591-adf5-ed5703533046","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3260000,"y":1360000},"end":{"x":2160000,"y":1360000}},"width":120000},
+    {"uuid":"c908bf2e-c5ab-4600-b870-187824a13e73","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3260000,"y":-1360000},"end":{"x":-3260000,"y":1360000}},"width":120000}
+  ]
+}

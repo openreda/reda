@@ -1,0 +1,19 @@
+[package]
+name = "reda-geom"
+description = "Geometry primitives: nanometre and millidegree types, unit strings, shapes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+schemars.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

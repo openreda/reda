@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"e0980f62-b37a-4e55-89a2-27e68b3106cb","name":"Conn_1x04","designator_prefix":"J","description":"Generic connector, 1 × 4 pins"},
+  "units": [
+    {"uuid":"3722db1a-9a9a-4d3c-9b62-7d2628e35e50","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"1597958a-2e36-4aa5-965a-e63642cd35e6","unit":"3722db1a-9a9a-4d3c-9b62-7d2628e35e50","name":"Pin_4","number":"4","electrical_type":"passive","at":{"x":-5080000,"y":-3810000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"26764d04-d242-4ccd-adbc-bb8c02c4728a","unit":"3722db1a-9a9a-4d3c-9b62-7d2628e35e50","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"5383ba65-99e9-44b0-92e8-db05b0bb0463","unit":"3722db1a-9a9a-4d3c-9b62-7d2628e35e50","name":"Pin_3","number":"3","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"bf87ed39-4502-4412-94f3-6280a48aed3e","unit":"3722db1a-9a9a-4d3c-9b62-7d2628e35e50","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":3810000},"rotation":0,"length":2540000,"name_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"bf2c7777-7202-4ddd-ac2e-a1ef969480aa","unit":"3722db1a-9a9a-4d3c-9b62-7d2628e35e50","shape":{"kind":"rect","start":{"x":-2540000,"y":-5080000},"end":{"x":0,"y":5080000}},"width":254000}
+  ]
+}

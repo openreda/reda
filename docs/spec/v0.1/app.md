@@ -30,13 +30,43 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   - **On Wayland** the drop is blind. After a release outside the source window, the first REDA window that sees the pointer takes the tab, at the drop target under the pointer (or at its first group). If no window sees the pointer within about 0.7 s, the tab floats in a new window. There is no cross-window preview, and the compositor places new windows.
 - **Menus and toolbars:**
   - Menus and toolbars follow the active Document, which is the last one interacted with in any window.
-  - An **Active Bar** floats over each canvas with the most-used Tools for that Document type.
+  - An **Active Bar** floats over each canvas with the most-used Tools for that Document type, about five or six of them. Undo, Redo, the units toggle and the view flip belong on the toolbar, not the Active Bar.
+  - The Active Bar sits in a window frame (radius 5, margin 3), 12 px below the canvas top, centred. On a canvas too narrow for it, the Tools that don't fit go into a **More Tools** menu at its end; nothing is clipped.
   - Menus, toolbars and the Active Bar are data files in `reda-ui`, listed per Document type. They have stable ids and bind only to Commands, Presets, raw `{command, params}`, separators or submenus. There are no hard-coded callbacks, and a test enforces this. They can't be customised in v0.1 ([customisation](https://github.com/openreda/reda/issues/35)).
 - **Theme:**
-  - REDA's own dark and light themes, not stock egui. They use neutral greys, one blue accent, small corner radii, no shadows, tighter spacing and slightly smaller text.
-  - Both themes meet WCAG AA text contrast.
+  - REDA's own dark and light themes, not stock egui. They use slate greys, one blue accent, small corner radii, no shadows, tighter spacing and slightly smaller text. The values are the ones the [main window prototype](https://github.com/openreda/reda/tree/prototype/main-window-shell) settled:
+
+    | Slot | Dark | Light |
+    |---|---|---|
+    | Panel | `#1d2024` | `#eceef1` |
+    | Window | `#23272c` | `#f7f8fa` |
+    | Text field | `#141619` | `#ffffff` |
+    | Faint (collapsed Dock icon strips) | `#24282d` | `#e4e7eb` |
+    | Widget at rest (checkbox fill) | `#2b3036` | `#dfe3e8` |
+    | Hovered | `#343a41` | `#d2d7de` |
+    | Pressed | `#3d444c` | `#c5ccd5` |
+    | Stroke (outlines, separators) | `#383e45` | `#c3c9d1` |
+    | Text | `#c4cad3` | `#2a2f36` |
+    | Strong text (hovered, pressed, selected) | `#eef1f4` | `#0d1014` |
+    | Weak text | `#949ba5` | `#596069` |
+    | Accent | `#3d8fd6` | `#1f6fb8` |
+    | Selection and active button | accent at 55 % | accent at 35 % |
+    | Link | `#4a98dc` | `#1d68ad` |
+    | Gap between groups and Docks | `#141619` | `#c3c9d1` |
+
+    Links are a shade off the accent where the accent itself misses 4.5:1. Text sizes: Body and Button 12.5, Small 10.5, Heading 16, Monospace 11.5. Spacing: button padding 6 × 2, interact height 20, item spacing 6 × 3. Radii: widgets and menus 3, windows 4.
+  - Both themes meet WCAG AA text contrast, measured against what shows through a translucent fill.
+  - **Buttons** are flat until hovered: no fill at rest, the hover colour when hovered, the selection colour (the accent, translucent, under strong text) when active or toggled. A disabled button fades once, icon and all, to about 47 %. Toolbar and Active Bar buttons are 32 px squares holding a 24 px icon, 2 px apart, with radius 3.
+  - **Blue on the active background** ([issue #32](https://github.com/openreda/reda/issues/32)'s follow-up): the icons' general-role blue keeps at least the prototype's contrast on the active button background, 2.0:1 dark and 2.36:1 light. A test enforces this, so a darker or more saturated active colour fails.
   - Default: follow the OS.
-- **Status bar:** the "out of sync: N changes" badge, the bridge indicator, the Panels button, and notes such as "Zones need refilling".
+- **Tabs and groups:**
+  - Each tab group's 24 px tab strip is a solid blue bar across the whole group, the same in both themes. The group holding the active Document, which the menus follow, has the full blue `#1f5fbf`. The other groups have a muted blue: `#2b4f7a` dark, `#3f6593` light.
+  - Each tab shows its 16 px icon, its title and any badge. The active tab's title and icon are white, and the other tabs' are `#d6e2f2`. A test keeps both at 4.5:1 or more on both bars. A hovered tab lightens. The out-of-sync badge is a dark-on-amber pill.
+  - The active or hovered tab shows a × that closes it.
+  - Groups have no borders: they sit 3 px apart, and the gaps show the gap colour. The gap at a Dock's inner edge is its splitter, and it turns the accent (at 60 %) while hovered or dragged.
+  - An expanded Dock has no header. It collapses from the View menu's Docks submenu (Collapse Left, Right or Bottom Dock, the `layout.dock.collapse` Presets), or from Collapse Dock on any of its tabs' menus. A collapsed Dock is a 24 px faint icon strip, with no frame around it.
+- **Status bar:** from the left, "Active: <Document kind>" (Schematic Sheet, PCB Document, Symbol, Footprint, Part), the cursor's X and Y in the Document's units, and its grid; then notes such as "Zones need refilling", the "out of sync: N changes" badge, the bridge indicator and the Panels button, all flat buttons.
+  - The cursor on a board is where it last snapped, measured from the Placement Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. mm read to two decimals, mil to whole mil.
 - **Command Palette** (`Mod+Shift+P`):
   - It does a fuzzy search over every Command and Preset in the current context.
   - It shows each shortcut, and the reason for any that are unavailable.
@@ -142,7 +172,7 @@ Sources: [ADR-0010](../../adr/0010-canvas-drawn-by-own-wgpu-renderer.md), [How a
 - **Live interaction:**
   - Drags, rotates and placements in flight apply a per-frame transform to the flagged instances.
   - These go in a transient overlay buffer: rubber-banded Wires, the routing Track, the selection rectangle, Violation markers and the snap cursor.
-  - The grid is drawn by a shader.
+  - The grid is drawn by a shader, as quiet opaque dots (about 1.4:1 on the sheet in either theme). When its dots would come closer than 6 px it coarsens by tens, up to twice, and is hidden after that.
   - egui draws only UI on top: the Active Bar and tooltips.
 - **Text:**
   - Document text is always drawn.
@@ -163,7 +193,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - It is a data file in `reda-ui`, in the same format any later Keymap preset will use.
   - A Preference `keymap.base` picks the base Keymap. It is only `"reda"` in v0.1, and may be hidden.
 - **Contexts:**
-  - The most specific context wins: **active Tool → Document type (schematic / pcb / symbol / footprint) → global**.
+  - The most specific context wins: **active Tool → Document type (schematic / pcb / symbol / footprint / part) → global**.
   - Text fields and dialogs take keys first.
   - A key binds only once per context. A clash is a load error in Messages, and the earlier binding is kept.
 - **Default scheme.** The exact letters can change during the build, but the scheme is fixed:
@@ -201,7 +231,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - A test fails when a key has no art.
 - **Style:**
   - Line art where colour carries meaning: what already exists is grey, what the action creates is in its role colour, and the points you click are pink dots.
-  - Five role colours. Each SVG is drawn with the dark-theme values, which are swapped for the light-theme values on load.
+  - Six role colours: the five of the style guide, plus a yellow for the Board Outline, Board Cutouts and Keepouts, which are not copper. Each SVG is drawn with the dark-theme values, which are swapped for the light-theme values on load. Every role reaches at least 3:1 on its theme's panel.
   - SVG on a 24 px grid, rendered through `egui_extras` and resvg.
 - **Sizes:**
   - 24 px on toolbars and the Active Bar
@@ -209,14 +239,14 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - 16 px on tabs and Dock strips
 - **State:**
   - State shows on the button, never on the icon's colours. Active shows as an accent background, and hover as a hover background.
-  - Disabled icons are a faded greyscale copy made on load.
+  - Disabled icons are a greyscale copy made on load. The disabled button fades it once, to about 47 %, never twice.
   - Live-state icons, such as the active-Layer swatch, are painted.
-- **Interim art:**
-  - Until REDA's own MIT set exists, Lucide and Tabler stand in behind the semantic keys. All of them are replaced before the first public release.
-  - A small `xtask` vendors the placeholder SVGs (rewriting `currentColor` to `#fff`) into a `reda-ui` icons module and generates the key → `include_image!` table.
-  - The set's README records each icon's provenance.
+- **Art:**
+  - Every key has REDA art drawn to the [issue #32](https://github.com/openreda/reda/issues/32) style guide, listed in `icons/reda.txt` with its provenance; a test fails when a key has no art.
+  - A small `xtask` generates the key → `include_image!` table and the set's README from `icons/reda.txt`, and fails when a listed key has no SVG.
+  - The README records each icon's provenance: who drew it, any reference or generator, and who cleaned it up.
 - **Third-party notices:**
-  - A `THIRD_PARTY_NOTICES` file is generated at release time. Crate licences come from `cargo-about`, a dev tool. A hand-kept list covers vendored data: placeholder icons, Noto Sans and the Hershey font.
+  - A `THIRD_PARTY_NOTICES` file is generated at release time. Crate licences come from `cargo-about`, a dev tool. A hand-kept list covers vendored data: Noto Sans, the Hershey font and egui's default UI fonts.
   - It is embedded in the binary and shown under **Help → About → Licences**.
   - A test checks that every vendored asset directory has an entry.
 
