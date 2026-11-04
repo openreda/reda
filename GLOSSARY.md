@@ -191,8 +191,20 @@ The lines showing connections a Net still needs on the board that copper does no
 _Avoid_: Airwires, connection lines, unrouted nets
 
 **Net Class**:
-A named group of Nets that share board design rules, such as wider Tracks for power.
+A named, ranked group of Nets that share board design rules, such as wider Tracks for power. A Net can be in several, and the higher rank wins where they disagree.
 _Avoid_: Net group, rule set
+
+**Default Net Class**:
+The Net Class every Net is in, whose values are the board-wide design rules. It ranks below every other Net Class.
+_Avoid_: All Nets, base class
+
+**Preferred Value**:
+The size a Tool starts with for a Track or Via, within the limits its design rule sets.
+_Avoid_: Default width, routing width
+
+**Rules File**:
+A file holding a board's design rules, DRC severities and Net Class names, for use on another board.
+_Avoid_: Rule set, constraint file
 
 **Design Rule**:
 One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class.

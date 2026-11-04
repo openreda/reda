@@ -36,8 +36,9 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
 | Short circuit: different Nets touching (reported apart from clearance) | E |
 | `shorted_copper`: Pads with different numbers touching on a Part that isn't a Net Tie | E |
 | `net_tie_not_joined`: a Net Tie's Footprint isn't a valid tie ([Net Ties](#net-ties)) | E |
-| Track width below the minimum | E |
-| Via or Pad hole below the minimum | E |
+| Track width outside `track_width` | E |
+| Via diameter or hole outside `via_size` | E |
+| Pad, Free Pad or non-plated hole outside `hole_size` | E |
 | Annular ring below the minimum | E |
 | Hole-to-hole spacing | E |
 | Copper too close to the Board Outline or a Board Cutout | E |
@@ -50,39 +51,111 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
 | Silkscreen over exposed Pads or untented Vias, using the [resolved openings](pcb.md#mask-and-paste) | W |
 | `opening_collapsed`: a mask or paste opening with nothing left after a negative value | W |
 | PCB out of sync with the schematic, including differing fields, In BOM, In CPL and Not Fitted | W |
+| `rule_invalid`: a [blocking rule problem](#validation) in the file, which only a hand edit or a merge can cause | E |
+| `rule_outside_preset`: a rule allows less than a [Fab Preset limit](#fab-presets-and-the-rules). One Violation per rule record and preset. | W |
 
 - Before checking, DRC refills stale Zones, so it never checks against an old fill.
 - Deferred: solder-mask slivers, acid traps, silk-to-silk spacing.
 
 ## Design rules
 
-Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [ADR-0012](../../adr/0012-design-rules-are-scoped-records.md).
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How are design rules entered, reviewed and explained?](https://github.com/openreda/reda/issues/127), [ADR-0012](../../adr/0012-design-rules-are-scoped-records.md).
 
-- **Rule records:** the PCB Document holds one `rules` table of `{uuid, kind, scope, values, comment?}`.
-  - `kind` names the rule, and `values` is a typed set per kind. [How are design rules entered, reviewed and explained?](https://github.com/openreda/reda/issues/127) settles the final kinds and values.
-  - `scope` is an object of optional filters that must all match, in the style of `objects.query`. Empty means board-wide. v0.1 accepts only empty or `{net_class}`.
-  - Priority is implicit, with no priority field: a Net Class record beats the board-wide record.
-- **Board-wide rules:** exactly one record per kind, which can't be deleted. The kinds are:
-  - minimum clearance
-  - minimum Track width
-  - minimum Via diameter and hole
-  - minimum annular ring
-  - hole-to-hole spacing
-  - copper-to-edge clearance
-  - [mask expansion and paste expansion](pcb.md#mask-and-paste), which shape outputs rather than set a limit, so they have no DRC severity
-- **Net Classes:**
-  - A Net Class is a name and its Nets. Its values are rule records scoped to it.
-  - A Net Class can override the clearance, the Track width, the Via size, the mask expansion and the paste expansion.
-  - Where two Net Classes meet, the larger clearance applies.
-  - New Nets get the Default Net Class.
-  - A Net is assigned to a Net Class with `pcb.net.set_class {nets, class}`, from the Net table in Board Setup or from the Properties panel for a selected Track, Via, Pad, Zone or highlighted Net. A multi-selection sets it for all their Nets. Assignment is per Net only, with no pattern rules in v0.1.
-- **Fab Presets and the rules:**
-  - A Fab Preset holds flat minimums with no scope, and seeds the board-wide records when the board is created.
-  - "Apply Fab Preset rules" re-seeds them, after a preview like a Change List.
-  - Output Jobs never change the rules ([outputs](outputs.md#fab-presets)).
-- **Seed values** for 2-layer boards come from the [fab research](https://github.com/openreda/reda/issues/4). The Generic preset is conservative (0.20 mm Track, 0.16 mm clearance, 0.30 mm Via drill…), and the per-fab presets are looser.
+### Rule records
+
+The PCB Document holds one `rules` table of `{uuid, kind, scope, values, enabled?, comment?}`.
+
+- `scope` is an object of optional filters that must all match, in the style of `objects.query`. Empty means board-wide. v0.1 accepts only empty or `{net_class}`, on every kind.
+- **Board-wide records:** exactly one per kind, which can't be deleted. Each holds every value its kind requires.
+- **Net Class records:** at most one per class and kind. Each holds only the values it overrides.
+- `enabled` is left out when true.
+
+| Kind | Values |
+|---|---|
+| `clearance` | `value`, `ignore_pad_to_pad` (within one Footprint, default off) |
+| `track_width` | `min`, `preferred`, `max?` |
+| `via_size` | `diameter {min, preferred, max?}`, `hole {min, preferred, max?}` |
+| `hole_size` | `min`, `max`. Pad, Free Pad and non-plated holes. Via holes use `via_size`. |
+| `annular_ring` | `min` |
+| `hole_to_hole` | `min` |
+| `edge_clearance` | `value` |
+| [`mask_expansion`, `paste_expansion`](pcb.md#mask-and-paste) | These shape outputs rather than set a limit, so they have no DRC severity. |
+
+[What do Violations carry, and what do ERC and DRC add?](https://github.com/openreda/reda/issues/128) adds the silk, courtyard and dangling values. [How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137) adds the Zone connection defaults.
+
+### Which value applies
+
+- **For one Net, value by value:** the highest-ranked Net Class on the Net with an enabled record that sets the value wins. Otherwise the board-wide record applies.
+- **An object with no Net** uses the board-wide record.
+- **Between two objects** (`clearance`, `hole_to_hole`): each one's value is resolved, and the larger applies.
+- **A disabled Net Class record** is ignored.
+- **A disabled board-wide record:**
+  - Limit kinds: the limit is absent, so DRC skips it and the Track Tool stops clipping, unless an enabled class record sets the value. `preferred` values still supply routing defaults.
+  - `mask_expansion` and `paste_expansion`: expansion 0 and Vias untented, unless an enabled class record sets the value.
+  - A check's severity stays separate: it sets how the check reports, and `enabled` sets whether a record counts.
+- **Min, preferred and max:** the Track Tool uses `preferred` and clips typed values to the range ([routing](pcb.md#routing)). DRC checks `min` and `max`. Commands and the Properties panel accept any positive value, and DRC flags it.
+- **Changing a rule leaves existing copper alone.** DRC flags what breaks the new limits, and bulk changes use selection and Properties.
 - There is no rule-query language and no per-Layer or per-area rules in v0.1. Rule records leave room for both.
 - The routing Tool enforces clearance live.
+
+### Net Classes
+
+- A Net Class is a name and a `rank`. Its values are rule records scoped to it. Ranks are set by dragging rows in the Net Classes grid.
+- A Net holds a list of `classes`, so it can be in several.
+- **The Default Net Class** is the class every Net is in. It isn't stored, can't be renamed or deleted, ranks lowest, and its values are the board-wide records. A Net with an empty list is in Default only, and new Nets start that way.
+- Deleting a class removes it from its Nets and deletes its records.
+- **Assignment:** `pcb.net.add_to_class` and `pcb.net.remove_from_class`, each `{nets | pattern, class}`, from the Net table in Board Setup or from the Properties panel for a selected Track, Via, Pad, Zone or highlighted Net. A multi-selection applies to all their Nets.
+- **`pattern`** is a `*` and `?` glob resolved once, on the Nets that exist then. A Net that Sync adds later is not matched, so there are no stored pattern rules.
+
+### Validation
+
+One function serves the dialog, `pcb.rules.set` and `pcb.rules.validate`.
+
+- **Blocking:** a negative value, `min` above `max`, or `preferred` outside the range, judged on a record's effective values against the board-wide record. Board Setup shows it in red and disables OK and Apply, and `pcb.rules.set` refuses it.
+- **Notes**, which never block:
+  - a value outside the Fab Preset limit
+  - a class weaker than the board
+  - a class with no Nets
+  - an override equal to what it inherits
+  - a disabled `mask_expansion` or `paste_expansion` board-wide record, which changes outputs
+  - a Net whose classes combine into an invalid range, naming the Net. Neither class is wrong alone. The Track Tool clips `preferred` into the range.
+- A file with a blocking problem still opens, because a merge can produce one and the user must be able to fix it. DRC reports it as `rule_invalid`. The load check still refuses a missing or duplicate board-wide record.
+
+### Explaining a rule
+
+- **`pcb.rules.applicable {objects}`** takes one or two objects and returns, per kind:
+  - the winning values and the source of each
+  - the records that lost, and any disabled ones
+  - the check's severity
+  - for two objects, each one's clearance and which applied
+- **The Properties panel** has a Rules section with the same result: a tick on winners, a cross on losers and strike-through on disabled records. Each row opens its Board Setup page. The section hides above two objects. Right-click **Applicable Rules** goes to it.
+- **`pcb.rules.affected {rule | net_class}`** returns the objects a rule or class affects, leaving out those another record overrides. Board Setup's **Show on board** uses it ([app](app.md#settings-dialogs)).
+
+### Fab Presets and the rules
+
+- A Fab Preset holds flat limits with no scope, and seeds for the rest. It seeds the board-wide records when the board is created. Only limits are compared with the board, so `preferred` never produces a finding.
+- **Seeds** for 2-layer boards come from the [fab research](https://github.com/openreda/reda/issues/4). The Generic preset is conservative (0.20 mm Track, 0.16 mm clearance, 0.30 mm Via drill…), and the per-fab presets are looser. All values in mm, and Track and Via maximums start empty:
+
+  | Preset | Track preferred | Via preferred (diameter / hole) | Via hole min | `hole_size` |
+  |---|---|---|---|---|
+  | Generic | 0.25 | 0.70 / 0.30 | 0.30 | 0.50 to 6.30 |
+  | JLCPCB | 0.25 | 0.60 / 0.30 | 0.15 | 0.20 to 6.30 |
+  | PCBWay | 0.25 | 0.60 / 0.30 | 0.15 | 0.20 to 6.30 |
+
+- **Which preset:** a rule is compared with every Fab Preset used by an Output Job for this PCB Document. Board Setup shows the strictest limit beside each value and names its preset. With no jobs it shows nothing.
+- **Apply Fab Preset rules** re-seeds the board-wide records after a preview listing "board 0.15 → preset 0.127" with a tick per row. Limit rows start ticked. `preferred` rows start ticked only if they'd fall outside the new range. Class records never change, and are only flagged if they now break [validation](#validation). `pcb.rules.apply_fab_preset` takes the chosen rows.
+- Output Jobs never change the rules ([outputs](outputs.md#fab-presets)).
+
+### Moving rules between boards
+
+- **Save rules as Fab Preset** (`pcb.rules.save_as_preset`) writes the board-wide values only, because presets have no scope. The dialog says that classes are left out.
+- **Export and import** (`pcb.rules.export`, `pcb.rules.import`) use a `.redarules` file holding rule records, DRC severities and class names, matched by name.
+  - It holds no Net membership, because Net names differ per board.
+  - Import previews each overwrite, lets the user pick kinds, and creates missing classes empty.
+
+### Setting rules
+
+`pcb.rules.set {kind, scope?, values, enabled?, comment?}` sets the given values. A null value clears it, and a class record with nothing left is deleted. It fills in nothing, and refuses a blocking result, so agents stay explicit.
 
 ## Severities
 

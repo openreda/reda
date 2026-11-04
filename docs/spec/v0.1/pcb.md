@@ -91,7 +91,7 @@ Sources: [How do mask, paste and tenting inherit, and what can a Pad express?](h
 
 - **Manual single Tracks:**
   - Corners are 45° or 90°. The `/` key cycles the mode.
-  - The width comes from the Net Class, and can be changed mid-route.
+  - The width starts at the Net's [preferred value](checks.md#which-value-applies), and can be changed mid-route. A typed width is clipped to the Net's `min` and `max`.
 - A route ends on its own when it reaches a Pad or Track of the same Net.
 - **Clearance:**
   - A clearance violation stops or flags the route, checked live through engine queries.
@@ -110,7 +110,7 @@ Sources: [How do mask, paste and tenting inherit, and what can a Pad express?](h
 - Through Vias only. The model stores a layer span on every Via, so blind, buried and micro Vias can come later.
 - One key places a Via mid-route and switches the active Layer.
 - A Via can also be placed on its own onto a Net, for stitching.
-- Sizes come from the rules and the Net Class.
+- Sizes start at the Net's [preferred `via_size`](checks.md#which-value-applies). A typed size is clipped to its `min` and `max`.
 - A Via has the same `mask {top?, bottom?, from_hole_edge?}` as a [Pad](library.md#pad-model), with `top` and `bottom` as board sides. An untented side opens at the Via's diameter plus its expansion.
 
 ## Mask and paste
@@ -122,7 +122,7 @@ Source: [How do mask, paste and tenting inherit, and what can a Pad express?](ht
   - `paste_expansion`: `{expansion}` or `{percent}`
 - **Inheritance:**
   - A Pad's or Via's own value wins, side by side.
-  - Otherwise the rule applies: its Net Class's record if there is one, else the board-wide record. A Pad on no Net uses the board-wide record.
+  - Otherwise the rule applies, [resolved through the Net's classes](checks.md#which-value-applies). A Pad on no Net uses the board-wide record.
   - Tenting from the rule applies to Vias only. A Pad is tented by its own `mask`.
   - `from_hole_edge` from the rule applies only to Pads and Vias with holes.
 - There is no Footprint-level default. A Footprint sets values on its Pads, and `footprint` is a reserved scope filter.

@@ -126,13 +126,21 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
   - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview) and "Save as user preset" ([outputs](outputs.md#fab-presets)).
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):
-  - *Rules:* one page per rule (Clearance, Track Width, Via, Annular Ring, Hole Spacing, Edge Clearance). Each page has the board-wide value, an override table with one row per Net Class, and that check's DRC severity. **Apply Fab Preset rules…** is here, with its preview ([checks](checks.md#design-rules)).
-  - *Mask & Paste:* mask expansion (top and bottom, with a link toggle), from hole edge, Via tenting and paste expansion (absolute or percent), each with a Net Class override table. It has no DRC severity ([pcb](pcb.md#mask-and-paste)).
+  - *Rules:* pages Clearance, Track Width, Vias, Holes (size, annular ring and hole-to-hole), Board Edge, Mask & Paste, Silkscreen and Zone Connections.
+    - Each page has the board-wide values, an override table with one row per Net Class, the line "Net Class values override the board value", that check's DRC severity, and the [strictest Fab Preset limit](checks.md#fab-presets-and-the-rules) beside each value.
+    - Each page has **Reset page to Fab Preset**, the Apply Fab Preset preview filtered to that page.
+  - *Mask & Paste:* mask expansion (top and bottom, with a link toggle), from hole edge, Via tenting and paste expansion (absolute or percent). It has no DRC severity ([pcb](pcb.md#mask-and-paste)).
   - *Stackup:* thickness, copper and dielectric entries, finish and colours, with a live cross-section ([pcb](pcb.md#stackup)).
-  - *Net Classes:* add, rename and delete classes, and a Net → Net Class table filterable by name.
+  - *Net Classes:*
+    - **Grid:** one bold Default row, which edits the board-wide records, and one row per class in rank order, with a column per value for clearance, Track width and Via size. Drag a row to change its rank. Inherited values are grey and overrides normal, with a "show only overrides" filter, a search filter, an `enabled` checkbox per override and a comment column. Cells copy and paste, and Delete clears an override back to inherited.
+    - **Typing in the grid:** typing `min` or `preferred` for a class with no record of that kind fills the record's empty `min`, `preferred` and `max` with the same value. Delete clears any of them.
+    - **Net table:** Net → Net Classes, filterable by name, with multi-select, **New Class** from the selection and **Assign by pattern…**. Add, rename and delete classes here.
   - *DRC:* every check's severity, including checks with no rule, such as Courtyard overlap.
+  - **Show on board** on each grid and rule row hides the dialog and keeps its pending edits. The objects are highlighted, the canvas is view-only, and a banner gives the count and **Back to Board Setup**.
+  - **Undo:** `Mod+Z` inside Board Setup steps back through pending edits. After Apply they are one undo entry.
+  - **Dialog actions:** **Apply Fab Preset rules…**, **Save rules as Fab Preset…**, **Export rules…** and **Import rules…** ([checks](checks.md#design-rules)).
 - **Output Job dialog:** one job's name, PCB Document, Fab Preset, outputs and destination, plus Run ([outputs](outputs.md#output-jobs)).
-- **Shortcuts into the same data:** the Properties panel sets a selected object's Net Class, and right-clicking a Violation sets that check's severity ([checks](checks.md)).
+- **Shortcuts into the same data:** the Properties panel sets a selected object's Net Classes and [explains its rules](checks.md#explaining-a-rule), and right-clicking a Violation sets that check's severity ([checks](checks.md)).
 
 ## Canvas rendering
 

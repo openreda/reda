@@ -41,7 +41,7 @@ Sources: [How do the schematic and the PCB stay in sync?](https://github.com/ope
 - **Split:** the part with the largest overlap keeps the PCB Net's UUID. The rest become new Nets.
 - **Merge:** the PCB Net with the largest overlap survives. The others are removed, and their copper is reassigned to it.
 - **Rename:** a name difference is a rename, not a delete and an add. That includes auto-names that follow Designators.
-- New Nets get the Default Net Class. Net Classes stay on the PCB side.
+- New Nets are in the Default Net Class only. Net Classes stay on the PCB side.
 
 ## What Sync does to the board
 

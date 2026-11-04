@@ -65,7 +65,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
   - The PCB Document holds a **Footprint instance** linked by Component UUID. It has its own copy of Designator, value, fields, Footprint, Component Type, In BOM, In CPL and Not Fitted, and a Net per Pad, so outputs and DRC read the type and flags from the PCB Document ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125)). The BOM's one exception is in [outputs](outputs.md#bom).
   - Mechanical Components may exist only on the PCB. They keep their fields, In BOM, In CPL and Not Fitted on their Footprint instance, which has no Component link.
   - A Mechanical Component may also exist only on a sheet, with no Footprint choice. It never reaches the PCB.
-- **PCB Nets** are stored objects with a UUID, a name and a Net Class. Pads, Tracks, Vias, Zones and Free Pads reference them by UUID. Net Classes live on the PCB side.
+- **PCB Nets** are stored objects with a UUID, a name and a list of [Net Classes](checks.md#net-classes). Pads, Tracks, Vias, Zones and Free Pads reference them by UUID. Net Classes live on the PCB side.
 - **Undo and redo:**
   - One Command is one transaction. It records a before/after change set per object, keyed by UUID.
   - The same change set feeds dirty tracking, incremental derived data (spatial index, Ratsnest, connectivity), the Journal and Change List previews.
@@ -92,7 +92,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
 
 ## Reserved names
 
-Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125), [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126).
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125), [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126), [How are design rules entered, reviewed and explained?](https://github.com/openreda/reda/issues/127).
 
 These names are held for later milestones. They are additive, so they stay out of the v0.1 schema and nothing else may use them for another meaning.
 
@@ -102,8 +102,10 @@ These names are held for later milestones. They are additive, so they stay out o
 | Layer | `purpose` on Mechanical and Documentation Layers | v0.3 |
 | Stackup dielectric | `material`, core or prepreg type, `dk` (milli-units), `df` (micro-units), test frequency (Hz) | v0.2 |
 | Stackup and board | further stacks and regions, coverlay as a mask option, stiffeners as new objects | after 1.0 |
-| Rule record | `layers` | v0.2 |
-| Rule record | `enabled`; `footprint`, `pcb_net` and other scope filters | later |
+| Rule record | `layers`; `net_class_pair` scope filter | v0.2 |
+| Rule record | `priority`; `footprint`, `pcb_net` and other scope filters | later |
+| Rule kinds | `silk_width`, `silk_text_height` | v0.2 |
+| Rule values | `slot` under `hole_size`, `by_object` under `edge_clearance` | later |
 | Rule record | `through_hole_paste` on `paste_expansion` | v0.2 |
 | Via | `protection` (IPC-4761 type) | later |
 | Pad and Via | `testpoint` | v0.7 |
@@ -175,7 +177,7 @@ Sources: [What does REDA's native file format look like?](https://github.com/ope
   - Dirty state and save are per Document, plus Save All.
   - Every write goes to a temp file and is then renamed.
   - REDA never saves the real files on its own.
-- **Registered extensions:** `.reda`, `.redasch` and `.redapcb`. Other REDA files are `.redalib`, `.redasym`, `.redafp`, `.redapart` and `.redafab`.
+- **Registered extensions:** `.reda`, `.redasch` and `.redapcb`. Other REDA files are `.redalib`, `.redasym`, `.redafp`, `.redapart`, `.redafab` and `.redarules`.
 
 ## Commands
 
