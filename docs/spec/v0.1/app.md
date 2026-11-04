@@ -104,7 +104,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
       Sheet 1 · Power · MCU    (open, rename, reorder by drag, delete, Add sheet)
   ▾ PCB
       MyBoard                  (open, rename, Board Setup…, delete / Add PCB Document)
-  ▾ Output Jobs
+  ▾ Output Jobs                (Run all, New job…)
       JLCPCB                   (Run, Edit…, Duplicate, Delete, New job…)
   ▾ Libraries
       parts/ (Project)         (Add folder…, Remove, Show in folder)
@@ -123,7 +123,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - **Project Settings** (stored in `.reda`):
   - *Properties:* title, revision, date, author, company. These are fixed fields only, with no free Project parameters or text variables in v0.1.
   - *ERC:* the severity of each check, in a grouped grid with multi-select and **Reset to defaults**, beside the editable [Pin Matrix](checks.md#pin-matrix) ([checks](checks.md#severities)).
-  - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview) and "Save as user preset" ([outputs](outputs.md#fab-presets)).
+  - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview), "Save as user preset" and [sub-pages](outputs.md#fab-preset-pages) ([outputs](outputs.md#fab-presets)).
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):
   - *Rules:* pages Clearance, Track Width, Vias, Holes (size, annular ring and hole-to-hole), Board Edge, Mask & Paste, Silkscreen and Zone Connections.
@@ -139,7 +139,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
   - **Show on board** on each grid and rule row hides the dialog and keeps its pending edits. The objects are highlighted, the canvas is view-only, and a banner gives the count and **Back to Board Setup**.
   - **Undo:** `Mod+Z` inside Board Setup steps back through pending edits. After Apply they are one undo entry.
   - **Dialog actions:** **Apply Fab Preset rules…**, **Save rules as Fab Preset…**, **Export rules…** and **Import rules…** ([checks](checks.md#design-rules)).
-- **Output Job dialog:** one job's name, PCB Document, Fab Preset, outputs and destination, plus Run ([outputs](outputs.md#output-jobs)).
+- **Output Job dialog:** pages General, Outputs, Gerber, Drill, BOM, CPL and Last run, plus Run ([outputs](outputs.md#output-job-dialog)).
 - **Shortcuts into the same data:** the Properties panel sets a selected object's Net Classes and [explains its rules](checks.md#explaining-a-rule), and right-clicking a Violation sets that check's severity ([checks](checks.md)).
 
 ## Canvas rendering

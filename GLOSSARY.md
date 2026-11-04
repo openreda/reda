@@ -225,12 +225,16 @@ The file beside an Output Job's zip that records what the run wrote, with a hash
 _Avoid_: Release manifest, file list
 
 **Fab Preset**:
-A named description of what one fabrication house expects, such as its minimum design rules, file conventions and BOM columns.
+A named description of what one fabrication house expects, such as its minimum design rules, file conventions, BOM and CPL form and packaging. It says nothing about any one build, which is the Output Job's part.
 _Avoid_: Fab profile, manufacturer settings, CAM settings
 
 **Output Job**:
 A saved, named recipe in a Project that produces a chosen set of manufacturing files for one PCB Document according to one Fab Preset.
 _Avoid_: OutJob, export settings, plot settings, fab output
+
+**Name Template**:
+The text with tokens that names an Output Job's zip and its BOM and CPL files.
+_Avoid_: Name expression, file pattern
 
 **Not Fitted**:
 The state of a Component that stays in the design and on the board but is left out of assembly on this build. In BOM says whether it is ever a line to buy; Not Fitted says this build leaves it off.
