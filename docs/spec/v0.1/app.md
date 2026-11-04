@@ -119,14 +119,15 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - **Three modal dialogs**, each with a page tree on the left: Project Settings, Board Setup and the Output Job dialog.
 - **OK / Cancel / Apply:** each Apply or OK commits the dialog's changes as one `batch` transaction and one undo entry. Invalid values (a negative clearance, a duplicate class name) are flagged inline and disable OK and Apply.
 - Preferences stays live with no OK or Cancel, because it is per-user and has no undo ([Preferences](#preferences)).
-- They are dialogs, not Document tabs, because none of them is graphical. The later Stackup editor is a tab because it is.
+- They are dialogs, not Document tabs, because none of them is mainly graphical. The Stackup page draws a live cross-section of the dialog's values, and the full Stackup editor in v0.2 is a tab.
 - **Project Settings** (stored in `.reda`):
-  - *Properties:* title, revision, date, author, company, board thickness, copper weight. These are fixed fields only, with no free Project parameters or text variables in v0.1.
+  - *Properties:* title, revision, date, author, company. These are fixed fields only, with no free Project parameters or text variables in v0.1.
   - *ERC:* the severity of each check, with the fixed pin-type matrix shown read-only beside the conflict check ([checks](checks.md#severities)).
   - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview) and "Save as user preset" ([outputs](outputs.md#fab-presets)).
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):
   - *Rules:* one page per rule (Clearance, Track Width, Via, Annular Ring, Hole Spacing, Edge Clearance). Each page has the board-wide value, an override table with one row per Net Class, and that check's DRC severity. **Apply Fab Preset rules…** is here, with its preview ([checks](checks.md#design-rules)).
+  - *Stackup:* thickness, copper and dielectric entries, finish and colours, with a live cross-section ([pcb](pcb.md#stackup)).
   - *Net Classes:* add, rename and delete classes, and a Net → Net Class table filterable by name.
   - *DRC:* every check's severity, including checks with no rule, such as Courtyard overlap.
 - **Output Job dialog:** one job's name, PCB Document, Fab Preset, outputs and destination, plus Run ([outputs](outputs.md#output-jobs)).

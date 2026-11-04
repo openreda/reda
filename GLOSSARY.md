@@ -123,8 +123,12 @@ One plane of the PCB Document on which objects sit, such as Top Copper, Bottom S
 _Avoid_: Plane (alone), sheet, level
 
 **Stackup**:
-The ordered physical build of a PCB Document: its copper and dielectric layers with their materials and thicknesses.
+The ordered physical build of a PCB Document: its copper and dielectric entries with their materials and thicknesses.
 _Avoid_: Layer stack, build-up, layer setup
+
+**Dielectric**:
+An insulating entry in the Stackup between copper. It holds no objects, so it is not a Layer.
+_Avoid_: Dielectric layer, substrate layer
 
 **Pad**:
 A copper area, with or without a hole, through which a Footprint (or a free-standing hole) connects to the board; each Pad belongs to at most one Net.
@@ -157,6 +161,10 @@ _Avoid_: Airwires, connection lines, unrouted nets
 **Net Class**:
 A named group of Nets that share board design rules, such as wider Tracks for power.
 _Avoid_: Net group, rule set
+
+**Design Rule**:
+One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class.
+_Avoid_: Constraint
 
 **Placement Origin**:
 The point on a PCB Document from which Component positions are measured in manufacturing outputs.
@@ -265,7 +273,7 @@ A Project's own settings, such as its title-block properties, ERC severities and
 _Avoid_: Project options, Project preferences
 
 **Board Setup**:
-A PCB Document's design rules, Net Classes and DRC severities, edited together.
+A PCB Document's Stackup, design rules, Net Classes and DRC severities, edited together.
 _Avoid_: Rules editor, board settings, constraints
 
 **Scene**:

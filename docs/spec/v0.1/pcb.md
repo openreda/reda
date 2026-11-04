@@ -13,8 +13,26 @@ Source: [Which features make up the v0.1 PCB editor?](https://github.com/openred
   - New Project creates the PCB Document, with its rules and DRC severities seeded from the chosen Fab Preset ([app](app.md#new-project)).
   - It may start with a rectangular Board Outline from the New Project dialog. Otherwise the canvas shows a hint: "No Board Outline: draw one, or **Create rectangle…**" (`pcb.board_outline.add_rect {width, height, corner_radius?}`).
   - The PCB Document can be deleted after confirmation. **Add PCB Document** (`document.add {kind: pcb}`) is available only while the Project has none. Output Jobs that name a missing PCB are flagged as broken until they are re-pointed. A Project opened without its PCB file shows an error in Messages and offers Add PCB Document.
-- Board thickness and copper weight are Project properties, edited in Project Settings. They are used only in fab notes.
+- The board owns its [Stackup](#stackup), edited in **Board Setup**.
 - The board owns its design rules and DRC severities ([checks](checks.md#design-rules)). A Fab Preset seeds them when the board is created. They are edited in **Board Setup** ([app](app.md#settings-dialogs)).
+
+## Stackup
+
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124).
+
+- `.redapcb` holds a `stackups` table with one entry in v0.1, seeded when the board is created from the Fab Preset, or else 1.6 mm with 1 oz copper. It is set with `pcb.stackup.set`.
+- **Stored values:**
+  - `thickness`: the finished thickness you order.
+  - `entries`, ordered top to bottom:
+    - copper: `{layer, thickness}`
+    - dielectric: `{uuid, thickness?}`
+  - `finish`, `mask_color`, `silk_color`: optional text with suggestions, written as typed in fab notes and left out when unset.
+- A 2-layer board is copper, one dielectric with no thickness, copper. Solder mask, silkscreen and paste are not entries.
+- **Copper units:** thickness is stored in nm and can be entered in µm, mm, mil or oz, where 1 oz is exactly 35 µm. Fab notes show both for a standard weight, such as "1 oz (35 µm)", and µm only otherwise.
+- **Totals:**
+  - A dielectric left blank takes the remainder of `thickness`. A negative remainder is an error on the field.
+  - If every dielectric is typed in, `thickness` stays as stored and any mismatch shows as a warning.
+- The Stackup page in Board Setup is an editable table beside a drawn cross-section, with copper, dielectric and total thickness updating as you type.
 
 ## Layers
 
@@ -25,6 +43,7 @@ Source: [Which features make up the v0.1 PCB editor?](https://github.com/openred
   - the Board Outline
   - Mechanical and Documentation layers
 - Layers are stored as a generic ordered list, so v0.2 multilayer needs no format migration ([architecture](architecture.md#design-data-model)).
+- Dielectrics are Stackup entries, not Layers.
 
 ## Placement
 
@@ -120,4 +139,4 @@ Source: [Which features make up the v0.1 PCB editor?](https://github.com/openred
 
 ## Deferred past v0.1
 
-Push-and-shove, differential pairs, length tuning and curved Tracks (v0.4); 4+ Layers, the Stackup editor, blind/buried/micro Vias and teardrops (v0.2); 3D view and DXF (v0.3); multi-board Projects (v0.5); autorouter; hatched Zones, Rooms, and scoped or query rules; image logos; arrays and pattern placement; printing to paper.
+Push-and-shove, differential pairs, length tuning and curved Tracks (v0.4); 4+ Layers, the full Stackup editor tab, blind/buried/micro Vias and teardrops (v0.2); 3D view and DXF (v0.3); multi-board Projects (v0.5); autorouter; hatched Zones, Rooms, and scoped or query rules; image logos; arrays and pattern placement; printing to paper.
