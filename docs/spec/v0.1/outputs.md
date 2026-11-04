@@ -46,7 +46,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - a Footprint on the PCB that the outputs cannot use, because the PCB does not hold its Footprint copy. The PCB keeps its own copy of every Footprint it places, so a committed Project never has one; the check stops the writers from leaving such a Footprint out silently.
 - **Warns** (summarised in the run report):
   - the PCB is out of sync
-  - a fitted Standard Component on a sheet with no Footprint assigned. It can never reach the PCB, so the warning says to assign a Footprint and Sync.
+  - a fitted Standard or Net Tie Component on a sheet with no Footprint assigned. It can never reach the PCB, so the warning says to assign a Footprint and Sync.
   - DRC errors and ERC errors
   - the board's rules allow less than the preset's minimums, for example "board allows 0.10 mm clearance, OSH Park requires 0.152 mm"
   - a text font that is missing on this machine
@@ -69,20 +69,26 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 - One row per group of Part + chosen Footprint + value fields.
 - Designators are listed in natural order ("R1, R2, R10").
 - The columns come from the Fab Preset's mapping. The Generic and PCBWay presets have a Quantity column; the JLCPCB preset follows JLCPCB's BOM template (Comment, Designator, Footprint, LCSC Part #), which has none.
-- Mechanical and Not Fitted Components are left out.
-- The BOM and CPL read only the job's PCB Document. Each Footprint instance carries the Component's fields and Not Fitted, kept current by Sync ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
+- **What is listed** ([How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125)):
+  - Every Footprint instance with In BOM true that isn't Not Fitted, whatever its Component Type.
+  - Every Mechanical Component on a sheet with In BOM true, no Footprint choice, and not Not Fitted, so a screw needs no Footprint. Its Footprint column is empty.
+  - Free Pads are never listed.
+- Apart from those Mechanical Components, the BOM and CPL read only the job's PCB Document. Each Footprint instance carries the Component's fields, Component Type, In BOM, In CPL and Not Fitted, kept current by Sync ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
 
 ## CPL
 
 - **Origin:** the lower-left corner of the Board Outline's bounding box, unless the user has placed a Placement Origin on the PCB Document.
 - **Rotation:** the Footprint's orientation, using the IPC-7351 zero orientation.
 - There is no per-package rotation-correction table in v0.1. The fab's own preview fixes those, and the table comes in v0.2.
-- Mechanical and Not Fitted Components are left out.
+- **What is listed:** every Footprint instance with In CPL true that isn't Not Fitted, whatever its Component Type. Free Pads are never listed.
+- A machine-placed shield can or a fiducial the fab asks for is one setting on its Part or Component.
 
 ## Not Fitted
 
 - A true/false flag on each Component.
 - A Not Fitted Component stays on the board, but is left out of the BOM and CPL.
+- In BOM and In CPL are separate from it: they hold on every build, while Not Fitted says this build leaves the Component off.
+- A Net Tie refuses Not Fitted, because its copper is on the board either way. Changing a Component's type to Net Tie clears the flag.
 - Variants generalise this flag in v0.5.
 
 ## Schematic PDF

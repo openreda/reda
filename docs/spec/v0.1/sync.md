@@ -22,7 +22,7 @@ Sources: [How do the schematic and the PCB stay in sync?](https://github.com/ope
 - **Grouping:** changes are grouped by kind:
   - add or remove a Component
   - change a Footprint
-  - change a Designator, value, fields or Not Fitted
+  - change a Designator, value, fields, In BOM, In CPL or Not Fitted
   - add, rename or remove a Net
   - change a Pad's Net
 - **Ticking:**
@@ -55,6 +55,8 @@ Sources: [How do the schematic and the PCB stay in sync?](https://github.com/ope
   - Tracks are left as they are, and DRC reports the dangling copper.
 - **Components with no schematic counterpart:**
   - Only Mechanical Parts can be placed directly on the PCB. They carry no Component link, and Sync ignores them.
+  - A Mechanical Component on a sheet syncs only if it has a Footprint choice. Without one it stays on the schematic, raises no warning, and can still reach the [BOM](outputs.md#bom).
+  - A Net Tie syncs exactly like a Standard Component ([checks](checks.md#net-ties)).
   - A Standard Footprint whose Component is gone is proposed for removal.
 - **Deleting a Schematic Sheet:** its Footprints are removed at the next Sync, as ordinary removals.
 - **Duplicate Designators:**
@@ -74,9 +76,9 @@ Each Sync places its new Footprints in a fresh cluster:
 
 ## Write-through edits
 
-- Designator, value, fields, Not Fitted and Footprint can be edited from the PCB Properties panel, as cross-Document **write-through** Commands. Each one updates every Unit and the Footprint instance together, with one undo entry in each Document.
+- Designator, value, fields, In BOM, In CPL, Not Fitted and Footprint can be edited from the PCB Properties panel, as cross-Document **write-through** Commands. Each one updates every Unit and the Footprint instance together, with one undo entry in each Document.
 - Re-annotate's "by board position" mode is built the same way.
-- Mechanical parts that exist only on the PCB are edited there, fields and Not Fitted included.
+- Mechanical parts that exist only on the PCB are edited there, fields, In BOM, In CPL and Not Fitted included.
 - Pin and gate swaps flowing back from the PCB are deferred to v0.5.
 
 ## Cross-select and Net highlighting
