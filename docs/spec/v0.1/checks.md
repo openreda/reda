@@ -52,7 +52,13 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
 
 ## Design rules
 
-- The PCB Document holds one set of board-wide values:
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [ADR-0012](../../adr/0012-design-rules-are-scoped-records.md).
+
+- **Rule records:** the PCB Document holds one `rules` table of `{uuid, kind, scope, values, comment?}`.
+  - `kind` names the rule, and `values` is a typed set per kind. [How are design rules entered, reviewed and explained?](https://github.com/openreda/reda/issues/127) settles the final kinds and values.
+  - `scope` is an object of optional filters that must all match, in the style of `objects.query`. Empty means board-wide. v0.1 accepts only empty or `{net_class}`.
+  - Priority is implicit, with no priority field: a Net Class record beats the board-wide record.
+- **Board-wide rules:** exactly one record per kind, which can't be deleted. The kinds are:
   - minimum clearance
   - minimum Track width
   - minimum Via diameter and hole
@@ -60,16 +66,17 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
   - hole-to-hole spacing
   - copper-to-edge clearance
 - **Net Classes:**
-  - Each Net Class can override the clearance, the Track width and the Via size.
+  - A Net Class is a name and its Nets. Its values are rule records scoped to it.
+  - A Net Class can override the clearance, the Track width and the Via size.
   - Where two Net Classes meet, the larger clearance applies.
   - New Nets get the Default Net Class.
   - A Net is assigned to a Net Class with `pcb.net.set_class {nets, class}`, from the Net table in Board Setup or from the Properties panel for a selected Track, Via, Pad, Zone or highlighted Net. A multi-selection sets it for all their Nets. Assignment is per Net only, with no pattern rules in v0.1.
 - **Fab Presets and the rules:**
-  - A Fab Preset seeds the rules when the board is created.
+  - A Fab Preset holds flat minimums with no scope, and seeds the board-wide records when the board is created.
   - "Apply Fab Preset rules" re-seeds them, after a preview like a Change List.
   - Output Jobs never change the rules ([outputs](outputs.md#fab-presets)).
 - **Seed values** for 2-layer boards come from the [fab research](https://github.com/openreda/reda/issues/4). The Generic preset is conservative (0.20 mm Track, 0.16 mm clearance, 0.30 mm Via drill…), and the per-fab presets are looser.
-- There is no rule-query language and no per-Layer or per-area rules in v0.1. The model must leave room for both.
+- There is no rule-query language and no per-Layer or per-area rules in v0.1. Rule records leave room for both.
 - The routing Tool enforces clearance live.
 
 ## Severities

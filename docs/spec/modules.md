@@ -120,5 +120,5 @@ These are not placed in any milestone yet. They were ruled out of scope for the 
   - Keymap presets that copy other EDA tools' habits.
   - A Keymap picker, and Keymap export/import.
   - User-editable menus, toolbars and Active Bar, as an overrides layer on the stable item ids.
-- **Text variables:** free Project parameters and `${...}` variables in sheet and board text (e.g. the revision on the silkscreen), substituted in the canvas, Gerber and PDF.
+- **Text variables:** free Project parameters and `${...}` variables in sheet and board text (e.g. the revision on the silkscreen), substituted in the canvas, Gerber and PDF. v0.1 already reserves the syntax ([architecture](v0.1/architecture.md#file-format)).
 - **Translations:** shipped languages; a language picker; locale number formatting; CJK fonts and right-to-left text.

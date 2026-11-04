@@ -75,15 +75,50 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
   - Derived: schematic Nets, auto Net names, Junctions, PCB copper connectivity, the Ratsnest, spatial indices, ERC and DRC results.
   - Zone fills go in a separate, rebuildable cache, not in the PCB Document.
 - **Board primitives:**
-  - Layers are an ordered list of objects (UUID, kind, side), referenced by UUID and never by index.
+  - Layers are an ordered list of objects (UUID, kind, side), top to bottom, referenced by UUID and never by index.
+  - A copper Layer with no side is an inner Layer. On load, the outermost copper Layers must have a side and inner copper must have none. The copper number `L<n>` comes from list position and is never stored.
+  - The Stackup is a table of stacks with one entry in v0.1. See [pcb](pcb.md#stackup).
+  - Design rules are a table of records. See [checks](checks.md#design-rules).
   - A Track is one segment with a Line|Arc geometry. v0.1 creates only Lines.
-  - A Via stores its layer span (from, to).
+  - A Via stores its layer span (from, to). `from` is the drill entry side, and a through Via is always stored top to bottom.
+  - A plated Pad has copper on every copper Layer, so Pads store no Layer list.
   - Later object kinds (differential pairs, tuning groups) are added as new kinds.
 - **Model shape:**
   - Per-Document typed tables keyed by UUID, plus a single `Project` value that owns them. No UI or OS dependencies.
   - There is a single writer, and data changes only through transactions.
   - Background jobs (Zone fill, DRC, Recovery Snapshots) read a view and post their results back as Commands.
 - **Engine inputs:** the engine takes an injected `IdSource` (random v4 in real sessions, a seeded counter in tests) and an injected `Clock`.
+
+## Reserved names
+
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124).
+
+These names are held for later milestones. They are additive, so they stay out of the v0.1 schema and nothing else may use them for another meaning.
+
+| Where | Names | Intended for |
+|---|---|---|
+| Layer | `role` (signal, plane, mixed), inner-Layer colour keys | v0.2 |
+| Layer | `purpose` on Mechanical and Documentation Layers | v0.3 |
+| Stackup dielectric | `material`, core or prepreg type, `dk` (milli-units), `df` (micro-units), test frequency (Hz) | v0.2 |
+| Stackup and board | further stacks and regions, coverlay as a mask option, stiffeners as new objects | after 1.0 |
+| Rule record | `layers` | v0.2 |
+| Rule record | `enabled`; `pcb_net` and other scope filters | later |
+| Via | `protection` (IPC-4761 type) | later |
+| Pad and Via | `testpoint` | v0.7 |
+| Placed copper | teardrop opt-out | v0.2 |
+| Placed objects | `group` | v0.5 |
+| PCB Document | `grids`, `guides` | later |
+| Pad | Polygon shape | v0.6 |
+| Pad | per-Layer pad stack mode | later |
+| Part | `part_choices`, body style, alternate Pin names | v0.6 |
+| Part | swap groups, equivalence id, pair group, per-Component pin permutation | v0.5 |
+| Footprint | `bodies` | v0.3 |
+| Part | `attachments` | later |
+| Project file | `parameters` | later |
+| Project file | `net_scope`, Document `parent` | v0.5 |
+| Commands | `project.new {template?}` | v0.2 |
+| ERC | sparse pin-matrix overrides | later |
+| Preferences | `network.*`, several shortcuts per Command in `keymap.toml` | later |
 
 ## File format
 
@@ -113,7 +148,12 @@ Sources: [What does REDA's native file format look like?](https://github.com/ope
   - Every file carries `"format": <int>`.
   - Loading runs a chain of raw-JSON migration steps before typed deserialisation: one step per version, kept forever, each golden-tested.
   - REDA writes only the current version.
+  - No file has been published yet, so until the first release format changes edit `format: 1` in place, with no migration step.
   - Files from a newer REDA are refused with a clear message. Unknown fields are an error.
+- **Stored text:**
+  - Text stores the raw string and is displayed through one resolver.
+  - `${` is reserved for variables. An unescaped `${` is refused by Commands and on load, and `$${` displays as `${`. Importers escape what they bring in.
+  - Output name templates use the same `${name}` syntax and the same resolver.
 - **JSON Schema:** generated per file kind from the Rust types with `schemars`, checked in, and kept current by a test.
 - **`.reda/` folder:**
   - REDA writes `.reda/.gitignore` containing `*`.
