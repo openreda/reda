@@ -20,7 +20,7 @@ Source: [How is REDA tested?](https://github.com/openreda/reda/issues/29).
   - It does not use `insta`.
 - **Manufacturing outputs:**
   - Byte-exact goldens of the Gerber, Excellon, BOM/CPL, Fab Notes, drill report, job file, Output Manifest and PDF for each reference Project, with a fixed `Clock` and REDA version.
-  - **Fab acceptance check, by hand, before the first release:** upload a reference Project's zip to JLCPCB's and PCBWay's viewers, and open it in the publisher's reference Gerber viewer. Check X2 attributes, drill and non-plated slots, text shapes and the job file. A failure reopens the decision it tests.
+  - **Fab acceptance check, by hand, before the first release:** upload a reference Project's zip, BOM and CPL to JLCPCB's and PCBWay's viewers, and open the zip in the publisher's reference Gerber viewer. Check X2 attributes, drill and non-plated slots, text shapes, the job file, the placement of a bottom-side part, the BOM and CPL headers and side values, and PCBWay's unit suffix. A failure reopens the decision it tests.
   - A Gerber read-back test parses REDA's output with a permissive reader (`gerber_parser` if it fits, otherwise a minimal in-house reader for the subset REDA writes) and compares the geometry with the model.
   - No GPL tools, even in CI.
 - **Rendering:**

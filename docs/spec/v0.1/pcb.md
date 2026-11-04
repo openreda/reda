@@ -21,13 +21,13 @@ Source: [Which features make up the v0.1 PCB editor?](https://github.com/openred
 
 Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124).
 
-- `.redapcb` holds a `stackups` table with one entry in v0.1, seeded when the board is created from the Fab Preset, or else 1.6 mm with 1 oz copper. It is set with `pcb.stackup.set`.
+- `.redapcb` holds a `stackups` table with one entry in v0.1, seeded when the board is created from the [Fab Preset](outputs.md#stackup-seeds-and-suggestions), or else 1.6 mm with 1 oz copper. It is set with `pcb.stackup.set`.
 - **Stored values:**
   - `thickness`: the finished thickness you order.
   - `entries`, ordered top to bottom:
     - copper: `{layer, thickness}`
     - dielectric: `{uuid, thickness?}`
-  - `finish`, `mask_color`, `silk_color`: optional text with suggestions, written as typed in [Fab Notes](outputs.md#fab-notes) and left out when unset.
+  - `finish`, `mask_color`, `silk_color`: optional text with suggestions from the job's Fab Preset, written as typed in [Fab Notes](outputs.md#fab-notes) and left out when unset.
 - A 2-layer board is copper, one dielectric with no thickness, copper. Solder mask, silkscreen and paste are not entries.
 - **Copper units:** thickness is stored in nm and can be entered in µm, mm, mil or oz, where 1 oz is exactly 35 µm. Fab Notes show both for a standard weight, such as "1 oz (35 µm)", and µm only otherwise.
 - **Totals:**
