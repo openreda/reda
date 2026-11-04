@@ -92,7 +92,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
 
 ## Reserved names
 
-Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125).
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125), [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126).
 
 These names are held for later milestones. They are additive, so they stay out of the v0.1 schema and nothing else may use them for another meaning.
 
@@ -103,7 +103,8 @@ These names are held for later milestones. They are additive, so they stay out o
 | Stackup dielectric | `material`, core or prepreg type, `dk` (milli-units), `df` (micro-units), test frequency (Hz) | v0.2 |
 | Stackup and board | further stacks and regions, coverlay as a mask option, stiffeners as new objects | after 1.0 |
 | Rule record | `layers` | v0.2 |
-| Rule record | `enabled`; `pcb_net` and other scope filters | later |
+| Rule record | `enabled`; `footprint`, `pcb_net` and other scope filters | later |
+| Rule record | `through_hole_paste` on `paste_expansion` | v0.2 |
 | Via | `protection` (IPC-4761 type) | later |
 | Pad and Via | `testpoint` | v0.7 |
 | Placed copper | teardrop opt-out | v0.2 |
@@ -112,6 +113,10 @@ These names are held for later milestones. They are additive, so they stay out o
 | Pad | Polygon shape | v0.6 |
 | Pad | `jumper_id` | v0.2 |
 | Pad | per-Layer pad stack mode | later |
+| Pad | `through_hole_paste` | v0.2 |
+| Pad | `mask_shape`, `paste_shape` | v0.6 |
+| Pad | spoke width and gap under `zone_connection` | later |
+| Pad | rectangular hole shape, counterbore, countersink | later |
 | Part | `part_choices`, body style, alternate Pin names | v0.6 |
 | Part | swap groups, equivalence id, pair group, per-Component pin permutation | v0.5 |
 | Footprint | `bodies` | v0.3 |
@@ -145,7 +150,7 @@ Sources: [What does REDA's native file format look like?](https://github.com/ope
   - There is one file per Document: `name.redasch` (Schematic Sheet) and `name.redapcb` (PCB Document).
   - A Document's name is its file stem. Renaming a Document renames its file on save. Adding or deleting a Document reaches disk on save, and a deleted Document's file goes to the OS trash ([app](app.md#projects-and-settings)).
 - **Part tables:**
-  - Each Document stores its part copies once, in a table keyed by library element UUID + content hash. Instances point at the table. A locally edited copy gets its own entry by hash.
+  - Each Document stores its part copies once, in a table keyed by library element UUID + content hash. Instances point at the table. A [locally edited Footprint](pcb.md#placed-pad-edits) gets its own entry by hash in the PCB's table, with `edited_from {uuid, hash}`.
   - A Schematic Sheet stores the whole Part: Symbol, pin-map overrides, fields, Component Type, In BOM, In CPL, and every alternate Footprint deduplicated by hash. The PCB stores only the Footprints in use.
   - Per-Component data (Designator, value, MPN and other fields, Footprint choice, Component Type, In BOM, In CPL, Not Fitted) stays on the instances.
   - Library elements use exactly the same JSON shape, so placing a part is a literal copy.

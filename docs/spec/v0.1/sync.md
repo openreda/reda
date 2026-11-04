@@ -53,6 +53,8 @@ Sources: [How do the schematic and the PCB stay in sync?](https://github.com/ope
   - It keeps the position, rotation, side, lock and Designator text placement.
   - Pad Nets are reassigned from the new pin-pad map.
   - Tracks are left as they are, and DRC reports the dangling copper.
+  - Any [local Pad edits](pcb.md#placed-pad-edits) are removed, and the Change List row says so.
+- **Locally edited Footprints:** local Pad edits are physical data that the schematic doesn't hold. Sync and the out-of-sync check compare the entry's `edited_from.hash`, so an edit is neither out of sync nor reverted.
 - **Components with no schematic counterpart:**
   - Only Mechanical Parts can be placed directly on the PCB. They carry no Component link, and Sync ignores them.
   - A Mechanical Component on a sheet syncs only if it has a Footprint choice. Without one it stays on the schematic, raises no warning, and can still reach the [BOM](outputs.md#bom).

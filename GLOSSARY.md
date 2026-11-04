@@ -150,6 +150,26 @@ _Avoid_: Land, pin (pins are on Symbols)
 A Pad placed directly on the board without belonging to any Footprint, such as a mounting hole.
 _Avoid_: Standalone pad, hole object
 
+**Locally Edited Footprint**:
+A placed Footprint whose Pads were changed on the PCB, so that it differs from the copy it came from.
+_Avoid_: Footprint override, modified footprint
+
+**Mask Expansion**:
+How far a solder-mask opening extends past the edge of a Pad, Via or hole; a negative value makes the opening smaller.
+_Avoid_: Mask margin, mask clearance, mask swell
+
+**Tented**:
+Covered by solder mask with no opening, said of one side of a Pad or Via.
+_Avoid_: Masked, covered, capped (capping is a different via protection)
+
+**Paste Expansion**:
+How much a solder-paste opening differs from a Pad's copper, as a length or a percentage of area; a negative value makes the opening smaller.
+_Avoid_: Paste margin, paste clearance, paste reduction
+
+**Paste Window**:
+One of the openings that together replace a Pad's solder-paste opening.
+_Avoid_: Paste aperture, stencil opening, paste pad
+
 **Track**:
 A drawn copper segment on a copper Layer that joins Pads, Vias and other Tracks of the same Net.
 _Avoid_: Trace, wire (wires are on Schematic Sheets), route

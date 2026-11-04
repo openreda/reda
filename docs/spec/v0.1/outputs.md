@@ -8,6 +8,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
   - mm, Protel file extensions, `.FileFunction` attributes
   - files for Top/Bottom Copper, Mask, Paste and Silkscreen, plus the Board Outline as the Profile
   - silkscreen text is plotted from the same text geometry as the canvas (`reda-text`)
+  - Mask and Paste plot the [resolved openings](pcb.md#mask-and-paste)
   - the silkscreen is cleared over the solder-mask openings on its side, so no ink lands on bare copper
 - **Excellon:** XNC-style, metric, with PTH and NPTH as separate files.
 - **CSV BOM** and **CSV CPL**.
@@ -55,6 +56,14 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 
 - **A Fab Preset holds:**
   - seed DRC rules
+  - seed mask expansion, Via tenting and paste expansion:
+
+    | Preset | Mask expansion | Vias | Paste expansion |
+    |---|---|---|---|
+    | Generic | 0.05 mm | tented on both sides | 0 |
+    | JLCPCB | 0 | tented on both sides | 0 |
+    | PCBWay | 0.05 mm | tented on both sides | 0 |
+
   - Gerber and drill switches: X2 attributes on or off, and file naming
   - the BOM/CPL column mapping: Component field → column, for example `LCSC` → "LCSC Part #"
 - **Shipped presets:** Generic, JLCPCB and PCBWay.
