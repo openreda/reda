@@ -127,6 +127,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):
   - *Rules:* one page per rule (Clearance, Track Width, Via, Annular Ring, Hole Spacing, Edge Clearance). Each page has the board-wide value, an override table with one row per Net Class, and that check's DRC severity. **Apply Fab Preset rules…** is here, with its preview ([checks](checks.md#design-rules)).
+  - *Mask & Paste:* mask expansion (top and bottom, with a link toggle), from hole edge, Via tenting and paste expansion (absolute or percent), each with a Net Class override table. It has no DRC severity ([pcb](pcb.md#mask-and-paste)).
   - *Stackup:* thickness, copper and dielectric entries, finish and colours, with a live cross-section ([pcb](pcb.md#stackup)).
   - *Net Classes:* add, rename and delete classes, and a Net → Net Class table filterable by name.
   - *DRC:* every check's severity, including checks with no rule, such as Courtyard overlap.

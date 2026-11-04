@@ -47,7 +47,8 @@ Commands keep Unit data equal, so a Unit data mismatch only comes from a hand-ed
 | Copper with no Net | W |
 | Dangling Tracks and Vias | W |
 | Courtyard overlap | W |
-| Silkscreen over exposed Pads | W |
+| Silkscreen over exposed Pads or untented Vias, using the [resolved openings](pcb.md#mask-and-paste) | W |
+| `opening_collapsed`: a mask or paste opening with nothing left after a negative value | W |
 | PCB out of sync with the schematic, including differing fields, In BOM, In CPL and Not Fitted | W |
 
 - Before checking, DRC refills stale Zones, so it never checks against an old fill.
@@ -68,9 +69,10 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
   - minimum annular ring
   - hole-to-hole spacing
   - copper-to-edge clearance
+  - [mask expansion and paste expansion](pcb.md#mask-and-paste), which shape outputs rather than set a limit, so they have no DRC severity
 - **Net Classes:**
   - A Net Class is a name and its Nets. Its values are rule records scoped to it.
-  - A Net Class can override the clearance, the Track width and the Via size.
+  - A Net Class can override the clearance, the Track width, the Via size, the mask expansion and the paste expansion.
   - Where two Net Classes meet, the larger clearance applies.
   - New Nets get the Default Net Class.
   - A Net is assigned to a Net Class with `pcb.net.set_class {nets, class}`, from the Net table in Board Setup or from the Properties panel for a selected Track, Via, Pad, Zone or highlighted Net. A multi-selection sets it for all their Nets. Assignment is per Net only, with no pattern rules in v0.1.

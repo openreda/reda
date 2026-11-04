@@ -62,9 +62,23 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
 - **Properties panel:**
   - Designator, value and Footprint are editable here as write-through Commands ([sync](sync.md#write-through-edits)).
   - Each Footprint has a movable, rotatable Designator text.
-- Pads come from the Library part and can't be edited on the board.
-- **Free Pads** are plated or non-plated Pads with no Footprint, optionally on a Net. They serve as mounting holes and fiducials, as Mechanical Parts can.
+- Pads come from the Library part and can be [edited on the board](#placed-pad-edits).
+- **Free Pads** are plated or non-plated Pads with no Footprint, optionally on a Net. They serve as mounting holes and fiducials, as Mechanical Parts can. They have the whole [Pad model](library.md#pad-model).
 - **Placement Origin:** an optional object that sets the CPL origin ([outputs](outputs.md#cpl)).
+
+### Placed Pad edits
+
+Sources: [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126), [ADR-0013](../../adr/0013-placed-pads-edit-a-local-footprint-copy.md).
+
+- `pcb.pad.edit {instance, pad, ...}` changes one Pad of one placed Footprint, from the Properties panel. Every Pad property can be edited except `number`.
+- Pads can't be added or removed on the board, and `number` stays fixed, because Nets come from the schematic.
+- **A locally edited Footprint:**
+  - The edit gives the instance its own entry in the PCB's part table, keyed by the new content hash.
+  - The entry records `edited_from {uuid, hash}`, naming the copy it came from. Pads keep their UUIDs.
+  - Instances with identical edits share one entry.
+  - Copper, DRC and outputs read this entry as they read any other copy.
+- Properties marks the instance as locally edited, and the DRC report lists these instances.
+- Sync keeps local edits, and a Footprint change or Update from Library removes them ([sync](sync.md#what-sync-does-to-the-board)).
 
 ## Ratsnest
 
@@ -97,13 +111,32 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
 - One key places a Via mid-route and switches the active Layer.
 - A Via can also be placed on its own onto a Net, for stitching.
 - Sizes come from the rules and the Net Class.
+- A Via has the same `mask {top?, bottom?, from_hole_edge?}` as a [Pad](library.md#pad-model), with `top` and `bottom` as board sides. An untented side opens at the Via's diameter plus its expansion.
+
+## Mask and paste
+
+Source: [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126).
+
+- **Board values** are two [rule records](checks.md#design-rules), edited on the Mask & Paste page of Board Setup:
+  - `mask_expansion`: `{top, bottom, from_hole_edge, tent_vias_top, tent_vias_bottom}`
+  - `paste_expansion`: `{expansion}` or `{percent}`
+- **Inheritance:**
+  - A Pad's or Via's own value wins, side by side.
+  - Otherwise the rule applies: its Net Class's record if there is one, else the board-wide record. A Pad on no Net uses the board-wide record.
+  - Tenting from the rule applies to Vias only. A Pad is tented by its own `mask`.
+  - `from_hole_edge` from the rule applies only to Pads and Vias with holes.
+- There is no Footprint-level default. A Footprint sets values on its Pads, and `footprint` is a reserved scope filter.
+- **Resolved openings:** one function in `reda-pcb` works out each opening. Gerbers, silkscreen clearing and DRC all use it.
+  - **Mask:** one opening per side for each Pad and untented Via. A non-plated Pad's opening comes from its shape. A tented side has none.
+  - **Paste:** SMD Pads only, from the expansion, percent or windows. `none` has no opening.
+  - An opening with nothing left after a negative value is not plotted, and DRC reports it.
 
 ## Zones
 
 - A solid fill on a Net, on either copper Layer.
 - Each Zone has:
   - a clearance and a minimum width
-  - a thermal-relief or solid Pad connection
+  - a thermal-relief or solid Pad connection, which a Pad's `zone_connection` overrides
   - island removal
   - a priority for overlaps
 - **Filling:**

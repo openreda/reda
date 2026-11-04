@@ -50,11 +50,11 @@ Not in v0.1: full KiCad project or library import (v0.6), direct EasyEDA/LCSC im
 ## In the Project
 
 - When a Component is placed, the sheet's part table stores the whole Part: the Symbol, the pin-map overrides, the fields, the Component Type, In BOM, In CPL, and a copy of **every** alternate Footprint, deduplicated by hash. The PCB stores only the Footprints in use ([architecture](architecture.md#file-format)).
-- Placed copies are never edited in place.
+- Library copies on a sheet are never edited in place. A Pad of a Footprint placed on the PCB can be edited, which gives that instance a [locally edited Footprint](pcb.md#placed-pad-edits).
 - **Update from Library:**
   - A content-hash mismatch marks a Component with "library has a newer version".
   - **Update from Library** previews the changes before applying them. It never updates automatically.
-  - Footprint changes then reach the PCB through Sync.
+  - Footprint changes then reach the PCB through Sync. The preview lists any local Pad edits this removes.
 - **Edit in Library** on a placed Component opens its element in the matching editor.
 
 ## On disk
@@ -86,17 +86,44 @@ Symbol, Footprint and Part editors open as Document tabs in the same window. Eac
   - lines, rectangles, arcs, circles, polygons and text
   - a pin table you can paste into
 - **Footprint editor:**
-  - **Pads:**
-    - SMD, plated through-hole or non-plated
-    - shaped as a circle, rectangle, rounded rectangle or oval
-    - round holes and slots
-    - mask and paste margins overridden per Pad
+  - **Pads:** every property in the [Pad model](#pad-model)
   - graphics on the Silkscreen, **Courtyard** and **Assembly** Layers, top and bottom (Courtyard and Assembly join the fixed v0.1 Layer set)
   - placement of the Designator and value text, plus the origin
   - the zero orientation follows IPC-7351, which the CPL relies on
 - **Part editor:** picks the Symbol and the alternate Footprints, edits the pin-map overrides, the default fields, the Component Type, In BOM and In CPL.
 
-Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom polygon Pads, 3D models, Pad stacks that differ per Layer, and Graphical Parts.
+Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom polygon Pads, custom mask and paste shapes, 3D models, Pad stacks that differ per Layer, and Graphical Parts.
+
+## Pad model
+
+Source: [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126). Footprint Pads and Free Pads share all of this. Where a value inherits from is in [pcb](pcb.md#mask-and-paste).
+
+- **Kind:** SMD, plated through-hole or non-plated.
+- **Shape:**
+  - `circle`, `rect` or `oval`.
+  - `rounded_rect`, with `corner_ratio` and optional `corners`.
+  - `chamfered_rect`, with `chamfer_ratio`, optional `corners` and optional `corner_ratio`. An octagon is a chamfered rectangle.
+  - A ratio is a percentage of half the shorter side, so 100% is fully round. It is stored as an integer in thousandths of a percent, and a resized Pad keeps its look. The entry field also accepts a length, which it converts at the Pad's current size.
+  - `corners` lists which of `top_left`, `top_right`, `bottom_left` and `bottom_right` apply, in the Pad's frame. Left out, it means all four.
+  - On a chamfered rectangle, `corners` are chamfered, and `corner_ratio` rounds the others.
+- **Position:**
+  - `at` is the Pad's anchor. A hole sits there, Tracks connect there and the Pad rotates about it.
+  - `offset` (x, y, in the Pad's frame) moves the copper away from `at`. Any Pad kind can have one.
+- **Hole:** `{width, height, rotation?, tolerance?}`.
+  - Sizes are the finished diameter.
+  - Equal width and height give a round hole, and otherwise a slot along the longer side.
+  - `rotation` turns a slot in the Pad's frame.
+  - `tolerance` is `{plus, minus}`. It is stored and shown, and has no effect on geometry.
+- **Solder mask:** `mask {top?, bottom?, from_hole_edge?}`.
+  - Each side is left out to inherit, `{expansion}` or `tent`. A positive expansion grows the opening and a negative one shrinks it.
+  - `top` and `bottom` are in the Footprint's frame and swap when it is flipped. On a Free Pad they are board sides.
+  - `from_hole_edge` measures the expansion from the hole, and the opening takes the hole's shape. An expansion of 0 then covers the land up to the hole.
+  - An SMD Pad refuses `bottom` and `from_hole_edge`.
+- **Solder paste:** `paste`, SMD Pads only.
+  - Left out, it inherits. Otherwise it is `{expansion}`, `{percent}`, `none` or `{windows}`.
+  - `percent` is the change in area: 0 matches the copper and -10 has 10% less area. The copper's shape is scaled about its centre, and the value must be above -100.
+  - `windows` is a list of `{at, width, height, corner_ratio?}` in the Pad's frame. Together they replace the opening.
+- **Zone connection:** `zone_connection` is `solid`, `relief` or `none`. Left out, it inherits. [How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137) settles what it inherits from and the spoke values.
 
 ## Footprint generators
 
@@ -120,6 +147,8 @@ A Command. It never blocks saving, and it runs automatically after an import or 
 - a missing courtyard
 - broken references
 - `shorted_copper` and `net_tie_not_joined`, per Part and per alternate Footprint, because a Footprint alone doesn't know its type ([checks](checks.md#net-ties))
+- `paste_window_outside_copper`: a paste window not fully on its Pad's copper (warning)
+- `hole_outside_copper`: a plated Pad whose offset leaves its hole outside the copper
 
 ## Import part
 
@@ -133,6 +162,11 @@ A Command. It never blocks saving, and it runs automatically after an import or 
   - Pins bind to Pads by number, so no overrides are needed.
   - MPN, manufacturer, datasheet and supplier numbers arrive as symbol properties under names that vary by service (`MP`/`MF`, `Manufacturer_Part_Number`, `Mouser Part Number`, `LCSC Part`…). Map them to the built-in fields where they fit, and keep the rest as free-form fields.
   - 3D models are ignored.
+  - **Pads:** corner ratios and flags, chamfers, the drill offset as `offset`, and `zone_connect` as `zone_connection` all map across. Each Pad's layer list decides its mask and paste:
+    - A side with no mask layer is `tent`.
+    - An SMD Pad with no paste layer has paste `none`.
+    - A paste-only Pad becomes a window on the copper Pad that contains it, or a warning if there is none. It never becomes copper.
+    - A mask-only Pad, and paste on a through-hole Pad, are dropped with a warning.
   - A downloaded tie stays Standard, and `shorted_copper` reports it for the user to retype. Tie pad groups wait for project import in v0.6.
 - **Provenance:**
   - Each imported element records its source service and terms URL, and keeps any copyright fields.
@@ -145,8 +179,8 @@ A Command. It never blocks saving, and it runs automatically after an import or 
 - generic passives and discretes, with Footprint alternates: R, C, polarised C, L, ferrite, LED, diodes, BJTs, MOSFETs, crystal, button, fuse
 - a generic op-amp, a 555 and an LDO
 - headers, sockets and screw terminals
-- Mechanical mounting holes and fiducials, with In BOM and In CPL both false
-- a Net Tie (`NT`) in two sizes, with no paste on its Pads
-- a test point (`TP`): a Standard Part with one Pad and In BOM and In CPL both false
+- Mechanical mounting holes and fiducials, with In BOM and In CPL both false. Fiducials have paste `none`.
+- a Net Tie (`NT`) in two sizes, with its Pads tented and paste `none`
+- a test point (`TP`): a Standard Part with one Pad, paste `none`, and In BOM and In CPL both false
 - a small, curated set of popular vendor parts (for example the STM32F042F6P6 MCU and a USB-C receptacle). Each is drawn by hand, or with a generator, from the manufacturer's datasheet: its pinout, Pin types and Footprint are checked against the datasheet, and the element's description and source comment name the datasheet, its document number and the figure used. No vendor CAD files are copied in.
 - hand-drawn Footprints cite their source: a named manufacturer drawing or the IPC-7351 nominal

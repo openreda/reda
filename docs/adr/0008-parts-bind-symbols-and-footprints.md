@@ -11,4 +11,4 @@ A Library holds three kinds of element: Symbols, Footprints and Parts. A Part re
 
 - Each Schematic Sheet holds Footprint geometry for every alternate of each placed Part, deduplicated by content hash. This makes sheet files larger, in return for Projects that need no Library.
 - The schematic shows the Pad number(s) that a Pin is mapped to on the Component's current Footprint, not the Symbol's own Pin number, so pin labels can change when the Footprint changes.
-- Placed copies are not edited in place. A change goes through a Library and then an Update from Library preview.
+- Copies on a sheet are not edited in place. A change goes through a Library and then an Update from Library preview. [ADR-0013](0013-placed-pads-edit-a-local-footprint-copy.md) lets the PCB edit the Pads of a placed Footprint.
