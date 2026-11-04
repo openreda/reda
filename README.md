@@ -18,7 +18,7 @@ The app draws these itself from the newest `main`, so they always show REDA as i
 
 ## Download
 
-Every merge to `main` publishes a release on [GitHub Releases](https://github.com/openreda/reda/releases). The [`latest`](https://github.com/openreda/reda/releases/tag/latest) release always holds the newest build, with the version left out of the file names.
+Releases are published by hand on [GitHub Releases](https://github.com/openreda/reda/releases). The [`latest`](https://github.com/openreda/reda/releases/tag/latest) release always holds the newest build, with the version left out of the file names.
 
 | System | File |
 |---|---|
