@@ -397,6 +397,7 @@ impl ShowPanel {
             PanelId::Library => "Show Library",
             PanelId::Layers => "Show Layers",
             PanelId::Journal => "Show Journal",
+            _ => "Show Panel",
         }
     }
 }

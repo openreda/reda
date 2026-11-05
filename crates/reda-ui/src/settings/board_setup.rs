@@ -256,6 +256,7 @@ pub fn dialog(project: &Project) -> SettingsDialog {
         })
         .collect();
     pages.push(Box::new(NetClassesPage { view: view(false) }));
+    pages.push(Box::new(crate::proto_shell::StackupPage));
     pages.push(Box::new(DrcPage { view: view(false) }));
     let dialog = SettingsDialog::new(tr!("board-setup-title"), pages, project);
     match project.pcb() {

@@ -1037,3 +1037,8 @@ tab-out-of-sync = { $tab }, out of sync: { $count ->
     [one] 1 change
    *[other] { $count } changes
 }
+
+menu-project = Project
+menu-route = Route
+menu-tools = Tools
+menu-window = Window

@@ -21,17 +21,29 @@ pub enum PanelId {
     Library,
     Layers,
     Journal,
+    Board,
+    Nets,
+    Footprints,
+    Zones,
+    Preferences,
+    BoardSetup,
 }
 
 impl PanelId {
     /// Every Panel, in the order the Panels button lists them.
-    pub const ALL: [PanelId; 6] = [
+    pub const ALL: [PanelId; 12] = [
         PanelId::Projects,
         PanelId::Properties,
         PanelId::Messages,
         PanelId::Library,
         PanelId::Layers,
         PanelId::Journal,
+        PanelId::Board,
+        PanelId::Nets,
+        PanelId::Footprints,
+        PanelId::Zones,
+        PanelId::Preferences,
+        PanelId::BoardSetup,
     ];
 
     /// The id in Commands and Presets, such as `properties` in `panel.show:properties`.
@@ -43,13 +55,26 @@ impl PanelId {
             PanelId::Library => "library",
             PanelId::Layers => "layers",
             PanelId::Journal => "journal",
+            PanelId::Board => "board",
+            PanelId::Nets => "nets",
+            PanelId::Footprints => "footprints",
+            PanelId::Zones => "zones",
+            PanelId::Preferences => "preferences",
+            PanelId::BoardSetup => "board_setup",
         }
     }
 
     /// The Dock a Panel reopens in once closed.
     pub fn home(self) -> DockSide {
         match self {
-            PanelId::Projects | PanelId::Library => DockSide::Left,
+            PanelId::Projects
+            | PanelId::Library
+            | PanelId::Board
+            | PanelId::Nets
+            | PanelId::Footprints
+            | PanelId::Zones
+            | PanelId::Preferences
+            | PanelId::BoardSetup => DockSide::Left,
             PanelId::Properties | PanelId::Layers => DockSide::Right,
             PanelId::Messages | PanelId::Journal => DockSide::Bottom,
         }

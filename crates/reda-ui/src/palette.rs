@@ -35,6 +35,8 @@ pub struct Entry {
     pub shortcut: Option<String>,
     /// Why it cannot run now, or `None` when it can.
     pub unavailable: Option<String>,
+    /// PROTOTYPE: its menu path, or what a go-to row does.
+    pub path: Option<String>,
 }
 
 /// Every Command and Preset in `shell`'s registry, as they stand now.
@@ -46,6 +48,7 @@ pub fn entries(shell: &Shell, shortcut: Shortcuts<'_>) -> Vec<Entry> {
         Entry {
             shortcut: shortcut(&id),
             unavailable: unavailable.map(|e| e.message),
+            path: None,
             title,
             icon: icon.to_owned(),
             description: description.to_owned(),
@@ -80,15 +83,37 @@ pub fn entries(shell: &Shell, shortcut: Shortcuts<'_>) -> Vec<Entry> {
 /// The entries that match `query`, best first: by match score, then those that can run,
 /// then by title.
 pub fn search<'e>(entries: &'e [Entry], query: &str) -> Vec<&'e Entry> {
+    // PROTOTYPE: `@` Components, `#` Nets and `:` Documents; recently used first when empty.
+    let (kind, query) = match query.chars().next() {
+        Some('@') => (Some("goto:@:"), &query[1..]),
+        Some('#') => (Some("goto:#:"), &query[1..]),
+        Some(':') => (Some("goto:::"), &query[1..]),
+        _ => (None, query),
+    };
+    let recent = crate::proto_shell::with(|s| s.recent.clone());
     let mut found: Vec<(i32, &Entry)> = entries
         .iter()
+        .filter(|e| match kind {
+            Some(prefix) => e.id.starts_with(prefix),
+            None => !e.id.starts_with("goto:"),
+        })
         .filter_map(|e| {
             let best = score(query, &e.title).max(score(query, &e.id))?;
             Some((best, e))
         })
         .collect();
     found.sort_by_cached_key(|(s, e)| {
-        (Reverse(*s), e.unavailable.is_some(), e.title.to_lowercase())
+        let used = if query.is_empty() {
+            recent.iter().position(|r| *r == e.id).unwrap_or(usize::MAX)
+        } else {
+            usize::MAX
+        };
+        (
+            used,
+            Reverse(*s),
+            e.unavailable.is_some(),
+            e.title.to_lowercase(),
+        )
     });
     found.into_iter().map(|(_, e)| e).collect()
 }

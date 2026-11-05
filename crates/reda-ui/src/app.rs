@@ -196,6 +196,7 @@ impl App {
         self.pump_bridge(&ctx);
         self.collect_picked_files();
         self.update_title(&ctx);
+        crate::proto_shell::begin_frame(&ctx, &mut self.shell);
         self.keys(&ctx);
         tab_switcher::release(&ctx, &mut self.shell);
 
@@ -225,6 +226,9 @@ impl App {
             self.call(&id, params);
         }
         for (id, params) in frame.commands {
+            if crate::proto_shell::run_own(&mut self.shell, &id, &params) {
+                continue;
+            }
             let _ = self.shell.run_reporting(&id, params);
         }
         // Keys pressed in a window of its own, unless a dialog here has the keys.
@@ -297,6 +301,7 @@ impl App {
                 }
             }
         }
+        crate::proto_shell::end_frame(&ctx, &mut self.shell);
         a11y::focus_ring(&ctx);
     }
 
@@ -387,6 +392,10 @@ impl App {
         if let Some(project) = self.shell.engine().project()
             && project.pcb().is_some()
         {
+            if crate::proto_shell::axes().setup == crate::proto_shell::Surface::Tab {
+                crate::proto_shell::open_board_setup_tab(&mut self.shell);
+                return;
+            }
             self.settings = Some(settings::board_setup::dialog(project));
         }
     }
@@ -412,6 +421,9 @@ impl App {
 
     /// Draws the open settings dialog, and closes it or opens its folder picker as it asks.
     fn show_settings(&mut self, ctx: &egui::Context) {
+        if crate::proto_shell::with(|s| s.on_board) {
+            return;
+        }
         let Some(dialog) = &mut self.settings else {
             return;
         };
@@ -422,9 +434,22 @@ impl App {
         }
     }
 
+    /// PROTOTYPE, for the screenshots.
+    pub fn settings_page(&mut self, title: &str) {
+        if let Some(dialog) = &mut self.settings {
+            dialog.select_page(title);
+        }
+    }
+
+    /// PROTOTYPE, for the screenshots.
+    pub fn close_settings(&mut self) {
+        self.settings = None;
+    }
+
     /// Opens the Preferences dialog on `page` (its General page with `None`).
     pub fn open_preferences(&mut self, page: Option<PageId>) {
-        self.preferences = Some(PreferencesDialog::on(page.unwrap_or(PageId::General)));
+        let _ = page;
+        crate::proto_shell::open_preferences(&mut self.shell);
     }
 
     pub fn preferences_dialog(&self) -> Option<&PreferencesDialog> {
@@ -450,7 +475,12 @@ impl App {
     fn open_palette(&mut self) {
         let shell = &self.shell;
         let shortcut = |id: &str| (self.shortcuts)(shell, id);
-        let entries = palette::entries(shell, &shortcut);
+        let mut entries = palette::entries(shell, &shortcut);
+        let paths = crate::proto_shell::menu_paths(bars::active_type(shell));
+        for entry in &mut entries {
+            entry.path = paths.get(&entry.id).cloned();
+        }
+        entries.extend(crate::proto_shell::go_to_entries(shell));
         self.palette = Some(Palette::new(entries));
     }
 
@@ -463,6 +493,13 @@ impl App {
             PaletteOutcome::Close => self.palette = None,
             PaletteOutcome::Run(id) => {
                 self.palette = None;
+                crate::proto_shell::with(|s| {
+                    s.recent.retain(|r| *r != id);
+                    s.recent.insert(0, id.clone());
+                });
+                if crate::proto_shell::go_to(&mut self.shell, &id) {
+                    return;
+                }
                 self.call(&id, json!({}));
                 self.handle_requests(ctx);
             }
@@ -634,13 +671,8 @@ impl App {
             checked: &checked,
             document: self.shell.active_document().map(|d| d.document),
         };
-        let menu = Panel::top("menu-bar")
-            .show(ui, |ui| draw::menu_bar(ui, &cx, bars))
-            .inner;
-        let tool = Panel::top("toolbar")
-            .show(ui, |ui| draw::toolbar(ui, &cx, bars))
-            .inner;
-        menu.or(tool)
+        let _ = bars;
+        crate::proto_shell::top_rows(ui, &cx)
     }
 
     /// Carries out what the view Commands asked of the window.
@@ -659,6 +691,8 @@ impl App {
                 Request::ZoomSelection(document) => {
                     self.shell.zoom_to_selection(document);
                 }
+                Request::ProjectSettings => self.open_project_settings(),
+                Request::BoardSetup => self.open_board_setup(),
                 Request::Preferences => self.open_preferences(None),
                 Request::Theme(choice) => ctx.set_theme(match choice {
                     preferences::Theme::FollowOs => ThemePreference::System,

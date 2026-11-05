@@ -28,6 +28,10 @@ pub enum Request {
     OpenProject,
     /// Show the Command Palette.
     CommandPalette,
+    /// PROTOTYPE.
+    ProjectSettings,
+    /// PROTOTYPE.
+    BoardSetup,
     /// Close the window.
     Quit,
     /// Fit this Document's canvas to the Document.
@@ -106,6 +110,10 @@ pub enum Dialog {
     Preferences,
     /// The Command Palette.
     CommandPalette,
+    /// PROTOTYPE.
+    ProjectSettings,
+    /// PROTOTYPE.
+    BoardSetup,
     /// The About box, with the third-party licences.
     About,
     /// The Change List dialog: Update PCB from Schematic.
@@ -158,6 +166,18 @@ impl Command for OpenDialog {
                 "find",
                 json!({"dialog": "command_palette"}),
             ),
+            Preset::new(
+                "project_settings",
+                "Project Settings…",
+                "preferences",
+                json!({"dialog": "project_settings"}),
+            ),
+            Preset::new(
+                "board_setup",
+                "Board Setup…",
+                "preferences",
+                json!({"dialog": "board_setup"}),
+            ),
             Preset::new("about", "About REDA", "about", json!({"dialog": "about"})),
             Preset::new(
                 "change_list",
@@ -174,6 +194,8 @@ impl Command for OpenDialog {
             Dialog::OpenProject => Request::OpenProject,
             Dialog::Preferences => Request::Preferences,
             Dialog::CommandPalette => Request::CommandPalette,
+            Dialog::ProjectSettings => Request::ProjectSettings,
+            Dialog::BoardSetup => Request::BoardSetup,
             Dialog::About => Request::About,
             Dialog::ChangeList => Request::ChangeList,
         };

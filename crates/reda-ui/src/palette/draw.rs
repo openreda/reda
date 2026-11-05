@@ -71,7 +71,7 @@ impl Palette {
         let area = Modal::default_area(id).anchor(Align2::CENTER_TOP, [0.0, 48.0]);
         let theme = ctx.theme();
         let modal = Modal::new(id).area(area).show(ctx, |ui| {
-            ui.set_width(520.0);
+            ui.set_width(620.0);
             let field = ui.add(
                 TextEdit::singleline(&mut self.query)
                     .id(id.with("query"))
@@ -88,6 +88,7 @@ impl Palette {
             if field.changed() {
                 self.selected = 0;
             }
+            ui.weak("@ Component   # Net   : Document   Right-click a row: Change shortcut");
             ui.add_space(4.0);
             if found.is_empty() {
                 ui.weak(tr!("palette-nothing"));
@@ -107,7 +108,13 @@ impl Palette {
                         (None, Some(shortcut)) => Some(shortcut.as_str()),
                         (None, None) => None,
                     };
-                    if let Some(right) = right {
+                    let path = entry.path.as_deref().unwrap_or_default();
+                    let right = match right {
+                        Some(right) if !path.is_empty() => format!("{path}    {right}"),
+                        Some(right) => right.to_owned(),
+                        None => path.to_owned(),
+                    };
+                    if !right.is_empty() {
                         button = button.right_text(RichText::new(right).weak());
                     }
                     let response = ui.add_enabled(enabled, button);
@@ -119,6 +126,9 @@ impl Palette {
                     } else {
                         response.on_hover_text(&entry.description)
                     };
+                    response.context_menu(|ui| {
+                        let _ = ui.button("Change shortcut…");
+                    });
                     if response.clicked() {
                         outcome = PaletteOutcome::Run(entry.id.clone());
                     }

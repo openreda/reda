@@ -90,6 +90,26 @@ impl SettingsDialog {
     /// Draws the dialog as a modal for one frame. Changes made elsewhere (an undo) show in
     /// the fields the user has not touched.
     pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> Outcome {
+        let mut outcome = Outcome::Open;
+        Modal::new(Id::NULL.with("settings-dialog")).show(ctx, |ui| {
+            ui.set_width(SIZE.x);
+            outcome = self.body(ui, shell, SIZE.y);
+        });
+        if ctx.input(|i| i.key_pressed(Key::Escape)) && !ctx.egui_wants_keyboard_input() {
+            outcome = Outcome::Closed;
+        }
+        outcome
+    }
+
+    /// PROTOTYPE, for the screenshots.
+    pub fn select_page(&mut self, title: &str) {
+        if let Some(i) = self.pages.iter().position(|p| p.title() == title) {
+            self.selected = i;
+        }
+    }
+
+    /// PROTOTYPE: the dialog's contents, on a modal or in a tab.
+    pub fn body(&mut self, ui: &mut Ui, shell: &mut Shell, height: f32) -> Outcome {
         let Some(project) = shell.engine().project() else {
             return Outcome::Closed;
         };
@@ -97,57 +117,54 @@ impl SettingsDialog {
         let mut outcome = Outcome::Open;
         let mut apply = false;
         let mut ok = false;
-        Modal::new(Id::NULL.with("settings-dialog")).show(ctx, |ui| {
-            ui.set_width(SIZE.x);
-            ui.heading(self.title.clone());
+        ui.heading(self.title.clone());
+        ui.separator();
+        ui.horizontal_top(|ui| {
+            ui.set_height(height);
+            self.tree(ui);
             ui.separator();
-            ui.horizontal_top(|ui| {
-                ui.set_height(SIZE.y);
-                self.tree(ui);
-                ui.separator();
-                ui.vertical(|ui| {
-                    egui::ScrollArea::vertical()
-                        .id_salt("settings-page")
-                        .auto_shrink(false)
-                        .show(ui, |ui| {
-                            outcome = self.page_content(ui, shell);
-                        });
-                });
-            });
-            ui.separator();
-            if let Some(error) = self.error() {
-                ui.colored_label(
-                    ui.visuals().error_fg_color,
-                    tr!("error-command", error = error),
-                );
-            }
-            ui.horizontal(|ui| {
-                if !self.can_ok() {
-                    ui.colored_label(ui.visuals().error_fg_color, tr!("settings-invalid"));
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // Right to left: Apply, Cancel, OK read left to right as OK, Cancel, Apply.
-                    let reason = (!self.can_ok()).then(|| tr!("settings-invalid"));
-                    let apply_button =
-                        ui.add_enabled(self.can_apply(), Button::new(tr!("settings-apply")));
-                    if let Some(reason) = &reason {
-                        apply_button.clone().on_disabled_hover_text(reason);
-                    }
-                    apply = apply_button.clicked();
-                    if ui.button(tr!("dialog-cancel")).clicked() {
-                        outcome = Outcome::Closed;
-                    }
-                    let ok_button = ui.add_enabled(self.can_ok(), Button::new(tr!("settings-ok")));
-                    if let Some(reason) = &reason {
-                        ok_button.clone().on_disabled_hover_text(reason);
-                    }
-                    ok = ok_button.clicked();
-                });
+            ui.vertical(|ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("settings-page")
+                    .auto_shrink(false)
+                    .show(ui, |ui| {
+                        outcome = self.page_content(ui, shell);
+                    });
             });
         });
-        if ctx.input(|i| i.key_pressed(Key::Escape)) && !ctx.egui_wants_keyboard_input() {
-            outcome = Outcome::Closed;
+        ui.separator();
+        if let Some(error) = self.error() {
+            ui.colored_label(
+                ui.visuals().error_fg_color,
+                tr!("error-command", error = error),
+            );
         }
+        ui.horizontal(|ui| {
+            if self.title == tr!("board-setup-title") {
+                crate::proto_shell::show_on_board_button(ui);
+            }
+            if !self.can_ok() {
+                ui.colored_label(ui.visuals().error_fg_color, tr!("settings-invalid"));
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                // Right to left: Apply, Cancel, OK read left to right as OK, Cancel, Apply.
+                let reason = (!self.can_ok()).then(|| tr!("settings-invalid"));
+                let apply_button =
+                    ui.add_enabled(self.can_apply(), Button::new(tr!("settings-apply")));
+                if let Some(reason) = &reason {
+                    apply_button.clone().on_disabled_hover_text(reason);
+                }
+                apply = apply_button.clicked();
+                if ui.button(tr!("dialog-cancel")).clicked() {
+                    outcome = Outcome::Closed;
+                }
+                let ok_button = ui.add_enabled(self.can_ok(), Button::new(tr!("settings-ok")));
+                if let Some(reason) = &reason {
+                    ok_button.clone().on_disabled_hover_text(reason);
+                }
+                ok = ok_button.clicked();
+            });
+        });
         if apply || ok {
             let applied = self.apply(shell).is_ok();
             if ok && applied {
@@ -180,10 +197,7 @@ impl SettingsDialog {
                     if group.is_some() {
                         ui.add_space(12.0);
                     }
-                    ui.add_sized(
-                        [ui.available_width(), 20.0],
-                        Button::selectable(i == self.selected, text),
-                    )
+                    crate::proto_shell::tree_row(ui, i == self.selected, text)
                 });
                 let row = row.inner;
                 let label = if invalid {

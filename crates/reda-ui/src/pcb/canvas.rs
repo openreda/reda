@@ -247,7 +247,12 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         None => tr!("pcb-grid", grid = format_length(grid, units)),
     };
     let font = FontId::proportional(12.0);
-    let at = shown.rect.left_bottom() + vec2(8.0, -8.0);
+    let lift = if crate::proto_shell::axes().layers == crate::proto_shell::LayerUi::Strip {
+        crate::proto_shell::STRIP
+    } else {
+        0.0
+    };
+    let at = shown.rect.left_bottom() + vec2(8.0, -8.0 - lift);
     let galley = painter.layout_no_wrap(text, font, ui.visuals().text_color());
     let back = Rect::from_min_size(
         at - vec2(4.0, galley.size().y + 2.0),

@@ -41,6 +41,7 @@ pub mod placement;
 pub mod preferences_dialog;
 mod projects_panel;
 pub mod properties;
+pub mod proto_shell;
 pub mod recovery;
 mod recovery_dialog;
 pub mod reveal;

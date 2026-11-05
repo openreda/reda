@@ -86,6 +86,12 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Library => tr!("panel-library"),
         PanelId::Layers => tr!("panel-layers"),
         PanelId::Journal => tr!("panel-journal"),
+        PanelId::Board => "Board".to_owned(),
+        PanelId::Nets => "Nets".to_owned(),
+        PanelId::Footprints => "Footprints".to_owned(),
+        PanelId::Zones => "Zones".to_owned(),
+        PanelId::Preferences => "Preferences".to_owned(),
+        PanelId::BoardSetup => "Board Setup".to_owned(),
     }
 }
 
@@ -865,7 +871,11 @@ impl Cx<'_> {
                     return;
                 };
                 let id = canvas_id(doc);
-                if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
+                let mut own = Vec::new();
+                let drawn =
+                    crate::proto_shell::canvas_overlays(ui, self.shell, *uuid, id, rect, &mut own);
+                self.frame.commands.extend(own);
+                if !drawn && let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                     self.frame.commands.push(clicked);
                 }
                 self.focus_on_press(ui, rect, tab, start);
@@ -885,6 +895,9 @@ impl Cx<'_> {
                 let commands = panels::properties::show(ui, self.shell);
                 let commands = commands.into_iter().map(|(id, p)| (id.to_owned(), p));
                 self.frame.commands.extend(commands);
+                let mut own = Vec::new();
+                crate::proto_shell::ready_for_fab(ui, self.shell, &mut own);
+                self.frame.commands.extend(own);
             }
             TabKey::Panel(PanelId::Journal) => {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
@@ -892,8 +905,33 @@ impl Cx<'_> {
                 }
             }
             TabKey::Panel(PanelId::Layers) => {
-                let commands = panels::layers::show(ui, self.shell);
+                let commands = crate::proto_shell::layers_panel(ui, self.shell);
                 self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Board) => {
+                let commands = crate::proto_shell::board_panel(ui, self.shell);
+                self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Nets) => {
+                let mode = crate::proto_shell::NavMode::Nets;
+                let commands = crate::proto_shell::single_panel(ui, self.shell, mode);
+                self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Footprints) => {
+                let mode = crate::proto_shell::NavMode::Footprints;
+                let commands = crate::proto_shell::single_panel(ui, self.shell, mode);
+                self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Zones) => {
+                let mode = crate::proto_shell::NavMode::Zones;
+                let commands = crate::proto_shell::single_panel(ui, self.shell, mode);
+                self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Preferences) => {
+                crate::proto_shell::prefs::show(ui, self.shell);
+            }
+            TabKey::Panel(PanelId::BoardSetup) => {
+                crate::proto_shell::board_setup_tab(ui, self.shell);
             }
             TabKey::Panel(PanelId::Library) => {
                 for action in panels::library::show(ui, self.shell) {

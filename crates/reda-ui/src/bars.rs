@@ -13,7 +13,7 @@
 //! Commands the menus need (dialogs, Quit, Zoom to Fit, Theme).
 
 pub mod commands;
-mod data;
+pub mod data;
 pub mod draw;
 
 use std::sync::OnceLock;
