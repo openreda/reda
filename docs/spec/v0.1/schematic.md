@@ -57,7 +57,7 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
 - **Annotation:**
   - A Component gets the next free Designator when it is placed, so no Component is ever unannotated.
   - [Re-annotate](#re-annotate) renumbers Designators, with a per-Component Designator lock. It is a cross-Document Command in `reda-engine`.
-- **Properties panel** for a Component:
+- **Properties panel** for a Component, laid out as in [Properties with a selection](editing.md#properties-with-a-selection):
   - Designator and value.
   - The chosen Footprint, from the Part's alternates.
   - Free-form fields (MPN, `LCSC`, notes…) that flow into the BOM.
@@ -67,18 +67,13 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
   - Which fields are visible on the sheet.
   - A lock on each field. `locked_fields` is a set of field names, stored on every Unit and kept equal. A Locked Field can be edited by hand, and [Update from Library](library.md#update-from-library) leaves it alone.
   - The [Library status](library.md#library-status) badge, with **Update…**, and the Part's name, with **Replace…** and **Edit in Library**.
-- **Multi-select editing:**
-  - The panel shows the shared fields, with `<mixed>` where values differ.
-  - An edit applies to every selected object.
-- **Select Similar** selects the objects that match on the chosen fields, on the current sheet or across the Project.
+- **Multi-select editing** and numeric fields follow [Properties](editing.md#properties-with-a-selection) and [numeric expressions](editing.md#numeric-expressions).
+- [**Select Similar**](editing.md#select-similar) selects the objects that match on the chosen fields, on the current sheet or across the Project.
 
 ## Editing
 
-- **Selection:**
-  - Click selects.
-  - A box dragged left to right selects what it encloses. A box dragged right to left selects what it touches.
-  - Shift adds to the selection, and `Mod`+click toggles.
-- **Grab point:** the Preferences **Object's Electrical Hot Spot** (on) and **Center of Object** (off) set where a moved object is held. Hot Spot holds an electrical object at its nearest connection point and overrides Center for it. Center holds an object by its reference point or centre. With neither, it is held where it was clicked.
+- **Selection** follows the [shared rules](editing.md#selection).
+- **Grab point:** the Preferences **Object's Electrical Hot Spot** (on) and **Center of Object** (off) set where a moved object is held. Hot Spot holds an electrical object at its nearest connection point and overrides Center for it. Center holds an object by its reference point or centre. With neither, it is held where it was clicked. The PCB [shares them](editing.md#grab-point).
 - **Connectivity while dragging:** one Preference, **Display When Dragging** (on), shows predicted Junction dots and a chip by the cursor during Drag and Move. The chip compares Nets at the current snapped position and shows OK, or an alert naming the change ("joins GND and VCC"). It never blocks the drop. The leading suite shows only an icon. REDA adds the names because the comparison already has them.
 - **Keys during a drag:** holding Alt constrains it to horizontal or vertical, and Shift+Space rotates clockwise. `Mod`+arrows nudge by 1 grid and Shift+`Mod`+arrows by 10, rubber-banding like a drag, with one undo per press.
 - **Drag versus move:**
@@ -95,18 +90,16 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
   - Delete, cut, copy, paste and duplicate ([identity](#cut-copy-and-paste)).
   - Undo and redo, with one stack per sheet. Undo is unlimited by default. The *undo depth* Preference is an optional cap per Document stack ([Which loose ends between earlier v0.1 decisions need settling?](https://github.com/openreda/reda/issues/39)).
   - Align left, right, top, bottom or by centres. Distribute horizontally or vertically. Snap the selection to the grid.
-- **Grid:**
-  - Snap-grid presets: 10, 25, 50 and 100 mil, plus metric equivalents. One key cycles them, and the default is 50 mil.
-  - Electrical snap moves the cursor onto a nearby Pin, Wire end or Wire.
+- **Grid and snapping** follow the [grid](editing.md#grid) and [cursor snapping](editing.md#cursor-snapping) rules. Electrical snap moves the cursor onto a nearby Pin, Wire end or Wire, within the preset's Electrical Range.
 - **Graphics:** free text with 9-point justification and multiple lines, lines and rectangles.
 - **Find** is a Panel:
   - **Results:** a list of every match with its kind, text and sheet. Picking one selects and zooms to it, and F3 and Shift+F3 step through the list.
   - **Options:** kinds (Designators, values, Net names, all text), case, whole word, `*` and `?` wildcards (always ignoring case), and regular expressions.
-  - **Scope:** this sheet, the Project or the selection. **Mask Matching** dims everything else.
+  - **Scope:** this sheet, the Project or the selection. **Mask Matching** [masks](editing.md#highlighting) everything else.
   - `schematic.find` returns the same list. Net names match ignoring case unless the case option is on.
 - **Net highlighting:**
-  - Alt+click on a Wire, Pin or label highlights the Net across every sheet, and on the PCB once the board is synced ([sync](sync.md#cross-select-and-net-highlighting)). A plain click selects. The context menu offers the same, because many Linux window managers take Alt+click.
-  - Esc or a click on empty space clears it. The Projects panel marks the sheets that hold the Net.
+  - Alt+click on a Wire, Pin or label highlights the Net across every sheet, and on the PCB once the board is synced ([sync](sync.md#cross-select-and-net-highlighting)). Shift+Alt+click adds a Net. A plain click selects. The context menu offers the same, because some Linux window managers take Alt+click.
+  - Esc, Shift+C or a click on empty space clears it. The Projects panel marks the sheets that hold the Net.
   - **Select Net** selects all the wiring of the Net on this sheet.
 - **Export:** a vector PDF of the sheets, in Document order ([outputs](outputs.md#schematic-pdf)).
 
