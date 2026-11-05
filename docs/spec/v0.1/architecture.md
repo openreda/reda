@@ -154,13 +154,14 @@ Sources: [What does REDA's native file format look like?](https://github.com/ope
 - **Order:** a file is grouped into tables by object kind, and each table is sorted by UUID, never by insertion order.
 - **Project layout.** A Project is a folder:
   - `name.reda` lists the Documents in order, as relative path + UUID. That order drives sheet numbering and PDF output, and nothing is found by scanning the folder.
-  - `name.reda` also holds the Project-wide settings: Project properties, ERC severities, schematic options, Re-annotate's last settings, Output Jobs, copied Fab Presets and Project Library paths.
+  - `name.reda` also holds the Project-wide settings: Project properties, ERC severities, schematic options, Re-annotate's last settings, [Update from Library's settings](library.md#settings), Output Jobs, copied Fab Presets and Project Library paths.
   - There is one file per Document: `name.redasch` (Schematic Sheet) and `name.redapcb` (PCB Document).
   - A Document's name is its file stem. Renaming a Document renames its file on save. Adding or deleting a Document reaches disk on save, and a deleted Document's file goes to the OS trash ([app](app.md#projects-and-settings)).
 - **Part tables:**
   - Each Document stores its part copies once, in a table keyed by library element UUID + content hash. Instances point at the table. A [locally edited Footprint](pcb.md#placed-pad-edits) gets its own entry by hash in the PCB's table, with `edited_from {uuid, hash}`.
   - A Schematic Sheet stores the whole Part: Symbol, pin-map overrides, fields, Component Type, In BOM, In CPL, and every alternate Footprint deduplicated by hash. The PCB stores only the Footprints in use.
-  - Per-Component data (Designator, value, MPN and other fields, Footprint choice, Component Type, In BOM, In CPL, Not Fitted) stays on the instances.
+  - Per-Component data (Designator, value, MPN and other fields, locked fields, Footprint choice, Component Type, In BOM, In CPL, Not Fitted) stays on the instances.
+  - A [partial update](library.md#aspects) leaves an entry that matches no single Library version. It needs no extra data, because each aspect's hash is computed from the copy.
   - Library elements use exactly the same JSON shape, so placing a part is a literal copy.
   - A Project opens and produces outputs with no Library present.
 - **Versioning:**

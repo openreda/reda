@@ -54,6 +54,18 @@ _Avoid_: Land pattern, package, decal
 A Library definition that combines a Symbol, its alternate Footprints with how Pins map to Pads, and default fields; Components are placed from Parts.
 _Avoid_: Device, Library part, Component (that is the placed instance)
 
+**Library Status**:
+How a placed Component's copy compares with its Part in the Libraries: Up to Date, Library Differs or Source Missing.
+_Avoid_: Library newer, out of date, not found
+
+**Full Replace**:
+An Update from Library that takes the Symbol, the Fields and the Footprints together.
+_Avoid_: Full update, overwrite
+
+**Locked Field**:
+A field on a Component that Update from Library leaves alone; it can still be edited by hand.
+_Avoid_: Pinned field, read-only field
+
 **Provenance**:
 Where an imported Library element came from: its source service, the service's terms URL and any copyright fields, recorded on the element.
 _Avoid_: Source, origin, attribution

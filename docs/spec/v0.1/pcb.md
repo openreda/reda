@@ -79,7 +79,23 @@ Sources: [How do mask, paste and tenting inherit, and what can a Pad express?](h
   - Instances with identical edits share one entry.
   - Copper, DRC and outputs read this entry as they read any other copy.
 - Properties marks the instance as locally edited, and the DRC report lists these instances.
-- Sync keeps local edits, and a Footprint change or Update from Library removes them ([sync](sync.md#what-sync-does-to-the-board)).
+- Sync keeps local edits. A Footprint change removes them, including an [Update from Library](library.md#update-from-library) or Replace Part that changes that Footprint's hash ([sync](sync.md#what-sync-does-to-the-board)). An update that leaves that hash alone, such as Fields only, keeps them.
+- **The compare**, shown in those previews and from Properties, as in the leading suite:
+  - It lists Pad, property, and edited value against original, and draws the instance's Pads over the copy they came from.
+  - A user includes or excludes a whole Component. There is no per-Pad merge.
+- **Reverting:** `pcb.footprint.revert_local_edits {instances}`, also from Properties, returns an instance to the `edited_from` copy, not to the Library. The PCB's table keeps a copy while an entry's `edited_from` names it. The leading suite's revert goes to the library. REDA's goes to the copy, because one-way Sync means the board should match the schematic's copy, and the Library may have moved on.
+
+### Update from Library on the board
+
+Source: [What exactly do Update from Library and Replace Part change?](https://github.com/openreda/reda/issues/134).
+
+A Mechanical Part placed directly on the PCB stores only a Footprint copy and its instance's fields, with no link to its Part and no Component.
+
+- **PCB menu ▸ Update from Library** (`pcb.footprint.update_preview`, `pcb.footprint.update_from_library`) covers these instances only, by Footprint hash, with the same compare and a `preview_hash`, as in the leading suite's PCB compare.
+- It keeps the position, rotation, side, lock and Designator text placement. Fields aren't touched.
+- A Footprint no registered Library holds shows as Source Missing and can't be updated.
+- There is no Replace Part here. `pcb.footprint.set`, or deleting and placing, does that job.
+- Instances with a Component update through the [schematic](library.md#update-from-library) and Sync.
 
 ## Ratsnest
 

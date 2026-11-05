@@ -29,7 +29,7 @@ Default severity: **E** = Error, **W** = Warning.
 | Unit data mismatch: Designator, value, fields, Footprint choice, Component Type, In BOM, In CPL or Not Fitted differing between the Units of one Component ([model](architecture.md#design-data-model)) | E |
 | `off_grid`: a Pin or Wire vertex off the Project's connection grid | W |
 | `off_sheet`: an object outside the sheet border | W |
-| `library_out_of_date`: a placed Component whose Library source has changed ([What exactly do Update from Library and Replace Part change?](https://github.com/openreda/reda/issues/134)) | Off |
+| `library_out_of_date`: a placed Component whose [Library status](library.md#library-status) is Library Differs | Off |
 
 There is no Fatal level, because [Output Job blocks](outputs.md#what-blocks-a-run-and-what-only-warns) do that job.
 

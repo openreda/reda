@@ -107,6 +107,7 @@ Source: [What are the schematic editing contracts?](https://github.com/openreda/
   - Pad Nets are reassigned from the new pin-pad map.
   - Tracks are left as they are, and DRC reports the dangling copper.
   - Any [local Pad edits](pcb.md#placed-pad-edits) are removed, and the Change List row says so.
+  - [Update from Library](library.md#update-from-library) and [Replace Part](library.md#replace-part) reach the board this way. Replace Part keeps the Component's UUID, so it is a Footprint change, not a removal and an addition. An update that leaves the Footprint's hash alone makes no such row.
 - **Locally edited Footprints:** local Pad edits are physical data that the schematic doesn't hold. Sync and the out-of-sync check compare the entry's `edited_from.hash`, so an edit is neither out of sync nor reverted.
 - **Components with no schematic counterpart:**
   - Only Mechanical Parts can be placed directly on the PCB. They carry no Component link, and Sync ignores them.
