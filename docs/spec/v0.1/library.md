@@ -51,11 +51,143 @@ Not in v0.1: full KiCad project or library import (v0.6), direct EasyEDA/LCSC im
 
 - When a Component is placed, the sheet's part table stores the whole Part: the Symbol, the pin-map overrides, the fields, the Component Type, In BOM, In CPL, and a copy of **every** alternate Footprint, deduplicated by hash. The PCB stores only the Footprints in use ([architecture](architecture.md#file-format)).
 - Library copies on a sheet are never edited in place. A Pad of a Footprint placed on the PCB can be edited, which gives that instance a [locally edited Footprint](pcb.md#placed-pad-edits).
-- **Update from Library:**
-  - A content-hash mismatch marks a Component with "library has a newer version".
-  - **Update from Library** previews the changes before applying them. It never updates automatically.
-  - Footprint changes then reach the PCB through Sync. The preview lists any local Pad edits this removes.
-- **Edit in Library** on a placed Component opens its element in the matching editor.
+- **Edit in Library** on a placed Component opens its element in the matching editor. A Starter Library element opens read-only. On a Component whose status is Source Missing, it offers [Extract to Library](#extract-to-library).
+
+## Library status
+
+Source: [What exactly do Update from Library and Replace Part change?](https://github.com/openreda/reda/issues/134).
+
+`schematic.component.library_status {components?}` compares each placed Component's part-table entry with its Part in the registered Libraries. It gives one of three states:
+
+- **Up to Date:** the content hashes match.
+- **Library Differs**, naming the aspects: Symbol, Fields or Footprints.
+- **Source Missing:** no registered Library holds the Part, or a Symbol or Footprint it references.
+
+The hash of each aspect is computed from the copy in the part table, so no source hashes are stored, even after a [partial update](#aspects). A partial update stays Library Differs for the aspects not taken.
+
+A content hash can't say which version is older, so there is no "Library newer" or "Library older". The leading suite's update from file-based libraries also only compares.
+
+**Where it shows:**
+- a badge in Properties, with **Update…**
+- the Library panel row ("3 placed, 1 differs")
+- the Update from Library dialog, where a Source Missing row can't be updated, as in the leading suite
+- the ERC check [`library_out_of_date`](checks.md#erc-checks), Off by default, which gives canvas markers for Library Differs
+
+## Update from Library
+
+It never updates automatically, and nothing changes without the preview.
+
+- **Commands:**
+  - `schematic.component.update_preview` changes nothing, and returns the changes with a hash.
+  - `schematic.component.update_from_library {preview_hash, excluded_components?, excluded_cells?, ...}` applies them. It fails with `conflict` if the result no longer matches the hash, like `sync.apply`.
+  - Anything that reads the PCB, such as lost local edits, runs in `reda-engine`.
+- **Scope:** the sheets and Parts ticked on page 1. A Component on several sheets is updated or excluded as a whole, and its Units stay equal, so ticking a sheet includes every Component with a Unit on it.
+- **Undo:** one entry per sheet.
+- **After Apply:** Footprint changes and per-Component data reach the PCB through [Sync](sync.md), which is never run by the update.
+
+### Aspects
+
+Each Component takes **Full Replace** or any of three aspects, as in the leading suite:
+
+| Aspect | Holds |
+|---|---|
+| Symbol | graphics, Units and Pins |
+| Fields | the Part's name, default fields, Component Type, In BOM and In CPL |
+| Footprints | the alternates and their order, their geometry, and the pin-map overrides |
+
+- The pin map sits with Footprints, because it only means something against them.
+- If a mix leaves a Pin with no Pad, the preview shows a Problem row.
+- **Full Replace** ticks all three. The field grid stays available, and edited and locked cells keep their values unless overridden. The leading suite disables its grid here and overwrites them. REDA keeps it, so that the default action never overwrites a value unseen.
+
+### Field cells
+
+Each field, Component Type, In BOM and In CPL gets one cell with the old default (the part-table copy), the new default (the Library) and the Component's value. A built-in field that is empty counts as not set. The three-way compare only sets how a cell starts, and any cell but a locked one can be overridden.
+
+| Case | Cell | Starts as |
+|---|---|---|
+| Default changed, Component holds the old default | Changed | Update |
+| Default changed, Component already holds the new one | Same | no change |
+| Default changed, Component holds another value | Edited | Reject, from `locally_edited` |
+| Field new in the Library, Component has no value | Added | from `library_field_missing` |
+| Field gone from the Library, Component holds the old default | Removed | Update, which removes it |
+| Field gone from the Library, Component holds another value | Edited | from `component_field_missing` |
+| A field only the Component has | Component only | from `component_field_missing` |
+| Field on the Component's `locked_fields` | Locked | no change, and no override until unlocked |
+
+- **Accepting or rejecting moves the baseline.** With the Fields aspect ticked, the entry takes the new defaults whichever way each cell went. A rejected value then reads as edited and is no longer flagged.
+- **Differs from the leading suite:** it compares only the library value with the sheet value, so a changed cell updates unless it is locked or rejected. REDA starts an edited value as rejected, and `locally_edited: take_new` gives the suite's behaviour. Generic Parts routinely carry edited Values, and the part table already knows the old default, so nobody has to lock every placed resistor first.
+- **Also differs:** a field gone from the Library that still holds the old default starts as removed, whatever the policy says. The suite has one setting for all of these. REDA can tell a stale default from a user's value, and a stale supplier number would otherwise stay on the BOM.
+- **Locks:** a [Locked Field](schematic.md#components) blocks updates only, and can still be edited by hand. The suite has two controls that keep a parameter out of updates. REDA has one, because the second one's other use, its Comment field, has no counterpart here.
+- **Not Fitted** is never updated, except that a Part becoming Net Tie clears it in a visible row, because a Net Tie refuses Not Fitted.
+- **Field positions and visibility** are kept unless the settings below say otherwise. A new field starts hidden.
+
+### What the preview shows
+
+Per Component, per aspect:
+- **Symbol:** whether the graphics changed.
+- **Pins:** added, removed, renamed, retyped and moved, with the Nets each Pin would leave or join.
+- **Units:** Units are matched by UUID. A placed Unit gone from the Symbol blocks that Component until the user deletes the Unit, and the preview says why. New Units appear as unplaced.
+- **Footprints:** alternates added or removed, which Pads moved or resized, Pad numbers added or removed, the pin map old and new, and the Footprint choice.
+- **Fields:** the [cells](#field-cells).
+- **Local Pad edits this removes:** see [Placed Pad edits](pcb.md#placed-pad-edits).
+
+**Wires never move,** in an update or a Replace, because a Wire connects where its end touches a Pin. Rerouting Wires automatically could join Nets with nobody seeing it. The preview lists what changes and ERC catches the rest.
+
+### Settings
+
+Page 1's choices are saved in `.reda` and shown read-only on [Project Settings ▸ Schematic](app.md#projects-and-settings), with Reset, as in the leading suite. Page 2's choices aren't saved. Command parameters override the saved values, so an agent can be explicit.
+
+| Setting | Values, default first |
+|---|---|
+| `library_field_missing` (in the Library, not on the Component) | `add`, `add_if_not_blank`, `skip` |
+| `component_field_missing` (on the Component, not in the Library) | `keep`, `remove` |
+| `locally_edited` | `keep`, `take_new` |
+| `fields_to_update` | every field, as a checklist |
+| `add_new_footprints` | on |
+| `remove_missing_footprints` | on |
+| `footprint_choice` | `keep_if_present`, `default` |
+| `preserve_field_locations` | on |
+| `preserve_field_visibility` | on |
+
+- Turning off `preserve_field_locations` returns moved fields to Autoposition. Turning off `preserve_field_visibility` returns them to the Designator and value.
+- The leading suite's documents don't state most of its defaults, so these are REDA's own.
+- **Left out:** the suite's designator and part ID lock options, because Parts carry no such data. Also its variant and latest-revision options, because v0.1 has neither.
+
+### Dialog
+
+A modal dialog with two pages, as in the leading suite.
+
+- **Page 1:** the sheets with All On and All Off, the Parts with instance counts, Selected Parts Only, the aspects and the settings.
+- **Page 2:** a row per Component with its status and aspect ticks, Choose Component and Return Selected to Default, and the sections of the preview with the field grid. Update Selected and Reject Selected work on cells.
+
+There is no change order after page 2, unlike the suite, because page 2 already shows and excludes every change.
+
+**Entry points:**
+- Design ▸ Update from Library… for the whole Project.
+- Component ▸ Update from Library… on a selection, which sets Selected Parts Only.
+- The Properties badge and the Library panel row.
+- The Library editors' Update in Project…, filtered to that element and saving it first. The suite's push from its editors skips any preview. REDA's doesn't, because updates always preview.
+
+## Replace Part
+
+`schematic.component.replace_part {components, part, keep_fields, footprint}` with `schematic.component.replace_preview` is the update compare with the chosen Part as the new one, for every aspect.
+
+- **Opens from** the Part row in Properties, on one Component or a multi-selection, where all take the chosen Part, and from Choose Component on the update dialog's page 2, with Return Selected to Default to undo it there.
+- **Dialog:** the Library panel's picker, with the current Part on top. For a generic Part, its values seed the search. The pin differences show under the picker.
+- **Always kept:** the Component UUID, Designator, Not Fitted, Unit positions and field positions. The UUID means Sync sees a Footprint change, not a removal and an addition.
+- **`keep_fields`:** `edited` (default), `all` or `none`. `edited` keeps values that differ from the old Part's defaults, and the rest take the new Part's.
+- **`footprint`:** by default the same Footprint by UUID, then the same name, then the new default.
+- **Component Type** is always the new Part's, because the Part is what is being changed. In BOM and In CPL follow `keep_fields`.
+- **Units** are matched by index. A placed Unit with no match blocks that Component until the user deletes it. New Units appear as unplaced.
+- **Pins** follow the rule that [Wires never move](#what-the-preview-shows).
+- **Refused:** a Part with no Symbol.
+- The Designator prefix stays even if it no longer matches the Part, and Re-annotate can fix it.
+
+The leading suite's documents say that replacing keeps connectivity, and don't list what else carries over, so the kept list and the options are REDA's own. REDA has no Replace from a BOM document, as the suite has, because v0.1 has no BOM document.
+
+## Extract to Library
+
+`library.extract_from_project {components, library}` writes a Component's Part, Symbol and Footprints from the part table to a chosen writable Library, **keeping their UUIDs**, so the status becomes Up to Date. It refuses a UUID that Library already holds. Edit in Library offers it on Source Missing, and Choose Component stays available. Extracting a whole Project at once is settled in [How deep do the Library editors, generators and checks go?](https://github.com/openreda/reda/issues/135).
 
 ## On disk
 

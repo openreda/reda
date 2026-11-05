@@ -129,6 +129,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
     - **Cross-references:** [Automatic Cross References](schematic.md#port-cross-references), Sheet Style, Location Style and Follow Preferences.
     - **Assembly:** [Not Fitted display](outputs.md#not-fitted).
     - **Re-annotate:** a read-only summary of the [last settings](schematic.md#re-annotate), with Reset.
+    - **Update from Library:** a read-only summary of the [saved settings](library.md#settings), with Reset.
   - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview), "Save as user preset" and [sub-pages](outputs.md#fab-preset-pages) ([outputs](outputs.md#fab-presets)).
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):

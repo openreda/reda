@@ -10,4 +10,4 @@ REDA lets a user edit the Pads of a Footprint placed on the PCB, as the leading 
 ## Consequences
 
 - A placed Pad's `number` can't change, and Pads can't be added or removed, because Nets come from the schematic (ADR-0004).
-- A Footprint change or Update from Library removes local edits, and its preview lists what is lost.
+- A Footprint change, including an Update from Library that changes that Footprint, removes local edits, and its preview lists what is lost.

@@ -65,6 +65,8 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
   - A Not Fitted flag ([outputs](outputs.md#not-fitted)).
   - In BOM and In CPL, defaulted from the Part ([library](library.md#elements)).
   - Which fields are visible on the sheet.
+  - A lock on each field. `locked_fields` is a set of field names, stored on every Unit and kept equal. A Locked Field can be edited by hand, and [Update from Library](library.md#update-from-library) leaves it alone.
+  - The [Library status](library.md#library-status) badge, with **Update…**, and the Part's name, with **Replace…** and **Edit in Library**.
 - **Multi-select editing:**
   - The panel shows the shared fields, with `<mixed>` where values differ.
   - An edit applies to every selected object.
