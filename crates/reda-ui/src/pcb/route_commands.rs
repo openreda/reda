@@ -24,6 +24,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(AddVia);
     registry.add(Finish);
     registry.add(Width);
+    registry.add(Proto);
     registry.add(SelectConnected);
 }
 
@@ -177,6 +178,57 @@ impl Command for Width {
             width,
             step: p.step,
         })
+    }
+}
+
+/// PROTOTYPE (issue 136): every new in-Tool key, one Command with one Preset each.
+struct Proto;
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProtoParams {
+    pub what: String,
+}
+
+impl Command for Proto {
+    const META: Meta = Meta {
+        id: "proto.track",
+        title: "Track Tool prototype",
+        description: "Throwaway keys for trying the Track Tool contract.",
+        category: "tool",
+        icon: "track",
+        kind: Kind::View,
+    };
+    type Params = ProtoParams;
+    type Output = ProtoParams;
+
+    fn presets(&self) -> Vec<Preset> {
+        [
+            ("posture", "Flip posture"),
+            ("lookahead", "Toggle look-ahead"),
+            ("obstacle", "Cycle obstacle mode"),
+            ("auto", "Toggle auto-terminate"),
+            ("loops", "Toggle loop removal"),
+            ("clearance", "Cycle clearance display"),
+            ("esc", "End route, then leave Tool"),
+            ("via_same", "Via here, same Layer"),
+            ("via_end", "Via here, end route"),
+            ("other_end", "Other end of connection"),
+            ("next_connection", "Next connection"),
+            ("start_layer", "Next start Layer"),
+            ("miter", "Toggle drag miters"),
+        ]
+        .into_iter()
+        .map(|(id, title)| Preset::new(id, title, "track", json!({ "what": id })))
+        .collect()
+    }
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, _: &mut Context<'_>, p: ProtoParams) -> Result<ProtoParams, CommandError> {
+        Ok(p)
     }
 }
 

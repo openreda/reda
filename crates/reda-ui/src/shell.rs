@@ -1774,6 +1774,10 @@ impl Shell {
             "tool.undo_segment" if self.tool() == Tool::Route => {
                 self.with_router(|r, shell| r.undo_segment(shell))
             }
+            "proto.track" => {
+                let what = out["what"].as_str().unwrap_or_default().to_owned();
+                self.with_router(|r, shell| r.proto(shell, &what));
+            }
             "pcb.route.add_via" => self.with_router(|r, shell| r.add_via(shell)),
             "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
             "pcb.route.width" => {

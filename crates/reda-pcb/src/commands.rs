@@ -25,7 +25,7 @@ pub use outline::rect_outline;
 pub use placement::{
     Op as PlacementOp, Placed, anchor as placement_anchor, preview as placement_preview,
 };
-pub use track_edit::{DragPlan as TrackDragPlan, drag_plan as track_drag_plan};
+pub use track_edit::{DragPlan as TrackDragPlan, drag_plan as track_drag_plan, slide_plan as track_slide_plan};
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,

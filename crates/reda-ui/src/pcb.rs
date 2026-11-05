@@ -16,6 +16,7 @@
 pub mod canvas;
 mod commands;
 pub mod draw;
+mod proto_loop;
 pub mod route;
 mod route_commands;
 pub mod snap;

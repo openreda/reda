@@ -87,6 +87,7 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
 /// position, the context menu and the "No Board Outline" hint.
 pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) {
     super::route::draw(ui, shell, input);
+    super::route::bar(ui, shell, input);
     drawing(ui, shell, input);
     overlay(ui, shell, input);
     context_menu(shell, input);

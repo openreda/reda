@@ -20,7 +20,7 @@ pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board};
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     MechanicalSet, MechanicalSetParams, Placed, PlacementOp, SyncCheck, SyncState, TrackDragPlan,
-    placement_anchor, placement_preview, rect_outline, register_all, track_drag_plan,
+    placement_anchor, placement_preview, rect_outline, register_all, track_drag_plan, track_slide_plan,
 };
 pub use copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility};
 pub use text::{

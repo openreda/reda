@@ -21,7 +21,10 @@
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{InDocument, Object, ObjectType, Project, TrackGeometry, Uuid};
-use reda_engine::pcb::{Copper, PlacementOp, placement_anchor, placement_preview, track_drag_plan};
+use reda_engine::pcb::{
+    Copper, PlacementOp, Proposal, placement_anchor, placement_preview, track_drag_plan,
+    track_slide_plan, zone,
+};
 use reda_engine::render::{Item, SceneLayer};
 use serde_json::{Value, json};
 
@@ -267,7 +270,9 @@ impl SelectTool {
                     shell.redraw(d.document);
                 } else {
                     let by = json!({"x": d.by.x, "y": d.by.y});
-                    let params = json!({"track": d.track, "by": by, "detach": d.detach});
+                    let miter = shell.router().opts().miter;
+                    let params =
+                        json!({"track": d.track, "by": by, "detach": d.detach, "miter": miter});
                     if shell.run_reporting("pcb.track.drag", params).is_err() {
                         shell.redraw(d.document);
                     }
@@ -475,6 +480,62 @@ fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
         }
         _ => raw,
     };
+    let opts = shell.router().opts();
+    let Some(project) = shell.engine().project() else {
+        return;
+    };
+    let Some(pcb) = project.pcb() else {
+        return;
+    };
+    let ids = || {
+        let mut n = 0u128;
+        move || {
+            n += 1;
+            Uuid::v4_from_bits(u128::MAX - n)
+        }
+    };
+    let (plan, by) = if d.detach || d.normal.is_none() {
+        let Ok(plan) = track_drag_plan(pcb, &d.copper, d.track, by, d.detach, ids()) else {
+            return;
+        };
+        (plan, by)
+    } else {
+        let Ok(mut best) = track_slide_plan(pcb, &d.copper, d.track, by, opts.miter, ids()) else {
+            return;
+        };
+        // Stop at clearance: the largest part of the slide that stays clear.
+        if opts.obstacle == super::route::Obstacle::Stop && !slide_clear(pcb, &d.copper, &best.0) {
+            let (mut lo, mut hi) = (0.0f64, 1.0f64);
+            let wanted = best.1;
+            let mut found = None;
+            for _ in 0..14 {
+                let mid = (lo + hi) / 2.0;
+                let part = Point::new(
+                    Nm((wanted.x.0 as f64 * mid).round() as i64),
+                    Nm((wanted.y.0 as f64 * mid).round() as i64),
+                );
+                let Ok(p) = track_slide_plan(pcb, &d.copper, d.track, part, opts.miter, ids())
+                else {
+                    return;
+                };
+                if slide_clear(pcb, &d.copper, &p.0) {
+                    lo = mid;
+                    found = Some(p);
+                } else {
+                    hi = mid;
+                }
+            }
+            match found {
+                Some(p) => best = p,
+                None => {
+                    d.by = Point::default();
+                    shell.redraw(d.document);
+                    return;
+                }
+            }
+        }
+        best
+    };
     if by == d.by {
         return;
     }
@@ -483,19 +544,6 @@ fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
         shell.redraw(d.document);
         return;
     }
-    let Some(project) = shell.engine().project() else {
-        return;
-    };
-    let Some(pcb) = project.pcb() else {
-        return;
-    };
-    let mut n = 0u128;
-    let Ok(plan) = track_drag_plan(pcb, &d.copper, d.track, by, d.detach, || {
-        n += 1;
-        Uuid::v4_from_bits(u128::MAX - n)
-    }) else {
-        return;
-    };
     let mut project = project.clone();
     let mut tx = project.transaction();
     let document = d.document;
@@ -524,6 +572,29 @@ fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
         return;
     }
     shell.show_preview(document, &project);
+}
+
+/// PROTOTYPE (issue 136): whether a slide's copper keeps its clearance.
+fn slide_clear(
+    pcb: &reda_engine::model::PcbDocument,
+    copper: &Copper,
+    plan: &reda_engine::pcb::TrackDragPlan,
+) -> bool {
+    let ignore: Vec<Uuid> = plan
+        .modified
+        .iter()
+        .map(|t| t.uuid)
+        .chain(plan.deleted.iter().copied())
+        .collect();
+    plan.modified.iter().chain(plan.created.iter()).all(|t| {
+        let p = Proposal::Track {
+            layer: t.layer,
+            geometry: t.geometry,
+            width: t.width,
+            net: t.net,
+        };
+        copper.clearance(pcb, &p, &ignore).is_empty() && zone::keepouts_hit(pcb, &p).is_empty()
+    })
 }
 
 /// `p` as the shared canvas functions take it: nm, y up.

@@ -631,3 +631,70 @@ context = "part"
 key = "Mod+S"
 command = "library.element.save"
 params = { element = "$active_document" }
+
+# PROTOTYPE (issue 136): the Track Tool keys being tried.
+
+[[bind]]
+context = "tool:route"
+key = "Space"
+command = "proto.track:posture"
+
+[[bind]]
+context = "tool:route"
+key = "1"
+command = "proto.track:lookahead"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+R"
+command = "proto.track:obstacle"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+A"
+command = "proto.track:auto"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+L"
+command = "proto.track:loops"
+
+[[bind]]
+context = "tool:route"
+key = "C"
+command = "proto.track:clearance"
+
+[[bind]]
+context = "tool:route"
+key = "Esc"
+command = "proto.track:esc"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+V"
+command = "proto.track:via_same"
+
+[[bind]]
+context = "tool:route"
+key = "E"
+command = "proto.track:via_end"
+
+[[bind]]
+context = "tool:route"
+key = "O"
+command = "proto.track:other_end"
+
+[[bind]]
+context = "tool:route"
+key = "N"
+command = "proto.track:next_connection"
+
+[[bind]]
+context = "tool:route"
+key = "L"
+command = "proto.track:start_layer"
+
+[[bind]]
+context = "pcb"
+key = "Shift+M"
+command = "proto.track:miter"

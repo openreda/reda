@@ -134,6 +134,186 @@ pub fn drag_plan(
     Ok(plan)
 }
 
+/// PROTOTYPE (issue 136): an angle-keeping slide of a straight segment. Returns the plan
+/// and how far it really moved, which is less than `by` where a neighbour ran out.
+///
+/// - A lone neighbour keeps its line: the segment's end slides along it.
+/// - A neighbour squeezed to nothing goes, and a collinear segment beyond it merges in.
+/// - An end on a Pad or Via, at a branch, or beside a parallel neighbour stays put and
+///   gets a connector, at 45\u{b0} with `miter`, else square.
+pub fn slide_plan(
+    pcb: &PcbDocument,
+    copper: &Copper,
+    track: Uuid,
+    by: Point,
+    miter: bool,
+    mut new_id: impl FnMut() -> Uuid,
+) -> Result<(DragPlan, Point), String> {
+    let dragged = pcb
+        .track(track)
+        .ok_or_else(|| format!("no Track has UUID {track}"))?;
+    let TrackGeometry::Line { from: a, to: b } = dragged.geometry else {
+        let plan = drag_plan(pcb, copper, track, by, false, new_id)?;
+        return Ok((plan, by));
+    };
+    let v = |p: Point, q: Point| ((q.x.0 - p.x.0) as f64, (q.y.0 - p.y.0) as f64);
+    let (ux, uy) = {
+        let (x, y) = v(a, b);
+        let l = x.hypot(y);
+        (x / l, y / l)
+    };
+    let (nx, ny) = (-uy, ux);
+    let mut d = by.x.0 as f64 * nx + by.y.0 as f64 * ny;
+
+    enum End {
+        Free,
+        Fixed,
+        Stretch(Track, Point),
+    }
+    let classify = |end: Point| -> End {
+        let fixed = copper.items_at(dragged.layer, end).into_iter().any(|i| {
+            matches!(i, Item::Pad { .. } | Item::FreePad { .. } | Item::Via { .. })
+        });
+        let neighbours: Vec<&Track> = pcb
+            .tracks()
+            .filter(|t| t.uuid != track && t.layer == dragged.layer)
+            .filter(|t| {
+                let (p, q) = t.geometry.ends();
+                p == end || q == end
+            })
+            .collect();
+        if fixed {
+            return End::Fixed;
+        }
+        match neighbours[..] {
+            [] => End::Free,
+            [t] => match t.geometry {
+                TrackGeometry::Line { from, to } => {
+                    let far = if from == end { to } else { from };
+                    let (x, y) = v(end, far);
+                    if (x * nx + y * ny).abs() < 1.0 {
+                        End::Fixed
+                    } else {
+                        End::Stretch(t.clone(), far)
+                    }
+                }
+                TrackGeometry::Arc { .. } => End::Fixed,
+            },
+            _ => End::Fixed,
+        }
+    };
+    let ends = [classify(a), classify(b)];
+    let origin = [a, b];
+    // How far along the segment each end travels per unit of `d`.
+    let slope = |i: usize, d: f64| -> f64 {
+        match &ends[i] {
+            End::Free => 0.0,
+            End::Fixed if miter => (if i == 0 { 1.0 } else { -1.0 }) * d.signum(),
+            End::Fixed => 0.0,
+            End::Stretch(_, far) => {
+                let (x, y) = v(origin[i], *far);
+                (x * ux + y * uy) / (x * nx + y * ny)
+            }
+        }
+    };
+    // A neighbour may shrink to nothing, not past it.
+    for (i, end) in ends.iter().enumerate() {
+        if let End::Stretch(_, far) = end {
+            let (x, y) = v(origin[i], *far);
+            let reach = x * nx + y * ny;
+            if d / reach > 1.0 {
+                d = reach;
+            }
+        }
+    }
+    // The segment itself keeps at least a micrometre.
+    let len0 = {
+        let (x, y) = v(a, b);
+        x.hypot(y)
+    };
+    let shrink = (slope(1, d) - slope(0, d)) * d;
+    if len0 + shrink < 1_000.0 {
+        d *= (len0 - 1_000.0).max(0.0) / -shrink;
+    }
+    let place = |i: usize| -> Point {
+        let t = slope(i, d) * d;
+        Point::new(
+            reda_model::geom::Nm((origin[i].x.0 as f64 + d * nx + t * ux).round() as i64),
+            reda_model::geom::Nm((origin[i].y.0 as f64 + d * ny + t * uy).round() as i64),
+        )
+    };
+    let mut new_ends = [place(0), place(1)];
+    let mut plan = DragPlan::default();
+    for i in 0..2 {
+        match &ends[i] {
+            End::Free => {}
+            End::Fixed => {
+                if new_ends[i] != origin[i] {
+                    plan.created.push(Track {
+                        uuid: new_id(),
+                        layer: dragged.layer,
+                        net: dragged.net,
+                        width: dragged.width,
+                        geometry: TrackGeometry::Line {
+                            from: origin[i],
+                            to: new_ends[i],
+                        },
+                    });
+                }
+            }
+            End::Stretch(n, far) => {
+                let (x, y) = v(new_ends[i], *far);
+                if x.hypot(y) <= 4.0 {
+                    plan.deleted.push(n.uuid);
+                    new_ends[i] = *far;
+                    // Merge a collinear segment beyond it.
+                    let beyond: Vec<&Track> = pcb
+                        .tracks()
+                        .filter(|t| t.uuid != n.uuid && t.uuid != track)
+                        .filter(|t| t.layer == dragged.layer)
+                        .filter(|t| {
+                            let (p, q) = t.geometry.ends();
+                            p == *far || q == *far
+                        })
+                        .collect();
+                    let solid = copper.items_at(dragged.layer, *far).into_iter().any(|i| {
+                        matches!(i, Item::Pad { .. } | Item::FreePad { .. } | Item::Via { .. })
+                    });
+                    if let ([m], false) = (&beyond[..], solid)
+                        && m.width == dragged.width
+                        && let TrackGeometry::Line { from, to } = m.geometry
+                    {
+                        let other = if from == *far { to } else { from };
+                        let (x, y) = v(*far, other);
+                        if (x * nx + y * ny).abs() < 2.0 {
+                            plan.deleted.push(m.uuid);
+                            new_ends[i] = other;
+                        }
+                    }
+                } else {
+                    let mut stretched = n.clone();
+                    stretched.geometry = TrackGeometry::Line {
+                        from: *far,
+                        to: new_ends[i],
+                    };
+                    plan.modified.push(stretched);
+                }
+            }
+        }
+    }
+    let mut moved = dragged.clone();
+    moved.geometry = TrackGeometry::Line {
+        from: new_ends[0],
+        to: new_ends[1],
+    };
+    plan.modified.insert(0, moved);
+    let applied = Point::new(
+        reda_model::geom::Nm((d * nx).round() as i64),
+        reda_model::geom::Nm((d * ny).round() as i64),
+    );
+    Ok((plan, applied))
+}
+
 pub struct TrackDrag;
 
 #[derive(Deserialize, JsonSchema)]
@@ -146,6 +326,13 @@ pub struct TrackDragParams {
     /// Moves the segment alone, leaving its neighbours where they are.
     #[serde(default)]
     pub detach: bool,
+    /// PROTOTYPE (issue 136): a connector from a fixed end runs at 45 degrees.
+    #[serde(default = "yes")]
+    pub miter: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -195,8 +382,12 @@ impl Command for TrackDrag {
             ));
         }
         let copper = super::board_copper(cx)?;
-        let mut plan = drag_plan(pcb, &copper, p.track, by, p.detach, Uuid::default)
-            .map_err(|e| CommandError::invalid_params("/track", e))?;
+        let mut plan = if p.detach {
+            drag_plan(pcb, &copper, p.track, by, true, Uuid::default)
+        } else {
+            slide_plan(pcb, &copper, p.track, by, p.miter, Uuid::default).map(|(plan, _)| plan)
+        }
+        .map_err(|e| CommandError::invalid_params("/track", e))?;
         for track in &mut plan.created {
             track.uuid = cx.new_id();
         }

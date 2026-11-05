@@ -94,17 +94,14 @@ impl BoardView {
     pub fn filter_scene(&self, project: &Project, scene: &mut Scene) {
         let types = &self.layers.hidden_types;
         let nets = &self.layers.ratsnest.hidden_nets;
-        if types.is_empty() && nets.is_empty() {
+        // PROTOTYPE: the Ratsnest is painted as a fixed-width overlay (`route::draw`).
+        let _ = nets;
+        scene.items.retain(|item| item.layer != SceneLayer::Ratsnest);
+        if types.is_empty() {
             return;
         }
         let mut kinds: HashMap<Uuid, Option<ObjectType>> = HashMap::new();
         scene.items.retain(|item| {
-            if item.layer == SceneLayer::Ratsnest {
-                return !nets.contains(&item.object);
-            }
-            if types.is_empty() {
-                return true;
-            }
             let kind = *kinds
                 .entry(item.object)
                 .or_insert_with(|| project.object(item.object).map(|o| o.object_type()));
