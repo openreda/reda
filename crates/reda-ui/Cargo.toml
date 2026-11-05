@@ -23,6 +23,9 @@ serde_json.workspace = true
 toml_edit.workspace = true
 unic-langid.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+winit = { workspace = true, features = ["wayland-csd-adwaita"] }
+
 [dev-dependencies]
 egui_kittest.workspace = true
 reda-testkit = { path = "../reda-testkit" }
