@@ -75,7 +75,7 @@ The Pin Matrix sets the severity of `unconnected_pin` and `pin_conflict`, one ce
 | Annular ring below the minimum. A land smaller than its hole has its own message. | E |
 | Hole-to-hole spacing. Coincident holes have their own message. | E |
 | Copper too close to the Board Outline, a Board Cutout or the edge of a non-plated hole, using `edge_clearance` | E |
-| Keepout violation | E |
+| Keepout violation: an object of a [restricted kind](pcb.md#keepouts) inside a Keepout or closer than the clearance, unless `zero_keepout_clearance` is on. A Footprint is checked by its Courtyard, with no clearance. | E |
 | Footprint outside the Board Outline, using its courtyard or the [fallback box](#courtyards) | E |
 | Unrouted connections (any Ratsnest left), with completion %, sub-net count and unrouted length as arguments | E |
 | Copper with no Net | W |
@@ -86,6 +86,9 @@ The Pin Matrix sets the severity of `unconnected_pin` and `pin_conflict`, one ce
 | `silk_to_mask`: silkscreen closer than `silk_to_mask` to exposed copper or to a mask opening, using the [resolved openings](pcb.md#mask-and-paste) | W |
 | `silk_to_edge`: silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout | W |
 | `zero_length_track`, `micro_segment`, `duplicate_copper` and `zero_area_zone`: [health checks](#health-checks) | W |
+| `dead_copper`: a kept piece of fill touching no copper of its Net, above `min_area`. `measured` and `required` use the `area` tag. Zones with no Net are exempt. | W |
+| `empty_zone`: a Zone with a Net and nothing left to fill | W |
+| `shelved_zone`: a [shelved](pcb.md#shelving) Zone, whose copper outputs leave out | W |
 | `opening_collapsed`: a mask or paste opening with nothing left after a negative value | W |
 | PCB out of sync with the schematic, including differing fields, In BOM, In CPL and Not Fitted | W |
 | `rule_invalid`: a [blocking rule problem](#validation) in the file, which only a hand edit or a merge can cause | E |
@@ -122,7 +125,7 @@ The PCB Document holds one `rules` table of `{uuid, kind, scope, values, enabled
 
 | Kind | Values |
 |---|---|
-| `clearance` | `value`, `ignore_pad_to_pad` (within one Footprint, default off) |
+| `clearance` | `value`, `ignore_pad_to_pad` (within one Footprint, default off), `zero_keepout_clearance` (board-wide only, default off) |
 | `track_width` | `min`, `preferred`, `max?` |
 | `via_size` | `diameter {min, preferred, max?}`, `hole {min, preferred, max?}` |
 | `hole_size` | `min`, `max`. Pad, Free Pad and non-plated holes. Via holes use `via_size`. |
@@ -134,9 +137,9 @@ The PCB Document holds one `rules` table of `{uuid, kind, scope, values, enabled
 | `courtyard_clearance` | `value`, default 0 |
 | `dangling` | `tolerance`, default 0 |
 | `micro_segment` | `max_length`, default 0.01 mm |
+| `dead_copper` | `min_area`, default 100 sq mil (0.0645 mm²) |
+| [`zone_connection`](pcb.md#zone-connections) | `through_hole`, `smd`, `via`, each `{style, spokes, spoke_width, gap, angle}`. It shapes the fill rather than setting a limit, so it has no DRC severity. |
 | [`mask_expansion`, `paste_expansion`](pcb.md#mask-and-paste) | These shape outputs rather than set a limit, so they have no DRC severity. |
-
-[How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137) adds the Zone connection defaults.
 
 ### Which value applies
 

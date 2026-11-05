@@ -234,6 +234,18 @@ _Avoid_: Through-hole (that describes parts), feedthrough
 A Net-assigned area on a copper Layer that is filled with copper around everything it must keep clear of.
 _Avoid_: Pour, polygon, plane, fill
 
+**Zone Connection**:
+How a Zone's fill joins a Pad or Via of its own Net: by relief spokes, solidly, or not at all.
+_Avoid_: Thermal, connect style
+
+**Zone Cutout**:
+A shape on a copper Layer inside which every Zone on that Layer leaves out its fill.
+_Avoid_: Zone hole, Board Cutout (that removes board material)
+
+**Shelved**:
+Said of a Zone kept in the file but hidden and left out of fill, DRC, connectivity and outputs.
+_Avoid_: Disabled
+
 **Keepout**:
 An area of the board in which chosen kinds of object, such as copper or Vias, must not be placed.
 _Avoid_: Restrict area, rule area, exclusion

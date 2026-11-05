@@ -66,6 +66,7 @@ outputs/<job>/
   - The Profile holds the Board Outline and every Board Cutout as closed paths. Slots stay in the drill file.
   - Mask and Paste plot the [resolved openings](pcb.md#mask-and-paste).
   - The silkscreen is cleared over the solder-mask openings on its side, so no ink lands on bare copper.
+  - Keepouts and Zone Cutouts are never plotted. [Shelved](pcb.md#shelving) Zones are left out.
   - The Fab Preset's `outline_on_every_plot` adds the Board Outline to every Gerber. It is off in the shipped presets.
 - **Text:**
   - Stroke text is drawn as thick line segments.

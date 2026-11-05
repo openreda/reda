@@ -112,6 +112,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 
 These are not placed in any milestone yet. They were ruled out of scope for the [spec map](https://github.com/openreda/reda/issues/1), whose destination stops at a ticket-ready v0.1 and module-level later milestones, and are left for a future planning effort:
 
+- **True-arc Zone fills:** fills, DRC and Gerber regions with real arcs instead of chords. Fills live only in the cache, so this needs no format change.
 - **Fonts:** embedding fonts in a Project; searchable text in PDF exports; REDA-drawn stroke glyphs beyond Hershey's ASCII (µ, Ω, ±, °).
 - **Checking:** background online DRC; a rule-query language with per-Layer and per-area rules; an editable pin-type conflict matrix; solder-mask slivers, acid traps and silk-to-silk spacing.
 - **Performance:** benchmarks and regression tracking.

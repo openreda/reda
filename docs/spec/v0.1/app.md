@@ -21,7 +21,7 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
 - **Default Layout:**
   - Documents in the centre.
   - **Projects** in a left Dock, **Properties** in a right Dock and **Messages** in a bottom Dock.
-  - Other Panels: Library, Layers, Journal and [Pins](library.md#pins-panel).
+  - Other Panels: Library, Layers, Journal, [Zones](pcb.md#pour-order) and [Pins](library.md#pins-panel).
   - A status-bar **Panels** button reopens closed Panels.
 - **Native windows:**
   - A tab moves into an OS window through its tab menu, or by dragging it out of the main window.
@@ -136,6 +136,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
   - *Rules:* pages Clearance, Track Width, Vias, Holes (size, annular ring and hole-to-hole), Board Edge, Mask & Paste, Silkscreen and Zone Connections.
     - Each page has the board-wide values, an override table with one row per Net Class, the line "Net Class values override the board value", that check's DRC severity, and the [strictest Fab Preset limit](checks.md#fab-presets-and-the-rules) beside each value.
     - Each page has **Reset page to Fab Preset**, the Apply Fab Preset preview filtered to that page.
+    - *Zone Connections:* [connection values](pcb.md#zone-connections) for through-hole Pads, SMD Pads and Vias. It has no DRC severity. It also holds the board's [Zone naming scheme](pcb.md#zone-names).
   - *Mask & Paste:* mask expansion (top and bottom, with a link toggle), from hole edge, Via tenting and paste expansion (absolute or percent). It has no DRC severity ([pcb](pcb.md#mask-and-paste)).
   - *Stackup:* thickness, copper and dielectric entries, finish and colours, with a live cross-section ([pcb](pcb.md#stackup)), and the free text for [Fab Notes](outputs.md#fab-notes).
   - *Net Classes:*
@@ -178,6 +179,7 @@ Sources: [ADR-0010](../../adr/0010-canvas-drawn-by-own-wgpu-renderer.md), [How a
   - Fill results are triangulated (`i_triangle`) once, when they arrive.
   - A stale fill stays visible, hatched or dimmed, with a "Zones need refilling" indicator.
   - A Zone that has never been filled shows only its outline.
+  - A [shelved](pcb.md#shelving) Zone isn't drawn.
 - **Highlighting:**
   - Hit-testing runs on the CPU, against the `rstar` index in the domain crates.
   - A per-instance flag buffer, separate from the geometry, marks objects as:
@@ -299,6 +301,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
     - electrical snap (on)
     - auto-pan at the canvas edge (on)
   - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Object's Electrical Hot Spot (on), Center of Object (off) and Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
+  - **PCB:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones).
   - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
   - **Libraries:** user Library paths, the [Active](library.md#on-disk) checkboxes and the [Library check](library.md#library-check) severities.

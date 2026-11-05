@@ -117,7 +117,11 @@ These names are held for later milestones. They are additive, so they stay out o
 | Pad | per-Layer pad stack mode | later |
 | Pad | `through_hole_paste` | v0.2 |
 | Pad | `mask_shape`, `paste_shape` | v0.6 |
-| Pad | spoke width and gap under `zone_connection` | later |
+| Via | `zone_connection` | later |
+| Zone | `fill_mode` values beyond solid | later |
+| Rule record | `zone` and `keepout` scope filters | later |
+| PCB Document | a copper polygon that doesn't pour | later |
+| Footprint | `keepouts` | v0.2 |
 | Pad | rectangular hole shape, counterbore, countersink | later |
 | Part | `part_choices`, `attachments`, `body_style` | v0.6 |
 | Pin | `alt_names`, `inside` and `outside` decorations | v0.6 |

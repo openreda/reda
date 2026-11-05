@@ -349,7 +349,7 @@ Source: [How do mask, paste and tenting inherit, and what can a Pad express?](ht
   - Left out, it inherits. Otherwise it is `{expansion}`, `{percent}`, `none` or `{windows}`.
   - `percent` is the change in area: 0 matches the copper and -10 has 10% less area. The copper's shape is scaled about its centre, and the value must be above -100.
   - `windows` is a list of `{at, width, height, corner_ratio?}` in the Pad's frame. Together they replace the opening.
-- **Zone connection:** `zone_connection` is `solid`, `relief` or `none`. Left out, it inherits. [How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137) settles what it inherits from and the spoke values.
+- **Zone connection:** `zone_connection` is `{style?, spokes?, spoke_width?, gap?, angle?}`, with the values of the [`zone_connection` rule](pcb.md#zone-connections). Each value left out inherits from the rule, by the Pad's kind and Net. Custom spoke locations are out, as a niche feature.
 
 ## Footprint generators
 
@@ -411,7 +411,7 @@ Fillet goals and courtyard excess in mm, as Most / Nominal / Least (IPC levels A
 The leading suite's documents give the threshold and trimming. The 25% and 50% figures are REDA's own.
 
 - **Lead Pads** are `rounded_rect` at `corner_ratio` 25%, capped at a 0.25 mm radius.
-- **Exposed pads** have `zone_connection: solid`. All other Pads inherit.
+- **Exposed pads** have `zone_connection: {style: solid}`. All other Pads inherit.
 - **Split paste:** an exposed pad of 2.1 × 1.6 mm or larger gets an n × m array of [paste windows](#pad-model) at about 50% coverage. Smaller ones inherit.
 - **Trimming:** gull-wing Pads don't run under the body, and lead Pads keep clear of the exposed pad, with a warning for each trim. This replaces `keep_body_middle_clear`.
 - Each Footprint has a closed courtyard, an Assembly outline, a Silkscreen Designator, an Assembly Designator, Value text and its `height`.
@@ -500,7 +500,7 @@ A Footprint has no separate body object. Its body box is its courtyard's boundin
     | Reference and Value text | `texts` entries, keeping layer and position |
     | Fab Layer lines and text | the Assembly Layer |
     | Courtyard lines and arcs | chained into a Polygon. If the chain doesn't close, a bounding Rect with a warning. |
-    | thermal width and gap | [How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137) settles this |
+    | thermal width and gap | `zone_connection`'s `spoke_width` and `gap` |
 - **Provenance:**
   - Each imported element records its source service and terms URL, and keeps any copyright fields.
   - A one-time notice explains that vendor parts stay under the vendor's terms, that most terms forbid redistribution, and that SnapMagic allows at most 10 files per location, so the user should check before committing the Library publicly.
