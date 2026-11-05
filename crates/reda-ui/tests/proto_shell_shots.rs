@@ -129,6 +129,29 @@ fn shots() {
     proto_shell::with(|s| s.on_board = false);
     h.state_mut().close_settings();
     settle(&mut h);
+    // Round 3: the routing bar's Corner icon follows Space, and Project Settings is a window.
+    let _ = h
+        .state_mut()
+        .shell_mut()
+        .run("tool.activate:route", json!({}));
+    settle(&mut h);
+    shot(&mut h, &out, "r3-route-straight");
+    let _ = h.state_mut().shell_mut().run("tool.rotate", json!({}));
+    settle(&mut h);
+    shot(&mut h, &out, "r3-route-diagonal");
+    let _ = h
+        .state_mut()
+        .shell_mut()
+        .run("tool.activate:select", json!({}));
+    h.state_mut().open_project_settings();
+    settle(&mut h);
+    shot(&mut h, &out, "r3-project-settings");
+    let _ = h
+        .state_mut()
+        .shell_mut()
+        .run("layout.tab.close", json!({"tab": "project_settings"}));
+    proto_shell::with(|s| s.dialogs.clear());
+    settle(&mut h);
     for (key, _, axes) in PRESETS {
         proto_shell::with(|s| s.axes = axes);
         let name = format!("{key}");
@@ -158,7 +181,7 @@ fn shots() {
             .state_mut()
             .shell_mut()
             .run("layout.tab.close", json!({"tab": "board_setup"}));
-        proto_shell::with(|s| s.setup = None);
+        proto_shell::with(|s| s.dialogs.clear());
         h.state_mut().close_settings();
         let _ = h
             .state_mut()

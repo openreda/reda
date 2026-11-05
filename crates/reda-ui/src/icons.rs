@@ -40,6 +40,7 @@ pub fn panel_icon(panel: PanelId) -> &'static str {
         PanelId::Journal => "panel_journal",
         PanelId::Board | PanelId::Nets | PanelId::Footprints | PanelId::Zones => "panel_layers",
         PanelId::Preferences | PanelId::BoardSetup => "panel_properties",
+        PanelId::ProjectSettings | PanelId::ChangeList | PanelId::OutputJob => "panel_properties",
     }
 }
 

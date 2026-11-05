@@ -92,6 +92,9 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Zones => "Zones".to_owned(),
         PanelId::Preferences => "Preferences".to_owned(),
         PanelId::BoardSetup => "Board Setup".to_owned(),
+        PanelId::ProjectSettings => "Project Settings".to_owned(),
+        PanelId::ChangeList => "Update PCB from Schematic".to_owned(),
+        PanelId::OutputJob => "Output Job".to_owned(),
     }
 }
 
@@ -665,6 +668,22 @@ impl Cx<'_> {
             close
         });
         if ui.is_rect_visible(rect) {
+            if active {
+                // PROTOTYPE: the active tab is lifted off the bar and underlined.
+                let lift = Color32::from_white_alpha(38);
+                let round = egui::CornerRadius {
+                    nw: 3,
+                    ne: 3,
+                    sw: 0,
+                    se: 0,
+                };
+                ui.painter().rect_filled(rect, round, lift);
+                let under = Rect::from_min_max(
+                    egui::pos2(rect.left(), rect.bottom() - 2.0),
+                    rect.right_bottom(),
+                );
+                ui.painter().rect_filled(under, 0.0, Color32::WHITE);
+            }
             if pointed {
                 let hover = Color32::from_white_alpha(20);
                 ui.painter().rect_filled(rect, 3.0, hover);
@@ -930,8 +949,13 @@ impl Cx<'_> {
             TabKey::Panel(PanelId::Preferences) => {
                 crate::proto_shell::prefs::show(ui, self.shell);
             }
-            TabKey::Panel(PanelId::BoardSetup) => {
-                crate::proto_shell::board_setup_tab(ui, self.shell);
+            TabKey::Panel(
+                panel @ (PanelId::BoardSetup
+                | PanelId::ProjectSettings
+                | PanelId::ChangeList
+                | PanelId::OutputJob),
+            ) => {
+                crate::proto_shell::dialog_tab(ui, self.shell, *panel);
             }
             TabKey::Panel(PanelId::Library) => {
                 for action in panels::library::show(ui, self.shell) {

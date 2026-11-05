@@ -268,6 +268,14 @@ impl App {
         if let Some(dialog) = &mut self.settings {
             self.jobs.run_from_dialog(&ctx, &mut self.shell, dialog);
         }
+        if let Some(mut dialog) = crate::proto_shell::take_dialog("output_job") {
+            self.jobs
+                .run_from_dialog(&ctx, &mut self.shell, &mut dialog);
+            crate::proto_shell::put_dialog("output_job", dialog);
+        }
+        if crate::proto_shell::take_pick_request() {
+            self.files.start(&ctx, Pick::SettingsFolder);
+        }
         self.jobs.show(&ctx, &mut self.shell);
         self.show_preferences(&ctx);
         if let Some(JournalAction::Export) = frame.journal {
@@ -380,10 +388,21 @@ impl App {
         }
     }
 
+    /// PROTOTYPE: whether settings dialogs open as non-modal windows.
+    fn dialogs_are_windows() -> bool {
+        crate::proto_shell::axes().setup != crate::proto_shell::Surface::Modal
+    }
+
     /// Opens the Project Settings dialog on the open Project, if there is one.
     pub fn open_project_settings(&mut self) {
         if let Some(project) = self.shell.engine().project() {
-            self.settings = Some(settings::project::dialog(project));
+            let dialog = settings::project::dialog(project);
+            if Self::dialogs_are_windows() {
+                let panel = crate::layout::PanelId::ProjectSettings;
+                crate::proto_shell::open_dialog(&mut self.shell, panel, dialog);
+                return;
+            }
+            self.settings = Some(dialog);
         }
     }
 
@@ -405,7 +424,13 @@ impl App {
     pub fn open_change_list(&mut self) {
         match self.shell.engine().project() {
             Some(project) if project.pcb().is_some() => {
-                self.settings = Some(settings::change_list::dialog(project));
+                let dialog = settings::change_list::dialog(project);
+                if Self::dialogs_are_windows() {
+                    let panel = crate::layout::PanelId::ChangeList;
+                    crate::proto_shell::open_dialog(&mut self.shell, panel, dialog);
+                    return;
+                }
+                self.settings = Some(dialog);
             }
             Some(_) => self.shell.report(reda_engine::sync::NO_PCB.to_owned()),
             None => {}
@@ -415,7 +440,15 @@ impl App {
     /// Opens the Output Job dialog on `job`, if the open Project has it.
     pub fn open_output_job(&mut self, job: reda_engine::model::Uuid) {
         if let Some(project) = self.shell.engine().project() {
-            self.settings = settings::output_job::dialog(project, job);
+            let dialog = settings::output_job::dialog(project, job);
+            if Self::dialogs_are_windows() {
+                if let Some(dialog) = dialog {
+                    let panel = crate::layout::PanelId::OutputJob;
+                    crate::proto_shell::open_dialog(&mut self.shell, panel, dialog);
+                }
+                return;
+            }
+            self.settings = dialog;
         }
     }
 
@@ -623,10 +656,12 @@ impl App {
                 }
             }
             Some((Pick::SettingsFolder, path)) => {
-                if let (Some(folder), Some(dialog)) =
-                    (self.shell.engine().location(), &mut self.settings)
-                {
-                    dialog.picked_folder(&os::relative_path(folder, &path));
+                if let Some(folder) = self.shell.engine().location() {
+                    let relative = os::relative_path(folder, &path);
+                    match &mut self.settings {
+                        Some(dialog) => dialog.picked_folder(&relative),
+                        None => crate::proto_shell::picked_folder(&relative),
+                    }
                 }
             }
             // The Import part dialog runs its own pickers.

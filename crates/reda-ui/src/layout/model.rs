@@ -27,11 +27,14 @@ pub enum PanelId {
     Zones,
     Preferences,
     BoardSetup,
+    ProjectSettings,
+    ChangeList,
+    OutputJob,
 }
 
 impl PanelId {
     /// Every Panel, in the order the Panels button lists them.
-    pub const ALL: [PanelId; 12] = [
+    pub const ALL: [PanelId; 15] = [
         PanelId::Projects,
         PanelId::Properties,
         PanelId::Messages,
@@ -44,6 +47,9 @@ impl PanelId {
         PanelId::Zones,
         PanelId::Preferences,
         PanelId::BoardSetup,
+        PanelId::ProjectSettings,
+        PanelId::ChangeList,
+        PanelId::OutputJob,
     ];
 
     /// The id in Commands and Presets, such as `properties` in `panel.show:properties`.
@@ -61,6 +67,9 @@ impl PanelId {
             PanelId::Zones => "zones",
             PanelId::Preferences => "preferences",
             PanelId::BoardSetup => "board_setup",
+            PanelId::ProjectSettings => "project_settings",
+            PanelId::ChangeList => "change_list",
+            PanelId::OutputJob => "output_job",
         }
     }
 
@@ -74,7 +83,10 @@ impl PanelId {
             | PanelId::Footprints
             | PanelId::Zones
             | PanelId::Preferences
-            | PanelId::BoardSetup => DockSide::Left,
+            | PanelId::BoardSetup
+            | PanelId::ProjectSettings
+            | PanelId::ChangeList
+            | PanelId::OutputJob => DockSide::Left,
             PanelId::Properties | PanelId::Layers => DockSide::Right,
             PanelId::Messages | PanelId::Journal => DockSide::Bottom,
         }

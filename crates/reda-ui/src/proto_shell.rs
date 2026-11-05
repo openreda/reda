@@ -3,6 +3,7 @@
 //! floating bar, and three presets set them all. State lives in memory; nothing here is
 //! production code.
 
+use crate::pcb::route::Corner;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::OnceLock;
@@ -142,8 +143,11 @@ pub struct State {
     toggles: HashMap<&'static str, bool>,
     pub prefs_modal: bool,
     pub prefs: prefs::PrefsState,
-    /// Board Setup held open in a tab.
-    pub setup: Option<SettingsDialog>,
+    /// The settings dialogs held open as non-modal windows, by their Panel's id.
+    pub dialogs: HashMap<&'static str, SettingsDialog>,
+    /// The dialog waiting on a folder picker, and whether the window should open one.
+    pick_for: Option<&'static str>,
+    pick_requested: bool,
     /// Show on board: the dialog is hidden and the banner shows.
     pub on_board: bool,
     context_menu: Option<egui::Pos2>,
@@ -188,7 +192,9 @@ impl State {
             toggles: HashMap::new(),
             prefs_modal: false,
             prefs: prefs::PrefsState::default(),
-            setup: None,
+            dialogs: HashMap::new(),
+            pick_for: None,
+            pick_requested: false,
             on_board: false,
             context_menu: None,
             stackup: vec![
@@ -234,9 +240,16 @@ fn apply_layout(shell: &mut Shell, axes: Axes, old: Option<Axes>) {
         with(|s| s.prefs_modal = false);
     }
     if old.map(|o| o.setup) != Some(axes.setup) {
-        run(shell, "layout.tab.close", json!({ "tab": "board_setup" }));
+        for tab in [
+            "board_setup",
+            "project_settings",
+            "change_list",
+            "output_job",
+        ] {
+            run(shell, "layout.tab.close", json!({ "tab": tab }));
+        }
         with(|s| {
-            s.setup = None;
+            s.dialogs.clear();
             s.on_board = false;
         });
     }
@@ -256,11 +269,13 @@ fn as_own_window(shell: &mut Shell, tab: &str, panel: crate::layout::PanelId) {
             json!({ "tab": tab }),
         );
         // Larger than a floating tab's first size. Where the OS places it is up to the OS.
+        // Each further window steps down and right, so none hides another exactly.
+        let step = 40 * shell.layout().windows.len().saturating_sub(1);
         if let Some(window) = shell.layout().windows.last().map(|w| w.id) {
             run(
                 shell,
                 "layout.window.place",
-                json!({"window": window, "x": 120, "y": 80, "width": 1000, "height": 680}),
+                json!({"window": window, "x": 120 + step, "y": 80 + step, "width": 1000, "height": 680}),
             );
         }
     }
@@ -303,17 +318,54 @@ pub fn open_board_setup_tab(shell: &mut Shell) -> bool {
         return true;
     }
     let dialog = crate::settings::board_setup::dialog(project);
+    open_dialog(shell, crate::layout::PanelId::BoardSetup, dialog);
+    true
+}
+
+/// Shows a settings dialog as a non-modal window. One that is already open keeps its edits,
+/// but an Output Job's window moves to the job asked for.
+pub fn open_dialog(shell: &mut Shell, panel: crate::layout::PanelId, dialog: SettingsDialog) {
+    let tab = panel.id();
+    let open = shell
+        .layout()
+        .place(&crate::layout::TabKey::Panel(panel))
+        .is_some();
     with(|s| {
-        if s.setup.is_none() {
-            s.setup = Some(dialog);
+        if !open || panel == crate::layout::PanelId::OutputJob || !s.dialogs.contains_key(tab) {
+            s.dialogs.insert(tab, dialog);
         }
     });
     if axes().setup == Surface::Tab {
-        as_document_tab(shell, "board_setup");
+        as_document_tab(shell, tab);
     } else {
-        as_own_window(shell, "board_setup", crate::layout::PanelId::BoardSetup);
+        as_own_window(shell, tab, panel);
     }
-    true
+}
+
+/// True once when a dialog has asked for a folder picker.
+pub fn take_pick_request() -> bool {
+    with(|s| std::mem::take(&mut s.pick_requested))
+}
+
+/// Hands the picked folder to the dialog that asked.
+pub fn picked_folder(path: &std::path::Path) {
+    with(|s| {
+        if let Some(dialog) = s.pick_for.take().and_then(|tab| s.dialogs.get_mut(tab)) {
+            dialog.picked_folder(path);
+        }
+    });
+}
+
+/// Takes an open dialog out, for a caller that also needs the state. Put it back after.
+pub fn take_dialog(tab: &str) -> Option<SettingsDialog> {
+    with(|s| s.dialogs.remove(tab))
+}
+
+/// Puts back a dialog from [`take_dialog`].
+pub fn put_dialog(tab: &'static str, dialog: SettingsDialog) {
+    with(|s| {
+        s.dialogs.insert(tab, dialog);
+    });
 }
 
 // ---- The switcher ------------------------------------------------------------------------
@@ -1241,7 +1293,6 @@ fn layer_control(ui: &mut Ui, shell: &Shell, id: Id, canvas: Rect, out: &mut Vec
 type Tile = (&'static str, &'static str, bool, &'static str, &'static str);
 
 const ROUTE_TILES: &[Tile] = &[
-    ("corner", "route_corner_45", false, "Corner mode", "/"),
     ("look", "route_lookahead", true, "Look-ahead", "1"),
     (
         "obstacle",
@@ -1335,6 +1386,39 @@ fn tool_bar(ui: &mut Ui, shell: &Shell, id: Id, canvas: Rect) {
                                 ui.strong("Track width (Shift+W)");
                                 ui.label("Opens the width chooser.");
                             });
+                            // The real router's mode: Space and `/` change this icon.
+                            let (icon, name) = match shell.router().corner() {
+                                Corner::Straight45 => ("route_corner_45", "45, straight first"),
+                                Corner::Diagonal45 => {
+                                    ("route_corner_45_diagonal", "45, diagonal first")
+                                }
+                                Corner::Horizontal90 => {
+                                    ("route_corner_90_horizontal", "90, horizontal first")
+                                }
+                                Corner::Vertical90 => {
+                                    ("route_corner_90_vertical", "90, vertical first")
+                                }
+                                Corner::Any => ("route_corner_any", "any angle"),
+                            };
+                            if let Some(image) = icons::image(icon, icons::TOOLBAR, theme, true) {
+                                let response = chrome::icon_button(
+                                    ui,
+                                    image,
+                                    icons::TOOLBAR,
+                                    chrome::BAR_BUTTON,
+                                    false,
+                                    true,
+                                )
+                                .on_hover_ui(|ui| {
+                                    ui.strong("Corner mode (/)");
+                                    ui.label(format!("Now: {name}. Space flips the posture."));
+                                });
+                                if response.clicked() {
+                                    with(|s| {
+                                        s.pending.push(("tool.cycle_corner".to_owned(), json!({})))
+                                    });
+                                }
+                            }
                         }
                         for (key, icon, start, title, chord) in tiles {
                             let on = with(|s| s.toggles.get(key).copied().unwrap_or(*start));
@@ -1478,7 +1562,7 @@ fn banner(ui: &mut Ui, id: Id, canvas: Rect) {
                         if ui.button("Back to Board Setup").clicked() {
                             with(|s| s.on_board = false);
                             with(|s| {
-                                if s.setup.is_some() {
+                                if s.dialogs.contains_key("board_setup") {
                                     s.pending.push((
                                         "layout.tab.activate".to_owned(),
                                         json!({"tab": "board_setup"}),
@@ -1936,21 +2020,28 @@ pub fn ready_for_fab(ui: &mut Ui, shell: &Shell, out: &mut Vec<(String, Value)>)
 // ---- Tabs for the settings surfaces ------------------------------------------------------
 
 /// Board Setup in a tab.
-pub fn board_setup_tab(ui: &mut Ui, shell: &mut Shell) {
-    let Some(mut dialog) = with(|s| s.setup.take()) else {
-        ui.weak("Board Setup is closed. Open it from the Project menu.");
+pub fn dialog_tab(ui: &mut Ui, shell: &mut Shell, panel: crate::layout::PanelId) {
+    let tab = panel.id();
+    let Some(mut dialog) = take_dialog(tab) else {
+        ui.weak("This window is closed. Open it again from the Project menu.");
         return;
     };
     let height = ui.available_height() - 64.0;
-    let outcome = dialog.body(ui, shell, height);
-    if outcome == crate::settings::draw::Outcome::Closed {
-        with(|s| {
-            s.pending
-                .push(("layout.tab.close".to_owned(), json!({"tab": "board_setup"})))
-        });
-        return;
+    match dialog.body(ui, shell, height) {
+        crate::settings::draw::Outcome::Closed => {
+            with(|s| {
+                s.pending
+                    .push(("layout.tab.close".to_owned(), json!({ "tab": tab })))
+            });
+            return;
+        }
+        crate::settings::draw::Outcome::PickFolder => with(|s| {
+            s.pick_for = Some(tab);
+            s.pick_requested = true;
+        }),
+        crate::settings::draw::Outcome::Open => {}
     }
-    with(|s| s.setup = Some(dialog));
+    put_dialog(tab, dialog);
 }
 
 /// The button that hides the dialog or shows the board, on either surface.
@@ -1962,7 +2053,7 @@ pub fn show_on_board_button(ui: &mut Ui) {
     {
         with(|s| {
             s.on_board = true;
-            if s.setup.is_some() {
+            if s.dialogs.contains_key("board_setup") {
                 s.pending.push(("proto.focus_pcb".to_owned(), json!({})));
             }
         });

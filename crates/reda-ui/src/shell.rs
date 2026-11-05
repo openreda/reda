@@ -1795,6 +1795,9 @@ impl Shell {
             {
                 crate::placement::refresh(self);
             }
+            "tool.rotate" if self.tool() == Tool::Route => {
+                self.with_router(|r, shell| r.flip_posture(shell))
+            }
             "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
             "tool.rotate" | "tool.mirror" => {
                 if let Some(sheet) = self.active_sheet() {

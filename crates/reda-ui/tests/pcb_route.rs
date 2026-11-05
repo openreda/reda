@@ -208,12 +208,18 @@ fn slash_cycles_the_corner_mode() {
     };
     assert_eq!(b.shell.router().corner(), Corner::Straight45);
     assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(2.0, 0.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
+    // Space flips which leg comes first, within the mode.
+    run(&mut b.shell, "tool.rotate", json!({}));
     assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(1.0, 1.0), mm(3.0, 1.0)]);
+    run(&mut b.shell, "tool.rotate", json!({}));
+    assert_eq!(b.shell.router().corner(), Corner::Straight45);
+    // `/` goes 45, 90, any angle.
     run(&mut b.shell, "tool.cycle_corner", json!({}));
     assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(3.0, 0.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
+    run(&mut b.shell, "tool.rotate", json!({}));
     assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(0.0, 1.0), mm(3.0, 1.0)]);
+    run(&mut b.shell, "tool.cycle_corner", json!({}));
+    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(3.0, 1.0)]);
     run(&mut b.shell, "tool.cycle_corner", json!({}));
     assert_eq!(b.shell.router().corner(), Corner::Straight45);
 }

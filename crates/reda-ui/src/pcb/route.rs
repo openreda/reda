@@ -42,16 +42,28 @@ pub enum Corner {
     Horizontal90,
     /// Vertical, then horizontal.
     Vertical90,
+    /// Straight to the cursor at any angle.
+    Any,
 }
 
 impl Corner {
-    /// The mode `/` goes to next.
+    /// The mode `/` goes to next: 45, 90, any angle.
     pub fn next(self) -> Corner {
         match self {
+            Corner::Straight45 | Corner::Diagonal45 => Corner::Horizontal90,
+            Corner::Horizontal90 | Corner::Vertical90 => Corner::Any,
+            Corner::Any => Corner::Straight45,
+        }
+    }
+
+    /// Space: which leg comes first.
+    pub fn flipped(self) -> Corner {
+        match self {
             Corner::Straight45 => Corner::Diagonal45,
-            Corner::Diagonal45 => Corner::Horizontal90,
+            Corner::Diagonal45 => Corner::Straight45,
             Corner::Horizontal90 => Corner::Vertical90,
-            Corner::Vertical90 => Corner::Straight45,
+            Corner::Vertical90 => Corner::Horizontal90,
+            Corner::Any => Corner::Any,
         }
     }
 }
@@ -68,6 +80,7 @@ pub fn corner_path(from: Point, to: Point, corner: Corner) -> Vec<Point> {
         Corner::Diagonal45 => Point::new(Nm(from.x.0 + sx * d), Nm(from.y.0 + sy * d)),
         Corner::Horizontal90 => Point::new(to.x, from.y),
         Corner::Vertical90 => Point::new(from.x, to.y),
+        Corner::Any => to,
     };
     let mut path = vec![from];
     for p in [bend, to] {
@@ -346,6 +359,13 @@ impl Router {
     }
 
     /// `/`: the next corner mode.
+    pub fn flip_posture(&mut self, shell: &mut Shell) {
+        self.corner = self.corner.flipped();
+        if let Some((at, _)) = self.cursor {
+            self.check(shell, at);
+        }
+    }
+
     pub fn cycle_corner(&mut self, shell: &mut Shell) {
         self.corner = self.corner.next();
         if let Some((at, _)) = self.cursor {
