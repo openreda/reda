@@ -292,7 +292,7 @@ Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom 
 - **Courtyard:**
   - Courtyard Layers take only closed shapes: Rect, Circle or Polygon. Several shapes on one side union. The shape's edge is on the centreline of its stroke.
   - The leading suite allows loose lines and checks them. REDA makes an open courtyard impossible, because one that fails DRC's overlap check helps nobody. So there is no `courtyard_not_closed` check.
-  - Clicking inside a courtyard selects the Footprint on the PCB, as in the leading suite. [How do selection, snapping, grids and Properties work across editors?](https://github.com/openreda/reda/issues/139) settles how this ranks against other hits.
+  - Clicking inside a courtyard selects the Footprint on the PCB, as in the leading suite. It ranks below Pads, Vias, Tracks and text ([stacked objects](editing.md#stacked-objects)).
 - **Origin:** Set Origin offers Pin 1, Centre or Pick. Every Footprint's origin belongs at the body centroid, which the CPL relies on ([style](../../library-style.md)). The zero orientation follows IPC-7351.
 
 ### Footprint editor

@@ -275,8 +275,8 @@ One limit the board must meet, such as minimum clearance, applying board-wide or
 _Avoid_: Constraint
 
 **Output Origin**:
-A point the user can place on a PCB Document, from which manufacturing files measure their coordinates when the Fab Preset asks for a relative origin.
-_Avoid_: Placement Origin, aux origin, drill origin, datum, zero point
+A point the user can place on a PCB Document, from which the editor measures coordinates and the grid, and from which manufacturing files measure theirs when the Fab Preset asks for a relative origin.
+_Avoid_: Placement Origin, user origin, current origin, aux origin, drill origin, datum, zero point
 
 ## Manufacturing
 
@@ -427,3 +427,31 @@ _Avoid_: Render tree, display list, view model
 **Active Bar**:
 The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.
 _Avoid_: Quick bar, floating toolbar, palette
+
+**HUD**:
+A small readout by the cursor on a canvas, showing where the cursor is and how far it has moved since the last click.
+_Avoid_: Overlay, cursor tooltip
+
+**Selection Filter**:
+The per-kind switches that decide which kinds of object a click or rectangle can pick; filtered kinds stay visible.
+_Avoid_: Pick mask, selection mask
+
+**Hotspot**:
+A point on an object that the cursor snaps to, such as a Pad centre or a Wire end.
+_Avoid_: Snap point, anchor
+
+**Snap Distance**:
+How close the cursor must come to a Hotspot on a board or Footprint before it snaps there, as a length.
+_Avoid_: Snap radius, capture range
+
+**Electrical Range**:
+How close the cursor must come to a Hotspot on a sheet or Symbol before it snaps there, as a length set per grid preset.
+_Avoid_: Electrical grid, snap radius
+
+**Dimmed**:
+Shaded to push it back visually, while it can still be picked and edited.
+_Avoid_: Faded, greyed
+
+**Masked**:
+Greyed so that it can't be picked or edited until the mask is cleared.
+_Avoid_: Locked, disabled, filtered

@@ -60,12 +60,12 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
   - A per-Component lock.
   - An **Arrange within rectangle** Command.
 - **Cross-select** with the schematic, with its order kept for placing parts in the order they were picked ([sync](sync.md#cross-select-and-net-highlighting)).
-- **Properties panel:**
+- **Properties panel**, laid out as in [Properties with a selection](editing.md#properties-with-a-selection):
   - Designator, value and Footprint are editable here as write-through Commands ([sync](sync.md#write-through-edits)).
   - Each Footprint has a movable, rotatable Designator text.
 - Pads come from the Library part and can be [edited on the board](#placed-pad-edits).
 - **Free Pads** are plated or non-plated Pads with no Footprint, optionally on a Net. They serve as mounting holes and fiducials, as Mechanical Parts can. They have the whole [Pad model](library.md#pad-model).
-- **Output Origin:** an optional object that sets where a `relative` Fab Preset measures Gerber, drill and CPL coordinates from ([outputs](outputs.md#output-origin)).
+- **Output Origin:** an optional object that sets where coordinates and [the grid](editing.md#grid) run from in the editor, and where a `relative` Fab Preset measures Gerber, drill and CPL coordinates from ([outputs](outputs.md#output-origin)).
 
 ### Placed Pad edits
 
@@ -102,7 +102,7 @@ A Mechanical Part placed directly on the PCB stores only a Footprint copy and it
 - A live minimum spanning tree per Net.
 - It can be shown or hidden per Net and globally.
 - A connection drops out of the Ratsnest once copper makes it.
-- Net highlighting works across the schematic and the PCB.
+- [Net highlighting](editing.md#net-highlight) works across the schematic and the PCB.
 
 ## Routing
 
@@ -270,7 +270,7 @@ One editor serves the Board Outline, Board Cutouts, Zones, Zone Cutouts and poly
 - Dragging an edge away from a handle slides it.
 - `Mod`+click on an edge inserts a vertex. Del while holding a vertex removes it.
 - Each drag is one undo step.
-- **Alignment guides** to the adjacent edges and other vertices use the shared snapping, which [How do selection, snapping, grids and Properties work across editors?](https://github.com/openreda/reda/issues/139) settles.
+- **Alignment guides** to the adjacent edges and other vertices use the alignment level of the [shared snapping](editing.md#cursor-snapping).
 - **Commands**, taking any of these objects:
   - `pcb.polygon.set_vertices {object, vertices}`
   - `pcb.polygon.fillet {object, vertices?, radius}`, on all corners if left out
@@ -288,7 +288,7 @@ One editor serves the Board Outline, Board Cutouts, Zones, Zone Cutouts and poly
 ## Moving the board
 
 - **`pcb.board.move {dx, dy}`** moves the Board Outline, its Board Cutouts, the Output Origin and every object with any part inside the outline, as in the leading suite. A Track crossing the edge moves whole. Objects wholly outside stay, such as Footprints in unplaced Sync clusters.
-- **Move Board Shape** is a menu item that starts an ordinary move of the outline alone. Board Cutouts stay unless they are selected too.
+- **Move Board Shape** is a menu item that starts an ordinary move of the outline alone, with the [rotate and mirror keys](editing.md#rotation). Board Cutouts stay unless they are selected too.
 
 ## Text and graphics
 
@@ -311,10 +311,9 @@ One editor serves the Board Outline, Board Cutouts, Zones, Zone Cutouts and poly
   - visibility per object type
 - Colour schemes are fixed per app theme. Colour overrides are Preferences ([app](app.md#preferences)).
 - **Units:** mm by default, with a one-key mm/mil toggle.
-- **Grid:**
-  - Snap-grid presets: 0.1, 0.25, 0.5 and 1.0 mm, and 5, 10, 25 and 50 mil. One key cycles them.
-  - Electrical snap to Pads, Track ends and Via centres.
-- A user-set origin and a measure tool.
+- **Grid and snapping** follow the [grid](editing.md#grid) and [cursor snapping](editing.md#cursor-snapping) rules.
+- **Origin:** the [Output Origin](outputs.md#output-origin) is the user-set origin. Coordinates, Go To and the grid run from it.
+- A measure tool.
 
 ## Deferred past v0.1
 

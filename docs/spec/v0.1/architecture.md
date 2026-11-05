@@ -147,7 +147,10 @@ These names are held for later milestones. They are additive, so they stay out o
 | Waiver | `active`, `checks` | later |
 | Waiver, Violation | an `objects` entry as `{uuid, instance}` beside a plain UUID, which means every Sheet Instance | v0.5 |
 | Report files | `reda://` cross-probe links | later |
-| Preferences | `network.*`, several shortcuts per Command in `keymap.toml` | later |
+| Preferences | `network.*` | later |
+| Preferences | `canvas.wheel.*` | v0.2 |
+| PCB Document | `grids`, `guides` | v0.3 |
+| Numeric expressions | function names such as `sqrt` | later |
 
 ## File format
 
@@ -261,7 +264,7 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 - **SDK:** `rmcp`, with a hand-written `ServerHandler` driven by the registry.
 - **Tools:**
   - Generic: `search_commands`, `describe_command` and `run_command {id, params}`.
-  - Query Commands, also reachable from the CLI: `project.overview`, `objects.query` (by Document, object type, Net, Designator or region), `object.get`, `erc.run`, `drc.run`, `sync.preview`, `document.render`, `pcb.copper.connected`, `pcb.ratsnest`, `pcb.clearance.track`, `pcb.clearance.via`, `pcb.zone.fill_status` and `pcb.zone.fills`.
+  - Query Commands, also reachable from the CLI: `project.overview`, `objects.query` (by Document, object type, Net, Designator or region), [`objects.find_similar`](editing.md#select-similar), `object.get`, `erc.run`, `drc.run`, `sync.preview`, `document.render`, `pcb.copper.connected`, `pcb.ratsnest`, `pcb.clearance.track`, `pcb.clearance.via`, `pcb.zone.fill_status` and `pcb.zone.fills`.
 - **`document.render`** params are explicit and independent of the user's view:
   - view: fit the Document (default), a rectangle in nm, or fit a set of object UUIDs
   - size: in pixels (default 1024 px on the long side)

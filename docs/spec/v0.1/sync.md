@@ -162,7 +162,8 @@ Each Sync places its new Footprints in a fresh cluster. The leading suite makes 
   - **Zoom** to the target (off).
   - **Focus** the other Document if it is visible (on).
   - **Reposition** (off): picking a Unit attaches its Footprint to the PCB cursor when the PCB canvas is visible. It skips locked Footprints.
-- **Cross-probe** is an explicit Command in the context menu. It always zooms and dims the target, and its jump option makes the other tab active. As in the leading suite, cross-select doesn't zoom and cross-probe does.
+- **Cross-probe** is an explicit Command in the context menu, on `Mod`+Shift+C. It always zooms and dims the target, at the [shared highlight](editing.md#highlighting)'s closeness and strength, and its jump option makes the other tab active. As in the leading suite, cross-select doesn't zoom and cross-probe does.
+- **Keys:** `Mod`+Shift+X toggles cross-select, as in the leading suite, and `Mod`+Shift+R toggles Reposition.
 
 ## Commands
 

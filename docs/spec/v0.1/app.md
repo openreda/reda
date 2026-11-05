@@ -65,8 +65,20 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   - The active or hovered tab shows a × that closes it.
   - Groups have no borders: they sit 3 px apart, and the gaps show the gap colour. The gap at a Dock's inner edge is its splitter, and it turns the accent (at 60 %) while hovered or dragged.
   - An expanded Dock has no header. It collapses from the View menu's Docks submenu (Collapse Left, Right or Bottom Dock, the `layout.dock.collapse` Presets), or from Collapse Dock on any of its tabs' menus. A collapsed Dock is a 24 px faint icon strip, with no frame around it.
-- **Status bar:** from the left, "Active: <Document kind>" (Schematic Sheet, PCB Document, Symbol, Footprint, Part), the cursor's X and Y in the Document's units, and its grid; then notes such as "Zones need refilling", the "out of sync: N changes" badge, the bridge indicator and the Panels button, all flat buttons.
-  - The cursor on a board is where it last snapped, measured from the Output Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. mm read to two decimals, mil to whole mil.
+- **Status bar:** from the left, all flat buttons:
+  1. "Active: <Document kind>" (Schematic Sheet, PCB Document, Symbol, Footprint, Part)
+  2. the cursor's X and Y in the Document's units
+  3. the grid, which opens the grid menu when clicked
+  4. the [object snap mode](editing.md#cursor-snapping), which cycles when clicked and is blank when off, as in the leading suite
+  5. the active Layer swatch (PCB)
+  6. the Tool's prompt, or a summary of the object under the cursor when no Tool runs
+  7. notes such as "Zones need refilling"
+  8. the "out of sync: N changes" badge
+  9. the bridge indicator
+  10. the Panels button
+
+  The prompt shares this one bar, which differs from the leading suite's separate command bar, because a single line fits the fixed-height shell.
+  - The cursor on a board is where it last snapped, measured from the Output Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. Values follow the [display precision](editing.md#properties-with-a-selection) Preferences.
 - **Command Palette** (`Mod+Shift+P`):
   - It does a fuzzy search over every Command and Preset in the current context.
   - It shows each shortcut, and the reason for any that are unavailable.
@@ -95,6 +107,12 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - Adding, deleting, renaming and reordering Documents change only the in-memory Project and dirty `.reda`. They reach disk on save, and a deleted Document's file goes to the OS trash.
 - These edits are undoable on the Project's own undo stack ([architecture](architecture.md#design-data-model)). Focus picks the stack that `Mod+Z` uses: the Projects panel and the Project dialogs use the Project stack, and a Document tab uses that Document's stack.
 - The PCB Document can be deleted and re-added ([PCB](pcb.md#board)).
+- **A missing Document:** a `.reda` entry whose file is gone shows greyed out, with a note in Messages. It offers **Relink…**, which picks a file with the same Document UUID or asks for confirmation, and **Remove from Project**.
+- **Long paths:** on Windows, Project paths past the legacy length limit work.
+
+### Packaging a Project
+
+`project.package {path, include_outputs}` zips the Project folder minus `.reda/`, with relative paths. It is deterministic, works headless, and opens as a small generated dialog from the Projects panel. Project Libraries inside the folder come along, and the dialog warns about any Library path outside it. This differs from the leading suite's four-page wizard, because a REDA Project is one folder.
 
 ### Projects panel
 
@@ -111,6 +129,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 ```
 
 - Each item has a dirty marker.
+- Each Document shows its number in `.reda` order, with its full path in a tooltip. **Package Project…** is on the Project's menu.
 - Double-clicking a Document opens it. Double-clicking a job opens Edit.
 - Libraries are browsed in the Library panel. This panel lists only the Project Library paths.
 
@@ -186,13 +205,14 @@ Sources: [ADR-0010](../../adr/0010-canvas-drawn-by-own-wgpu-renderer.md), [How a
     - selected: lightened, with a halo
     - hovered: a faint lighten
     - Net-highlighted or cross-probed: everything else is dimmed
-    - dimmed
+    - [dimmed](editing.md#highlighting): shaded, and still hit-tested
+    - [masked](editing.md#highlighting): greyed, and skipped by hit-testing
   - Changing the selection rewrites only the flags.
 - **Live interaction:**
   - Drags, rotates and placements in flight apply a per-frame transform to the flagged instances.
   - These go in a transient overlay buffer: rubber-banded Wires, the routing Track, the selection rectangle, Violation markers and the snap cursor.
   - The grid is drawn by a shader, as quiet opaque dots (about 1.4:1 on the sheet in either theme). When its dots would come closer than 6 px it coarsens by tens, up to twice, and is hidden after that.
-  - egui draws only UI on top: the Active Bar and tooltips.
+  - egui draws only UI on top: the Active Bar, the [HUD](editing.md#hud) and tooltips.
 - **Text:**
   - Document text is always drawn.
   - View-only labels (Pad numbers, Pin numbers, Net names on Pads and Tracks) are generated by the renderer. Each has a minimum on-screen size, below which it is hidden.
@@ -218,27 +238,39 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
 - **Default scheme.** The exact letters can change during the build, but the scheme is fixed:
   - **File and edit:** OS-standard shortcuts with `Mod` (Cmd on macOS, Ctrl elsewhere): `Mod`+S/Z/Shift+Z/C/V/X/A, and Del.
   - **Tools:** W Wire, N Net Label, P Port, B Power Port, Q No-Connect Marker, T Track, V Via, Z Zone, K Keepout. Esc cancels and returns to select.
-  - **In flight:** Space rotate, X/Y mirror, L flip side, Tab Properties, Backspace remove the last segment, `/` corner mode.
+  - **In flight:** Space rotate, X/Y mirror, L flip side, Tab Properties, Backspace remove the last segment, `/` corner mode, `Mod`+E the snap palette. Backspace does nothing when idle.
   - **Wire Tool:** Space corner mode, Shift+Space Wire mode, Insert add a vertex, Enter fix a corner, Backspace or Delete remove the last segment ([schematic](schematic.md#wire-tool)). `Mod`+Space switches corners during a drag.
   - **View:**
-    - G cycles the grid preset, and `Ctrl+Q` toggles mm/mil.
-    - `+`/`-` step to the next or previous copper Layer, and `*` swaps top and bottom.
-    - `Shift+S` toggles single-Layer mode.
-    - F zooms to fit, and Home zooms to the selection.
+    - **Grid:** G and Shift+G cycle the preset forward and back. `Mod`+Shift+G sets a custom value, and `Mod`+' toggles the visible grid.
+    - **Snap:** Shift+E cycles the object snap mode, or toggles electrical snap on a sheet.
+    - **Units:** `Ctrl+Q` toggles mm/mil, for the focused Panel or the canvas.
+    - **Layers:** `+`/`-` step to the next or previous copper Layer, and `*` swaps top and bottom. `Shift+S` toggles single-Layer mode.
+    - **Zoom:** PgUp and PgDn zoom at the cursor, with Shift for fine steps. F and `Mod`+PgDn fit all objects, and `Mod`+Shift+F fits the sheet or board. Shift+Home zooms to the selection, Shift+Z zooms to an area, and Alt+← goes to the previous view.
+    - **Moving around:** Home re-centres on the cursor, and J opens Go To. `Mod`+Home jumps to design zero and `Mod`+End to the Output Origin.
+    - **Highlight:** Shift+C clears it, and `[` and `]` set the mask and dim strength for the session.
+    - **HUD:** Shift+H toggles it, Shift+D toggles its delta line, and Insert resets the delta.
+    - **Panels:** F11 shows Properties.
+    - **Violations:** `Mod`+Shift+F4 and `Mod`+Shift+F3 go to the next and previous one.
+    - **Cross-select:** `Mod`+Shift+X toggles it, `Mod`+Shift+R toggles Reposition, and `Mod`+Shift+C runs Cross-probe.
+  - **Selecting:** Shift+click toggles an object. Shift+F opens Select Similar. Shift+Tab picks the next object in a stack when idle.
   - **Move:** M is Move (detach), and D is Drag. Alt constrains a drag, `Mod`+arrows nudge, and Shift+Space rotates clockwise ([schematic](schematic.md#editing)).
   - **Text:** F2 edits text [in place](schematic.md#fields).
   - **Mouse:**
-    - The wheel zooms at the cursor. Shift+wheel scrolls sideways, and Ctrl+wheel scrolls up and down.
+    - The wheel zooms at the cursor. Shift+wheel scrolls sideways, and Ctrl+wheel scrolls up and down ([why](editing.md#navigation)).
     - Right-drag and middle-drag pan. A right-click without dragging opens the context menu.
-    - Plain drag keeps connections. `Mod`+drag detaches. `Always Drag` swaps them. `Mod`+click without movement toggles the selection.
-    - Alt+click highlights a Net on a sheet. Rebind it where the window manager takes Alt+click.
+    - Plain drag keeps connections. `Mod`+drag detaches. `Always Drag` swaps them.
+    - [Net highlight](editing.md#net-highlight): `Mod`+click on a board and Alt+click on a sheet. Rebind it where the window manager takes Alt+click.
+    - In flight, hold `Mod` to [suspend object snap](editing.md#cursor-snapping), and `Mod`+Shift to suspend the grid too.
   - No multi-key sequences.
 - **Customisation:**
   - The user's `keymap.toml` holds only overrides and removals, applied last.
   - Keys are bound by logical key (the character produced) and written portably, such as `"Mod+Shift+Z"`.
+  - A Command can have several keys, each its own entry.
+  - `keymap.toml` also holds a `modifiers` table, because mouse gestures and held keys aren't chords. Its roles are Net highlight on a board, Net highlight on a sheet, drag constrain, detach and snap suspend.
   - A **Keyboard Shortcuts** page in Preferences offers:
     - search over every Command and Preset
-    - chord recording
+    - chord recording, which shows "Currently bound to X" with **Reassign**
+    - a Modifiers section for the roles above
     - conflict flags
     - reset to default
     - an "Open folder" link
@@ -294,13 +326,18 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
 - **v0.1 settings:**
   - **General:** theme dark / light / follow OS (default: follow OS); UI scale; reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default); `user.name`, the author of [Waivers](checks.md#waivers) (default: the OS user name).
   - **Checks:** the [marker display](checks.md#canvas-markers): overlay style (layer colour, solid, warning pattern or cross pattern, default cross pattern); overlay when zoomed out (pattern scales, layer colour dominates or override colour dominates, default override colour); the per-check Details and Overlay grid; `checks.max_markers` (500).
-  - **Schematic** and **PCB** (editing):
-    - default units mm/mil (mm)
+  - **Schematic** and **PCB** (editing), from [shared editing](editing.md):
+    - default units mm/mil (mm), and display precision: mm (3 decimals), mil (1)
     - repeat placement (on)
-    - default snap-grid preset per Document type
-    - electrical snap (on)
-    - auto-pan at the canvas edge (on)
-  - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Object's Electrical Hot Spot (on), Center of Object (off) and Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
+    - Click Clears Selection (on), Directional Rectangle (on), Rotation Step (90°)
+    - Object's Electrical Hot Spot (on), Center of Object (off)
+    - **Snap:** default object snap mode (PCB Active Layer, schematic on), Snap Distance (8 mil), the Hotspot checklists
+    - **Grid:** the preset tables and default preset per Document type, visible style (dots), coarse multiplier (5)
+    - **Auto-pan:** style (Ballistic), speed
+    - **Highlight:** select (on), zoom (on) and closeness (0.6), dim (on) and strength (0.6), mask strength (0.75)
+    - **HUD:** on, follow cursor (on), the item checklist
+    - zoom, flip and Layer-switch animation (on)
+  - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
   - **PCB:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones).
   - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
@@ -335,7 +372,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
 
 - `.reda/view.json` holds:
   - the Layout and the open tabs
-  - per Document UUID: zoom and pan, Layer visibility, and the Inactive-Layer mode
+  - per Document UUID: zoom and pan, Layer visibility, the Inactive-Layer mode, and the [working state](editing.md#working-state): current grid, units, object snap mode, Gridless and the Selection Filter
 - The selection is not saved.
 - **Disposable:** if the file is unreadable or was written by another version, it is silently discarded in favour of the default Layout.
 - It is saved on close, and debounced on change.

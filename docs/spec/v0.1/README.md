@@ -10,6 +10,7 @@ v0.1 is a tester release, shipped unsigned. Finishing it is released as `0.1.0`.
 |---|---|
 | [`architecture.md`](architecture.md) | Crates and dependency rules; the design-data model; the file format; Commands, Tools, MCP, the CLI and the control port; the Journal |
 | [`schematic.md`](schematic.md) | Schematic editor |
+| [`editing.md`](editing.md) | Shared editing rules: selection, Select Similar, snapping, the grid, Properties, numeric expressions, highlighting, the HUD, navigation |
 | [`library.md`](library.md) | Libraries, Parts, the library editors, Footprint generators, Import part, the starter Library |
 | [`pcb.md`](pcb.md) | PCB editor |
 | [`sync.md`](sync.md) | Schematic → PCB Sync, write-through edits, cross-select |
