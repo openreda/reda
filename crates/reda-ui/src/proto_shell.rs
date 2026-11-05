@@ -29,6 +29,7 @@ pub mod prefs;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Top {
+    Full,
     QuickStrip,
     Toolbar,
     PaletteField,
@@ -74,7 +75,19 @@ pub struct Axes {
     pub bar: ActiveBar,
 }
 
-pub const PRESETS: [(&str, &str, Axes); 3] = [
+pub const PRESETS: [(&str, &str, Axes); 4] = [
+    (
+        "D",
+        "Round 2 picks",
+        Axes {
+            top: Top::Full,
+            layers: LayerUi::Swatch,
+            nav: Nav::OnePanel,
+            prefs: Surface::Window,
+            setup: Surface::Window,
+            bar: ActiveBar::Flat,
+        },
+    ),
     (
         "A",
         "Follow the leading suite",
@@ -125,6 +138,8 @@ pub struct State {
     faces: HashMap<String, usize>,
     pub recent: Vec<String>,
     pub key_card: bool,
+    pub palette_query: Option<String>,
+    toggles: HashMap<&'static str, bool>,
     pub prefs_modal: bool,
     pub prefs: prefs::PrefsState,
     /// Board Setup held open in a tab.
@@ -152,8 +167,9 @@ pub fn axes() -> Axes {
 impl State {
     fn new() -> State {
         let preset = match std::env::var("REDA_SHELL").as_deref() {
-            Ok("B") => 1,
-            Ok("C") => 2,
+            Ok("A") => 1,
+            Ok("B") => 2,
+            Ok("C") => 3,
             _ => 0,
         };
         State {
@@ -168,6 +184,8 @@ impl State {
             faces: HashMap::new(),
             recent: Vec::new(),
             key_card: false,
+            palette_query: None,
+            toggles: HashMap::new(),
             prefs_modal: false,
             prefs: prefs::PrefsState::default(),
             setup: None,
@@ -193,29 +211,59 @@ fn run(shell: &mut Shell, id: &str, params: Value) {
     let _ = shell.run(id, params);
 }
 
-fn apply_layout(shell: &mut Shell, axes: Axes) {
-    for tab in ["board", "nets", "footprints", "zones"] {
-        run(shell, "layout.tab.close", json!({ "tab": tab }));
-    }
-    match axes.nav {
-        Nav::OnePanel => run(shell, "panel.show:board", json!({})),
-        Nav::ThreePanels => {
-            for panel in ["nets", "footprints", "zones"] {
-                run(shell, &format!("panel.show:{panel}"), json!({}));
-            }
+fn apply_layout(shell: &mut Shell, axes: Axes, old: Option<Axes>) {
+    if old.map(|o| o.nav) != Some(axes.nav) {
+        for tab in ["board", "nets", "footprints", "zones"] {
+            run(shell, "layout.tab.close", json!({ "tab": tab }));
         }
-        Nav::InLayers => run(shell, "panel.show:layers", json!({})),
+        match axes.nav {
+            Nav::OnePanel => run(shell, "panel.show:board", json!({})),
+            Nav::ThreePanels => {
+                for panel in ["nets", "footprints", "zones"] {
+                    run(shell, &format!("panel.show:{panel}"), json!({}));
+                }
+            }
+            Nav::InLayers => run(shell, "panel.show:layers", json!({})),
+        }
+        run(shell, "panel.show:projects", json!({}));
+        run(shell, "panel.show:properties", json!({}));
     }
-    run(shell, "panel.show:projects", json!({}));
-    run(shell, "panel.show:properties", json!({}));
     // A surface that changed kind closes rather than moving.
-    run(shell, "layout.tab.close", json!({ "tab": "preferences" }));
-    run(shell, "layout.tab.close", json!({ "tab": "board_setup" }));
-    with(|s| {
-        s.prefs_modal = false;
-        s.setup = None;
-        s.on_board = false;
-    });
+    if old.map(|o| o.prefs) != Some(axes.prefs) {
+        run(shell, "layout.tab.close", json!({ "tab": "preferences" }));
+        with(|s| s.prefs_modal = false);
+    }
+    if old.map(|o| o.setup) != Some(axes.setup) {
+        run(shell, "layout.tab.close", json!({ "tab": "board_setup" }));
+        with(|s| {
+            s.setup = None;
+            s.on_board = false;
+        });
+    }
+}
+
+/// Shows a surface's Panel in a non-modal OS window of its own, one instance.
+fn as_own_window(shell: &mut Shell, tab: &str, panel: crate::layout::PanelId) {
+    let open = shell
+        .layout()
+        .place(&crate::layout::TabKey::Panel(panel))
+        .is_some();
+    run(shell, &format!("panel.show:{tab}"), json!({}));
+    if !open {
+        run(
+            shell,
+            "layout.tab.move_to_new_window",
+            json!({ "tab": tab }),
+        );
+        // Larger than a floating tab's first size. Where the OS places it is up to the OS.
+        if let Some(window) = shell.layout().windows.last().map(|w| w.id) {
+            run(
+                shell,
+                "layout.window.place",
+                json!({"window": window, "x": 120, "y": 80, "width": 1000, "height": 680}),
+            );
+        }
+    }
 }
 
 /// Places a surface's Panel as a tab beside the Documents.
@@ -238,27 +286,14 @@ pub fn open_preferences(shell: &mut Shell) {
         Surface::Modal => with(|s| s.prefs_modal = true),
         Surface::Tab => as_document_tab(shell, "preferences"),
         Surface::Window => {
-            let open = shell
-                .layout()
-                .place(&crate::layout::TabKey::Panel(
-                    crate::layout::PanelId::Preferences,
-                ))
-                .is_some();
-            run(shell, "panel.show:preferences", json!({}));
-            if !open {
-                run(
-                    shell,
-                    "layout.tab.move_to_new_window",
-                    json!({ "tab": "preferences" }),
-                );
-            }
+            as_own_window(shell, "preferences", crate::layout::PanelId::Preferences);
         }
     }
 }
 
 /// `App::open_board_setup` when the axis makes it a tab. False leaves it to the modal.
 pub fn open_board_setup_tab(shell: &mut Shell) -> bool {
-    if axes().setup != Surface::Tab {
+    if axes().setup == Surface::Modal {
         return false;
     }
     let Some(project) = shell.engine().project() else {
@@ -273,7 +308,11 @@ pub fn open_board_setup_tab(shell: &mut Shell) -> bool {
             s.setup = Some(dialog);
         }
     });
-    as_document_tab(shell, "board_setup");
+    if axes().setup == Surface::Tab {
+        as_document_tab(shell, "board_setup");
+    } else {
+        as_own_window(shell, "board_setup", crate::layout::PanelId::BoardSetup);
+    }
     true
 }
 
@@ -344,6 +383,7 @@ fn switcher(ctx: &egui::Context) {
                                     ui,
                                     &mut a.top,
                                     &[
+                                        (Top::Full, "Quick strip + command field"),
                                         (Top::QuickStrip, "Quick strip, no toolbar"),
                                         (Top::Toolbar, "Menus + toolbar (today)"),
                                         (Top::PaletteField, "Menus + Palette field"),
@@ -358,7 +398,7 @@ fn switcher(ctx: &egui::Context) {
                                     &mut a.layers,
                                     &[
                                         (LayerUi::Strip, "Strip, canvas bottom"),
-                                        (LayerUi::Swatch, "Swatch on Active Bar"),
+                                        (LayerUi::Swatch, "Swatch, top right"),
                                         (LayerUi::Rail, "Rail, canvas left"),
                                     ],
                                 )
@@ -395,7 +435,11 @@ fn switcher(ctx: &egui::Context) {
                                 choice(
                                     ui,
                                     &mut a.setup,
-                                    &[(Surface::Modal, "Modal"), (Surface::Tab, "Tab")],
+                                    &[
+                                        (Surface::Window, "Own window"),
+                                        (Surface::Modal, "Modal"),
+                                        (Surface::Tab, "Tab"),
+                                    ],
                                 )
                             });
                             ui.end_row();
@@ -451,6 +495,18 @@ const EXTRA_MENUS: &str = r#"{ "menus": [
   ]}
 ]}"#;
 
+const UI_SCALE_MENU: &str = r#"{ "menus": [
+  { "id": "view.ui_scale", "title": "menu-ui-scale", "items": [
+    { "id": "s75", "title": "ui-scale-75", "command": "app.preferences.set", "params": { "key": "general.ui_scale", "value": 0.75 } },
+    { "id": "s85", "title": "ui-scale-85", "command": "app.preferences.set", "params": { "key": "general.ui_scale", "value": 0.85 } },
+    { "id": "s100", "title": "ui-scale-100", "command": "app.preferences.set", "params": { "key": "general.ui_scale", "value": 1.0 } },
+    { "id": "s115", "title": "ui-scale-115", "command": "app.preferences.set", "params": { "key": "general.ui_scale", "value": 1.15 } },
+    { "id": "s125", "title": "ui-scale-125", "command": "app.preferences.set", "params": { "key": "general.ui_scale", "value": 1.25 } },
+    { "id": "s150", "title": "ui-scale-150", "command": "app.preferences.set", "params": { "key": "general.ui_scale", "value": 1.5 } },
+    { "id": "s200", "title": "ui-scale-200", "command": "app.preferences.set", "params": { "key": "general.ui_scale", "value": 2.0 } }
+  ]}
+]}"#;
+
 const ROUTE_MENU: &str = r#"{ "menus": [
   { "id": "route", "title": "menu-route", "items": [
     { "id": "route.track", "command": "tool.activate:route" },
@@ -469,6 +525,11 @@ pub fn bars_for(document: Option<DocumentType>) -> &'static Bars {
             let mut own = bars::for_document(ty).clone();
             let extra = data::parse(EXTRA_MENUS).expect("proto menus");
             own.menus.extend(extra.menus);
+            let scale = data::parse(UI_SCALE_MENU).expect("proto scale").menus;
+            if let Some(view) = own.menus.iter_mut().find(|m| m.id == "view") {
+                view.items.push(Item::Separator);
+                view.items.extend(scale.into_iter().map(Item::Submenu));
+            }
             if ty == Some(DocumentType::Pcb) {
                 own.menus
                     .extend(data::parse(ROUTE_MENU).expect("proto route").menus);
@@ -512,7 +573,7 @@ fn quick_row(ui: &mut Ui, cx: &draw::Cx<'_>) -> Option<Invocation> {
         let Some(image) = icons::image(&item.icon, icons::MENU, theme, enabled) else {
             continue;
         };
-        let response = chrome::icon_button(ui, image, 18.0, 22.0, false, enabled);
+        let response = chrome::icon_button(ui, image, QUICK_ICON, QUICK_BUTTON, false, enabled);
         let response = response.on_hover_text(&item.title);
         if response.clicked()
             && let Ok(run) = item.run
@@ -523,11 +584,50 @@ fn quick_row(ui: &mut Ui, cx: &draw::Cx<'_>) -> Option<Invocation> {
     clicked
 }
 
+/// The quick strip's sizes: larger than the menus' icons.
+const QUICK_ICON: f32 = 22.0;
+const QUICK_BUTTON: f32 = 30.0;
+
 fn gear(ui: &mut Ui) -> Option<Invocation> {
-    ui.add(Button::new("Prefs").frame_when_inactive(false))
+    let theme = ui.ctx().theme();
+    let image = icons::image("preferences", icons::MENU, theme, true)?;
+    chrome::icon_button(ui, image, QUICK_ICON, QUICK_BUTTON, false, true)
         .on_hover_text("Preferences")
         .clicked()
         .then(|| ("app.dialog.open:preferences".to_owned(), json!({})))
+}
+
+/// Menu titles a size up, so the row reads as one with the larger quick strip.
+fn larger_menus(ui: &mut Ui) {
+    ui.style_mut().override_font_id = Some(egui::FontId::new(14.5, egui::FontFamily::Proportional));
+    ui.spacing_mut().button_padding = Vec2::new(8.0, 4.0);
+    ui.spacing_mut().item_spacing.x = 4.0;
+}
+
+/// The command field, centred on the row. Hidden when the row has no room for it.
+fn command_field(ui: &mut Ui, row: Rect, y: f32) -> Option<Invocation> {
+    // The quick strip and menus end about here, and the gear starts about there. The menu
+    // bar reports the whole row as its width, so neither can be measured.
+    let left = row.left() + 560.0;
+    let right = row.right() - 48.0;
+    let width = 420.0_f32.min(right - left);
+    if width < 160.0 {
+        return None;
+    }
+    let centre = row
+        .center()
+        .x
+        .clamp(left + width / 2.0, right - width / 2.0);
+    let field = ui.put(
+        Rect::from_center_size(egui::pos2(centre, y), Vec2::new(width, 24.0)),
+        Button::new(RichText::new("Search Documents, Components, Nets").weak())
+            .fill(ui.visuals().extreme_bg_color)
+            .right_text(RichText::new("Ctrl+P").weak()),
+    );
+    field.clicked().then(|| {
+        with(|s| s.palette_query = Some(String::new()));
+        ("app.dialog.open:command_palette".to_owned(), json!({}))
+    })
 }
 
 /// The top of the window, as the axis says.
@@ -535,6 +635,27 @@ pub fn top_rows(ui: &mut Ui, cx: &draw::Cx<'_>) -> Option<Invocation> {
     let document = bars::active_type(cx.shell);
     let own = bars_for(document);
     match axes().top {
+        Top::Full => {
+            egui::Panel::top("menu-bar")
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 2.0;
+                        let quick = quick_row(ui, cx);
+                        chrome::bar_separator(ui, 22.0);
+                        larger_menus(ui);
+                        let menu = draw::menu_bar(ui, cx, own);
+                        let row = ui.max_rect();
+                        let y = ui.min_rect().center().y;
+                        let field = command_field(ui, row, y);
+                        let right = ui
+                            .with_layout(egui::Layout::right_to_left(egui::Align::Center), gear)
+                            .inner;
+                        quick.or(menu).or(field).or(right)
+                    })
+                    .inner
+                })
+                .inner
+        }
         Top::Toolbar => {
             let menu = egui::Panel::top("menu-bar")
                 .show(ui, |ui| draw::menu_bar(ui, cx, own))
@@ -1116,8 +1237,57 @@ fn layer_control(ui: &mut Ui, shell: &Shell, id: Id, canvas: Rect, out: &mut Vec
     }
 }
 
-/// The Routing Bar or Placement Bar, mocked in the Active Bar's form, so room for them can
-/// be checked against the Layer control.
+/// One toggle on a Tool's bar: its icon, whether it starts on, its name and key.
+type Tile = (&'static str, &'static str, bool, &'static str, &'static str);
+
+const ROUTE_TILES: &[Tile] = &[
+    ("corner", "route_corner_45", false, "Corner mode", "/"),
+    ("look", "route_lookahead", true, "Look-ahead", "1"),
+    (
+        "obstacle",
+        "route_obstacle_stop",
+        true,
+        "Obstacle mode: Stop",
+        "Shift+R",
+    ),
+    ("auto", "route_auto_end", true, "Auto-terminate", "Shift+A"),
+    (
+        "loop",
+        "route_loop_removal",
+        true,
+        "Loop removal",
+        "Shift+L",
+    ),
+    ("clear", "clearance", true, "Clearance display", "C"),
+];
+
+const PLACE_TILES: &[Tile] = &[
+    (
+        "p-obstacle",
+        "route_obstacle_ignore",
+        false,
+        "Obstacle mode: Ignore",
+        "R",
+    ),
+    (
+        "p-guides",
+        "route_lookahead",
+        true,
+        "Alignment guides (placeholder icon)",
+        "",
+    ),
+    (
+        "p-rats",
+        "net_label",
+        true,
+        "Ratsnest in a move (placeholder icon)",
+        "N",
+    ),
+    ("p-flip", "view_flip", false, "Flip side", "L"),
+];
+
+/// The Routing Bar or Placement Bar, in the Active Bar's frame, with the Track Tool
+/// prototype's icons and toggles. Its states are in memory here.
 fn tool_bar(ui: &mut Ui, shell: &Shell, id: Id, canvas: Rect) {
     let footprints_selected = shell
         .engine()
@@ -1131,41 +1301,80 @@ fn tool_bar(ui: &mut Ui, shell: &Shell, id: Id, canvas: Rect) {
                     .iter()
                     .all(|o| pcb.footprints().any(|f| f.uuid == *o))
         });
-    let buttons: &[&str] = if shell.tool() == Tool::Route {
-        &[
-            "0.25 mm", "45 deg", "Look", "Stop", "Auto", "Loop", "Clear", "Keys",
-        ]
+    let routing = shell.tool() == Tool::Route;
+    let tiles = if routing {
+        ROUTE_TILES
     } else if footprints_selected {
-        &["Stop", "Guides", "Rats", "Rotate", "Flip", "Keys"]
+        PLACE_TILES
     } else {
         return;
     };
     let lift = if axes().layers == LayerUi::Strip {
-        STRIP + 28.0
+        STRIP + 36.0
     } else {
-        28.0
+        36.0
     };
+    let theme = ui.ctx().theme();
     egui::Area::new(id.with("tool-bar"))
         .order(Order::Middle)
         .fixed_pos(canvas.center_bottom() - Vec2::new(0.0, lift))
         .pivot(Align2::CENTER_BOTTOM)
+        .constrain_to(canvas.shrink(8.0))
         .show(ui.ctx(), |ui| {
             egui::Frame::window(ui.style())
                 .inner_margin(3)
                 .corner_radius(CornerRadius::same(5))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
-                        for label in buttons {
-                            let clicked = ui
-                                .add(
-                                    Button::new(RichText::new(*label).small())
-                                        .frame_when_inactive(false)
-                                        .min_size(Vec2::splat(chrome::BAR_BUTTON)),
-                                )
-                                .clicked();
-                            if clicked && *label == "Keys" {
-                                with(|s| s.key_card = !s.key_card);
+                        ui.spacing_mut().item_spacing = Vec2::splat(chrome::BAR_SPACING);
+                        if routing {
+                            let width = Button::new(RichText::new("0.25 mm").strong())
+                                .frame_when_inactive(false)
+                                .min_size(Vec2::splat(chrome::BAR_BUTTON));
+                            let _ = ui.add(width).on_hover_ui(|ui| {
+                                ui.strong("Track width (Shift+W)");
+                                ui.label("Opens the width chooser.");
+                            });
+                        }
+                        for (key, icon, start, title, chord) in tiles {
+                            let on = with(|s| s.toggles.get(key).copied().unwrap_or(*start));
+                            let Some(image) = icons::image(icon, icons::TOOLBAR, theme, true)
+                            else {
+                                continue;
+                            };
+                            let response = chrome::icon_button(
+                                ui,
+                                image,
+                                icons::TOOLBAR,
+                                chrome::BAR_BUTTON,
+                                on,
+                                true,
+                            )
+                            .on_hover_ui(|ui| {
+                                if chord.is_empty() {
+                                    ui.strong(*title);
+                                } else {
+                                    ui.strong(format!("{title} ({chord})"));
+                                }
+                            });
+                            if response.clicked() {
+                                with(|s| s.toggles.insert(key, !on));
+                            }
+                        }
+                        if let Some(image) = icons::image("route_keys", icons::TOOLBAR, theme, true)
+                        {
+                            let on = with(|s| s.key_card);
+                            let response = chrome::icon_button(
+                                ui,
+                                image,
+                                icons::TOOLBAR,
+                                chrome::BAR_BUTTON,
+                                on,
+                                true,
+                            )
+                            .on_hover_text("Keys (Shift+F1)");
+                            if response.clicked() {
+                                with(|s| s.key_card = !on);
                             }
                         }
                     });
@@ -1263,10 +1472,8 @@ fn banner(ui: &mut Ui, id: Id, canvas: Rect) {
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(
-                            RichText::new(
-                                "Board Setup: 12 objects use Net Class Power. View only.",
-                            )
-                            .color(Color32::WHITE),
+                            RichText::new("Board Setup: 12 objects use Net Class Power.")
+                                .color(Color32::WHITE),
                         );
                         if ui.button("Back to Board Setup").clicked() {
                             with(|s| s.on_board = false);
@@ -1735,7 +1942,14 @@ pub fn board_setup_tab(ui: &mut Ui, shell: &mut Shell) {
         return;
     };
     let height = ui.available_height() - 64.0;
-    let _ = dialog.body(ui, shell, height);
+    let outcome = dialog.body(ui, shell, height);
+    if outcome == crate::settings::draw::Outcome::Closed {
+        with(|s| {
+            s.pending
+                .push(("layout.tab.close".to_owned(), json!({"tab": "board_setup"})))
+        });
+        return;
+    }
     with(|s| s.setup = Some(dialog));
 }
 
@@ -1978,12 +2192,49 @@ pub fn run_own(shell: &mut Shell, id: &str, params: &Value) -> bool {
 pub fn begin_frame(ctx: &egui::Context, shell: &mut Shell) {
     let (axes, applied) = with(|s| (s.axes, s.applied));
     if applied != Some(axes) {
-        apply_layout(shell, axes);
+        apply_layout(shell, axes, applied);
         with(|s| s.applied = Some(axes));
     }
     let f1 = ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, egui::Key::F1));
     if f1 {
         with(|s| s.key_card = !s.key_card);
+    }
+    // UI scale: Mod+= larger, Mod+- smaller, Mod+0 back to 100 %. A Preference, so it stays.
+    ctx.options_mut(|o| o.zoom_with_keyboard = false);
+    let (larger, smaller, reset) = ctx.input_mut(|i| {
+        (
+            i.consume_key(egui::Modifiers::COMMAND, egui::Key::Equals)
+                || i.consume_key(egui::Modifiers::COMMAND, egui::Key::Plus),
+            i.consume_key(egui::Modifiers::COMMAND, egui::Key::Minus),
+            i.consume_key(egui::Modifiers::COMMAND, egui::Key::Num0),
+        )
+    });
+    if larger || smaller || reset {
+        let now = shell.preferences().general.ui_scale;
+        let at = prefs::SCALES
+            .iter()
+            .position(|(v, _)| *v >= now - 0.001)
+            .unwrap_or(prefs::SCALES.len() - 1);
+        let next = if reset {
+            1.0
+        } else if larger {
+            prefs::SCALES[(at + 1).min(prefs::SCALES.len() - 1)].0
+        } else {
+            prefs::SCALES[at.saturating_sub(1)].0
+        };
+        let _ = shell.run_reporting(
+            "app.preferences.set",
+            json!({"key": "general.ui_scale", "value": next}),
+        );
+    }
+    // Mod+P opens the field on go-to, as Mod+Shift+P opens it on Commands.
+    let go = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::P));
+    if go {
+        with(|s| {
+            s.palette_query = Some(String::new());
+            s.pending
+                .push(("app.dialog.open:command_palette".to_owned(), json!({})));
+        });
     }
     for (id, params) in with(|s| std::mem::take(&mut s.pending)) {
         if !run_own(shell, &id, &params) {

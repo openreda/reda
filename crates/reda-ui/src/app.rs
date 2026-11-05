@@ -392,7 +392,7 @@ impl App {
         if let Some(project) = self.shell.engine().project()
             && project.pcb().is_some()
         {
-            if crate::proto_shell::axes().setup == crate::proto_shell::Surface::Tab {
+            if crate::proto_shell::axes().setup != crate::proto_shell::Surface::Modal {
                 crate::proto_shell::open_board_setup_tab(&mut self.shell);
                 return;
             }

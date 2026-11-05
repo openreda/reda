@@ -82,7 +82,19 @@ fn shots() {
         .run("document.open", json!({ "document": pcb }));
     settle(&mut h);
     let _ = h.state_mut().shell_mut().run("view.zoom_fit", json!({}));
-    // The single proposals, on preset A.
+    for (name, scale) in [
+        ("x-scale-85", 0.85),
+        ("x-scale-125", 1.25),
+        ("x-scale-100", 1.0),
+    ] {
+        let _ = h.state_mut().shell_mut().run(
+            "app.preferences.set",
+            json!({"key": "general.ui_scale", "value": scale}),
+        );
+        proto_shell::with(|s| s.axes = PRESETS[0].2);
+        shot(&mut h, &out, name);
+    }
+    // The single proposals, on preset D.
     proto_shell::with(|s| s.axes = PRESETS[0].2);
     settle(&mut h);
     let _ = h

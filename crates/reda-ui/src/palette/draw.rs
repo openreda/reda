@@ -2,7 +2,7 @@
 //! window. Up and Down move the selection, Enter or a click runs it, Escape or a click
 //! outside closes the Palette.
 
-use egui::{Align2, Button, Id, Key, Modal, RichText, ScrollArea, TextEdit};
+use egui::{Align2, Button, Id, Key, RichText, ScrollArea, TextEdit};
 
 use super::{Entry, search};
 use crate::{icons, tr};
@@ -29,9 +29,11 @@ pub enum PaletteOutcome {
 
 impl Palette {
     pub fn new(entries: Vec<Entry>) -> Palette {
+        let query = crate::proto_shell::with(|s| s.palette_query.take());
         Palette {
             entries,
-            query: String::new(),
+            // Mod+Shift+P opens on Commands; the field and Mod+P open on go-to.
+            query: query.unwrap_or_else(|| ">".to_owned()),
             selected: 0,
             focused: false,
         }
@@ -68,74 +70,112 @@ impl Palette {
         }
 
         let id = Id::NULL.with("command-palette");
-        let area = Modal::default_area(id).anchor(Align2::CENTER_TOP, [0.0, 48.0]);
         let theme = ctx.theme();
-        let modal = Modal::new(id).area(area).show(ctx, |ui| {
-            ui.set_width(620.0);
-            let field = ui.add(
-                TextEdit::singleline(&mut self.query)
-                    .id(id.with("query"))
-                    .hint_text(tr!("palette-hint"))
-                    .desired_width(f32::INFINITY),
-            );
-            field.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::TextInput, true, tr!("palette-title"))
-            });
-            if !self.focused {
-                field.request_focus();
-                self.focused = true;
-            }
-            if field.changed() {
-                self.selected = 0;
-            }
-            ui.weak("@ Component   # Net   : Document   Right-click a row: Change shortcut");
-            ui.add_space(4.0);
-            if found.is_empty() {
-                ui.weak(tr!("palette-nothing"));
-            }
-            ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                for (i, entry) in found.iter().take(SHOWN).enumerate() {
-                    let enabled = entry.unavailable.is_none();
-                    let mut button = match icons::image(&entry.icon, icons::TAB, theme, enabled) {
-                        Some(image) => Button::new((image, entry.title.as_str())),
-                        None => Button::new(entry.title.as_str()),
+        let mut suggestion = None;
+        // Over the top row's field, with nothing dimmed, as VS Code's.
+        let area = egui::Area::new(id)
+            .order(egui::Order::Foreground)
+            .anchor(Align2::CENTER_TOP, [0.0, 4.0])
+            .show(ctx, |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    ui.set_width(620.0);
+                    let mut output = TextEdit::singleline(&mut self.query)
+                        .id(id.with("query"))
+                        .hint_text("Search Documents, Components, Nets. > Commands. ? Help")
+                        .desired_width(f32::INFINITY)
+                        .show(ui);
+                    let field = output.response.clone();
+                    if !self.focused {
+                        field.request_focus();
+                        let end = egui::text::CCursor::new(self.query.chars().count());
+                        output
+                            .state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::one(end)));
+                        output.state.store(ui.ctx(), field.id);
+                        self.focused = true;
                     }
-                    .selected(i == self.selected)
-                    .frame_when_inactive(i == self.selected)
-                    .min_size(egui::vec2(ui.available_width(), 0.0));
-                    let right = match (&entry.unavailable, &entry.shortcut) {
-                        (Some(reason), _) => Some(reason.as_str()),
-                        (None, Some(shortcut)) => Some(shortcut.as_str()),
-                        (None, None) => None,
-                    };
-                    let path = entry.path.as_deref().unwrap_or_default();
-                    let right = match right {
-                        Some(right) if !path.is_empty() => format!("{path}    {right}"),
-                        Some(right) => right.to_owned(),
-                        None => path.to_owned(),
-                    };
-                    if !right.is_empty() {
-                        button = button.right_text(RichText::new(right).weak());
+                    if field.changed() {
+                        self.selected = 0;
                     }
-                    let response = ui.add_enabled(enabled, button);
-                    if i == self.selected && (up || down) {
-                        response.scroll_to_me(None);
+                    if self.query.is_empty() || self.query == "?" {
+                        for (prefix, label) in [
+                            (">", "Show and run Commands"),
+                            ("@", "Go to a Component"),
+                            ("#", "Highlight a Net"),
+                            (":", "Open a Document"),
+                        ] {
+                            let row = Button::new(label)
+                                .frame_when_inactive(false)
+                                .right_text(RichText::new(prefix).weak())
+                                .min_size(egui::vec2(ui.available_width(), 0.0));
+                            if ui.add(row).clicked() {
+                                suggestion = Some(prefix);
+                            }
+                        }
+                        ui.separator();
                     }
-                    let response = if entry.description.is_empty() {
-                        response
-                    } else {
-                        response.on_hover_text(&entry.description)
-                    };
-                    response.context_menu(|ui| {
-                        let _ = ui.button("Change shortcut…");
+                    ui.add_space(4.0);
+                    if found.is_empty() {
+                        ui.weak(tr!("palette-nothing"));
+                    }
+                    ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                        for (i, entry) in found.iter().take(SHOWN).enumerate() {
+                            let enabled = entry.unavailable.is_none();
+                            let mut button =
+                                match icons::image(&entry.icon, icons::TAB, theme, enabled) {
+                                    Some(image) => Button::new((image, entry.title.as_str())),
+                                    None => Button::new(entry.title.as_str()),
+                                }
+                                .selected(i == self.selected)
+                                .frame_when_inactive(i == self.selected)
+                                .min_size(egui::vec2(ui.available_width(), 0.0));
+                            let right = match (&entry.unavailable, &entry.shortcut) {
+                                (Some(reason), _) => Some(reason.as_str()),
+                                (None, Some(shortcut)) => Some(shortcut.as_str()),
+                                (None, None) => None,
+                            };
+                            let path = entry.path.as_deref().unwrap_or_default();
+                            let right = match right {
+                                Some(right) if !path.is_empty() => format!("{path}    {right}"),
+                                Some(right) => right.to_owned(),
+                                None => path.to_owned(),
+                            };
+                            if !right.is_empty() {
+                                button = button.right_text(RichText::new(right).weak());
+                            }
+                            let response = ui.add_enabled(enabled, button);
+                            if i == self.selected && (up || down) {
+                                response.scroll_to_me(None);
+                            }
+                            let response = if entry.description.is_empty() {
+                                response
+                            } else {
+                                response.on_hover_text(&entry.description)
+                            };
+                            response.context_menu(|ui| {
+                                let _ = ui.button("Change shortcut…");
+                            });
+                            if response.clicked() {
+                                outcome = PaletteOutcome::Run(entry.id.clone());
+                            }
+                        }
                     });
-                    if response.clicked() {
-                        outcome = PaletteOutcome::Run(entry.id.clone());
-                    }
-                }
+                });
             });
+        if let Some(prefix) = suggestion {
+            self.query = prefix.to_owned();
+            self.focused = false;
+            self.selected = 0;
+        }
+        let outside = ctx.input(|i| {
+            i.pointer.any_pressed()
+                && i.pointer
+                    .interact_pos()
+                    .is_some_and(|p| !area.response.rect.contains(p))
         });
-        if modal.should_close() && outcome == PaletteOutcome::Open {
+        let escape = ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, Key::Escape));
+        if (outside || escape) && outcome == PaletteOutcome::Open {
             outcome = PaletteOutcome::Close;
         }
         outcome

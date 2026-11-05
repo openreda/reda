@@ -83,19 +83,33 @@ pub fn entries(shell: &Shell, shortcut: Shortcuts<'_>) -> Vec<Entry> {
 /// The entries that match `query`, best first: by match score, then those that can run,
 /// then by title.
 pub fn search<'e>(entries: &'e [Entry], query: &str) -> Vec<&'e Entry> {
-    // PROTOTYPE: `@` Components, `#` Nets and `:` Documents; recently used first when empty.
+    // PROTOTYPE, as VS Code's command field: `>` Commands, `@` Components, `#` Nets, `:`
+    // Documents, no prefix searches those three, `?` lists the prefixes.
+    enum Scope {
+        Commands,
+        Only(&'static str),
+        GoTo,
+        Nothing,
+    }
     let (kind, query) = match query.chars().next() {
-        Some('@') => (Some("goto:@:"), &query[1..]),
-        Some('#') => (Some("goto:#:"), &query[1..]),
-        Some(':') => (Some("goto:::"), &query[1..]),
-        _ => (None, query),
+        Some('>') => (Scope::Commands, query[1..].trim_start()),
+        Some('@') => (Scope::Only("goto:@:"), &query[1..]),
+        Some('#') => (Scope::Only("goto:#:"), &query[1..]),
+        Some(':') => (Scope::Only("goto:::"), &query[1..]),
+        Some('?') => (Scope::Nothing, ""),
+        _ => (Scope::GoTo, query),
     };
+    let empty_go_to = matches!(kind, Scope::GoTo) && query.is_empty();
     let recent = crate::proto_shell::with(|s| s.recent.clone());
     let mut found: Vec<(i32, &Entry)> = entries
         .iter()
         .filter(|e| match kind {
-            Some(prefix) => e.id.starts_with(prefix),
-            None => !e.id.starts_with("goto:"),
+            Scope::Commands => !e.id.starts_with("goto:"),
+            Scope::Only(prefix) => e.id.starts_with(prefix),
+            // With nothing typed, what was used last and the Documents.
+            Scope::GoTo if empty_go_to => e.id.starts_with("goto:::") || recent.contains(&e.id),
+            Scope::GoTo => e.id.starts_with("goto:"),
+            Scope::Nothing => false,
         })
         .filter_map(|e| {
             let best = score(query, &e.title).max(score(query, &e.id))?;

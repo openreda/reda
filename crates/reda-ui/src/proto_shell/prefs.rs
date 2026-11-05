@@ -33,7 +33,7 @@ const YES_NO_FOLLOW: &[&str] = &["Follow OS", "Dark", "Light"];
 #[rustfmt::skip]
 const TREE: &[Page] = &[
     Page { group: "General", page: "", rows: &[
-        ("Theme", K::Pick(YES_NO_FOLLOW)), ("UI scale", K::Num("1.0")),
+        ("Theme", K::Pick(YES_NO_FOLLOW)), ("UI scale", K::Pick(&["100 %", "75 %", "85 %", "115 %", "125 %", "150 %", "200 %"])),
         ("Reopen the last Project on start", K::On), ("Undo depth", K::Pick(&["Unlimited", "Cap"])),
         ("Author of Waivers", K::Num("OS user name")),
     ]},
@@ -122,6 +122,8 @@ const TREE: &[Page] = &[
     ]},
     Page { group: "Display", page: "", rows: &[
         ("Layer colour overrides per theme, by Layer kind", K::Note),
+        ("Layer control", K::Pick(&["Swatch, top right of the canvas", "Strip along the canvas bottom"])),
+        ("Group Tools on the Active Bar", K::Off),
         ("Cursor", K::Pick(&["Small crosshair", "Full-screen crosshair"])),
         ("Default Inactive-Layer mode", K::Pick(&["Normal", "Dimmed", "Hidden"])),
     ]},
@@ -131,6 +133,17 @@ const TREE: &[Page] = &[
     Page { group: "Fab Presets", page: "", rows: &[("The user's presets", K::Note)]},
     Page { group: "Agents", page: "", rows: &[("Bridge", K::On), ("Allowed agents", K::Note)]},
     Page { group: "Keyboard Shortcuts", page: "", rows: &[("The built page goes here, unchanged", K::Note)]},
+];
+
+/// The UI scale steps, smallest first.
+pub const SCALES: [(f64, &str); 7] = [
+    (0.75, "75 %"),
+    (0.85, "85 %"),
+    (1.0, "100 %"),
+    (1.15, "115 %"),
+    (1.25, "125 %"),
+    (1.5, "150 %"),
+    (2.0, "200 %"),
 ];
 
 const ALL_SETTINGS: usize = usize::MAX;
@@ -363,7 +376,14 @@ fn setting(
         });
         return;
     };
-    let value = state.values.get(&key).cloned().unwrap_or(default.clone());
+    let mut value = state.values.get(&key).cloned().unwrap_or(default.clone());
+    if label == "UI scale" {
+        // The real value: the keys and the View menu change it too.
+        value = Value::Text(format!(
+            "{:.0} %",
+            shell.preferences().general.ui_scale * 100.0
+        ));
+    }
     let mut next = value.clone();
     ui.horizontal(|ui| {
         let modified = value != default;
@@ -416,6 +436,40 @@ fn setting(
                 _ => "follow_os",
             };
             let _ = shell.run_reporting("view.theme.set", json!({ "theme": choice }));
+        }
+        if label == "Group Tools on the Active Bar"
+            && let Value::Bool(on) = &next
+        {
+            let on = *on;
+            with(|s| {
+                s.axes.bar = if on {
+                    super::ActiveBar::Grouped
+                } else {
+                    super::ActiveBar::Flat
+                };
+            });
+        }
+        if let Value::Text(picked) = &next {
+            match label {
+                "UI scale" => {
+                    let scale = SCALES
+                        .iter()
+                        .find(|(_, name)| name == picked)
+                        .map_or(1.0, |(v, _)| *v);
+                    let _ = shell.run_reporting(
+                        "app.preferences.set",
+                        json!({"key": "general.ui_scale", "value": scale}),
+                    );
+                }
+                "Layer control" => with(|s| {
+                    s.axes.layers = if picked.starts_with("Strip") {
+                        super::LayerUi::Strip
+                    } else {
+                        super::LayerUi::Swatch
+                    };
+                }),
+                _ => {}
+            }
         }
         if next == default {
             state.values.remove(&key);
