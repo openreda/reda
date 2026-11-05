@@ -11,3 +11,5 @@ REDA lets a user edit the Pads of a Footprint placed on the PCB, as the leading 
 
 - A placed Pad's `number` can't change, and Pads can't be added or removed, because Nets come from the schematic (ADR-0004).
 - A Footprint change, including an Update from Library that changes that Footprint, removes local edits, and its preview lists what is lost.
+- Footprint graphics follow the same rule once a Footprint is unlocked, as the leading suite's Primitives lock allows. Silkscreen Preparation depends on this to clip Footprint silk.
+- Footprint text placement is not a local edit. It is a sparse override on the instance, so moving a Designator doesn't change the Footprint's hash.

@@ -55,17 +55,56 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
   - Drag to move. Space rotates.
   - L flips to the other side, mirroring Pads and silk. An SMD Pad's [`side`](library.md#pad-model) swaps with it.
   - Rotate and flip also work while placing.
-- **Arranging:**
-  - Align and distribute.
-  - A per-Component lock.
-  - An **Arrange within rectangle** Command.
+  - The rest is in [Moving Footprints](#moving-footprints).
+- **Arranging:** see [Arranging](#arranging) and [Locks](#locks).
 - **Cross-select** with the schematic, with its order kept for placing parts in the order they were picked ([sync](sync.md#cross-select-and-net-highlighting)).
 - **Properties panel**, laid out as in [Properties with a selection](editing.md#properties-with-a-selection):
   - Designator, value and Footprint are editable here as write-through Commands ([sync](sync.md#write-through-edits)).
-  - Each Footprint has a movable, rotatable Designator text.
+  - Each Footprint's text can be [moved or autopositioned](#placed-footprint-text).
 - Pads come from the Library part and can be [edited on the board](#placed-pad-edits).
 - **Free Pads** are plated or non-plated Pads with no Footprint, optionally on a Net. They serve as mounting holes and fiducials, as Mechanical Parts can. They have the whole [Pad model](library.md#pad-model).
 - **Output Origin:** an optional object that sets where coordinates and [the grid](editing.md#grid) run from in the editor, and where a `relative` Fab Preset measures Gerber, drill and CPL coordinates from ([outputs](outputs.md#output-origin)).
+
+### Moving Footprints
+
+Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138). It follows the leading suite except where stated.
+
+- **Obstacle modes (`R`, while the moved selection is only Footprints):** `ignore` (default) and `avoid`, kept in `pcb.place.obstacle_mode`. `push` is reserved for v0.4.
+  - In `avoid`, the Footprint stops at the last position that keeps `courtyard_clearance`.
+  - **Selection area:** the Courtyard, or else the [fallback box](checks.md#courtyards). The leading suite uses a 3D body or else copper and silk. REDA uses what DRC checks, so `avoid` stops where DRC would complain.
+- **Live overlap:** in every mode, Courtyards closer than `courtyard_clearance` show in the violation colour during the move.
+- **Alignment guides:** a Footprint move uses the alignment level of [shared snapping](editing.md#cursor-snapping), with guides to neighbours' Courtyard edges and Pad centres. They are always on unless turned off with `pcb.place.alignment_guides`, and `Mod` suspends them with object snap. The leading suite picks the target with held Ctrl or Shift. REDA's shared snapping already uses those keys.
+- **Same-side mirroring:** X and Y are refused on a Footprint, with the note "Mirroring makes an unbuildable part: L flips to the other side". The model holds only a side. This differs from the leading suite, which allows it after a warning: no workflow needs it, and a mating connector should be its own Footprint.
+- **[Placement Bar](app.md#placement-bar):** shows and switches these modes.
+
+### Finding and queueing
+
+- **Choose Component:** Move (`M`) with a click on empty space opens a dialog listing Components by Designator, with a filter taking `?` and `*`, and **Jump to component** or **Move component to cursor**. Either way the Footprint then floats on the cursor.
+- **Reposition Selected:** the selected Footprints attach to the cursor one at a time, in pick order, including [cross-select](sync.md#cross-select-and-net-highlighting) order. Space, L and the obstacle modes all work. A click places a Footprint and brings the next. `Tab` skips one, which is REDA's addition, because a queue shouldn't end over one part that isn't ready. Esc stops and leaves the rest where they are.
+
+### Arranging
+
+- Align and distribute, and **Arrange within rectangle**.
+- **Arrange Outside Board** (`pcb.arrange_outside_board {footprints}`) uses the [Sync cluster packing](sync.md#placement-of-new-footprints), so re-clustered parts look like freshly synced ones.
+- **Swap** (`pcb.swap {a, b}`) exchanges one pair's positions. With no pair selected, the Tool asks for two picks and repeats until Esc. Each Footprint keeps its own rotation and side. The docs don't say what the suite does with rotation.
+- **Move by ΔX/ΔY:** a dialog taking a typed delta or a two-point pick, using `pcb.move`.
+- **Rotate about a point:** a typed angle and a picked centre, using `pcb.rotate`.
+- **Paste Special:** keep Net names, and paste on the active Layer.
+- **Align to grid** is [Snap selection to grid](editing.md#grid), on Footprint origins.
+
+### Locks
+
+- **What can be locked:** Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, the Board Outline and Board Cutouts. `locked` is left out of the file when false. `pcb.lock {objects, locked}` sets it, replacing the built `{footprints, locked}`.
+- **A lock blocks changes to geometry:** move, rotate, flip, nudge, delete, vertex and handle edits, Swap, Arrange, Reposition, and typed Location values in Properties.
+- **It allows:** other Properties values, such as Designator and Net; moving a locked Footprint's own text; and Zone refills.
+- **These still apply, and keep the lock:** Sync, Update from Library and `pcb.board.move`. A board must stay in sync and move as a whole. This is REDA's own rule, because the docs don't cover it.
+- **Commands** refuse a locked object unless given `include_locked`, whatever the Preference says.
+- **Protect Locked Objects** (a Preference, on), in the GUI, as in the leading suite:
+  - On: click and rectangle skip locked objects, and a moved selection leaves them behind. Picks asked for explicitly, such as Find, Messages and the [pick list](editing.md#stacked-objects), still select them, so Properties can unlock them.
+  - Off: moving or rotating one asks for confirmation.
+  - The docs don't state the leading suite's default, so on is from memory of it.
+- **Other Tools:** [loop removal](#loop-removal) keeps a locked Track, with a note. A [Track drag](#dragging-tracks) stops at a locked neighbour. [Silkscreen Preparation](#silkscreen-preparation) skips locked objects unless told otherwise.
+- **Showing it:** a lock glyph on hover and selection, a HUD line, and the pick list's lock icon.
 
 ### Placed Pad edits
 
@@ -81,9 +120,28 @@ Sources: [How do mask, paste and tenting inherit, and what can a Pad express?](h
 - Properties marks the instance as locally edited, and the DRC report lists these instances.
 - Sync keeps local edits. A Footprint change removes them, including an [Update from Library](library.md#update-from-library) or Replace Part that changes that Footprint's hash ([sync](sync.md#what-sync-does-to-the-board)). An update that leaves that hash alone, such as Fields only, keeps them.
 - **The compare**, shown in those previews and from Properties, as in the leading suite:
-  - It lists Pad, property, and edited value against original, and draws the instance's Pads over the copy they came from.
+  - It lists Pad or graphic, property, and edited value against original, and draws the instance's Pads and graphics over the copy they came from.
   - A user includes or excludes a whole Component. There is no per-Pad merge.
 - **Reverting:** `pcb.footprint.revert_local_edits {instances}`, also from Properties, returns an instance to the `edited_from` copy, not to the Library. The PCB's table keeps a copy while an entry's `edited_from` names it. The leading suite's revert goes to the library. REDA's goes to the copy, because one-way Sync means the board should match the schematic's copy, and the Library may have moved on.
+
+### Placed Footprint graphics
+
+Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138), [ADR-0013](../../adr/0013-placed-pads-edit-a-local-footprint-copy.md).
+
+- **Unlocking:** `pcb.footprint.unlock_graphics {instances, unlocked}`, from a lock icon in Properties, as the leading suite's Primitives lock. Stored as `graphics_unlocked`, left out when false.
+- **While unlocked:** a Footprint's graphics can be selected, moved, changed and deleted (`pcb.footprint.graphic.edit`, `pcb.footprint.graphic.delete`). Each edit makes a [locally edited Footprint](#placed-pad-edits), with the same compare, revert and Sync rules. Pads keep their own limits.
+- **Protect Locked Primitives In Component** (a Preference, on), as in the leading suite: off, the GUI can edit the graphics of a Footprint that isn't unlocked.
+
+### Placed Footprint text
+
+- A Footprint's [`texts`](library.md#footprint-contents) entries have UUIDs. A placed instance holds a sparse `text_overrides` list of `{text, at?, rotation?, style?, visible?, autoposition?}`, replacing `designator_text`. An entry with no override sits where the Footprint puts it.
+- **`autoposition`:** `manual` (default), `left_above`, `center_above`, `right_above`, `left_center`, `center`, `right_center`, `left_below`, `center_below` or `right_below`, as in the leading suite.
+  - `manual` uses the entry's own position, moved with the Footprint.
+  - The other values place the text against the Courtyard or fallback box. It keeps that place when the Footprint rotates, and stays upright. The upright rule is REDA's own, because the docs don't cover it.
+  - Dragging the text sets `manual`.
+- **Bulk edit:** `pcb.footprint.text.set {instances, field, autoposition?, at?, rotation?, style?, visible?}` sets position, size, style and visibility across many instances, and hides a Designator on tiny parts.
+- **A Footprint change** keeps an override whose entry matches by UUID, or else by `field` and Layer. Any other override is dropped. This keeps the [Designator text placement](sync.md#what-sync-does-to-the-board) that Sync promises.
+- Text overrides aren't local edits: they don't change the Footprint's hash.
 
 ### Update from Library on the board
 
@@ -103,6 +161,11 @@ A Mechanical Part placed directly on the PCB stores only a Footprint copy and it
 - It can be shown or hidden per Net and globally.
 - A line stays 1 px wide at every zoom, so it can't be mistaken for a Track. It dims with Net highlighting, like the rest of the board.
 - A connection drops out of the Ratsnest once copper makes it.
+- **During a Footprint move:** lines are hidden, and `N` cycles Breaks, Hidden and Pad To Pad, as in the leading suite. The mode is kept in `pcb.place.ratsnest_mode`. Breaks is the default, because it shows what the move changes.
+- **Smart Track Ends** (a Preference, on): a partly routed connection's line starts at the Track end, not at the nearest Pad. The docs give no default for the leading suite, and warn that it can slow high-density boards. v0.1 boards are low density, so REDA turns it on.
+- **Per Footprint:** `pcb.ratsnest.show {footprints, visible}` hides a Footprint's lines, kept in `view.json`.
+- **Net colour:** `color` on the Net, left out when unset, set with `pcb.net.set_color {nets, color?}` with undo, and stored in `.redapcb`, as in the leading suite. It always applies to the Net's lines. `F5` (`pcb.view.net_colors`) also applies it to copper, with pattern and zoom-out behaviour as Preferences. No manufacturing output reads it.
+- Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138).
 - [Net highlighting](editing.md#net-highlight) works across the schematic and the PCB.
 
 ## Routing
@@ -233,6 +296,21 @@ propose(copper, {start, cursor, mode, corner, posture, lookahead, width, layer, 
 ### Room for later
 
 Push-and-shove, differential pairs, length tuning and curved Tracks: Tracks are single segments with a Line|Arc geometry, and v0.1 creates only Lines.
+
+### Track Properties
+
+Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138).
+
+- **Selected Track:** Start and End XY, Length, Width, Layer, and Net with a canvas pick. `pcb.track.set {tracks, start?, end?, length?, width?, layer?, net?}` does the same. Editing Length keeps Start and moves End along the line.
+- **Net block**, for selected copper:
+  - Net, Net Class, and a colour swatch
+  - `loop_removal`
+  - the Net's routed length
+  - this Track's resistance, from copper at 1.72 × 10⁻⁸ Ω·m and its [Stackup](#stackup) thickness
+  - an estimated maximum current for this Track's width, always labelled an estimate
+- **Current estimate:** I = k · ΔT^0.44 · A^0.725, with A in mil², and k = 0.048 on outer copper or 0.024 on inner copper ([IPC values](https://github.com/openreda/reda/blob/research/ipc-values/docs/research/ipc-values.md#ipc-2221-current-capacity), from secondary sources). ΔT is editable in the block, defaulting to 10 °C, kept in `pcb.net_info.delta_t`. The 10 °C default is REDA's own. The docs reached don't confirm what the leading suite's block holds.
+- **`pcb.net.info {net, delta_t?, width?}`** returns the same values, with explicit defaults.
+- **`pcb.copper.update_nets {nets?}`** sets Tracks and Vias to the Net of the Pads they touch. Copper touching Pads of two Nets stays as it is, and is reported.
 
 ## Vias
 
@@ -407,14 +485,62 @@ One editor serves the Board Outline, Board Cutouts, Zones, Zone Cutouts and poly
 
 ## Text and graphics
 
+Source for what follows the first list: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138).
+
 - Free text and lines, arcs and rectangles on the silk, copper and mechanical Layers.
 - Text on bottom Layers can optionally be mirrored.
+- **A graphic line never adopts a Net,** even on copper. It is a different object from a Track.
+- **Arcs:** the Tool places by centre, by edge, or as a full circle. All three store the same arc.
 - **Fonts:**
   - The default is the vendored Hershey Roman Simplex stroke font, drawn as capsules.
   - TTF/OTF text uses bundled Noto Sans (OFL) or user-installed fonts.
   - Characters Hershey lacks fall back, glyph by glyph, to Noto Sans outlines.
   - A text object names its font family. If that font is missing on this machine, the text draws as Noto Sans, Messages warns, and Output Jobs that plot it warn.
   - Sources: [rendering](https://github.com/openreda/reda/issues/26), [ADR-0002](../../adr/0002-permissive-licensing-and-third-party-data.md).
+
+### Text style
+
+Free text and [Footprint text](library.md#footprint-contents) share one style: `font`, `height`, `thickness`, `justify` and `knockout`.
+
+- **`thickness`:** the stroke width, set apart from the height, as built. Outline fonts ignore it.
+- **`justify {h: left|center|right, v: top|center|bottom}`:** how the text sits on its anchor. `position` is now the anchor, where it was the left of the first baseline. `bottom` is the last line's baseline. Free text defaults to left and bottom, and Footprint text to centre.
+- **`knockout {margin}`:** the box around the text, grown by `margin`, with the glyphs removed. It works on every font. The docs show it clearly only on TrueType and barcode text, but REDA's default font is a stroke font and silk labels need it there.
+  - It is one flattened polygon, the same on the canvas, in PDFs and in [Gerbers](outputs.md#gerber). So it doesn't depend on draw order and erases nothing beside it. Other silk under the box shows through the letters.
+- **`frame {width, height}`**, on free text only: the text wraps at the width, and `justify` applies inside the frame. A line that doesn't fit the height isn't drawn, and Properties says so. The leading suite clips, but half a glyph can't be read on a board. With `knockout`, the frame is the box.
+- A barcode `kind` is [reserved](architecture.md#reserved-names).
+
+## Dimensions
+
+Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138). As in the leading suite, it is a group object.
+
+- **A Dimension** is its own object, in a `dimensions` table in `.redapcb`, on any Layer that takes graphics. v0.1 has one linear type, at any angle. Other types are v0.7.
+- **Ends:** `a` and `b` each hold a `point` and an optional `ref {object, hotspot}`. The Tool attaches to the [Hotspot](editing.md#cursor-snapping) under the click, or to free space. `point` is kept current, so the Dimension survives losing its reference.
+- **Value:** derived, never stored. The Dimension follows its references, and its value updates.
+- **Fields:**
+  - `layer`, `rotation`
+  - `width`, `extension_width`, `gap`, `offset`, `text_gap`, `arrow_size`, `arrow_length`, `arrow_position: inside|outside`
+  - `text_position`: `automatic`, the aligned options, `unidirectional` or `manual`, and the text [style](#text-style)
+  - `units`: mm, mil, in, cm or `automatic`; `precision`; `format`: `none`, `value`, `value_unit` or `value_bracketed_unit`; `prefix`; `suffix`
+- **Moving:**
+  - A Dimension with a reference can't move alone. Select it with its objects to move them together.
+  - Handles adjust the text position, the extension length and each end.
+- **Deleting a reference:** the GUI asks whether to delete the Dimension too. A Command keeps it, with no `ref`.
+- **Commands:** `pcb.dimension.add`, `set`, `delete` and `explode`. `explode` replaces it with free lines and text, and only undo reverses it.
+- **Outputs and checks:** it plots as the lines and text of its Layer, and checks treat those like other graphics and text there.
+
+## Silkscreen Preparation
+
+Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138), as in the leading suite.
+
+One modal dialog and one undoable `batch`, on `pcb.silkscreen.prepare` (`library.footprint.silkscreen.prepare` in the Footprint editor):
+
+- **Use Design Rules:** clearances from `silk_to_mask` and `silk_to_edge`. Off, a manual Silkscreen Clearance and Clip to Exposed Copper apply.
+- **Lines, arcs and rectangles** are clipped. A clipped rectangle becomes lines. A line or arc under **Min Remaining Length** (0.5 mm) goes, whether it was clipped or not, measured vertex to vertex.
+- **Delete Silkscreen Outside Board Shape** (on).
+- **Clip Locked Components and Primitives** (off).
+- **Text and Designators** move, up to **Max Distance** (2 mm), to the nearest clear position in a bounded search outward from where they are. A moved Designator becomes `manual`. Text that finds no place stays, with a Messages row. Moving text was tagged later in the survey, whose only reason was the search.
+- **On the board,** clipping Footprint silk makes [locally edited Footprints](#placed-footprint-graphics), and the DRC report lists them.
+- The two lengths above are REDA's own, because the docs don't give defaults. Gerbers still [clear silk over openings](outputs.md#gerber) on every run.
 
 ## View
 
@@ -428,7 +554,24 @@ One editor serves the Board Outline, Board Cutouts, Zones, Zone Cutouts and poly
 - **Units:** mm by default, with a one-key mm/mil toggle.
 - **Grid and snapping** follow the [grid](editing.md#grid) and [cursor snapping](editing.md#cursor-snapping) rules.
 - **Origin:** the [Output Origin](outputs.md#output-origin) is the user-set origin. Coordinates, Go To and the grid run from it.
-- A measure tool.
+
+Source for what follows: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138). It follows the leading suite except where stated.
+
+- **Layer sets:** All, Signal, NonSignal, Mechanical, Top, Bottom and Fab, plus user-saved sets kept in Preferences by Layer kind. `pcb.view.layer_set.apply`, `save` and `delete`. Top, Bottom and Fab are REDA's additions, for a one-click side or fab view. Plane Layers arrives with v0.2. There are no `.layerset` files, because Preferences already travel as a file.
+- **Pinned Layers:** `Mod`+click a Layer's eye to keep it shown in single-Layer mode, such as the Board Outline. Kept in `view.json`. The Gray and Mono single-Layer modes stay out, because Dimmed covers them.
+- **Per-kind display:** transparency from 0 to 100 % and Draft (outline only), set with `pcb.view.object_type.set`, kept in `view.json`. The leading suite's per-Layer Advanced dialog stays out, because no workflow here needs it on two Layers.
+- **Flip:** the origin moves to the bottom right, and X runs right to left in the status bar and HUD. Layers swap draw order in pairs. Outputs keep top-view coordinates.
+- **Labels:** toggles for Pad Nets, Via Nets and Repeated Net Names on Tracks, each with the usual minimum on-screen size. Via Span is v0.2.
+- **Layer chip:** `Mod`+click highlights that Layer's content. Hover to solo is v0.2. The docs reached don't describe this gesture.
+- **Live hover:** a Preference with Off, On and Shift only (default), drawn as an outline around the Net under the cursor. The docs reached don't confirm the default.
+
+## Measuring
+
+Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138). It follows the leading suite except where stated.
+
+- **Distance (`Mod`+M):** two clicks, repeating until Esc or a right-click, snapping as usual. Direct, X and Y distances stay on the canvas for the session and aren't saved. Each is logged to Messages, where a double-click shows it again. Shift+C clears them. The leading suite also opens a dialog each time, but the canvas and Messages hold the same numbers, and it interrupts repeated measuring.
+- **Clearance:** `pcb.measure.clearance {a, b}` returns the smallest gap between two primitives, wherever it falls, with the same-Layer and flattened XY distances and each object's Layer and location. Group objects, such as Footprints and Dimensions, can't be measured. In the GUI, the kinds must be on in the Selection Filter.
+- **Selection length:** `pcb.measure.length {objects}` totals selected Tracks and arcs. Vias, Pads and fills don't count. It is logged to Messages.
 
 ## Deferred past v0.1
 

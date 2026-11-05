@@ -15,7 +15,7 @@ Source: [How do selection, snapping, grids and Properties work across editors?](
 - **Rectangle:** dragged left to right, it selects what it encloses. Dragged right to left, it selects what it touches. Each direction has its own colour. **Directional Rectangle** (a Preference, on) makes every rectangle select what it encloses when off.
 - **Field and Designator text** can be selected alone. Moving the parent includes it. Deleting the text alone is refused.
 - **PCB Commands:** `pcb.selection.on_layer {layer}` selects everything on a Layer. `pcb.selection.net {net}` selects all copper and Pads of a Net, through a picker in the GUI.
-- Locks are specified with [placement](https://github.com/openreda/reda/issues/138).
+- [Locks](pcb.md#locks) are specified with placement. With Protect Locked Objects on, click and rectangle skip locked objects.
 
 ### Selection Filter
 
@@ -78,7 +78,7 @@ One model serves every editor. The built code has a separate one for sheets and 
   - Schematic and Symbol: On or Off.
 - **Gridless:** a toggle turns the grid level off, and Hotspots keep working.
 - **Suspending:** while a Tool or drag is in flight, hold `Mod` to suspend object snap, and `Mod`+Shift to suspend the grid too, as in the leading suite. If `Mod` was already held when the drag started, it means detach. Release it and press it again to suspend.
-- **Alignment guides:** in v0.1 only the [polygon editor](pcb.md#polygon-editor) uses this level. Placement may opt in.
+- **Alignment guides:** in v0.1 the [polygon editor](pcb.md#polygon-editor) and [Footprint moves](pcb.md#moving-footprints) use this level.
 - **Marker:** a snapped point shows a marker naming what it hit.
 - **Palette:** `Mod`+E opens a snap palette during any operation, with an Active Bar button for the same palette. It holds the grid toggle, the mode and the Hotspot checklist.
 
@@ -120,7 +120,7 @@ Sections follow the leading suite's order. Each one collapses.
 1. **Selection Filter**
 2. **Snap Options:** Gridless, object snap mode, the Hotspot checklist, and the Snap Distance or Electrical Range
 3. **Board** or **Sheet:**
-   - Board: size, area, Component area, density, and counts of Components, Layers, Nets and primitives. Density is Component area ÷ (2 × board area).
+   - Board: size, area, Component area, density, routed %, and counts of Components, Layers, Nets and primitives. Density is Component area ÷ (2 × board area). Routed % is the share of connections copper has made. `pcb.board.info` returns the same.
    - Sheet: name, size, and the title block read-only.
 4. **Grid:** the current value, the preset picker, the visible grid on or off, and its style
 5. **Other:** units
@@ -140,7 +140,7 @@ Regions use the leading suite's names and order, then REDA's own. Each one colla
 | **General** | Designator, value, [Library Status](library.md#library-status) badge with **Update…**, Part name with **Replace…** and **Edit in Library**, Footprint choice, Unit rows, Not Fitted, In BOM, In CPL | Pin: number, name, type. Pad: number, `side`, and the locally edited badge with Revert |
 | **Location** | X, Y, rotation, side | X, Y, rotation |
 | **Parameters** | one row per field: value, visible eye, lock, autoposition | |
-| **Graphical** | | Pin: length, [decorations](library.md#pins). Pad: shape. Track: width |
+| **Graphical** | | Pin: length, [decorations](library.md#pins). Pad: shape. Track: [its values and the Net block](pcb.md#track-properties) |
 | **Rules** | | [which rule applies](checks.md#explaining-a-rule) |
 | **Checks** | Violations on the object | Violations on the object |
 

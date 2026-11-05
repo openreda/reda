@@ -71,6 +71,8 @@ outputs/<job>/
 - **Text:**
   - Stroke text is drawn as thick line segments.
   - An outline-font glyph is written as whole regions, with any holes joined by cut-ins. It uses no clear polarity, so it erases nothing underneath.
+  - [Knockout text](pcb.md#text-style) is one flattened region, its box minus the glyphs, also with no clear polarity.
+- **[Dimensions](pcb.md#dimensions)** plot as the lines and text of their Layer.
 - **File attributes:** `.GenerationSoftware` (`openreda,REDA,<version>`), `.ProjectId`, `.SameCoordinates`, `.Part`, `.FileFunction` and `.FilePolarity`. `.CreationDate` is not written ([determinism](#determinism)). `.Part` is a writer parameter: `Single` in v0.1.
 - **With `x2_attributes` off:** the same attributes are written as `G04 #@! …` comments, so the data set stays complete for readers that take them.
 - **Aperture functions:**
@@ -82,7 +84,7 @@ outputs/<job>/
   | Via | `ViaPad` |
   | Free Pad on copper | `OtherPad,FreePad` |
   | Track and Zone fill | `Conductor` |
-  | Copper text and graphics, including a filled circle | `NonConductor`, written as a draw or region, never a flash |
+  | Copper text, graphics and Dimensions, including a filled circle | `NonConductor`, written as a draw or region, never a flash |
   | Solder Mask, Paste and Silkscreen | `Material` |
   | Profile | `Profile` |
 

@@ -119,7 +119,7 @@ The letter or number drawn after a Designator to show which Unit a symbol is, su
 _Avoid_: Part letter, sub-part ID
 
 **Autoposition**:
-The state of a Component's field whose text REDA places by itself, which lasts until the field is moved by hand.
+The state of a Component's field or Footprint text whose position REDA works out by itself, which lasts until the text is moved by hand.
 _Avoid_: Auto-place
 
 **Designator**:
@@ -203,7 +203,7 @@ A Pad placed directly on the board without belonging to any Footprint, such as a
 _Avoid_: Standalone pad, hole object
 
 **Locally Edited Footprint**:
-A placed Footprint whose Pads were changed on the PCB, so that it differs from the copy it came from.
+A placed Footprint whose Pads or graphics were changed on the PCB, so that it differs from the copy it came from.
 _Avoid_: Footprint override, modified footprint
 
 **Mask Expansion**:
@@ -281,6 +281,30 @@ _Avoid_: Rule set, constraint file
 **Design Rule**:
 One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class.
 _Avoid_: Constraint
+
+**Dimension**:
+A drawn measurement on the board between two points or objects, whose value follows them.
+_Avoid_: Ruler, measurement
+
+**Knockout Text**:
+Text shown as gaps in a filled box, rather than as ink.
+_Avoid_: Inverted text, negative text
+
+**Text Frame**:
+A box that free text wraps inside.
+_Avoid_: Text box
+
+**Lock**:
+A mark on a placed object that protects its geometry from being changed by accident.
+_Avoid_: Freeze, pin
+
+**Layer Set**:
+A named choice of which Layers are shown.
+_Avoid_: Layer preset, layer group
+
+**Pinned Layer**:
+A Layer that stays shown in single-Layer mode.
+_Avoid_: Sticky layer
 
 **Output Origin**:
 A point the user can place on a PCB Document, from which the editor measures coordinates and the grid, and from which manufacturing files measure theirs when the Fab Preset asks for a relative origin.
@@ -439,6 +463,10 @@ _Avoid_: Quick bar, floating toolbar, palette
 **Routing Bar**:
 The bar at the bottom of the canvas while the Track Tool is active, showing and switching its modes.
 _Avoid_: Track toolbar, mode bar
+
+**Placement Bar**:
+The bar at the bottom of the canvas while Footprints are selected or moving, showing and switching how they move.
+_Avoid_: Move toolbar, placement toolbar
 
 **HUD**:
 A small readout by the cursor on a canvas, showing where the cursor is and how far it has moved since the last click.

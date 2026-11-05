@@ -55,7 +55,7 @@ Not in v0.1: full KiCad project or library import (v0.6), direct EasyEDA/LCSC im
 ## In the Project
 
 - When a Component is placed, the sheet's part table stores the whole Part: the Symbol, the pin-map overrides, the fields, the Component Type, In BOM, In CPL, and a copy of **every** alternate Footprint, deduplicated by hash. A Footprint's [`generator` block](#regenerating) stays in the Library and isn't copied or hashed. The PCB stores only the Footprints in use ([architecture](architecture.md#file-format)).
-- Library copies on a sheet are never edited in place. A Pad of a Footprint placed on the PCB can be edited, which gives that instance a [locally edited Footprint](pcb.md#placed-pad-edits).
+- Library copies on a sheet are never edited in place. A Pad of a Footprint placed on the PCB can be edited, and so can an [unlocked Footprint's graphics](pcb.md#placed-footprint-graphics), which gives that instance a [locally edited Footprint](pcb.md#placed-pad-edits).
 - **Edit in Library** on a placed Component opens its element in the matching editor. A Starter Library element opens read-only. On a Component whose status is Source Missing, it offers [Extract to Library](#extract-to-library).
 
 ## Library status
@@ -288,7 +288,7 @@ Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom 
 - **Pads:** every property in the [Pad model](#pad-model).
 - **Graphics** on the Silkscreen, **Courtyard** and **Assembly** Layers, top and bottom (Courtyard and Assembly join the fixed v0.1 Layer set).
 - **`height`:** the part's greatest height. Generators fill it in. It also seeds later 3D bodies and rules.
-- **`texts`** replaces `designator` and `value`. It is a list of `{field, at, rotation, size, layer, visible}` on the Silkscreen or Assembly Layers, where `field` is `Designator`, `Value` or any field name. A Footprint can hold both a Silkscreen Designator and an Assembly Designator. A field a Component doesn't have draws nothing. `library.footprint.text.add`, `.edit` and `.remove` replace `.set`.
+- **`texts`** replaces `designator` and `value`. It is a list of `{uuid, field, at, rotation, style, layer, visible}` on the Silkscreen or Assembly Layers, where `style` is the [text style](pcb.md#text-style) without `frame`, and a placed instance can [override an entry](pcb.md#placed-footprint-text). `field` is `Designator`, `Value` or any field name. A Footprint can hold both a Silkscreen Designator and an Assembly Designator. A field a Component doesn't have draws nothing. `library.footprint.text.add`, `.edit` and `.remove` replace `.set`.
 - **Courtyard:**
   - Courtyard Layers take only closed shapes: Rect, Circle or Polygon. Several shapes on one side union. The shape's edge is on the centreline of its stroke.
   - The leading suite allows loose lines and checks them. REDA makes an open courtyard impossible, because one that fails DRC's overlap check helps nobody. So there is no `courtyard_not_closed` check.
@@ -298,6 +298,7 @@ Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom 
 ### Footprint editor
 
 - **Active Bar:** SMD Pad, through-hole Pad, Line, Arc, Polygon, Courtyard, Text, Origin and Measure.
+- **[Silkscreen Preparation](pcb.md#silkscreen-preparation)** runs here too, with the openings below.
 - **Mask and paste preview:** a Library element has no board, so the editor draws openings from the Generic Fab Preset's seed values.
 
 ### Part editor
