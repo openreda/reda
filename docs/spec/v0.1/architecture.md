@@ -150,6 +150,9 @@ These names are held for later milestones. They are additive, so they stay out o
 | Preferences | `network.*` | later |
 | Preferences | `canvas.wheel.*` | v0.2 |
 | PCB Document | `grids`, `guides` | v0.3 |
+| PCB text | `kind` (barcode, QR, Data Matrix) | v0.6 |
+| Dimension | `kind` beyond linear | v0.7 |
+| `pcb.place.obstacle_mode` | `push` | v0.4 |
 | Numeric expressions | function names such as `sqrt` | later |
 
 ## File format

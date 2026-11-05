@@ -241,6 +241,22 @@ While the Track Tool is active, a bar floats at the bottom centre of the canvas,
 
 A note from the Tool, such as why a loop stays, shows just above the bar.
 
+### Placement Bar
+
+Source: [What do PCB placement, text, dimensions, measuring and view add?](https://github.com/openreda/reda/issues/138). REDA's own addition, as the Routing Bar is, because the leading suite's modes are keys and a readout you can't click.
+
+It takes the Routing Bar's place and form while the selection is only Footprints, and during any Footprint move or [queue](pcb.md#finding-and-queueing). It shows with a selection as well as in flight, because a press-drag keeps the mouse busy, so `avoid` must be settable before it starts.
+
+| Button | State shown | Click | Key |
+|---|---|---|---|
+| Obstacle mode | the icon shows the mode, toggled in `avoid` | next mode | R |
+| Alignment guides | toggled | toggles | none |
+| Ratsnest in a move | the icon shows the mode | next mode | N |
+| Rotate | | Rotation Step, counter-clockwise | Space |
+| Flip side | | flips | L |
+| Queue (only during Reposition Selected) | "3 of 12" | skips one | Tab |
+| Keys | | lists the keys | Shift+F1 |
+
 The leading suite shows these modes as status bar and HUD text. REDA uses a bar because it can be read at a glance and clicked, and looks like the bar above it. Include Miters isn't on it, because it applies while dragging.
 
 ## Keymap
@@ -263,6 +279,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - **In flight:** Space rotate, X/Y mirror, L flip side, Tab Properties, Backspace remove the last segment, `/` corner mode, `Mod`+E the snap palette. Backspace does nothing when idle, except to [unwind selected copper](pcb.md#selecting-and-clearing-copper).
   - **[Track Tool](pcb.md#routing):** Space flip the posture, `/` corner mode, 1 look-ahead, 2 Via on this Layer, 3 width mode, 4 Via size mode, 7 next connection, 9 other end, L start Layer, V Via and Layer, E Via and end, Shift+R obstacle mode, Shift+A auto-terminate, Shift+L loop removal, C clearance display, Shift+W width chooser, Shift+V Via size chooser, Enter end the route. Digits and `L`, Shift+R, Shift+W and Shift+V are the leading suite's keys. `pcb.md` gives the reason for each that differs.
   - **Dragging copper:** Shift+R obstacle mode, C Include Miters, R Merge Collinear, Space corner drag mode.
+  - **[Moving Footprints](pcb.md#moving-footprints):** R obstacle mode, N Ratsnest display, and Tab skips one Footprint in [Reposition Selected](pcb.md#finding-and-queueing), where it isn't Properties.
   - **Selecting copper:** Tab widens the selection, and U selects connected copper. Tab is Properties only in flight, so the two don't meet.
   - **Keys in Tool:** Shift+F1 lists the keys valid in the active Tool, generated from the Keymap.
   - **Wire Tool:** Space corner mode, Shift+Space Wire mode, Insert add a vertex, Enter fix a corner, Backspace or Delete remove the last segment ([schematic](schematic.md#wire-tool)). `Mod`+Space switches corners during a drag.
@@ -275,6 +292,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
     - **Moving around:** Home re-centres on the cursor, and J opens Go To. `Mod`+Home jumps to design zero and `Mod`+End to the Output Origin.
     - **Highlight:** Shift+C clears it, and `[` and `]` set the mask and dim strength for the session.
     - **HUD:** Shift+H toggles it, Shift+D toggles its delta line, and Insert resets the delta.
+    - **Measuring:** `Mod`+M [measures a distance](pcb.md#measuring). F5 toggles [Net colours on copper](pcb.md#ratsnest).
     - **Panels:** F11 shows Properties.
     - **Violations:** `Mod`+Shift+F4 and `Mod`+Shift+F3 go to the next and previous one.
     - **Cross-select:** `Mod`+Shift+X toggles it, `Mod`+Shift+R toggles Reposition, and `Mod`+Shift+C runs Cross-probe.
@@ -364,7 +382,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
     - **HUD:** on, follow cursor (on), the item checklist
     - zoom, flip and Layer-switch animation (on)
   - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
-  - **PCB:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones). The Track Tool's [`pcb.route.*`](pcb.md#routing) values: `obstacle_mode`, `clearance_display`, `pickup_width`, `width_mode`, `favourite_widths`, `loop_removal`, `remove_antennas` and `remove_loops_through_vias`. `pcb.drag.preserve_angle`. These apply to Tools only: Commands take explicit values.
+  - **PCB:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones). The Track Tool's [`pcb.route.*`](pcb.md#routing) values: `obstacle_mode`, `clearance_display`, `pickup_width`, `width_mode`, `favourite_widths`, `loop_removal`, `remove_antennas` and `remove_loops_through_vias`. `pcb.drag.preserve_angle`. The [placement](pcb.md#moving-footprints) values: `pcb.place.obstacle_mode`, `pcb.place.alignment_guides` and `pcb.place.ratsnest_mode`. Smart Track Ends, Protect Locked Objects, Protect Locked Primitives In Component, live hover, the Net colour pattern and zoom-out behaviour, `pcb.net_info.delta_t` and user Layer sets. These apply to Tools and the canvas only: Commands take explicit values.
   - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
   - **Libraries:** user Library paths, the [Active](library.md#on-disk) checkboxes and the [Library check](library.md#library-check) severities.
@@ -398,7 +416,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
 
 - `.reda/view.json` holds:
   - the Layout and the open tabs
-  - per Document UUID: zoom and pan, Layer visibility, the Inactive-Layer mode, and the [working state](editing.md#working-state): current grid, units, object snap mode, Gridless and the Selection Filter
+  - per Document UUID: zoom and pan, Layer visibility, pinned Layers, per-kind transparency and Draft, per-Footprint Ratsnest hiding, the Inactive-Layer mode, and the [working state](editing.md#working-state): current grid, units, object snap mode, Gridless and the Selection Filter
 - The selection is not saved.
 - **Disposable:** if the file is unreadable or was written by another version, it is silently discarded in favour of the default Layout.
 - It is saved on close, and debounced on change.
