@@ -16,8 +16,9 @@ Default severity: **E** = Error, **W** = Warning.
 | Dangling Wire end. A Wire with both ends dangling is one Violation. | W |
 | Net Label, Port or Power Port attached to nothing | W |
 | No-Connect Marker on a connected Pin | W |
-| One Net with several names. The message lists every name and says which won and why. Names differing only in case are one name. | W |
-| `duplicate_nets`: different Nets with the same name, such as one Net Label on two sheets. [What are the schematic editing contracts?](https://github.com/openreda/reda/issues/132) decides the board naming. | E |
+| `net_names_on_sheet`: one Net with different names on one sheet. The message lists every name and says which won and why. Names differing only in case are one name. | E |
+| `net_names_across_sheets`: one Net with different names on different sheets, reported the same way | W |
+| `duplicate_nets`: different Nets with the same board name, such as one Net Label on two sheets. It [blocks Sync](sync.md#duplicate-nets), and [Append Sheet Numbers](schematic.md#connectivity) is one fix. | E |
 | Port on only one sheet | W |
 | `port_no_driver`: a Net whose Ports are all `in` | Off |
 | Duplicate Designators | E |

@@ -123,6 +123,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - **Project Settings** (stored in `.reda`):
   - *Properties:* title, revision, date, author, company. These are fixed fields only, with no free Project parameters or text variables in v0.1.
   - *ERC:* the severity of each check, in a grouped grid with multi-select and **Reset to defaults**, beside the editable [Pin Matrix](checks.md#pin-matrix) ([checks](checks.md#severities)).
+  - *Schematic:* [net naming](schematic.md#connectivity): Allow Ports to Name Nets, Power Port Names Take Priority and Append Sheet Numbers to Local Nets; and [Single '\' Negation](schematic.md#name-syntax).
   - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview), "Save as user preset" and [sub-pages](outputs.md#fab-preset-pages) ([outputs](outputs.md#fab-presets)).
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):
@@ -210,6 +211,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - **File and edit:** OS-standard shortcuts with `Mod` (Cmd on macOS, Ctrl elsewhere): `Mod`+S/Z/Shift+Z/C/V/X/A, and Del.
   - **Tools:** W Wire, N Net Label, P Port, B Power Port, Q No-Connect Marker, T Track, V Via, Z Zone, K Keepout. Esc cancels and returns to select.
   - **In flight:** Space rotate, X/Y mirror, L flip side, Tab Properties, Backspace remove the last segment, `/` corner mode.
+  - **Wire Tool:** Space corner mode, Shift+Space Wire mode, Insert add a vertex, Enter fix a corner, Backspace or Delete remove the last segment ([schematic](schematic.md#wire-tool)). `Mod`+Space switches corners during a drag.
   - **View:**
     - G cycles the grid preset, and `Ctrl+Q` toggles mm/mil.
     - `+`/`-` step to the next or previous copper Layer, and `*` swaps top and bottom.
@@ -219,7 +221,8 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - **Mouse:**
     - The wheel zooms at the cursor. Shift+wheel scrolls sideways, and Ctrl+wheel scrolls up and down.
     - Right-drag and middle-drag pan. A right-click without dragging opens the context menu.
-    - Plain drag keeps connections. `Mod`+drag detaches. `Mod`+click without movement toggles the selection.
+    - Plain drag keeps connections. `Mod`+drag detaches. `Always Drag` swaps them. `Mod`+click without movement toggles the selection.
+    - Alt+click highlights a Net on a sheet. Rebind it where the window manager takes Alt+click.
   - No multi-key sequences.
 - **Customisation:**
   - The user's `keymap.toml` holds only overrides and removals, applied last.
@@ -288,12 +291,14 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
     - default snap-grid preset per Document type
     - electrical snap (on)
     - auto-pan at the canvas edge (on)
+  - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
   - **Libraries:** user Library paths.
   - **Fab Presets:** the user's presets.
   - **Agents:** bridge on/off and the allowed agents.
   - **Keyboard Shortcuts:** see [Keymap](#keymap).
 - A Project never overrides a Preference.
+- **Preference or Project Setting:** a setting that changes what a saved file means or outputs is a Project Setting. Anything else can be a Preference ([What are the schematic editing contracts?](https://github.com/openreda/reda/issues/132)).
 
 ## Per-user state
 

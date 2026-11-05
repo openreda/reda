@@ -97,16 +97,20 @@ _Avoid_: Signal, connection, wire (a wire is only one way of drawing part of a N
 ## Schematic drawing
 
 **Wire**:
-A drawn line on a Schematic Sheet that joins Pins and other Wires into the same Net.
+A drawn line of one or more segments on a Schematic Sheet that joins Pins and other Wires into the same Net.
 _Avoid_: Trace, track (those are copper on the board), connection
 
 **Junction**:
-The dot marking where three or more Wire ends or Pins meet in one Net; it follows from the drawing and is never placed by hand.
+The dot marking where Wires meet in a T or a 4-way, or where a Wire passes over a Pin, Port or Power Port; it follows from the drawing and is never placed by hand.
 _Avoid_: Node, dot, connection point
 
 **Net Label**:
-A named marker attached to a Wire that joins it to every other Wire with the same name on the same Schematic Sheet.
+A named marker attached to a Wire or Pin that joins it to every other Wire with the same name on the same Schematic Sheet.
 _Avoid_: Tag, net name, label (alone), local label
+
+**Local Net**:
+A Net that stays on one Schematic Sheet, with no Port or Power Port.
+_Avoid_: Sheet net, private net
 
 **Port**:
 A named, directional marker attached to a Wire that joins it to the Ports of the same name on other Schematic Sheets of the Project.
