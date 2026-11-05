@@ -4,7 +4,7 @@ The window, docking, Projects and settings, canvas rendering, the Keymap and ico
 
 ## Window shell
 
-Sources: [How should REDA's main window shell look and behave?](https://github.com/openreda/reda/issues/17), [Should REDA write its own docking layer instead of egui_tiles?](https://github.com/openreda/reda/issues/21), [ADR-0011](../../adr/0011-own-docking-layer.md), [How should floating windows behave on Wayland?](https://github.com/openreda/reda/issues/22).
+Sources: [How should REDA's main window shell look and behave?](https://github.com/openreda/reda/issues/17), [Should REDA write its own docking layer instead of egui_tiles?](https://github.com/openreda/reda/issues/21), [ADR-0011](../../adr/0011-own-docking-layer.md), [How should floating windows behave on Wayland?](https://github.com/openreda/reda/issues/22), [How is the app shell arranged?](https://github.com/openreda/reda/issues/140) (tried in the [app shell prototype](https://github.com/openreda/reda/tree/prototype/app-shell)).
 
 - **One window, one Project per instance.**
   - Opening another Project replaces the open one, or starts a second instance.
@@ -21,19 +21,46 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
 - **Default Layout:**
   - Documents in the centre.
   - **Projects** in a left Dock, **Properties** in a right Dock and **Messages** in a bottom Dock.
-  - Other Panels: Library, Layers, Journal, [Zones](pcb.md#pour-order) and [Pins](library.md#pins-panel).
-  - A status-bar **Panels** button reopens closed Panels.
+  - Other Panels: Library, Layers, Journal, the [Board navigator](#board-navigator) and [Pins](library.md#pins-panel).
+  - A status-bar **Panels** button reopens closed Panels. A closed Panel reopens where it was: its group and position if the group still exists, else its Dock.
 - **Native windows:**
   - A tab moves into an OS window through its tab menu, or by dragging it out of the main window.
   - Tabs can be dragged between windows.
   - On X11, Windows and macOS, a drop is hit-tested by screen position, with drop buttons and a preview in the target window.
   - **On Wayland** the drop is blind. After a release outside the source window, the first REDA window that sees the pointer takes the tab, at the drop target under the pointer (or at its first group). If no window sees the pointer within about 0.7 s, the tab floats in a new window. There is no cross-window preview, and the compositor places new windows.
-- **Menus and toolbars:**
+  - **Title bars** are the OS's. Where the compositor draws none, as GNOME does on Wayland, REDA uses winit's Adwaita title bar, so the title shows and double-clicking maximizes.
+  - **Floating windows** have no menus or toolbar. Every shortcut works in them, including undo, and the Palette opens in the main window. This keeps a floating canvas as large as it can be.
+- **The top row:**
+  - One row holds, from the left, the **quick strip** (the toolbar's buttons: Save, Save All, Undo, Redo, the units toggle and the view flip), the menus, the [command field](#command-palette) and, at the far right, the Preferences gear.
+  - The menus and quick strip are larger than the rest of the UI, because they are hit often and from a distance. Menu titles and items are 14.5 with 8 × 4 button padding. Quick strip buttons are 30 px squares holding a 22 px icon.
+  - The leading suite gives the strip and the menus a row each. REDA uses one to leave the height to the canvas.
+- **Menus:**
   - Menus and toolbars follow the active Document, which is the last one interacted with in any window.
-  - An **Active Bar** floats over each canvas with the most-used Tools for that Document type, about five or six of them. Undo, Redo, the units toggle and the view flip belong on the toolbar, not the Active Bar.
+  - The menus are File, Edit, View, Project, Place, Design, Route, Tools, Window and Help, in the leading suite's order. **Reports** folds into Tools and **Route** shows only on a board.
+  - **Project:** Project Settings, Board Setup, Update PCB from Schematic and Save.
+  - **Route:** Track, Via, Fill Zones and Ratsnest.
+  - **Tools:** Measure and Keyboard Shortcuts, besides each Document type's own tools.
+  - **View:** adds **UI Scale**, with the [Preference](#preferences)'s steps.
+  - **Window:** one item per Panel, then Collapse Left, Right and Bottom Dock.
+- **Active Bar:**
+  - An **Active Bar** floats over each canvas with the most-used Tools for that Document type, about five or six of them, flat, then the [Selection Filter](editing.md#selection-filter) and [snap palette](editing.md#cursor-snapping) pop-ups. Undo, Redo, the units toggle and the view flip belong on the quick strip, not the Active Bar.
+  - The Preference **Group Tools on the Active Bar** (off) turns it into groups whose face is the last-used Tool, as in the leading suite: Select, Move, Track, Via, Zone and Keepout, Board Outline, Pad, Text, Graphics and Measure on a board, and Select, Move, Wire, Net Label and Port, Power Port, No-Connect, Text and Graphics on a sheet. REDA defaults to flat, because a flat bar shows what it does without opening anything.
   - The Active Bar sits in a window frame (radius 5, margin 3), 12 px below the canvas top, centred. On a canvas too narrow for it, the Tools that don't fit go into a **More Tools** menu at its end; nothing is clipped.
-  - The Track Tool adds a [Routing Bar](#routing-bar) at the bottom of the canvas.
-  - Menus, toolbars and the Active Bar are data files in `reda-ui`, listed per Document type. They have stable ids and bind only to Commands, Presets, raw `{command, params}`, separators or submenus. There are no hard-coded callbacks, and a test enforces this. They can't be customised in v0.1 ([customisation](https://github.com/openreda/reda/issues/35)).
+- **Tool bars:**
+  - The bottom centre of the canvas belongs to the active Tool's bar: the [Routing Bar](#routing-bar) or the [Placement Bar](#placement-bar). A later Tool's bar goes in the same spot, in the same form, so only one shows.
+  - Its bottom edge is 36 px above the canvas's, above the grid readout, and a further 24 px up when the [Layer strip](pcb.md#layer-control) shows.
+- **Data files:** Menus, toolbars and the Active Bar are data files in `reda-ui`, listed per Document type. They have stable ids and bind only to Commands, Presets, raw `{command, params}`, separators or submenus. There are no hard-coded callbacks, and a test enforces this. They can't be customised in v0.1 ([customisation](https://github.com/openreda/reda/issues/35)).
+- **Canvas context menu:** a data file per Document type, in this order, following the leading suite's object-first menu:
+  1. the object's own submenu, named for it (Track, Zone GND, R12), or **Document properties** on an empty canvas
+  2. Cut, Copy, Paste, Duplicate and Delete
+  3. Select: Similar, Connected and All on Layer
+  4. Align, with two or more selected
+  5. Highlight Net, Clear highlight, Cross-probe and Applicable rules
+  6. Place
+  7. Properties, which focuses the Panel. There are no per-object modal dialogs.
+
+  On a Violation marker it starts with Waive and Set severity ([checks](checks.md#messages-panel)).
+- **Messages** stays in the bottom Dock, with its details pane under the list. [Violation Details](checks.md#violation-details) is a non-modal window.
 - **Theme:**
   - REDA's own dark and light themes, not stock egui. They use slate greys, one blue accent, small corner radii, no shadows, tighter spacing and slightly smaller text. The values are the ones the [main window prototype](https://github.com/openreda/reda/tree/prototype/main-window-shell) settled:
 
@@ -63,7 +90,8 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
 - **Tabs and groups:**
   - Each tab group's 24 px tab strip is a solid blue bar across the whole group, the same in both themes. The group holding the active Document, which the menus follow, has the full blue `#1f5fbf`. The other groups have a muted blue: `#2b4f7a` dark, `#3f6593` light.
   - Each tab shows its 16 px icon, its title and any badge. The active tab's title and icon are white, and the other tabs' are `#d6e2f2`. A test keeps both at 4.5:1 or more on both bars. A hovered tab lightens. The out-of-sync badge is a dark-on-amber pill.
-  - The active or hovered tab shows a × that closes it.
+  - The active tab stands out from its bar: white at 15 % behind it, rounded at the top, and a 2 px white underline across its width.
+  - The active or hovered tab shows a × that closes it, and a middle-click on any tab closes it. Closing activates the group's last active tab, as in the leading suite.
   - Groups have no borders: they sit 3 px apart, and the gaps show the gap colour. The gap at a Dock's inner edge is its splitter, and it turns the accent (at 60 %) while hovered or dragged.
   - An expanded Dock has no header. It collapses from the View menu's Docks submenu (Collapse Left, Right or Bottom Dock, the `layout.dock.collapse` Presets), or from Collapse Dock on any of its tabs' menus. A collapsed Dock is a 24 px faint icon strip, with no frame around it.
 - **Status bar:** from the left, all flat buttons:
@@ -80,9 +108,46 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
 
   The prompt shares this one bar, which differs from the leading suite's separate command bar, because a single line fits the fixed-height shell.
   - The cursor on a board is where it last snapped, measured from the Output Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. Values follow the [display precision](editing.md#properties-with-a-selection) Preferences.
-- **Command Palette** (`Mod+Shift+P`):
-  - It does a fuzzy search over every Command and Preset in the current context.
-  - It shows each shortcut, and the reason for any that are unavailable.
+
+### Command Palette
+
+- **The command field** sits in the top row, reading "Search Documents, Components, Nets" with its key. Clicking it or pressing `Mod+P` opens the Palette empty, in the field's place at the top of the window. It doesn't dim the window, and a click elsewhere or Esc closes it.
+- **Scopes,** by first character, as in VS Code. The leading suite has no equivalent:
+
+  | Prefix | Searches | Choosing a row |
+  |---|---|---|
+  | none | Documents, Components and Nets | goes to it |
+  | `>` | every Command and Preset in the current context | runs it |
+  | `@` | Components, such as `@R12` | selects and zooms to it |
+  | `#` | Nets, such as `#GND` | highlights it |
+  | `:` | Documents | opens it |
+  | `?` | lists these prefixes | |
+
+- `Mod+Shift+P` opens it with `>` filled in.
+- Empty, it shows recent items, then the Documents.
+- Search is fuzzy. Command rows show the menu path, the shortcut, and the reason for any that are unavailable.
+
+### Board navigator
+
+One Panel, in the left Dock when shown, with three modes as in the leading suite's PCB panel. It replaces a separate Zones panel. Its top has the mode switch, a search box and the toggles Dim, Select and Zoom, which say what clicking a row does.
+
+| Mode | Columns |
+|---|---|
+| Nets | [Ratsnest](pcb.md#ratsnest) shown, [Net colour](pcb.md#ratsnest), name, Track count and length |
+| Footprints | Designator, side, locked and Not Fitted |
+| Zones | everything in the [Zones panel's list](pcb.md#pour-order), including drag to reorder, Auto order and shelving |
+
+The Panel follows the active board.
+
+### Keys in Tool
+
+Shift+F1, or the Keys button on a Tool's bar, toggles a card at the canvas's top right: two columns of chord and action, titled for the active Tool, generated from the Keymap. It shows no prompt and takes no clicks.
+
+### Closing and quitting
+
+- **Closing a Document tab:** when it is the Document's last tab and the Document is dirty, a modal asks Save, Don't Save or Cancel.
+- **Quitting, closing the Project or opening another:** with anything dirty, one modal lists every dirty Document, the project file and each open Library editor tab, with a tick per row, then Save Selected, Don't Save and Cancel. It also lists settings windows with unapplied changes; a ticked one is applied first.
+- A Save that fails keeps the window open and the snapshots in place. Only a close that gets past this prompt deletes [Recovery Snapshots](#crash-recovery).
 
 ## Projects and settings
 
@@ -106,7 +171,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 
 - A Document's name is its file stem. Renaming a Document renames its file on save, through a temp file and a rename. The title keeps what the user typed, and the stem is slugified only where the OS requires. The `.reda` entry records both.
 - Adding, deleting, renaming and reordering Documents change only the in-memory Project and dirty `.reda`. They reach disk on save, and a deleted Document's file goes to the OS trash.
-- These edits are undoable on the Project's own undo stack ([architecture](architecture.md#design-data-model)). Focus picks the stack that `Mod+Z` uses: the Projects panel and the Project dialogs use the Project stack, and a Document tab uses that Document's stack.
+- These edits are undoable on the Project's own undo stack ([architecture](architecture.md#design-data-model)). Focus picks the stack that `Mod+Z` uses: the Projects panel and the Project's settings windows use the Project stack, and a Document tab uses that Document's stack.
 - The PCB Document can be deleted and re-added ([PCB](pcb.md#board)).
 - **A missing Document:** a `.reda` entry whose file is gone shows greyed out, with a note in Messages. It offers **Relink…**, which picks a file with the same Document UUID or asks for confirmation, and **Remove from Project**.
 - **Long paths:** on Windows, Project paths past the legacy length limit work.
@@ -134,13 +199,40 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - Double-clicking a Document opens it. Double-clicking a job opens Edit.
 - Libraries are browsed in the Library panel. This panel lists only the Project Library paths.
 
-### Settings dialogs
+### Settings windows
 
-- **Three modal dialogs**, each with a page tree on the left: Project Settings, Board Setup and the Output Job dialog.
-- **OK / Cancel / Apply:** each Apply or OK commits the dialog's changes as one `batch` transaction and one undo entry. Invalid values (a negative clearance, a duplicate class name) are flagged inline and disable OK and Apply.
+Source for the arrangement: [How is the app shell arranged?](https://github.com/openreda/reda/issues/140).
+
+- **Which kind of surface:**
+  - A **Panel** is live view state or browsing that serves the active Document.
+  - A **tab** is mainly graphical, or is worked at the size of a Document. The Stackup editor in v0.2 is one.
+  - A **non-modal window** is a settings surface or a form you judge against the canvas. None of the settings windows is mainly graphical: the Stackup page draws a live cross-section of its values, nothing more.
+  - A **modal dialog** is a short form or a prompt that needs an answer before work goes on.
+- **Five settings windows:** Preferences, Project Settings, Board Setup, the Output Job window and the [Change List](sync.md#change-list). The leading suite makes each of these modal. REDA doesn't, because you check these values against the board, and a modal dialog covers it and blocks trying anything.
+- **What they are:**
+  - Each opens as its own OS window, at 1000 × 680 on first opening, from the docking layer. It can be moved, resized, or dragged into any tab group like any other tab.
+  - There is one of each. Opening one again raises it and keeps its edits. The Output Job window moves to the job asked for, asking first if it has unapplied changes.
+  - They aren't Panels: the Panels button doesn't list them and Saved Layouts don't keep them. Each one's size and place go in `state.json`, where the platform allows.
+- **OK / Cancel / Apply:** the four other than Preferences use them, because a half-finished rule shouldn't reach the board. Each Apply or OK commits the window's changes as one `batch` transaction and one undo entry. Invalid values (a negative clearance, a duplicate class name) are flagged inline and disable OK and Apply.
+- **While one is open, the board can change:**
+  - The canvas and the rest of the app stay usable.
+  - A field you haven't touched follows the design. A field you have touched keeps your value, and Apply writes it.
+  - Keys go to the focused window. `Mod+Z` in Project Settings or the Output Job window uses the Project stack.
+- **Closing one with unapplied changes,** from its title bar or by closing the Project, asks Apply, Discard or Cancel.
+- **The page tree** lists each page left-aligned on the left, with groups indented under their heading.
 - Preferences stays live with no OK or Cancel, because it is per-user and has no undo ([Preferences](#preferences)).
-- The [Change List dialog](sync.md#change-list-dialog) is modal too, with Apply and Close instead of OK and Cancel, and no page tree. Its **Show** works like Board Setup's **Show on board**.
-- They are dialogs, not Document tabs, because none of them is mainly graphical. The Stackup page draws a live cross-section of the dialog's values, and the full Stackup editor in v0.2 is a tab.
+- The Change List has Apply and Close instead of OK and Cancel, and no page tree. Its **Show** works like Board Setup's **Show on board**.
+- **Project Settings or Preferences:** a setting goes in the Project when it can change an output or must reach everyone who opens the Project, in the board's Board Setup when it belongs to one board, and otherwise in Preferences.
+- **Reset:** each Project Settings page has **Reset to defaults**, which shows the page's new values as pending edits until Apply. Board Setup's rule pages have **Reset page to Fab Preset**.
+
+### Modal dialogs
+
+Everything else that blocks is modal: New Project, Re-annotate, Generate Footprint, Import Part, New Library, Update from Library, Silkscreen Preparation, the Symbol Wizard, confirmations, recovery and About. Each opens centred at its default size, and each can be **moved** by its title and **resized** by its edges, down to a minimum its content still fits, with the content scrolling or reflowing. This differs from egui's stock modal, which is fixed.
+
+[Select Similar](editing.md#select-similar) and [Violation Details](checks.md#violation-details) are non-modal windows, by the test above.
+
+### Project Settings and Board Setup pages
+
 - **Project Settings** (stored in `.reda`):
   - *Properties:* title, revision, date, author, company. These are fixed fields only, with no free Project parameters or text variables in v0.1.
   - *ERC:* the severity of each check, in a grouped grid with multi-select and **Reset to defaults**, beside the editable [Pin Matrix](checks.md#pin-matrix) ([checks](checks.md#severities)).
@@ -158,16 +250,16 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
     - Each page has **Reset page to Fab Preset**, the Apply Fab Preset preview filtered to that page.
     - *Zone Connections:* [connection values](pcb.md#zone-connections) for through-hole Pads, SMD Pads and Vias. It has no DRC severity. It also holds the board's [Zone naming scheme](pcb.md#zone-names).
   - *Mask & Paste:* mask expansion (top and bottom, with a link toggle), from hole edge, Via tenting and paste expansion (absolute or percent). It has no DRC severity ([pcb](pcb.md#mask-and-paste)).
-  - *Stackup:* thickness, copper and dielectric entries, finish and colours, with a live cross-section ([pcb](pcb.md#stackup)), and the free text for [Fab Notes](outputs.md#fab-notes).
+  - *Stackup:* an editable table of name, kind and thickness on the left, with the total against the target under it, and a live cross-section not to scale on the right. Below them, finish and colours as drop-downs, and the free text for [Fab Notes](outputs.md#fab-notes) ([pcb](pcb.md#stackup)).
   - *Net Classes:*
     - **Grid:** one bold Default row, which edits the board-wide records, and one row per class in rank order, with a column per value for clearance, Track width and Via size. Drag a row to change its rank. Inherited values are grey and overrides normal, with a "show only overrides" filter, a search filter, an `enabled` checkbox per override and a comment column. Cells copy and paste, and Delete clears an override back to inherited.
     - **Typing in the grid:** typing `min` or `preferred` for a class with no record of that kind fills the record's empty `min`, `preferred` and `max` with the same value. Delete clears any of them.
     - **Net table:** Net → Net Classes, filterable by name, with multi-select, **New Class** from the selection and **Assign by pattern…**. Add, rename and delete classes here.
   - *DRC:* every check's severity, including checks with no rule page. The `courtyard_clearance`, `dangling` and `micro_segment` values sit beside their checks here. `silk_to_edge` is on the Board Edge page and `silk_to_mask` on the Silkscreen page.
-  - **Show on board** on each grid and rule row hides the dialog and keeps its pending edits. The objects are highlighted, the canvas is view-only, and a banner gives the count and **Back to Board Setup**.
+  - **Show on board** on each grid and rule row raises the main window on the board, and Board Setup keeps its pending edits. The objects are highlighted, the canvas is view-only, and a banner gives the count and **Back to Board Setup**, which raises the window again. The banner sits at the top centre of the canvas, in the Active Bar's place and frame, filled with the tab bar's blue.
   - **Undo:** `Mod+Z` inside Board Setup steps back through pending edits. After Apply they are one undo entry.
   - **Dialog actions:** **Apply Fab Preset rules…**, **Save rules as Fab Preset…**, **Export rules…** and **Import rules…** ([checks](checks.md#design-rules)).
-- **Output Job dialog:** pages General, Outputs, Gerber, Drill, BOM, CPL and Last run, plus Run ([outputs](outputs.md#output-job-dialog)).
+- **Output Job window:** pages General, Outputs, Gerber, Drill, BOM, CPL and Last run, plus Run, which applies and then shows the modal progress ([outputs](outputs.md#output-job-window)).
 - **Shortcuts into the same data:** the Properties panel sets a selected object's Net Classes and [explains its rules](checks.md#explaining-a-rule), and right-clicking a Violation sets that check's severity ([checks](checks.md)).
 
 ## Canvas rendering
@@ -212,7 +304,7 @@ Sources: [ADR-0010](../../adr/0010-canvas-drawn-by-own-wgpu-renderer.md), [How a
 - **Live interaction:**
   - Drags, rotates and placements in flight apply a per-frame transform to the flagged instances.
   - These go in a transient overlay buffer: rubber-banded Wires, the routing Track, the selection rectangle, Violation markers and the snap cursor.
-  - The grid is drawn by a shader, as quiet opaque dots (about 1.4:1 on the sheet in either theme). When its dots would come closer than 6 px it coarsens by tens, up to twice, and is hidden after that.
+  - The grid is drawn by a shader, as quiet opaque dots (about 1.4:1 on the sheet in either theme), and on a sheet it stops at the paper's edge. When its dots would come closer than 6 px it coarsens by tens, up to twice, and is hidden after that.
   - egui draws only UI on top: the Active Bar, the [HUD](editing.md#hud) and tooltips.
 - **Text:**
   - Document text is always drawn.
@@ -281,7 +373,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - **Dragging copper:** Shift+R obstacle mode, C Include Miters, R Merge Collinear, Space corner drag mode.
   - **[Moving Footprints](pcb.md#moving-footprints):** R obstacle mode, N Ratsnest display, and Tab skips one Footprint in [Reposition Selected](pcb.md#finding-and-queueing), where it isn't Properties.
   - **Selecting copper:** Tab widens the selection, and U selects connected copper. Tab is Properties only in flight, so the two don't meet.
-  - **Keys in Tool:** Shift+F1 lists the keys valid in the active Tool, generated from the Keymap.
+  - **Keys in Tool:** Shift+F1 toggles the [card](#keys-in-tool) of keys valid in the active Tool, generated from the Keymap.
   - **Wire Tool:** Space corner mode, Shift+Space Wire mode, Insert add a vertex, Enter fix a corner, Backspace or Delete remove the last segment ([schematic](schematic.md#wire-tool)). `Mod`+Space switches corners during a drag.
   - **View:**
     - **Grid:** G and Shift+G cycle the preset forward and back. `Mod`+Shift+G sets a custom value, and `Mod`+' toggles the visible grid.
@@ -294,6 +386,8 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
     - **HUD:** Shift+H toggles it, Shift+D toggles its delta line, and Insert resets the delta.
     - **Measuring:** `Mod`+M [measures a distance](pcb.md#measuring). F5 toggles [Net colours on copper](pcb.md#ratsnest).
     - **Panels:** F11 shows Properties.
+    - **UI scale:** `Mod`+= and `Mod`+- step the [UI scale](#preferences), and `Mod`+0 returns to 100 %.
+    - **Palette:** `Mod`+P opens the [Palette](#command-palette) empty, and `Mod`+Shift+P opens it on Commands.
     - **Violations:** `Mod`+Shift+F4 and `Mod`+Shift+F3 go to the next and previous one.
     - **Cross-select:** `Mod`+Shift+X toggles it, `Mod`+Shift+R toggles Reposition, and `Mod`+Shift+C runs Cross-probe.
   - **Selecting:** Shift+click toggles an object. Shift+F opens Select Similar. Shift+Tab picks the next object in a stack when idle.
@@ -364,31 +458,41 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
 - **Concurrency:**
   - Each write re-reads the file, changes only the touched key, and saves through a temp file and a rename.
   - Other running instances watch the file and reload it.
-- **Dialog:**
-  - A modal Preferences dialog with a page list, a search box over every setting, and "Reset to default" on each setting.
-  - Changes apply live, with no OK or Cancel.
-- **v0.1 settings:**
-  - **General:** theme dark / light / follow OS (default: follow OS); UI scale; reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default); `user.name`, the author of [Waivers](checks.md#waivers) (default: the OS user name).
-  - **Checks:** the [marker display](checks.md#canvas-markers): overlay style (layer colour, solid, warning pattern or cross pattern, default cross pattern); overlay when zoomed out (pattern scales, layer colour dominates or override colour dominates, default override colour); the per-check Details and Overlay grid; `checks.max_markers` (500).
-  - **Schematic** and **PCB** (editing), from [shared editing](editing.md):
+- **Window:** one of the [settings windows](#settings-windows), live, with no OK or Cancel. The leading suite's is modal; live changes are only worth seeing on a canvas you can use.
+  - **Tree:** the page tree below, with each branch's child pages indented and a count of modified settings beside any page that has them.
+  - **Search** over every setting, by name and key.
+  - **Modified only** shows only pages and settings changed from their defaults.
+  - **Reset:** a dot beside each changed setting resets it, and there is **Reset page**, **Reset branch** and **Reset all**. `app.preferences.reset {keys | page | all}` does the same.
+  - **All settings:** a last page generated from the schema, with key, value, default, description and the same search, so nothing depends on a hand-written page.
+- **v0.1 settings,** by page. The Symbol editor uses the Schematic pages and the Footprint editor the PCB pages:
+  - **General:** theme dark / light / follow OS (default: follow OS); UI scale, in steps of 75, 85, 100, 115, 125, 150 and 200 % (100 %); reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default); `user.name`, the author of [Waivers](checks.md#waivers) (default: the OS user name).
+  - **Window & Layouts:** the default Saved Layout; Reset Layout; rename and delete Saved Layouts.
+  - **Editing,** from [shared editing](editing.md), each with a value per Document type where it differs:
     - default units mm/mil (mm), and display precision: mm (3 decimals), mil (1)
     - repeat placement (on)
     - Click Clears Selection (on), Directional Rectangle (on), Rotation Step (90°)
-    - Object's Electrical Hot Spot (on), Center of Object (off)
-    - **Snap:** default object snap mode (PCB Active Layer, schematic on), Snap Distance (8 mil), the Hotspot checklists
+    - zoom, flip and Layer-switch animation (on)
+    - **Snap:** Object's Electrical Hot Spot (on), Center of Object (off), default object snap mode (PCB Active Layer, schematic on), Snap Distance (8 mil), the Hotspot checklists
     - **Grid:** the preset tables and default preset per Document type, visible style (dots), coarse multiplier (5)
     - **Auto-pan:** style (Ballistic), speed
     - **Highlight:** select (on), zoom (on) and closeness (0.6), dim (on) and strength (0.6), mask strength (0.75)
     - **HUD:** on, follow cursor (on), the item checklist
-    - zoom, flip and Layer-switch animation (on)
-  - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
-  - **PCB:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones). The Track Tool's [`pcb.route.*`](pcb.md#routing) values: `obstacle_mode`, `clearance_display`, `pickup_width`, `width_mode`, `favourite_widths`, `loop_removal`, `remove_antennas` and `remove_loops_through_vias`. `pcb.drag.preserve_angle`. The [placement](pcb.md#moving-footprints) values: `pcb.place.obstacle_mode`, `pcb.place.alignment_guides` and `pcb.place.ratsnest_mode`. Smart Track Ends, Protect Locked Objects, Protect Locked Primitives In Component, live hover, the Net colour pattern and zoom-out behaviour, `pcb.net_info.delta_t` and user Layer sets. These apply to Tools and the canvas only: Commands take explicit values.
+  - **Schematic:** [In-Place Editing](schematic.md#fields) (on); Clipboard Reference (off); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Display When Dragging (on) ([schematic](schematic.md#editing)).
+    - **Wires:** Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)).
+    - **Names & Units:** [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
+  - **PCB:** Smart Track Ends, Protect Locked Objects, Protect Locked Primitives In Component, live hover and `pcb.net_info.delta_t`. All of PCB applies to Tools and the canvas only: Commands take explicit values.
+    - **Interactive Routing:** the Track Tool's [`pcb.route.*`](pcb.md#routing) values: `obstacle_mode`, `clearance_display`, `pickup_width`, `width_mode`, `favourite_widths`, `loop_removal`, `remove_antennas` and `remove_loops_through_vias`. `pcb.drag.preserve_angle`.
+    - **Placement:** the [placement](pcb.md#moving-footprints) values: `pcb.place.obstacle_mode`, `pcb.place.alignment_guides` and `pcb.place.ratsnest_mode`.
+    - **Zones:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones).
+    - **View:** the Net colour pattern and zoom-out behaviour, and user Layer sets.
   - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
-  - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
+  - **Checks:** the [marker display](checks.md#canvas-markers): overlay style (layer colour, solid, warning pattern or cross pattern, default cross pattern); overlay when zoomed out (pattern scales, layer colour dominates or override colour dominates, default override colour); the per-check Details and Overlay grid; `checks.max_markers` (500).
+  - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); the [Layer control](pcb.md#layer-control) (swatch at the top right, or strip along the canvas bottom; default swatch); Group Tools on the Active Bar (off); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
   - **Libraries:** user Library paths, the [Active](library.md#on-disk) checkboxes and the [Library check](library.md#library-check) severities.
   - **Fab Presets:** the user's presets.
   - **Agents:** bridge on/off and the allowed agents.
   - **Keyboard Shortcuts:** see [Keymap](#keymap).
+  - **All settings:** generated, as above.
 - A Project never overrides a Preference.
 - **Preferences and outputs:** a Preference can change the canvas, PDFs and printing. It must not change any other output ([What schematic depth does v0.1 specify beyond the editing contracts?](https://github.com/openreda/reda/issues/133)).
 

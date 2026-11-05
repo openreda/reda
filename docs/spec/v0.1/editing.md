@@ -115,8 +115,9 @@ Document-level grids and guides are design intent, so in v0.3 they become PCB Do
 
 ### Properties with nothing selected
 
-Sections follow the leading suite's order. Each one collapses.
+Sections follow the leading suite's order, except Ready for fab?, which is REDA's own. Each one collapses.
 
+1. **Ready for fab?** on a board, for one glance before running an Output Job: a line each, marked OK or `!`, for the Board Outline closed, unrouted connections (**Show**), Zones needing a refill (**Fill**), DRC not run since the last edit (**Run**), in sync with the schematic (**Sync**) and the Not Fitted count.
 1. **Selection Filter**
 2. **Snap Options:** Gridless, object snap mode, the Hotspot checklist, and the Snap Distance or Electrical Range
 3. **Board** or **Sheet:**
@@ -127,7 +128,7 @@ Sections follow the leading suite's order. Each one collapses.
 6. **Checks:** the [check summary](checks.md#check-summary)
 7. **Links:** Board Setup or Project Settings
 
-A Guide Manager comes with guides in v0.3. The Zone naming scheme stays in [Board Setup](app.md#settings-dialogs).
+A Guide Manager comes with guides in v0.3. The Zone naming scheme stays in [Board Setup](app.md#settings-windows).
 
 A running Tool's options replace all of this.
 

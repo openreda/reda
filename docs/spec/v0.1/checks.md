@@ -58,7 +58,7 @@ The Pin Matrix sets the severity of `unconnected_pin` and `pin_conflict`, one ce
   - Pin to Port only within one sheet, because a driver on one sheet and an `in` Port on another is how a signal crosses sheets.
 - **Storage:** `erc.pin_matrix_overrides` in `.reda` holds only cells that differ from the default, as `{"output|output": "warning", "passive|unconnected": "off"}`. Each key's two names follow the Pin type table's order, so a pair has one spelling.
 - **`erc.set_pin_matrix {cells: [{a, b, severity | null}]}`** sets one cell, many or all, as one undo step. A null severity resets the cell.
-- **The page:** [Project Settings ▸ ERC](app.md#settings-dialogs) draws one triangle. A click cycles Off, Warning, Error. Each cell shows its level by colour and a letter, a dot when it isn't default, and a hover sentence such as "Output Pin connected to Output Pin: Error". Right-click offers All Off, All Warning, All Error and Default.
+- **The page:** [Project Settings ▸ ERC](app.md#settings-windows) draws one triangle. A click cycles Off, Warning, Error. Each cell shows its level by colour and a letter, a dot when it isn't default, and a hover sentence such as "Output Pin connected to Output Pin: Error". Right-click offers All Off, All Warning, All Error and Default.
 - **From Messages:** **Set severity** on one of these Violations changes that pair's cell, and the menu says so.
 
 ## DRC checks
@@ -187,7 +187,7 @@ One function serves the dialog, `pcb.rules.set` and `pcb.rules.validate`.
   - the check's severity
   - for two objects, each one's clearance and which applied
 - **The Properties panel** has a Rules section with the same result: a tick on winners, a cross on losers and strike-through on disabled records. Each row opens its Board Setup page. The section hides above two objects. Right-click **Applicable Rules** goes to it.
-- **`pcb.rules.affected {rule | net_class}`** returns the objects a rule or class affects, leaving out those another record overrides. Board Setup's **Show on board** uses it ([app](app.md#settings-dialogs)).
+- **`pcb.rules.affected {rule | net_class}`** returns the objects a rule or class affects, leaving out those another record overrides. Board Setup's **Show on board** uses it ([app](app.md#settings-windows)).
 
 ### Fab Presets and the rules
 
@@ -221,7 +221,7 @@ One function serves the dialog, `pcb.rules.set` and `pcb.rules.validate`.
 - ERC severities are stored in the Project (`.reda`). DRC severities are stored in the PCB Document, next to its rules.
 - **Where they are edited** ([How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38)):
   - ERC severities on the ERC page of **Project Settings**, in a grouped grid with multi-select **Set severity** and **Reset to defaults**. The [Pin Matrix](#pin-matrix) checks show as "Set by matrix", linking to it.
-  - DRC severities in **Board Setup**: on each rule's page beside the rule, and all together on its DRC page ([app](app.md#settings-dialogs)).
+  - DRC severities in **Board Setup**: on each rule's page beside the rule, and all together on its DRC page ([app](app.md#settings-windows)).
   - Right-clicking a Violation in Messages offers **Set severity of "<check>" → Error / Warning / Off**, next to **Waive**.
 
 ## Running
@@ -311,7 +311,7 @@ Properties with nothing selected has a Checks section: last run time, stale flag
 `checks.report {kind, path, format, ...}` runs a check with the same parameters as its run Command and writes a file. `erc.run` and `drc.run` stay pure queries.
 
 - **Formats:** JSON, and HTML with a per-check summary and waived, stale-Waiver and health sections.
-- **Export** in Messages and in the [Change List dialog](sync.md#change-list-dialog) uses it. `kind: sync` writes the Change List from `sync.preview`, with each row's status.
+- **Export** in Messages and in the [Change List](sync.md#change-list) uses it. `kind: sync` writes the Change List from `sync.preview`, with each row's status.
 - HTML rows don't cross-probe in v0.1, because that needs a registered URL handler.
 
 ## Net Ties

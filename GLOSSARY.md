@@ -411,7 +411,7 @@ The set of shortcuts that map key chords to Commands and Presets, in contexts fr
 _Avoid_: Hotkeys, key bindings (as a whole), accelerators
 
 **Command Palette**:
-The searchable list of every Command and Preset available in the current context, opened from the keyboard.
+The searchable list opened from the keyboard or the command field in the top row, which finds Commands and Presets, Components, Nets and Documents by prefix.
 _Avoid_: Command bar, quick open, launcher
 
 **Journal**:
@@ -455,6 +455,18 @@ _Avoid_: Rules editor, board settings, constraints
 **Scene**:
 A Document drawn as a flat list of primitives in draw order, built from the design data and handed to the canvas, image export or PDF; it holds no design data of its own.
 _Avoid_: Render tree, display list, view model
+
+**Board navigator**:
+The Panel that lists a board's Nets, Footprints or Zones, one mode at a time; its Zones mode is the Zones panel.
+_Avoid_: PCB panel, Nets panel, object browser
+
+**Layer control**:
+The always-visible way to switch the active Layer over a board's canvas, either a swatch dropdown or a strip along the bottom, as a Preference chooses; it does not replace the Layers panel.
+_Avoid_: Layer tabs, Layer bar
+
+**Settings window**:
+A non-modal window holding Preferences, Project Settings, Board Setup, an Output Job or the Change List, which stays open while the canvas is in use.
+_Avoid_: Settings dialog, modal, options dialog
 
 **Active Bar**:
 The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.

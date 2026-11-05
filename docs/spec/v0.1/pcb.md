@@ -15,7 +15,7 @@ Source: [Which features make up the v0.1 PCB editor?](https://github.com/openred
   - The PCB Document can be deleted after confirmation. **Add PCB Document** (`document.add {kind: pcb}`) is available only while the Project has none. Output Jobs that name a missing PCB are flagged as broken until they are re-pointed. A Project opened without its PCB file shows an error in Messages and offers Add PCB Document.
 - The board owns its [Stackup](#stackup), edited in **Board Setup**.
 - `fab_notes` is optional free text stored in the PCB Document, edited on the Stackup page of Board Setup with `pcb.fab_notes.set`. It is copied into [Fab Notes](outputs.md#fab-notes).
-- The board owns its design rules and DRC severities ([checks](checks.md#design-rules)). A Fab Preset seeds them when the board is created. They are edited in **Board Setup** ([app](app.md#settings-dialogs)).
+- The board owns its design rules and DRC severities ([checks](checks.md#design-rules)). A Fab Preset seeds them when the board is created. They are edited in **Board Setup** ([app](app.md#settings-windows)).
 
 ## Stackup
 
@@ -395,7 +395,7 @@ How a fill joins a Pad or Via of its own Net comes from the [`zone_connection` r
 ### Zone names
 
 - A Zone with no `name` shows a derived one, which is never stored. It follows the Net, the Layer order and the Zone's order, so it updates when they change. Clearing a typed name restores the derived one.
-- The board's `zone_name_scheme`, on [Board Setup ▸ Zone Connections](app.md#settings-dialogs), is one of `NET_LXX_PXXX` (default), `LXX_NET_PXXX`, `NET_LAYERNAME_PXXX` and `LAYERNAME_NET_PXXX`.
+- The board's `zone_name_scheme`, on [Board Setup ▸ Zone Connections](app.md#settings-windows), is one of `NET_LXX_PXXX` (default), `LXX_NET_PXXX`, `NET_LAYERNAME_PXXX` and `LAYERNAME_NET_PXXX`.
 - `P` numbers count the Zones sharing that Net and Layer, in priority order. `NONET` stands in for a missing Net.
 - Names are unique on the board. A typed name that matches another Zone's name is rejected.
 - Properties shows the outline area and the filled copper area, read-only.
@@ -424,14 +424,14 @@ How a fill joins a Pad or Via of its own Net comes from the [`zone_connection` r
 
 ### Pour order
 
-- The **[Zones panel](app.md#window-shell)** lists Zones per Layer, in priority order, with name, Net, area, stale marker and a shelve checkbox.
+- The [Board navigator](app.md#board-navigator)'s **Zones** mode, the **Zones panel**, lists Zones per Layer, in priority order, with name, Net, area, stale marker and a shelve checkbox.
 - Dragging a row or using **Auto order** changes the order, and each change is one undo step. Reordering lives in a Panel, not the leading suite's modal manager, because you reorder while watching the canvas.
 - **Commands:** `pcb.zone.reorder {layer, order}`, `pcb.zone.bring_to_front`, `pcb.zone.send_to_back` and `pcb.zone.auto_order {layer?}`, which puts the smallest Zones first on each Layer.
 
 ### Shelving
 
 - `pcb.zone.shelve {zones?}` and `pcb.zone.restore {zones?}`, with all Zones if left out.
-- A shelved Zone stays in the file but is hidden from the canvas and skipped by fill, DRC and connectivity. It is restored from the Zones panel, or with Restore All, and then refills.
+- A shelved Zone stays in the file but is hidden from the canvas and skipped by fill, DRC and connectivity. It is restored from the Board navigator's Zones mode, or with Restore All, and then refills.
 - Outputs leave it out. DRC's `shelved_zone` Warning flags each one, so a forgotten Zone can't drop copper from Gerbers silently.
 
 ### Zone Cutouts
@@ -562,8 +562,19 @@ Source for what follows: [What do PCB placement, text, dimensions, measuring and
 - **Per-kind display:** transparency from 0 to 100 % and Draft (outline only), set with `pcb.view.object_type.set`, kept in `view.json`. The leading suite's per-Layer Advanced dialog stays out, because no workflow here needs it on two Layers.
 - **Flip:** the origin moves to the bottom right, and X runs right to left in the status bar and HUD. Layers swap draw order in pairs. Outputs keep top-view coordinates.
 - **Labels:** toggles for Pad Nets, Via Nets and Repeated Net Names on Tracks, each with the usual minimum on-screen size. Via Span is v0.2.
-- **Layer chip:** `Mod`+click highlights that Layer's content. Hover to solo is v0.2. The docs reached don't describe this gesture.
+- **Layer chip:** `Mod`+click highlights that Layer's content, on the [Layer control](#layer-control) and in the Layers panel. Hover to solo is v0.2. The docs reached don't describe this gesture.
 - **Live hover:** a Preference with Off, On and Shift only (default), drawn as an outline around the Net under the cursor. The docs reached don't confirm the default.
+
+### Layer control
+
+Source: [How is the app shell arranged?](https://github.com/openreda/reda/issues/140). It answers switching Layers with the Layers panel collapsed. A [Preference](app.md#preferences) picks one of two forms, and neither changes any output:
+
+- **Swatch** (default): a chip at the top right of the canvas with the active Layer's colour and name. Its dropdown lists the Layers copper first, each as a chip, and Layer sets. REDA's default, because it stays the same size however many Layers a board has, and the strip fills up from v0.2.
+- **Strip,** as in the leading suite: a 24 px row along the canvas bottom, with a Layer sets button and a chip per shown Layer, copper first. The [Tool's bar](app.md#window-shell) and the grid readout move up to clear it.
+
+In either, a click on a chip activates the Layer, and `Mod`+click is the Layer chip gesture above. Applying a Layer set is `pcb.view.layer_set.apply`, and **Save current as** is `save`. The Layers panel adds a group eye per Layer kind and the set buttons. It shows no per-Layer key letters, as the leading suite's does, because REDA has no per-Layer keys.
+
+Net colours are set in the [Board navigator](app.md#board-navigator)'s Nets mode.
 
 ## Measuring
 

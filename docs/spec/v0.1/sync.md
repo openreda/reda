@@ -48,9 +48,9 @@ Problem rows don't count towards "out of sync: N", so the count can reach zero w
 
 The [`duplicate_nets` block](#duplicate-nets) is not a row status. It is a banner over the whole list, with Apply disabled.
 
-### Change List dialog
+### Change List
 
-A modal tree grid, opened from Update PCB from Schematic, the PCB tab badge and the status bar badge.
+A tree grid in a [non-modal window](app.md#settings-windows), opened from Update PCB from Schematic, the PCB tab badge and the status bar badge.
 
 - **Columns:** tick, Kind, Target, From → To, Status.
 - **Group headers:** a count and a tick-all box.
@@ -58,13 +58,13 @@ A modal tree grid, opened from Update PCB from Schematic, the PCB tab badge and 
 - **Rows:** multi-select, and Space toggles the tick.
 - **Context menu:** Include Selected, Exclude Selected, Include All of This Kind, Exclude All of This Kind, Invert and Show.
 - **Footer:** Export, Apply and Close.
-- **Show** reuses [Show on board](app.md#settings-dialogs): the dialog hides and keeps its ticks, the row's objects are highlighted, the canvas is view-only, and a banner offers **Back to Change List**.
+- **Show** reuses [Show on board](app.md#settings-windows): the main window comes up on the row's Document and the Change List keeps its ticks, the row's objects are highlighted, the canvas is view-only, and a banner offers **Back to Change List**.
   - The banner also switches between the board and the sheet.
   - A row with nothing on one side, such as Add Component on the board, opens the side that has it.
-  - The leading suite keeps its modal dialog on screen while cross-probing. REDA hides it, because the dialog would otherwise cover what it shows. A non-modal surface is the live pending-changes Panel reserved for v0.2.
+  - The leading suite keeps its modal dialog on screen while cross-probing. REDA's stays open too, and doesn't block. The live pending-changes Panel reserved for v0.2 is a different surface.
 - **Export** writes the Change List through [`checks.report`](checks.md#report-files), in the same formats as an Output Job's `reports/`.
 - **After Apply:**
-  - The dialog stays open. Applied rows stay visible, greyed, with ✓ Applied until Close, as in the leading suite.
+  - The window stays open. Applied rows stay visible, greyed, with ✓ Applied until Close, as in the leading suite.
   - The other rows come from a fresh plan and keep their ticks, and Apply can run again.
   - There is no per-row Failed state, because Apply is one transaction. A stale list shows one `conflict` banner and refreshes. One Sync also never needs a second run to finish, unlike in the leading suite.
 
@@ -176,4 +176,4 @@ Each Sync places its new Footprints in a fresh cluster. The leading suite makes 
   - It takes an optional set of change ids to leave out, plus the preview's hash.
   - It skips Problem rows and reports the ids it applied and left out.
   - It fails with `conflict` if the Change List no longer matches the preview.
-- The GUI's Change List dialog and MCP/CLI use the same pair of Commands.
+- The GUI's Change List and MCP/CLI use the same pair of Commands.

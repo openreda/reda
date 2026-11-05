@@ -178,8 +178,8 @@ The commands keep the form a widely used open-source writer uses, which fabs are
   - More jobs are allowed, for example "JLCPCB assembled" and "OSH Park bare".
 - **Editing:**
   - Jobs are listed in the Projects panel, with Run, Edit, Duplicate, Delete and New job ([How are Projects, Documents and board setup created and edited in v0.1?](https://github.com/openreda/reda/issues/38)).
-  - Edit opens a modal [Output Job dialog](#output-job-dialog) for one job. It uses OK/Cancel/Apply like the other Project dialogs ([app](app.md#settings-dialogs)).
-  - It is a dialog, not a Document tab, in v0.1. It may become a tab in v0.7, when outputs grow.
+  - Edit opens the non-modal [Output Job window](#output-job-window) on one job. It uses OK/Cancel/Apply like the other Project settings windows ([app](app.md#settings-windows)).
+  - It is a window, not a Document tab, in v0.1. It may become a tab in v0.7, when outputs grow.
 - **Destination:**
   - The default folder is `<project>/outputs/<job name>/`, overwritten on each run. It sits outside the git-ignored `.reda/`, so the user decides whether to commit it.
   - The destination resolves the same tokens as the name template, so `outputs/${job}/${revision}` keeps old revisions.
@@ -189,12 +189,12 @@ The commands keep the form a widely used open-source writer uses, which fabs are
 - `name_template` names the zip and the BOM and CPL stems. It defaults to `${project}-${job}`.
 - **Tokens:** `${project}`, `${job}`, `${revision}`, `${date}` (ISO, from the `Clock`) and `${preset}`. `${variant}` is a reserved name.
 - It uses the shared [text resolver](architecture.md#file-format).
-- **Checked inline in the dialog:**
+- **Checked inline in the window:**
   - An unknown token, or any of `< > : " \ | ? *`, is an error, and so is a path separator in the name.
   - A result with non-ASCII characters only warns, because JLCPCB asks for English file names.
   - A live preview shows the resulting paths.
 
-### Output Job dialog
+### Output Job window
 
 ```
 Output Job ▸ <name>
