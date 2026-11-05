@@ -59,7 +59,7 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
   - Align and distribute.
   - A per-Component lock.
   - An **Arrange within rectangle** Command.
-- **Cross-select** with the schematic ([sync](sync.md#cross-select-and-net-highlighting)).
+- **Cross-select** with the schematic, with its order kept for placing parts in the order they were picked ([sync](sync.md#cross-select-and-net-highlighting)).
 - **Properties panel:**
   - Designator, value and Footprint are editable here as write-through Commands ([sync](sync.md#write-through-edits)).
   - Each Footprint has a movable, rotatable Designator text.

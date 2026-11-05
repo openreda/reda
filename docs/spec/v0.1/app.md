@@ -119,6 +119,7 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - **Three modal dialogs**, each with a page tree on the left: Project Settings, Board Setup and the Output Job dialog.
 - **OK / Cancel / Apply:** each Apply or OK commits the dialog's changes as one `batch` transaction and one undo entry. Invalid values (a negative clearance, a duplicate class name) are flagged inline and disable OK and Apply.
 - Preferences stays live with no OK or Cancel, because it is per-user and has no undo ([Preferences](#preferences)).
+- The [Change List dialog](sync.md#change-list-dialog) is modal too, with Apply and Close instead of OK and Cancel, and no page tree. Its **Show** works like Board Setup's **Show on board**.
 - They are dialogs, not Document tabs, because none of them is mainly graphical. The Stackup page draws a live cross-section of the dialog's values, and the full Stackup editor in v0.2 is a tab.
 - **Project Settings** (stored in `.reda`):
   - *Properties:* title, revision, date, author, company. These are fixed fields only, with no free Project parameters or text variables in v0.1.
@@ -292,6 +293,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
     - electrical snap (on)
     - auto-pan at the canvas edge (on)
   - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)).
+  - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
   - **Libraries:** user Library paths.
   - **Fab Presets:** the user's presets.

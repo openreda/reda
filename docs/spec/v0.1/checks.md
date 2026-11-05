@@ -308,7 +308,7 @@ Properties with nothing selected has a Checks section: last run time, stale flag
 `checks.report {kind, path, format, ...}` runs a check with the same parameters as its run Command and writes a file. `erc.run` and `drc.run` stay pure queries.
 
 - **Formats:** JSON, and HTML with a per-check summary and waived, stale-Waiver and health sections.
-- **Export** in Messages uses it.
+- **Export** in Messages and in the [Change List dialog](sync.md#change-list-dialog) uses it. `kind: sync` writes the Change List from `sync.preview`, with each row's status.
 - HTML rows don't cross-probe in v0.1, because that needs a registered URL handler.
 
 ## Net Ties
