@@ -150,17 +150,145 @@ Source: [How do mask, paste and tenting inherit, and what can a Pad express?](ht
 
 ## Zones
 
-- A solid fill on a Net, on either copper Layer.
-- Each Zone has:
-  - a clearance and a minimum width
-  - a thermal-relief or solid Pad connection, which a Pad's `zone_connection` overrides
-  - island removal
-  - a priority for overlaps
-- **Filling:**
-  - Zones refill on demand, and automatically before outputs and DRC.
-  - Fills go in the `.reda/` cache, never in the Document ([architecture](architecture.md#file-format)).
-  - How fills are drawn, including stale fills, is in [app](app.md#canvas-rendering).
-- **Keepouts**, for copper and for Vias.
+Source: [How deep do Zones, Keepouts and the outline editor go?](https://github.com/openreda/reda/issues/137). REDA follows the leading suite except where a difference is stated with its reason.
+
+- A solid fill on a Net, on one copper Layer.
+- **A Zone holds:**
+  - `name`: optional. Left out, a name is [derived](#zone-names).
+  - `layer` and `net`. A Zone may have no Net.
+  - `vertices`, or `follows_outline: true` with no vertices ([from the Board Outline](#creating-zones)).
+  - `clearance`: optional. Left out, the clearance rule applies. If it is set, the larger of it and the rule applies. The leading suite uses a scoped rule instead. v0.1 scopes accept only the board or a Net Class, so this field stands in until a `zone` scope arrives.
+  - `min_width`: optional. Left out, it is the Net's `track_width` min. Thinner necks are removed, and outer fill corners are rounded at half this width, which follows from the algorithm and has no control of its own.
+  - `pour_over`: how the fill treats same-Net copper.
+  - `remove_unconnected` and `min_island_area`: [islands](#islands).
+  - `priority`. Where Zones overlap on a Layer, the higher priority fills first and the others keep clear. A tie goes to the lower UUID.
+  - `shelved`, left out when false.
+- `fill_mode` is reserved. v0.1 has only solid fills.
+
+### Pour over same-Net copper
+
+| `pour_over` | Same-Net Zones | Same-Net Tracks | Pads and Vias |
+|---|---|---|---|
+| `zones_only` (default) | merge | keep clear by the clearance | by [Zone connection](#zone-connections) |
+| `all` | merge | merge | by Zone connection |
+| `none` | keep clear by the clearance | keep clear by the clearance | by Zone connection |
+
+- With `zones_only`, a Track leaving a relieved Pad can't bypass the relief. A Track that ends inside the Zone isn't connected to it, and the Ratsnest stays until the Track reaches a Pad or Via.
+- Connectivity follows the copper actually made.
+
+### Zone connections
+
+How a fill joins a Pad or Via of its own Net comes from the [`zone_connection` rule](checks.md#rule-records). A Zone holds no connection values, as in the leading suite. A power Net that wants solid connections gets them through its Net Class.
+
+- **Values:** `through_hole`, `smd` and `via`, each with:
+  - `style`: `relief`, `solid` or `none`
+  - `spokes`: 2 or 4
+  - `spoke_width`
+  - `gap`: the clear ring around a relieved or `none` Pad or Via
+  - `angle`: 0, 45 or 90 degrees in the object's own frame. Angle 0 puts spokes along its axes. 90 only differs from 0 with 2 spokes.
+- **Seeds:** `through_hole` and `smd` relief, 4 spokes, 0.25 mm width, 0.25 mm gap, angle 0. `via` solid, with the same spoke values.
+  - The survey proposed 45°. A 45° spoke leaves a rectangular Pad at its corner, so 0 is the default. It behaves like the leading suite's Auto on rectangular Pads.
+- **Which value applies, value by value:** the [Pad's `zone_connection`](library.md#pad-model), then the highest-ranked Net Class record that sets it, then the board-wide record. A Free Pad behaves like a Pad. Vias have no per-object override in v0.1.
+- **`none`:** the fill keeps `gap` clear of the object and doesn't connect to it.
+- A spoke that can't reach the fill is dropped. A relieved object with no spoke left isn't connected, so the Ratsnest shows it.
+
+### Islands
+
+- `remove_unconnected` (default on) removes pieces of fill that touch no copper of the Net. It has no effect on a Zone with no Net.
+- `min_island_area` (default 0) removes any piece smaller than the area, even a connected one.
+- They are independent, as in the leading suite.
+- DRC warns about what they leave: [`dead_copper`](checks.md#drc-checks) for unconnected pieces that stay, and `empty_zone` for a Zone with nothing left to fill.
+
+### Zone names
+
+- A Zone with no `name` shows a derived one, which is never stored. It follows the Net, the Layer order and the Zone's order, so it updates when they change. Clearing a typed name restores the derived one.
+- The board's `zone_name_scheme`, on [Board Setup ▸ Zone Connections](app.md#settings-dialogs), is one of `NET_LXX_PXXX` (default), `LXX_NET_PXXX`, `NET_LAYERNAME_PXXX` and `LAYERNAME_NET_PXXX`.
+- `P` numbers count the Zones sharing that Net and Layer, in priority order. `NONET` stands in for a missing Net.
+- Names are unique on the board. A typed name that matches another Zone's name is rejected.
+- Properties shows the outline area and the filled copper area, read-only.
+
+### Creating Zones
+
+- **Drawing:** the Zone Tool's options appear in Properties. It pre-fills them with the last-used values, kept in a Preference, as in the leading suite. The general object defaults page is v0.2.
+- **`pcb.zone.add`:** a parameter left out takes a fixed value (`zones_only`, `remove_unconnected` on, `min_island_area` 0, `clearance` and `min_width` left out), never the Preference. So the same Command gives the same result on any machine, and every value is stored on the Zone, so a Preference can't change an output.
+- **From the Board Outline:** `pcb.zone.add_from_board_outline {net, layers}` makes one Zone per Layer with `follows_outline`.
+  - The fill follows later outline edits and keeps `edge_clearance`, so there is no inset value.
+  - The leading suite's equivalent makes a one-time copy, which goes wrong when the board is resized.
+  - **Detach** (`pcb.zone.detach_outline`) turns it into ordinary vertices. Until then it has no vertex handles.
+- **From a selection:** see [closed loops from graphics](#closed-loops-from-graphics). A Zone lands on the active copper Layer.
+
+### Filling
+
+- Fills go in the `.reda/` cache, never in the Document ([architecture](architecture.md#file-format)). How they are drawn is in [app](app.md#canvas-rendering).
+- **`pcb.zone.fill {zones?}`:** the named Zones and those that depend on them, or every stale Zone if left out.
+- **Automatic refill:** the Preference `pcb.zone.auto_refill` is `after_edit` (default) or `off`.
+  - After a committed edit, the affected Zones and the lower-priority Zones overlapping them refill in the background. A fill never runs during a drag.
+  - Each Zone has its own input hash, so staleness is per Zone.
+- Outputs and DRC always refill stale Zones first, so the Preference can't change them.
+- **Arcs** are flattened to chords at a fixed 0.001 mm.
+  - It is a constant, not the setting the survey proposed. It only trades file size against fidelity, far below what a fab can resolve.
+  - True-arc fills are [later](../modules.md#later-fog). Fills are only in the cache, so they need no format change.
+
+### Pour order
+
+- The **[Zones panel](app.md#window-shell)** lists Zones per Layer, in priority order, with name, Net, area, stale marker and a shelve checkbox.
+- Dragging a row or using **Auto order** changes the order, and each change is one undo step. Reordering lives in a Panel, not the leading suite's modal manager, because you reorder while watching the canvas.
+- **Commands:** `pcb.zone.reorder {layer, order}`, `pcb.zone.bring_to_front`, `pcb.zone.send_to_back` and `pcb.zone.auto_order {layer?}`, which puts the smallest Zones first on each Layer.
+
+### Shelving
+
+- `pcb.zone.shelve {zones?}` and `pcb.zone.restore {zones?}`, with all Zones if left out.
+- A shelved Zone stays in the file but is hidden from the canvas and skipped by fill, DRC and connectivity. It is restored from the Zones panel, or with Restore All, and then refills.
+- Outputs leave it out. DRC's `shelved_zone` Warning flags each one, so a forgotten Zone can't drop copper from Gerbers silently.
+
+### Zone Cutouts
+
+- A **Zone Cutout** is its own object, `{uuid, layer, vertices}`, as in the leading suite. It isn't owned by one Zone.
+- It removes the fill of every Zone on its Layer inside its shape, exactly to its edge.
+- It is never plotted.
+- **Commands:** `pcb.zone_cutout.add`, `set`, `delete` and `add_from_graphics`.
+- A Keepout restricting `zones` differs: it applies clearance and can cover all copper Layers.
+
+## Keepouts
+
+- **A Keepout holds:**
+  - `layer`: one copper Layer, or left out for all copper Layers, so "all" still means all when v0.2 adds Layers. This replaces today's list.
+  - `shape`: `polygon {vertices}` or `line {vertices, width}`. Rectangle and circle are Tool modes that store polygons.
+  - `restrict`: any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`. A new Keepout has all but `footprints`, and at least one is required. This replaces `copper` and `vias`.
+- `footprints` is REDA's own addition, for mounting-hole and connector areas. It checks the Courtyard, or the [fallback box](checks.md#courtyards), of a Footprint on the Keepout's Layer side, with no added clearance. A Keepout on all Layers applies to both sides.
+- **Clearance:** copper keeps the normal clearance rule from a Keepout, as in the leading suite. The `clearance` rule's board-wide `zero_keepout_clearance` (default off) makes every Keepout edge-exact.
+- Keepouts have no Net and are never plotted.
+- **Commands:** `pcb.keepout.add`, `set`, `delete` and `add_from_graphics`.
+- Keepouts inside Footprints are [reserved](architecture.md#reserved-names).
+
+## Polygon editor
+
+One editor serves the Board Outline, Board Cutouts, Zones, Zone Cutouts and polygon Keepouts, as in the leading suite.
+
+- **Corner handles:** move vertex, chamfer (a bevel whose midpoint follows the cursor) and fillet (the same as an arc). A key cycles them while dragging.
+- **Edge-midpoint handles:** move edge, keeping the adjacent angles; split, adding a vertex; and bow, making the edge an arc.
+- Dragging an edge away from a handle slides it.
+- `Mod`+click on an edge inserts a vertex. Del while holding a vertex removes it.
+- Each drag is one undo step.
+- **Alignment guides** to the adjacent edges and other vertices use the shared snapping, which [How do selection, snapping, grids and Properties work across editors?](https://github.com/openreda/reda/issues/139) settles.
+- **Commands**, taking any of these objects:
+  - `pcb.polygon.set_vertices {object, vertices}`
+  - `pcb.polygon.fillet {object, vertices?, radius}`, on all corners if left out
+  - `pcb.polygon.chamfer {object, vertices?, distance}`, on all corners if left out
+  - Fillet and chamfer are REDA's own additions. They also round the corners of a finished rectangle.
+- **Self-intersection:** every Command rejects a self-intersecting shape and reports the crossing point. In the editor the shape shows as invalid during the drag and returns to the last valid shape on release. This differs from the leading suite's Proceed or Revert prompt: a kept self-intersecting shape breaks fills and Gerbers, and no workflow needs one.
+
+### Closed loops from graphics
+
+- `add_from_graphics` works the same for `pcb.board_outline`, `pcb.board_cutout`, `pcb.zone`, `pcb.zone_cutout` and `pcb.keepout`.
+- Line and arc ends must meet within 0.001 mm.
+- `mode` is `centerline` (default) or `outer_edge`. On a gap, the Command is rejected with the gap's location and size, and the GUI offers `outer_edge` as a retry.
+- The source graphics are removed unless `keep` is set, which differs from the leading suite's always keeping them, so that all five Commands behave the same.
+
+## Moving the board
+
+- **`pcb.board.move {dx, dy}`** moves the Board Outline, its Board Cutouts, the Output Origin and every object with any part inside the outline, as in the leading suite. A Track crossing the edge moves whole. Objects wholly outside stay, such as Footprints in unplaced Sync clusters.
+- **Move Board Shape** is a menu item that starts an ordinary move of the outline alone. Board Cutouts stay unless they are selected too.
 
 ## Text and graphics
 
@@ -190,4 +318,4 @@ Source: [How do mask, paste and tenting inherit, and what can a Pad express?](ht
 
 ## Deferred past v0.1
 
-Push-and-shove, differential pairs, length tuning and curved Tracks (v0.4); 4+ Layers, the full Stackup editor tab, blind/buried/micro Vias and teardrops (v0.2); 3D view and DXF (v0.3); multi-board Projects (v0.5); autorouter; hatched Zones, Rooms, and scoped or query rules; image logos; arrays and pattern placement; printing to paper.
+Push-and-shove, differential pairs, length tuning and curved Tracks (v0.4); 4+ Layers, the full Stackup editor tab, blind/buried/micro Vias and teardrops (v0.2); 3D view and DXF (v0.3); multi-board Projects (v0.5); autorouter; hatched and true-arc Zones, Rooms, and scoped or query rules; image logos; arrays and pattern placement; printing to paper.
