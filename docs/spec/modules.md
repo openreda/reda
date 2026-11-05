@@ -60,7 +60,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
   - A Component's identity becomes *Sheet Instance path + UUID*. That is why v0.1 Sync keys and Component references already allow a path prefix (see [Sync](v0.1/sync.md)).
   - Buses arrive in the same milestone.
 - **Multi-board Projects**:
-  - Each PCB Document Syncs from a chosen set of Schematic Sheets.
+  - Each PCB Document Syncs from a chosen set of Schematic Sheets. The set belongs to the PCB Document, stored in `.redapcb` and edited on Board Setup ▸ Board, not to the Project.
   - Boards connect to each other through connector Parts.
   - There is no system-level or harness Document.
 - **Panel Documents**:

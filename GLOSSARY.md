@@ -288,6 +288,18 @@ _Avoid_: Update, forward/back annotation, import changes, ECO
 The set of individual differences between the Schematic Sheets and the PCB Document that a Sync would apply, each of which can be included or left out.
 _Avoid_: ECO, diff, differences
 
+**Cluster**:
+The group of new Footprints one Sync places outside the board, arranged per Schematic Sheet, for the user to place from.
+_Avoid_: Room, placement area
+
+**Cross-select**:
+Selecting a Component on the schematic or the board also selects it on the other side, in the order picked.
+_Avoid_: Linked selection
+
+**Cross-probe**:
+An explicit request to show an object's counterpart on the other side, zoomed to and with everything else dimmed.
+_Avoid_: Jump, locate
+
 ## Working with the design
 
 **Command**:
