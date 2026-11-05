@@ -50,6 +50,26 @@ _Avoid_: Schematic part, glyph
 The physical land pattern of a part on the board.
 _Avoid_: Land pattern, package, decal
 
+**Courtyard**:
+The closed area a Footprint keeps clear around its part, covering the body and Pads plus a margin; two parts are too close when their Courtyards overlap.
+_Avoid_: Keepout (that is a board object), placement outline
+
+**Footprint Generator**:
+A Command that calculates a Footprint for one package family from datasheet dimensions.
+_Avoid_: Footprint wizard, IPC wizard
+
+**Symbol Wizard**:
+The dialog and Command that lay out a Symbol's Pins and body from a list of Pins.
+_Avoid_: Symbol generator
+
+**Pin Decoration**:
+A glyph drawn on a Pin at one of four positions, such as a clock or an inversion dot.
+_Avoid_: Pin symbol, pin shape
+
+**Active Library**:
+A registered Library that is scanned and searched; one switched off stays registered, and Components placed from it read Source Missing.
+_Avoid_: Enabled library, loaded library
+
 **Part**:
 A Library definition that combines a Symbol, its alternate Footprints with how Pins map to Pads, and default fields; Components are placed from Parts.
 _Avoid_: Device, Library part, Component (that is the placed instance)

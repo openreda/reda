@@ -53,7 +53,7 @@ Sources: [Which structural format changes does v0.1 make now?](https://github.co
 - Footprints can be placed on either side.
 - **Moving and turning:**
   - Drag to move. Space rotates.
-  - L flips to the other side, mirroring Pads and silk.
+  - L flips to the other side, mirroring Pads and silk. An SMD Pad's [`side`](library.md#pad-model) swaps with it.
   - Rotate and flip also work while placing.
 - **Arranging:**
   - Align and distribute.
@@ -144,8 +144,8 @@ Source: [How do mask, paste and tenting inherit, and what can a Pad express?](ht
   - `from_hole_edge` from the rule applies only to Pads and Vias with holes.
 - There is no Footprint-level default. A Footprint sets values on its Pads, and `footprint` is a reserved scope filter.
 - **Resolved openings:** one function in `reda-pcb` works out each opening. Gerbers, silkscreen clearing and DRC all use it.
-  - **Mask:** one opening per side for each Pad and untented Via. A non-plated Pad's opening comes from its shape. A tented side has none.
-  - **Paste:** SMD Pads only, from the expansion, percent or windows. `none` has no opening.
+  - **Mask:** one opening per side for each plated or non-plated Pad and untented Via, and one on its own side for an SMD Pad. A non-plated Pad's opening comes from its shape. A tented side has none.
+  - **Paste:** SMD Pads only, on the Pad's side, from the expansion, percent or windows. `none` has no opening.
   - An opening with nothing left after a negative value is not plotted, and DRC reports it.
 
 ## Zones

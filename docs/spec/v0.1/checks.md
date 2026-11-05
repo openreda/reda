@@ -96,7 +96,7 @@ The Pin Matrix sets the severity of `unconnected_pin` and `pin_conflict`, one ce
 
 ### Courtyards
 
-A Footprint with no courtyard uses a fallback box around its copper, silk and mechanical shapes, ignoring Designator text, so it can't escape the courtyard and outline checks.
+A courtyard is always [closed shapes](library.md#footprint-contents), so the overlap check never meets an open one. A Footprint with no courtyard uses a fallback box around its copper, silk and mechanical shapes, ignoring Designator text, so it can't escape the courtyard and outline checks.
 
 ### Health checks
 
@@ -322,7 +322,7 @@ A Net Tie needs no Waiver. DRC and the Track Tool share one rule, based on the N
 - **Everything else follows the normal rules:** other Nets, other Footprints, and Zones, even Zones on the tie's own Nets.
 - **Nets stay separate.** A tie never merges Nets, and each keeps its own Ratsnest.
 
-`net_tie_not_joined` fires when a tie's Pads don't form one connected copper group on one Layer, aren't all SMD, or have fewer than two different numbers. It and `shorted_copper` use the same geometry in the Library check and in DRC. DRC reads the placed copies, which catches a Footprint swap or a type change.
+`net_tie_not_joined` fires when a tie's Pads don't form one connected copper group on one Layer, aren't all SMD on one side, or have fewer than two different numbers. It and `shorted_copper` use the same geometry in the Library check and in DRC. DRC reads the placed copies, which catches a Footprint swap or a type change.
 
 ## Waivers
 

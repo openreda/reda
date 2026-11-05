@@ -82,7 +82,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
   - Design rules are a table of records. See [checks](checks.md#design-rules).
   - A Track is one segment with a Line|Arc geometry. v0.1 creates only Lines.
   - A Via stores its layer span (from, to). `from` is the drill entry side, and a through Via is always stored top to bottom.
-  - A plated Pad has copper on every copper Layer, so Pads store no Layer list.
+  - A plated Pad has copper on every copper Layer, and an SMD Pad stores its [`side`](library.md#pad-model), so Pads store no Layer list.
   - Later object kinds (differential pairs, tuning groups) are added as new kinds.
 - **Model shape:**
   - Per-Document typed tables keyed by UUID, plus a single `Project` value that owns them. No UI or OS dependencies.
@@ -92,7 +92,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
 
 ## Reserved names
 
-Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125), [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126), [How are design rules entered, reviewed and explained?](https://github.com/openreda/reda/issues/127).
+Sources: [Which structural format changes does v0.1 make now?](https://github.com/openreda/reda/issues/124), [How do Component Type, BOM inclusion and Net Ties work?](https://github.com/openreda/reda/issues/125), [How do mask, paste and tenting inherit, and what can a Pad express?](https://github.com/openreda/reda/issues/126), [How deep do the Library editors, generators and checks go?](https://github.com/openreda/reda/issues/135), [How are design rules entered, reviewed and explained?](https://github.com/openreda/reda/issues/127).
 
 These names are held for later milestones. They are additive, so they stay out of the v0.1 schema and nothing else may use them for another meaning.
 
@@ -119,7 +119,13 @@ These names are held for later milestones. They are additive, so they stay out o
 | Pad | `mask_shape`, `paste_shape` | v0.6 |
 | Pad | spoke width and gap under `zone_connection` | later |
 | Pad | rectangular hole shape, counterbore, countersink | later |
-| Part | `part_choices`, body style, alternate Pin names | v0.6 |
+| Part | `part_choices`, `attachments`, `body_style` | v0.6 |
+| Pin | `alt_names`, `inside` and `outside` decorations | v0.6 |
+| Pin | `swap_group` | v0.5 |
+| Pin | `package_length` | later |
+| Footprint | `bodies` | v0.3 |
+| `.redalib` | `field_template`, `check_severity_overrides` | v0.6 |
+| Library check | `unconnected_copper`, because Footprints have no copper graphics before v0.6 | v0.6 |
 | Project Settings | `higher_level_names_priority` (Higher Level Names Take Priority) | v0.5 |
 | Sheet frame | `style` (a frame template), `default_font` | v0.2 |
 | Project Settings | `text` as a value of `not_fitted_display` (a text overlay) | v0.5 |

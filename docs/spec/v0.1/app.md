@@ -21,7 +21,7 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
 - **Default Layout:**
   - Documents in the centre.
   - **Projects** in a left Dock, **Properties** in a right Dock and **Messages** in a bottom Dock.
-  - Other Panels: Library, Layers and Journal.
+  - Other Panels: Library, Layers, Journal and [Pins](library.md#pins-panel).
   - A status-bar **Panels** button reopens closed Panels.
 - **Native windows:**
   - A tab moves into an OS window through its tab menu, or by dragging it out of the main window.
@@ -301,7 +301,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
   - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Object's Electrical Hot Spot (on), Center of Object (off) and Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
   - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
-  - **Libraries:** user Library paths.
+  - **Libraries:** user Library paths, the [Active](library.md#on-disk) checkboxes and the [Library check](library.md#library-check) severities.
   - **Fab Presets:** the user's presets.
   - **Agents:** bridge on/off and the allowed agents.
   - **Keyboard Shortcuts:** see [Keymap](#keymap).
