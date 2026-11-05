@@ -252,10 +252,10 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 ### Tools and dialogs
 - **Tools are not Commands.** A Tool (place, Wire, route, drag-move…) is a GUI-side state machine:
   - It previews without mutating. Routing calls engine queries such as clearance.
-  - It **commits by running ordinary edit Commands**, one undo entry per commit. A Wire run becomes `schematic.wire.add`, a drag release becomes a move, and each committed route becomes `pcb.track.add`.
+  - It **commits by running ordinary edit Commands**, one undo entry per commit. A Wire run becomes `schematic.wire.add`, a drag release becomes a move, and each finished route becomes `pcb.track.add`, or one `batch` when it has Vias or [loop removal](pcb.md#loop-removal). The Track Tool's preview is a [pure function](pcb.md#the-proposal-function) in `reda-pcb`.
   - A Wire run can be suspended by one other Tool, which returns to it when finished ([schematic](schematic.md#wire-tool)).
 - **Activating a Tool** is the view Command `tool.activate {tool}`.
-- **Keys inside a Tool** are view Commands that are available only while a Tool that supports them is active: `tool.rotate`, `tool.mirror_x`, `tool.mirror_y`, `tool.flip_side`, `tool.edit_properties`, `tool.undo_segment`, `tool.cycle_corner`, `tool.cycle_wire_mode`, `tool.insert_vertex`, `pcb.route.add_via`.
+- **Keys inside a Tool** are view Commands that are available only while a Tool that supports them is active: `tool.rotate`, `tool.mirror_x`, `tool.mirror_y`, `tool.flip_side`, `tool.edit_properties`, `tool.undo_segment`, `tool.cycle_corner`, `tool.cycle_wire_mode`, `tool.insert_vertex`, `pcb.route.add_via`, and the [Track Tool's](pcb.md#routing) other keys.
 - **Dialogs:**
   - A GUI call that lacks required params opens a form generated from the schema. A command can replace that form with a hand-written dialog, as Sync's Change List does.
   - A Command called with full params never opens a dialog.

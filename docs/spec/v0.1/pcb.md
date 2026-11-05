@@ -101,33 +101,148 @@ A Mechanical Part placed directly on the PCB stores only a Footprint copy and it
 
 - A live minimum spanning tree per Net.
 - It can be shown or hidden per Net and globally.
+- A line stays 1 px wide at every zoom, so it can't be mistaken for a Track. It dims with Net highlighting, like the rest of the board.
 - A connection drops out of the Ratsnest once copper makes it.
 - [Net highlighting](editing.md#net-highlight) works across the schematic and the PCB.
 
 ## Routing
 
-- **Manual single Tracks:**
-  - Corners are 45° or 90°. The `/` key cycles the mode.
-  - The width starts at the Net's [preferred value](checks.md#which-value-applies), and can be changed mid-route. A typed width is clipped to the Net's `min` and `max`.
-- A route ends on its own when it reaches a Pad or Track of the same Net.
-- **Clearance:**
-  - A clearance violation stops or flags the route, checked live through engine queries.
-  - Tracks on a Net Tie's Nets follow the [Net Tie rule](checks.md#net-ties), the same one DRC uses.
-  - Nothing shoves.
-- **Editing Tracks:**
-  - Dragging a segment keeps its neighbours attached. `Mod`+drag detaches it.
-  - Delete a segment or a whole Track.
-  - Select connected copper.
-- A committed route runs `pcb.track.add` ([architecture](architecture.md#tools-and-dialogs)).
-- **The model leaves room** for push-and-shove, differential pairs, length tuning and curved Tracks:
-  - Tracks are single segments with a Line|Arc geometry. v0.1 creates only Lines.
+Source: [How should the Track Tool and Track dragging behave?](https://github.com/openreda/reda/issues/136), tried in a [throwaway prototype](https://github.com/openreda/reda/tree/prototype/track-tool). It follows the leading suite except where stated.
+
+Manual single Tracks. Nothing shoves.
+
+### Starting a route
+
+- **On a Pad, Via or Track:** the route takes its Net and Layer. Copper on the active Layer wins, then copper on any other Layer, whose Layer becomes active.
+- **On a Ratsnest line:** the route jumps to the line's nearer end, and to that end's Net and Layer. Copper under the cursor wins over a line.
+- **In free space:** a no-Net route at the board-wide preferred width. DRC reports [Copper with no Net](checks.md#drc-checks).
+- **Keys before the first segment is placed:**
+  - `9` jumps to the other end of the connection.
+  - `7` drops this connection and takes the next one leaving the same object.
+  - `L` switches to the next copper Layer of a through-hole Pad or Via.
+
+### Preview
+
+| State | Drawn | Meaning |
+|---|---|---|
+| Placed | solid | Held by the Tool, and Backspace can remove it |
+| Proposed | translucent | The next click places it |
+| Look-ahead | hollow | The next click doesn't place it |
+| Blocked | thin ghost to the cursor, with an X at its end | Can't be reached in `stop` mode |
+| Removed by loop removal | red | Goes when the route ends |
+
+- **Look-ahead (`1`, on by default):** a click places only the first of the two segments to the cursor. Off, it places both. A click that will end the route places both either way.
+- **The red preview is REDA's addition**, so the consequence of a re-route shows before the click that makes it.
+- **Proposed segments are translucent, not hatched,** which is what was tried and reads clearly over copper at any zoom.
+
+### Corners
+
+- `/` cycles 45°, 90° and Any Angle. `Space` flips which leg comes first. Any Angle has no second leg.
+- The leading suite cycles with Shift+Space. REDA keeps `/`, which the Keymap already binds on every Document.
+- Arc corners are v0.4. Their mode names `45_arc` and `90_arc` and the radius keys `,` and `.` are reserved.
+
+### Placing and ending
+
+- **Commit:** a click only adds to the Tool's list. When the route ends, the Tool runs one `batch`: loop-removal deletes, then `pcb.track.add` and `pcb.via.add`. It is one Journal entry and one undo step, and a single Track with nothing else runs as a plain `pcb.track.add`.
+- **Backspace** removes the last placed vertex.
+- **Ways a route ends:**
+  - **Auto-terminate (`Shift+A`, on by default):** reaching a same-Net Pad, Via or Track ends it. Off, a re-route can run along an existing path.
+  - **Enter or a double-click** ends it at the last point.
+  - **Esc or right-click** ends it and keeps what is placed.
+- **The Tool stays active after a route ends.** A second Esc or right-click returns to Select. With only the start point placed, Esc drops the route and stays in the Tool, so a wrong start costs one key.
+- **Zones don't end a route.** In a [`zones_only`](#pour-over-same-net-copper) Zone of its Net, the Tool shows "not connected: end with a Via or Enter". A Track ending there isn't connected, and the Ratsnest stays.
+- `Tab` opens the routing values in Properties: width, Via size and Layer.
+
+### Obstacles
+
+- **Modes (`Shift+R`, also while dragging):**
+  - **`stop`** (default): the proposed path is clipped at the last clear point. A click places only up to there, and that point may be off grid, because pulling back to the grid could stop short of a gap the route fits through.
+  - **`ignore`:** the route goes anywhere, drawn in the violation colour. It can be placed, and DRC reports it.
+- The mode is remembered in `pcb.route.obstacle_mode`. `walkaround`, `push` and `hug_push` are reserved for v0.4.
+- **What the Tool obeys:** clearance, `edge_clearance`, a Keepout's `restrict` set with normal clearance unless [`zero_keepout_clearance`](#keepouts) is on, and the [Net Tie rule](checks.md#net-ties), the same one DRC uses.
+- **Clearance display (`C`):** other-Net copper grown by its clearance is shaded. `C` cycles `off`, `near` (within 5 mm of the cursor, the default) and `all`, kept in `pcb.route.clearance_display`. The leading suite uses `Mod`+W, which closes tabs in most apps.
+
+### Width
+
+- **Where it starts:**
+  1. On a Track, the route takes that Track's width. `pcb.route.pickup_width` turns this off.
+  2. Otherwise it takes the value of the current mode for the Net, normally [`preferred`](checks.md#which-value-applies). A route from a bare Pad never looks at the Net's other copper.
+- **Modes (`3`):** `min`, `preferred`, `max` and `user`, the last chosen value. An absent limit or an empty `user` is skipped. The mode is kept in `pcb.route.width_mode`, and `preferred` is the default.
+- **Chooser (`Shift+W`, or the width on the [Routing Bar](app.md#routing-bar)):** a list and a typed field. It lists `min`, `preferred`, `max`, the favourites in `pcb.route.favourite_widths` and the widths already on the board. Widths on the board are REDA's addition, so a hand-set width is easy to return to. The leading suite lists only favourites here.
+- **Clipping:** a typed or chosen value is clipped to the Net's `min` and `max` with a status note, unless the limit is absent.
+- A change applies from the last placed vertex on. Per-Net remembered widths and Via sizes are v0.4, reserved as `routing {width, via}` on the Net.
+
+### Loop removal
+
+When a route ends by joining two points already joined on its Net, the old path goes in the same `batch`. Re-routing is then just drawing the new path, which is what makes a router that doesn't shove pleasant.
+
+- **The old path** is the shortest same-Net path between the route's two ends that passes through no Pad. A Track is split where needed, and what stays is re-added in the batch.
+- **It stays, with a note, when:**
+  - the new route is narrower than the old path's widest Track
+  - a real branch joins it, including a Via touching a Zone. The note says to delete it by hand. Taking part of the path could remove copper nobody meant to touch. The survey doesn't record what the leading suite does here.
+- **Antennas:** a dangling stub on the old path goes too, unless it ends in a Via. `pcb.route.remove_antennas` turns this off.
+- **Vias:** a path through Vias goes with its Vias. `pcb.route.remove_loops_through_vias` turns this off.
+- **Off switches:**
+  - `Shift+L` toggles it in the Tool, and `pcb.route.loop_removal` holds the default. A loop made while it is off stays when it comes back on. The leading suite uses Shift+D, which is the [HUD](editing.md#hud)'s delta line here.
+  - Per Net, `loop_removal` on the Net (default on, left out of the file when on), set with `pcb.net.set_routing {nets, loop_removal}` and shown in Properties for selected copper. It is for power and ground Nets that need loops.
+
+### Dragging Tracks
+
+- **Slide:** a plain drag on a segment moves it along its normal. A lone neighbour keeps its line and angle, and shortens or lengthens.
+- **Past a neighbour's end:** the neighbour shrinks to nothing and goes, a collinear segment beyond it merges, and the drag stops there. It doesn't build a new corner, which keeps accidental kinks out.
+- **Fixed ends:** where a neighbour can't follow (a Pad, a branch, or a parallel neighbour), a connector is added: 45° with **Include Miters** (`C` while dragging, on), else square.
+- **Merge Collinear (`R` while dragging, on):** a segment that lines up with a neighbour merges into it.
+- **Obstacles:** the same mode and key as routing. In `stop`, the slide stops at the last clear position.
+- **Corner:** dragging a vertex uses `Space` to pick Deform (the default, where the vertex follows the cursor) or Scale (the corner keeps its shape).
+- **Break:** drag a selected segment's midpoint handle, or `Mod`+Shift+press at a point, to add a vertex there.
+- **Track end:**
+  - A free end moves alone.
+  - A vertex shared by two segments moves both.
+  - An end on a Footprint Pad detaches, and the Ratsnest shows the gap.
+  - An end on a Free Pad or Via moves that object with all its Tracks.
+- **Via and Free Pad:** a plain drag keeps every Track attached.
+- `Mod`+drag detaches, and `pcb.drag.preserve_angle` (on) turns angle keeping off.
+- T-junction drags and multi-Track end moves are v0.4.
+
+### Selecting and clearing copper
+
+- **`Tab` with copper selected and no Tool in flight** widens the selection a step at a time: contiguous Track on this Layer, connected copper, the whole Net, then back to the start. A double-click stays Properties, as for [every object](editing.md#stacked-objects).
+- **`U`** selects connected copper directly.
+- **Commands:**
+  - `pcb.selection.connected {seeds, scope: layer|copper|net}`
+  - `pcb.selection.physical_connection {seed, single_layer?}`: Track and Vias up to the next Pad
+  - `pcb.selection.footprint_connections {footprints}` and `pcb.selection.footprint_nets {footprints}`
+- **Unwind:** Backspace with one selected end object deletes it and selects its neighbour, passing through Vias and stopping at a Pad. If it touches several objects, it is deleted with nothing selected. `Mod`+Del unwinds both ways.
+- **`pcb.route.unroute {all?, nets?, connection?, footprints?, include_locked?}`:** locked copper stays unless `include_locked`, which the GUI asks about.
+- **`pcb.track.cleanup {nets?}`** removes stacked duplicates and merges collinear segments.
+- **Selection rectangles have no PCB-only gestures.** The [Selection Filter](editing.md#selection-filter) picks Tracks under a Footprint. Ratsnest lines aren't selected: they hide per Net.
+
+### The proposal function
+
+The Tool's preview comes from one pure function in `reda-pcb`, so v0.4 modes plug in without a new Tool:
+
+```text
+propose(copper, {start, cursor, mode, corner, posture, lookahead, width, layer, net})
+  -> {place, look_ahead, blocked, status: clear|clipped|violating, ends_route, removes, note}
+```
+
+- `mode` is the open obstacle enum. Each v0.4 mode is one more arm.
+- Placed segments stay in the Tool until the route ends, so v0.4 glossing can rework them.
+- It reads the Copper index and changes nothing, so it can be tested with no window.
+
+### Room for later
+
+Push-and-shove, differential pairs, length tuning and curved Tracks: Tracks are single segments with a Line|Arc geometry, and v0.1 creates only Lines.
 
 ## Vias
 
 - Through Vias only. The model stores a layer span on every Via, so blind, buried and micro Vias can come later.
-- One key places a Via mid-route and switches the active Layer.
-- A Via can also be placed on its own onto a Net, for stitching.
-- Sizes start at the Net's [preferred `via_size`](checks.md#which-value-applies). A typed size is clipped to its `min` and `max`.
+- **In a route:** each places the Via at the cursor, drawn before the click.
+  - `V`, or `+`, `-` and `*`: place a Via and switch Layer.
+  - `2`: place a Via and stay on this Layer.
+  - `E`: place a Via and end the route, for dropping into a pour. The leading suite uses numpad `/`, which many laptops don't have.
+- **Sizes:** they start at the Net's [preferred `via_size`](checks.md#which-value-applies). `4` cycles `min`, `preferred`, `max` and `user`, and `Shift+V` opens a chooser with the sizes already on the board. A typed size is clipped to `min` and `max`.
+- **On its own, for stitching:** a Via takes the Net of the copper under its centre on the active Layer, else the Net set in the Tool's Properties, else none.
 - A Via has the same `mask {top?, bottom?, from_hole_edge?}` as a [Pad](library.md#pad-model), with `top` and `bottom` as board sides. An untented side opens at the Via's diameter plus its expansion.
 
 ## Mask and paste
