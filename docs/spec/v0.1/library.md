@@ -15,7 +15,7 @@ Not in v0.1: full KiCad project or library import (v0.6), direct EasyEDA/LCSC im
 
 - **Symbol:**
   - A Symbol has Units, and each Unit has Pins.
-  - Each Pin has a name, a number and an electrical type.
+  - Each Pin has a name, a number and an electrical type. A Pin name marks an overbar with a [backslash after each character](schematic.md#name-syntax).
   - The Symbol also holds the Designator prefix.
 - **Footprint:**
   - A Footprint has Pads, each with a number.

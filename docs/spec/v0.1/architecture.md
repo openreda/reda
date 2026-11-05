@@ -69,7 +69,7 @@ Sources: [How is design data modelled in the engine?](https://github.com/openred
 - **Undo and redo:**
   - One Command is one transaction. It records a before/after change set per object, keyed by UUID.
   - The same change set feeds dirty tracking, incremental derived data (spatial index, Ratsnest, connectivity), the Journal and Change List previews.
-  - There is **one undo stack per Document**. A cross-Document Command (Re-annotate, Sync, write-through edits) records an independent entry in each Document it touches.
+  - There is **one undo stack per Document**. A cross-Document Command (Re-annotate, Sync, write-through edits, [Move to Sheet](schematic.md#move-to-sheet)) records an independent entry in each Document it touches. An undo that would restore a UUID now existing elsewhere is refused, changes nothing, and says which Document to undo first.
   - The **project file** (`.reda`) has its own undo stack too. It covers adding, deleting, renaming and reordering Documents, Project properties, ERC severities, Output Jobs, Fab Preset copies and Library paths. Deleting a sheet that holds Components is one transaction across `.reda` and that sheet. In the GUI, focus picks the stack that `Mod+Z` uses: the Projects panel and the Project dialogs use the Project stack, and a Document tab uses its own ([app](app.md#projects-and-settings)).
 - **Stored versus derived:**
   - Only user-authored data is stored.
@@ -120,6 +120,7 @@ These names are held for later milestones. They are additive, so they stay out o
 | Pad | spoke width and gap under `zone_connection` | later |
 | Pad | rectangular hole shape, counterbore, countersink | later |
 | Part | `part_choices`, body style, alternate Pin names | v0.6 |
+| Project Settings | `higher_level_names_priority` (Higher Level Names Take Priority) | v0.5 |
 | Part | swap groups, equivalence id, pair group, per-Component pin permutation | v0.5 |
 | Footprint | `bodies` | v0.3 |
 | Footprint | `copper` graphics | v0.6 |
@@ -236,8 +237,9 @@ Sources: [How are commands defined, discovered and exposed over MCP?](https://gi
 - **Tools are not Commands.** A Tool (place, Wire, route, drag-move…) is a GUI-side state machine:
   - It previews without mutating. Routing calls engine queries such as clearance.
   - It **commits by running ordinary edit Commands**, one undo entry per commit. A Wire run becomes `schematic.wire.add`, a drag release becomes a move, and each committed route becomes `pcb.track.add`.
+  - A Wire run can be suspended by one other Tool, which returns to it when finished ([schematic](schematic.md#wire-tool)).
 - **Activating a Tool** is the view Command `tool.activate {tool}`.
-- **Keys inside a Tool** are view Commands that are available only while a Tool that supports them is active: `tool.rotate`, `tool.mirror_x`, `tool.mirror_y`, `tool.flip_side`, `tool.edit_properties`, `tool.undo_segment`, `tool.cycle_corner`, `pcb.route.add_via`.
+- **Keys inside a Tool** are view Commands that are available only while a Tool that supports them is active: `tool.rotate`, `tool.mirror_x`, `tool.mirror_y`, `tool.flip_side`, `tool.edit_properties`, `tool.undo_segment`, `tool.cycle_corner`, `tool.cycle_wire_mode`, `tool.insert_vertex`, `pcb.route.add_via`.
 - **Dialogs:**
   - A GUI call that lacks required params opens a form generated from the schema. A command can replace that form with a hand-written dialog, as Sync's Change List does.
   - A Command called with full params never opens a dialog.

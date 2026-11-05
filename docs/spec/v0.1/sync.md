@@ -43,6 +43,15 @@ Sources: [How do the schematic and the PCB stay in sync?](https://github.com/ope
 - **Rename:** a name difference is a rename, not a delete and an add. That includes auto-names that follow Designators.
 - New Nets are in the Default Net Class only. Net Classes stay on the PCB side.
 
+- **Board names:** a Net's board name is its winning name, with the [sheet suffix](schematic.md#connectivity) when Append Sheet Numbers to Local Nets is on.
+
+## Duplicate Nets
+
+Source: [What are the schematic editing contracts?](https://github.com/openreda/reda/issues/132).
+
+- **Blocking:** `sync.apply` refuses while a `duplicate_nets` Violation stands, and the Change List says why, as in the leading suite. `duplicate_nets` compares board names, so the suffix option is one fix and renaming a Net is the other.
+- **Turned off:** with the check's severity Off, or the Violation waived, same-named Nets merge into one board Net.
+
 ## What Sync does to the board
 
 - **Sync never deletes copper:**
