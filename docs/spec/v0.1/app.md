@@ -32,6 +32,7 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   - Menus and toolbars follow the active Document, which is the last one interacted with in any window.
   - An **Active Bar** floats over each canvas with the most-used Tools for that Document type, about five or six of them. Undo, Redo, the units toggle and the view flip belong on the toolbar, not the Active Bar.
   - The Active Bar sits in a window frame (radius 5, margin 3), 12 px below the canvas top, centred. On a canvas too narrow for it, the Tools that don't fit go into a **More Tools** menu at its end; nothing is clipped.
+  - The Track Tool adds a [Routing Bar](#routing-bar) at the bottom of the canvas.
   - Menus, toolbars and the Active Bar are data files in `reda-ui`, listed per Document type. They have stable ids and bind only to Commands, Presets, raw `{command, params}`, separators or submenus. There are no hard-coded callbacks, and a test enforces this. They can't be customised in v0.1 ([customisation](https://github.com/openreda/reda/issues/35)).
 - **Theme:**
   - REDA's own dark and light themes, not stock egui. They use slate greys, one blue accent, small corner radii, no shadows, tighter spacing and slightly smaller text. The values are the ones the [main window prototype](https://github.com/openreda/reda/tree/prototype/main-window-shell) settled:
@@ -221,6 +222,27 @@ Sources: [ADR-0010](../../adr/0010-canvas-drawn-by-own-wgpu-renderer.md), [How a
   - Either font can be chosen on any text object.
   - `reda-app` finds OS-installed fonts and hands their bytes to the engine.
 
+### Routing Bar
+
+Source: [How should the Track Tool and Track dragging behave?](https://github.com/openreda/reda/issues/136).
+
+While the Track Tool is active, a bar floats at the bottom centre of the canvas, above the grid readout. It uses the Active Bar's frame, buttons, icons and tooltips, so the name and key show on hover and nothing shows under the buttons. It is a data file like the other bars, bound to Commands and Presets, and each button does what its key does.
+
+| Button | State shown | Click |
+|---|---|---|
+| Width (only with a route in flight) | the value as text | opens the [chooser](pcb.md#width) |
+| Corner mode | the icon shows the mode | next mode |
+| Look-ahead | toggled | toggles |
+| Obstacle mode | the icon shows the mode, toggled in `stop` | toggles |
+| Auto-terminate | toggled | toggles |
+| Loop removal | toggled | toggles |
+| Clearance display | toggled unless `off` | next value |
+| Keys | | lists the keys, as Shift+F1 does |
+
+A note from the Tool, such as why a loop stays, shows just above the bar.
+
+The leading suite shows these modes as status bar and HUD text. REDA uses a bar because it can be read at a glance and clicked, and looks like the bar above it. Include Miters isn't on it, because it applies while dragging.
+
 ## Keymap
 
 Sources: [How do Commands get their labels, icons and shortcuts?](https://github.com/openreda/reda/issues/27), [How far does Keymap and menu customisation go in v0.1?](https://github.com/openreda/reda/issues/35).
@@ -237,8 +259,12 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
   - A key binds only once per context. A clash is a load error in Messages, and the earlier binding is kept.
 - **Default scheme.** The exact letters can change during the build, but the scheme is fixed:
   - **File and edit:** OS-standard shortcuts with `Mod` (Cmd on macOS, Ctrl elsewhere): `Mod`+S/Z/Shift+Z/C/V/X/A, and Del.
-  - **Tools:** W Wire, N Net Label, P Port, B Power Port, Q No-Connect Marker, T Track, V Via, Z Zone, K Keepout. Esc cancels and returns to select.
-  - **In flight:** Space rotate, X/Y mirror, L flip side, Tab Properties, Backspace remove the last segment, `/` corner mode, `Mod`+E the snap palette. Backspace does nothing when idle.
+  - **Tools:** W Wire, N Net Label, P Port, B Power Port, Q No-Connect Marker, T Track, V Via, Z Zone, K Keepout. Esc cancels and returns to select. In the Track Tool, the first Esc [ends the route](pcb.md#placing-and-ending) and the second returns to select.
+  - **In flight:** Space rotate, X/Y mirror, L flip side, Tab Properties, Backspace remove the last segment, `/` corner mode, `Mod`+E the snap palette. Backspace does nothing when idle, except to [unwind selected copper](pcb.md#selecting-and-clearing-copper).
+  - **[Track Tool](pcb.md#routing):** Space flip the posture, `/` corner mode, 1 look-ahead, 2 Via on this Layer, 3 width mode, 4 Via size mode, 7 next connection, 9 other end, L start Layer, V Via and Layer, E Via and end, Shift+R obstacle mode, Shift+A auto-terminate, Shift+L loop removal, C clearance display, Shift+W width chooser, Shift+V Via size chooser, Enter end the route. Digits and `L`, Shift+R, Shift+W and Shift+V are the leading suite's keys. `pcb.md` gives the reason for each that differs.
+  - **Dragging copper:** Shift+R obstacle mode, C Include Miters, R Merge Collinear, Space corner drag mode.
+  - **Selecting copper:** Tab widens the selection, and U selects connected copper. Tab is Properties only in flight, so the two don't meet.
+  - **Keys in Tool:** Shift+F1 lists the keys valid in the active Tool, generated from the Keymap.
   - **Wire Tool:** Space corner mode, Shift+Space Wire mode, Insert add a vertex, Enter fix a corner, Backspace or Delete remove the last segment ([schematic](schematic.md#wire-tool)). `Mod`+Space switches corners during a drag.
   - **View:**
     - **Grid:** G and Shift+G cycle the preset forward and back. `Mod`+Shift+G sets a custom value, and `Mod`+' toggles the visible grid.
@@ -338,7 +364,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
     - **HUD:** on, follow cursor (on), the item checklist
     - zoom, flip and Layer-switch animation (on)
   - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
-  - **PCB:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones).
+  - **PCB:** `pcb.zone.auto_refill` (`after_edit`), and the Zone Tool's [last-used values](pcb.md#creating-zones). The Track Tool's [`pcb.route.*`](pcb.md#routing) values: `obstacle_mode`, `clearance_display`, `pickup_width`, `width_mode`, `favourite_widths`, `loop_removal`, `remove_antennas` and `remove_loops_through_vias`. `pcb.drag.preserve_angle`. These apply to Tools only: Commands take explicit values.
   - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
   - **Libraries:** user Library paths, the [Active](library.md#on-disk) checkboxes and the [Library check](library.md#library-check) severities.

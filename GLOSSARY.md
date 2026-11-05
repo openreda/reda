@@ -250,6 +250,14 @@ _Avoid_: Disabled
 An area of the board in which chosen kinds of object, such as copper or Vias, must not be placed.
 _Avoid_: Restrict area, rule area, exclusion
 
+**Look-ahead**:
+The last proposed segment of a route or Wire, which shows where the next one goes and isn't placed by the next click.
+_Avoid_: Preview tail
+
+**Loop removal**:
+Deleting the old path when a finished route joins two points already joined on its Net.
+_Avoid_: Auto-cleanup, re-route
+
 **Ratsnest**:
 The lines showing connections a Net still needs on the board that copper does not yet make.
 _Avoid_: Airwires, connection lines, unrouted nets
@@ -427,6 +435,10 @@ _Avoid_: Render tree, display list, view model
 **Active Bar**:
 The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.
 _Avoid_: Quick bar, floating toolbar, palette
+
+**Routing Bar**:
+The bar at the bottom of the canvas while the Track Tool is active, showing and switching its modes.
+_Avoid_: Track toolbar, mode bar
 
 **HUD**:
 A small readout by the cursor on a canvas, showing where the cursor is and how far it has moved since the last click.
