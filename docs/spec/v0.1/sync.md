@@ -142,7 +142,7 @@ Each Sync places its new Footprints in a fresh cluster. The leading suite makes 
 ## Write-through edits
 
 - Designator, value, fields, In BOM, In CPL, Not Fitted and Footprint can be edited from the PCB Properties panel, as cross-Document **write-through** Commands. Each one updates every Unit and the Footprint instance together, with one undo entry in each Document.
-- Re-annotate's "by board position" mode is built the same way.
+- [Re-annotate](schematic.md#re-annotate) from the board is built the same way.
 - Mechanical parts that exist only on the PCB are edited there, fields, In BOM, In CPL and Not Fitted included.
 - Pin and gate swaps flowing back from the PCB are deferred to v0.5.
 

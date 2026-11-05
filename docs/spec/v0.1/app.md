@@ -124,7 +124,11 @@ Source: [How are Projects, Documents and board setup created and edited in v0.1?
 - **Project Settings** (stored in `.reda`):
   - *Properties:* title, revision, date, author, company. These are fixed fields only, with no free Project parameters or text variables in v0.1.
   - *ERC:* the severity of each check, in a grouped grid with multi-select and **Reset to defaults**, beside the editable [Pin Matrix](checks.md#pin-matrix) ([checks](checks.md#severities)).
-  - *Schematic:* [net naming](schematic.md#connectivity): Allow Ports to Name Nets, Power Port Names Take Priority and Append Sheet Numbers to Local Nets; and [Single '\' Negation](schematic.md#name-syntax).
+  - *Schematic:* grouped as:
+    - **Nets:** [net naming](schematic.md#connectivity): Allow Ports to Name Nets, Power Port Names Take Priority and Append Sheet Numbers to Local Nets.
+    - **Cross-references:** [Automatic Cross References](schematic.md#port-cross-references), Sheet Style, Location Style and Follow Preferences.
+    - **Assembly:** [Not Fitted display](outputs.md#not-fitted).
+    - **Re-annotate:** a read-only summary of the [last settings](schematic.md#re-annotate), with Reset.
   - *Fab Presets:* the Project's copies, each with "Update from source" (after a preview), "Save as user preset" and [sub-pages](outputs.md#fab-preset-pages) ([outputs](outputs.md#fab-presets)).
   - *Libraries:* Project Library paths.
 - **Board Setup** (stored in the PCB Document):
@@ -218,7 +222,8 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
     - `+`/`-` step to the next or previous copper Layer, and `*` swaps top and bottom.
     - `Shift+S` toggles single-Layer mode.
     - F zooms to fit, and Home zooms to the selection.
-  - **Move:** M is Move (detach), and D is Drag.
+  - **Move:** M is Move (detach), and D is Drag. Alt constrains a drag, `Mod`+arrows nudge, and Shift+Space rotates clockwise ([schematic](schematic.md#editing)).
+  - **Text:** F2 edits text [in place](schematic.md#fields).
   - **Mouse:**
     - The wheel zooms at the cursor. Shift+wheel scrolls sideways, and Ctrl+wheel scrolls up and down.
     - Right-drag and middle-drag pan. A right-click without dragging opens the context menu.
@@ -292,7 +297,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
     - default snap-grid preset per Document type
     - electrical snap (on)
     - auto-pan at the canvas edge (on)
-  - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)).
+  - **Schematic** (editing), also: Optimize Wires, Components Cut Wires, Break Wires At Autojunctions and Convert Cross-Junctions (all on); Display Cross-Overs (off); Always Drag and Drag Orthogonal (on), Drag Step; Clipboard Reference (off); Break Wire's Cutting Length, Show Cutter Box and Show Extremity Markers ([schematic](schematic.md#wires)); [Unit Suffix](schematic.md#units) (alpha); [Single '\' Negation](schematic.md#name-syntax) (off); [In-Place Editing](schematic.md#fields) (on); [auto-increment](schematic.md#auto-increment) primary and secondary (1); Object's Electrical Hot Spot (on), Center of Object (off) and Display When Dragging (on) ([schematic](schematic.md#editing)); Port Cross References Sheet Style and Location Style, used when a Project [follows Preferences](schematic.md#port-cross-references).
   - **Cross-select:** Dim (on), Zoom (off), Focus (on) and Reposition (off) ([sync](sync.md#cross-select-and-net-highlighting)).
   - **Display:** Layer colour overrides per theme, keyed by Layer kind (global, not per Project); cursor style (small or full-screen crosshair); default Inactive-Layer mode.
   - **Libraries:** user Library paths.
@@ -300,7 +305,7 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
   - **Agents:** bridge on/off and the allowed agents.
   - **Keyboard Shortcuts:** see [Keymap](#keymap).
 - A Project never overrides a Preference.
-- **Preference or Project Setting:** a setting that changes what a saved file means or outputs is a Project Setting. Anything else can be a Preference ([What are the schematic editing contracts?](https://github.com/openreda/reda/issues/132)).
+- **Preferences and outputs:** a Preference can change the canvas, PDFs and printing. It must not change any other output ([What schematic depth does v0.1 specify beyond the editing contracts?](https://github.com/openreda/reda/issues/133)).
 
 ## Per-user state
 

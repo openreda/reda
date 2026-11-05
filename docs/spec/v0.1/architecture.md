@@ -121,6 +121,8 @@ These names are held for later milestones. They are additive, so they stay out o
 | Pad | rectangular hole shape, counterbore, countersink | later |
 | Part | `part_choices`, body style, alternate Pin names | v0.6 |
 | Project Settings | `higher_level_names_priority` (Higher Level Names Take Priority) | v0.5 |
+| Sheet frame | `style` (a frame template), `default_font` | v0.2 |
+| Project Settings | `text` as a value of `not_fitted_display` (a text overlay) | v0.5 |
 | Part | swap groups, equivalence id, pair group, per-Component pin permutation | v0.5 |
 | Footprint | `bodies` | v0.3 |
 | Footprint | `copper` graphics | v0.6 |
@@ -152,7 +154,7 @@ Sources: [What does REDA's native file format look like?](https://github.com/ope
 - **Order:** a file is grouped into tables by object kind, and each table is sorted by UUID, never by insertion order.
 - **Project layout.** A Project is a folder:
   - `name.reda` lists the Documents in order, as relative path + UUID. That order drives sheet numbering and PDF output, and nothing is found by scanning the folder.
-  - `name.reda` also holds the Project-wide settings: Project properties, ERC severities, Output Jobs, copied Fab Presets and Project Library paths.
+  - `name.reda` also holds the Project-wide settings: Project properties, ERC severities, schematic options, Re-annotate's last settings, Output Jobs, copied Fab Presets and Project Library paths.
   - There is one file per Document: `name.redasch` (Schematic Sheet) and `name.redapcb` (PCB Document).
   - A Document's name is its file stem. Renaming a Document renames its file on save. Adding or deleting a Document reaches disk on save, and a deleted Document's file goes to the OS trash ([app](app.md#projects-and-settings)).
 - **Part tables:**

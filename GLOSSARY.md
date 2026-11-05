@@ -82,6 +82,14 @@ _Avoid_: Net bridge, star point, jumper (a fitted link is a different thing)
 One independently placeable section of a Symbol, such as one amplifier of a dual op-amp or its power section; a single-unit Symbol has exactly one.
 _Avoid_: Gate, sub-part, section
 
+**Unit Suffix**:
+The letter or number drawn after a Designator to show which Unit a symbol is, such as the A in U1A; it is not part of the Designator.
+_Avoid_: Part letter, sub-part ID
+
+**Autoposition**:
+The state of a Component's field whose text REDA places by itself, which lasts until the field is moved by hand.
+_Avoid_: Auto-place
+
 **Designator**:
 The human-readable reference that names a Component in a Project, such as R1 or U3; it can change without changing which Component it is.
 _Avoid_: Reference, refdes, RefDes, ID
@@ -115,6 +123,14 @@ _Avoid_: Sheet net, private net
 **Port**:
 A named, directional marker attached to a Wire that joins it to the Ports of the same name on other Schematic Sheets of the Project.
 _Avoid_: Global label, off-sheet connector, sheet connector
+
+**Port Cross-Reference**:
+The note drawn beside a Port that says which sheets and locations hold the other Ports of the same name; it follows from the design and is never stored.
+_Avoid_: Sheet reference, off-page reference
+
+**Border Zone**:
+A square of a Schematic Sheet's border grid, named by its row and column such as B3, that gives a location on the sheet; it has nothing to do with a copper Zone.
+_Avoid_: Zone, grid reference
 
 **Power Port**:
 A named symbol, such as GND or 3V3, that joins its Wire to the Project-wide Net of that name on every Schematic Sheet.

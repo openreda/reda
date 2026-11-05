@@ -9,6 +9,7 @@ Sources: [Which manufacturing outputs are in v0.1, and is panelization in v0.1?]
 - **CSV BOM** and **CSV CPL**.
 - **[Fab Notes](#fab-notes)**, a [drill report](#drill-report) and a [Gerber job file](#gerber-job-file).
 - **[Reports](#reports)** of DRC, ERC and the Change List.
+- **[Schematic PDF](#schematic-pdf)**.
 - **[Layout](#output-layout):** the fab's files go into one zip, with the assembly files, the [Output Manifest](#output-manifest) and the reports beside it.
 - Deferred to v0.7: assembly/layer PDFs, IPC-D-356, ODB++/Gerber X3, drill maps. STEP is v0.3. No in-app Gerber viewer: the run report lists the files, and the user checks them in the fab's own viewer.
 
@@ -21,6 +22,7 @@ outputs/<job>/
   <name>.zip           Gerber, drill, Fab Notes, drill report, job file
   <name>-BOM.csv
   <name>-CPL.csv
+  <name>-schematic.pdf
   manifest.json
   reports/
   fab/                 loose copies of what's in the zip
@@ -29,6 +31,7 @@ outputs/<job>/
 - BOM and CPL sit beside the zip because both fabs list them as uploads separate from the Gerber archive.
 - The Fab Preset's `zip_assembly` also puts them inside the zip, instead of beside it. It is off in the shipped presets.
 - Fab Notes, the drill report and the job file stay in the zip, because they are written for the fab.
+- The schematic PDF is never in the zip, because it is for reading, not for the fab.
 - `fab/` keeps the files readable in a git diff, which a zip is not, and keeps the files to upload easy to find.
 - Files inside the zip and in `fab/` are named from `<project>`, so a date in the template changes the zip's name and not its bytes.
 
@@ -155,7 +158,8 @@ The commands keep the form a widely used open-source writer uses, which fabs are
 - Each job names:
   - one PCB Document
   - one Fab Preset
-  - the outputs to make: Gerber, drill, BOM, CPL, Fab Notes, drill report, Gerber job file and reports, all on by default
+  - the outputs to make: Gerber, drill, BOM, CPL, Fab Notes, drill report, Gerber job file, reports and schematic PDF, all on by default
+  - `schematic_pdf_colour`: `colour` (default) or `mono`
   - a destination and a [name template](#name-template)
   - `not_fitted_paste`: [keep or remove](#not-fitted) Not Fitted Pads' paste openings
 - **Reserved names:** `checks` (ignore, warn or block per check), `overrides` (of preset keys) and `variant`. They are not in the v0.1 schema.
@@ -194,7 +198,8 @@ Output Job ▸ <name>
   General    name · PCB Document · Fab Preset · destination · name template
              · live path preview · zip contents (from preset)
   Outputs    ☑ Gerber ☑ Drill ☑ BOM ☑ CPL ☑ Fab Notes ☑ Drill report ☑ Job file
-             ☑ Reports · Not Fitted paste: keep / remove
+             ☑ Reports ☑ Schematic PDF · PDF colour: colour / mono
+             · Not Fitted paste: keep / remove
   Gerber     read-only table: Layer | File name | Plotted
   Drill      read-only: slot command · merged or split · file names
   BOM        read-only preview of this board's rows
@@ -209,10 +214,9 @@ Output Job ▸ <name>
 
 ## Determinism
 
-- The same design and REDA version give an identical zip, so committed outputs change only when the design does.
+- The same design and REDA version give an identical zip, so committed outputs change only when the design does. The schematic PDF is the exception: it can also change with [Preferences](app.md#preferences), such as the Unit Suffix.
 - Gerber and drill files carry no date, and every zip entry has the fixed date 1980-01-01.
-- The Output Manifest is the only output that holds the run's date, which it takes from the injected `Clock`.
-- PDF metadata takes its time only from the same `Clock`.
+- The Output Manifest is the only output that holds the run's date, which it takes from the injected `Clock`. PDFs write no date.
 - The goldens inject the Clock and the REDA version, so they stay stable across releases ([testing](quality-and-release.md#testing)).
 
 ## What blocks a run and what only warns
@@ -359,12 +363,21 @@ The [acceptance check](quality-and-release.md#testing) tests these.
 - **Paste:** the job's `not_fitted_paste` is `keep` or `remove`, default `keep`, so one stencil serves every build. Mask and copper never change.
 - In BOM and In CPL are separate from it: they hold on every build, while Not Fitted says this build leaves the Component off.
 - A Net Tie refuses Not Fitted, because its copper is on the board either way. Changing a Component's type to Net Tie clears the flag.
+- **On the sheet:** the Project option `not_fitted_display` applies to the canvas and the PDF, as in the leading suite's Variant drawing options. `cross` (default) is a red cross, `mesh` a grey box with a mesh and `none` draws nothing extra. With `cross` and `mesh` the body is also drawn masked. A mono PDF draws both in black, without masking. `text` is a reserved name for a v0.5 text overlay. ([What schematic depth does v0.1 specify beyond the editing contracts?](https://github.com/openreda/reda/issues/133))
 - Variants generalise this flag in v0.5.
 
 ## Schematic PDF
 
-- A vector PDF of every sheet, in Document order, written from the Scene ([app](app.md#canvas-rendering)).
+Source: [What schematic depth does v0.1 specify beyond the editing contracts?](https://github.com/openreda/reda/issues/133).
+
+- A vector PDF of the sheets, in Document order, written from the Scene ([app](app.md#canvas-rendering)), one page per sheet at its paper size.
 - Glyphs are written as filled outline paths. No fonts are embedded, so text in the PDF is not searchable.
+- **Command:** `schematic.export_pdf {path, sheets: all | current, colour: colour | mono}`, behind a small Export PDF dialog. A PDF always uses paper colours, so `colour` replaces the `theme` parameter.
+- **Output Job:** an output that writes every sheet beside the zip. The manifest lists it. CLI and MCP runs read the same [Preferences](app.md#preferences) as the GUI, with their defaults when none is set.
+- **Colour modes:** colour and mono. The leading suite also has greyscale. REDA leaves it out because any printer can already print colour as grey.
+- **Outline:** the Project title, then a bookmark per sheet ("2 Power"), then a bookmark per Component in natural sort ("R12 10k"), with the [Unit Suffix](schematic.md#units) where it applies.
+- **Links:** each [cross-reference](schematic.md#port-cross-references) entry links to its page.
+- **v0.2:** Net bookmarks, Component field pop-ups, hyperlinks and fit-to-paper.
 
 ## Panelization
 
