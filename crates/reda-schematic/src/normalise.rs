@@ -89,6 +89,7 @@ pub const WIRING_COMMANDS: &[&str] = &[
     "schematic.paste",
     "schematic.duplicate",
     "schematic.move",
+    "schematic.selection.move_to_sheet",
     "schematic.drag",
     "schematic.rotate",
     "schematic.mirror",

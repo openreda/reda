@@ -34,10 +34,11 @@ pub use edit::{
     ConvertCrossResult, ConvertedJunction, Copy, CopyParams, Cut, CutParams, Delete, DeleteParams,
     DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
     EditResult, FlightStep, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams,
-    Mirror, MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
-    RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams,
-    TextResult, TextSet, TextSetParams, WireBreak, WireBreakParams, WireBreakResult,
-    flight_preview, selectable, shift_preview,
+    Mirror, MirrorParams, Move, MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange,
+    Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate, RotateParams, ShiftParams,
+    ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
+    TextSetParams, WireBreak, WireBreakParams, WireBreakResult, flight_preview, selectable,
+    shift_preview,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{
@@ -109,6 +110,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Paste);
     registry.add(Duplicate);
     registry.add(Move);
+    registry.add(MoveToSheet);
     registry.add(Drag);
     registry.add(Rotate);
     registry.add(Mirror);
