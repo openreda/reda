@@ -62,6 +62,7 @@ pub(crate) fn holder(session: &mut Session) -> &mut Project {
             libraries: vec![],
             properties: Default::default(),
             erc: Default::default(),
+            schematic: Default::default(),
         }));
     }
     session.elements_mut().expect("a Project or the workbench")

@@ -17,7 +17,8 @@
 //!     {"uuid":"…","name":"JLCPCB","pcb":"…","fab_preset":"…","outputs":{…}}
 //!   ],
 //!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"},
-//!   "erc": {"unconnected_input":"error",…,"single_pin_net":"off",…}
+//!   "erc": {"unconnected_input":"error",…,"single_pin_net":"off",…},
+//!   "schematic": {"power_port_names_priority":false,"allow_ports_to_name_nets":true,…}
 //! }
 //! ```
 //!
@@ -30,7 +31,7 @@ use std::path::Path;
 
 use reda_model::{
     DocumentEntry, DocumentKind, ErcSeverities, OutputJob, Project, ProjectFabPreset,
-    ProjectProperties, Uuid,
+    ProjectProperties, SchematicOptions, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -70,6 +71,10 @@ pub(crate) struct ProjectFile {
     /// differs from its default; a check left out has its default.
     #[serde(default)]
     pub erc: ErcSeverities,
+    /// The schematic options: how Nets are named. Written only when any differs from its
+    /// default; an option left out has its default.
+    #[serde(default)]
+    pub schematic: SchematicOptions,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -155,6 +160,10 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     let erc = &project.props().erc;
     if !erc.is_default() {
         w.field("erc", erc)?;
+    }
+    let schematic = &project.props().schematic;
+    if !schematic.is_default() {
+        w.field("schematic", schematic)?;
     }
     Ok(w.finish())
 }

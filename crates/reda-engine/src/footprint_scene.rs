@@ -115,6 +115,7 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         libraries: vec![],
         properties: Default::default(),
         erc: Default::default(),
+        schematic: Default::default(),
     });
     let document = new_id();
     let rules = Rules {

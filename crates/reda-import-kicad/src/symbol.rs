@@ -230,7 +230,7 @@ fn read_pin(pin: &Sexp, unit: u32, names_hidden: bool, numbers_hidden: bool) -> 
         name: if name == "~" {
             String::new()
         } else {
-            name.into()
+            overbar_markup(name)
         },
         number: number.into(),
         electrical_type,
@@ -240,6 +240,26 @@ fn read_pin(pin: &Sexp, unit: u32, names_hidden: bool, numbers_hidden: bool) -> 
         name_visible: !hidden && !names_hidden,
         number_visible: !hidden && !numbers_hidden,
     })
+}
+
+/// A KiCad name with its overbar form `~{X}` turned into REDA's, a backslash after each
+/// negated character: `~{CS}/~{WR}` becomes `C\S\/W\R\`. Anything else is kept.
+fn overbar_markup(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut rest = name;
+    while let Some(start) = rest.find("~{") {
+        let Some(len) = rest[start + 2..].find('}') else {
+            break;
+        };
+        out.push_str(&rest[..start]);
+        for c in rest[start + 2..start + 2 + len].chars() {
+            out.push(c);
+            out.push('\\');
+        }
+        rest = &rest[start + 2 + len + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 fn read_graphic(item: &Sexp, unit: u32, source: &mut SymbolSource) -> Read<()> {
@@ -398,5 +418,19 @@ pub fn build(
         pins,
         graphics,
         provenance: Some(Box::new(provenance)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::overbar_markup;
+
+    #[test]
+    fn kicad_overbars_become_a_backslash_after_each_character() {
+        assert_eq!(overbar_markup("~{RESET}"), "R\\E\\S\\E\\T\\");
+        assert_eq!(overbar_markup("~{CS}/~{WR}"), "C\\S\\/W\\R\\");
+        assert_eq!(overbar_markup("A~{B}C"), "AB\\C");
+        assert_eq!(overbar_markup("VCC"), "VCC");
+        assert_eq!(overbar_markup("~{open"), "~{open");
     }
 }
