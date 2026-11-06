@@ -229,12 +229,37 @@ fn icon_row_sized(
                 chrome::bar_separator(ui, side);
                 continue;
             }
-            // A submenu on a bar opens as a menu under its button.
+            // A submenu on a bar opens as a menu under its button: its icon, or else its
+            // title.
             Item::Submenu(menu) => {
                 let mut inner = None;
-                ui.menu_button(i18n::translate(&menu.title, &[]), |ui| {
-                    menu_items(ui, cx, &menu.items, &mut inner);
-                });
+                let title = i18n::translate(&menu.title, &[]);
+                let image = menu
+                    .icon
+                    .as_deref()
+                    .and_then(|key| icons::image(key, icon, ui.ctx().theme(), true));
+                match image {
+                    Some(image) => {
+                        // Shown as active while any of its items is.
+                        let checked = menu.items.iter().any(|i| match i {
+                            Item::Action(a) => {
+                                cx.is_checked(&resolve_for(cx.shell, a, cx.document))
+                            }
+                            _ => false,
+                        });
+                        let response = chrome::icon_button(ui, image, icon, side, checked, true)
+                            .on_hover_text(&title);
+                        a11y::name(&response, Role::Button, true, &title, None, None);
+                        egui::Popup::menu(&response).show(|ui| {
+                            menu_items(ui, cx, &menu.items, &mut inner);
+                        });
+                    }
+                    None => {
+                        ui.menu_button(title, |ui| {
+                            menu_items(ui, cx, &menu.items, &mut inner);
+                        });
+                    }
+                }
                 clicked = clicked.or(inner);
                 continue;
             }

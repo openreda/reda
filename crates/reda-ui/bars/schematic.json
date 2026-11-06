@@ -78,6 +78,16 @@
         { "id": "place.net_label", "command": "tool.activate:net_label" },
         { "id": "place.port", "command": "tool.activate:port" },
         { "id": "place.power_port", "command": "tool.activate:power_port" },
+        {
+          "id": "place.power_port_presets",
+          "title": "menu-place-power-port-presets",
+          "items": [
+            { "id": "place.power_port_presets.gnd", "command": "tool.activate:power_port_gnd" },
+            { "id": "place.power_port_presets.three_v_three", "command": "tool.activate:power_port_3v3" },
+            { "id": "place.power_port_presets.five_v", "command": "tool.activate:power_port_5v" },
+            { "id": "place.power_port_presets.vcc", "command": "tool.activate:power_port_vcc" }
+          ]
+        },
         { "id": "place.no_connect", "command": "tool.activate:no_connect" },
         "separator",
         { "id": "place.text", "command": "tool.activate:text" },
@@ -103,6 +113,18 @@
     "separator",
     { "id": "active_bar.wire", "command": "tool.activate:wire" },
     { "id": "active_bar.net_label", "command": "tool.activate:net_label" },
-    { "id": "active_bar.power_port", "command": "tool.activate:power_port" }
+    {
+      "id": "active_bar.power_port",
+      "title": "active-bar-power-port",
+      "icon": "power_port",
+      "items": [
+        { "id": "active_bar.power_port.tool", "command": "tool.activate:power_port" },
+        "separator",
+        { "id": "active_bar.power_port.gnd", "command": "tool.activate:power_port_gnd" },
+        { "id": "active_bar.power_port.three_v_three", "command": "tool.activate:power_port_3v3" },
+        { "id": "active_bar.power_port.five_v", "command": "tool.activate:power_port_5v" },
+        { "id": "active_bar.power_port.vcc", "command": "tool.activate:power_port_vcc" }
+      ]
+    }
   ]
 }

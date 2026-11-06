@@ -37,7 +37,7 @@ pub struct ProjectProps {
     pub schematic: SchematicOptions,
 }
 
-/// The Project's schematic options: how Nets are named.
+/// The Project's schematic options: how Nets are named and Ports cross-referenced.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct SchematicOptions {
@@ -52,6 +52,14 @@ pub struct SchematicOptions {
     /// board name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain
     /// name.
     pub append_sheet_numbers: bool,
+    /// Automatic Cross References: each Port shows where its partners are, such as
+    /// `[2:B3]`. Off by default, so a Project opts in.
+    pub cross_references: bool,
+    /// The Project's cross-reference styles, unless it follows the Preferences.
+    pub cross_reference_styles: CrossReferenceStyles,
+    /// Follow Cross References settings in Preferences: the styles come from the
+    /// Preferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.
+    pub cross_references_follow_preferences: bool,
 }
 
 impl SchematicOptions {
@@ -59,11 +67,77 @@ impl SchematicOptions {
         power_port_names_priority: false,
         allow_ports_to_name_nets: true,
         append_sheet_numbers: false,
+        cross_references: false,
+        cross_reference_styles: CrossReferenceStyles::DEFAULT,
+        cross_references_follow_preferences: false,
     };
 
     pub fn is_default(&self) -> bool {
         *self == SchematicOptions::DEFAULT
     }
+
+    /// The styles Port cross-references are drawn in, given the Preferences' styles, or
+    /// none when the Project shows no cross-references.
+    pub fn cross_reference_styles(
+        &self,
+        preferences: CrossReferenceStyles,
+    ) -> Option<CrossReferenceStyles> {
+        self.cross_references
+            .then_some(match self.cross_references_follow_preferences {
+                true => preferences,
+                false => self.cross_reference_styles,
+            })
+    }
+}
+
+/// How a Port cross-reference names its partners' places: by sheet, then by location on
+/// that sheet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct CrossReferenceStyles {
+    /// Sheet Style: `number` by default.
+    pub sheet: SheetStyle,
+    /// Location Style: `zone` by default.
+    pub location: LocationStyle,
+}
+
+impl CrossReferenceStyles {
+    pub const DEFAULT: CrossReferenceStyles = CrossReferenceStyles {
+        sheet: SheetStyle::Number,
+        location: LocationStyle::Zone,
+    };
+}
+
+impl Default for CrossReferenceStyles {
+    fn default() -> CrossReferenceStyles {
+        CrossReferenceStyles::DEFAULT
+    }
+}
+
+/// How a cross-reference names a partner's sheet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SheetStyle {
+    /// Not at all.
+    None,
+    /// By the sheet's title, as in the Projects panel.
+    Name,
+    /// By its number in the Projects panel, from 1.
+    #[default]
+    Number,
+}
+
+/// How a cross-reference names where on its sheet a partner is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LocationStyle {
+    /// Not at all.
+    None,
+    /// By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.
+    #[default]
+    Zone,
+    /// By its X,Y position on the sheet, in millimetres.
+    Xy,
 }
 
 impl Default for SchematicOptions {

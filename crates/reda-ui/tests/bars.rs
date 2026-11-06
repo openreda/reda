@@ -626,10 +626,40 @@ fn the_tools_that_do_not_fit_a_narrow_canvas_are_in_the_more_tools_menu() {
     assert!(h.query_by_label_contains("Power Port").is_none());
     h.get_by_role_and_label(Role::Button, "More Tools").click();
     h.run();
-    // The menu item reads with its shortcut.
-    h.get_by_label_contains("Power Port").click();
+    // Its menu, with the Tool and the Power Port Presets, is a submenu there.
+    h.get_by_label("Power Port").click();
     h.run();
-    assert_eq!(journal_ids(&h).last().unwrap(), "tool.activate:power_port");
+    h.get_by_label_contains("5V Power Port").click();
+    h.run();
+    assert_eq!(
+        journal_ids(&h).last().unwrap(),
+        "tool.activate:power_port_5v"
+    );
+}
+
+#[test]
+fn the_active_bars_power_port_button_offers_the_tool_and_the_presets() {
+    let home = TempDir::new("bars-home");
+    let work = TempDir::new("bars-work");
+    let file = make_project(work.path(), "Presets");
+    let mut h = harness(home.path());
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Power Port").click();
+    h.run();
+    for preset in ["GND", "3V3", "5V", "VCC"] {
+        assert!(
+            h.query_by_label_contains(&format!("{preset} Power Port"))
+                .is_some()
+        );
+    }
+    h.get_by_label_contains("VCC Power Port").click();
+    h.run();
+    assert_eq!(
+        journal_ids(&h).last().unwrap(),
+        "tool.activate:power_port_vcc"
+    );
 }
 
 #[test]
