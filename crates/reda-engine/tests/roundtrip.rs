@@ -381,11 +381,15 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             in_bom: flag,
             in_cpl: !flag,
             not_fitted: !flag,
-            designator_text: flag.then_some(FootprintText {
-                rotation: Millideg(270_000),
-                visible: false,
-                ..FootprintText::designator(Uuid::v4_from_bits(seed.base ^ 11))
-            }),
+            text_overrides: if flag {
+                vec![reda_model::FootprintTextOverride {
+                    rotation: Some(Millideg(270_000)),
+                    visible: Some(false),
+                    ..reda_model::FootprintTextOverride::new(Uuid::v4_from_bits(seed.base ^ 11))
+                }]
+            } else {
+                vec![]
+            },
             pads,
         };
         objects.push(Object::FootprintCopy(InDocument::new(doc, copy)));
@@ -426,10 +430,15 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 uuid: id(),
                 layer: layer_ids[t.layer % layer_ids.len()],
                 text: t.text,
-                font: t.font,
+                style: reda_model::TextStyle {
+                    justify: Default::default(),
+                    knockout: None,
+                    font: t.font,
+                    height: t.height,
+                    thickness: t.height,
+                },
+                frame: None,
                 position: t.position,
-                height: t.height,
-                thickness: t.height,
                 rotation: t.rotation,
                 mirrored: t.mirrored,
             },

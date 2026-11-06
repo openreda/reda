@@ -5,7 +5,10 @@ use reda_command::{
     Unavailable,
 };
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{HERSHEY_FONT, InDocument, Layer, Object, PcbText, Side, Uuid};
+use reda_model::{
+    HERSHEY_FONT, InDocument, Layer, Object, PcbText, Side, TextFrame, TextJustify, TextKnockout,
+    TextStyle, Uuid,
+};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -82,6 +85,12 @@ pub struct TextAddParams {
     /// default.
     #[serde(default)]
     pub mirrored: Option<bool>,
+    #[serde(default)]
+    pub justify: Option<TextJustify>,
+    #[serde(default)]
+    pub knockout: Option<KnockoutParam>,
+    #[serde(default)]
+    pub frame: Option<FrameParam>,
 }
 
 impl Command for TextAdd {
@@ -122,10 +131,15 @@ impl Command for TextAdd {
             uuid,
             layer,
             text: p.text,
-            font,
             position: Point::new(p.x.nm(), p.y.nm()),
-            height,
-            thickness,
+            style: TextStyle {
+                font,
+                height,
+                thickness,
+                justify: p.justify.unwrap_or_default(),
+                knockout: p.knockout.map(KnockoutParam::resolve).transpose()?,
+            },
+            frame: p.frame.map(FrameParam::resolve).transpose()?,
             rotation: p
                 .rotation
                 .map_or(Millideg::ZERO, |r| r.millideg().normalized()),
@@ -167,6 +181,16 @@ pub struct TextSetParams {
     /// mirrors on bottom Layers and unmirrors elsewhere.
     #[serde(default)]
     pub mirrored: Option<bool>,
+    #[serde(default)]
+    pub justify: Option<TextJustify>,
+    #[serde(default)]
+    pub knockout: Option<KnockoutParam>,
+    #[serde(default)]
+    pub frame: Option<FrameParam>,
+    #[serde(default)]
+    pub clear_knockout: bool,
+    #[serde(default)]
+    pub clear_frame: bool,
 }
 
 impl Command for TextSet {
@@ -215,6 +239,21 @@ impl Command for TextSet {
         }
         if let Some(rotation) = p.rotation {
             text.rotation = rotation.millideg().normalized();
+        }
+        if let Some(justify) = p.justify {
+            text.justify = justify;
+        }
+        if let Some(knockout) = p.knockout {
+            text.knockout = Some(knockout.resolve()?);
+        }
+        if let Some(frame) = p.frame {
+            text.frame = Some(frame.resolve()?);
+        }
+        if p.clear_knockout {
+            text.knockout = None;
+        }
+        if p.clear_frame {
+            text.frame = None;
         }
         let moved = p.layer.is_some();
         let layer = match p.layer {
@@ -266,6 +305,83 @@ impl Command for TextDelete {
             )));
         }
         cx.tx()?.remove(p.uuid)?;
+        Ok(())
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KnockoutParam {
+    pub margin: Length,
+}
+impl KnockoutParam {
+    pub(super) fn resolve(self) -> Result<TextKnockout, CommandError> {
+        let margin = self.margin.nm();
+        if margin < Nm::ZERO {
+            return Err(CommandError::invalid_params(
+                "/knockout/margin",
+                "margin must be nonnegative",
+            ));
+        }
+        Ok(TextKnockout { margin })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FrameParam {
+    pub width: Length,
+    pub height: Length,
+}
+impl FrameParam {
+    fn resolve(self) -> Result<TextFrame, CommandError> {
+        Ok(TextFrame {
+            width: positive("/frame/width", self.width)?,
+            height: positive("/frame/height", self.height)?,
+        })
+    }
+}
+
+/// Sparse shared style patch, used when changing Footprint text across instances.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StyleParam {
+    pub font: Option<String>,
+    pub height: Option<Length>,
+    pub thickness: Option<Length>,
+    pub justify: Option<TextJustify>,
+    pub knockout: Option<KnockoutParam>,
+    #[serde(default)]
+    pub clear_knockout: bool,
+}
+impl StyleParam {
+    pub(super) fn apply(&self, style: &mut TextStyle) -> Result<(), CommandError> {
+        if let Some(font) = &self.font {
+            check_font(font)?;
+            style.font = font.clone();
+        }
+        if let Some(height) = self.height {
+            style.height = positive("/style/height", height)?;
+        }
+        if let Some(thickness) = self.thickness {
+            style.thickness = positive("/style/thickness", thickness)?;
+        }
+        if let Some(justify) = self.justify {
+            style.justify = justify;
+        }
+        if let Some(knockout) = &self.knockout {
+            let margin = knockout.margin.nm();
+            if margin < Nm::ZERO {
+                return Err(CommandError::invalid_params(
+                    "/style/knockout/margin",
+                    "margin must be nonnegative",
+                ));
+            }
+            style.knockout = Some(TextKnockout { margin });
+        }
+        if self.clear_knockout {
+            style.knockout = None;
+        }
         Ok(())
     }
 }

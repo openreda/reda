@@ -208,7 +208,7 @@ impl Command for FootprintAdd {
             in_bom: ComponentType::Mechanical.default_in_bom(),
             in_cpl: ComponentType::Mechanical.default_in_cpl(),
             not_fitted: false,
-            designator_text: None,
+            text_overrides: Vec::new(),
             pads: nets,
         };
         let footprint = instance.uuid;

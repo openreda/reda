@@ -30,7 +30,6 @@ fn uuid(n: u128) -> Uuid {
 }
 
 fn item(object: u128, color: SchematicColor, primitive: Primitive) -> Item {
-        child: None,
     Item {
         child: None,
         object: uuid(object),

@@ -32,7 +32,8 @@ pub use library::{
     ComponentType, DESIGNATOR_FIELD, ElementSource, Field, Fields, Footprint, FootprintGenerator,
     FootprintGraphic, FootprintLayer, FootprintText, InsideEdge, LibraryElement, LibraryInfo,
     OutsideEdge, Part, Pin, PinMap, PinPads, PinType, Provenance, Shape, Symbol, SymbolGraphic,
-    TextStyle, Unit, VALUE_FIELD, field_text,
+    TextFrame, TextHJustify, TextJustify, TextKnockout, TextStyle, TextVJustify, Unit, VALUE_FIELD,
+    field_text,
 };
 pub use output::{
     BomGroup, BomLayout, BomSettings, BottomPosition, BottomRotation, Column, ColumnSource,
@@ -47,11 +48,11 @@ pub use pad::{
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS,
     DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities, FillShape,
-    FootprintInstance, FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind,
-    LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadConnection, PadNet,
-    PadRef, PcbDocument, PcbGraphic, PcbText, RuleField, RuleKind, RuleScope, RuleValue,
-    RuleValues, Side, Stackup, StackupEntry, StackupSeeds, StackupTotals, Track, TrackGeometry,
-    Via, Zone, ZoneFills,
+    FootprintInstance, FootprintTextOverride, FootprintTextRef, FreePad, GraphicShape,
+    HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net,
+    NetClass, OutputOrigin, PadConnection, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText,
+    RuleField, RuleKind, RuleScope, RuleValue, RuleValues, Side, Stackup, StackupEntry,
+    StackupSeeds, StackupTotals, TextAutoposition, Track, TrackGeometry, Via, Zone, ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

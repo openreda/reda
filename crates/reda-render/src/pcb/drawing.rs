@@ -117,7 +117,11 @@ pub(super) fn texts(b: &mut Builder, texts: &[BoardText]) {
             stroke_width: t.stroke_width,
             fill: t.fill.clone(),
         };
+        let before = b.scene.items.len();
         b.on_layer(t.object, t.layer, Primitive::Glyphs(run));
+        if let Some(item) = b.scene.items.get_mut(before) {
+            item.child = t.child.clone();
+        }
     }
 }
 

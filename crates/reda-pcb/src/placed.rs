@@ -306,36 +306,53 @@ pub fn placed_graphics(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<P
         .collect()
 }
 
-/// The Designator text of a Footprint relative to its origin: the instance's own when it
-/// has been moved, else the Footprint's [`designator_text`](reda_model::Footprint::designator_text).
+/// The primary Designator's resolved placement in the Footprint's frame.
 pub fn designator_text(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<FootprintText> {
-    instance.designator_text.clone().or_else(|| {
-        pcb.footprint_copy(instance.footprint)
-            .and_then(|c| c.footprint.designator_text().cloned())
-    })
+    let primary = pcb
+        .footprint_copy(instance.footprint)?
+        .footprint
+        .designator_text()?
+        .uuid;
+    instance_texts(pcb, instance)
+        .into_iter()
+        .find(|t| t.uuid == primary)
 }
 
-/// Every text a placed Footprint shows, relative to its origin: the Footprint copy's
-/// `texts`, with its Designator text replaced by the instance's own when it has been moved.
+/// All field text entries with the instance's sparse overrides applied.
 pub fn instance_texts(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<FootprintText> {
     let mut texts = pcb
         .footprint_copy(instance.footprint)
         .map(|c| c.footprint.texts.clone())
         .unwrap_or_default();
-    if let Some(moved) = &instance.designator_text {
-        let primary = pcb
-            .footprint_copy(instance.footprint)
-            .and_then(|c| c.footprint.designator_text())
-            .map(|t| t.uuid);
-        texts.retain(|t| Some(t.uuid) != primary);
-        texts.push(moved.clone());
+    for text in &mut texts {
+        if let Some(change) = instance.text_overrides.iter().find(|o| o.text == text.uuid) {
+            if let Some(at) = change.at {
+                text.at = at;
+            }
+            if let Some(rotation) = change.rotation {
+                text.rotation = rotation;
+            }
+            if let Some(style) = &change.style {
+                text.style = style.clone();
+            }
+            if let Some(visible) = change.visible {
+                text.visible = visible;
+            }
+        }
     }
     texts
 }
 
 /// Where a Footprint's Designator text is drawn on the board.
 pub fn placed_designator(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<FootprintText> {
-    designator_text(pcb, instance).map(|t| Frame::of(instance).text(&t))
+    let primary = pcb
+        .footprint_copy(instance.footprint)?
+        .footprint
+        .designator_text()?
+        .uuid;
+    crate::text::placed_field_texts(pcb, instance, &reda_command::Fonts::default())
+        .into_iter()
+        .find(|t| t.uuid == primary)
 }
 
 /// A box around a placed Footprint's Pads and drawing (its origin when it has neither),
@@ -369,4 +386,38 @@ pub(crate) fn shape_bounds(shape: &Shape) -> Option<Bounds> {
         Shape::Polygon { points } => Bounds::of_points(points.iter().copied()),
         Shape::Text { at, .. } => Some(Bounds::of_point(*at)),
     }
+}
+
+/// Keep text edits when changing a Footprint: stable UUID first, then field and Layer.
+/// An entry without a matching destination is discarded; each destination is used once.
+pub fn remap_text_overrides(
+    instance: &mut FootprintInstance,
+    old: &reda_model::Footprint,
+    new: &reda_model::Footprint,
+) {
+    let mut claimed = std::collections::BTreeSet::new();
+    let mut kept = Vec::new();
+    let mut unmatched = Vec::new();
+    for change in std::mem::take(&mut instance.text_overrides) {
+        if new.texts.iter().any(|t| t.uuid == change.text) && claimed.insert(change.text) {
+            kept.push(change);
+        } else {
+            unmatched.push(change);
+        }
+    }
+    for mut change in unmatched {
+        let Some(source) = old.texts.iter().find(|t| t.uuid == change.text) else {
+            continue;
+        };
+        let Some(target) = new.texts.iter().find(|t| {
+            t.field == source.field && t.layer == source.layer && !claimed.contains(&t.uuid)
+        }) else {
+            continue;
+        };
+        change.text = target.uuid;
+        claimed.insert(target.uuid);
+        kept.push(change);
+    }
+    kept.sort_by_key(|o| o.text);
+    instance.text_overrides = kept;
 }
