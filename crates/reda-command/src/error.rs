@@ -50,6 +50,28 @@ impl CommandError {
         }
     }
 
+    /// Refuses the stored-text param at `pointer` if it has an unescaped `${`, which is
+    /// reserved for variables ([`reda_model::text::check`]).
+    pub fn check_text(pointer: &str, raw: &str) -> Result<(), CommandError> {
+        reda_model::text::check(raw)
+            .map_err(|e| CommandError::invalid_params(pointer, e.to_string()))
+    }
+
+    /// [`CommandError::check_text`] for the field values of a `fields` map param at
+    /// `param`, each at `param/<name>`; a null value clears a field and is fine.
+    pub fn check_field_texts<'a>(
+        param: &str,
+        fields: impl IntoIterator<Item = (&'a String, &'a Option<String>)>,
+    ) -> Result<(), CommandError> {
+        for (name, value) in fields {
+            if let Some(value) = value {
+                let name = name.replace('~', "~0").replace('/', "~1");
+                CommandError::check_text(&format!("{param}/{name}"), value)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn not_found(message: impl Into<String>) -> CommandError {
         CommandError::new(ErrorCode::NotFound, message)
     }

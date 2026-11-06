@@ -57,6 +57,18 @@ impl Command for ProjectPropertiesSet {
                 "the board thickness cannot be negative",
             ));
         }
+        for (pointer, value) in [
+            ("/title", &p.title),
+            ("/revision", &p.revision),
+            ("/date", &p.date),
+            ("/author", &p.author),
+            ("/company", &p.company),
+            ("/copper_weight", &p.copper_weight),
+        ] {
+            if let Some(value) = value {
+                CommandError::check_text(pointer, value)?;
+            }
+        }
         let tx = cx.tx()?;
         let mut props = tx.project().props().clone();
         let fields = &mut props.properties;

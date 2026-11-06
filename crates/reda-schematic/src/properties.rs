@@ -76,6 +76,10 @@ impl Command for ComponentSet {
         }
         check_field_names("/fields", p.fields.keys(), true)?;
         check_field_names("/visible", p.visible.keys(), false)?;
+        if let Some(value) = &p.value {
+            CommandError::check_text("/value", value)?;
+        }
+        CommandError::check_field_texts("/fields", &p.fields)?;
         let mut edited = Vec::new();
         for component in &p.components {
             let units = placed_component(cx.project()?, *component)?;

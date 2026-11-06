@@ -122,10 +122,11 @@ impl Command for TextSet {
 }
 
 fn check_text(text: String) -> Result<String, CommandError> {
-    match text.trim().is_empty() {
-        true => Err(CommandError::invalid_params("/text", "the text is empty")),
-        false => Ok(text),
+    if text.trim().is_empty() {
+        return Err(CommandError::invalid_params("/text", "the text is empty"));
     }
+    CommandError::check_text("/text", &text)?;
+    Ok(text)
 }
 
 fn check_height(height: Nm) -> Result<Nm, CommandError> {

@@ -153,7 +153,7 @@ fn draw_shape(painter: &egui::Painter, fit: &Fit, shape: &Shape, stroke: Stroke,
             painter.text(
                 fit.pos(*at),
                 egui::Align2::CENTER_CENTER,
-                text,
+                reda_engine::model::text::display(text),
                 egui::FontId::proportional(px),
                 stroke.color,
             );

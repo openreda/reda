@@ -87,7 +87,7 @@ impl Command for ExportPdf {
         let title = if props.properties.title.is_empty() {
             props.name.clone()
         } else {
-            props.properties.title.clone()
+            reda_model::text::display(&props.properties.title).into_owned()
         };
         let pdf = to_pdf(
             &scenes,

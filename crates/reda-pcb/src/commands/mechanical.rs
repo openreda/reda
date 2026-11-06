@@ -122,6 +122,7 @@ impl Command for MechanicalPlace {
                 "a field name is empty",
             ));
         }
+        CommandError::check_field_texts("/fields", &p.fields)?;
         let mut fields = copy.part.fields.clone();
         for (name, value) in &p.fields {
             fields.set(name, value.as_deref().unwrap_or(""));
@@ -264,6 +265,10 @@ impl Command for MechanicalSet {
                 "a field name is empty",
             ));
         }
+        if let Some(value) = &p.value {
+            CommandError::check_text("/value", value)?;
+        }
+        CommandError::check_field_texts("/fields", &p.fields)?;
         let designator = match &p.designator {
             None => None,
             Some(_) if instances.len() != 1 => {

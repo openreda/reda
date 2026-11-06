@@ -333,5 +333,8 @@ pub(crate) fn read_sheet_file(
     for waiver in file.waivers {
         objects.push(Object::Waiver(InDocument::new(sheet, waiver)));
     }
+    for object in &objects {
+        reda_model::text::check_object(object).map_err(invalid)?;
+    }
     Ok(objects)
 }

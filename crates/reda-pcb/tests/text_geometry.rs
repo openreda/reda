@@ -142,3 +142,27 @@ fn an_unknown_text_is_not_found() {
     );
     assert_eq!(err.code, reda_command::ErrorCode::NotFound);
 }
+
+/// Stored text shows through the shared resolver: `$${` draws as `${`, glyph for glyph the
+/// same as the bare characters.
+#[test]
+fn an_escaped_dollar_brace_draws_as_dollar_brace() {
+    let dir = TempDir::new("geom-escape");
+    let mut engine = with_pcb(probe_engine(), &dir);
+    let uuid = add_text(
+        &mut engine,
+        json!({"layer": "silkscreen_top", "text": "$${A}", "x": "0mm", "y": "0mm",
+               "height": "2.1mm", "thickness": "0.2mm"}),
+    );
+    let drawn = geometry(&mut engine, &uuid);
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let mut bare = pcb.text(uuid.parse().unwrap()).unwrap().clone();
+    // Built directly, past the Command's check, to lay out the bare characters.
+    bare.text = "${A}".into();
+    let expected = reda_pcb::text_geometry(&bare, &reda_command::Fonts::default());
+    assert!(!expected.strokes.is_empty());
+    assert_eq!(
+        drawn["strokes"],
+        serde_json::to_value(&expected.strokes).unwrap()
+    );
+}

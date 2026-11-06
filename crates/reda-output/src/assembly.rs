@@ -10,6 +10,7 @@
 use std::collections::BTreeSet;
 
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::text::display;
 use reda_model::{
     Column, ColumnSource, ComponentType, Fields, FootprintCopy, FootprintInstance, PadKind,
     PcbDocument, Project, Side,
@@ -172,7 +173,7 @@ impl<'a> Fitted<'a> {
     /// leaves the Footprint and mount type blank.
     fn describe(&self, source: &ColumnSource) -> String {
         match (source, self.copy) {
-            (ColumnSource::Value, _) => self.fields.value.clone(),
+            (ColumnSource::Value, _) => display(&self.fields.value).into_owned(),
             (ColumnSource::Footprint, Some(copy)) => copy.footprint.name.clone(),
             (ColumnSource::Mount, Some(copy)) => {
                 let tht = copy
@@ -182,7 +183,7 @@ impl<'a> Fitted<'a> {
                     .any(|p| p.kind == PadKind::PlatedThroughHole);
                 if tht { "THT" } else { "SMT" }.into()
             }
-            (ColumnSource::Field(name), _) => field(self.fields, name).into(),
+            (ColumnSource::Field(name), _) => display(field(self.fields, name)).into_owned(),
             _ => String::new(),
         }
     }

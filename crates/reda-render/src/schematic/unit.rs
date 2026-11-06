@@ -2,6 +2,7 @@
 //! visible Component fields.
 
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::text::display;
 use reda_model::{
     PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance, Uuid,
 };
@@ -153,7 +154,7 @@ fn draw_graphic(b: &mut Builder, object: Uuid, place: &Placement, g: &SymbolGrap
         } => b.text(
             object,
             C::Body,
-            text,
+            &display(text),
             place.apply(*at),
             TextStyle {
                 height: *size,
@@ -255,17 +256,17 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, number:
 /// The visible fields, stacked right of the body and centred on it: the Designator,
 /// the value, then other fields by name.
 fn draw_fields(b: &mut Builder, unit: &UnitInstance, (lo, hi): (Point, Point)) {
-    let mut lines: Vec<(C, &str)> = Vec::new();
+    let mut lines: Vec<(C, std::borrow::Cow<'_, str>)> = Vec::new();
     let shown = |name: &str| unit.visible_fields.contains(name);
     if shown("designator") {
-        lines.push((C::Designator, &unit.designator));
+        lines.push((C::Designator, unit.designator.as_str().into()));
     }
     if shown("value") {
-        lines.push((C::Value, unit.fields.get("value")));
+        lines.push((C::Value, display(unit.fields.get("value"))));
     }
     for name in &unit.visible_fields {
         if name != "designator" && name != "value" {
-            lines.push((C::Field, unit.fields.get(name)));
+            lines.push((C::Field, display(unit.fields.get(name))));
         }
     }
     lines.retain(|(_, text)| !text.is_empty());
@@ -276,7 +277,7 @@ fn draw_fields(b: &mut Builder, unit: &UnitInstance, (lo, hi): (Point, Point)) {
         b.text(
             unit.uuid,
             color,
-            text,
+            &text,
             Point::new(Nm(x), Nm(top - i as i64 * FIELD_PITCH)),
             TextStyle {
                 height: FIELD_TEXT,

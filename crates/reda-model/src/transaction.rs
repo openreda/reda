@@ -71,6 +71,7 @@ impl Transaction<'_> {
             ));
         }
         self.project.check_home(&object)?;
+        crate::text::check_object(&object).map_err(TxError::Invalid)?;
         self.set(uuid, None, Some(object));
         Ok(())
     }
@@ -89,6 +90,7 @@ impl Transaction<'_> {
                 "object {uuid} cannot move to another Document"
             )));
         }
+        crate::text::check_object(&object).map_err(TxError::Invalid)?;
         self.set(uuid, Some(before), Some(object));
         Ok(())
     }
@@ -128,6 +130,7 @@ impl Transaction<'_> {
         for (uuid, change) in ordered {
             if let Some(after) = &change.after {
                 self.project.check_home(after)?;
+                crate::text::check_object(after).map_err(TxError::Invalid)?;
             }
             self.set(*uuid, change.before.clone(), change.after.clone());
         }

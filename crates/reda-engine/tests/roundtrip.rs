@@ -28,6 +28,11 @@ fn stem(first: &'static str) -> impl Strategy<Value = String> {
     "[a-z0-9_ -]{0,10}".prop_map(move |rest| format!("{first}{rest}"))
 }
 
+/// Any stored text: any string, escaped, since an unescaped `${` is refused.
+fn stored_text() -> impl Strategy<Value = String> {
+    any::<String>().prop_map(|s| reda_engine::model::text::escape(&s).into_owned())
+}
+
 fn uuid() -> impl Strategy<Value = Uuid> {
     any::<u128>().prop_map(Uuid::v4_from_bits)
 }
@@ -95,7 +100,7 @@ fn point() -> impl Strategy<Value = Point> {
 fn text_seed() -> impl Strategy<Value = TextSeed> {
     (
         any::<usize>(),
-        any::<String>(),
+        stored_text(),
         any::<String>(),
         point(),
         length(),
@@ -549,7 +554,7 @@ prop_compose! {
         base in any::<u128>(),
         size in prop::option::of(0usize..3),
         component in prop::option::of(
-            (any::<String>(), any::<String>(), length(), length(), any::<bool>())
+            (stored_text(), any::<String>(), length(), length(), any::<bool>())
         ),
         drawing in prop::option::of((any::<String>(), length(), length(), length())),
     ) -> SheetSeed {
@@ -724,7 +729,7 @@ prop_compose! {
         pcb in prop::option::of(pcb_seed()),
         libraries in prop::collection::vec(any::<String>(), 0..3),
         settings in prop::option::of(settings()),
-        properties in prop::collection::vec(any::<String>(), 6),
+        properties in prop::collection::vec(stored_text(), 6),
         board_thickness in prop::option::of(1i64..10_000_000),
         erc in prop::collection::vec((0..ErcCheck::ALL.len(), 0..3u8), 0..4),
     ) -> Project {

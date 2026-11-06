@@ -289,7 +289,7 @@ fn read_graphic(item: &Sexp, unit: u32, source: &mut SymbolSource) -> Read<()> {
             let tenths = node::degrees_or_zero(at, 2)?;
             vec![Shape::Text {
                 at: node::point(at)?,
-                text: node::text(item, 0)?.to_owned(),
+                text: reda_model::text::escape(node::text(item, 0)?).into_owned(),
                 size: node::font_size(item)?.unwrap_or(Nm(1_270_000)),
                 rotation: Millideg(tenths.0 / 10),
             }]

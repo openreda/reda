@@ -187,7 +187,7 @@ fn read_text(item: &Sexp, kind: &str, text: &str, out: &mut FootprintSource) -> 
                 layer,
                 shape: Shape::Text {
                     at: flip(node::point(at)?),
-                    text: text.to_owned(),
+                    text: reda_model::text::escape(text).into_owned(),
                     size,
                     rotation: node::degrees_or_zero(at, 2)?,
                 },

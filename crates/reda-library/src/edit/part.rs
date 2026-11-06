@@ -293,6 +293,21 @@ impl Command for PartFieldsSet {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: PartFieldsSetParams) -> Result<(), CommandError> {
+        for (pointer, value) in [
+            ("/value", &p.value),
+            ("/description", &p.description),
+            ("/datasheet", &p.datasheet),
+            ("/manufacturer", &p.manufacturer),
+            ("/mpn", &p.mpn),
+            ("/keywords", &p.keywords),
+        ] {
+            if let Some(value) = value {
+                CommandError::check_text(pointer, value)?;
+            }
+        }
+        for (i, field) in p.custom.iter().flatten().enumerate() {
+            CommandError::check_text(&format!("/custom/{i}/value"), &field.value)?;
+        }
         if let Some(custom) = &p.custom {
             let mut seen = BTreeSet::new();
             for (i, field) in custom.iter().enumerate() {

@@ -133,6 +133,7 @@ impl ShapeParam {
                 if text.is_empty() {
                     return Err("a text shape needs some text".into());
                 }
+                reda_model::text::check(&text).map_err(|e| format!("the text: {e}"))?;
                 positive(size.nm(), "the text size")?;
                 Shape::Text {
                     at: at.point(),

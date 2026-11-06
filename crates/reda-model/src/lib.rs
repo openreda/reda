@@ -17,6 +17,7 @@ mod pcb;
 mod probe;
 mod project;
 mod schematic;
+pub mod text;
 mod transaction;
 mod uuid;
 

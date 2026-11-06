@@ -95,6 +95,7 @@ pub fn open_from(
         erc: file.erc,
         schematic: file.schematic,
     });
+    reda_model::text::check_object(&Object::Project(project.props().clone())).map_err(invalid)?;
     let mut missing = vec![];
     let mut tx = project.transaction();
     for row in &file.documents {

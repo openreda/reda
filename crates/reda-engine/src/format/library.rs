@@ -22,6 +22,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
+use reda_model::text;
 use reda_model::{
     ComponentType, Fields, Footprint, FootprintGenerator, FootprintGraphic, FootprintText,
     LibraryInfo, Pad, Part, Pin, PinMap, Provenance, Symbol, SymbolGraphic, Unit, Uuid,
@@ -233,9 +234,14 @@ pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
 pub fn read_symbol(path: &Path, bytes: &[u8]) -> Result<Symbol, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: SymbolFile = parse(FileKind::Symbol, path, bytes)?;
-    file.symbol
+    let symbol = file
+        .symbol
         .into_symbol(file.units, file.pins, file.graphics, file.provenance)
-        .map_err(invalid)
+        .map_err(&invalid)?;
+    let mut texts = vec![];
+    text::symbol_texts(&symbol, &mut texts);
+    text::check_texts(&format!("symbol {}", symbol.uuid), &texts).map_err(invalid)?;
+    Ok(symbol)
 }
 
 impl FootprintRow {
@@ -297,8 +303,11 @@ pub fn read_footprint(path: &Path, bytes: &[u8]) -> Result<Footprint, LoadError>
     let mut footprint = file
         .footprint
         .into_footprint(file.pads, file.graphics, file.texts, file.provenance)
-        .map_err(invalid)?;
+        .map_err(&invalid)?;
     footprint.generator = file.generator;
+    let mut texts = vec![];
+    text::footprint_texts(&footprint, &mut texts);
+    text::check_texts(&format!("footprint {}", footprint.uuid), &texts).map_err(invalid)?;
     Ok(footprint)
 }
 
@@ -349,9 +358,14 @@ pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
 
 pub fn read_part(path: &Path, bytes: &[u8]) -> Result<Part, LoadError> {
     let file: PartFile = parse(FileKind::Part, path, bytes)?;
-    Ok(file
+    let part = file
         .part
-        .into_part(file.footprints, file.fields, &file.pin_map, file.provenance))
+        .into_part(file.footprints, file.fields, &file.pin_map, file.provenance);
+    let mut texts = vec![];
+    text::part_texts(&part, &mut texts);
+    text::check_texts(&format!("part {}", part.uuid), &texts)
+        .map_err(|why| LoadError::Invalid(path.to_owned(), why))?;
+    Ok(part)
 }
 
 /// The `provenance` line, written only for imported elements.

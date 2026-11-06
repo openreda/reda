@@ -103,8 +103,9 @@ impl Matcher {
         }
     }
 
+    /// Whether `text`, as it displays, matches.
     pub fn matches(&self, text: &str) -> bool {
-        let text = text.to_lowercase();
+        let text = reda_model::text::display(text).to_lowercase();
         if self.exact {
             text == self.needle
         } else {
