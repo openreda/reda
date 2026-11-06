@@ -259,3 +259,44 @@ fn in_triangle(p: P, a: P, b: P, c: P) -> bool {
     let pos = d1 > 0.0 || d2 > 0.0 || d3 > 0.0;
     !(neg && pos)
 }
+
+/// All eligible objects under a point, ordered by selection tier and then their total
+/// drawn bounds, smallest first. An object on several Layers appears only once.
+pub fn hit_stack_on(
+    scene: &Scene,
+    layers: Option<&[Composite]>,
+    at: P,
+    tolerance: f64,
+    rank: impl Fn(&Item) -> Option<u8>,
+) -> Vec<Uuid> {
+    let visible = |i: &Item| layers.is_none_or(|ls| ls.iter().any(|l| l.layer == i.layer));
+    let mut hits: Vec<(Uuid, u8, f64)> = Vec::new();
+    for item in &scene.items {
+        if !visible(item) || distance(&item.primitive, at) > tolerance {
+            continue;
+        }
+        let Some(tier) = rank(item) else {
+            continue;
+        };
+        if let Some(hit) = hits.iter_mut().find(|hit| hit.0 == item.object) {
+            hit.1 = hit.1.min(tier);
+            continue;
+        }
+        let mut lo = (f64::INFINITY, f64::INFINITY);
+        let mut hi = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+        for drawn in scene
+            .items
+            .iter()
+            .filter(|i| i.object == item.object && visible(i) && rank(i).is_some())
+        {
+            if let Some((a, b)) = bounds(drawn) {
+                lo = (lo.0.min(a.0), lo.1.min(a.1));
+                hi = (hi.0.max(b.0), hi.1.max(b.1));
+            }
+        }
+        let area = (hi.0 - lo.0).max(1.0) * (hi.1 - lo.1).max(1.0);
+        hits.push((item.object, tier, area));
+    }
+    hits.sort_by(|a, b| a.1.cmp(&b.1).then(a.2.total_cmp(&b.2)).then(a.0.cmp(&b.0)));
+    hits.into_iter().map(|h| h.0).collect()
+}

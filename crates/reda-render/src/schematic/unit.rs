@@ -309,7 +309,10 @@ fn draw_fields(
             style(height, HAlign::Left),
         );
         if let Some(item) = b.scene.items.last_mut() {
-            item.child = Some(crate::Child::Field { unit: unit.uuid, field: name.to_owned() });
+            item.child = Some(crate::Child::Field {
+                unit: unit.uuid,
+                field: name.to_owned(),
+            });
         }
     }
     let n = auto.len() as i64;
@@ -333,7 +336,10 @@ fn draw_fields(
         };
         b.text(unit.uuid, color, &text, at, style(FIELD_TEXT, h));
         if let Some(item) = b.scene.items.last_mut() {
-            item.child = Some(crate::Child::Field { unit: unit.uuid, field: name.to_owned() });
+            item.child = Some(crate::Child::Field {
+                unit: unit.uuid,
+                field: name.to_owned(),
+            });
         }
     }
 }

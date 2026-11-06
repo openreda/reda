@@ -43,6 +43,17 @@ impl SimilarDialog {
             .objects
             .iter()
             .find_map(|o| unit(project, *o))?;
+        let home = project
+            .documents()
+            .find(|d| {
+                project
+                    .schematic_sheet(d.uuid)
+                    .is_some_and(|s| s.unit(unit.uuid).is_some())
+            })?
+            .uuid;
+        if !crate::selection::rules::allowed(shell, home, unit.uuid) {
+            return None;
+        }
         let fields = &unit.fields;
         let mut criteria = vec![
             criterion(tr!("similar-part"), json!("part"), true),
@@ -115,7 +126,27 @@ impl SimilarDialog {
             "schematic.select_similar",
             json!({"unit": self.unit, "match": on, "scope": scope}),
         )?;
-        let units = out["units"].clone();
+        let units: Vec<Value> = out["units"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|value| {
+                let Some(id) = value.as_str().and_then(|s| s.parse().ok()) else {
+                    return false;
+                };
+                let Some(project) = shell.engine().project() else {
+                    return false;
+                };
+                project.documents().any(|d| {
+                    project
+                        .schematic_sheet(d.uuid)
+                        .is_some_and(|s| s.unit(id).is_some())
+                        && crate::selection::rules::allowed(shell, d.uuid, id)
+                })
+            })
+            .cloned()
+            .collect();
+        let units = json!(units);
         let count = units.as_array().map_or(0, Vec::len);
         shell.run("selection.set", json!({ "objects": units }))?;
         Ok(count)

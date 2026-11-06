@@ -33,6 +33,8 @@ pub const ALIASES: &[(&str, &str)] = &[];
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
     pub general: General,
+    /// Selection behavior shared by every canvas.
+    pub editing: SelectionEditing,
     /// Editing in Schematic Sheets.
     pub schematic: SchematicEditing,
     /// Editing in the PCB Document.
@@ -41,6 +43,28 @@ pub struct Preferences {
     pub libraries: Libraries,
     pub agents: Agents,
     pub keymap: Keymap,
+}
+
+/// Selection preferences apply equally to Documents and Library editors.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct SelectionEditing {
+    /// A click on empty canvas clears the selection.
+    pub click_clears_selection: bool,
+    /// A rectangle dragged right to left selects objects it touches.
+    pub directional_rectangle: bool,
+    /// Click and rectangle skip locked objects. Explicit picks can still select them.
+    pub protect_locked_objects: bool,
+}
+
+impl Default for SelectionEditing {
+    fn default() -> Self {
+        Self {
+            click_clears_selection: true,
+            directional_rectangle: true,
+            protect_locked_objects: true,
+        }
+    }
 }
 
 /// General settings.

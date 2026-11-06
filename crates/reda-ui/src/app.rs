@@ -440,6 +440,9 @@ impl App {
         // Escape and Enter go to the tab switcher while it is open.
         tab_switcher::keys(ctx, &mut self.shell);
         for (id, params) in keymap::resolve_keys(ctx, &self.shell, dialog) {
+            if id == "selection.cycle" {
+                ctx.memory_mut(|m| m.move_focus(egui::FocusDirection::None));
+            }
             self.run_held(&id, params);
         }
     }

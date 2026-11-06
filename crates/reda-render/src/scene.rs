@@ -65,12 +65,17 @@ impl Child {
     pub fn id(&self) -> Uuid {
         let mut hash = 0x6c62272e07bb014262b821756295c58du128;
         let bytes = serde_json::to_vec(self).expect("a Child is serializable");
-        for byte in bytes { hash = (hash ^ u128::from(byte)).wrapping_mul(0x1000000000000000000013b); }
+        for byte in bytes {
+            hash = (hash ^ u128::from(byte)).wrapping_mul(0x1000000000000000000013b);
+        }
         Uuid::from_u128((hash & !(0xf << 76)) | (8 << 76))
     }
 
     pub fn owner(&self) -> Uuid {
-        match self { Self::Field {unit,..} => *unit, Self::Pad {footprint,..} | Self::FootprintText {footprint,..} => *footprint }
+        match self {
+            Self::Field { unit, .. } => *unit,
+            Self::Pad { footprint, .. } | Self::FootprintText { footprint, .. } => *footprint,
+        }
     }
 }
 

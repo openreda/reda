@@ -1144,3 +1144,8 @@ tab-out-of-sync = { $tab }, out of sync: { $count ->
     [one] 1 change
    *[other] { $count } changes
 }
+
+# Shared canvas selection.
+pref-editing-click-clears-selection = Click Clears Selection
+pref-editing-directional-rectangle = Directional Rectangle
+pref-editing-protect-locked-objects = Protect Locked Objects

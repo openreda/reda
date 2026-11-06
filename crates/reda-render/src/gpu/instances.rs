@@ -144,7 +144,10 @@ pub(crate) fn encode(scene: &Scene) -> Encoded {
                     .or_default()
                     .push(first..out.count);
                 if let Some(child) = &item.child {
-                    objects.entry(child.id()).or_default().push(first..out.count);
+                    objects
+                        .entry(child.id())
+                        .or_default()
+                        .push(first..out.count);
                 }
                 if item.color == paper {
                     undimmed.push(first..out.count);
@@ -181,7 +184,9 @@ pub(crate) fn flag_words(encoded: &Encoded, highlight: &Highlight) -> Vec<u8> {
         for r in ranges {
             for w in &mut words[r.start as usize..r.end as usize] {
                 *w |= flags.0;
-                if *w & Flags::HIGHLIGHTED.0 != 0 { *w &= !Flags::DIMMED.0; }
+                if *w & Flags::HIGHLIGHTED.0 != 0 {
+                    *w &= !Flags::DIMMED.0;
+                }
             }
         }
     }
