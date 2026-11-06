@@ -87,10 +87,10 @@ fn unplaced_units(units: &[Placed], report: &mut Report) {
 }
 
 /// Units of one Component whose Designator, value, other fields, Footprint choice,
-/// Component Type or Not Fitted differ.
+/// Component Type, In BOM, In CPL or Not Fitted differ.
 fn mismatch(units: &[Placed], report: &mut Report) {
     let first = units[0].unit;
-    let differs: [(&str, Differs); 6] = [
+    let differs: [(&str, Differs); 8] = [
         ("designator", |a, b| a.designator != b.designator),
         ("value", |a, b| a.fields.value != b.fields.value),
         ("fields", |a, b| other_fields(a) != other_fields(b)),
@@ -98,6 +98,8 @@ fn mismatch(units: &[Placed], report: &mut Report) {
         ("component_type", |a, b| {
             a.component_type != b.component_type
         }),
+        ("in_bom", |a, b| a.in_bom != b.in_bom),
+        ("in_cpl", |a, b| a.in_cpl != b.in_cpl),
         ("not_fitted", |a, b| a.not_fitted != b.not_fitted),
     ];
     let found: Vec<&str> = differs

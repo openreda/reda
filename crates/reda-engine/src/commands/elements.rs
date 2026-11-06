@@ -195,6 +195,8 @@ fn new_element(
             uuid,
             name,
             component_type: ComponentType::Standard,
+            in_bom: ComponentType::Standard.default_in_bom(),
+            in_cpl: ComponentType::Standard.default_in_cpl(),
             symbol: None,
             footprints: vec![],
             fields: Fields::default(),

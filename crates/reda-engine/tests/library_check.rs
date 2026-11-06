@@ -73,6 +73,8 @@ fn write_flawed_library(folder: &Path) {
         uuid: uuid(PART),
         name: "TestPoint".into(),
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some(uuid(MISSING_SYMBOL)),
         footprints: vec![uuid(FOOTPRINT)],
         fields: Fields::default(),

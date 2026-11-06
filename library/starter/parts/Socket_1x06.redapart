@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"96375c42-4b07-48fb-9781-d181b0d57ff2","name":"Socket_1x06","component_type":"standard","symbol":"595a0c81-2c35-4b8a-af0f-ea2a53b1f271"},
+  "part": {"uuid":"96375c42-4b07-48fb-9781-d181b0d57ff2","name":"Socket_1x06","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"595a0c81-2c35-4b8a-af0f-ea2a53b1f271"},
   "footprints": [
     "64eb4245-a2db-4016-8122-780b422e4c92",
     "acca8810-7022-46b5-9359-1818e1528087"

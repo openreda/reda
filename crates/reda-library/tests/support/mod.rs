@@ -194,6 +194,8 @@ pub fn part(n: u128, name: &str, symbol: u128, footprints: &[u128]) -> Part {
         uuid: uuid(n),
         name: name.into(),
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some(uuid(symbol)),
         footprints: footprints.iter().map(|f| uuid(*f)).collect(),
         fields: Fields::default(),

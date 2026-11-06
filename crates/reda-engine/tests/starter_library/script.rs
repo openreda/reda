@@ -265,6 +265,7 @@ pub struct PartSpec<'a> {
     pub fields: Value,
     /// `library.part.pin_map.set` params, without `part`; `None` keeps the implicit map.
     pub pin_map: Option<Value>,
+    /// A Mechanical Part out of the BOM and CPL: a mounting hole or a fiducial.
     pub mechanical: bool,
 }
 
@@ -514,7 +515,8 @@ impl Script {
         if spec.mechanical {
             self.edit(
                 "library.part.edit",
-                json!({"part": uuid, "component_type": "mechanical"}),
+                json!({"part": uuid, "component_type": "mechanical",
+                       "in_bom": false, "in_cpl": false}),
             );
         }
         if let Some(symbol) = spec.symbol {

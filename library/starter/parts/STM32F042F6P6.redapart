@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"b72ceef7-e0ba-41e5-a2c0-bfbc744436eb","name":"STM32F042F6P6","component_type":"standard","symbol":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc"},
+  "part": {"uuid":"b72ceef7-e0ba-41e5-a2c0-bfbc744436eb","name":"STM32F042F6P6","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc"},
   "footprints": [
     "5082bf81-7326-4bbd-8274-54c43985cd53"
   ],

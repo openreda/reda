@@ -21,7 +21,9 @@ mod write_through;
 
 use std::collections::BTreeSet;
 
-use reda_model::{ComponentRef, DrcCheck, Fields, Project, Severity, Uuid, Violation};
+use reda_model::{
+    ComponentRef, ComponentType, DrcCheck, Fields, Project, Severity, Uuid, Violation,
+};
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -82,7 +84,8 @@ pub enum GroupKind {
     Components,
     /// Changing a Footprint.
     Footprints,
-    /// Changing a Designator, the fields (value included) or Not Fitted.
+    /// Changing a Designator, the fields (value included), the Component Type, In BOM,
+    /// In CPL or Not Fitted.
     ComponentData,
     /// Adding, renaming or removing a Net.
     Nets,
@@ -149,6 +152,30 @@ pub enum ChangeKind {
         from: Fields,
         to: Fields,
     },
+    /// Changes the Component Type.
+    ComponentType {
+        component: ComponentRef,
+        instance: Uuid,
+        designator: String,
+        from: ComponentType,
+        to: ComponentType,
+    },
+    /// Changes In BOM.
+    InBom {
+        component: ComponentRef,
+        instance: Uuid,
+        designator: String,
+        from: bool,
+        to: bool,
+    },
+    /// Changes In CPL.
+    InCpl {
+        component: ComponentRef,
+        instance: Uuid,
+        designator: String,
+        from: bool,
+        to: bool,
+    },
     /// Changes Not Fitted.
     NotFitted {
         component: ComponentRef,
@@ -195,6 +222,9 @@ impl ChangeKind {
             ChangeKind::ChangeFootprint { .. } => GroupKind::Footprints,
             ChangeKind::Designator { .. }
             | ChangeKind::Fields { .. }
+            | ChangeKind::ComponentType { .. }
+            | ChangeKind::InBom { .. }
+            | ChangeKind::InCpl { .. }
             | ChangeKind::NotFitted { .. } => GroupKind::ComponentData,
             ChangeKind::AddNet { .. }
             | ChangeKind::RenameNet { .. }

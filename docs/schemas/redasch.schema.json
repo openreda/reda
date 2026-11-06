@@ -23,12 +23,24 @@
       "type": "object"
     },
     "ComponentType": {
-      "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-      "enum": [
-        "standard",
-        "mechanical"
-      ],
-      "type": "string"
+      "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+      "oneOf": [
+        {
+          "const": "standard",
+          "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+          "type": "string"
+        },
+        {
+          "const": "mechanical",
+          "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+          "type": "string"
+        },
+        {
+          "const": "net_tie",
+          "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+          "type": "string"
+        }
+      ]
     },
     "Field": {
       "additionalProperties": false,
@@ -549,6 +561,14 @@
         "component_type": {
           "$ref": "#/$defs/ComponentType"
         },
+        "in_bom": {
+          "description": "Whether its Components go into the BOM, by default.",
+          "type": "boolean"
+        },
+        "in_cpl": {
+          "description": "Whether its Components go into the CPL, by default.",
+          "type": "boolean"
+        },
         "name": {
           "type": "string"
         },
@@ -568,7 +588,9 @@
       "required": [
         "uuid",
         "name",
-        "component_type"
+        "component_type",
+        "in_bom",
+        "in_cpl"
       ],
       "type": "object"
     },
@@ -1310,6 +1332,14 @@
             "null"
           ]
         },
+        "in_bom": {
+          "description": "Whether the Component goes into the BOM; copied from the Part, then editable.",
+          "type": "boolean"
+        },
+        "in_cpl": {
+          "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
+          "type": "boolean"
+        },
         "mirror": {
           "description": "Mirrored left to right before rotating.",
           "type": "boolean"
@@ -1354,7 +1384,9 @@
         "rotation",
         "designator",
         "fields",
-        "component_type"
+        "component_type",
+        "in_bom",
+        "in_cpl"
       ],
       "type": "object"
     },

@@ -44,6 +44,8 @@ fn write_library(folder: &Path, n: u128, part_name: &str, value: &str) {
         uuid: uuid(2),
         name: part_name.into(),
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some("00000010-0000-4000-8000-000000000000".parse().unwrap()),
         footprints: vec![],
         fields: Fields {

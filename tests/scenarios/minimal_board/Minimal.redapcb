@@ -82,15 +82,15 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-00000000003c","component":{"uuid":"00000000-0000-4000-8000-00000000002c"},"footprint":"00000000-0000-4000-8000-00000000003b","at":{"x":14975000,"y":7000000},"rotation":0,"side":"top","designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003c","component":{"uuid":"00000000-0000-4000-8000-00000000002c"},"footprint":"00000000-0000-4000-8000-00000000003b","at":{"x":14975000,"y":7000000},"rotation":0,"side":"top","designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","net":"00000000-0000-4000-8000-000000000039"},
       {"pad":"b034cab0-2c1e-489e-9521-1346c8e2152b","net":"00000000-0000-4000-8000-000000000038"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003e","component":{"uuid":"00000000-0000-4000-8000-00000000001c"},"footprint":"00000000-0000-4000-8000-00000000003d","at":{"x":5000000,"y":10000000},"rotation":0,"side":"top","designator":"J1","fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003e","component":{"uuid":"00000000-0000-4000-8000-00000000001c"},"footprint":"00000000-0000-4000-8000-00000000003d","at":{"x":5000000,"y":10000000},"rotation":0,"side":"top","designator":"J1","fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"51072fb9-94c3-4b5d-80bf-636681ace084","net":"00000000-0000-4000-8000-00000000003a"},
       {"pad":"75bf775f-bdf6-476e-a21c-ac73893d1705","net":"00000000-0000-4000-8000-000000000038"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000040","component":{"uuid":"00000000-0000-4000-8000-000000000024"},"footprint":"00000000-0000-4000-8000-00000000003f","at":{"x":15000000,"y":13000000},"rotation":0,"side":"top","designator":"R1","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000040","component":{"uuid":"00000000-0000-4000-8000-000000000024"},"footprint":"00000000-0000-4000-8000-00000000003f","at":{"x":15000000,"y":13000000},"rotation":0,"side":"top","designator":"R1","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000003a"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-000000000039"}
     ]}

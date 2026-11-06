@@ -487,14 +487,20 @@ pub struct Hole {
 }
 
 /// A Library definition that binds a Symbol to its alternate Footprints, with default
-/// fields and a Component Type.
+/// fields, a Component Type and the In BOM and In CPL defaults.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Part {
     pub uuid: Uuid,
     pub name: String,
     pub component_type: ComponentType,
-    /// Mechanical Parts may have none; Standard Parts need one.
+    /// Whether its Components go into the BOM, by default. Stored explicitly, never
+    /// inferred from the type.
+    pub in_bom: bool,
+    /// Whether its Components go into the CPL, by default. Stored explicitly, never
+    /// inferred from the type.
+    pub in_cpl: bool,
+    /// Mechanical Parts may have none; Standard and Net Tie Parts need one.
     pub symbol: Option<Uuid>,
     /// The alternate Footprints, in order; the first is the default.
     pub footprints: Vec<Uuid>,
@@ -520,12 +526,66 @@ pub struct Provenance {
     pub copyright: Vec<String>,
 }
 
-/// Whether a part's Components go into the BOM and may exist only on the board.
+/// What kind of part a Part is: it decides what the Part needs and where it may be
+/// placed, and gives the defaults for In BOM and In CPL, which are separate flags.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ComponentType {
+    /// An ordinary part: it needs a Symbol and a Footprint, and reaches the board only
+    /// through Sync.
     Standard,
+    /// A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a
+    /// mounting hole. It may be placed straight onto the board.
     Mechanical,
+    /// A deliberate short between Nets, made of touching Pads. It syncs like a Standard
+    /// part and is never Not Fitted.
+    NetTie,
+}
+
+impl ComponentType {
+    /// Every type, in the order editors list them.
+    pub const ALL: [ComponentType; 3] = [
+        ComponentType::Standard,
+        ComponentType::Mechanical,
+        ComponentType::NetTie,
+    ];
+
+    /// The type as messages name it: `Standard`, `Mechanical` or `Net Tie`.
+    pub fn name(self) -> &'static str {
+        match self {
+            ComponentType::Standard => "Standard",
+            ComponentType::Mechanical => "Mechanical",
+            ComponentType::NetTie => "Net Tie",
+        }
+    }
+
+    /// In BOM for a Part of this type, until it is edited.
+    pub fn default_in_bom(self) -> bool {
+        match self {
+            ComponentType::Standard | ComponentType::Mechanical => true,
+            ComponentType::NetTie => false,
+        }
+    }
+
+    /// In CPL for a Part of this type, until it is edited.
+    pub fn default_in_cpl(self) -> bool {
+        match self {
+            ComponentType::Standard => true,
+            ComponentType::Mechanical | ComponentType::NetTie => false,
+        }
+    }
+
+    /// Whether a part of this type needs both a Symbol and a Footprint. A Mechanical part
+    /// needs only one of them.
+    pub fn needs_symbol_and_footprint(self) -> bool {
+        self != ComponentType::Mechanical
+    }
+
+    /// Whether a Component of this type may be Not Fitted. A Net Tie's copper is on the
+    /// board either way.
+    pub fn allows_not_fitted(self) -> bool {
+        self != ComponentType::NetTie
+    }
 }
 
 /// A Part's default fields, copied onto each Component placed from it.

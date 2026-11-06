@@ -560,6 +560,51 @@ fn part_commands_pick_symbol_footprints_pin_map_fields_and_type() {
     }
 }
 
+#[test]
+fn a_new_type_resets_in_bom_and_in_cpl_to_its_defaults() {
+    let dir = TempDir::new("lib-part-flags");
+    let mut e = engine_with_library(&dir);
+    let part = new_element(&mut e, "part", "Tie");
+    let flags = |e: &mut TestEngine| {
+        let obj = object(e, &part);
+        (
+            obj["component_type"].as_str().unwrap().to_owned(),
+            obj["in_bom"].as_bool().unwrap(),
+            obj["in_cpl"].as_bool().unwrap(),
+        )
+    };
+    assert_eq!(flags(&mut e), ("standard".into(), true, true));
+
+    for (kind, in_bom, in_cpl) in [
+        ("net_tie", false, false),
+        ("mechanical", true, false),
+        ("standard", true, true),
+    ] {
+        e.run_ok(
+            "library.part.edit",
+            json!({"part": part, "component_type": kind}),
+        );
+        assert_eq!(flags(&mut e), (kind.into(), in_bom, in_cpl), "{kind}");
+    }
+
+    // The flags are edited on their own, and given with a new type they win over its
+    // defaults.
+    e.run_ok("library.part.edit", json!({"part": part, "in_cpl": false}));
+    assert_eq!(flags(&mut e), ("standard".into(), true, false));
+    e.run_ok("library.part.edit", json!({"part": part, "in_cpl": true}));
+    e.run_ok(
+        "library.part.edit",
+        json!({"part": part, "component_type": "mechanical", "in_cpl": true}),
+    );
+    assert_eq!(flags(&mut e), ("mechanical".into(), true, true));
+    // Setting the type it already has keeps the edited flags.
+    e.run_ok(
+        "library.part.edit",
+        json!({"part": part, "component_type": "mechanical"}),
+    );
+    assert_eq!(flags(&mut e), ("mechanical".into(), true, true));
+}
+
 /// The Demo Library of the file-format goldens: LM358 and MountingHole_M3.
 fn demo_library() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/library/Demo")

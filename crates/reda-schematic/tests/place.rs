@@ -107,7 +107,9 @@ fn each_unit_carries_the_component_data() {
             "fields": {"value": "10k", "mpn": "RC0603FR-0710KL",
                        "custom": [{"name": "LCSC", "value": "C25804"}]},
             "footprint": R_0805,
-            "component_type": "standard"
+            "component_type": "standard",
+            "in_bom": true,
+            "in_cpl": true
         })
     );
     // Without a choice the Part's first alternate is the Footprint.

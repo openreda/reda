@@ -285,11 +285,32 @@ pub fn rename(part: &Part, name: &str) -> Option<Invocation> {
     })
 }
 
+/// Retypes the Part; the Command resets In BOM and In CPL to the new type's defaults.
 pub fn set_component_type(part: &Part, component_type: ComponentType) -> Option<Invocation> {
     (part.component_type != component_type).then(|| {
         (
             "library.part.edit".to_owned(),
             json!({"part": part.uuid, "component_type": component_type}),
+        )
+    })
+}
+
+/// Sets the Part's In BOM default.
+pub fn set_in_bom(part: &Part, in_bom: bool) -> Option<Invocation> {
+    (part.in_bom != in_bom).then(|| {
+        (
+            "library.part.edit".to_owned(),
+            json!({"part": part.uuid, "in_bom": in_bom}),
+        )
+    })
+}
+
+/// Sets the Part's In CPL default.
+pub fn set_in_cpl(part: &Part, in_cpl: bool) -> Option<Invocation> {
+    (part.in_cpl != in_cpl).then(|| {
+        (
+            "library.part.edit".to_owned(),
+            json!({"part": part.uuid, "in_cpl": in_cpl}),
         )
     })
 }

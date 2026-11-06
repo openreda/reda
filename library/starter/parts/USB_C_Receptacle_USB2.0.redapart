@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"8888e4af-6def-4590-a0f3-9b2bb26386ec","name":"USB_C_Receptacle_USB2.0","component_type":"standard","symbol":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39"},
+  "part": {"uuid":"8888e4af-6def-4590-a0f3-9b2bb26386ec","name":"USB_C_Receptacle_USB2.0","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39"},
   "footprints": [
     "13f78ea2-b54f-4c17-86db-609c54392855"
   ],

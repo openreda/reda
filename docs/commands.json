@@ -7074,19 +7074,31 @@
     },
     {
       "category": "library",
-      "description": "Changes an open Part's name or Component Type. Omitted fields keep their value.",
+      "description": "Changes an open Part's name, Component Type, In BOM or In CPL. Omitted fields keep their value. A new Component Type resets In BOM and In CPL to its defaults (Standard: both; Mechanical: In BOM; Net Tie: neither), unless they are given too.",
       "icon": "part_edit",
       "id": "library.part.edit",
       "kind": "edit",
       "params": {
         "$defs": {
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7100,6 +7112,23 @@
               {
                 "type": "null"
               }
+            ],
+            "description": "A new Component Type. Changing it resets In BOM and In CPL to the new type's\ndefaults, unless this edit also sets them."
+          },
+          "in_bom": {
+            "default": null,
+            "description": "Whether the Part's Components go into the BOM, by default.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "in_cpl": {
+            "default": null,
+            "description": "Whether the Part's Components go into the CPL, by default.",
+            "type": [
+              "boolean",
+              "null"
             ]
           },
           "name": {
@@ -7377,12 +7406,24 @@
       "params": {
         "$defs": {
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7422,12 +7463,24 @@
       "result": {
         "$defs": {
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "Field": {
             "additionalProperties": false,
@@ -7541,6 +7594,14 @@
                 },
                 "type": "array"
               },
+              "in_bom": {
+                "description": "Whether its Components go into the BOM, by default.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether its Components go into the CPL, by default.",
+                "type": "boolean"
+              },
               "library": {
                 "$ref": "#/$defs/LibrarySummary"
               },
@@ -7563,6 +7624,8 @@
               "uuid",
               "name",
               "component_type",
+              "in_bom",
+              "in_cpl",
               "symbol",
               "footprints",
               "fields",
@@ -9222,12 +9285,24 @@
             "type": "object"
           },
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
@@ -9834,6 +9909,14 @@
                   "null"
                 ]
               },
+              "in_bom": {
+                "description": "Whether the Component goes into the BOM; copied from the Part, then editable.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
+                "type": "boolean"
+              },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
                 "type": "boolean"
@@ -9878,7 +9961,9 @@
               "rotation",
               "designator",
               "fields",
-              "component_type"
+              "component_type",
+              "in_bom",
+              "in_cpl"
             ],
             "type": "object"
           },
@@ -10223,6 +10308,9 @@
                 ],
                 "description": "The Component it shows (Sheet Instance path + Component UUID); left out for a\nMechanical Part that exists only on the PCB."
               },
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
               "designator": {
                 "type": "string"
               },
@@ -10245,6 +10333,14 @@
                 "description": "The PCB Document's Footprint copy it is placed from.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "in_bom": {
+                "description": "Whether it goes into the BOM.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether it goes into the CPL.",
+                "type": "boolean"
               },
               "locked": {
                 "description": "Locked against moving.",
@@ -10281,6 +10377,9 @@
               "side",
               "designator",
               "fields",
+              "component_type",
+              "in_bom",
+              "in_cpl",
               "pads"
             ],
             "type": "object"
@@ -11204,7 +11303,7 @@
               },
               {
                 "additionalProperties": false,
-                "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+                "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields, a Component Type and the In BOM and In CPL defaults.",
                 "properties": {
                   "component_type": {
                     "$ref": "#/$defs/ComponentType"
@@ -11219,6 +11318,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "in_bom": {
+                    "description": "Whether its Components go into the BOM, by default. Stored explicitly, never\ninferred from the type.",
+                    "type": "boolean"
+                  },
+                  "in_cpl": {
+                    "description": "Whether its Components go into the CPL, by default. Stored explicitly, never\ninferred from the type.",
+                    "type": "boolean"
                   },
                   "name": {
                     "type": "string"
@@ -11238,7 +11345,7 @@
                     "description": "Where an imported Part came from. Elements made in REDA have none."
                   },
                   "symbol": {
-                    "description": "Mechanical Parts may have none; Standard Parts need one.",
+                    "description": "Mechanical Parts may have none; Standard and Net Tie Parts need one.",
                     "format": "uuid",
                     "type": [
                       "string",
@@ -11259,6 +11366,8 @@
                   "uuid",
                   "name",
                   "component_type",
+                  "in_bom",
+                  "in_cpl",
                   "symbol",
                   "footprints",
                   "fields",
@@ -11809,7 +11918,7 @@
           },
           "Part": {
             "additionalProperties": false,
-            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields, a Component Type and the In BOM and In CPL defaults.",
             "properties": {
               "component_type": {
                 "$ref": "#/$defs/ComponentType"
@@ -11824,6 +11933,14 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "in_bom": {
+                "description": "Whether its Components go into the BOM, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether its Components go into the CPL, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -11843,7 +11960,7 @@
                 "description": "Where an imported Part came from. Elements made in REDA have none."
               },
               "symbol": {
-                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "description": "Mechanical Parts may have none; Standard and Net Tie Parts need one.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -11859,6 +11976,8 @@
               "uuid",
               "name",
               "component_type",
+              "in_bom",
+              "in_cpl",
               "symbol",
               "footprints",
               "fields",
@@ -13036,12 +13155,24 @@
             "type": "object"
           },
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
@@ -13648,6 +13779,14 @@
                   "null"
                 ]
               },
+              "in_bom": {
+                "description": "Whether the Component goes into the BOM; copied from the Part, then editable.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
+                "type": "boolean"
+              },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
                 "type": "boolean"
@@ -13692,7 +13831,9 @@
               "rotation",
               "designator",
               "fields",
-              "component_type"
+              "component_type",
+              "in_bom",
+              "in_cpl"
             ],
             "type": "object"
           },
@@ -14037,6 +14178,9 @@
                 ],
                 "description": "The Component it shows (Sheet Instance path + Component UUID); left out for a\nMechanical Part that exists only on the PCB."
               },
+              "component_type": {
+                "$ref": "#/$defs/ComponentType"
+              },
               "designator": {
                 "type": "string"
               },
@@ -14059,6 +14203,14 @@
                 "description": "The PCB Document's Footprint copy it is placed from.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "in_bom": {
+                "description": "Whether it goes into the BOM.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether it goes into the CPL.",
+                "type": "boolean"
               },
               "locked": {
                 "description": "Locked against moving.",
@@ -14095,6 +14247,9 @@
               "side",
               "designator",
               "fields",
+              "component_type",
+              "in_bom",
+              "in_cpl",
               "pads"
             ],
             "type": "object"
@@ -15018,7 +15173,7 @@
               },
               {
                 "additionalProperties": false,
-                "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+                "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields, a Component Type and the In BOM and In CPL defaults.",
                 "properties": {
                   "component_type": {
                     "$ref": "#/$defs/ComponentType"
@@ -15033,6 +15188,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "in_bom": {
+                    "description": "Whether its Components go into the BOM, by default. Stored explicitly, never\ninferred from the type.",
+                    "type": "boolean"
+                  },
+                  "in_cpl": {
+                    "description": "Whether its Components go into the CPL, by default. Stored explicitly, never\ninferred from the type.",
+                    "type": "boolean"
                   },
                   "name": {
                     "type": "string"
@@ -15052,7 +15215,7 @@
                     "description": "Where an imported Part came from. Elements made in REDA have none."
                   },
                   "symbol": {
-                    "description": "Mechanical Parts may have none; Standard Parts need one.",
+                    "description": "Mechanical Parts may have none; Standard and Net Tie Parts need one.",
                     "format": "uuid",
                     "type": [
                       "string",
@@ -15073,6 +15236,8 @@
                   "uuid",
                   "name",
                   "component_type",
+                  "in_bom",
+                  "in_cpl",
                   "symbol",
                   "footprints",
                   "fields",
@@ -15644,7 +15809,7 @@
           },
           "Part": {
             "additionalProperties": false,
-            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields, a Component Type and the In BOM and In CPL defaults.",
             "properties": {
               "component_type": {
                 "$ref": "#/$defs/ComponentType"
@@ -15659,6 +15824,14 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "in_bom": {
+                "description": "Whether its Components go into the BOM, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether its Components go into the CPL, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -15678,7 +15851,7 @@
                 "description": "Where an imported Part came from. Elements made in REDA have none."
               },
               "symbol": {
-                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "description": "Mechanical Parts may have none; Standard and Net Tie Parts need one.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -15694,6 +15867,8 @@
               "uuid",
               "name",
               "component_type",
+              "in_bom",
+              "in_cpl",
               "symbol",
               "footprints",
               "fields",
@@ -18772,7 +18947,7 @@
     },
     {
       "category": "pcb",
-      "description": "Sets the Designator, value, fields, Not Fitted or Footprint of Footprints from the PCB side. A Footprint synced from the schematic writes through: every Unit of its Component changes too, and the board takes the change as Sync would (a new Footprint is swapped in place and its Pads rejoin their Nets), with one undo entry in each Document and nothing left pending. Mechanical Parts placed only on the PCB are edited there.",
+      "description": "Sets the Designator, value, fields, In BOM, In CPL, Not Fitted or Footprint of Footprints from the PCB side. A Footprint synced from the schematic writes through: every Unit of its Component changes too, and the board takes the change as Sync would (a new Footprint is swapped in place and its Pads rejoin their Nets), with one undo entry in each Document and nothing left pending. Mechanical Parts placed only on the PCB are edited there.",
       "icon": "properties",
       "id": "pcb.footprint.set",
       "kind": "edit",
@@ -18816,9 +18991,25 @@
             },
             "type": "array"
           },
+          "in_bom": {
+            "default": null,
+            "description": "Whether the Footprints go into the BOM.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "in_cpl": {
+            "default": null,
+            "description": "Whether the Footprints go into the CPL.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "not_fitted": {
             "default": null,
-            "description": "Whether the Footprints are left off the board and out of the BOM.",
+            "description": "Whether this build leaves the Footprints off the board and out of the BOM and\nCPL. A Net Tie refuses it.",
             "type": [
               "boolean",
               "null"
@@ -20095,7 +20286,7 @@
     },
     {
       "category": "pcb",
-      "description": "Edits the Designator, value, fields or Not Fitted of Mechanical Parts placed on the PCB. Footprints synced from the schematic are edited with `pcb.footprint.set`, which writes through to the schematic.",
+      "description": "Edits the Designator, value, fields, In BOM, In CPL or Not Fitted of Mechanical Parts placed on the PCB. Footprints synced from the schematic are edited with `pcb.footprint.set`, which writes through to the schematic.",
       "icon": "properties",
       "id": "pcb.mechanical.set",
       "kind": "edit",
@@ -20129,6 +20320,22 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "in_bom": {
+            "default": null,
+            "description": "Whether they go into the BOM.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "in_cpl": {
+            "default": null,
+            "description": "Whether they go into the CPL.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "not_fitted": {
             "default": null,
@@ -24294,8 +24501,24 @@
               "null"
             ]
           },
+          "in_bom": {
+            "default": null,
+            "description": "Whether the Components go into the BOM.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "in_cpl": {
+            "default": null,
+            "description": "Whether the Components go into the CPL.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "not_fitted": {
-            "description": "Whether the Components are left off the board and out of the BOM.",
+            "description": "Whether this build leaves the Components off the board and out of the BOM and\nCPL. A Net Tie refuses it.",
             "type": [
               "boolean",
               "null"
@@ -24374,12 +24597,24 @@
       "result": {
         "$defs": {
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "ComponentUpdate": {
             "description": "What an update changes on one Component.",
@@ -24670,12 +24905,24 @@
       "result": {
         "$defs": {
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "ComponentUpdate": {
             "description": "What an update changes on one Component.",
@@ -24988,12 +25235,24 @@
             "type": "object"
           },
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "Field": {
             "additionalProperties": false,
@@ -25445,7 +25704,7 @@
           },
           "Part": {
             "additionalProperties": false,
-            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields, a Component Type and the In BOM and In CPL defaults.",
             "properties": {
               "component_type": {
                 "$ref": "#/$defs/ComponentType"
@@ -25460,6 +25719,14 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "in_bom": {
+                "description": "Whether its Components go into the BOM, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether its Components go into the CPL, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -25479,7 +25746,7 @@
                 "description": "Where an imported Part came from. Elements made in REDA have none."
               },
               "symbol": {
-                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "description": "Mechanical Parts may have none; Standard and Net Tie Parts need one.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -25495,6 +25762,8 @@
               "uuid",
               "name",
               "component_type",
+              "in_bom",
+              "in_cpl",
               "symbol",
               "footprints",
               "fields",
@@ -26268,6 +26537,14 @@
                   "null"
                 ]
               },
+              "in_bom": {
+                "description": "Whether the Component goes into the BOM; copied from the Part, then editable.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
+                "type": "boolean"
+              },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
                 "type": "boolean"
@@ -26312,7 +26589,9 @@
               "rotation",
               "designator",
               "fields",
-              "component_type"
+              "component_type",
+              "in_bom",
+              "in_cpl"
             ],
             "type": "object"
           },
@@ -26468,12 +26747,24 @@
             "type": "object"
           },
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "Field": {
             "additionalProperties": false,
@@ -26925,7 +27216,7 @@
           },
           "Part": {
             "additionalProperties": false,
-            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields, a Component Type and the In BOM and In CPL defaults.",
             "properties": {
               "component_type": {
                 "$ref": "#/$defs/ComponentType"
@@ -26940,6 +27231,14 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "in_bom": {
+                "description": "Whether its Components go into the BOM, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether its Components go into the CPL, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -26959,7 +27258,7 @@
                 "description": "Where an imported Part came from. Elements made in REDA have none."
               },
               "symbol": {
-                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "description": "Mechanical Parts may have none; Standard and Net Tie Parts need one.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -26975,6 +27274,8 @@
               "uuid",
               "name",
               "component_type",
+              "in_bom",
+              "in_cpl",
               "symbol",
               "footprints",
               "fields",
@@ -27748,6 +28049,14 @@
                   "null"
                 ]
               },
+              "in_bom": {
+                "description": "Whether the Component goes into the BOM; copied from the Part, then editable.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
+                "type": "boolean"
+              },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
                 "type": "boolean"
@@ -27792,7 +28101,9 @@
               "rotation",
               "designator",
               "fields",
-              "component_type"
+              "component_type",
+              "in_bom",
+              "in_cpl"
             ],
             "type": "object"
           },
@@ -29460,12 +29771,24 @@
             "type": "object"
           },
           "ComponentType": {
-            "description": "Whether a part's Components go into the BOM and may exist only on the board.",
-            "enum": [
-              "standard",
-              "mechanical"
-            ],
-            "type": "string"
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
           },
           "Field": {
             "additionalProperties": false,
@@ -29931,7 +30254,7 @@
           },
           "Part": {
             "additionalProperties": false,
-            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields and a Component Type.",
+            "description": "A Library definition that binds a Symbol to its alternate Footprints, with default\nfields, a Component Type and the In BOM and In CPL defaults.",
             "properties": {
               "component_type": {
                 "$ref": "#/$defs/ComponentType"
@@ -29946,6 +30269,14 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "in_bom": {
+                "description": "Whether its Components go into the BOM, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether its Components go into the CPL, by default. Stored explicitly, never\ninferred from the type.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -29965,7 +30296,7 @@
                 "description": "Where an imported Part came from. Elements made in REDA have none."
               },
               "symbol": {
-                "description": "Mechanical Parts may have none; Standard Parts need one.",
+                "description": "Mechanical Parts may have none; Standard and Net Tie Parts need one.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -29981,6 +30312,8 @@
               "uuid",
               "name",
               "component_type",
+              "in_bom",
+              "in_cpl",
               "footprints",
               "fields",
               "pin_map"
@@ -30753,6 +31086,14 @@
                   "null"
                 ]
               },
+              "in_bom": {
+                "description": "Whether the Component goes into the BOM; copied from the Part, then editable.",
+                "type": "boolean"
+              },
+              "in_cpl": {
+                "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
+                "type": "boolean"
+              },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
                 "type": "boolean"
@@ -30797,7 +31138,9 @@
               "rotation",
               "designator",
               "fields",
-              "component_type"
+              "component_type",
+              "in_bom",
+              "in_cpl"
             ],
             "type": "object"
           },
@@ -33073,6 +33416,108 @@
                 "type": "object"
               },
               {
+                "description": "Changes the Component Type.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/ComponentType"
+                  },
+                  "instance": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "component_type",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/ComponentType"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "designator",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Changes In BOM.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "boolean"
+                  },
+                  "instance": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "in_bom",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "designator",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Changes In CPL.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "boolean"
+                  },
+                  "instance": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "in_cpl",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "instance",
+                  "designator",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
                 "description": "Changes Not Fitted.",
                 "properties": {
                   "component": {
@@ -33279,6 +33724,26 @@
             ],
             "type": "object"
           },
+          "ComponentType": {
+            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+            "oneOf": [
+              {
+                "const": "standard",
+                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie",
+                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "type": "string"
+              }
+            ]
+          },
           "Field": {
             "additionalProperties": false,
             "description": "One free-form field.",
@@ -33383,7 +33848,7 @@
               },
               {
                 "const": "component_data",
-                "description": "Changing a Designator, the fields (value included) or Not Fitted.",
+                "description": "Changing a Designator, the fields (value included), the Component Type, In BOM,\nIn CPL or Not Fitted.",
                 "type": "string"
               },
               {

@@ -203,8 +203,8 @@ fn field_names(old: &Fields, new: &Fields) -> Vec<String> {
 }
 
 /// The Unit as the update leaves it: pointing at `entry`, with every changed field and
-/// Component Type the Component had not edited taking the new default, and a Footprint
-/// that is no longer an alternate moved to the new default.
+/// Component Type the Component had not edited taking the new default, a Footprint that
+/// is no longer an alternate moved to the new default, and Not Fitted cleared on a Net Tie.
 pub fn updated_unit(unit: &UnitInstance, entry: Uuid, changes: &[PartChange]) -> UnitInstance {
     let mut unit = unit.clone();
     unit.part = entry;
@@ -222,6 +222,10 @@ pub fn updated_unit(unit: &UnitInstance, entry: Uuid, changes: &[PartChange]) ->
             PartChange::FootprintChoice { to, .. } => unit.footprint = *to,
             _ => {}
         }
+    }
+    // A Net Tie refuses Not Fitted, so becoming one clears it.
+    if !unit.component_type.allows_not_fitted() {
+        unit.not_fitted = false;
     }
     unit
 }

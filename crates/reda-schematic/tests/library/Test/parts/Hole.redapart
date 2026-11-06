@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"a0000000-0000-4000-8000-000000000130","name":"Hole","component_type":"mechanical"},
+  "part": {"uuid":"a0000000-0000-4000-8000-000000000130","name":"Hole","component_type":"mechanical","in_bom":true,"in_cpl":false},
   "footprints": [],
   "fields": {},
   "pin_map": {}

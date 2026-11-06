@@ -87,6 +87,26 @@
       ],
       "type": "object"
     },
+    "ComponentType": {
+      "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+      "oneOf": [
+        {
+          "const": "standard",
+          "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+          "type": "string"
+        },
+        {
+          "const": "mechanical",
+          "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+          "type": "string"
+        },
+        {
+          "const": "net_tie",
+          "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+          "type": "string"
+        }
+      ]
+    },
     "DrcSeverities": {
       "additionalProperties": false,
       "description": "The severity of every DRC check, stored next to the rules.",
@@ -309,7 +329,7 @@
     },
     "FootprintInstance": {
       "additionalProperties": false,
-      "description": "One Footprint placed on the board.\n\nA Footprint instance synced from the schematic is linked to its Component by\n[`FootprintInstance::component`] and carries its own copy of the Component's\nDesignator, fields and Not Fitted, so outputs read only the PCB Document. A Mechanical\nPart placed directly on the PCB has no Component link.",
+      "description": "One Footprint placed on the board.\n\nA Footprint instance synced from the schematic is linked to its Component by\n[`FootprintInstance::component`] and carries its own copy of the Component's\nDesignator, fields, Component Type, In BOM, In CPL and Not Fitted, so outputs read only\nthe PCB Document. A Mechanical\nPart placed directly on the PCB has no Component link.",
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
@@ -325,6 +345,9 @@
             }
           ],
           "description": "The Component it shows (Sheet Instance path + Component UUID); left out for a\nMechanical Part that exists only on the PCB."
+        },
+        "component_type": {
+          "$ref": "#/$defs/ComponentType"
         },
         "designator": {
           "type": "string"
@@ -348,6 +371,14 @@
           "description": "The PCB Document's Footprint copy it is placed from.",
           "format": "uuid",
           "type": "string"
+        },
+        "in_bom": {
+          "description": "Whether it goes into the BOM.",
+          "type": "boolean"
+        },
+        "in_cpl": {
+          "description": "Whether it goes into the CPL.",
+          "type": "boolean"
         },
         "locked": {
           "description": "Locked against moving.",
@@ -384,6 +415,9 @@
         "side",
         "designator",
         "fields",
+        "component_type",
+        "in_bom",
+        "in_cpl",
         "pads"
       ],
       "type": "object"
