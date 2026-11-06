@@ -12,6 +12,7 @@
 //! `app.preferences.set` Commands, or in-process through [`load`].
 
 mod file;
+pub mod pages;
 
 use std::num::NonZeroU32;
 
@@ -21,7 +22,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub use file::{Loaded, load, parse, set, value_of};
+pub use file::{Loaded, load, parse, reset, set, value_of};
 
 /// Renamed keys: `(old, new)`. A file that still uses an old key is read as the new one,
 /// and the next write of that key replaces the old spelling.
@@ -401,6 +402,29 @@ impl Preferences {
 /// agents.
 pub fn schema() -> Value {
     serde_json::to_value(schemars::schema_for!(Preferences)).expect("schemas are JSON")
+}
+
+/// Every Preference key, dotted (`schematic.repeat_placement`).
+pub fn keys() -> Vec<String> {
+    fn leaves(value: &Value, prefix: String, out: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => {
+                for (name, child) in map {
+                    let key = if prefix.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{prefix}.{name}")
+                    };
+                    leaves(child, key, out);
+                }
+            }
+            _ => out.push(prefix),
+        }
+    }
+    let defaults = serde_json::to_value(Preferences::default()).expect("Preferences serialise");
+    let mut keys = Vec::new();
+    leaves(&defaults, String::new(), &mut keys);
+    keys
 }
 
 /// The schema's description of one dotted key, if it has one.

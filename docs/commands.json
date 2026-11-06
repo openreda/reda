@@ -31,6 +31,60 @@
     },
     {
       "category": "app",
+      "description": "Puts Preferences back to their defaults: the given keys, one page of the Preferences tree (or its branch), or all. Other lines and comments in preferences.toml stay. Returns the keys that changed.",
+      "icon": "preferences",
+      "id": "app.preferences.reset",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Exactly one of `keys`, `page` and `all`.",
+        "properties": {
+          "all": {
+            "default": null,
+            "description": "`true` resets every Preference (\"Reset all\").",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "branch": {
+            "default": false,
+            "description": "With `page`: the page's whole branch, its sub-pages too (\"Reset branch\").",
+            "type": "boolean"
+          },
+          "keys": {
+            "default": null,
+            "description": "Dotted keys to put back to their defaults.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "default": null,
+            "description": "A page of the Preferences tree, such as `editing` or `schematic.wires`: every key\nshown on it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "ResetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "AnyValue"
+      },
+      "title": "Reset Preferences"
+    },
+    {
+      "category": "app",
       "description": "Sets one Preference in the user's preferences.toml, keeping every other line and comment. Null, or the default value, removes the key.",
       "icon": "preferences",
       "id": "app.preferences.set",

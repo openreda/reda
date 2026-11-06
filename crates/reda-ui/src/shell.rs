@@ -1213,11 +1213,14 @@ impl Shell {
         }
         if base.starts_with("library.")
             || base.starts_with("project.")
-            || base == "app.preferences.set"
+            || matches!(base, "app.preferences.set" | "app.preferences.reset")
         {
             self.library_generation += 1;
         }
-        if matches!(base, "app.preferences.set" | "view.theme.set") {
+        if matches!(
+            base,
+            "app.preferences.set" | "app.preferences.reset" | "view.theme.set"
+        ) {
             self.reload_preferences();
         }
         self.sync_selection();
