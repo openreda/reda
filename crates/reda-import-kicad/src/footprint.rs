@@ -8,7 +8,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
     Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
-    Provenance, Shape, Uuid,
+    Provenance, Shape, TextStyle, Uuid,
 };
 
 use crate::node::{self, Read, fail};
@@ -98,8 +98,8 @@ pub fn read(root: &Sexp) -> Read<FootprintSource> {
         description: description.clone(),
         pads: vec![],
         graphics: vec![],
-        designator: FootprintText::DESIGNATOR,
-        value: FootprintText::VALUE,
+        designator: FootprintText::designator(Uuid::NIL),
+        value: FootprintText::value(Uuid::NIL),
         copyright: vec![],
         warnings: vec![],
     };
@@ -146,17 +146,23 @@ pub fn read(root: &Sexp) -> Read<FootprintSource> {
 fn read_text(item: &Sexp, kind: &str, text: &str, out: &mut FootprintSource) -> Read<()> {
     let at = node::need(item, "at")?;
     let placed = |default: FootprintText| -> Read<FootprintText> {
+        let height = node::font_size(item)?.unwrap_or(default.style.height);
+        // Field text goes on a Silkscreen or Assembly Layer only.
+        let layer = layer_of(item)
+            .filter(|l| l.is_silkscreen() || l.is_assembly())
+            .unwrap_or(default.layer);
         Ok(FootprintText {
             at: flip(node::point(at)?),
             rotation: node::degrees_or_zero(at, 2)?,
-            size: node::font_size(item)?.unwrap_or(default.size),
-            layer: layer_of(item).unwrap_or(default.layer),
+            style: TextStyle::of_height(height),
+            layer,
             visible: !node::hidden(item),
+            ..default
         })
     };
     match kind {
-        "reference" => out.designator = placed(FootprintText::DESIGNATOR)?,
-        "value" => out.value = placed(FootprintText::VALUE)?,
+        "reference" => out.designator = placed(FootprintText::designator(Uuid::NIL))?,
+        "value" => out.value = placed(FootprintText::value(Uuid::NIL))?,
         _ => {
             let Some(layer) = layer_of(item) else {
                 return Ok(());
@@ -404,14 +410,26 @@ pub fn build(
         })
         .collect();
     graphics.sort_by_key(|g| g.uuid);
+    let mut texts = vec![
+        FootprintText {
+            uuid: new_id(),
+            ..source.designator
+        },
+        FootprintText {
+            uuid: new_id(),
+            ..source.value
+        },
+    ];
+    texts.sort_by_key(|t| t.uuid);
     Footprint {
         uuid,
         name,
         description: source.description,
+        height: None,
         pads,
         graphics,
-        designator: source.designator,
-        value: source.value,
+        texts,
+        generator: None,
         provenance: Some(Box::new(provenance)),
     }
 }

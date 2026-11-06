@@ -1,5 +1,21 @@
 {
   "$defs": {
+    "FootprintGenerator": {
+      "additionalProperties": false,
+      "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
+      "properties": {
+        "command": {
+          "description": "The generator Command, such as `library.footprint.generate.chip`.",
+          "type": "string"
+        },
+        "params": true
+      },
+      "required": [
+        "command",
+        "params"
+      ],
+      "type": "object"
+    },
     "FootprintGraphic": {
       "additionalProperties": false,
       "description": "One shape a Footprint draws on a non-copper Layer.",
@@ -50,6 +66,14 @@
         "description": {
           "type": "string"
         },
+        "height": {
+          "description": "The part's greatest height above the board, when known.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "name": {
           "type": "string"
         },
@@ -66,11 +90,15 @@
     },
     "FootprintText": {
       "additionalProperties": false,
-      "description": "The placement of a Footprint's Designator or value text.",
+      "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
           "description": "The text centre, relative to the Footprint origin."
+        },
+        "field": {
+          "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+          "type": "string"
         },
         "layer": {
           "$ref": "#/$defs/FootprintLayer"
@@ -80,36 +108,24 @@
           "format": "int64",
           "type": "integer"
         },
-        "size": {
-          "description": "The text height.",
-          "format": "int64",
-          "type": "integer"
+        "style": {
+          "$ref": "#/$defs/TextStyle"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
         },
         "visible": {
           "type": "boolean"
         }
       },
       "required": [
+        "uuid",
+        "field",
         "at",
         "rotation",
-        "size",
+        "style",
         "layer"
-      ],
-      "type": "object"
-    },
-    "FootprintTexts": {
-      "additionalProperties": false,
-      "properties": {
-        "designator": {
-          "$ref": "#/$defs/FootprintText"
-        },
-        "value": {
-          "$ref": "#/$defs/FootprintText"
-        }
-      },
-      "required": [
-        "designator",
-        "value"
       ],
       "type": "object"
     },
@@ -434,6 +450,32 @@
           "type": "object"
         }
       ]
+    },
+    "TextStyle": {
+      "additionalProperties": false,
+      "description": "How a Footprint text is drawn.",
+      "properties": {
+        "font": {
+          "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
+          "type": "string"
+        },
+        "height": {
+          "description": "The capital height.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "thickness": {
+          "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "font",
+        "height",
+        "thickness"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -447,6 +489,18 @@
       "const": 1,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
+    },
+    "generator": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FootprintGenerator"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The generator Command and resolved params that made the Footprint. Only the\nLibrary file holds it: Document copies and their hashes leave it out."
     },
     "graphics": {
       "default": [],
@@ -475,29 +529,13 @@
       "default": null,
       "description": "Where an imported element came from: the service, its terms and any copyright\nlines. Elements made in REDA have none."
     },
-    "text": {
-      "$ref": "#/$defs/FootprintTexts",
-      "default": {
-        "designator": {
-          "at": {
-            "x": 0,
-            "y": 0
-          },
-          "layer": "silkscreen_top",
-          "rotation": 0,
-          "size": 1000000
-        },
-        "value": {
-          "at": {
-            "x": 0,
-            "y": 0
-          },
-          "layer": "assembly_top",
-          "rotation": 0,
-          "size": 1000000
-        }
+    "texts": {
+      "default": [],
+      "description": "The field texts, such as the Designator and value, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/FootprintText"
       },
-      "description": "Where the Designator and value text go."
+      "type": "array"
     }
   },
   "required": [

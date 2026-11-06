@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"9553b550-db0e-4ca1-8867-6ded2db7e327","name":"HDR254P1X10","description":"Pin header, 1 × 10, 2.54 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":13650000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":10,"pitch":"2.54","rows":1,"socket":false}},
   "pads": [
     {"uuid":"4389d96f-779b-47c2-b5b8-a5c207f631b8","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
     {"uuid":"5b82490f-eeb4-4f7d-96b0-7d4f34b5b35a","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -21,5 +21,9 @@
     {"uuid":"8a14c1d2-84fd-4073-bb66-5f0dd91a1f29","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":12700000},{"x":1270000,"y":12700000},{"x":1270000,"y":-12700000},{"x":-1270000,"y":-12700000},{"x":-1270000,"y":12065000}]},"width":100000},
     {"uuid":"99fb91fe-7c12-4dce-af3f-7be573aa0736","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-12950000},"end":{"x":1550000,"y":12950000}},"width":50000},
     {"uuid":"ae0f299f-1ac4-4a4d-8919-7347b10c1c08","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-12760000},"end":{"x":1330000,"y":12760000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"0fd48de8-e879-40d7-a5db-fad6484c6b59","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+    {"uuid":"3e85de8a-c1d5-4eeb-828f-2dea8f715701","field":"Designator","at":{"x":0,"y":13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

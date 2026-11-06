@@ -26,7 +26,7 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 
 use reda_command::{Command, CommandError, Context, Length, Meta, Registry, Session};
-use reda_model::{Footprint, LibraryElement, Symbol, Uuid, Violation};
+use reda_model::{Footprint, FootprintGenerator, LibraryElement, Symbol, Uuid, Violation};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -112,17 +112,19 @@ fn preview_of<F: FootprintFamily>(params: &serde_json::Value) -> Result<Footprin
     let pattern = F::plan(&p)?;
     let name = target.name.unwrap_or_else(|| pattern.name.clone());
     let mut next = 0;
-    Ok(pattern.into_footprint(name, || {
+    let mut footprint = pattern.into_footprint(name, || {
         next += 1;
         Uuid::from_u128(next)
-    }))
+    });
+    footprint.generator = Some(Box::new(generator_of::<F>(&p)?));
+    Ok(footprint)
 }
 
 /// One package family.
 pub trait FootprintFamily: Send + Sync + 'static {
     /// The Command's metadata; its kind must be `Kind::File`, since it writes a file.
     const META: Meta;
-    type Params: DeserializeOwned + JsonSchema;
+    type Params: DeserializeOwned + Serialize + JsonSchema;
 
     /// Where the Footprint goes and what it is called.
     fn target(params: &Self::Params) -> Target;
@@ -190,7 +192,8 @@ impl<F: FootprintFamily> Command for Generator<F> {
         let pattern = F::plan(&p)?;
         let name = target.name.unwrap_or_else(|| pattern.name.clone());
         check_element_name(&name).map_err(|why| CommandError::invalid_params("/name", why))?;
-        let footprint = pattern.into_footprint(name, || cx.new_id());
+        let mut footprint = pattern.into_footprint(name, || cx.new_id());
+        footprint.generator = Some(Box::new(generator_of::<F>(&p)?));
         let file = (self.store)(cx.session()?, target.library, &footprint)?;
         let violations = check(&NoElements, &LibraryElement::Footprint(footprint.clone()));
         Ok(Generated {
@@ -203,9 +206,21 @@ impl<F: FootprintFamily> Command for Generator<F> {
     }
 }
 
+/// What a Footprint made by family `F` from `params` records about it: the Command and its
+/// params, with every default filled in and every length in nanometres.
+fn generator_of<F: FootprintFamily>(
+    params: &F::Params,
+) -> Result<FootprintGenerator, CommandError> {
+    let params = serde_json::to_value(params).map_err(|e| CommandError::internal(e.to_string()))?;
+    Ok(FootprintGenerator {
+        command: F::META.id.to_owned(),
+        params,
+    })
+}
+
 /// A dimension param: its least and greatest value, each an integer in nanometres or a
 /// length string.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TolParam {
     pub min: Length,

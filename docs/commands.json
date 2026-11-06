@@ -2842,7 +2842,7 @@
     },
     {
       "category": "library",
-      "description": "Removes any mix of an open Footprint's Pads and graphics in one step. The Designator and value text cannot be removed, so they are hidden.",
+      "description": "Removes any mix of an open Footprint's Pads, graphics and texts in one step.",
       "icon": "footprint_edit",
       "id": "library.footprint.delete",
       "kind": "edit",
@@ -2856,7 +2856,7 @@
             "type": "string"
           },
           "objects": {
-            "description": "Pads and graphics by UUID, and the Designator and value text (as for\n`library.footprint.move`), which are hidden rather than removed.",
+            "description": "Pads, graphics and texts by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -2881,11 +2881,27 @@
     },
     {
       "category": "library",
-      "description": "Changes an open Footprint's name or description. Omitted fields keep their value.",
+      "description": "Changes an open Footprint's name, description or height. Omitted fields keep their value; a `null` height clears it.",
       "icon": "footprint_edit",
       "id": "library.footprint.edit",
       "kind": "edit",
       "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -2899,6 +2915,18 @@
             "description": "The open Footprint.",
             "format": "uuid",
             "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The part's greatest height above the board; `null` clears it."
           },
           "name": {
             "type": [
@@ -3018,6 +3046,7 @@
         "properties": {
           "class": {
             "$ref": "#/$defs/ChipClass",
+            "default": "resistor",
             "description": "What the chip is, which sets the name prefix (`RESC`, `CAPC`, `INDC`)."
           },
           "dimensions": {
@@ -3029,6 +3058,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "The body dimensions from a datasheet, for a chip of no standard size."
           },
           "library": {
@@ -3053,6 +3083,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "A standard EIA size, with typical body dimensions. Give `size` or `dimensions`."
           }
         },
@@ -3232,6 +3263,7 @@
                     "type": "null"
                   }
                 ],
+                "default": null,
                 "description": "The exposed pad. Omitted, the package has none."
               },
               "height": {
@@ -3291,6 +3323,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "library": {
@@ -3817,6 +3850,7 @@
                     "type": "null"
                   }
                 ],
+                "default": null,
                 "description": "The exposed pad. Omitted, the package has none."
               },
               "height": {
@@ -3876,6 +3910,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "library": {
@@ -4114,6 +4149,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "library": {
@@ -4347,6 +4383,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "library": {
@@ -4753,6 +4790,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "library": {
@@ -4986,6 +5024,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "library": {
@@ -5125,7 +5164,7 @@
     },
     {
       "category": "library",
-      "description": "Draws a line, rectangle, arc, circle, polygon or text on the Silkscreen, Courtyard or Assembly Layer, top or bottom, of an open Footprint.",
+      "description": "Draws a line, rectangle, arc, circle, polygon or text on the Silkscreen, Courtyard or Assembly Layer, top or bottom, of an open Footprint. A Courtyard Layer takes only closed shapes: rectangles, circles and polygons.",
       "icon": "footprint_edit",
       "id": "library.footprint.graphic.add",
       "kind": "edit",
@@ -5398,7 +5437,7 @@
     },
     {
       "category": "library",
-      "description": "Changes a Footprint graphic's Layer, shape, stroke width or fill. Omitted fields keep their value.",
+      "description": "Changes a Footprint graphic's Layer, shape, stroke width or fill. Omitted fields keep their value. A Courtyard Layer takes only closed shapes.",
       "icon": "footprint_edit",
       "id": "library.footprint.graphic.edit",
       "kind": "edit",
@@ -5711,7 +5750,7 @@
     },
     {
       "category": "library",
-      "description": "Moves any mix of an open Footprint's Pads, graphics and Designator and value text by `by`, in one step.",
+      "description": "Moves any mix of an open Footprint's Pads, graphics and texts by `by`, in one step.",
       "icon": "footprint_edit",
       "id": "library.footprint.move",
       "kind": "edit",
@@ -5761,7 +5800,7 @@
             "type": "string"
           },
           "objects": {
-            "description": "Pads and graphics by UUID, and the Designator and value text as\n`fd000000-0000-4000-8000-000000000001` and `…0002`.",
+            "description": "Pads, graphics and texts by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -6334,9 +6373,9 @@
     },
     {
       "category": "library",
-      "description": "Places the Designator or value text of an open Footprint: its position, rotation, size, Layer and visibility. Omitted fields keep their value.",
+      "description": "Adds a text showing a field (`Designator`, `Value` or any field name) to an open Footprint, on a Silkscreen or Assembly Layer. A Component without that field draws nothing there.",
       "icon": "footprint_edit",
-      "id": "library.footprint.text.set",
+      "id": "library.footprint.text.add",
       "kind": "edit",
       "params": {
         "$defs": {
@@ -6396,14 +6435,172 @@
               "y"
             ],
             "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The text centre, relative to the Footprint origin."
           },
-          "TextWhich": {
-            "description": "Which of a Footprint's two texts.",
+          "field": {
+            "description": "The field it shows: `Designator`, `Value` or any field name.",
+            "type": "string"
+          },
+          "font": {
+            "description": "The font family. Omitted, Hershey Roman Simplex.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The capital height. Omitted, 1 mm."
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A Silkscreen or Assembly Layer. Omitted, the top Silkscreen."
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "thickness": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pen width. Omitted, 15% of the height."
+          },
+          "visible": {
+            "description": "Omitted, shown.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "footprint",
+          "field",
+          "at"
+        ],
+        "title": "FootprintTextAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "text": {
+            "description": "The new text's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "FootprintTextResult",
+        "type": "object"
+      },
+      "title": "Add Footprint Text"
+    },
+    {
+      "category": "library",
+      "description": "Changes a Footprint text's field, position, rotation, Layer, height, pen width, font or visibility. Omitted fields keep their value.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.text.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintLayer": {
+            "description": "The Layers a Footprint draws on besides copper.",
             "enum": [
-              "designator",
-              "value"
+              "silkscreen_top",
+              "silkscreen_bottom",
+              "courtyard_top",
+              "courtyard_bottom",
+              "assembly_top",
+              "assembly_bottom"
             ],
             "type": "string"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6420,10 +6617,35 @@
             ],
             "description": "The text centre, relative to the Footprint origin."
           },
+          "field": {
+            "description": "The field it shows: `Designator`, `Value` or any field name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "font": {
+            "description": "The font family.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "footprint": {
             "description": "The open Footprint.",
             "format": "uuid",
             "type": "string"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The capital height. The pen width stays as it is."
           },
           "layer": {
             "anyOf": [
@@ -6433,7 +6655,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "A Silkscreen or Assembly Layer."
           },
           "rotation": {
             "anyOf": [
@@ -6445,7 +6668,11 @@
               }
             ]
           },
-          "size": {
+          "text": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "thickness": {
             "anyOf": [
               {
                 "$ref": "#/$defs/Length"
@@ -6454,10 +6681,7 @@
                 "type": "null"
               }
             ],
-            "description": "The text height."
-          },
-          "text": {
-            "$ref": "#/$defs/TextWhich"
+            "description": "The pen width."
           },
           "visible": {
             "type": [
@@ -6470,7 +6694,7 @@
           "footprint",
           "text"
         ],
-        "title": "FootprintTextSetParams",
+        "title": "FootprintTextEditParams",
         "type": "object"
       },
       "presets": [],
@@ -6479,7 +6703,42 @@
         "title": "null",
         "type": "null"
       },
-      "title": "Place Footprint Text"
+      "title": "Edit Footprint Text"
+    },
+    {
+      "category": "library",
+      "description": "Removes a field text from an open Footprint.",
+      "icon": "footprint_edit",
+      "id": "library.footprint.text.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "text": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "footprint",
+          "text"
+        ],
+        "title": "FootprintTextParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Footprint Text"
     },
     {
       "category": "library",
@@ -8006,6 +8265,124 @@
     },
     {
       "category": "library",
+      "description": "Moves an open Symbol's origin to Pin 1, to the centre of its Pins and graphics (kept on the 50 mil grid, so Pins stay on it) or to a picked point. Every Pin and graphic of every Unit keeps its place while its coordinates shift.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.origin.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "SymbolOrigin": {
+            "description": "Where `library.symbol.origin.set` puts a Symbol's origin.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "On the connection end of the Pin numbered `1`.",
+                "properties": {
+                  "kind": {
+                    "const": "pin1",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "At the centre of the box around every Pin and graphic, on the 50 mil grid.",
+                "properties": {
+                  "kind": {
+                    "const": "centre",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "At `at`, in the current coordinates.",
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "pick",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/$defs/SymbolOrigin"
+          }
+        },
+        "required": [
+          "symbol",
+          "to"
+        ],
+        "title": "SymbolOriginSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Symbol Origin"
+    },
+    {
+      "category": "library",
       "description": "Adds a Pin to a Unit of an open Symbol. Its number must be unique across the Symbol; a Pin connects to the Pads with the same number unless the Part says otherwise.",
       "icon": "symbol_edit",
       "id": "library.symbol.pin.add",
@@ -8026,6 +8403,16 @@
               }
             ]
           },
+          "InsideEdge": {
+            "description": "A Pin decoration just inside the body edge.",
+            "oneOf": [
+              {
+                "const": "clock",
+                "description": "A clock input's wedge.",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -8036,6 +8423,26 @@
               {
                 "description": "A number and a unit: nm, um, mm, mil or in.",
                 "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "OutsideEdge": {
+            "description": "A Pin decoration just outside the body edge.",
+            "oneOf": [
+              {
+                "const": "dot",
+                "description": "An inversion circle.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_input",
+                "description": "The active-low input flag.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_output",
+                "description": "The active-low output flag.",
                 "type": "string"
               }
             ]
@@ -8081,6 +8488,13 @@
             "$ref": "#/$defs/PointParam",
             "description": "The connection end, relative to the Symbol origin. The editor keeps it on the\n50 mil grid; the Library check reports Pins off it."
           },
+          "description": {
+            "description": "What the Pin is for, shown on hover. Omitted, none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "electrical_type": {
             "anyOf": [
               {
@@ -8091,6 +8505,17 @@
               }
             ],
             "description": "Omitted, `passive`."
+          },
+          "inside_edge": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/InsideEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The decoration just inside the body edge. Omitted, none."
           },
           "length": {
             "anyOf": [
@@ -8123,6 +8548,17 @@
               "boolean",
               "null"
             ]
+          },
+          "outside_edge": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OutsideEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The decoration just outside the body edge. Omitted, none."
           },
           "rotation": {
             "anyOf": [
@@ -8178,7 +8614,7 @@
     },
     {
       "category": "library",
-      "description": "Changes any of a Pin's Unit, name, number, electrical type, position, rotation, length and name and number visibility. Omitted fields keep their value.",
+      "description": "Changes any of a Pin's Unit, name, number, electrical type, position, rotation, length, name and number visibility, description and decorations. Omitted fields keep their value; `null` removes a decoration.",
       "icon": "symbol_edit",
       "id": "library.symbol.pin.edit",
       "kind": "edit",
@@ -8198,6 +8634,16 @@
               }
             ]
           },
+          "InsideEdge": {
+            "description": "A Pin decoration just inside the body edge.",
+            "oneOf": [
+              {
+                "const": "clock",
+                "description": "A clock input's wedge.",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -8208,6 +8654,26 @@
               {
                 "description": "A number and a unit: nm, um, mm, mil or in.",
                 "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "OutsideEdge": {
+            "description": "A Pin decoration just outside the body edge.",
+            "oneOf": [
+              {
+                "const": "dot",
+                "description": "An inversion circle.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_input",
+                "description": "The active-low input flag.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_output",
+                "description": "The active-low output flag.",
                 "type": "string"
               }
             ]
@@ -8259,6 +8725,13 @@
               }
             ]
           },
+          "description": {
+            "description": "What the Pin is for, shown on hover; empty for none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "electrical_type": {
             "anyOf": [
               {
@@ -8268,6 +8741,18 @@
                 "type": "null"
               }
             ]
+          },
+          "inside_edge": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/InsideEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The decoration just inside the body edge; `null` removes it."
           },
           "length": {
             "anyOf": [
@@ -8302,6 +8787,18 @@
               "boolean",
               "null"
             ]
+          },
+          "outside_edge": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OutsideEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The decoration just outside the body edge; `null` removes it."
           },
           "pin": {
             "format": "uuid",
@@ -8898,9 +9395,16 @@
               "description": {
                 "type": "string"
               },
-              "designator": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the Designator text goes."
+              "generator": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintGenerator"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The generator Command and resolved params that made it. It lives only in the\nLibrary's `.redafp`: the copies Documents hold, and their hashes, leave it out."
               },
               "graphics": {
                 "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
@@ -8908,6 +9412,14 @@
                   "$ref": "#/$defs/FootprintGraphic"
                 },
                 "type": "array"
+              },
+              "height": {
+                "description": "The part's greatest height above the board, when known. Generators fill it in.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "name": {
                 "type": "string"
@@ -8930,13 +9442,16 @@
                 ],
                 "description": "Where an imported Footprint came from. Elements made in REDA have none."
               },
+              "texts": {
+                "description": "The field texts it draws, such as its Designator and value, sorted by UUID.",
+                "items": {
+                  "$ref": "#/$defs/FootprintText"
+                },
+                "type": "array"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
-              },
-              "value": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the value text goes."
               }
             },
             "required": [
@@ -8945,8 +9460,23 @@
               "description",
               "pads",
               "graphics",
-              "designator",
-              "value"
+              "texts"
+            ],
+            "type": "object"
+          },
+          "FootprintGenerator": {
+            "additionalProperties": false,
+            "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
+            "properties": {
+              "command": {
+                "description": "The generator Command, such as `library.footprint.generate.chip`.",
+                "type": "string"
+              },
+              "params": true
+            },
+            "required": [
+              "command",
+              "params"
             ],
             "type": "object"
           },
@@ -8996,11 +9526,15 @@
           },
           "FootprintText": {
             "additionalProperties": false,
-            "description": "The placement of a Footprint's Designator or value text.",
+            "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The text centre, relative to the Footprint origin."
+              },
+              "field": {
+                "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+                "type": "string"
               },
               "layer": {
                 "$ref": "#/$defs/FootprintLayer"
@@ -9010,19 +9544,23 @@
                 "format": "int64",
                 "type": "integer"
               },
-              "size": {
-                "description": "The text height.",
-                "format": "int64",
-                "type": "integer"
+              "style": {
+                "$ref": "#/$defs/TextStyle"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
               },
               "visible": {
                 "type": "boolean"
               }
             },
             "required": [
+              "uuid",
+              "field",
               "at",
               "rotation",
-              "size",
+              "style",
               "layer"
             ],
             "type": "object"
@@ -10135,6 +10673,16 @@
             ],
             "type": "object"
           },
+          "InsideEdge": {
+            "description": "A Pin decoration just inside the body edge.",
+            "oneOf": [
+              {
+                "const": "clock",
+                "description": "A clock input's wedge.",
+                "type": "string"
+              }
+            ]
+          },
           "Layer": {
             "additionalProperties": false,
             "description": "One Layer. Objects name their Layer by UUID, never by position.",
@@ -10472,9 +11020,16 @@
                   "description": {
                     "type": "string"
                   },
-                  "designator": {
-                    "$ref": "#/$defs/FootprintText",
-                    "description": "Where the Designator text goes."
+                  "generator": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FootprintGenerator"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The generator Command and resolved params that made it. It lives only in the\nLibrary's `.redafp`: the copies Documents hold, and their hashes, leave it out."
                   },
                   "graphics": {
                     "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
@@ -10482,6 +11037,14 @@
                       "$ref": "#/$defs/FootprintGraphic"
                     },
                     "type": "array"
+                  },
+                  "height": {
+                    "description": "The part's greatest height above the board, when known. Generators fill it in.",
+                    "format": "int64",
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
                   },
                   "name": {
                     "type": "string"
@@ -10504,6 +11067,13 @@
                     ],
                     "description": "Where an imported Footprint came from. Elements made in REDA have none."
                   },
+                  "texts": {
+                    "description": "The field texts it draws, such as its Designator and value, sorted by UUID.",
+                    "items": {
+                      "$ref": "#/$defs/FootprintText"
+                    },
+                    "type": "array"
+                  },
                   "type": {
                     "const": "footprint",
                     "type": "string"
@@ -10511,10 +11081,6 @@
                   "uuid": {
                     "format": "uuid",
                     "type": "string"
-                  },
-                  "value": {
-                    "$ref": "#/$defs/FootprintText",
-                    "description": "Where the value text goes."
                   }
                 },
                 "required": [
@@ -10524,8 +11090,7 @@
                   "description",
                   "pads",
                   "graphics",
-                  "designator",
-                  "value"
+                  "texts"
                 ],
                 "type": "object"
               },
@@ -10975,6 +11540,26 @@
             ],
             "type": "object"
           },
+          "OutsideEdge": {
+            "description": "A Pin decoration just outside the body edge.",
+            "oneOf": [
+              {
+                "const": "dot",
+                "description": "An inversion circle.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_input",
+                "description": "The active-low input flag.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_output",
+                "description": "The active-low output flag.",
+                "type": "string"
+              }
+            ]
+          },
           "Pad": {
             "additionalProperties": false,
             "description": "A copper area, with or without a hole, of a Footprint.",
@@ -11181,8 +11766,23 @@
                 "$ref": "#/$defs/Point",
                 "description": "The connection end of the Pin, relative to the Symbol origin."
               },
+              "description": {
+                "description": "What the Pin is for, shown on hover. Left out when empty.",
+                "type": "string"
+              },
               "electrical_type": {
                 "$ref": "#/$defs/PinType"
+              },
+              "inside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just inside the body edge, such as a clock wedge."
               },
               "length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -11203,6 +11803,17 @@
               "number_visible": {
                 "description": "Whether the Pin's number is drawn.",
                 "type": "boolean"
+              },
+              "outside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/OutsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just outside the body edge, such as an inversion dot."
               },
               "rotation": {
                 "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
@@ -11804,6 +12415,32 @@
               "unit",
               "shape",
               "width"
+            ],
+            "type": "object"
+          },
+          "TextStyle": {
+            "additionalProperties": false,
+            "description": "How a Footprint text is drawn.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "font",
+              "height",
+              "thickness"
             ],
             "type": "object"
           },
@@ -12522,9 +13159,16 @@
               "description": {
                 "type": "string"
               },
-              "designator": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the Designator text goes."
+              "generator": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintGenerator"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The generator Command and resolved params that made it. It lives only in the\nLibrary's `.redafp`: the copies Documents hold, and their hashes, leave it out."
               },
               "graphics": {
                 "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
@@ -12532,6 +13176,14 @@
                   "$ref": "#/$defs/FootprintGraphic"
                 },
                 "type": "array"
+              },
+              "height": {
+                "description": "The part's greatest height above the board, when known. Generators fill it in.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "name": {
                 "type": "string"
@@ -12554,13 +13206,16 @@
                 ],
                 "description": "Where an imported Footprint came from. Elements made in REDA have none."
               },
+              "texts": {
+                "description": "The field texts it draws, such as its Designator and value, sorted by UUID.",
+                "items": {
+                  "$ref": "#/$defs/FootprintText"
+                },
+                "type": "array"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
-              },
-              "value": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the value text goes."
               }
             },
             "required": [
@@ -12569,8 +13224,23 @@
               "description",
               "pads",
               "graphics",
-              "designator",
-              "value"
+              "texts"
+            ],
+            "type": "object"
+          },
+          "FootprintGenerator": {
+            "additionalProperties": false,
+            "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
+            "properties": {
+              "command": {
+                "description": "The generator Command, such as `library.footprint.generate.chip`.",
+                "type": "string"
+              },
+              "params": true
+            },
+            "required": [
+              "command",
+              "params"
             ],
             "type": "object"
           },
@@ -12620,11 +13290,15 @@
           },
           "FootprintText": {
             "additionalProperties": false,
-            "description": "The placement of a Footprint's Designator or value text.",
+            "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The text centre, relative to the Footprint origin."
+              },
+              "field": {
+                "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+                "type": "string"
               },
               "layer": {
                 "$ref": "#/$defs/FootprintLayer"
@@ -12634,19 +13308,23 @@
                 "format": "int64",
                 "type": "integer"
               },
-              "size": {
-                "description": "The text height.",
-                "format": "int64",
-                "type": "integer"
+              "style": {
+                "$ref": "#/$defs/TextStyle"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
               },
               "visible": {
                 "type": "boolean"
               }
             },
             "required": [
+              "uuid",
+              "field",
               "at",
               "rotation",
-              "size",
+              "style",
               "layer"
             ],
             "type": "object"
@@ -13759,6 +14437,16 @@
             ],
             "type": "object"
           },
+          "InsideEdge": {
+            "description": "A Pin decoration just inside the body edge.",
+            "oneOf": [
+              {
+                "const": "clock",
+                "description": "A clock input's wedge.",
+                "type": "string"
+              }
+            ]
+          },
           "Layer": {
             "additionalProperties": false,
             "description": "One Layer. Objects name their Layer by UUID, never by position.",
@@ -14096,9 +14784,16 @@
                   "description": {
                     "type": "string"
                   },
-                  "designator": {
-                    "$ref": "#/$defs/FootprintText",
-                    "description": "Where the Designator text goes."
+                  "generator": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FootprintGenerator"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The generator Command and resolved params that made it. It lives only in the\nLibrary's `.redafp`: the copies Documents hold, and their hashes, leave it out."
                   },
                   "graphics": {
                     "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
@@ -14106,6 +14801,14 @@
                       "$ref": "#/$defs/FootprintGraphic"
                     },
                     "type": "array"
+                  },
+                  "height": {
+                    "description": "The part's greatest height above the board, when known. Generators fill it in.",
+                    "format": "int64",
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
                   },
                   "name": {
                     "type": "string"
@@ -14128,6 +14831,13 @@
                     ],
                     "description": "Where an imported Footprint came from. Elements made in REDA have none."
                   },
+                  "texts": {
+                    "description": "The field texts it draws, such as its Designator and value, sorted by UUID.",
+                    "items": {
+                      "$ref": "#/$defs/FootprintText"
+                    },
+                    "type": "array"
+                  },
                   "type": {
                     "const": "footprint",
                     "type": "string"
@@ -14135,10 +14845,6 @@
                   "uuid": {
                     "format": "uuid",
                     "type": "string"
-                  },
-                  "value": {
-                    "$ref": "#/$defs/FootprintText",
-                    "description": "Where the value text goes."
                   }
                 },
                 "required": [
@@ -14148,8 +14854,7 @@
                   "description",
                   "pads",
                   "graphics",
-                  "designator",
-                  "value"
+                  "texts"
                 ],
                 "type": "object"
               },
@@ -14620,6 +15325,26 @@
             ],
             "type": "object"
           },
+          "OutsideEdge": {
+            "description": "A Pin decoration just outside the body edge.",
+            "oneOf": [
+              {
+                "const": "dot",
+                "description": "An inversion circle.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_input",
+                "description": "The active-low input flag.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_output",
+                "description": "The active-low output flag.",
+                "type": "string"
+              }
+            ]
+          },
           "Pad": {
             "additionalProperties": false,
             "description": "A copper area, with or without a hole, of a Footprint.",
@@ -14826,8 +15551,23 @@
                 "$ref": "#/$defs/Point",
                 "description": "The connection end of the Pin, relative to the Symbol origin."
               },
+              "description": {
+                "description": "What the Pin is for, shown on hover. Left out when empty.",
+                "type": "string"
+              },
               "electrical_type": {
                 "$ref": "#/$defs/PinType"
+              },
+              "inside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just inside the body edge, such as a clock wedge."
               },
               "length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -14848,6 +15588,17 @@
               "number_visible": {
                 "description": "Whether the Pin's number is drawn.",
                 "type": "boolean"
+              },
+              "outside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/OutsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just outside the body edge, such as an inversion dot."
               },
               "rotation": {
                 "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
@@ -15449,6 +16200,32 @@
               "unit",
               "shape",
               "width"
+            ],
+            "type": "object"
+          },
+          "TextStyle": {
+            "additionalProperties": false,
+            "description": "How a Footprint text is drawn.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "font",
+              "height",
+              "thickness"
             ],
             "type": "object"
           },
@@ -17618,7 +18395,7 @@
               }
             ],
             "default": null,
-            "description": "The text height."
+            "description": "The text height; the pen width follows it."
           },
           "visible": {
             "default": null,
@@ -24089,9 +24866,16 @@
               "description": {
                 "type": "string"
               },
-              "designator": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the Designator text goes."
+              "generator": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintGenerator"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The generator Command and resolved params that made it. It lives only in the\nLibrary's `.redafp`: the copies Documents hold, and their hashes, leave it out."
               },
               "graphics": {
                 "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
@@ -24099,6 +24883,14 @@
                   "$ref": "#/$defs/FootprintGraphic"
                 },
                 "type": "array"
+              },
+              "height": {
+                "description": "The part's greatest height above the board, when known. Generators fill it in.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "name": {
                 "type": "string"
@@ -24121,13 +24913,16 @@
                 ],
                 "description": "Where an imported Footprint came from. Elements made in REDA have none."
               },
+              "texts": {
+                "description": "The field texts it draws, such as its Designator and value, sorted by UUID.",
+                "items": {
+                  "$ref": "#/$defs/FootprintText"
+                },
+                "type": "array"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
-              },
-              "value": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the value text goes."
               }
             },
             "required": [
@@ -24136,8 +24931,7 @@
               "description",
               "pads",
               "graphics",
-              "designator",
-              "value"
+              "texts"
             ],
             "type": "object"
           },
@@ -24161,6 +24955,22 @@
               "uuid",
               "hash",
               "footprint"
+            ],
+            "type": "object"
+          },
+          "FootprintGenerator": {
+            "additionalProperties": false,
+            "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
+            "properties": {
+              "command": {
+                "description": "The generator Command, such as `library.footprint.generate.chip`.",
+                "type": "string"
+              },
+              "params": true
+            },
+            "required": [
+              "command",
+              "params"
             ],
             "type": "object"
           },
@@ -24210,11 +25020,15 @@
           },
           "FootprintText": {
             "additionalProperties": false,
-            "description": "The placement of a Footprint's Designator or value text.",
+            "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The text centre, relative to the Footprint origin."
+              },
+              "field": {
+                "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+                "type": "string"
               },
               "layer": {
                 "$ref": "#/$defs/FootprintLayer"
@@ -24224,19 +25038,23 @@
                 "format": "int64",
                 "type": "integer"
               },
-              "size": {
-                "description": "The text height.",
-                "format": "int64",
-                "type": "integer"
+              "style": {
+                "$ref": "#/$defs/TextStyle"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
               },
               "visible": {
                 "type": "boolean"
               }
             },
             "required": [
+              "uuid",
+              "field",
               "at",
               "rotation",
-              "size",
+              "style",
               "layer"
             ],
             "type": "object"
@@ -24261,6 +25079,16 @@
               "height"
             ],
             "type": "object"
+          },
+          "InsideEdge": {
+            "description": "A Pin decoration just inside the body edge.",
+            "oneOf": [
+              {
+                "const": "clock",
+                "description": "A clock input's wedge.",
+                "type": "string"
+              }
+            ]
           },
           "NetLabel": {
             "additionalProperties": false,
@@ -24308,6 +25136,26 @@
               "at"
             ],
             "type": "object"
+          },
+          "OutsideEdge": {
+            "description": "A Pin decoration just outside the body edge.",
+            "oneOf": [
+              {
+                "const": "dot",
+                "description": "An inversion circle.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_input",
+                "description": "The active-low input flag.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_output",
+                "description": "The active-low output flag.",
+                "type": "string"
+              }
+            ]
           },
           "Pad": {
             "additionalProperties": false,
@@ -24514,8 +25362,23 @@
                 "$ref": "#/$defs/Point",
                 "description": "The connection end of the Pin, relative to the Symbol origin."
               },
+              "description": {
+                "description": "What the Pin is for, shown on hover. Left out when empty.",
+                "type": "string"
+              },
               "electrical_type": {
                 "$ref": "#/$defs/PinType"
+              },
+              "inside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just inside the body edge, such as a clock wedge."
               },
               "length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -24536,6 +25399,17 @@
               "number_visible": {
                 "description": "Whether the Pin's number is drawn.",
                 "type": "boolean"
+              },
+              "outside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/OutsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just outside the body edge, such as an inversion dot."
               },
               "rotation": {
                 "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
@@ -25128,6 +26002,32 @@
               "unit",
               "shape",
               "width"
+            ],
+            "type": "object"
+          },
+          "TextStyle": {
+            "additionalProperties": false,
+            "description": "How a Footprint text is drawn.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "font",
+              "height",
+              "thickness"
             ],
             "type": "object"
           },
@@ -25447,9 +26347,16 @@
               "description": {
                 "type": "string"
               },
-              "designator": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the Designator text goes."
+              "generator": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintGenerator"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The generator Command and resolved params that made it. It lives only in the\nLibrary's `.redafp`: the copies Documents hold, and their hashes, leave it out."
               },
               "graphics": {
                 "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
@@ -25457,6 +26364,14 @@
                   "$ref": "#/$defs/FootprintGraphic"
                 },
                 "type": "array"
+              },
+              "height": {
+                "description": "The part's greatest height above the board, when known. Generators fill it in.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "name": {
                 "type": "string"
@@ -25479,13 +26394,16 @@
                 ],
                 "description": "Where an imported Footprint came from. Elements made in REDA have none."
               },
+              "texts": {
+                "description": "The field texts it draws, such as its Designator and value, sorted by UUID.",
+                "items": {
+                  "$ref": "#/$defs/FootprintText"
+                },
+                "type": "array"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
-              },
-              "value": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the value text goes."
               }
             },
             "required": [
@@ -25494,8 +26412,7 @@
               "description",
               "pads",
               "graphics",
-              "designator",
-              "value"
+              "texts"
             ],
             "type": "object"
           },
@@ -25519,6 +26436,22 @@
               "uuid",
               "hash",
               "footprint"
+            ],
+            "type": "object"
+          },
+          "FootprintGenerator": {
+            "additionalProperties": false,
+            "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
+            "properties": {
+              "command": {
+                "description": "The generator Command, such as `library.footprint.generate.chip`.",
+                "type": "string"
+              },
+              "params": true
+            },
+            "required": [
+              "command",
+              "params"
             ],
             "type": "object"
           },
@@ -25568,11 +26501,15 @@
           },
           "FootprintText": {
             "additionalProperties": false,
-            "description": "The placement of a Footprint's Designator or value text.",
+            "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The text centre, relative to the Footprint origin."
+              },
+              "field": {
+                "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+                "type": "string"
               },
               "layer": {
                 "$ref": "#/$defs/FootprintLayer"
@@ -25582,19 +26519,23 @@
                 "format": "int64",
                 "type": "integer"
               },
-              "size": {
-                "description": "The text height.",
-                "format": "int64",
-                "type": "integer"
+              "style": {
+                "$ref": "#/$defs/TextStyle"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
               },
               "visible": {
                 "type": "boolean"
               }
             },
             "required": [
+              "uuid",
+              "field",
               "at",
               "rotation",
-              "size",
+              "style",
               "layer"
             ],
             "type": "object"
@@ -25619,6 +26560,16 @@
               "height"
             ],
             "type": "object"
+          },
+          "InsideEdge": {
+            "description": "A Pin decoration just inside the body edge.",
+            "oneOf": [
+              {
+                "const": "clock",
+                "description": "A clock input's wedge.",
+                "type": "string"
+              }
+            ]
           },
           "NetLabel": {
             "additionalProperties": false,
@@ -25666,6 +26617,26 @@
               "at"
             ],
             "type": "object"
+          },
+          "OutsideEdge": {
+            "description": "A Pin decoration just outside the body edge.",
+            "oneOf": [
+              {
+                "const": "dot",
+                "description": "An inversion circle.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_input",
+                "description": "The active-low input flag.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_output",
+                "description": "The active-low output flag.",
+                "type": "string"
+              }
+            ]
           },
           "Pad": {
             "additionalProperties": false,
@@ -25872,8 +26843,23 @@
                 "$ref": "#/$defs/Point",
                 "description": "The connection end of the Pin, relative to the Symbol origin."
               },
+              "description": {
+                "description": "What the Pin is for, shown on hover. Left out when empty.",
+                "type": "string"
+              },
               "electrical_type": {
                 "$ref": "#/$defs/PinType"
+              },
+              "inside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just inside the body edge, such as a clock wedge."
               },
               "length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -25894,6 +26880,17 @@
               "number_visible": {
                 "description": "Whether the Pin's number is drawn.",
                 "type": "boolean"
+              },
+              "outside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/OutsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just outside the body edge, such as an inversion dot."
               },
               "rotation": {
                 "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
@@ -26486,6 +27483,32 @@
               "unit",
               "shape",
               "width"
+            ],
+            "type": "object"
+          },
+          "TextStyle": {
+            "additionalProperties": false,
+            "description": "How a Footprint text is drawn.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "font",
+              "height",
+              "thickness"
             ],
             "type": "object"
           },
@@ -28249,9 +29272,16 @@
               "description": {
                 "type": "string"
               },
-              "designator": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the Designator text goes."
+              "generator": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintGenerator"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The generator Command and resolved params that made it. It lives only in the\nLibrary's `.redafp`: the copies Documents hold, and their hashes, leave it out."
               },
               "graphics": {
                 "description": "Silkscreen, Courtyard and Assembly drawing, sorted by UUID.",
@@ -28259,6 +29289,14 @@
                   "$ref": "#/$defs/FootprintGraphic"
                 },
                 "type": "array"
+              },
+              "height": {
+                "description": "The part's greatest height above the board, when known. Generators fill it in.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "name": {
                 "type": "string"
@@ -28281,13 +29319,16 @@
                 ],
                 "description": "Where an imported Footprint came from. Elements made in REDA have none."
               },
+              "texts": {
+                "description": "The field texts it draws, such as its Designator and value, sorted by UUID.",
+                "items": {
+                  "$ref": "#/$defs/FootprintText"
+                },
+                "type": "array"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
-              },
-              "value": {
-                "$ref": "#/$defs/FootprintText",
-                "description": "Where the value text goes."
               }
             },
             "required": [
@@ -28296,8 +29337,7 @@
               "description",
               "pads",
               "graphics",
-              "designator",
-              "value"
+              "texts"
             ],
             "type": "object"
           },
@@ -28321,6 +29361,22 @@
               "uuid",
               "hash",
               "footprint"
+            ],
+            "type": "object"
+          },
+          "FootprintGenerator": {
+            "additionalProperties": false,
+            "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
+            "properties": {
+              "command": {
+                "description": "The generator Command, such as `library.footprint.generate.chip`.",
+                "type": "string"
+              },
+              "params": true
+            },
+            "required": [
+              "command",
+              "params"
             ],
             "type": "object"
           },
@@ -28370,11 +29426,15 @@
           },
           "FootprintText": {
             "additionalProperties": false,
-            "description": "The placement of a Footprint's Designator or value text.",
+            "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The text centre, relative to the Footprint origin."
+              },
+              "field": {
+                "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+                "type": "string"
               },
               "layer": {
                 "$ref": "#/$defs/FootprintLayer"
@@ -28384,19 +29444,23 @@
                 "format": "int64",
                 "type": "integer"
               },
-              "size": {
-                "description": "The text height.",
-                "format": "int64",
-                "type": "integer"
+              "style": {
+                "$ref": "#/$defs/TextStyle"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
               },
               "visible": {
                 "type": "boolean"
               }
             },
             "required": [
+              "uuid",
+              "field",
               "at",
               "rotation",
-              "size",
+              "style",
               "layer"
             ],
             "type": "object"
@@ -28421,6 +29485,16 @@
               "height"
             ],
             "type": "object"
+          },
+          "InsideEdge": {
+            "description": "A Pin decoration just inside the body edge.",
+            "oneOf": [
+              {
+                "const": "clock",
+                "description": "A clock input's wedge.",
+                "type": "string"
+              }
+            ]
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -28482,6 +29556,26 @@
               "at"
             ],
             "type": "object"
+          },
+          "OutsideEdge": {
+            "description": "A Pin decoration just outside the body edge.",
+            "oneOf": [
+              {
+                "const": "dot",
+                "description": "An inversion circle.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_input",
+                "description": "The active-low input flag.",
+                "type": "string"
+              },
+              {
+                "const": "active_low_output",
+                "description": "The active-low output flag.",
+                "type": "string"
+              }
+            ]
           },
           "Pad": {
             "additionalProperties": false,
@@ -28687,8 +29781,23 @@
                 "$ref": "#/$defs/Point",
                 "description": "The connection end of the Pin, relative to the Symbol origin."
               },
+              "description": {
+                "description": "What the Pin is for, shown on hover. Left out when empty.",
+                "type": "string"
+              },
               "electrical_type": {
                 "$ref": "#/$defs/PinType"
+              },
+              "inside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just inside the body edge, such as a clock wedge."
               },
               "length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -28709,6 +29818,17 @@
               "number_visible": {
                 "description": "Whether the Pin's number is drawn.",
                 "type": "boolean"
+              },
+              "outside_edge": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/OutsideEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The glyph drawn just outside the body edge, such as an inversion dot."
               },
               "rotation": {
                 "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
@@ -29301,6 +30421,32 @@
               "unit",
               "shape",
               "width"
+            ],
+            "type": "object"
+          },
+          "TextStyle": {
+            "additionalProperties": false,
+            "description": "How a Footprint text is drawn.",
+            "properties": {
+              "font": {
+                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
+                "type": "string"
+              },
+              "height": {
+                "description": "The capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "thickness": {
+                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "font",
+              "height",
+              "thickness"
             ],
             "type": "object"
           },

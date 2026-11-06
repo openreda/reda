@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"CAPC1005X40N","description":"Chip capacitor, 0402 (1005 metric), IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":1150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":250000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"CAPC1005X40N","description":"Chip capacitor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"0402"}},
   "pads": [
     {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500},
     {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500}
@@ -9,5 +9,9 @@
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000},
     {"uuid":"00000000-0000-4000-8000-000000000005","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-000000000006","field":"Designator","at":{"x":0,"y":1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000007","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500},"layer":"assembly_top"}
   ]
 }

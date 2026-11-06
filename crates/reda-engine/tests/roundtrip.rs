@@ -313,7 +313,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             designator_text: flag.then_some(FootprintText {
                 rotation: Millideg(270_000),
                 visible: false,
-                ..FootprintText::DESIGNATOR
+                ..FootprintText::designator(Uuid::v4_from_bits(seed.base ^ 11))
             }),
             pads,
         };

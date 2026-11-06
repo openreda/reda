@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":1450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":400000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"size":"0603"}},
   "pads": [
     {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
     {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
@@ -9,5 +9,9 @@
   "graphics": [
     {"uuid":"17938c85-55ca-4562-acab-13c590e07881","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
     {"uuid":"507e76c1-9511-4c85-a79e-ade8abe04cea","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"6650f912-5820-4887-8288-a5f8f074951c","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"9dd1b274-9c71-4195-8c2e-dd89d3a15ce3","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"}
   ]
 }

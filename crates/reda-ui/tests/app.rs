@@ -770,17 +770,26 @@ fn snapshot_of_the_footprint_editor() {
                              "end": {"x": "4mm", "y": "2mm"}}}),
         )
         .unwrap();
+    let uuid = fp.as_str().unwrap().parse().unwrap();
+    let text = |shell: &Shell, field: &str| match shell.engine().element(uuid) {
+        Some(reda_ui::engine::model::LibraryElement::Footprint(f)) => {
+            f.texts.iter().find(|t| t.field == field).unwrap().uuid
+        }
+        _ => panic!("the Footprint is open"),
+    };
+    let designator = text(shell, "Designator");
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "designator", "at": {"x": 0, "y": "3mm"}}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": designator, "at": {"x": 0, "y": "3mm"}}),
         )
         .unwrap();
+    let value = text(shell, "Value");
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "value", "at": {"x": 0, "y": "-3mm"},
-                   "size": "0.6mm"}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": value, "at": {"x": 0, "y": "-3mm"},
+                   "height": "0.6mm"}),
         )
         .unwrap();
     shell

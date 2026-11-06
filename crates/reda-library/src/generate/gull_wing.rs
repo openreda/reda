@@ -7,7 +7,7 @@
 use reda_command::{CommandError, Length};
 use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Termination, Tol};
 use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH};
@@ -66,7 +66,7 @@ impl GullWing {
 }
 
 /// A gull-wing package's dimensions from a datasheet.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GullWingDimensions {
     /// The lead pitch (e).
@@ -238,5 +238,6 @@ pub fn plan(
         },
         silkscreen,
         courtyard_excess: goals.courtyard,
+        height: Some(dims.height),
     })
 }

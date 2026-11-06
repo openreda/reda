@@ -57,8 +57,11 @@ fn write_flawed_library(folder: &Path) {
             paste_margin: None,
         }],
         graphics: vec![],
-        designator: FootprintText::DESIGNATOR,
-        value: FootprintText::VALUE,
+        height: None,
+        texts: vec![FootprintText::designator(uuid(
+            "000000f3-0000-4000-8000-000000000000",
+        ))],
+        generator: None,
         provenance: None,
     };
     std::fs::write(

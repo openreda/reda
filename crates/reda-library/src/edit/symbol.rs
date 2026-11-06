@@ -4,15 +4,16 @@ use reda_command::{
     Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
     Unavailable,
 };
-use reda_model::geom::{Millideg, Nm};
-use reda_model::{Pin, PinType, Symbol, SymbolGraphic, Unit, Uuid};
+use reda_model::geom::{Bounds, Millideg, Nm, Point, rotate};
+use reda_model::{InsideEdge, OutsideEdge, Pin, PinType, Shape, Symbol, SymbolGraphic, Unit, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
     GraphicResult, PointParam, ShapeParam, check_element_name, edit_symbol, find_mut, invalid,
-    remove,
+    present, remove,
 };
+use crate::check::PIN_GRID;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(SymbolEdit);
@@ -27,6 +28,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(SymbolGraphicRemove);
     registry.add(SymbolMove);
     registry.add(SymbolDelete);
+    registry.add(SymbolOriginSet);
 }
 
 /// The default Pin length: 100 mil.
@@ -278,6 +280,12 @@ pub struct PinAddParams {
     pub name_visible: Option<bool>,
     /// Omitted, shown.
     pub number_visible: Option<bool>,
+    /// What the Pin is for, shown on hover. Omitted, none.
+    pub description: Option<String>,
+    /// The decoration just inside the body edge. Omitted, none.
+    pub inside_edge: Option<InsideEdge>,
+    /// The decoration just outside the body edge. Omitted, none.
+    pub outside_edge: Option<OutsideEdge>,
 }
 
 impl Command for PinAdd {
@@ -313,6 +321,9 @@ impl Command for PinAdd {
                 length: p.length.map_or(PIN_LENGTH, Length::nm),
                 name_visible: p.name_visible.unwrap_or(true),
                 number_visible: p.number_visible.unwrap_or(true),
+                description: p.description.unwrap_or_default(),
+                inside_edge: p.inside_edge,
+                outside_edge: p.outside_edge,
             };
             check_pin(s, &pin)?;
             s.pins.push(pin);
@@ -372,6 +383,14 @@ pub struct PinEditParams {
     pub length: Option<Length>,
     pub name_visible: Option<bool>,
     pub number_visible: Option<bool>,
+    /// What the Pin is for, shown on hover; empty for none.
+    pub description: Option<String>,
+    /// The decoration just inside the body edge; `null` removes it.
+    #[serde(default, deserialize_with = "present")]
+    pub inside_edge: Option<Option<InsideEdge>>,
+    /// The decoration just outside the body edge; `null` removes it.
+    #[serde(default, deserialize_with = "present")]
+    pub outside_edge: Option<Option<OutsideEdge>>,
 }
 
 impl Command for PinEdit {
@@ -379,7 +398,8 @@ impl Command for PinEdit {
         "library.symbol.pin.edit",
         "Edit Pin",
         "Changes any of a Pin's Unit, name, number, electrical type, position, rotation, \
-         length and name and number visibility. Omitted fields keep their value.",
+         length, name and number visibility, description and decorations. Omitted fields \
+         keep their value; `null` removes a decoration.",
     );
     type Params = PinEditParams;
     type Output = ();
@@ -417,6 +437,15 @@ impl Command for PinEdit {
             }
             if let Some(visible) = p.number_visible {
                 pin.number_visible = visible;
+            }
+            if let Some(description) = p.description {
+                pin.description = description;
+            }
+            if let Some(decoration) = p.inside_edge {
+                pin.inside_edge = decoration;
+            }
+            if let Some(decoration) = p.outside_edge {
+                pin.outside_edge = decoration;
             }
             check_pin(s, &pin)?;
             *find_mut(&mut s.pins, p.pin, |pin| pin.uuid, "Pin")? = pin;
@@ -695,4 +724,101 @@ impl Command for SymbolDelete {
             Ok(())
         })
     }
+}
+
+/// Where `library.symbol.origin.set` puts a Symbol's origin.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SymbolOrigin {
+    /// On the connection end of the Pin numbered `1`.
+    Pin1,
+    /// At the centre of the box around every Pin and graphic, on the 50 mil grid.
+    Centre,
+    /// At `at`, in the current coordinates.
+    Pick { at: PointParam },
+}
+
+pub struct SymbolOriginSet;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SymbolOriginSetParams {
+    /// The open Symbol.
+    pub symbol: Uuid,
+    pub to: SymbolOrigin,
+}
+
+impl Command for SymbolOriginSet {
+    const META: Meta = meta(
+        "library.symbol.origin.set",
+        "Set Symbol Origin",
+        "Moves an open Symbol's origin to Pin 1, to the centre of its Pins and graphics \
+         (kept on the 50 mil grid, so Pins stay on it) or to a picked point. Every Pin and \
+         graphic of every Unit keeps its place while its coordinates shift.",
+    );
+    type Params = SymbolOriginSetParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: SymbolOriginSetParams) -> Result<(), CommandError> {
+        edit_symbol(cx, p.symbol, |s| {
+            let at = match p.to {
+                SymbolOrigin::Pin1 => {
+                    s.pins
+                        .iter()
+                        .find(|pin| pin.number == "1")
+                        .ok_or_else(|| CommandError::rejected("the Symbol has no Pin 1"))?
+                        .at
+                }
+                SymbolOrigin::Centre => {
+                    let c = symbol_bounds(s)
+                        .ok_or_else(|| {
+                            CommandError::rejected("the Symbol has no Pins or graphics")
+                        })?
+                        .center();
+                    Point::new(on_grid(c.x), on_grid(c.y))
+                }
+                SymbolOrigin::Pick { at } => at.point(),
+            };
+            let by = Point::new(-at.x, -at.y);
+            for pin in &mut s.pins {
+                pin.at = pin.at + by;
+            }
+            for g in &mut s.graphics {
+                g.shape = g.shape.translated(by);
+            }
+            Ok(())
+        })
+    }
+}
+
+/// `n` rounded to the nearest point of the Pin grid.
+fn on_grid(n: Nm) -> Nm {
+    let grid = PIN_GRID.0;
+    Nm((n.0 + grid / 2).div_euclid(grid) * grid)
+}
+
+/// The box around both ends of every Pin and every graphic of every Unit: arcs by their
+/// full circle, text by its anchor.
+fn symbol_bounds(symbol: &Symbol) -> Option<Bounds> {
+    let pins = symbol.pins.iter().flat_map(|pin| {
+        let (dx, dy) = rotate(pin.length.0, 0, pin.rotation);
+        [pin.at, pin.at + Point::new(Nm(dx), Nm(dy))].map(Bounds::of_point)
+    });
+    let graphics = symbol.graphics.iter().filter_map(|g| match &g.shape {
+        Shape::Line { start, end } | Shape::Rect { start, end } => {
+            Bounds::of_points([*start, *end])
+        }
+        Shape::Arc { center, start, .. } => {
+            let (dx, dy) = ((start.x - center.x).0 as f64, (start.y - center.y).0 as f64);
+            Some(Bounds::around(*center, Nm(dx.hypot(dy).ceil() as i64)))
+        }
+        Shape::Circle { center, radius } => Some(Bounds::around(*center, *radius)),
+        Shape::Polygon { points } => Bounds::of_points(points.iter().copied()),
+        Shape::Text { at, .. } => Some(Bounds::of_point(*at)),
+    });
+    pins.chain(graphics).reduce(Bounds::union)
 }

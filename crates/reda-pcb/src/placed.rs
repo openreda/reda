@@ -155,14 +155,13 @@ impl Frame {
         }
     }
 
-    /// A Footprint text placement, on the board.
+    /// A Footprint text, on the board.
     pub fn text(&self, text: &FootprintText) -> FootprintText {
         FootprintText {
             at: self.point(text.at),
             rotation: self.angle(text.rotation),
-            size: text.size,
             layer: self.layer(text.layer),
-            visible: text.visible,
+            ..text.clone()
         }
     }
 }
@@ -284,12 +283,30 @@ pub fn placed_graphics(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<P
 }
 
 /// The Designator text of a Footprint relative to its origin: the instance's own when it
-/// has been moved, else the Footprint's.
+/// has been moved, else the Footprint's [`designator_text`](reda_model::Footprint::designator_text).
 pub fn designator_text(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<FootprintText> {
-    instance.designator_text.or_else(|| {
+    instance.designator_text.clone().or_else(|| {
         pcb.footprint_copy(instance.footprint)
-            .map(|c| c.footprint.designator)
+            .and_then(|c| c.footprint.designator_text().cloned())
     })
+}
+
+/// Every text a placed Footprint shows, relative to its origin: the Footprint copy's
+/// `texts`, with its Designator text replaced by the instance's own when it has been moved.
+pub fn instance_texts(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<FootprintText> {
+    let mut texts = pcb
+        .footprint_copy(instance.footprint)
+        .map(|c| c.footprint.texts.clone())
+        .unwrap_or_default();
+    if let Some(moved) = &instance.designator_text {
+        let primary = pcb
+            .footprint_copy(instance.footprint)
+            .and_then(|c| c.footprint.designator_text())
+            .map(|t| t.uuid);
+        texts.retain(|t| Some(t.uuid) != primary);
+        texts.push(moved.clone());
+    }
+    texts
 }
 
 /// Where a Footprint's Designator text is drawn on the board.

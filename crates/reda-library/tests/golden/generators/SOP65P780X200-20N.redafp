@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOP65P780X200-20N","description":"SSOP-20, 0.65 mm pitch, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":4650000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOP65P780X200-20N","description":"SSOP-20, 0.65 mm pitch, IPC-7351 Nominal","height":2000000},
+  "generator": {"command":"library.footprint.generate.ssop","params":{"dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"pins":20}},
   "pads": [
     {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":2925000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
     {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-3512500,"y":2275000},"rotation":0,"width":1925000,"height":450000,"corner_radius":112500},
@@ -29,5 +29,9 @@
     {"uuid":"00000000-0000-4000-8000-000000000017","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1650000,"y":3600000},{"x":2650000,"y":3600000},{"x":2650000,"y":-3600000},{"x":-2650000,"y":-3600000},{"x":-2650000,"y":2600000}]},"width":100000},
     {"uuid":"00000000-0000-4000-8000-000000000018","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4475000,"y":3760000},"end":{"x":2800000,"y":3760000}},"width":120000},
     {"uuid":"00000000-0000-4000-8000-000000000019","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2800000,"y":-3760000},"end":{"x":2800000,"y":-3760000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-00000000001a","field":"Designator","at":{"x":0,"y":4650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-00000000001b","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

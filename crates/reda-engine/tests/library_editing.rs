@@ -384,10 +384,15 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
         "assembly_top",
         "assembly_bottom",
     ] {
+        // A Courtyard Layer takes only closed shapes.
+        let shape = if layer.starts_with("courtyard") {
+            json!({"kind": "rect", "start": {"x": 0, "y": 0}, "end": {"x": "2mm", "y": "2mm"}})
+        } else {
+            json!({"kind": "line", "start": {"x": 0, "y": 0}, "end": {"x": "2mm", "y": 0}})
+        };
         let out = e.run_ok(
             "library.footprint.graphic.add",
-            json!({"footprint": fp, "layer": layer, "shape": {"kind": "line",
-                   "start": {"x": 0, "y": 0}, "end": {"x": "2mm", "y": 0}}}),
+            json!({"footprint": fp, "layer": layer, "shape": shape}),
         );
         graphics.push(out["result"]["graphic"].as_str().unwrap().to_owned());
     }
@@ -401,14 +406,25 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
         "library.footprint.graphic.remove",
         json!({"footprint": fp, "graphic": graphics[5]}),
     );
+    let texts = object(&mut e, &fp)["texts"].clone();
+    let text = |field: &str| {
+        texts
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == field)
+            .unwrap()["uuid"]
+            .clone()
+    };
     e.run_ok(
-        "library.footprint.text.set",
-        json!({"footprint": fp, "text": "designator", "at": {"x": 0, "y": "-2mm"},
-               "size": "0.8mm"}),
+        "library.footprint.text.edit",
+        json!({"footprint": fp, "text": text("Designator"), "at": {"x": 0, "y": "-2mm"},
+               "height": "0.8mm"}),
     );
     e.run_ok(
-        "library.footprint.text.set",
-        json!({"footprint": fp, "text": "value", "visible": false, "layer": "assembly_bottom"}),
+        "library.footprint.text.edit",
+        json!({"footprint": fp, "text": text("Value"), "visible": false,
+               "layer": "assembly_bottom"}),
     );
     e.run_ok(
         "library.footprint.origin.set",
@@ -432,8 +448,8 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
     assert_eq!(courtyard["width"], 50_000, "the Courtyard default");
     assert_eq!(
         courtyard["shape"],
-        json!({"kind": "line", "start": {"x": -1_000_000, "y": -1_000_000},
-               "end": {"x": 1_000_000, "y": -1_000_000}})
+        json!({"kind": "rect", "start": {"x": -1_000_000, "y": -1_000_000},
+               "end": {"x": 1_000_000, "y": 1_000_000}})
     );
     let silk = graphics
         .iter()
@@ -441,13 +457,20 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
         .unwrap();
     assert_eq!(silk["width"], 200_000);
     assert_eq!(silk["shape"]["kind"], "polygon");
-    assert_eq!(
-        obj["designator"]["at"],
-        json!({"x": -1_000_000, "y": -3_000_000})
-    );
-    assert_eq!(obj["designator"]["size"], 800_000);
-    assert_eq!(obj["value"]["visible"], false);
-    assert_eq!(obj["value"]["layer"], "assembly_bottom");
+    let field = |name: &str| {
+        obj["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == name)
+            .unwrap()
+            .clone()
+    };
+    let (designator, value) = (field("Designator"), field("Value"));
+    assert_eq!(designator["at"], json!({"x": -1_000_000, "y": -3_000_000}));
+    assert_eq!(designator["style"]["height"], 800_000);
+    assert_eq!(value["visible"], false);
+    assert_eq!(value["layer"], "assembly_bottom");
 }
 
 #[test]
@@ -722,9 +745,16 @@ fn scenario_build_a_resistor_part_end_to_end() {
         json!({"footprint": footprint, "layer": "assembly_top", "shape": {"kind": "rect",
                "start": {"x": "-0.8mm", "y": "-0.4mm"}, "end": {"x": "0.8mm", "y": "0.4mm"}}}),
     );
+    let designator = object(&mut e, &footprint)["texts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["field"] == "Designator")
+        .unwrap()["uuid"]
+        .clone();
     e.run_ok(
-        "library.footprint.text.set",
-        json!({"footprint": footprint, "text": "designator", "at": {"x": 0, "y": "-1.43mm"}}),
+        "library.footprint.text.edit",
+        json!({"footprint": footprint, "text": designator, "at": {"x": 0, "y": "-1.43mm"}}),
     );
 
     let part = new_element(&mut e, "part", "Resistor");

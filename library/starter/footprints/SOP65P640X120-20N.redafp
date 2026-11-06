@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"5082bf81-7326-4bbd-8274-54c43985cd53","name":"SOP65P640X120-20N","description":"TSSOP-20, 0.65 mm pitch, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":4250000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"5082bf81-7326-4bbd-8274-54c43985cd53","name":"SOP65P640X120-20N","description":"TSSOP-20, 0.65 mm pitch, IPC-7351 Nominal","height":1200000},
+  "generator": {"command":"library.footprint.generate.tssop","params":{"dimensions":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins":20}},
   "pads": [
     {"uuid":"1b1f9d7c-8089-4874-84c0-e0388295769f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
     {"uuid":"203e19b1-649a-49b9-b3e6-17682ff34b7f","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
@@ -29,5 +29,9 @@
     {"uuid":"54946491-c568-4e44-bbad-1ce63f23faef","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1200000,"y":3250000},{"x":2200000,"y":3250000},{"x":2200000,"y":-3250000},{"x":-2200000,"y":-3250000},{"x":-2200000,"y":2250000}]},"width":100000},
     {"uuid":"87aa025a-cfe8-4063-a6d0-0b7d5154c888","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1840000,"y":-3360000},"end":{"x":1840000,"y":-3360000}},"width":120000},
     {"uuid":"e5f85610-f8ab-4d13-879b-21e5f31b6e07","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1840000,"y":3360000},"end":{"x":1840000,"y":3360000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"645a4337-cf3c-4f5e-a0b7-5995d195c227","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+    {"uuid":"d98a7ce5-2de4-4a80-95e1-24bd528380a8","field":"Designator","at":{"x":0,"y":4250000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

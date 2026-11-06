@@ -5,7 +5,7 @@ use reda_command::{
     Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
     Unavailable,
 };
-use reda_model::{FootprintText, InDocument, Object, Uuid};
+use reda_model::{FootprintText, InDocument, Object, TextStyle, Uuid};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -29,7 +29,7 @@ pub struct DesignatorTextSetParams {
     /// Its direction on the board, counter-clockwise.
     #[serde(default)]
     pub rotation: Option<Angle>,
-    /// The text height.
+    /// The text height; the pen width follows it.
     #[serde(default)]
     pub size: Option<Length>,
     #[serde(default)]
@@ -85,15 +85,27 @@ impl Command for DesignatorTextSet {
             instance.designator_text = None;
         } else {
             let frame = Frame::of(&instance);
-            let current = designator_text(pcb, &instance).unwrap_or(FootprintText::DESIGNATOR);
+            let Some(current) = designator_text(pcb, &instance) else {
+                return Err(CommandError::rejected(format!(
+                    "{} has no Designator text: its Footprint draws none",
+                    instance.designator
+                )));
+            };
+            let style = match p.size {
+                Some(size) => TextStyle {
+                    font: current.style.font.clone(),
+                    ..TextStyle::of_height(positive("/size", size)?)
+                },
+                None => current.style.clone(),
+            };
             let text = FootprintText {
                 at: p.at.map_or(current.at, |at| frame.local(at.point())),
                 rotation: p
                     .rotation
                     .map_or(current.rotation, |r| frame.local_angle(r.millideg())),
-                size: p.size.map_or(Ok(current.size), |s| positive("/size", s))?,
-                layer: current.layer,
+                style,
                 visible: p.visible.unwrap_or(current.visible),
+                ..current
             };
             instance.designator_text = Some(text);
         }
