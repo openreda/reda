@@ -11,7 +11,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use crate::connectivity::{pin_position, rotate};
-use crate::wiring::split_wires_at_pins;
+use crate::normalise::{Wiring, normalise};
 
 /// Which way a mirror flips.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
@@ -110,13 +110,14 @@ fn snap(v: Nm, grid: Nm) -> Nm {
 /// Places every selected object anew on `document`. With `keep_connections`, the Wire ends,
 /// Net Labels, No-Connect Markers, Ports and Power Ports of the rest of the sheet that sat on a moved
 /// connection point follow it, bending a Wire with a corner where it would go diagonal
-/// (drag); without, they stay put (a detached move). Either way, moved Pins that land
-/// partway along a Wire split it and connect.
+/// (drag); without, they stay put (a detached move). Either way, the Wires involved are
+/// then normalised as `wiring` says.
 pub(crate) fn place_anew(
     cx: &mut Context<'_>,
     document: Uuid,
     moves: &[(Object, Placement)],
     keep_connections: bool,
+    wiring: &Wiring,
 ) -> Result<(), CommandError> {
     let body = &crate::sheet(cx.project()?, document)?.clone();
     let plan = plan(body, moves, keep_connections)?;
@@ -127,9 +128,7 @@ pub(crate) fn place_anew(
     for object in plan.replaced {
         tx.replace(object)?;
     }
-    for unit in plan.units {
-        split_wires_at_pins(cx, document, unit)?;
-    }
+    normalise(cx, document, body, wiring)?;
     Ok(())
 }
 
@@ -139,8 +138,6 @@ pub(crate) struct Plan {
     pub replaced: Vec<Object>,
     /// Objects that fold away to nothing (Wires and lines of no length).
     pub removed: Vec<Uuid>,
-    /// The moved Units, whose Pins may now split Wires.
-    pub units: Vec<Uuid>,
 }
 
 /// Plans placing every selected object of `body` anew, as [`place_anew`] does.
@@ -156,7 +153,6 @@ pub(crate) fn plan(
     };
     let mut replaced = Vec::with_capacity(moves.len());
     let mut removed = vec![];
-    let mut units = vec![];
     for (object, how) in moves {
         let how = *how;
         match object {
@@ -165,7 +161,6 @@ pub(crate) fn plan(
                 for (old, now) in pins(body, u).into_iter().zip(pins(body, &new)) {
                     follow(old, now);
                 }
-                units.push(u.uuid);
                 replaced.push(Object::Unit(InDocument::new(document, new)));
             }
             Object::Wire(w) => {
@@ -241,11 +236,7 @@ pub(crate) fn plan(
     if keep_connections && !followed.is_empty() {
         rubber_band(body, &selected, &followed, &mut replaced, &mut removed);
     }
-    Ok(Plan {
-        replaced,
-        removed,
-        units,
-    })
+    Ok(Plan { replaced, removed })
 }
 
 /// The connection points of placed Unit `unit` on `body`, in Pin order.

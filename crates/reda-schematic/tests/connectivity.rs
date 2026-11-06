@@ -287,9 +287,18 @@ fn a_wire_passing_over_a_pin_connects_with_a_junction() {
     let dir = TempDir::new("net-pass-pin");
     let mut engine = demo(&dir);
     place(&mut engine, R_10K, 0, 0, 0);
-    // Through Pin 1 mid-segment, and with a corner on Pin 2.
-    wire(&mut engine, &[(-100, 150), (100, 150)]);
-    wire(&mut engine, &[(-100, -100), (0, -150), (100, -100)]);
+    // Through Pin 1 mid-segment, and with a corner on Pin 2, kept whole so the Pins sit
+    // inside them.
+    for run in [
+        vec![at(-100, 150), at(100, 150)],
+        vec![at(-100, -100), at(0, -150), at(100, -100)],
+    ] {
+        engine.run_ok(
+            "schematic.wire.add",
+            json!({"document": SHEET, "points": run,
+                   "wiring": {"break_wires_at_autojunctions": false}}),
+        );
+    }
     assert_eq!(
         net_of_pin(&mut engine, "R1", "1")["wires"]
             .as_array()

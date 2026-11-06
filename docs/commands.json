@@ -25112,6 +25112,52 @@
                 "type": "string"
               }
             ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -25132,6 +25178,17 @@
           },
           "to": {
             "$ref": "#/$defs/AlignTo"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -25463,6 +25520,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -25538,6 +25627,17 @@
               "string",
               "null"
             ]
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -25730,6 +25830,54 @@
       "id": "schematic.component.update_from_library",
       "kind": "edit",
       "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -25743,9 +25891,20 @@
               "array",
               "null"
             ]
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires on Pins that move are normalised; the fixed defaults when left out."
           }
         },
-        "title": "UpdateParams",
+        "title": "UpdateFromLibraryParams",
         "type": "object"
       },
       "presets": [],
@@ -28051,22 +28210,81 @@
       "id": "schematic.cut",
       "kind": "edit",
       "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
           "objects": {
-            "description": "The objects to copy, by UUID, all on one sheet.",
+            "description": "The objects to cut, by UUID, all on one sheet.",
             "items": {
               "format": "uuid",
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
           "objects"
         ],
-        "title": "CopyParams",
+        "title": "CutParams",
         "type": "object"
       },
       "presets": [],
@@ -29756,6 +29974,54 @@
       "id": "schematic.delete",
       "kind": "edit",
       "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -29766,6 +30032,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -29811,6 +30088,52 @@
               "vertical"
             ],
             "type": "string"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -29831,6 +30154,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -29896,6 +30230,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -29912,6 +30278,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -29977,6 +30354,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -30000,6 +30409,17 @@
               }
             ],
             "description": "How far from the originals the copies go; 100 mil right and 100 mil down by\ndefault."
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -30504,6 +30924,172 @@
     },
     {
       "category": "schematic",
+      "description": "Turns each 4-way (four or more Wire branches meeting where a Wire ends) into two adjacent 3-ways: one Wire ending there moves along a crossing horizontal or vertical Wire by the Miter Size, with a mitred corner. On one sheet or the whole Project, for every 4-way or only those whose Wires are all selected.",
+      "icon": "wire",
+      "id": "schematic.junctions.convert_cross",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The sheet to convert on; every Schematic Sheet of the Project when left out.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "miter": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Miter Size: how far along the crossing Wire the moved end goes, and how far\nback from the 4-way its corner turns. One snap grid (`wiring.snap_grid`, 50 mil)\nby default."
+          },
+          "objects": {
+            "description": "Selected Objects: only the 4-ways whose every Wire is among these. Every 4-way\nwhen left out (All).",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
+          }
+        },
+        "title": "ConvertCrossParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ConvertedJunction": {
+            "description": "One 4-way `schematic.junctions.convert_cross` converted.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the 4-way was."
+              },
+              "document": {
+                "description": "The sheet it is on.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "document",
+              "at"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.junctions.convert_cross` converted.",
+        "properties": {
+          "converted": {
+            "description": "The 4-ways converted, by sheet in Project order, then by point.",
+            "items": {
+              "$ref": "#/$defs/ConvertedJunction"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "converted"
+        ],
+        "title": "ConvertCrossResult",
+        "type": "object"
+      },
+      "title": "Convert Cross Junctions"
+    },
+    {
+      "category": "schematic",
       "description": "Flips the selected objects left to right (axis x) or top to bottom (axis y) about a centre.",
       "icon": "mirror",
       "id": "schematic.mirror",
@@ -30555,6 +31141,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -30587,6 +31205,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -30652,6 +31281,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -30668,6 +31329,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -32848,6 +33520,38 @@
             ],
             "type": "object"
           },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          },
           "ZoneConnection": {
             "additionalProperties": false,
             "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
@@ -32922,6 +33626,17 @@
             "description": "The Schematic Sheet to paste on.",
             "format": "uuid",
             "type": "string"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -33766,6 +34481,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -33805,6 +34552,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -34166,6 +34924,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -34194,6 +34984,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -34518,6 +35319,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -34549,6 +35382,17 @@
             "description": "The placed Unit, by UUID.",
             "format": "uuid",
             "type": "string"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -34634,6 +35478,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -34683,6 +35559,17 @@
               "string",
               "null"
             ]
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -34752,7 +35639,7 @@
     },
     {
       "category": "schematic",
-      "description": "Draws a Wire run through the given points on a Schematic Sheet as one Wire, at any angle. A Wire connects where an end touches a Pin or any point of another Wire exactly, and where it passes over a Pin, Port, Power Port or Net Label; two Wires crossing mid-span do not. Nets and Junctions follow from the drawing.",
+      "description": "Draws a Wire run through the given points on a Schematic Sheet as one Wire, at any angle. A Wire connects where an end touches a Pin or any point of another Wire exactly, and where it passes over a Pin, Port, Power Port or Net Label; two Wires crossing mid-span do not. Nets and Junctions follow from the drawing. The Wires it touches are normalised as `wiring` says.",
       "icon": "wire",
       "id": "schematic.wire.add",
       "kind": "edit",
@@ -34788,6 +35675,38 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -34804,6 +35723,17 @@
               "$ref": "#/$defs/At"
             },
             "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
@@ -34819,7 +35749,7 @@
         "description": "What `schematic.wire.add` made.",
         "properties": {
           "wires": {
-            "description": "The new Wires: the one Wire the run makes.",
+            "description": "The Wires now holding the run: the one Wire it makes, or its pieces once\nnormalising splits it, or the Wire it merged into.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -34837,10 +35767,10 @@
     },
     {
       "category": "schematic",
-      "description": "Finds a 90° path between two points on a Schematic Sheet for Auto Wire, around placed objects: it never enters a Unit's body or Pins, never passes over a Pin end, Net Label, Port, Power Port, No-Connect Marker or Wire vertex, never runs along or turns on a Wire, and crosses Wires only as `avoid_cutting_wires` allows. It prefers short paths with few corners, a grid step clear of bodies. The same inputs always give the same path. Nothing is drawn.",
-      "icon": "wire",
-      "id": "schematic.wire.route",
-      "kind": "query",
+      "description": "Cuts a gap out of one segment of a Wire, centred where it is nearest to `at`: the whole segment by default, or `length` of it. The piece before the gap keeps the Wire's UUID and the piece after gets a new one.",
+      "icon": "split",
+      "id": "schematic.wire.break",
+      "kind": "edit",
       "params": {
         "$defs": {
           "At": {
@@ -34860,26 +35790,6 @@
             ],
             "type": "object"
           },
-          "Avoid": {
-            "description": "How hard a route tries not to cross Wires: the Avoid cutting wires slider.",
-            "oneOf": [
-              {
-                "const": "low",
-                "description": "A crossing costs as much as two grid steps of Wire.",
-                "type": "string"
-              },
-              {
-                "const": "medium",
-                "description": "A crossing costs as much as ten grid steps.",
-                "type": "string"
-              },
-              {
-                "const": "high",
-                "description": "A crossing costs as much as a hundred grid steps.",
-                "type": "string"
-              }
-            ]
-          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -34893,32 +35803,48 @@
                 "type": "string"
               }
             ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "avoid_cutting_wires": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Avoid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "How hard it tries not to cross Wires; `medium` by default."
-          },
-          "document": {
-            "description": "The Schematic Sheet to route on.",
-            "format": "uuid",
-            "type": "string"
-          },
-          "from": {
+          "at": {
             "$ref": "#/$defs/At",
-            "description": "Where the route starts: the run's last vertex."
+            "description": "Where to cut: the gap is centred on the point of the Wire nearest to it."
           },
-          "grid": {
+          "length": {
             "anyOf": [
               {
                 "$ref": "#/$defs/Length"
@@ -34927,80 +35853,53 @@
                 "type": "null"
               }
             ],
-            "description": "The grid its corners sit on; 50 mil by default."
+            "description": "How long a gap to cut. Left out, the whole segment goes (Snap To Segment). A gap\nas long as the segment or longer takes the whole segment; a shorter one near an\nend of the segment slides along it to fit."
           },
-          "timeout_ms": {
-            "description": "Time Out After, in milliseconds, 100 to 60000; 3000 by default. It buys a fixed\namount of search, so the answer does not depend on the machine.",
-            "format": "uint32",
-            "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+          "wire": {
+            "description": "The Wire to cut, by UUID.",
+            "format": "uuid",
+            "type": "string"
           },
-          "to": {
-            "$ref": "#/$defs/At",
-            "description": "Where it ends: the clicked point."
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
           }
         },
         "required": [
-          "document",
-          "from",
-          "to"
+          "wire",
+          "at"
         ],
-        "title": "WireRouteParams",
+        "title": "WireBreakParams",
         "type": "object"
       },
       "presets": [],
       "result": {
-        "$defs": {
-          "Point": {
-            "additionalProperties": false,
-            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
-            "properties": {
-              "x": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "y": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
-                "format": "int64",
-                "type": "integer"
-              }
-            },
-            "required": [
-              "x",
-              "y"
-            ],
-            "type": "object"
-          }
-        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "description": "The route `schematic.wire.route` found.",
+        "description": "What `schematic.wire.break` left of the Wire.",
         "properties": {
-          "crossings": {
-            "description": "How many Wires it crosses mid-span.",
-            "format": "uint32",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "points": {
-            "description": "The path's vertices from `from` to `to`, corners only, ready for\n`schematic.wire.add`.",
+          "wires": {
+            "description": "The pieces left, in order along the Wire: the first keeps the Wire's UUID. Empty\nwhen the gap took the whole Wire.",
             "items": {
-              "$ref": "#/$defs/Point"
+              "format": "uuid",
+              "type": "string"
             },
             "type": "array"
           }
         },
         "required": [
-          "points",
-          "crossings"
+          "wires"
         ],
-        "title": "WireRouteResult",
+        "title": "WireBreakResult",
         "type": "object"
       },
-      "title": "Route Wire"
+      "title": "Break Wire"
     },
     {
       "category": "sync",
