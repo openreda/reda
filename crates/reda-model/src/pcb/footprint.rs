@@ -69,6 +69,19 @@ pub struct PadNet {
     pub net: Option<Uuid>,
 }
 
+/// A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is
+/// named by its instance and the Pad of the instance's Footprint copy.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct PadRef {
+    /// The Footprint instance.
+    pub footprint: Uuid,
+    /// The Pad of its Footprint copy.
+    pub pad: Uuid,
+}
+
 fn is_false(b: &bool) -> bool {
     !*b
 }

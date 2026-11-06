@@ -34,6 +34,7 @@ pub mod layout;
 pub mod library_dialogs;
 pub mod messages;
 pub mod modal;
+pub mod navigation;
 mod new_project;
 mod os;
 pub mod palette;
@@ -61,6 +62,7 @@ mod tool_preview;
 pub mod tools;
 mod user_preferences;
 pub mod view_state;
+pub mod working_state;
 
 pub use app::{App, install_canvas, run};
 pub use docking::windows;
