@@ -356,7 +356,7 @@ pub fn free_pad_bounds(pad: &FreePad) -> Bounds {
 }
 
 /// A box around a shape's points (arcs and circles by their full circle).
-fn shape_bounds(shape: &Shape) -> Option<Bounds> {
+pub(crate) fn shape_bounds(shape: &Shape) -> Option<Bounds> {
     match shape {
         Shape::Line { start, end } | Shape::Rect { start, end } => {
             Bounds::of_points([*start, *end])

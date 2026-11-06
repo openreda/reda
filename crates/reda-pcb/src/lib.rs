@@ -5,9 +5,11 @@
 //! Free Pads and the Placement Origin.
 //!
 //! Copper connectivity and the Ratsnest are in [`copper`], the rule resolver in
-//! [`rules`], Zone fill in [`zone`], the design rules check in [`drc`].
+//! [`rules`], Zone fill in [`zone`], the design rules check in [`drc`], and the packing
+//! of new Footprints into clusters outside the board in [`cluster`].
 
 mod board;
+pub mod cluster;
 mod commands;
 pub mod copper;
 pub mod drc;
