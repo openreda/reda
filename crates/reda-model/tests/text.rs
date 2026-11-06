@@ -118,6 +118,7 @@ fn sheet_text(words: &str) -> Object {
             at: Default::default(),
             height: reda_model::geom::Nm(1_000_000),
             rotation: Default::default(),
+            justify: Default::default(),
         },
     ))
 }

@@ -160,9 +160,11 @@ impl Command for SheetSetFrame {
             frame.title_block = on;
         }
         if let Some(number) = p.drawing_number {
+            CommandError::check_text("/drawing_number", &number)?;
             frame.drawing_number = number.trim().to_owned();
         }
         if let Some(revision) = p.revision {
+            CommandError::check_text("/revision", &revision)?;
             frame.revision = revision.trim().to_owned();
         }
         let view = SheetFrameView::of(&frame);

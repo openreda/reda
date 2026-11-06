@@ -227,6 +227,10 @@ pub fn object_texts(object: &Object) -> Vec<(String, &str)> {
         }
         Object::FootprintCopy(c) => footprint_texts(&c.footprint, &mut out),
         Object::Unit(u) => fields_texts(&u.fields, &mut out),
+        Object::SheetFrame(f) => {
+            out.push(("drawing_number".to_owned(), f.drawing_number.as_str()));
+            out.push(("revision".to_owned(), f.revision.as_str()));
+        }
         Object::SheetText(t) => out.push(("text".to_owned(), t.text.as_str())),
         Object::PcbText(t) => out.push(("text".to_owned(), t.text.as_str())),
         Object::FootprintInstance(f) => fields_texts(&f.fields, &mut out),
