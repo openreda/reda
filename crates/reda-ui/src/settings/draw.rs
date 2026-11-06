@@ -1,14 +1,12 @@
-//! Drawing a settings dialog: the modal, the page tree, the shown page and the buttons,
+//! Drawing a settings window into its tab: the page tree, the shown page and the buttons,
 //! plus the field helpers pages use to flag invalid values inline.
 
-use egui::{Button, Id, Key, Modal, RichText, Role, Stroke, TextEdit, Ui, WidgetInfo};
+use egui::{Button, RichText, Role, Stroke, TextEdit, Ui, WidgetInfo};
 
-use super::{Problem, SettingsDialog};
+use super::{Buttons, Problem, SettingsDialog};
 use crate::shell::Shell;
 use crate::tr;
 
-/// The dialog's size; pages scroll inside it.
-const SIZE: egui::Vec2 = egui::vec2(760.0, 460.0);
 /// The width of the page tree.
 const TREE_WIDTH: f32 = 150.0;
 
@@ -17,7 +15,7 @@ const TREE_WIDTH: f32 = 150.0;
 pub enum Outcome {
     /// It stays open.
     Open,
-    /// It closed (OK after a successful Apply, Cancel or Escape).
+    /// It closed (OK after a successful Apply, Cancel or Close).
     Closed,
     /// A page wants a folder picked; the answer goes to [`SettingsDialog::picked_folder`].
     PickFolder,
@@ -87,66 +85,83 @@ pub fn problem_label(ui: &mut Ui, problem: &Problem) {
 }
 
 impl SettingsDialog {
-    /// Draws the dialog as a modal for one frame. Changes made elsewhere (an undo) show in
-    /// the fields the user has not touched.
-    pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> Outcome {
+    /// Draws the window's content into `ui` (its tab) for one frame: the page tree on the
+    /// left, the page, and the buttons along the bottom. Changes made elsewhere (an undo)
+    /// show in the fields the user has not touched.
+    pub fn show(&mut self, ui: &mut Ui, shell: &mut Shell) -> Outcome {
         let Some(project) = shell.engine().project() else {
             return Outcome::Closed;
         };
         self.sync(project);
         let mut outcome = Outcome::Open;
-        let mut apply = false;
-        let mut ok = false;
-        Modal::new(Id::NULL.with("settings-dialog")).show(ctx, |ui| {
-            ui.set_width(SIZE.x);
-            ui.heading(self.title.clone());
-            ui.separator();
-            ui.horizontal_top(|ui| {
-                ui.set_height(SIZE.y);
-                self.tree(ui);
-                ui.separator();
-                ui.vertical(|ui| {
-                    egui::ScrollArea::vertical()
-                        .id_salt("settings-page")
-                        .auto_shrink(false)
-                        .show(ui, |ui| {
-                            outcome = self.page_content(ui, shell);
-                        });
+        let (mut apply, mut ok, mut reset) = (false, false, false);
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+            ui.horizontal(|ui| {
+                if !self.can_ok() {
+                    ui.colored_label(ui.visuals().error_fg_color, tr!("settings-invalid"));
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // Right to left: read left to right, the buttons are OK, Cancel, Apply
+                    // (or Apply, Close).
+                    let reason = (!self.can_ok()).then(|| tr!("settings-invalid"));
+                    let enabled = |ui: &mut Ui, on: bool, label: String| {
+                        let button = ui.add_enabled(on, Button::new(label));
+                        if let Some(reason) = &reason {
+                            button.clone().on_disabled_hover_text(reason);
+                        }
+                        button.clicked()
+                    };
+                    match self.buttons {
+                        Buttons::OkCancelApply => {
+                            apply = enabled(ui, self.can_apply(), tr!("settings-apply"));
+                            if ui.button(tr!("dialog-cancel")).clicked() {
+                                outcome = Outcome::Closed;
+                            }
+                            ok = enabled(ui, self.can_ok(), tr!("settings-ok"));
+                        }
+                        Buttons::ApplyClose => {
+                            if ui.button(tr!("settings-close")).clicked() {
+                                outcome = Outcome::Closed;
+                            }
+                            apply = enabled(ui, self.can_apply(), tr!("settings-apply"));
+                        }
+                    }
                 });
             });
-            ui.separator();
             if let Some(error) = self.error() {
                 ui.colored_label(
                     ui.visuals().error_fg_color,
                     tr!("error-command", error = error),
                 );
             }
-            ui.horizontal(|ui| {
-                if !self.can_ok() {
-                    ui.colored_label(ui.visuals().error_fg_color, tr!("settings-invalid"));
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // Right to left: Apply, Cancel, OK read left to right as OK, Cancel, Apply.
-                    let reason = (!self.can_ok()).then(|| tr!("settings-invalid"));
-                    let apply_button =
-                        ui.add_enabled(self.can_apply(), Button::new(tr!("settings-apply")));
-                    if let Some(reason) = &reason {
-                        apply_button.clone().on_disabled_hover_text(reason);
+            ui.separator();
+            ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                ui.horizontal_top(|ui| {
+                    if self.tree {
+                        egui::ScrollArea::vertical()
+                            .id_salt("settings-tree")
+                            .max_width(TREE_WIDTH)
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| self.tree(ui));
+                        ui.separator();
                     }
-                    apply = apply_button.clicked();
-                    if ui.button(tr!("dialog-cancel")).clicked() {
-                        outcome = Outcome::Closed;
-                    }
-                    let ok_button = ui.add_enabled(self.can_ok(), Button::new(tr!("settings-ok")));
-                    if let Some(reason) = &reason {
-                        ok_button.clone().on_disabled_hover_text(reason);
-                    }
-                    ok = ok_button.clicked();
+                    ui.vertical(|ui| {
+                        egui::ScrollArea::both()
+                            .id_salt("settings-page")
+                            .auto_shrink(false)
+                            .show(ui, |ui| {
+                                let (shown, pressed) = self.page_content(ui, shell);
+                                if shown != Outcome::Open {
+                                    outcome = shown;
+                                }
+                                reset = pressed;
+                            });
+                    });
                 });
             });
         });
-        if ctx.input(|i| i.key_pressed(Key::Escape)) && !ctx.egui_wants_keyboard_input() {
-            outcome = Outcome::Closed;
+        if reset {
+            self.reset_page(shell);
         }
         if apply || ok {
             let applied = self.apply(shell).is_ok();
@@ -180,10 +195,7 @@ impl SettingsDialog {
                     if group.is_some() {
                         ui.add_space(12.0);
                     }
-                    ui.add_sized(
-                        [ui.available_width(), 20.0],
-                        Button::selectable(i == self.selected, text),
-                    )
+                    ui.add(tree_row(ui, i == self.selected, text))
                 });
                 let row = row.inner;
                 let label = if invalid {
@@ -199,20 +211,39 @@ impl SettingsDialog {
         });
     }
 
-    fn page_content(&mut self, ui: &mut Ui, shell: &mut Shell) -> Outcome {
+    /// Draws the shown page; returns what it asks, and whether Reset to defaults was
+    /// pressed.
+    fn page_content(&mut self, ui: &mut Ui, shell: &mut Shell) -> (Outcome, bool) {
         let page = &mut self.pages[self.selected];
         let mut cx = PageCx {
             shell,
             problems: page.problems(),
             pick_folder: false,
         };
-        ui.strong(page.title());
+        let mut reset = false;
+        ui.horizontal(|ui| {
+            ui.strong(page.title());
+            if page.has_defaults() {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    reset = ui.button(tr!("settings-reset-defaults")).clicked();
+                });
+            }
+        });
         ui.add_space(6.0);
         page.show(ui, &mut cx);
-        if cx.pick_folder {
+        let outcome = if cx.pick_folder {
             Outcome::PickFolder
         } else {
             Outcome::Open
-        }
+        };
+        (outcome, reset)
     }
+}
+
+/// A row of a page tree: selectable, as wide as the tree, its text on the left.
+pub fn tree_row(ui: &Ui, selected: bool, text: RichText) -> Button<'static> {
+    let height = ui.spacing().interact_size.y;
+    Button::selectable(selected, text)
+        .right_text("")
+        .min_size(egui::vec2(ui.available_width(), height))
 }

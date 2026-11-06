@@ -264,6 +264,24 @@ impl Page for FabPresetsPage {
         Vec::new()
     }
 
+    fn has_defaults(&self) -> bool {
+        true
+    }
+
+    /// A copy's defaults are its source's values: every copy that differs from its source
+    /// updates from it on Apply.
+    fn reset_to_defaults(&mut self, shell: &mut Shell) {
+        for copy in &self.copies {
+            let diff = shell.run("fab_preset.source_diff", json!({ "preset": copy.uuid }));
+            let differs =
+                diff.is_ok_and(|out| out["changes"].as_array().is_some_and(|c| !c.is_empty()));
+            if differs {
+                self.updating.insert(copy.uuid);
+            }
+        }
+        self.preview = None;
+    }
+
     fn show(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>) {
         if self.copies.is_empty() {
             ui.weak(tr!("settings-preset-none"));
