@@ -1,5 +1,6 @@
 //! Per-Project view state: `.reda/view.json` holds the layout, the open tabs, and each
-//! Document's camera and Layer state. The selection is not kept.
+//! Document's camera, Layer state and working state (grid, units, snap mode, Gridless and
+//! Selection Filter). The selection is not kept.
 //!
 //! The file is disposable. One that cannot be read, or that another version of REDA
 //! wrote, is thrown away without a word in favour of the default layout. Writing it never
@@ -9,14 +10,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use reda_engine::model::geom::Point;
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{ObjectType, Uuid};
 use reda_engine::pcb::RatsnestVisibility;
-use reda_engine::preferences::InactiveLayerMode;
+use reda_engine::preferences::{InactiveLayerMode, Units};
 use serde::{Deserialize, Serialize};
 
 use crate::canvas::Camera;
 use crate::layout::Layout;
+use crate::working_state::SnapMode;
 
 /// How long the view must stay unchanged before it is saved.
 pub const VIEW_SAVE_DELAY: Duration = Duration::from_secs(1);
@@ -62,6 +64,21 @@ pub struct DocumentView {
     /// The board's user origin (`pcb.view.origin.set`); unset is the board's own.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_origin: Option<Point>,
+    /// The snap grid picked; unset is the Document type's default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grid: Option<Nm>,
+    /// The units lengths show in (the board's); unset follows the Preference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub units: Option<Units>,
+    /// The object snap mode; unset is the Document type's default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snap_mode: Option<SnapMode>,
+    /// The grid level of snapping is off.
+    #[serde(skip_serializing_if = "is_default")]
+    pub gridless: bool,
+    /// The kinds the Selection Filter turns off.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub selection_filter_off: BTreeSet<String>,
 }
 
 /// The contents of `view.json`.

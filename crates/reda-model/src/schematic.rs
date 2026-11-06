@@ -584,7 +584,7 @@ impl SchematicSheet {
     }
 
     /// Every object this sheet holds, cloned.
-    pub(crate) fn objects(&self) -> Vec<Object> {
+    pub fn objects(&self) -> Vec<Object> {
         let doc = self.uuid;
         let mut out = Vec::new();
         macro_rules! all {
