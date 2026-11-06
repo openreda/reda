@@ -2,39 +2,42 @@
 //! of placed Footprints and Free Pads.
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{DrcCheck, Hole, PadKind, Uuid};
+use reda_model::{DrcCheck, Hole, PadKind, PcbDocument, RuleField, RuleKind, Uuid};
 
 use super::{Board, Report};
 use crate::copper::shape::{Core, Prim, Shape};
-use crate::net_rules::net_rules;
 use crate::placed::{self, PlacedPad};
+use crate::rules::{hole_to_hole_between, largest, net_rules};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     let holes = holes(board);
-    let rules = board.pcb.setup().rules;
     for hole in &holes {
         let actual = hole.size.width.min(hole.size.height);
-        if actual < hole.minimum {
+        let Some(minimum) = hole.minimum else {
+            continue;
+        };
+        if actual < minimum {
             report.add(DrcCheck::HoleSize, |v| {
-                v.arg("minimum", hole.minimum)
+                v.arg("minimum", minimum)
                     .arg("actual", actual)
                     .objects(hole.objects.iter().copied())
             });
         }
     }
     for hole in &holes {
-        if let Some(ring) = hole.ring
-            && ring < rules.annular_ring
+        let minimum = net_rules(board.pcb, hole.net).annular_ring;
+        if let (Some(ring), Some(minimum)) = (hole.ring, minimum)
+            && ring < minimum
         {
             report.add(DrcCheck::AnnularRing, |v| {
-                v.arg("minimum", rules.annular_ring)
+                v.arg("minimum", minimum)
                     .arg("actual", ring)
                     .objects(hole.objects.iter().copied())
             });
         }
     }
     if !report.is_off(DrcCheck::HoleToHole) {
-        hole_to_hole(&holes, rules.hole_to_hole, report);
+        hole_to_hole(board.pcb, &holes, report);
     }
 }
 
@@ -43,8 +46,10 @@ struct DrillHole {
     /// The Via, or the Footprint instance then the Pad, or the Free Pad.
     objects: Vec<Uuid>,
     size: Hole,
-    /// The smallest hole the rules allow it.
-    minimum: Nm,
+    /// Its Net, which picks its rules.
+    net: Option<Uuid>,
+    /// The smallest hole the rules allow it; `None` where the limit is absent.
+    minimum: Option<Nm>,
     /// The copper ring around a plated hole; `None` for a bare hole.
     ring: Option<Nm>,
     shape: Shape,
@@ -53,7 +58,6 @@ struct DrillHole {
 /// Every hole, Vias first, then Footprint Pads, then Free Pads, each in UUID order.
 fn holes(board: &Board<'_>) -> Vec<DrillHole> {
     let pcb = board.pcb;
-    let rules = pcb.setup().rules;
     let mut out = Vec::new();
     for via in pcb.vias() {
         let size = Hole {
@@ -63,7 +67,8 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
         out.push(DrillHole {
             objects: vec![via.uuid],
             size,
-            minimum: net_rules(pcb, via.net).via_hole,
+            net: via.net,
+            minimum: net_rules(pcb, via.net).via_hole.min,
             ring: Some(Nm((via.diameter.0 - via.hole.0) / 2)),
             shape: hole_shape(via.at, Millideg::ZERO, size),
         });
@@ -76,7 +81,8 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
         Some(DrillHole {
             objects,
             size,
-            minimum: rules.via_hole,
+            net: pad.net,
+            minimum: net_rules(pcb, pad.net).via_hole.min,
             ring,
             shape: hole_shape(pad.at, pad.rotation, size),
         })
@@ -111,9 +117,10 @@ fn hole_shape(at: Point, rotation: Millideg, size: Hole) -> Shape {
     }
 }
 
-/// Holes whose edges come closer than `required`, overlapping ones included. One Violation
-/// per pair, in the order of [`holes`].
-fn hole_to_hole(holes: &[DrillHole], required: Nm, report: &mut Report) {
+/// Holes whose edges come closer than the spacing their Nets require (the larger of the
+/// two), overlapping ones included. One Violation per pair, in the order of [`holes`].
+fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
+    let reach = largest(pcb, RuleKind::HoleToHole, RuleField::Min);
     let mut order: Vec<usize> = (0..holes.len()).collect();
     let left = |i: usize| holes[i].shape.envelope().lower()[0];
     let right = |i: usize| holes[i].shape.envelope().upper()[0];
@@ -121,17 +128,21 @@ fn hole_to_hole(holes: &[DrillHole], required: Nm, report: &mut Report) {
     let mut pairs = Vec::new();
     for (k, &i) in order.iter().enumerate() {
         for &j in &order[k + 1..] {
-            if left(j) - right(i) >= required.0 {
+            if left(j) - right(i) >= reach.0 {
                 break;
             }
+            let Some(required) = hole_to_hole_between(pcb, holes[i].net, holes[j].net) else {
+                continue;
+            };
             let gap = holes[i].shape.distance(&holes[j].shape);
             if gap < required.0 as f64 {
-                pairs.push((i.min(j), i.max(j), Nm(gap.max(0.0).floor() as i64)));
+                let actual = Nm(gap.max(0.0).floor() as i64);
+                pairs.push((i.min(j), i.max(j), actual, required));
             }
         }
     }
     pairs.sort();
-    for (i, j, actual) in pairs {
+    for (i, j, actual, required) in pairs {
         report.add(DrcCheck::HoleToHole, |v| {
             v.arg("required", required)
                 .arg("actual", actual)

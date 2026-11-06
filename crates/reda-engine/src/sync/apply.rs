@@ -118,13 +118,6 @@ impl<'c, 'e> Applier<'c, 'e> {
         let list: &ChangeList = &plan.list;
         let included = || list.changes().filter(|c| !left_out.contains(&c.id));
         let doc = self.pcb;
-        let default_class = self
-            .cx
-            .project()?
-            .pcb()
-            .expect("a PCB")
-            .setup()
-            .default_net_class;
 
         // Nets first, so Pads can point at new ones.
         let mut new_nets: BTreeMap<String, Uuid> = BTreeMap::new();
@@ -134,7 +127,7 @@ impl<'c, 'e> Applier<'c, 'e> {
                     let net = Net {
                         uuid: self.cx.new_id(),
                         name: name.clone(),
-                        class: default_class,
+                        classes: Vec::new(),
                     };
                     new_nets.insert(change.id.clone(), net.uuid);
                     created.nets.push((name.clone(), net.uuid));

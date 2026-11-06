@@ -18,10 +18,18 @@
     {"uuid":"00000000-0000-4000-8000-000000000012","kind":"mechanical"},
     {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
   ]},
-  "board": {"uuid":"00000000-0000-4000-8000-000000000015","default_net_class":"00000000-0000-4000-8000-000000000014"},
-  "rules": {"clearance":100000,"track_width":100000,"via_diameter":450000,"via_hole":150000,"annular_ring":150000,"hole_to_hole":500000,"edge_clearance":400000},
+  "board": {"uuid":"00000000-0000-4000-8000-000000000014"},
+  "rules": [
+    {"uuid":"00000000-0000-4000-8000-000000000015","kind":"clearance","scope":{},"values":{"value":100000}},
+    {"uuid":"00000000-0000-4000-8000-000000000016","kind":"track_width","scope":{},"values":{"min":100000,"preferred":250000}},
+    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"via_size","scope":{},"values":{"diameter":{"min":450000,"preferred":600000},"hole":{"min":150000,"preferred":300000}}},
+    {"uuid":"00000000-0000-4000-8000-000000000018","kind":"hole_size","scope":{},"values":{"min":200000,"max":6300000}},
+    {"uuid":"00000000-0000-4000-8000-000000000019","kind":"annular_ring","scope":{},"values":{"min":150000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001a","kind":"hole_to_hole","scope":{},"values":{"min":500000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001b","kind":"edge_clearance","scope":{},"values":{"value":400000}}
+  ],
   "severities": {"clearance":"error","short_circuit":"error","track_width":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","courtyard_overlap":"warning","silkscreen_over_pads":"warning","out_of_sync":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000018","vertices":[
+  "board_outline": {"uuid":"00000000-0000-4000-8000-00000000001e","vertices":[
     {"x":1000000,"y":0},
     {"x":49000000,"y":0,"sweep":90000},
     {"x":50000000,"y":1000000},
@@ -32,9 +40,7 @@
     {"x":0,"y":1000000,"sweep":90000}
   ]},
   "board_cutouts": [],
-  "net_classes": [
-    {"uuid":"00000000-0000-4000-8000-000000000014","name":"Default"}
-  ],
+  "net_classes": [],
   "nets": [],
   "texts": [],
   "graphics": []

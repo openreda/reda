@@ -9,8 +9,9 @@
 //!   with `pcb.footprint.set`: a synced Footprint writes through to every Unit of its
 //!   Component, a Mechanical Part changes only on the board. Which fields show on the
 //!   sheet is not set from here.
-//! - Selected Tracks, Vias, Zones, Pads and highlighted Nets give their Nets' Net Class,
-//!   set with `pcb.net.set_class`.
+//! - Selected Tracks, Vias, Zones, Pads and highlighted Nets give their Nets' Net Classes;
+//!   picking a class adds them all to it with `pcb.net.add_to_class`, or, when they are
+//!   all in it already, takes them out with `pcb.net.remove_from_class`.
 //! - Any one selected object shows its stored properties, read-only.
 
 use std::collections::BTreeSet;
@@ -74,7 +75,7 @@ pub enum Edit {
     /// Chooses the Footprint among the Part's alternates.
     Footprint(Uuid),
     NotFitted(bool),
-    /// Moves the selection's Nets into a Net Class.
+    /// Adds the selection's Nets to a Net Class, or takes them out when all are in it.
     NetClass(Uuid),
 }
 
@@ -131,12 +132,14 @@ pub struct Alternate {
     pub name: String,
 }
 
-/// The Net Class of the selection's Nets.
+/// The Net Classes of the selection's Nets.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NetClassProperty {
     /// The PCB Nets, sorted by UUID.
     pub nets: Vec<Uuid>,
-    pub class: Shared<Uuid>,
+    /// The classes each Net is in besides the Default Net Class, sorted by UUID; empty
+    /// for the Default Net Class only.
+    pub class: Shared<Vec<Uuid>>,
     /// Every Net Class on the board, `(uuid, name)`, in name order.
     pub classes: Vec<(Uuid, String)>,
 }
@@ -176,8 +179,14 @@ impl Properties {
     /// when the selection has nothing it applies to.
     pub fn command(&self, edit: &Edit) -> Option<(&'static str, Value)> {
         if let Edit::NetClass(class) = edit {
-            let nets = &self.net_class.as_ref()?.nets;
-            return Some(("pcb.net.set_class", json!({"nets": nets, "class": class})));
+            let property = self.net_class.as_ref()?;
+            let all_in = property.class.same().is_some_and(|c| c.contains(class));
+            let id = if all_in {
+                "pcb.net.remove_from_class"
+            } else {
+                "pcb.net.add_to_class"
+            };
+            return Some((id, json!({"nets": property.nets, "class": class})));
         }
         let component = self.component.as_ref()?;
         if !component.footprints.is_empty() {
@@ -486,7 +495,11 @@ fn net_class(
         );
     }
     let nets: Vec<Uuid> = nets.into_iter().filter(|n| pcb.net(*n).is_some()).collect();
-    let class = Shared::of(nets.iter().filter_map(|n| pcb.net(*n)).map(|n| n.class))?;
+    let class = Shared::of(nets.iter().filter_map(|n| pcb.net(*n)).map(|n| {
+        let mut classes = n.classes.clone();
+        classes.sort();
+        classes
+    }))?;
     let mut classes: Vec<(Uuid, String)> = pcb
         .net_classes()
         .map(|c| (c.uuid, c.name.clone()))

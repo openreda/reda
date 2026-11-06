@@ -174,11 +174,11 @@ fn a_larger_net_class_clearance_wins_over_the_zone_clearance() {
     let hv = add_net(&mut engine, "HV");
     let class = engine.run_ok(
         "pcb.net_class.add",
-        json!({"name": "HV", "clearance": "1mm"}),
+        json!({"name": "HV", "rules": [{"kind": "clearance", "values": {"value": "1mm"}}]}),
     )["result"]["uuid"]
         .clone();
     engine.run_ok(
-        "pcb.net.set_class",
+        "pcb.net.add_to_class",
         json!({"nets": [hv.to_string()], "class": class}),
     );
     let z = zone(
@@ -363,7 +363,10 @@ fn a_fill_stays_inside_the_board_by_the_edge_clearance() {
     let dir = TempDir::new("fill-edge");
     let mut engine = engine_with_pcb(&dir);
     let gnd = add_net(&mut engine, "GND");
-    engine.run_ok("pcb.rules.set", json!({"edge_clearance": "0.5mm"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "edge_clearance", "values": {"value": "0.5mm"}}),
+    );
     engine.run_ok(
         "pcb.board_outline.add_rect",
         json!({"width": "8mm", "height": "8mm"}),

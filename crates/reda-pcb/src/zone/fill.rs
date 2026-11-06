@@ -2,7 +2,7 @@
 //! copper and higher-priority fills, thinned to the minimum width, joined to its Pads by
 //! thermal spokes or solidly, with unconnected islands dropped.
 
-use reda_model::geom::Millideg;
+use reda_model::geom::{Millideg, Nm};
 use reda_model::{FillShape, PadConnection, PadKind, PcbDocument, Side, Uuid, Zone};
 
 use super::poly::{
@@ -11,7 +11,7 @@ use super::poly::{
 };
 use crate::copper::shape::{self as copper_shape, Core, P, Prim, Shape};
 use crate::copper::{Copper, Item};
-use crate::net_rules::clearance_between;
+use crate::rules::{clearance_between, net_rules};
 
 /// A fill already made on the same Layer by a Zone of higher priority.
 pub(super) struct Filled<'a> {
@@ -28,7 +28,7 @@ pub(super) fn fill_zone(
 ) -> Area {
     let layer = zone.layer;
     let mut area = poly::polygon(poly::contour(&zone.vertices));
-    area = within_board(pcb, area);
+    area = within_board(pcb, zone, area);
     let keepouts: Vec<Vec<Contour>> = pcb
         .keepouts()
         .filter(|k| k.copper && k.layers.contains(&layer))
@@ -58,7 +58,9 @@ pub(super) fn fill_zone(
             }
             continue;
         }
-        let clearance = zone.clearance.max(clearance_between(pcb, zone.net, net));
+        let clearance = zone
+            .clearance
+            .max(clearance_between(pcb, zone.net, net).unwrap_or(Nm::ZERO));
         if !near(shape, clearance.0, lo, hi) {
             continue;
         }
@@ -77,7 +79,7 @@ pub(super) fn fill_zone(
         let clearance = zone
             .clearance
             .max(prior.zone.clearance)
-            .max(clearance_between(pcb, zone.net, prior.zone.net));
+            .max(clearance_between(pcb, zone.net, prior.zone.net).unwrap_or(Nm::ZERO));
         others.extend(dilated(&prior.area, clearance.0));
     }
 
@@ -136,9 +138,13 @@ fn near(shape: &Shape, clearance: i64, lo: P, hi: P) -> bool {
 }
 
 /// `area` cut back to the board: inside the Board Outline and outside the Board Cutouts,
-/// keeping the edge clearance from both. Without an outline, only the cutouts cut.
-fn within_board(pcb: &PcbDocument, mut area: Area) -> Area {
-    let edge = pcb.setup().rules.edge_clearance.0;
+/// keeping the zone's Net's edge clearance from both. Without an outline, only the
+/// cutouts cut.
+fn within_board(pcb: &PcbDocument, zone: &Zone, mut area: Area) -> Area {
+    let edge = net_rules(pcb, zone.net)
+        .edge_clearance
+        .unwrap_or(Nm::ZERO)
+        .0;
     let mut cut: Vec<Vec<Contour>> = Vec::new();
     if let Some(outline) = pcb.outline() {
         let board = poly::polygon(poly::contour(&outline.vertices));

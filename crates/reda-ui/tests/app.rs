@@ -904,11 +904,17 @@ fn board_setup_snapshot(page: &str, name: &str) {
     let shell = h.state_mut().shell_mut();
     shell.open_project(&file).unwrap();
     shell
-        .run("pcb.rules.set", json!({"clearance": "0.3mm"}))
+        .run(
+            "pcb.rules.set",
+            json!({"kind": "clearance", "values": {"value": "0.3mm"}}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.net_class.add", json!({"name": "Power"}))
         .unwrap();
     h.state_mut().open_board_setup();
     h.run();
-    let field = "Default: Clearance";
+    let field = "Power: Clearance";
     h.get_by_role_and_label(Role::TextInput, field).click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, field)

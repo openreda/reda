@@ -117,7 +117,7 @@
     },
     {
       "category": "project",
-      "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rules and DRC severities and a Default Net Class, and is available only while the Project has none. Its file is written on save.",
+      "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rule records and DRC severities, and is available only while the Project has none. Its file is written on save.",
       "icon": "document_add",
       "id": "document.add",
       "kind": "edit",
@@ -1935,8 +1935,8 @@
                 "type": "string"
               },
               "rules": {
-                "$ref": "#/$defs/Rules",
-                "description": "The design rules a new board is seeded with, and the minimums a job checks against."
+                "$ref": "#/$defs/FabRules",
+                "description": "The limits a job checks the board against, and the seeds of a new board's rules."
               }
             },
             "required": [
@@ -1945,6 +1945,74 @@
               "gerber",
               "bom",
               "cpl"
+            ],
+            "type": "object"
+          },
+          "FabRules": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's design rules: flat limits with no scope, which a job compares the board\nwith, and the preferred values a new board's routing starts from.",
+            "properties": {
+              "annular_ring": {
+                "description": "Minimum annular ring of Vias and plated Pads.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "clearance": {
+                "description": "Minimum clearance between copper of different Nets.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "edge_clearance": {
+                "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_max": {
+                "description": "Maximum Pad, Free Pad and non-plated hole.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_min": {
+                "description": "Minimum Pad, Free Pad and non-plated hole.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_to_hole": {
+                "description": "Minimum spacing between hole edges.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "preferred": {
+                "$ref": "#/$defs/PreferredSeeds",
+                "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
+              },
+              "track_width": {
+                "description": "Minimum Track width.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_diameter": {
+                "description": "Minimum Via diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_hole": {
+                "description": "Minimum Via hole.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "clearance",
+              "track_width",
+              "via_diameter",
+              "via_hole",
+              "hole_min",
+              "hole_max",
+              "annular_ring",
+              "hole_to_hole",
+              "edge_clearance",
+              "preferred"
             ],
             "type": "object"
           },
@@ -1992,54 +2060,30 @@
               }
             ]
           },
-          "Rules": {
+          "PreferredSeeds": {
             "additionalProperties": false,
-            "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+            "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
             "properties": {
-              "annular_ring": {
-                "description": "Minimum annular ring of Vias and plated Pads.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "clearance": {
-                "description": "Minimum clearance between copper of different Nets.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "edge_clearance": {
-                "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "hole_to_hole": {
-                "description": "Minimum spacing between hole edges.",
-                "format": "int64",
-                "type": "integer"
-              },
               "track_width": {
-                "description": "Minimum Track width.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_diameter": {
-                "description": "Minimum Via diameter.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_hole": {
-                "description": "Minimum Via hole.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               }
             },
             "required": [
-              "clearance",
               "track_width",
               "via_diameter",
-              "via_hole",
-              "annular_ring",
-              "hole_to_hole",
-              "edge_clearance"
+              "via_hole"
             ],
             "type": "object"
           }
@@ -8531,6 +8575,37 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Bounds": {
+            "additionalProperties": false,
+            "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Column": {
             "additionalProperties": false,
             "description": "One column of a BOM or CPL file.",
@@ -8829,6 +8904,74 @@
               "duplicate_designator",
               "unplaced_units",
               "unit_data_mismatch"
+            ],
+            "type": "object"
+          },
+          "FabRules": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's design rules: flat limits with no scope, which a job compares the board\nwith, and the preferred values a new board's routing starts from.",
+            "properties": {
+              "annular_ring": {
+                "description": "Minimum annular ring of Vias and plated Pads.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "clearance": {
+                "description": "Minimum clearance between copper of different Nets.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "edge_clearance": {
+                "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_max": {
+                "description": "Maximum Pad, Free Pad and non-plated hole.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_min": {
+                "description": "Minimum Pad, Free Pad and non-plated hole.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_to_hole": {
+                "description": "Minimum spacing between hole edges.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "preferred": {
+                "$ref": "#/$defs/PreferredSeeds",
+                "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
+              },
+              "track_width": {
+                "description": "Minimum Track width.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_diameter": {
+                "description": "Minimum Via diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_hole": {
+                "description": "Minimum Via hole.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "clearance",
+              "track_width",
+              "via_diameter",
+              "via_hole",
+              "hole_min",
+              "hole_max",
+              "annular_ring",
+              "hole_to_hole",
+              "edge_clearance",
+              "preferred"
             ],
             "type": "object"
           },
@@ -9170,6 +9313,28 @@
           "InDocument10": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "footprint": {
+                "$ref": "#/$defs/Footprint"
+              },
+              "hash": {
+                "description": "The content hash of the Footprint, as copied.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "footprint"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "Where the Symbol origin sits on the sheet."
@@ -9247,7 +9412,7 @@
             ],
             "type": "object"
           },
-          "InDocument11": {
+          "InDocument12": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "from": {
@@ -9268,7 +9433,7 @@
             ],
             "type": "object"
           },
-          "InDocument12": {
+          "InDocument13": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9296,7 +9461,7 @@
             ],
             "type": "object"
           },
-          "InDocument13": {
+          "InDocument14": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9313,7 +9478,7 @@
             ],
             "type": "object"
           },
-          "InDocument14": {
+          "InDocument15": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9345,7 +9510,7 @@
             ],
             "type": "object"
           },
-          "InDocument15": {
+          "InDocument16": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9377,7 +9542,7 @@
             ],
             "type": "object"
           },
-          "InDocument16": {
+          "InDocument17": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9412,7 +9577,7 @@
             ],
             "type": "object"
           },
-          "InDocument17": {
+          "InDocument18": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "shape": {
@@ -9429,7 +9594,7 @@
             ],
             "type": "object"
           },
-          "InDocument18": {
+          "InDocument19": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "check": {
@@ -9460,7 +9625,24 @@
             ],
             "type": "object"
           },
-          "InDocument19": {
+          "InDocument2": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "severities": {
+                "$ref": "#/$defs/DrcSeverities"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "severities"
+            ],
+            "type": "object"
+          },
+          "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
@@ -9515,34 +9697,7 @@
             ],
             "type": "object"
           },
-          "InDocument2": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "default_net_class": {
-                "description": "The Net Class that new Nets get, and that Nets of a deleted class fall back to.",
-                "format": "uuid",
-                "type": "string"
-              },
-              "rules": {
-                "$ref": "#/$defs/Rules"
-              },
-              "severities": {
-                "$ref": "#/$defs/DrcSeverities"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "default_net_class",
-              "rules",
-              "severities"
-            ],
-            "type": "object"
-          },
-          "InDocument20": {
+          "InDocument21": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -9571,7 +9726,7 @@
             ],
             "type": "object"
           },
-          "InDocument21": {
+          "InDocument22": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9651,7 +9806,7 @@
             ],
             "type": "object"
           },
-          "InDocument22": {
+          "InDocument23": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "geometry": {
@@ -9688,7 +9843,7 @@
             ],
             "type": "object"
           },
-          "InDocument23": {
+          "InDocument24": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9731,7 +9886,7 @@
             ],
             "type": "object"
           },
-          "InDocument24": {
+          "InDocument25": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "clearance": {
@@ -9806,7 +9961,7 @@
             ],
             "type": "object"
           },
-          "InDocument25": {
+          "InDocument26": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "copper": {
@@ -9846,7 +10001,7 @@
             ],
             "type": "object"
           },
-          "InDocument26": {
+          "InDocument27": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9929,7 +10084,7 @@
             ],
             "type": "object"
           },
-          "InDocument27": {
+          "InDocument28": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -9947,6 +10102,42 @@
             "type": "object"
           },
           "InDocument3": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "comment": {
+                "description": "A note for the user.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "enabled": {
+                "description": "Whether the record counts; left out when it does. A disabled board-wide limit is\nabsent, but its preferred values still supply routing defaults.",
+                "type": "boolean"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "scope": {
+                "$ref": "#/$defs/RuleScope"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "values": {
+                "$ref": "#/$defs/RuleValues"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "scope",
+              "values"
+            ],
+            "type": "object"
+          },
+          "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -9967,7 +10158,7 @@
             ],
             "type": "object"
           },
-          "InDocument4": {
+          "InDocument5": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -9988,65 +10179,17 @@
             ],
             "type": "object"
           },
-          "InDocument5": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "clearance": {
-                "description": "Clearance to copper of other Nets; where two classes meet, the larger applies.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "name": {
-                "type": "string"
-              },
-              "track_width": {
-                "description": "Track width for routing this class.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              },
-              "via_diameter": {
-                "description": "Via diameter for this class.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "via_hole": {
-                "description": "Via hole for this class.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              }
-            },
-            "required": [
-              "uuid",
-              "name"
-            ],
-            "type": "object"
-          },
           "InDocument6": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "class": {
-                "description": "Its Net Class.",
-                "format": "uuid",
-                "type": "string"
-              },
               "name": {
                 "type": "string"
+              },
+              "rank": {
+                "description": "Its rank, unique on the board: 1 ranks highest. Where a Net's classes set the same\nvalue, the highest-ranked class wins; the Default Net Class ranks below them all.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
               },
               "uuid": {
                 "format": "uuid",
@@ -10056,11 +10199,36 @@
             "required": [
               "uuid",
               "name",
-              "class"
+              "rank"
             ],
             "type": "object"
           },
           "InDocument7": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "classes": {
+                "description": "The Net Classes it is in besides the Default Net Class, which every Net is in;\nleft out when there are none.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
+            ],
+            "type": "object"
+          },
+          "InDocument8": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "size": {
@@ -10077,7 +10245,7 @@
             ],
             "type": "object"
           },
-          "InDocument8": {
+          "InDocument9": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "footprints": {
@@ -10110,28 +10278,6 @@
               "part",
               "symbol",
               "footprints"
-            ],
-            "type": "object"
-          },
-          "InDocument9": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "footprint": {
-                "$ref": "#/$defs/Footprint"
-              },
-              "hash": {
-                "description": "The content hash of the Footprint, as copied.",
-                "type": "string"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "hash",
-              "footprint"
             ],
             "type": "object"
           },
@@ -10330,7 +10476,7 @@
                     "type": "string"
                   },
                   "rules": {
-                    "$ref": "#/$defs/Rules"
+                    "$ref": "#/$defs/FabRules"
                   },
                   "type": {
                     "const": "fab_preset",
@@ -10623,7 +10769,7 @@
                 "$ref": "#/$defs/InDocument3",
                 "properties": {
                   "type": {
-                    "const": "board_outline",
+                    "const": "design_rule",
                     "type": "string"
                   }
                 },
@@ -10636,7 +10782,7 @@
                 "$ref": "#/$defs/InDocument4",
                 "properties": {
                   "type": {
-                    "const": "board_cutout",
+                    "const": "board_outline",
                     "type": "string"
                   }
                 },
@@ -10649,7 +10795,7 @@
                 "$ref": "#/$defs/InDocument5",
                 "properties": {
                   "type": {
-                    "const": "net_class",
+                    "const": "board_cutout",
                     "type": "string"
                   }
                 },
@@ -10662,7 +10808,7 @@
                 "$ref": "#/$defs/InDocument6",
                 "properties": {
                   "type": {
-                    "const": "net",
+                    "const": "net_class",
                     "type": "string"
                   }
                 },
@@ -10675,7 +10821,7 @@
                 "$ref": "#/$defs/InDocument7",
                 "properties": {
                   "type": {
-                    "const": "sheet_frame",
+                    "const": "net",
                     "type": "string"
                   }
                 },
@@ -10688,7 +10834,7 @@
                 "$ref": "#/$defs/InDocument8",
                 "properties": {
                   "type": {
-                    "const": "part_entry",
+                    "const": "sheet_frame",
                     "type": "string"
                   }
                 },
@@ -10701,7 +10847,7 @@
                 "$ref": "#/$defs/InDocument9",
                 "properties": {
                   "type": {
-                    "const": "footprint_copy",
+                    "const": "part_entry",
                     "type": "string"
                   }
                 },
@@ -10714,7 +10860,7 @@
                 "$ref": "#/$defs/InDocument10",
                 "properties": {
                   "type": {
-                    "const": "unit",
+                    "const": "footprint_copy",
                     "type": "string"
                   }
                 },
@@ -10727,7 +10873,7 @@
                 "$ref": "#/$defs/InDocument11",
                 "properties": {
                   "type": {
-                    "const": "wire",
+                    "const": "unit",
                     "type": "string"
                   }
                 },
@@ -10740,7 +10886,7 @@
                 "$ref": "#/$defs/InDocument12",
                 "properties": {
                   "type": {
-                    "const": "net_label",
+                    "const": "wire",
                     "type": "string"
                   }
                 },
@@ -10753,7 +10899,7 @@
                 "$ref": "#/$defs/InDocument13",
                 "properties": {
                   "type": {
-                    "const": "no_connect",
+                    "const": "net_label",
                     "type": "string"
                   }
                 },
@@ -10766,7 +10912,7 @@
                 "$ref": "#/$defs/InDocument14",
                 "properties": {
                   "type": {
-                    "const": "port",
+                    "const": "no_connect",
                     "type": "string"
                   }
                 },
@@ -10779,7 +10925,7 @@
                 "$ref": "#/$defs/InDocument15",
                 "properties": {
                   "type": {
-                    "const": "power_port",
+                    "const": "port",
                     "type": "string"
                   }
                 },
@@ -10792,7 +10938,7 @@
                 "$ref": "#/$defs/InDocument16",
                 "properties": {
                   "type": {
-                    "const": "sheet_text",
+                    "const": "power_port",
                     "type": "string"
                   }
                 },
@@ -10805,7 +10951,7 @@
                 "$ref": "#/$defs/InDocument17",
                 "properties": {
                   "type": {
-                    "const": "sheet_graphic",
+                    "const": "sheet_text",
                     "type": "string"
                   }
                 },
@@ -10818,7 +10964,7 @@
                 "$ref": "#/$defs/InDocument18",
                 "properties": {
                   "type": {
-                    "const": "waiver",
+                    "const": "sheet_graphic",
                     "type": "string"
                   }
                 },
@@ -10831,7 +10977,7 @@
                 "$ref": "#/$defs/InDocument19",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "waiver",
                     "type": "string"
                   }
                 },
@@ -10844,7 +10990,7 @@
                 "$ref": "#/$defs/InDocument20",
                 "properties": {
                   "type": {
-                    "const": "pcb_graphic",
+                    "const": "pcb_text",
                     "type": "string"
                   }
                 },
@@ -10857,7 +11003,7 @@
                 "$ref": "#/$defs/InDocument21",
                 "properties": {
                   "type": {
-                    "const": "footprint_instance",
+                    "const": "pcb_graphic",
                     "type": "string"
                   }
                 },
@@ -10870,7 +11016,7 @@
                 "$ref": "#/$defs/InDocument22",
                 "properties": {
                   "type": {
-                    "const": "track",
+                    "const": "footprint_instance",
                     "type": "string"
                   }
                 },
@@ -10883,7 +11029,7 @@
                 "$ref": "#/$defs/InDocument23",
                 "properties": {
                   "type": {
-                    "const": "via",
+                    "const": "track",
                     "type": "string"
                   }
                 },
@@ -10896,7 +11042,7 @@
                 "$ref": "#/$defs/InDocument24",
                 "properties": {
                   "type": {
-                    "const": "zone",
+                    "const": "via",
                     "type": "string"
                   }
                 },
@@ -10909,7 +11055,7 @@
                 "$ref": "#/$defs/InDocument25",
                 "properties": {
                   "type": {
-                    "const": "keepout",
+                    "const": "zone",
                     "type": "string"
                   }
                 },
@@ -10922,7 +11068,7 @@
                 "$ref": "#/$defs/InDocument26",
                 "properties": {
                   "type": {
-                    "const": "free_pad",
+                    "const": "keepout",
                     "type": "string"
                   }
                 },
@@ -10933,6 +11079,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument27",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument28",
                 "properties": {
                   "type": {
                     "const": "placement_origin",
@@ -11351,6 +11510,33 @@
               }
             ]
           },
+          "PreferredSeeds": {
+            "additionalProperties": false,
+            "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
+            "properties": {
+              "track_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_diameter": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "track_width",
+              "via_diameter",
+              "via_hole"
+            ],
+            "type": "object"
+          },
           "ProjectProperties": {
             "additionalProperties": false,
             "description": "The Project properties: fixed free-text fields that fill each sheet's title block, and\nthe board thickness and copper weight that go into fab notes.",
@@ -11423,55 +11609,127 @@
             ],
             "type": "object"
           },
-          "Rules": {
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleScope": {
             "additionalProperties": false,
-            "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
             "properties": {
-              "annular_ring": {
-                "description": "Minimum annular ring of Vias and plated Pads.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "clearance": {
-                "description": "Minimum clearance between copper of different Nets.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "edge_clearance": {
-                "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "hole_to_hole": {
-                "description": "Minimum spacing between hole edges.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "track_width": {
-                "description": "Minimum Track width.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "via_diameter": {
-                "description": "Minimum Via diameter.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "via_hole": {
-                "description": "Minimum Via hole.",
-                "format": "int64",
-                "type": "integer"
+              "net_class": {
+                "description": "The Net Class whose Nets it applies to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
-            "required": [
-              "clearance",
-              "track_width",
-              "via_diameter",
-              "via_hole",
-              "annular_ring",
-              "hole_to_hole",
-              "edge_clearance"
-            ],
+            "type": "object"
+          },
+          "RuleValues": {
+            "additionalProperties": false,
+            "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
+            "properties": {
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's copper diameter."
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's drilled hole."
+              },
+              "ignore_pad_to_pad": {
+                "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "value": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "Severity": {
@@ -11985,7 +12243,12 @@
               },
               {
                 "const": "board_setup",
-                "description": "The PCB Document's rules, DRC severities and Default Net Class.",
+                "description": "The PCB Document's DRC severities.",
+                "type": "string"
+              },
+              {
+                "const": "design_rule",
+                "description": "One design rule record: a kind, a scope and the values it sets.",
                 "type": "string"
               },
               {
@@ -12155,6 +12418,37 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Bounds": {
+            "additionalProperties": false,
+            "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Column": {
             "additionalProperties": false,
             "description": "One column of a BOM or CPL file.",
@@ -12453,6 +12747,74 @@
               "duplicate_designator",
               "unplaced_units",
               "unit_data_mismatch"
+            ],
+            "type": "object"
+          },
+          "FabRules": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's design rules: flat limits with no scope, which a job compares the board\nwith, and the preferred values a new board's routing starts from.",
+            "properties": {
+              "annular_ring": {
+                "description": "Minimum annular ring of Vias and plated Pads.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "clearance": {
+                "description": "Minimum clearance between copper of different Nets.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "edge_clearance": {
+                "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_max": {
+                "description": "Maximum Pad, Free Pad and non-plated hole.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_min": {
+                "description": "Minimum Pad, Free Pad and non-plated hole.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole_to_hole": {
+                "description": "Minimum spacing between hole edges.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "preferred": {
+                "$ref": "#/$defs/PreferredSeeds",
+                "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
+              },
+              "track_width": {
+                "description": "Minimum Track width.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_diameter": {
+                "description": "Minimum Via diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_hole": {
+                "description": "Minimum Via hole.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "clearance",
+              "track_width",
+              "via_diameter",
+              "via_hole",
+              "hole_min",
+              "hole_max",
+              "annular_ring",
+              "hole_to_hole",
+              "edge_clearance",
+              "preferred"
             ],
             "type": "object"
           },
@@ -12794,6 +13156,28 @@
           "InDocument10": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "footprint": {
+                "$ref": "#/$defs/Footprint"
+              },
+              "hash": {
+                "description": "The content hash of the Footprint, as copied.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "footprint"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "Where the Symbol origin sits on the sheet."
@@ -12871,7 +13255,7 @@
             ],
             "type": "object"
           },
-          "InDocument11": {
+          "InDocument12": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "from": {
@@ -12892,7 +13276,7 @@
             ],
             "type": "object"
           },
-          "InDocument12": {
+          "InDocument13": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -12920,7 +13304,7 @@
             ],
             "type": "object"
           },
-          "InDocument13": {
+          "InDocument14": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -12937,7 +13321,7 @@
             ],
             "type": "object"
           },
-          "InDocument14": {
+          "InDocument15": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -12969,7 +13353,7 @@
             ],
             "type": "object"
           },
-          "InDocument15": {
+          "InDocument16": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -13001,7 +13385,7 @@
             ],
             "type": "object"
           },
-          "InDocument16": {
+          "InDocument17": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -13036,7 +13420,7 @@
             ],
             "type": "object"
           },
-          "InDocument17": {
+          "InDocument18": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "shape": {
@@ -13053,7 +13437,7 @@
             ],
             "type": "object"
           },
-          "InDocument18": {
+          "InDocument19": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "check": {
@@ -13084,7 +13468,24 @@
             ],
             "type": "object"
           },
-          "InDocument19": {
+          "InDocument2": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "severities": {
+                "$ref": "#/$defs/DrcSeverities"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "severities"
+            ],
+            "type": "object"
+          },
+          "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
@@ -13139,34 +13540,7 @@
             ],
             "type": "object"
           },
-          "InDocument2": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "default_net_class": {
-                "description": "The Net Class that new Nets get, and that Nets of a deleted class fall back to.",
-                "format": "uuid",
-                "type": "string"
-              },
-              "rules": {
-                "$ref": "#/$defs/Rules"
-              },
-              "severities": {
-                "$ref": "#/$defs/DrcSeverities"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "default_net_class",
-              "rules",
-              "severities"
-            ],
-            "type": "object"
-          },
-          "InDocument20": {
+          "InDocument21": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -13195,7 +13569,7 @@
             ],
             "type": "object"
           },
-          "InDocument21": {
+          "InDocument22": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -13275,7 +13649,7 @@
             ],
             "type": "object"
           },
-          "InDocument22": {
+          "InDocument23": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "geometry": {
@@ -13312,7 +13686,7 @@
             ],
             "type": "object"
           },
-          "InDocument23": {
+          "InDocument24": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -13355,7 +13729,7 @@
             ],
             "type": "object"
           },
-          "InDocument24": {
+          "InDocument25": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "clearance": {
@@ -13430,7 +13804,7 @@
             ],
             "type": "object"
           },
-          "InDocument25": {
+          "InDocument26": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "copper": {
@@ -13470,7 +13844,7 @@
             ],
             "type": "object"
           },
-          "InDocument26": {
+          "InDocument27": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -13553,7 +13927,7 @@
             ],
             "type": "object"
           },
-          "InDocument27": {
+          "InDocument28": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -13571,6 +13945,42 @@
             "type": "object"
           },
           "InDocument3": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "comment": {
+                "description": "A note for the user.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "enabled": {
+                "description": "Whether the record counts; left out when it does. A disabled board-wide limit is\nabsent, but its preferred values still supply routing defaults.",
+                "type": "boolean"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "scope": {
+                "$ref": "#/$defs/RuleScope"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "values": {
+                "$ref": "#/$defs/RuleValues"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "scope",
+              "values"
+            ],
+            "type": "object"
+          },
+          "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -13591,7 +14001,7 @@
             ],
             "type": "object"
           },
-          "InDocument4": {
+          "InDocument5": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -13612,65 +14022,17 @@
             ],
             "type": "object"
           },
-          "InDocument5": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "clearance": {
-                "description": "Clearance to copper of other Nets; where two classes meet, the larger applies.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "name": {
-                "type": "string"
-              },
-              "track_width": {
-                "description": "Track width for routing this class.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              },
-              "via_diameter": {
-                "description": "Via diameter for this class.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "via_hole": {
-                "description": "Via hole for this class.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              }
-            },
-            "required": [
-              "uuid",
-              "name"
-            ],
-            "type": "object"
-          },
           "InDocument6": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "class": {
-                "description": "Its Net Class.",
-                "format": "uuid",
-                "type": "string"
-              },
               "name": {
                 "type": "string"
+              },
+              "rank": {
+                "description": "Its rank, unique on the board: 1 ranks highest. Where a Net's classes set the same\nvalue, the highest-ranked class wins; the Default Net Class ranks below them all.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
               },
               "uuid": {
                 "format": "uuid",
@@ -13680,11 +14042,36 @@
             "required": [
               "uuid",
               "name",
-              "class"
+              "rank"
             ],
             "type": "object"
           },
           "InDocument7": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "classes": {
+                "description": "The Net Classes it is in besides the Default Net Class, which every Net is in;\nleft out when there are none.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name"
+            ],
+            "type": "object"
+          },
+          "InDocument8": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "size": {
@@ -13701,7 +14088,7 @@
             ],
             "type": "object"
           },
-          "InDocument8": {
+          "InDocument9": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "footprints": {
@@ -13734,28 +14121,6 @@
               "part",
               "symbol",
               "footprints"
-            ],
-            "type": "object"
-          },
-          "InDocument9": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "footprint": {
-                "$ref": "#/$defs/Footprint"
-              },
-              "hash": {
-                "description": "The content hash of the Footprint, as copied.",
-                "type": "string"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "hash",
-              "footprint"
             ],
             "type": "object"
           },
@@ -13954,7 +14319,7 @@
                     "type": "string"
                   },
                   "rules": {
-                    "$ref": "#/$defs/Rules"
+                    "$ref": "#/$defs/FabRules"
                   },
                   "type": {
                     "const": "fab_preset",
@@ -14247,7 +14612,7 @@
                 "$ref": "#/$defs/InDocument3",
                 "properties": {
                   "type": {
-                    "const": "board_outline",
+                    "const": "design_rule",
                     "type": "string"
                   }
                 },
@@ -14260,7 +14625,7 @@
                 "$ref": "#/$defs/InDocument4",
                 "properties": {
                   "type": {
-                    "const": "board_cutout",
+                    "const": "board_outline",
                     "type": "string"
                   }
                 },
@@ -14273,7 +14638,7 @@
                 "$ref": "#/$defs/InDocument5",
                 "properties": {
                   "type": {
-                    "const": "net_class",
+                    "const": "board_cutout",
                     "type": "string"
                   }
                 },
@@ -14286,7 +14651,7 @@
                 "$ref": "#/$defs/InDocument6",
                 "properties": {
                   "type": {
-                    "const": "net",
+                    "const": "net_class",
                     "type": "string"
                   }
                 },
@@ -14299,7 +14664,7 @@
                 "$ref": "#/$defs/InDocument7",
                 "properties": {
                   "type": {
-                    "const": "sheet_frame",
+                    "const": "net",
                     "type": "string"
                   }
                 },
@@ -14312,7 +14677,7 @@
                 "$ref": "#/$defs/InDocument8",
                 "properties": {
                   "type": {
-                    "const": "part_entry",
+                    "const": "sheet_frame",
                     "type": "string"
                   }
                 },
@@ -14325,7 +14690,7 @@
                 "$ref": "#/$defs/InDocument9",
                 "properties": {
                   "type": {
-                    "const": "footprint_copy",
+                    "const": "part_entry",
                     "type": "string"
                   }
                 },
@@ -14338,7 +14703,7 @@
                 "$ref": "#/$defs/InDocument10",
                 "properties": {
                   "type": {
-                    "const": "unit",
+                    "const": "footprint_copy",
                     "type": "string"
                   }
                 },
@@ -14351,7 +14716,7 @@
                 "$ref": "#/$defs/InDocument11",
                 "properties": {
                   "type": {
-                    "const": "wire",
+                    "const": "unit",
                     "type": "string"
                   }
                 },
@@ -14364,7 +14729,7 @@
                 "$ref": "#/$defs/InDocument12",
                 "properties": {
                   "type": {
-                    "const": "net_label",
+                    "const": "wire",
                     "type": "string"
                   }
                 },
@@ -14377,7 +14742,7 @@
                 "$ref": "#/$defs/InDocument13",
                 "properties": {
                   "type": {
-                    "const": "no_connect",
+                    "const": "net_label",
                     "type": "string"
                   }
                 },
@@ -14390,7 +14755,7 @@
                 "$ref": "#/$defs/InDocument14",
                 "properties": {
                   "type": {
-                    "const": "port",
+                    "const": "no_connect",
                     "type": "string"
                   }
                 },
@@ -14403,7 +14768,7 @@
                 "$ref": "#/$defs/InDocument15",
                 "properties": {
                   "type": {
-                    "const": "power_port",
+                    "const": "port",
                     "type": "string"
                   }
                 },
@@ -14416,7 +14781,7 @@
                 "$ref": "#/$defs/InDocument16",
                 "properties": {
                   "type": {
-                    "const": "sheet_text",
+                    "const": "power_port",
                     "type": "string"
                   }
                 },
@@ -14429,7 +14794,7 @@
                 "$ref": "#/$defs/InDocument17",
                 "properties": {
                   "type": {
-                    "const": "sheet_graphic",
+                    "const": "sheet_text",
                     "type": "string"
                   }
                 },
@@ -14442,7 +14807,7 @@
                 "$ref": "#/$defs/InDocument18",
                 "properties": {
                   "type": {
-                    "const": "waiver",
+                    "const": "sheet_graphic",
                     "type": "string"
                   }
                 },
@@ -14455,7 +14820,7 @@
                 "$ref": "#/$defs/InDocument19",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "waiver",
                     "type": "string"
                   }
                 },
@@ -14468,7 +14833,7 @@
                 "$ref": "#/$defs/InDocument20",
                 "properties": {
                   "type": {
-                    "const": "pcb_graphic",
+                    "const": "pcb_text",
                     "type": "string"
                   }
                 },
@@ -14481,7 +14846,7 @@
                 "$ref": "#/$defs/InDocument21",
                 "properties": {
                   "type": {
-                    "const": "footprint_instance",
+                    "const": "pcb_graphic",
                     "type": "string"
                   }
                 },
@@ -14494,7 +14859,7 @@
                 "$ref": "#/$defs/InDocument22",
                 "properties": {
                   "type": {
-                    "const": "track",
+                    "const": "footprint_instance",
                     "type": "string"
                   }
                 },
@@ -14507,7 +14872,7 @@
                 "$ref": "#/$defs/InDocument23",
                 "properties": {
                   "type": {
-                    "const": "via",
+                    "const": "track",
                     "type": "string"
                   }
                 },
@@ -14520,7 +14885,7 @@
                 "$ref": "#/$defs/InDocument24",
                 "properties": {
                   "type": {
-                    "const": "zone",
+                    "const": "via",
                     "type": "string"
                   }
                 },
@@ -14533,7 +14898,7 @@
                 "$ref": "#/$defs/InDocument25",
                 "properties": {
                   "type": {
-                    "const": "keepout",
+                    "const": "zone",
                     "type": "string"
                   }
                 },
@@ -14546,7 +14911,7 @@
                 "$ref": "#/$defs/InDocument26",
                 "properties": {
                   "type": {
-                    "const": "free_pad",
+                    "const": "keepout",
                     "type": "string"
                   }
                 },
@@ -14557,6 +14922,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument27",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument28",
                 "properties": {
                   "type": {
                     "const": "placement_origin",
@@ -14996,6 +15374,33 @@
               }
             ]
           },
+          "PreferredSeeds": {
+            "additionalProperties": false,
+            "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
+            "properties": {
+              "track_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_diameter": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via_hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "track_width",
+              "via_diameter",
+              "via_hole"
+            ],
+            "type": "object"
+          },
           "ProjectProperties": {
             "additionalProperties": false,
             "description": "The Project properties: fixed free-text fields that fill each sheet's title block, and\nthe board thickness and copper weight that go into fab notes.",
@@ -15068,55 +15473,127 @@
             ],
             "type": "object"
           },
-          "Rules": {
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleScope": {
             "additionalProperties": false,
-            "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
             "properties": {
-              "annular_ring": {
-                "description": "Minimum annular ring of Vias and plated Pads.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "clearance": {
-                "description": "Minimum clearance between copper of different Nets.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "edge_clearance": {
-                "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "hole_to_hole": {
-                "description": "Minimum spacing between hole edges.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "track_width": {
-                "description": "Minimum Track width.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "via_diameter": {
-                "description": "Minimum Via diameter.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "via_hole": {
-                "description": "Minimum Via hole.",
-                "format": "int64",
-                "type": "integer"
+              "net_class": {
+                "description": "The Net Class whose Nets it applies to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
-            "required": [
-              "clearance",
-              "track_width",
-              "via_diameter",
-              "via_hole",
-              "annular_ring",
-              "hole_to_hole",
-              "edge_clearance"
-            ],
+            "type": "object"
+          },
+          "RuleValues": {
+            "additionalProperties": false,
+            "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
+            "properties": {
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's copper diameter."
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's drilled hole."
+              },
+              "ignore_pad_to_pad": {
+                "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "value": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "Severity": {
@@ -15890,7 +16367,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`.",
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_below_preset {rule, value, board, minimum, preset, net_class?}`, `missing_font {font}`.",
             "items": {
               "$ref": "#/$defs/Violation"
             },
@@ -19299,13 +19776,14 @@
     },
     {
       "category": "pcb",
-      "description": "Assigns each of `nets` to the Net Class `class`.",
+      "description": "Adds Nets to the Net Class `class`: the `nets` listed, or those whose names match the glob `pattern` now (`*` and `?`, ignoring case). Nets already in it are left alone. Returns the Nets that changed.",
       "icon": "net_class",
-      "id": "pcb.net.set_class",
+      "id": "pcb.net.add_to_class",
       "kind": "edit",
       "params": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
+        "description": "Which Nets to add to or remove from a class: a list, or a pattern.",
         "properties": {
           "class": {
             "description": "The Net Class's UUID.",
@@ -19313,7 +19791,38 @@
             "type": "string"
           },
           "nets": {
+            "default": null,
             "description": "The Nets' UUIDs.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "pattern": {
+            "default": null,
+            "description": "A glob over Net names, `*` for any run and `?` for one character, ignoring case. It\nmatches the Nets that exist now; nothing is stored.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "class"
+        ],
+        "title": "NetMembershipParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The Nets whose class list changed.",
+        "properties": {
+          "nets": {
             "items": {
               "format": "uuid",
               "type": "string"
@@ -19322,28 +19831,157 @@
           }
         },
         "required": [
-          "nets",
+          "nets"
+        ],
+        "title": "MembershipResult",
+        "type": "object"
+      },
+      "title": "Add Nets to Net Class"
+    },
+    {
+      "category": "pcb",
+      "description": "Removes Nets from the Net Class `class`: the `nets` listed, or those whose names match the glob `pattern` (`*` and `?`, ignoring case). Every Net stays in the Default Net Class. Returns the Nets that changed.",
+      "icon": "net_class",
+      "id": "pcb.net.remove_from_class",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Which Nets to add to or remove from a class: a list, or a pattern.",
+        "properties": {
+          "class": {
+            "description": "The Net Class's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nets": {
+            "default": null,
+            "description": "The Nets' UUIDs.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "pattern": {
+            "default": null,
+            "description": "A glob over Net names, `*` for any run and `?` for one character, ignoring case. It\nmatches the Nets that exist now; nothing is stored.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
           "class"
         ],
-        "title": "NetSetClassParams",
+        "title": "NetMembershipParams",
         "type": "object"
       },
       "presets": [],
       "result": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "null",
-        "type": "null"
+        "description": "The Nets whose class list changed.",
+        "properties": {
+          "nets": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nets"
+        ],
+        "title": "MembershipResult",
+        "type": "object"
       },
-      "title": "Set Net Class"
+      "title": "Remove Nets from Net Class"
     },
     {
       "category": "pcb",
-      "description": "Adds a Net Class called `name`, optionally overriding the board-wide `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets, and moves `nets` into it.",
+      "description": "Adds a Net Class called `name`, ranked below every other class but above the Default Net Class, with optional rule records `rules` (`{kind, values}`, as `pcb.rules.set` takes them), and adds `nets` to it.",
       "icon": "net_class_add",
       "id": "pcb.net_class.add",
       "kind": "edit",
       "params": {
         "$defs": {
+          "BoundsParam": {
+            "additionalProperties": false,
+            "description": "A range's values to change; `null` clears one.",
+            "properties": {
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "ClassRuleParam": {
+            "additionalProperties": false,
+            "description": "One rule record a new Net Class starts with.",
+            "properties": {
+              "comment": {
+                "default": null,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "enabled": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "values": {
+                "$ref": "#/$defs/ValuesParam",
+                "description": "The values it overrides, as `pcb.rules.set` takes them."
+              }
+            },
+            "required": [
+              "kind",
+              "values"
+            ],
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -19357,71 +19995,148 @@
                 "type": "string"
               }
             ]
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              }
+            ]
+          },
+          "ValuesParam": {
+            "additionalProperties": false,
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`.",
+            "properties": {
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BoundsParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BoundsParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ignore_pad_to_pad": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "clearance": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Clearance to copper of other Nets."
-          },
           "name": {
-            "description": "Unique among the board's Net Classes, ignoring case.",
+            "description": "Unique among the board's Net Classes, ignoring case, and not \"Default\".",
             "type": "string"
           },
           "nets": {
             "default": [],
-            "description": "Nets to move into the new class.",
+            "description": "Nets to add to the new class.",
             "items": {
               "format": "uuid",
               "type": "string"
             },
             "type": "array"
           },
-          "track_width": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Track width."
-          },
-          "via_diameter": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Via diameter."
-          },
-          "via_hole": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Via hole."
+          "rules": {
+            "description": "Rule records the class starts with, one per kind.",
+            "items": {
+              "$ref": "#/$defs/ClassRuleParam"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -19451,7 +20166,7 @@
     },
     {
       "category": "pcb",
-      "description": "Deletes a Net Class; its Nets move to the Default Net Class, which cannot be deleted.",
+      "description": "Deletes a Net Class: it leaves its Nets and its rule records are deleted. The Default Net Class cannot be deleted.",
       "icon": "delete",
       "id": "pcb.net_class.delete",
       "kind": "edit",
@@ -19481,7 +20196,7 @@
     },
     {
       "category": "pcb",
-      "description": "Renames a Net Class. Its Nets stay in it.",
+      "description": "Renames a Net Class. Its Nets stay in it. The Default Net Class cannot be renamed.",
       "icon": "rename",
       "id": "pcb.net_class.rename",
       "kind": "edit",
@@ -19513,100 +20228,6 @@
         "type": "null"
       },
       "title": "Rename Net Class"
-    },
-    {
-      "category": "pcb",
-      "description": "Replaces a Net Class's overrides of `clearance`, `track_width`, `via_diameter` and `via_hole`. Any left out use the board-wide rule.",
-      "icon": "net_class",
-      "id": "pcb.net_class.set_overrides",
-      "kind": "edit",
-      "params": {
-        "$defs": {
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          }
-        },
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
-        "properties": {
-          "class": {
-            "description": "The Net Class's UUID.",
-            "format": "uuid",
-            "type": "string"
-          },
-          "clearance": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Clearance to copper of other Nets."
-          },
-          "track_width": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Track width."
-          },
-          "via_diameter": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Via diameter."
-          },
-          "via_hole": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Via hole."
-          }
-        },
-        "required": [
-          "class"
-        ],
-        "title": "NetClassSetOverridesParams",
-        "type": "object"
-      },
-      "presets": [],
-      "result": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "null",
-        "type": "null"
-      },
-      "title": "Set Net Class Rules"
     },
     {
       "category": "pcb",
@@ -20041,7 +20662,7 @@
     },
     {
       "category": "pcb",
-      "description": "Re-seeds the board-wide design rules from one of the Project's Fab Preset copies, after `pcb.rules.fab_preset_diff` has shown what changes. Net Class overrides and DRC severities are kept. Returns the changes.",
+      "description": "Re-seeds the board-wide design rule records from one of the Project's Fab Preset copies, after `pcb.rules.fab_preset_diff` has shown what changes. Net Class records and DRC severities are kept. Returns the changes.",
       "icon": "rules",
       "id": "pcb.rules.apply_fab_preset",
       "kind": "edit",
@@ -20066,35 +20687,95 @@
       "result": {
         "$defs": {
           "RuleChange": {
-            "description": "One rule the preset would change.",
+            "description": "One board-wide value the preset would change.",
             "properties": {
               "board": {
                 "description": "The board's value now.",
                 "format": "int64",
                 "type": "integer"
               },
+              "field": {
+                "$ref": "#/$defs/RuleField"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
               "preset": {
                 "description": "The preset's value.",
                 "format": "int64",
                 "type": "integer"
-              },
-              "rule": {
-                "description": "The rule, as `pcb.rules.set` names it.",
-                "type": "string"
               }
             },
             "required": [
-              "rule",
+              "kind",
+              "field",
               "board",
               "preset"
             ],
             "type": "object"
+          },
+          "RuleField": {
+            "description": "One value of a rule record, by where it sits in `values`.",
+            "enum": [
+              "value",
+              "ignore_pad_to_pad",
+              "min",
+              "preferred",
+              "max",
+              "diameter_min",
+              "diameter_preferred",
+              "diameter_max",
+              "hole_min",
+              "hole_preferred",
+              "hole_max"
+            ],
+            "type": "string"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "changes": {
-            "description": "Every rule that differs, in `pcb.rules.set` order; empty when they all match.",
+            "description": "Every value that differs, in kind order; empty when they all match.",
             "items": {
               "$ref": "#/$defs/RuleChange"
             },
@@ -20111,7 +20792,7 @@
     },
     {
       "category": "pcb",
-      "description": "Lists the board-wide design rules that applying one of the Project's Fab Preset copies would change, with the board's and the preset's values. `pcb.rules.apply_fab_preset` applies them.",
+      "description": "Lists the board-wide design rule values that applying one of the Project's Fab Preset copies would change, with the board's and the preset's values. `pcb.rules.apply_fab_preset` applies them.",
       "icon": "rules",
       "id": "pcb.rules.fab_preset_diff",
       "kind": "query",
@@ -20136,35 +20817,95 @@
       "result": {
         "$defs": {
           "RuleChange": {
-            "description": "One rule the preset would change.",
+            "description": "One board-wide value the preset would change.",
             "properties": {
               "board": {
                 "description": "The board's value now.",
                 "format": "int64",
                 "type": "integer"
               },
+              "field": {
+                "$ref": "#/$defs/RuleField"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
               "preset": {
                 "description": "The preset's value.",
                 "format": "int64",
                 "type": "integer"
-              },
-              "rule": {
-                "description": "The rule, as `pcb.rules.set` names it.",
-                "type": "string"
               }
             },
             "required": [
-              "rule",
+              "kind",
+              "field",
               "board",
               "preset"
             ],
             "type": "object"
+          },
+          "RuleField": {
+            "description": "One value of a rule record, by where it sits in `values`.",
+            "enum": [
+              "value",
+              "ignore_pad_to_pad",
+              "min",
+              "preferred",
+              "max",
+              "diameter_min",
+              "diameter_preferred",
+              "diameter_max",
+              "hole_min",
+              "hole_preferred",
+              "hole_max"
+            ],
+            "type": "string"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "changes": {
-            "description": "Every rule that differs, in `pcb.rules.set` order; empty when they all match.",
+            "description": "Every value that differs, in kind order; empty when they all match.",
             "items": {
               "$ref": "#/$defs/RuleChange"
             },
@@ -20181,12 +20922,52 @@
     },
     {
       "category": "pcb",
-      "description": "Sets board-wide design rules: any of `clearance`, `track_width`, `via_diameter`, `via_hole`, `annular_ring`, `hole_to_hole` and `edge_clearance`. Rules left out keep their values. Returns the rules.",
+      "description": "Sets values of one design rule record: the board-wide record of `kind`, or with `scope: {net_class}` that Net Class's, created when missing. Values left out keep theirs, and `null` clears one; a Net Class record with nothing left is deleted. Nothing is filled in, and a negative value, `min` above `max` or `preferred` outside the range is refused. Returns the record, or `null` once deleted.",
       "icon": "rules",
       "id": "pcb.rules.set",
       "kind": "edit",
       "params": {
         "$defs": {
+          "BoundsParam": {
+            "additionalProperties": false,
+            "description": "A range's values to change; `null` clears one.",
+            "properties": {
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -20200,155 +20981,394 @@
                 "type": "string"
               }
             ]
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleScope": {
+            "additionalProperties": false,
+            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
+            "properties": {
+              "net_class": {
+                "description": "The Net Class whose Nets it applies to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "ValuesParam": {
+            "additionalProperties": false,
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`.",
+            "properties": {
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BoundsParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BoundsParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ignore_pad_to_pad": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "The rules to change; the others keep their values.",
         "properties": {
-          "annular_ring": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
+          "comment": {
             "default": null,
-            "description": "Minimum annular ring."
+            "description": "A note for the user; `null` clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "clearance": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
+          "enabled": {
             "default": null,
-            "description": "Minimum clearance between copper of different Nets."
+            "description": "Whether the record counts.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
-          "edge_clearance": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Minimum clearance from copper to the board edge."
+          "kind": {
+            "$ref": "#/$defs/RuleKind"
           },
-          "hole_to_hole": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Minimum spacing between hole edges."
+          "scope": {
+            "$ref": "#/$defs/RuleScope",
+            "default": {},
+            "description": "Left out, the board-wide record; `{net_class}` names a Net Class's."
           },
-          "track_width": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Minimum Track width."
-          },
-          "via_diameter": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Minimum Via diameter."
-          },
-          "via_hole": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Minimum Via hole."
+          "values": {
+            "$ref": "#/$defs/ValuesParam"
           }
         },
+        "required": [
+          "kind"
+        ],
         "title": "RulesSetParams",
         "type": "object"
       },
       "presets": [],
       "result": {
+        "$defs": {
+          "Bounds": {
+            "additionalProperties": false,
+            "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "DesignRule": {
+            "additionalProperties": false,
+            "description": "One design rule record: the values it sets for one kind, within one scope.",
+            "properties": {
+              "comment": {
+                "description": "A note for the user.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "enabled": {
+                "description": "Whether the record counts; left out when it does. A disabled board-wide limit is\nabsent, but its preferred values still supply routing defaults.",
+                "type": "boolean"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "scope": {
+                "$ref": "#/$defs/RuleScope"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "values": {
+                "$ref": "#/$defs/RuleValues"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "scope",
+              "values"
+            ],
+            "type": "object"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleScope": {
+            "additionalProperties": false,
+            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
+            "properties": {
+              "net_class": {
+                "description": "The Net Class whose Nets it applies to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "RuleValues": {
+            "additionalProperties": false,
+            "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
+            "properties": {
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's copper diameter."
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's drilled hole."
+              },
+              "ignore_pad_to_pad": {
+                "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "value": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
-        "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+        "description": "One rule record as a Command result: the record, or `null` once deleted.",
         "properties": {
-          "annular_ring": {
-            "description": "Minimum annular ring of Vias and plated Pads.",
-            "format": "int64",
-            "type": "integer"
-          },
-          "clearance": {
-            "description": "Minimum clearance between copper of different Nets.",
-            "format": "int64",
-            "type": "integer"
-          },
-          "edge_clearance": {
-            "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
-            "format": "int64",
-            "type": "integer"
-          },
-          "hole_to_hole": {
-            "description": "Minimum spacing between hole edges.",
-            "format": "int64",
-            "type": "integer"
-          },
-          "track_width": {
-            "description": "Minimum Track width.",
-            "format": "int64",
-            "type": "integer"
-          },
-          "via_diameter": {
-            "description": "Minimum Via diameter.",
-            "format": "int64",
-            "type": "integer"
-          },
-          "via_hole": {
-            "description": "Minimum Via hole.",
-            "format": "int64",
-            "type": "integer"
+          "rule": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DesignRule"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
-          "clearance",
-          "track_width",
-          "via_diameter",
-          "via_hole",
-          "annular_ring",
-          "hole_to_hole",
-          "edge_clearance"
+          "rule"
         ],
-        "title": "Rules",
+        "title": "RuleResult",
         "type": "object"
       },
-      "title": "Set Design Rules"
+      "title": "Set Design Rule"
     },
     {
       "category": "pcb",
