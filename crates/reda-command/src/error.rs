@@ -97,7 +97,9 @@ impl From<TxError> for CommandError {
     fn from(err: TxError) -> CommandError {
         let code = match err {
             TxError::NotFound(_) => ErrorCode::NotFound,
-            TxError::Conflict(_) | TxError::Stale(_) => ErrorCode::Conflict,
+            TxError::Conflict(_) | TxError::Stale(_) | TxError::Elsewhere { .. } => {
+                ErrorCode::Conflict
+            }
             TxError::Invalid(_) => ErrorCode::Rejected,
         };
         CommandError::new(code, err.to_string())
