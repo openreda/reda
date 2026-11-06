@@ -15,47 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::pcb::InDocument;
 use crate::{ComponentType, Fields, Footprint, Object, Part, Symbol, Uuid, Waiver};
 
-/// A sheet's paper size. Sheets are landscape.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum SheetSize {
-    #[default]
-    A4,
-    A3,
-    A2,
-    A1,
-    A0,
-    Letter,
-    Legal,
-    Tabloid,
-}
+mod frame;
 
-impl SheetSize {
-    /// The landscape width and height.
-    pub const fn dimensions(self) -> (Nm, Nm) {
-        const MM: i64 = 1_000_000;
-        const IN: i64 = 25_400_000;
-        let (w, h) = match self {
-            SheetSize::A4 => (297 * MM, 210 * MM),
-            SheetSize::A3 => (420 * MM, 297 * MM),
-            SheetSize::A2 => (594 * MM, 420 * MM),
-            SheetSize::A1 => (841 * MM, 594 * MM),
-            SheetSize::A0 => (1189 * MM, 841 * MM),
-            SheetSize::Letter => (11 * IN, IN * 17 / 2),
-            SheetSize::Legal => (14 * IN, IN * 17 / 2),
-            SheetSize::Tabloid => (17 * IN, 11 * IN),
-        };
-        (Nm(w), Nm(h))
-    }
-}
-
-/// A sheet's frame settings. A sheet has at most one; with none it uses the defaults.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SheetFrame {
-    pub uuid: Uuid,
-    pub size: SheetSize,
-}
+pub use frame::{BorderZones, FrameSize, Orientation, SheetFrame, SheetSize};
 
 /// One entry of a sheet's part table: a literal copy of a Library Part with its Symbol,
 /// placed once per sheet and shared by every Unit placed from it. It is keyed by the
@@ -332,6 +294,9 @@ pub struct Port {
     pub at: Point,
     /// Counter-clockwise; only how the Port is drawn.
     pub rotation: Millideg,
+    /// Hides the Port's cross-reference note, when the Project shows them.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub hide_cross_reference: bool,
 }
 
 /// The fixed, built-in look of a Power Port.
@@ -364,6 +329,9 @@ pub struct PowerPort {
     pub at: Point,
     /// Counter-clockwise; only how the symbol is drawn.
     pub rotation: Millideg,
+    /// Draws the symbol without its name. The name still joins the Net.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub hide_name: bool,
 }
 
 /// Free text drawn on a sheet. It has no electrical meaning.
@@ -373,12 +341,67 @@ pub struct SheetText {
     pub uuid: Uuid,
     /// The text; `\n` starts a new line.
     pub text: String,
-    /// The left end of the first baseline.
+    /// The anchor point, which [`SheetText::justify`] places on the text block.
     pub at: Point,
     /// The capital height.
     pub height: Nm,
     /// Counter-clockwise about `at`.
     pub rotation: Millideg,
+    /// Which of the block's nine points sits on `at`; `bottom_left` by default.
+    #[serde(default, skip_serializing_if = "Justify::is_default")]
+    pub justify: Justify,
+}
+
+/// One of the nine anchor points of a text block: its corners, the middles of its sides
+/// and its centre. Top is the first line's capital height, bottom the last line's
+/// baseline, and middle halfway between them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Justify {
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    Center,
+    Right,
+    #[default]
+    BottomLeft,
+    Bottom,
+    BottomRight,
+}
+
+/// Where along one axis of a text block a [`Justify`] point sits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum JustifyAxis {
+    Start,
+    Middle,
+    End,
+}
+
+impl Justify {
+    fn is_default(&self) -> bool {
+        *self == Justify::default()
+    }
+
+    /// Across, from left (`Start`) to right (`End`).
+    pub fn horizontal(self) -> JustifyAxis {
+        use Justify::*;
+        match self {
+            TopLeft | Left | BottomLeft => JustifyAxis::Start,
+            Top | Center | Bottom => JustifyAxis::Middle,
+            TopRight | Right | BottomRight => JustifyAxis::End,
+        }
+    }
+
+    /// Up the block, from the bottom (`Start`) to the top (`End`).
+    pub fn vertical(self) -> JustifyAxis {
+        use Justify::*;
+        match self {
+            BottomLeft | Bottom | BottomRight => JustifyAxis::Start,
+            Left | Center | Right => JustifyAxis::Middle,
+            TopLeft | Top | TopRight => JustifyAxis::End,
+        }
+    }
 }
 
 /// A free line or rectangle drawn on a sheet. It has no electrical meaning.
@@ -489,9 +512,21 @@ impl SchematicSheet {
         self.frames.values().next()
     }
 
-    /// The sheet's paper size.
-    pub fn size(&self) -> SheetSize {
-        self.frame().map(|f| f.size).unwrap_or_default()
+    /// The sheet's frame settings: its own, or the defaults for a sheet with none.
+    pub fn frame_settings(&self) -> SheetFrame {
+        self.frame()
+            .cloned()
+            .unwrap_or_else(|| SheetFrame::defaults(self.uuid))
+    }
+
+    /// The paper's width and height as drawn.
+    pub fn dimensions(&self) -> (Nm, Nm) {
+        self.frame_settings().dimensions()
+    }
+
+    /// The sheet's Border Zones, unless its frame switches them off.
+    pub fn zones(&self) -> Option<BorderZones> {
+        self.frame_settings().zones()
     }
 
     /// The part table, sorted by entry UUID.
@@ -700,6 +735,12 @@ impl SchematicSheet {
         let sheet = self.uuid;
         if self.frames.len() > 1 {
             return Err(format!("sheet {sheet} has more than one frame"));
+        }
+        if let Some(frame) = self.frame() {
+            let (_, short) = frame.size.sides();
+            if short <= Nm::ZERO {
+                return Err(format!("sheet {sheet} has a paper size without area"));
+            }
         }
         let mut keys = BTreeSet::new();
         for copy in self.footprints.values() {

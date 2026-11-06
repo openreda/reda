@@ -4,6 +4,7 @@
 
 mod component;
 pub mod connectivity;
+pub mod cross_ref;
 mod edit;
 pub mod erc;
 mod fields;
@@ -15,6 +16,7 @@ mod options;
 mod pins;
 mod ports;
 mod properties;
+mod route;
 mod sheet;
 mod similar;
 mod unit_cycle;
@@ -49,13 +51,18 @@ pub use normalise::{DEFAULT_SNAP_GRID, WIRING_COMMANDS, Wiring};
 pub use options::{OptionsSet, OptionsSetParams};
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use ports::{
-    PortAdd, PortAddParams, PortAddResult, PowerPortAdd, PowerPortAddParams, PowerPortAddResult,
-    ProjectNets, ProjectNetsResult, default_power_port_style,
+    POWER_PORT_PRESETS, PortAdd, PortAddParams, PortAddResult, PortSet, PortSetParams,
+    PowerPortAdd, PowerPortAddParams, PowerPortAddResult, PowerPortSet, PowerPortSetParams,
+    ProjectNets, ProjectNetsResult, SetResult, default_power_port_style,
 };
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
+pub use route::{
+    Avoid, Obstacles, Options, Route, RouteError, WireRoute, WireRouteParams, WireRouteResult,
+    route,
+};
 pub use sheet::{
-    SheetFrameView, SheetRef, SheetSetSize, SheetSetSizeParams, SheetTitleBlock, TitleBlock,
-    title_block,
+    FrameSizeParam, SheetFrameView, SheetRef, SheetSetFrame, SheetSetFrameParams, SheetTitleBlock,
+    TitleBlock, ZoneCounts, title_block,
 };
 pub use similar::{
     SelectSimilar, SelectSimilarParams, SelectSimilarResult, SimilarField, SimilarScope,
@@ -84,9 +91,10 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(UpdatePreview);
     registry.add(UpdateFromLibrary);
     registry.add(LibraryElement);
-    registry.add(SheetSetSize);
+    registry.add(SheetSetFrame);
     registry.add(SheetTitleBlock);
     registry.add(WireAdd);
+    registry.add(WireRoute);
     registry.add(WireBreak);
     registry.add(ConvertCross);
     registry.add(NetLabelAdd);
@@ -97,7 +105,9 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(NoConnectAdd);
     registry.add(SchematicNets);
     registry.add(PortAdd);
+    registry.add(PortSet);
     registry.add(PowerPortAdd);
+    registry.add(PowerPortSet);
     registry.add(ProjectNets);
     registry.add(OptionsSet);
     registry.add(Delete);

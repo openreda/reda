@@ -3,7 +3,7 @@
 //! breaking Wires and converting cross-junctions, and free text and graphics.
 
 mod arrange;
-mod bounds;
+pub(crate) mod bounds;
 mod clipboard;
 mod delete;
 mod graphics;

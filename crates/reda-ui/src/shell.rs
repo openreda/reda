@@ -42,7 +42,7 @@ use crate::recovery::{self, Recorder};
 use crate::schematic_editor::{Interaction, Turn};
 use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
-use crate::tools::{self, ActiveTool, Tool};
+use crate::tools::{self, ActiveTool, PowerPortName, Tool};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
@@ -234,6 +234,7 @@ impl Shell {
         engine.view_mut().set(Selection::default());
         engine.view_mut().set(Highlight::default());
         engine.view_mut().set(ActiveTool::default());
+        engine.view_mut().set(PowerPortName::default());
         engine
             .view_mut()
             .set(crate::placement::Placement::default());

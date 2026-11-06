@@ -50,7 +50,7 @@ fn a_bigger_sheet_draws_a_bigger_frame() {
     let dir = TempDir::new("render-a3");
     let mut engine = demo(&dir);
     engine.run_ok(
-        "schematic.sheet.set_size",
+        "schematic.sheet.set_frame",
         json!({"document": SHEET, "size": "a3"}),
     );
     let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
@@ -228,6 +228,121 @@ fn ports_and_power_ports_are_drawn_in_every_direction_and_style() {
     );
     let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
     assert_golden(golden("ports.scene"), scene.to_text().as_bytes());
+}
+
+#[test]
+fn free_text_sits_on_its_justification_point() {
+    let dir = TempDir::new("render-justify");
+    let mut engine = demo(&dir);
+    let mut text = |justify: &str, rotation: &str| -> Uuid {
+        let out = engine.run_ok(
+            "schematic.text.add",
+            json!({"document": SHEET, "text": "First\nSecond\nThird", "at": at(3000, 3000),
+                   "height": "100mil", "justify": justify, "rotation": rotation}),
+        );
+        out["result"]["text"].as_str().unwrap().parse().unwrap()
+    };
+    let top_right = text("top_right", "0deg");
+    let bottom_left = text("bottom_left", "0deg");
+    let center = text("center", "0deg");
+    // Upside down it reads the right way up, and still hangs from the same corner.
+    let turned = text("top_right", "180deg");
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    let bounds = |uuid: Uuid| {
+        scene
+            .items_of(uuid)
+            .next()
+            .unwrap()
+            .primitive
+            .bounds()
+            .unwrap()
+    };
+    let a = Point::new(3000.mil(), 3000.mil());
+    let slack = 30.mil().0;
+
+    let (lo, hi) = bounds(top_right);
+    assert!(
+        hi.x.0 <= a.x.0 + slack && hi.y.0 <= a.y.0 + slack,
+        "{lo:?} {hi:?}"
+    );
+    assert!(lo.x < a.x && lo.y.0 < a.y.0 - 300.mil().0, "{lo:?} {hi:?}");
+
+    // The block's bottom is the last line's baseline, so the lines stack above it.
+    let (lo, hi) = bounds(bottom_left);
+    assert!(
+        lo.x.0 >= a.x.0 - slack && lo.y.0 >= a.y.0 - slack,
+        "{lo:?} {hi:?}"
+    );
+    assert!(hi.y.0 > a.y.0 + 300.mil().0, "{lo:?} {hi:?}");
+
+    let (lo, hi) = bounds(center);
+    let mid = |l: Nm, h: Nm| (l.0 + h.0) / 2;
+    assert!((mid(lo.x, hi.x) - a.x.0).abs() <= slack, "{lo:?} {hi:?}");
+    assert!((mid(lo.y, hi.y) - a.y.0).abs() <= slack, "{lo:?} {hi:?}");
+
+    let (lo, hi) = bounds(turned);
+    assert!(
+        lo.x.0 >= a.x.0 - slack && lo.y.0 >= a.y.0 - slack,
+        "{lo:?} {hi:?}"
+    );
+}
+
+#[test]
+fn a_ports_flag_reaches_away_from_its_wire() {
+    let dir = TempDir::new("render-port-side");
+    let mut engine = demo(&dir);
+    // Both Ports point along +x; the first one's Wire leaves along +x too.
+    engine.run_ok(
+        "schematic.wire.add",
+        json!({"document": SHEET, "points": [at(1000, 1000), at(2000, 1000)]}),
+    );
+    let mut flag = |x: i64, y: i64| -> Uuid {
+        let out = engine.run_ok(
+            "schematic.port.add",
+            json!({"document": SHEET, "name": "EN", "at": at(x, y), "direction": "out"}),
+        );
+        out["result"]["port"].as_str().unwrap().parse().unwrap()
+    };
+    let (wired, free) = (flag(1000, 1000), flag(1000, 3000));
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    let reach = |port: Uuid| {
+        let (mut lo, mut hi) = (i64::MAX, i64::MIN);
+        for item in scene.items_of(port) {
+            let (a, b) = item.primitive.bounds().unwrap();
+            lo = lo.min(a.x.0);
+            hi = hi.max(b.x.0);
+        }
+        (lo, hi)
+    };
+    let x = 1000.mil().0;
+    let (lo, hi) = reach(wired);
+    assert!(hi <= x + 100_000 && lo < x - 1_000_000, "{lo} {hi}");
+    let (lo, hi) = reach(free);
+    assert!(lo >= x - 100_000 && hi > x + 1_000_000, "{lo} {hi}");
+}
+
+#[test]
+fn a_power_port_with_a_hidden_name_draws_only_its_symbol() {
+    let dir = TempDir::new("render-hidden-name");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": "GND", "at": at(1000, 1000), "hide_name": true}),
+    );
+    let port: Uuid = out["result"]["power_port"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    let items: Vec<_> = scene.items_of(port).collect();
+    assert!(!items.is_empty());
+    assert!(
+        items
+            .iter()
+            .all(|i| !matches!(i.primitive, Primitive::Glyphs(_))),
+        "{items:?}"
+    );
 }
 
 #[test]

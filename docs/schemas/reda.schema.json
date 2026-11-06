@@ -86,6 +86,23 @@
         }
       ]
     },
+    "CrossReferenceStyles": {
+      "additionalProperties": false,
+      "description": "How a Port cross-reference names its partners' places: by sheet, then by location on\nthat sheet.",
+      "properties": {
+        "location": {
+          "$ref": "#/$defs/LocationStyle",
+          "default": "zone",
+          "description": "Location Style: `zone` by default."
+        },
+        "sheet": {
+          "$ref": "#/$defs/SheetStyle",
+          "default": "number",
+          "description": "Sheet Style: `number` by default."
+        }
+      },
+      "type": "object"
+    },
     "DocumentRow": {
       "additionalProperties": false,
       "properties": {
@@ -225,6 +242,26 @@
         "naming"
       ],
       "type": "object"
+    },
+    "LocationStyle": {
+      "description": "How a cross-reference names where on its sheet a partner is.",
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "Not at all.",
+          "type": "string"
+        },
+        {
+          "const": "zone",
+          "description": "By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.",
+          "type": "string"
+        },
+        {
+          "const": "xy",
+          "description": "By its X,Y position on the sheet, in millimetres.",
+          "type": "string"
+        }
+      ]
     },
     "OutputJob": {
       "additionalProperties": false,
@@ -444,7 +481,7 @@
     },
     "SchematicOptions": {
       "additionalProperties": false,
-      "description": "The Project's schematic options: how Nets are named.",
+      "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
       "properties": {
         "allow_ports_to_name_nets": {
           "default": true,
@@ -454,6 +491,24 @@
         "append_sheet_numbers": {
           "default": false,
           "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
+          "type": "boolean"
+        },
+        "cross_reference_styles": {
+          "$ref": "#/$defs/CrossReferenceStyles",
+          "default": {
+            "location": "zone",
+            "sheet": "number"
+          },
+          "description": "The Project's cross-reference styles, unless it follows the Preferences."
+        },
+        "cross_references": {
+          "default": false,
+          "description": "Automatic Cross References: each Port shows where its partners are, such as\n`[2:B3]`. Off by default, so a Project opts in.",
+          "type": "boolean"
+        },
+        "cross_references_follow_preferences": {
+          "default": false,
+          "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
           "type": "boolean"
         },
         "power_port_names_priority": {
@@ -472,6 +527,26 @@
         "off"
       ],
       "type": "string"
+    },
+    "SheetStyle": {
+      "description": "How a cross-reference names a partner's sheet.",
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "Not at all.",
+          "type": "string"
+        },
+        {
+          "const": "name",
+          "description": "By the sheet's title, as in the Projects panel.",
+          "type": "string"
+        },
+        {
+          "const": "number",
+          "description": "By its number in the Projects panel, from 1.",
+          "type": "string"
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -556,6 +631,12 @@
       "default": {
         "allow_ports_to_name_nets": true,
         "append_sheet_numbers": false,
+        "cross_reference_styles": {
+          "location": "zone",
+          "sheet": "number"
+        },
+        "cross_references": false,
+        "cross_references_follow_preferences": false,
         "power_port_names_priority": false
       },
       "description": "The schematic options: how Nets are named. Written only when any differs from its\ndefault; an option left out has its default."

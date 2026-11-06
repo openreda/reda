@@ -9793,6 +9793,27 @@
             ],
             "type": "string"
           },
+          "CrossReferenceStyles": {
+            "additionalProperties": false,
+            "description": "How a Port cross-reference names its partners' places: by sheet, then by location on\nthat sheet.",
+            "properties": {
+              "location": {
+                "$ref": "#/$defs/LocationStyle",
+                "default": "zone",
+                "description": "Location Style: `zone` by default."
+              },
+              "sheet": {
+                "$ref": "#/$defs/SheetStyle",
+                "default": "number",
+                "description": "Sheet Style: `number` by default."
+              }
+            },
+            "required": [
+              "sheet",
+              "location"
+            ],
+            "type": "object"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -10252,6 +10273,34 @@
             ],
             "type": "object"
           },
+          "FrameSize": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SheetSize"
+              },
+              {
+                "description": "Two positive lengths. Which side runs across follows the [`Orientation`], so\n`{\"width\": 200 mm, \"height\": 300 mm}` landscape is 300 mm wide.",
+                "properties": {
+                  "height": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "width": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "A sheet's paper: a standard size, written as its name (`\"a4\"`), or a custom one,\nwritten as `{\"width\": …, \"height\": …}`."
+          },
           "GerberSettings": {
             "additionalProperties": false,
             "description": "The Gerber and drill switches of a Fab Preset.",
@@ -10609,6 +10658,10 @@
               "direction": {
                 "$ref": "#/$defs/PortDirection"
               },
+              "hide_cross_reference": {
+                "description": "Hides the Port's cross-reference note, when the Project shows them.",
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -10637,6 +10690,10 @@
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The connection point."
+              },
+              "hide_name": {
+                "description": "Draws the symbol without its name. The name still joins the Net.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -10668,12 +10725,16 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The left end of the first baseline."
+                "description": "The anchor point, which [`SheetText::justify`] places on the text block."
               },
               "height": {
                 "description": "The capital height.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/Justify",
+                "description": "Which of the block's nine points sits on `at`; `bottom_left` by default."
               },
               "rotation": {
                 "description": "Counter-clockwise about `at`.",
@@ -11406,8 +11467,28 @@
           "InDocument7": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "border_zones": {
+                "description": "The Border Zones along the frame, on by default. Their counts are derived from the\npaper ([`BorderZones::for_paper`]), never stored.",
+                "type": "boolean"
+              },
+              "drawing_number": {
+                "description": "The sheet's drawing number; empty by default.",
+                "type": "string"
+              },
+              "orientation": {
+                "$ref": "#/$defs/Orientation",
+                "description": "Landscape unless stated."
+              },
+              "revision": {
+                "description": "The sheet's own revision. Empty, the title block shows the Project's.",
+                "type": "string"
+              },
               "size": {
-                "$ref": "#/$defs/SheetSize"
+                "$ref": "#/$defs/FrameSize"
+              },
+              "title_block": {
+                "description": "The built-in title block, on by default.",
+                "type": "boolean"
               },
               "uuid": {
                 "format": "uuid",
@@ -11488,6 +11569,21 @@
               }
             ]
           },
+          "Justify": {
+            "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+            "enum": [
+              "top_left",
+              "top",
+              "top_right",
+              "left",
+              "center",
+              "right",
+              "bottom_left",
+              "bottom",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
           "Layer": {
             "additionalProperties": false,
             "description": "One Layer. Objects name their Layer by UUID, never by position.",
@@ -11550,6 +11646,26 @@
               "to"
             ],
             "type": "object"
+          },
+          "LocationStyle": {
+            "description": "How a cross-reference names where on its sheet a partner is.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "zone",
+                "description": "By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.",
+                "type": "string"
+              },
+              {
+                "const": "xy",
+                "description": "By its X,Y position on the sheet, in millimetres.",
+                "type": "string"
+              }
+            ]
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -11614,6 +11730,12 @@
                     "default": {
                       "allow_ports_to_name_nets": true,
                       "append_sheet_numbers": false,
+                      "cross_reference_styles": {
+                        "location": "zone",
+                        "sheet": "number"
+                      },
+                      "cross_references": false,
+                      "cross_references_follow_preferences": false,
                       "power_port_names_priority": false
                     },
                     "description": "The schematic options."
@@ -12338,6 +12460,21 @@
               }
             ]
           },
+          "Orientation": {
+            "description": "Which way up a sheet's paper is.",
+            "oneOf": [
+              {
+                "const": "landscape",
+                "description": "The longer side runs across.",
+                "type": "string"
+              },
+              {
+                "const": "portrait",
+                "description": "The longer side runs up.",
+                "type": "string"
+              }
+            ]
+          },
           "Outputs": {
             "additionalProperties": false,
             "description": "Which files an Output Job writes.",
@@ -12991,7 +13128,7 @@
           },
           "SchematicOptions": {
             "additionalProperties": false,
-            "description": "The Project's schematic options: how Nets are named.",
+            "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
             "properties": {
               "allow_ports_to_name_nets": {
                 "default": true,
@@ -13003,6 +13140,24 @@
                 "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
                 "type": "boolean"
               },
+              "cross_reference_styles": {
+                "$ref": "#/$defs/CrossReferenceStyles",
+                "default": {
+                  "location": "zone",
+                  "sheet": "number"
+                },
+                "description": "The Project's cross-reference styles, unless it follows the Preferences."
+              },
+              "cross_references": {
+                "default": false,
+                "description": "Automatic Cross References: each Port shows where its partners are, such as\n`[2:B3]`. Off by default, so a Project opts in.",
+                "type": "boolean"
+              },
+              "cross_references_follow_preferences": {
+                "default": false,
+                "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
+                "type": "boolean"
+              },
               "power_port_names_priority": {
                 "default": false,
                 "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
@@ -13012,7 +13167,10 @@
             "required": [
               "power_port_names_priority",
               "allow_ports_to_name_nets",
-              "append_sheet_numbers"
+              "append_sheet_numbers",
+              "cross_references",
+              "cross_reference_styles",
+              "cross_references_follow_preferences"
             ],
             "type": "object"
           },
@@ -13232,7 +13390,7 @@
             ]
           },
           "SheetSize": {
-            "description": "A sheet's paper size. Sheets are landscape.",
+            "description": "A standard paper size. Its dimensions are given landscape; [`Orientation`] turns it.",
             "enum": [
               "a4",
               "a3",
@@ -13244,6 +13402,26 @@
               "tabloid"
             ],
             "type": "string"
+          },
+          "SheetStyle": {
+            "description": "How a cross-reference names a partner's sheet.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "name",
+                "description": "By the sheet's title, as in the Projects panel.",
+                "type": "string"
+              },
+              {
+                "const": "number",
+                "description": "By its number in the Projects panel, from 1.",
+                "type": "string"
+              }
+            ]
           },
           "Side": {
             "description": "Which face of the board a sided Layer is on.",
@@ -13932,6 +14110,27 @@
             ],
             "type": "string"
           },
+          "CrossReferenceStyles": {
+            "additionalProperties": false,
+            "description": "How a Port cross-reference names its partners' places: by sheet, then by location on\nthat sheet.",
+            "properties": {
+              "location": {
+                "$ref": "#/$defs/LocationStyle",
+                "default": "zone",
+                "description": "Location Style: `zone` by default."
+              },
+              "sheet": {
+                "$ref": "#/$defs/SheetStyle",
+                "default": "number",
+                "description": "Sheet Style: `number` by default."
+              }
+            },
+            "required": [
+              "sheet",
+              "location"
+            ],
+            "type": "object"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -14391,6 +14590,34 @@
             ],
             "type": "object"
           },
+          "FrameSize": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SheetSize"
+              },
+              {
+                "description": "Two positive lengths. Which side runs across follows the [`Orientation`], so\n`{\"width\": 200 mm, \"height\": 300 mm}` landscape is 300 mm wide.",
+                "properties": {
+                  "height": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "width": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "A sheet's paper: a standard size, written as its name (`\"a4\"`), or a custom one,\nwritten as `{\"width\": …, \"height\": …}`."
+          },
           "GerberSettings": {
             "additionalProperties": false,
             "description": "The Gerber and drill switches of a Fab Preset.",
@@ -14748,6 +14975,10 @@
               "direction": {
                 "$ref": "#/$defs/PortDirection"
               },
+              "hide_cross_reference": {
+                "description": "Hides the Port's cross-reference note, when the Project shows them.",
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -14776,6 +15007,10 @@
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The connection point."
+              },
+              "hide_name": {
+                "description": "Draws the symbol without its name. The name still joins the Net.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -14807,12 +15042,16 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The left end of the first baseline."
+                "description": "The anchor point, which [`SheetText::justify`] places on the text block."
               },
               "height": {
                 "description": "The capital height.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/Justify",
+                "description": "Which of the block's nine points sits on `at`; `bottom_left` by default."
               },
               "rotation": {
                 "description": "Counter-clockwise about `at`.",
@@ -15545,8 +15784,28 @@
           "InDocument7": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "border_zones": {
+                "description": "The Border Zones along the frame, on by default. Their counts are derived from the\npaper ([`BorderZones::for_paper`]), never stored.",
+                "type": "boolean"
+              },
+              "drawing_number": {
+                "description": "The sheet's drawing number; empty by default.",
+                "type": "string"
+              },
+              "orientation": {
+                "$ref": "#/$defs/Orientation",
+                "description": "Landscape unless stated."
+              },
+              "revision": {
+                "description": "The sheet's own revision. Empty, the title block shows the Project's.",
+                "type": "string"
+              },
               "size": {
-                "$ref": "#/$defs/SheetSize"
+                "$ref": "#/$defs/FrameSize"
+              },
+              "title_block": {
+                "description": "The built-in title block, on by default.",
+                "type": "boolean"
               },
               "uuid": {
                 "format": "uuid",
@@ -15627,6 +15886,21 @@
               }
             ]
           },
+          "Justify": {
+            "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+            "enum": [
+              "top_left",
+              "top",
+              "top_right",
+              "left",
+              "center",
+              "right",
+              "bottom_left",
+              "bottom",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
           "Layer": {
             "additionalProperties": false,
             "description": "One Layer. Objects name their Layer by UUID, never by position.",
@@ -15689,6 +15963,26 @@
               "to"
             ],
             "type": "object"
+          },
+          "LocationStyle": {
+            "description": "How a cross-reference names where on its sheet a partner is.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "zone",
+                "description": "By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.",
+                "type": "string"
+              },
+              {
+                "const": "xy",
+                "description": "By its X,Y position on the sheet, in millimetres.",
+                "type": "string"
+              }
+            ]
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -15753,6 +16047,12 @@
                     "default": {
                       "allow_ports_to_name_nets": true,
                       "append_sheet_numbers": false,
+                      "cross_reference_styles": {
+                        "location": "zone",
+                        "sheet": "number"
+                      },
+                      "cross_references": false,
+                      "cross_references_follow_preferences": false,
                       "power_port_names_priority": false
                     },
                     "description": "The schematic options."
@@ -16498,6 +16798,21 @@
             ],
             "type": "object"
           },
+          "Orientation": {
+            "description": "Which way up a sheet's paper is.",
+            "oneOf": [
+              {
+                "const": "landscape",
+                "description": "The longer side runs across.",
+                "type": "string"
+              },
+              {
+                "const": "portrait",
+                "description": "The longer side runs up.",
+                "type": "string"
+              }
+            ]
+          },
           "Outputs": {
             "additionalProperties": false,
             "description": "Which files an Output Job writes.",
@@ -17151,7 +17466,7 @@
           },
           "SchematicOptions": {
             "additionalProperties": false,
-            "description": "The Project's schematic options: how Nets are named.",
+            "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
             "properties": {
               "allow_ports_to_name_nets": {
                 "default": true,
@@ -17163,6 +17478,24 @@
                 "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
                 "type": "boolean"
               },
+              "cross_reference_styles": {
+                "$ref": "#/$defs/CrossReferenceStyles",
+                "default": {
+                  "location": "zone",
+                  "sheet": "number"
+                },
+                "description": "The Project's cross-reference styles, unless it follows the Preferences."
+              },
+              "cross_references": {
+                "default": false,
+                "description": "Automatic Cross References: each Port shows where its partners are, such as\n`[2:B3]`. Off by default, so a Project opts in.",
+                "type": "boolean"
+              },
+              "cross_references_follow_preferences": {
+                "default": false,
+                "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
+                "type": "boolean"
+              },
               "power_port_names_priority": {
                 "default": false,
                 "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
@@ -17172,7 +17505,10 @@
             "required": [
               "power_port_names_priority",
               "allow_ports_to_name_nets",
-              "append_sheet_numbers"
+              "append_sheet_numbers",
+              "cross_references",
+              "cross_reference_styles",
+              "cross_references_follow_preferences"
             ],
             "type": "object"
           },
@@ -17392,7 +17728,7 @@
             ]
           },
           "SheetSize": {
-            "description": "A sheet's paper size. Sheets are landscape.",
+            "description": "A standard paper size. Its dimensions are given landscape; [`Orientation`] turns it.",
             "enum": [
               "a4",
               "a3",
@@ -17404,6 +17740,26 @@
               "tabloid"
             ],
             "type": "string"
+          },
+          "SheetStyle": {
+            "description": "How a cross-reference names a partner's sheet.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "name",
+                "description": "By the sheet's title, as in the Projects panel.",
+                "type": "string"
+              },
+              {
+                "const": "number",
+                "description": "By its number in the Projects panel, from 1.",
+                "type": "string"
+              }
+            ]
           },
           "Side": {
             "description": "Which face of the board a sided Layer is on.",
@@ -27037,6 +27393,21 @@
               }
             ]
           },
+          "Justify": {
+            "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+            "enum": [
+              "top_left",
+              "top",
+              "top_right",
+              "left",
+              "center",
+              "right",
+              "bottom_left",
+              "bottom",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
           "NetLabel": {
             "additionalProperties": false,
             "description": "A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the\nsame name on its sheet.",
@@ -27551,6 +27922,10 @@
               "direction": {
                 "$ref": "#/$defs/PortDirection"
               },
+              "hide_cross_reference": {
+                "description": "Hides the Port's cross-reference note, when the Project shows them.",
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -27589,6 +27964,10 @@
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The connection point."
+              },
+              "hide_name": {
+                "description": "Draws the symbol without its name. The name still joins the Net.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -27903,12 +28282,16 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The left end of the first baseline."
+                "description": "The anchor point, which [`SheetText::justify`] places on the text block."
               },
               "height": {
                 "description": "The capital height.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/Justify",
+                "description": "Which of the block's nine points sits on `at`; `bottom_left` by default."
               },
               "rotation": {
                 "description": "Counter-clockwise about `at`.",
@@ -28842,6 +29225,21 @@
               }
             ]
           },
+          "Justify": {
+            "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+            "enum": [
+              "top_left",
+              "top",
+              "top_right",
+              "left",
+              "center",
+              "right",
+              "bottom_left",
+              "bottom",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
           "NetLabel": {
             "additionalProperties": false,
             "description": "A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the\nsame name on its sheet.",
@@ -29356,6 +29754,10 @@
               "direction": {
                 "$ref": "#/$defs/PortDirection"
               },
+              "hide_cross_reference": {
+                "description": "Hides the Port's cross-reference note, when the Project shows them.",
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -29394,6 +29796,10 @@
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The connection point."
+              },
+              "hide_name": {
+                "description": "Draws the symbol without its name. The name still joins the Net.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -29708,12 +30114,16 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The left end of the first baseline."
+                "description": "The anchor point, which [`SheetText::justify`] places on the text block."
               },
               "height": {
                 "description": "The capital height.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/Justify",
+                "description": "Which of the block's nine points sits on `at`; `bottom_left` by default."
               },
               "rotation": {
                 "description": "Counter-clockwise about `at`.",
@@ -32123,11 +32533,53 @@
     },
     {
       "category": "schematic",
-      "description": "Sets the Project's Net naming options: Power Port Names Take Priority, Allow Ports to Name Nets and Append Sheet Numbers to Local Nets. Options left out keep their value. Stored in the Project; returns all of them.",
+      "description": "Sets the Project's schematic options: the Net naming ones (Power Port Names Take Priority, Allow Ports to Name Nets, Append Sheet Numbers to Local Nets) and the Port Cross-References ones (Automatic Cross References, Sheet Style, Location Style, Follow Preferences). Options left out keep their value. Stored in the Project; returns all of them.",
       "icon": "properties",
       "id": "schematic.options.set",
       "kind": "edit",
       "params": {
+        "$defs": {
+          "LocationStyle": {
+            "description": "How a cross-reference names where on its sheet a partner is.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "zone",
+                "description": "By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.",
+                "type": "string"
+              },
+              {
+                "const": "xy",
+                "description": "By its X,Y position on the sheet, in millimetres.",
+                "type": "string"
+              }
+            ]
+          },
+          "SheetStyle": {
+            "description": "How a cross-reference names a partner's sheet.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "name",
+                "description": "By the sheet's title, as in the Projects panel.",
+                "type": "string"
+              },
+              {
+                "const": "number",
+                "description": "By its number in the Projects panel, from 1.",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "The options to change; those left out keep their value.",
@@ -32146,6 +32598,42 @@
               "null"
             ]
           },
+          "cross_reference_location_style": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LocationStyle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location Style: `none`, `zone` (the default) or `xy`."
+          },
+          "cross_reference_sheet_style": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SheetStyle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sheet Style: `none`, `name` or `number` (the default)."
+          },
+          "cross_references": {
+            "description": "Automatic Cross References: each Port shows where its partners are. Off by\ndefault.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "cross_references_follow_preferences": {
+            "description": "Follow Cross References settings in Preferences: take both styles from the\nPreferences instead. Off by default.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "power_port_names_priority": {
             "description": "Power Port Names Take Priority: Power Port > Net Label > Port > auto-name instead\nof Net Label > Power Port > Port > auto-name. Off by default.",
             "type": [
@@ -32159,9 +32647,72 @@
       },
       "presets": [],
       "result": {
+        "$defs": {
+          "CrossReferenceStyles": {
+            "additionalProperties": false,
+            "description": "How a Port cross-reference names its partners' places: by sheet, then by location on\nthat sheet.",
+            "properties": {
+              "location": {
+                "$ref": "#/$defs/LocationStyle",
+                "default": "zone",
+                "description": "Location Style: `zone` by default."
+              },
+              "sheet": {
+                "$ref": "#/$defs/SheetStyle",
+                "default": "number",
+                "description": "Sheet Style: `number` by default."
+              }
+            },
+            "required": [
+              "sheet",
+              "location"
+            ],
+            "type": "object"
+          },
+          "LocationStyle": {
+            "description": "How a cross-reference names where on its sheet a partner is.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "zone",
+                "description": "By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.",
+                "type": "string"
+              },
+              {
+                "const": "xy",
+                "description": "By its X,Y position on the sheet, in millimetres.",
+                "type": "string"
+              }
+            ]
+          },
+          "SheetStyle": {
+            "description": "How a cross-reference names a partner's sheet.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "Not at all.",
+                "type": "string"
+              },
+              {
+                "const": "name",
+                "description": "By the sheet's title, as in the Projects panel.",
+                "type": "string"
+              },
+              {
+                "const": "number",
+                "description": "By its number in the Projects panel, from 1.",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "The Project's schematic options: how Nets are named.",
+        "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
         "properties": {
           "allow_ports_to_name_nets": {
             "default": true,
@@ -32173,6 +32724,24 @@
             "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
             "type": "boolean"
           },
+          "cross_reference_styles": {
+            "$ref": "#/$defs/CrossReferenceStyles",
+            "default": {
+              "location": "zone",
+              "sheet": "number"
+            },
+            "description": "The Project's cross-reference styles, unless it follows the Preferences."
+          },
+          "cross_references": {
+            "default": false,
+            "description": "Automatic Cross References: each Port shows where its partners are, such as\n`[2:B3]`. Off by default, so a Project opts in.",
+            "type": "boolean"
+          },
+          "cross_references_follow_preferences": {
+            "default": false,
+            "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
+            "type": "boolean"
+          },
           "power_port_names_priority": {
             "default": false,
             "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
@@ -32182,7 +32751,10 @@
         "required": [
           "power_port_names_priority",
           "allow_ports_to_name_nets",
-          "append_sheet_numbers"
+          "append_sheet_numbers",
+          "cross_references",
+          "cross_reference_styles",
+          "cross_references_follow_preferences"
         ],
         "title": "SchematicOptions",
         "type": "object"
@@ -32704,6 +33276,21 @@
                 "type": "string"
               }
             ]
+          },
+          "Justify": {
+            "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+            "enum": [
+              "top_left",
+              "top",
+              "top_right",
+              "left",
+              "center",
+              "right",
+              "bottom_left",
+              "bottom",
+              "bottom_right"
+            ],
+            "type": "string"
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -33232,6 +33819,10 @@
               "direction": {
                 "$ref": "#/$defs/PortDirection"
               },
+              "hide_cross_reference": {
+                "description": "Hides the Port's cross-reference note, when the Project shows them.",
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -33270,6 +33861,10 @@
               "at": {
                 "$ref": "#/$defs/Point",
                 "description": "The connection point."
+              },
+              "hide_name": {
+                "description": "Draws the symbol without its name. The name still joins the Net.",
+                "type": "boolean"
               },
               "name": {
                 "type": "string"
@@ -33584,12 +34179,16 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The left end of the first baseline."
+                "description": "The anchor point, which [`SheetText::justify`] places on the text block."
               },
               "height": {
                 "description": "The capital height.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/Justify",
+                "description": "Which of the block's nine points sits on `at`; `bottom_left` by default."
               },
               "rotation": {
                 "description": "Counter-clockwise about `at`.",
@@ -34162,6 +34761,199 @@
     },
     {
       "category": "schematic",
+      "description": "Lists the Ports a Port joins on other Schematic Sheets (same name, ignoring case), in sheet order, with each one's sheet number, title, position and Border Zone: the targets of jump to partner. Also gives the Port's cross-reference note in the Project's styles, or the Preferences' when the Project follows them.",
+      "icon": "port",
+      "id": "schematic.port.partners",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "port": {
+            "description": "The Port's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port"
+        ],
+        "title": "PortPartnersParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Partner": {
+            "description": "Another Port of the same name, on another sheet.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Its connection point."
+              },
+              "document": {
+                "description": "The Schematic Sheet it is on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "port": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "sheet_number": {
+                "description": "That sheet's number in the Projects panel, from 1.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "sheet_title": {
+                "type": "string"
+              },
+              "zone": {
+                "description": "The Border Zone holding it, such as `B3`, or null on a sheet with Border Zones off.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "port",
+              "document",
+              "sheet_number",
+              "sheet_title",
+              "at",
+              "zone"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.port.partners` returns.",
+        "properties": {
+          "note": {
+            "description": "The cross-reference note drawn past the Port's name, such as `[2:B3, 3:A1]`, or\nnull when the Project shows none, the Port hides it, or it has no partners.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "partners": {
+            "description": "The Ports of the same name (ignoring case) on other sheets, in sheet order and then\nfrom the top left of each sheet. Power Ports are never partners.",
+            "items": {
+              "$ref": "#/$defs/Partner"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "partners",
+          "note"
+        ],
+        "title": "PortPartnersResult",
+        "type": "object"
+      },
+      "title": "Port Partners"
+    },
+    {
+      "category": "schematic",
+      "description": "Changes a Port's name, direction or whether it hides its cross-reference note; what is left out stays.",
+      "icon": "port",
+      "id": "schematic.port.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PortDirection": {
+            "description": "Which way a Port's signal flows. It only changes how the Port is drawn and checked;\nevery direction connects the same way.",
+            "enum": [
+              "in",
+              "out",
+              "bidirectional"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PortDirection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`in`, `out` or `bidirectional`."
+          },
+          "hide_cross_reference": {
+            "description": "Hides the Port's cross-reference note.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "A new Net name, checked as `schematic.port.add` checks it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The Port's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "PortSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The object a `set` Command changed.",
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "SetResult",
+        "type": "object"
+      },
+      "title": "Edit Port"
+    },
+    {
+      "category": "schematic",
       "description": "Places a Power Port (a built-in symbol in a fixed style, not a Library element) on a Schematic Sheet. It joins the Wires through its point (and any Pin there) to the Project-wide Net of its name, which it names ahead of any Port, and ahead of Net Labels when the Project's Power Port Names Take Priority option is on.",
       "icon": "power_port",
       "id": "schematic.power_port.add",
@@ -34259,6 +35051,11 @@
             "format": "uuid",
             "type": "string"
           },
+          "hide_name": {
+            "default": false,
+            "description": "Draws the symbol without its name; off by default. The name still joins the Net.",
+            "type": "boolean"
+          },
           "name": {
             "description": "The Net name, such as GND or 3V3; surrounding spaces are trimmed, and a blank name\nor one holding `[ ] { } , ..` or a control character is refused.",
             "type": "string"
@@ -34311,6 +35108,106 @@
         "type": "object"
       },
       "title": "Add Power Port"
+    },
+    {
+      "category": "schematic",
+      "description": "Changes a Power Port's name, style or whether its name is hidden; what is left out stays. A hidden name still joins the Net.",
+      "icon": "power_port",
+      "id": "schematic.power_port.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PowerPortStyle": {
+            "description": "The fixed, built-in look of a Power Port.",
+            "oneOf": [
+              {
+                "enum": [
+                  "arrow",
+                  "circle",
+                  "wave"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "bar",
+                "description": "A horizontal bar, for positive rails.",
+                "type": "string"
+              },
+              {
+                "const": "ground",
+                "description": "Three shrinking bars.",
+                "type": "string"
+              },
+              {
+                "const": "signal_ground",
+                "description": "A downward triangle.",
+                "type": "string"
+              },
+              {
+                "const": "earth",
+                "description": "Ground bars with diagonal strokes.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "hide_name": {
+            "description": "Draws the symbol without its name; the name still joins the Net.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "A new Net name, checked as `schematic.power_port.add` checks it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "style": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PowerPortStyle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new built-in look."
+          },
+          "uuid": {
+            "description": "The Power Port's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "PowerPortSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The object a `set` Command changed.",
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "SetResult",
+        "type": "object"
+      },
+      "title": "Edit Power Port"
     },
     {
       "category": "schematic",
@@ -35080,14 +35977,66 @@
     },
     {
       "category": "schematic",
-      "description": "Sets a Schematic Sheet's paper size (A4, A3, Letter…). Sheets are landscape. A new sheet is A4.",
+      "description": "Sets a Schematic Sheet's frame: its paper size (A4, A3, Letter… or a custom width and height), its orientation, whether it shows Border Zones and the title block, and its own drawing number and revision. Settings left out keep their value. A new sheet is A4 landscape with Border Zones and a title block.",
       "icon": "sheet_size",
-      "id": "schematic.sheet.set_size",
+      "id": "schematic.sheet.set_frame",
       "kind": "edit",
       "params": {
         "$defs": {
+          "FrameSizeParam": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SheetSize"
+              },
+              {
+                "properties": {
+                  "height": {
+                    "$ref": "#/$defs/Length"
+                  },
+                  "width": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "A paper size as a Command takes it: a standard size's name, or two lengths."
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Orientation": {
+            "description": "Which way up a sheet's paper is.",
+            "oneOf": [
+              {
+                "const": "landscape",
+                "description": "The longer side runs across.",
+                "type": "string"
+              },
+              {
+                "const": "portrait",
+                "description": "The longer side runs up.",
+                "type": "string"
+              }
+            ]
+          },
           "SheetSize": {
-            "description": "A sheet's paper size. Sheets are landscape.",
+            "description": "A standard paper size. Its dimensions are given landscape; [`Orientation`] turns it.",
             "enum": [
               "a4",
               "a3",
@@ -35104,28 +36053,116 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "border_zones": {
+            "description": "Border Zones along the frame, about 50 mm each and derived from the paper.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "document": {
             "description": "The Schematic Sheet's Document UUID.",
             "format": "uuid",
             "type": "string"
           },
+          "drawing_number": {
+            "description": "The sheet's drawing number; empty for none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "orientation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Orientation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`landscape` (a new sheet's) or `portrait`."
+          },
+          "revision": {
+            "description": "The sheet's own revision; empty shows the Project's.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "size": {
-            "$ref": "#/$defs/SheetSize",
-            "description": "The paper size; sheets are landscape."
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FrameSizeParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A standard paper size (`a4`, `a3`, `letter`…) or a custom `{width, height}`, both\npositive and at most 10 m. The orientation decides which side runs across."
+          },
+          "title_block": {
+            "description": "The built-in title block.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         },
         "required": [
-          "document",
-          "size"
+          "document"
         ],
-        "title": "SheetSetSizeParams",
+        "title": "SheetSetFrameParams",
         "type": "object"
       },
       "presets": [],
       "result": {
         "$defs": {
+          "FrameSize": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SheetSize"
+              },
+              {
+                "description": "Two positive lengths. Which side runs across follows the [`Orientation`], so\n`{\"width\": 200 mm, \"height\": 300 mm}` landscape is 300 mm wide.",
+                "properties": {
+                  "height": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "width": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "A sheet's paper: a standard size, written as its name (`\"a4\"`), or a custom one,\nwritten as `{\"width\": …, \"height\": …}`."
+          },
+          "Orientation": {
+            "description": "Which way up a sheet's paper is.",
+            "oneOf": [
+              {
+                "const": "landscape",
+                "description": "The longer side runs across.",
+                "type": "string"
+              },
+              {
+                "const": "portrait",
+                "description": "The longer side runs up.",
+                "type": "string"
+              }
+            ]
+          },
           "SheetSize": {
-            "description": "A sheet's paper size. Sheets are landscape.",
+            "description": "A standard paper size. Its dimensions are given landscape; [`Orientation`] turns it.",
             "enum": [
               "a4",
               "a3",
@@ -35137,38 +36174,89 @@
               "tabloid"
             ],
             "type": "string"
+          },
+          "ZoneCounts": {
+            "description": "How many Border Zones run across and up a sheet.",
+            "properties": {
+              "columns": {
+                "description": "Numbered from 1 at the left.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Lettered from A at the top.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "description": "A sheet's paper size with its landscape dimensions.",
+        "description": "A sheet's frame settings, with the paper's dimensions as drawn and its Border Zones.",
         "properties": {
+          "drawing_number": {
+            "type": "string"
+          },
           "height": {
             "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
             "format": "int64",
             "type": "integer"
           },
+          "orientation": {
+            "$ref": "#/$defs/Orientation"
+          },
+          "revision": {
+            "description": "The sheet's own revision; empty when it shows the Project's.",
+            "type": "string"
+          },
           "size": {
-            "$ref": "#/$defs/SheetSize"
+            "$ref": "#/$defs/FrameSize"
+          },
+          "title_block": {
+            "type": "boolean"
           },
           "width": {
             "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
             "format": "int64",
             "type": "integer"
+          },
+          "zones": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoneCounts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Border Zones' counts, or null when they are off."
           }
         },
         "required": [
           "size",
+          "orientation",
           "width",
-          "height"
+          "height",
+          "zones",
+          "title_block",
+          "drawing_number",
+          "revision"
         ],
         "title": "SheetFrameView",
         "type": "object"
       },
-      "title": "Set Sheet Size"
+      "title": "Set Sheet Frame"
     },
     {
       "category": "schematic",
-      "description": "Returns a Schematic Sheet's title block as drawn: the Project properties (title, revision, date, author, company), the sheet's title, \"sheet n of m\" from the Document order, and the paper size.",
+      "description": "Returns a Schematic Sheet's title block as drawn: whether it is shown, the Project properties (title, date, author, company), the sheet's drawing number and revision (the Project's when it has none), the sheet's title, \"sheet n of m\" from the Document order, and the paper with its Border Zones.",
       "icon": "title_block",
       "id": "schematic.sheet.title_block",
       "kind": "query",
@@ -35192,8 +36280,51 @@
       "presets": [],
       "result": {
         "$defs": {
+          "FrameSize": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SheetSize"
+              },
+              {
+                "description": "Two positive lengths. Which side runs across follows the [`Orientation`], so\n`{\"width\": 200 mm, \"height\": 300 mm}` landscape is 300 mm wide.",
+                "properties": {
+                  "height": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "width": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "A sheet's paper: a standard size, written as its name (`\"a4\"`), or a custom one,\nwritten as `{\"width\": …, \"height\": …}`."
+          },
+          "Orientation": {
+            "description": "Which way up a sheet's paper is.",
+            "oneOf": [
+              {
+                "const": "landscape",
+                "description": "The longer side runs across.",
+                "type": "string"
+              },
+              {
+                "const": "portrait",
+                "description": "The longer side runs up.",
+                "type": "string"
+              }
+            ]
+          },
           "SheetSize": {
-            "description": "A sheet's paper size. Sheets are landscape.",
+            "description": "A standard paper size. Its dimensions are given landscape; [`Orientation`] turns it.",
             "enum": [
               "a4",
               "a3",
@@ -35205,6 +36336,28 @@
               "tabloid"
             ],
             "type": "string"
+          },
+          "ZoneCounts": {
+            "description": "How many Border Zones run across and up a sheet.",
+            "properties": {
+              "columns": {
+                "description": "Numbered from 1 at the left.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Lettered from A at the top.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -35219,13 +36372,24 @@
           "date": {
             "type": "string"
           },
+          "drawing_number": {
+            "type": "string"
+          },
           "height": {
             "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
             "format": "int64",
             "type": "integer"
           },
+          "orientation": {
+            "$ref": "#/$defs/Orientation"
+          },
           "revision": {
+            "description": "The sheet's own revision, or else the Project's.",
             "type": "string"
+          },
+          "revision_from_project": {
+            "description": "Whether `revision` is the Project's, which the editor shows greyed.",
+            "type": "boolean"
           },
           "sheet_count": {
             "format": "uint",
@@ -35242,8 +36406,12 @@
             "description": "The sheet's own title, such as \"Sheet 1\".",
             "type": "string"
           },
+          "shown": {
+            "description": "Whether the sheet draws it.",
+            "type": "boolean"
+          },
           "size": {
-            "$ref": "#/$defs/SheetSize"
+            "$ref": "#/$defs/FrameSize"
           },
           "title": {
             "description": "The Project title.",
@@ -35253,11 +36421,25 @@
             "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
             "format": "int64",
             "type": "integer"
+          },
+          "zones": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoneCounts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Border Zones' counts, or null when they are off."
           }
         },
         "required": [
+          "shown",
           "title",
           "revision",
+          "revision_from_project",
+          "drawing_number",
           "date",
           "author",
           "company",
@@ -35265,8 +36447,10 @@
           "sheet_number",
           "sheet_count",
           "size",
+          "orientation",
           "width",
-          "height"
+          "height",
+          "zones"
         ],
         "title": "TitleBlock",
         "type": "object"
@@ -35393,7 +36577,7 @@
     },
     {
       "category": "schematic",
-      "description": "Places free text on a Schematic Sheet. It has no electrical meaning.",
+      "description": "Places free text on a Schematic Sheet: one or more lines, anchored at any of nine points of the block. It has no electrical meaning.",
       "icon": "text",
       "id": "schematic.text.add",
       "kind": "edit",
@@ -35430,6 +36614,21 @@
             ],
             "type": "object"
           },
+          "Justify": {
+            "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+            "enum": [
+              "top_left",
+              "top",
+              "top_right",
+              "left",
+              "center",
+              "right",
+              "bottom_left",
+              "bottom",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -35450,7 +36649,7 @@
         "properties": {
           "at": {
             "$ref": "#/$defs/At",
-            "description": "The left end of the first baseline."
+            "description": "The anchor point."
           },
           "document": {
             "description": "The Schematic Sheet.",
@@ -35467,6 +36666,17 @@
               }
             ],
             "description": "The capital height; 50 mil by default."
+          },
+          "justify": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Justify"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which of the text block's nine points sits on `at`: `top_left`, `top`, `top_right`,\n`left`, `center`, `right`, `bottom_left` (the default), `bottom` or `bottom_right`.\nTop is the first line's capital height and bottom the last line's baseline."
           },
           "rotation": {
             "anyOf": [
@@ -35512,7 +36722,7 @@
     },
     {
       "category": "schematic",
-      "description": "Changes a free text's words, position, height or rotation; what is left out stays.",
+      "description": "Changes a free text's words, position, height, rotation or justification; what is left out stays.",
       "icon": "text",
       "id": "schematic.text.set",
       "kind": "edit",
@@ -35548,6 +36758,21 @@
               "y"
             ],
             "type": "object"
+          },
+          "Justify": {
+            "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+            "enum": [
+              "top_left",
+              "top",
+              "top_right",
+              "left",
+              "center",
+              "right",
+              "bottom_left",
+              "bottom",
+              "bottom_right"
+            ],
+            "type": "string"
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -35588,6 +36813,17 @@
               }
             ],
             "description": "A new capital height."
+          },
+          "justify": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Justify"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new anchor point on the text block."
           },
           "rotation": {
             "anyOf": [
@@ -36386,6 +37622,173 @@
         "type": "object"
       },
       "title": "Break Wire"
+    },
+    {
+      "category": "schematic",
+      "description": "Finds a 90° path between two points on a Schematic Sheet for Auto Wire, around placed objects: it never enters a Unit's body or Pins, never passes over a Pin end, Net Label, Port, Power Port, No-Connect Marker or Wire vertex, never runs along or turns on a Wire, and crosses Wires only as `avoid_cutting_wires` allows. It prefers short paths with few corners, a grid step clear of bodies. The same inputs always give the same path. Nothing is drawn.",
+      "icon": "wire",
+      "id": "schematic.wire.route",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Avoid": {
+            "description": "How hard a route tries not to cross Wires: the Avoid cutting wires slider.",
+            "oneOf": [
+              {
+                "const": "low",
+                "description": "A crossing costs as much as two grid steps of Wire.",
+                "type": "string"
+              },
+              {
+                "const": "medium",
+                "description": "A crossing costs as much as ten grid steps.",
+                "type": "string"
+              },
+              {
+                "const": "high",
+                "description": "A crossing costs as much as a hundred grid steps.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "avoid_cutting_wires": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Avoid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How hard it tries not to cross Wires; `medium` by default."
+          },
+          "document": {
+            "description": "The Schematic Sheet to route on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/$defs/At",
+            "description": "Where the route starts: the run's last vertex."
+          },
+          "grid": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The grid its corners sit on; 50 mil by default."
+          },
+          "timeout_ms": {
+            "description": "Time Out After, in milliseconds, 100 to 60000; 3000 by default. It buys a fixed\namount of search, so the answer does not depend on the machine.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "to": {
+            "$ref": "#/$defs/At",
+            "description": "Where it ends: the clicked point."
+          }
+        },
+        "required": [
+          "document",
+          "from",
+          "to"
+        ],
+        "title": "WireRouteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The route `schematic.wire.route` found.",
+        "properties": {
+          "crossings": {
+            "description": "How many Wires it crosses mid-span.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "points": {
+            "description": "The path's vertices from `from` to `to`, corners only, ready for\n`schematic.wire.add`.",
+            "items": {
+              "$ref": "#/$defs/Point"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "points",
+          "crossings"
+        ],
+        "title": "WireRouteResult",
+        "type": "object"
+      },
+      "title": "Route Wire"
     },
     {
       "category": "sync",

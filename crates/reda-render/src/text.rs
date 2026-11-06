@@ -24,7 +24,7 @@ pub(crate) struct TextStyle {
 }
 
 /// Lines are this many capital heights apart (the same pitch as PCB text).
-const LINE_PITCH: (i64, i64) = (8, 5);
+pub(crate) const LINE_PITCH: (i64, i64) = (8, 5);
 
 /// Lays out `text` (`\n` starts a new line, below the first) in Noto Sans, aligned on `at`.
 ///

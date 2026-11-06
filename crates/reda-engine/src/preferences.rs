@@ -16,6 +16,7 @@ mod file;
 use std::num::NonZeroU32;
 
 use reda_command::{Length, UserDirs};
+use reda_model::{CrossReferenceStyles, LocationStyle, SheetStyle};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -126,6 +127,12 @@ pub struct SchematicEditing {
     /// Port or Power Port name, as in `\RESET`. Off, a leading backslash has no effect and
     /// isn't drawn. Only how names are drawn changes, never the names.
     pub single_negation: bool,
+    /// Port Cross References Sheet Style (`none`, `name` or `number`), used by Projects
+    /// that follow the Preferences for cross-references.
+    pub cross_reference_sheet_style: SheetStyle,
+    /// Port Cross References Location Style (`none`, `zone` or `xy`), used by Projects
+    /// that follow the Preferences for cross-references.
+    pub cross_reference_location_style: LocationStyle,
     /// Optimize Wires: overlapping collinear Wires merge, and so do collinear Wires
     /// meeting end to end with nothing else at that point; collinear vertices inside a
     /// Wire are removed. Off, Wires stay as drawn.
@@ -184,6 +191,8 @@ impl Default for SchematicEditing {
             auto_pan,
             default_grid,
             single_negation: false,
+            cross_reference_sheet_style: CrossReferenceStyles::DEFAULT.sheet,
+            cross_reference_location_style: CrossReferenceStyles::DEFAULT.location,
             optimize_wires: true,
             components_cut_wires: true,
             break_wires_at_autojunctions: true,
@@ -195,6 +204,14 @@ impl Default for SchematicEditing {
 }
 
 impl SchematicEditing {
+    /// The cross-reference styles a Project that follows the Preferences uses.
+    pub fn cross_reference_styles(&self) -> CrossReferenceStyles {
+        CrossReferenceStyles {
+            sheet: self.cross_reference_sheet_style,
+            location: self.cross_reference_location_style,
+        }
+    }
+
     /// The `wiring` parameter the app passes to schematic edit Commands: these four
     /// Preferences, with the sheet's snap grid `snap_grid`.
     pub fn wiring(&self, snap_grid: reda_model::geom::Nm) -> reda_schematic::Wiring {

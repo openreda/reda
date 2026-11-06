@@ -49,11 +49,15 @@ pub use pcb::{
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
-pub use project::{Project, ProjectProperties, ProjectProps, SchematicOptions};
+pub use project::{
+    CrossReferenceStyles, LocationStyle, Project, ProjectProperties, ProjectProps,
+    SchematicOptions, SheetStyle,
+};
 pub use schematic::{
-    ComponentRef, FieldText, FootprintCopy, NetLabel, NoConnect, PartEntry, Port, PortDirection,
-    PowerPort, PowerPortStyle, SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize,
-    SheetText, UnitInstance, UnitSuffix, Wire,
+    BorderZones, ComponentRef, FieldText, FootprintCopy, FrameSize, Justify, JustifyAxis, NetLabel,
+    NoConnect, Orientation, PartEntry, Port, PortDirection, PowerPort, PowerPortStyle,
+    SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, UnitInstance,
+    UnitSuffix, Wire,
 };
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};
