@@ -222,7 +222,7 @@ fn a_bridged_edit_to_a_tools_objects_cancels_its_preview_with_a_note() {
     let sheet = shell.active_document().unwrap().document;
     let set = shell
         .run(
-            "schematic.sheet.set_size",
+            "schematic.sheet.set_frame",
             json!({"document": sheet, "size": "a3"}),
         )
         .unwrap();
@@ -243,7 +243,7 @@ fn a_bridged_edit_to_a_tools_objects_cancels_its_preview_with_a_note() {
     assert_eq!(shell.note(), None);
 
     let touching = bridged(
-        "schematic.sheet.set_size",
+        "schematic.sheet.set_frame",
         json!({"document": sheet, "size": "a2"}),
     );
     as_agent(&mut shell, &mut bridge, touching).unwrap();

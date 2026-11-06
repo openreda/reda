@@ -4,7 +4,7 @@
 
 use reda_command::{Angle, Command, CommandError, Context, Kind, Length, Meta};
 use reda_model::geom::{Millideg, Nm};
-use reda_model::{InDocument, Object, SheetGraphic, SheetShape, SheetText, Uuid};
+use reda_model::{InDocument, Justify, Object, SheetGraphic, SheetShape, SheetText, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -21,12 +21,16 @@ pub struct TextAddParams {
     pub document: Uuid,
     /// The text; `\n` starts a new line.
     pub text: String,
-    /// The left end of the first baseline.
+    /// The anchor point.
     pub at: At,
     /// The capital height; 50 mil by default.
     pub height: Option<Length>,
     /// Counter-clockwise about `at`; 0 by default.
     pub rotation: Option<Angle>,
+    /// Which of the text block's nine points sits on `at`: `top_left`, `top`, `top_right`,
+    /// `left`, `center`, `right`, `bottom_left` (the default), `bottom` or `bottom_right`.
+    /// Top is the first line's capital height and bottom the last line's baseline.
+    pub justify: Option<Justify>,
 }
 
 /// The text `schematic.text.add` made.
@@ -41,7 +45,8 @@ impl Command for TextAdd {
     const META: Meta = Meta {
         id: "schematic.text.add",
         title: "Add Text",
-        description: "Places free text on a Schematic Sheet. It has no electrical meaning.",
+        description: "Places free text on a Schematic Sheet: one or more lines, anchored \
+                      at any of nine points of the block. It has no electrical meaning.",
         category: "schematic",
         icon: "text",
         kind: Kind::Edit,
@@ -59,6 +64,7 @@ impl Command for TextAdd {
             rotation: p
                 .rotation
                 .map_or(Millideg::ZERO, |a| a.millideg().normalized()),
+            justify: p.justify.unwrap_or_default(),
         };
         let uuid = text.uuid;
         cx.tx()?
@@ -80,6 +86,8 @@ pub struct TextSetParams {
     pub height: Option<Length>,
     /// A new rotation, counter-clockwise.
     pub rotation: Option<Angle>,
+    /// A new anchor point on the text block.
+    pub justify: Option<Justify>,
 }
 
 pub struct TextSet;
@@ -88,8 +96,8 @@ impl Command for TextSet {
     const META: Meta = Meta {
         id: "schematic.text.set",
         title: "Edit Text",
-        description: "Changes a free text's words, position, height or rotation; what is \
-                      left out stays.",
+        description: "Changes a free text's words, position, height, rotation or \
+                      justification; what is left out stays.",
         category: "schematic",
         icon: "text",
         kind: Kind::Edit,
@@ -115,6 +123,9 @@ impl Command for TextSet {
         }
         if let Some(rotation) = p.rotation {
             text.object.rotation = rotation.millideg().normalized();
+        }
+        if let Some(justify) = p.justify {
+            text.object.justify = justify;
         }
         cx.tx()?.replace(Object::SheetText(text))?;
         Ok(TextResult { text: p.uuid })
