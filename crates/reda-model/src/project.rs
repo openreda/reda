@@ -33,6 +33,44 @@ pub struct ProjectProps {
     /// The ERC severities.
     #[serde(default)]
     pub erc: ErcSeverities,
+    /// The schematic options.
+    #[serde(default)]
+    pub schematic: SchematicOptions,
+}
+
+/// The Project's schematic options: how Nets are named.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct SchematicOptions {
+    /// Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving
+    /// Power Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >
+    /// Port > auto-name).
+    pub power_port_names_priority: bool,
+    /// Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never
+    /// names it.
+    pub allow_ports_to_name_nets: bool,
+    /// Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the
+    /// board name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain
+    /// name.
+    pub append_sheet_numbers: bool,
+}
+
+impl SchematicOptions {
+    pub const DEFAULT: SchematicOptions = SchematicOptions {
+        power_port_names_priority: false,
+        allow_ports_to_name_nets: true,
+        append_sheet_numbers: false,
+    };
+
+    pub fn is_default(&self) -> bool {
+        *self == SchematicOptions::DEFAULT
+    }
+}
+
+impl Default for SchematicOptions {
+    fn default() -> SchematicOptions {
+        SchematicOptions::DEFAULT
+    }
 }
 
 /// The Project properties: fixed free-text fields that fill each sheet's title block, and

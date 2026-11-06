@@ -93,6 +93,7 @@ pub fn open_from(
         libraries: file.libraries.clone(),
         properties: file.properties.clone(),
         erc: file.erc,
+        schematic: file.schematic,
     });
     let mut missing = vec![];
     let mut tx = project.transaction();

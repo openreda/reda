@@ -123,15 +123,18 @@ impl Default for Grids {
 /// is one of the type's presets, else the type's default (a board's in its default
 /// units).
 pub fn preferred(kind: DocumentKind, preferences: &Preferences) -> Nm {
-    let editing = match kind {
-        DocumentKind::Schematic => &preferences.schematic,
-        DocumentKind::Pcb => &preferences.pcb,
+    let (default_grid, units) = match kind {
+        DocumentKind::Schematic => (
+            preferences.schematic.default_grid,
+            preferences.schematic.default_units,
+        ),
+        DocumentKind::Pcb => (preferences.pcb.default_grid, preferences.pcb.default_units),
     };
-    match editing.default_grid {
+    match default_grid {
         Some(grid) if presets(kind).contains(&grid.nm()) => grid.nm(),
         _ => match kind {
             DocumentKind::Schematic => SCHEMATIC_DEFAULT,
-            DocumentKind::Pcb => pcb_default(editing.default_units),
+            DocumentKind::Pcb => pcb_default(units),
         },
     }
 }
