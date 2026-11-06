@@ -47,7 +47,7 @@ impl Step {
 /// An invalid value on a page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Problem {
-    /// Which field it is on, as the page names its fields (such as `board_thickness` or
+    /// Which field it is on, as the page names its fields (such as `clearance` or
     /// `path/2` for a table's third row).
     pub field: String,
     /// What is wrong, for the user.

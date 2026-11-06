@@ -37,6 +37,6 @@ pub use library::{ElementLocation, FootprintCopyData, NoLibraries, PartCopy, Par
 pub use registry::{Registry, scope_key};
 pub use signals::{CancelToken, Progress, Signals};
 pub use trash::Trash;
-pub use units::{Angle, Length};
+pub use units::{Angle, CopperThickness, Length};
 pub use user::UserDirs;
 pub use view::ViewState;

@@ -10,14 +10,14 @@ use reda_engine::format::library::{read_footprint, read_part, read_symbol};
 use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
-    DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck, ErcSeverities, FabPreset,
-    FileNaming, FootprintCopy, FootprintInstance, FootprintText, FreePad, GerberSettings,
-    GraphicShape, Hole, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass,
-    NetLabel, NoConnect, Object, OutputJob, Outputs, PadConnection, PadKind, PadNet, PadShape,
-    PartEntry, PcbGraphic, PcbText, PlacementOrigin, Port, PortDirection, PowerPort,
+    CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck,
+    ErcSeverities, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FootprintText, FreePad,
+    GerberSettings, GraphicShape, Hole, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan,
+    Net, NetClass, NetLabel, NoConnect, Object, OutputJob, Outputs, PadConnection, PadKind, PadNet,
+    PadShape, PartEntry, PcbGraphic, PcbText, PlacementOrigin, Port, PortDirection, PowerPort,
     PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity,
-    SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry,
-    UnitInstance, Uuid, Via, Waiver, Wire, Zone,
+    SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, Stackup, StackupEntry, Track,
+    TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -74,6 +74,8 @@ struct PcbSeed {
     /// A Track and a Via: ends, an arc's sweep (0 for a line), width, Net index (None for
     /// no Net), bottom Layer.
     copper: Option<(Point, Point, i64, Nm, Option<usize>, bool)>,
+    /// The Stackup: copper per Layer, the dielectric (None for blank), finish and colours.
+    stackup: ([Nm; 2], Option<Nm>, [Option<String>; 3]),
 }
 
 /// A text object; the Layer is an index into the seed's Layers.
@@ -152,10 +154,15 @@ prop_compose! {
             point(), point(), prop_oneof![Just(0i64), -359_999i64..360_000],
             (1i64..10_000_000).prop_map(Nm), prop::option::of(any::<usize>()), any::<bool>(),
         )),
+        stackup in (
+            prop::array::uniform2((1i64..200_000).prop_map(Nm)),
+            prop::option::of((1i64..5_000_000).prop_map(Nm)),
+            prop::array::uniform3(prop::option::of(any::<String>())),
+        ),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
-            graphics, footprint, copper,
+            graphics, footprint, copper, stackup,
         }
     }
 }
@@ -250,8 +257,31 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         },
         severities,
     };
+    let ([top, bottom], dielectric, [finish, mask_color, silk_color]) = seed.stackup;
+    let stackup = Stackup {
+        uuid: id(),
+        thickness: Nm(top.0 + bottom.0 + 1_000_000),
+        entries: vec![
+            StackupEntry::Copper(CopperEntry {
+                layer: layers.layers[0].uuid,
+                thickness: top,
+            }),
+            StackupEntry::Dielectric(DielectricEntry {
+                uuid: id(),
+                thickness: dielectric,
+            }),
+            StackupEntry::Copper(CopperEntry {
+                layer: layers.layers[1].uuid,
+                thickness: bottom,
+            }),
+        ],
+        finish,
+        mask_color,
+        silk_color,
+    };
     let mut objects = vec![
         Object::LayerSet(InDocument::new(doc, layers)),
+        Object::Stackup(InDocument::new(doc, stackup)),
         Object::BoardSetup(InDocument::new(doc, setup)),
     ];
     if let Some(vertices) = seed.outline {
@@ -397,8 +427,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 diameter: Nm(width.0 + 1),
                 hole: width,
                 span: LayerSpan {
-                    from: layer_ids[1],
-                    to: layer_ids[0],
+                    from: layer_ids[0],
+                    to: layer_ids[1],
                 },
             },
         )));
@@ -508,7 +538,7 @@ prop_compose! {
         let [clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance] = lengths;
         let rules = Rules { clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance };
         let gerber = GerberSettings { x2_attributes, naming: FileNaming::Protel };
-        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, gerber, bom, cpl });
+        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, stackup: Default::default(), gerber, bom, cpl });
         let [gerber, drill, bom, cpl] = outputs;
         let job = OutputJob {
             uuid: job,
@@ -715,8 +745,7 @@ prop_compose! {
         pcb in prop::option::of(pcb_seed()),
         libraries in prop::collection::vec(any::<String>(), 0..3),
         settings in prop::option::of(settings()),
-        properties in prop::collection::vec(any::<String>(), 6),
-        board_thickness in prop::option::of(1i64..10_000_000),
+        properties in prop::collection::vec(any::<String>(), 5),
         erc in prop::collection::vec((0..ErcCheck::ALL.len(), 0..3u8), 0..4),
     ) -> Project {
         let mut severities = ErcSeverities::DEFAULT;
@@ -724,12 +753,9 @@ prop_compose! {
             let severity = [Severity::Error, Severity::Warning, Severity::Off][severity as usize];
             severities.set(ErcCheck::ALL[check], severity);
         }
-        let [title, revision, date, author, company, copper_weight] =
-            <[String; 6]>::try_from(properties).unwrap();
-        let board_thickness = board_thickness.map(Nm);
-        let properties = ProjectProperties {
-            title, revision, date, author, company, board_thickness, copper_weight,
-        };
+        let [title, revision, date, author, company] =
+            <[String; 5]>::try_from(properties).unwrap();
+        let properties = ProjectProperties { title, revision, date, author, company };
         let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities, schematic: Default::default() });
         let mut tx = project.transaction();
         let mut order = vec![];

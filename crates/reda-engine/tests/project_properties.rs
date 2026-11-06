@@ -77,37 +77,16 @@ fn set_needs_an_open_project() {
 }
 
 #[test]
-fn board_thickness_and_copper_weight_are_project_properties_for_fab_notes() {
+fn board_thickness_and_copper_weight_are_not_project_properties() {
+    // They are the PCB Document's Stackup, set with `pcb.stackup.set`.
     let dir = TempDir::new("props-board");
     let mut engine = test_engine();
     engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
-    let out = engine.run_ok(
-        "project.properties.set",
-        json!({"board_thickness": "1.6mm", "copper_weight": "1 oz"}),
-    );
-    assert_eq!(out["result"]["board_thickness"], 1_600_000);
-    assert_eq!(out["result"]["copper_weight"], "1 oz");
-    engine.run_ok("project.save", json!({}));
-    let folder = dir.path().join("Demo");
-    let text = String::from_utf8(read_tree(&folder)["Demo.reda"].clone()).unwrap();
-    assert!(
-        text.contains(
-            r#""properties": {"title":"","revision":"","date":"","author":"","company":"","board_thickness":1600000,"copper_weight":"1 oz"}"#
-        ),
-        "{text}"
-    );
-
-    // Zero clears the thickness, which is then left out.
-    let out = engine.run_ok("project.properties.set", json!({"board_thickness": 0}));
-    assert_eq!(out["result"].get("board_thickness"), None);
-}
-
-#[test]
-fn a_negative_board_thickness_is_refused() {
-    let dir = TempDir::new("props-board-negative");
-    let mut engine = test_engine();
-    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
-    let err = engine.run_err("project.properties.set", json!({"board_thickness": "-1mm"}));
-    assert_eq!(err.code, ErrorCode::InvalidParams);
-    assert_eq!(err.details.unwrap()["pointer"], "/board_thickness");
+    for params in [
+        json!({"board_thickness": "1.6mm"}),
+        json!({"copper_weight": "1 oz"}),
+    ] {
+        let err = engine.run_err("project.properties.set", params);
+        assert_eq!(err.code, ErrorCode::InvalidParams);
+    }
 }

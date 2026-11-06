@@ -35,10 +35,12 @@ pub use output::{
     ProjectFabPreset,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, FillShape, FootprintInstance,
-    FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind, LayerSet,
-    LayerSpan, NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PcbDocument, PcbGraphic,
-    PcbText, PlacementOrigin, Rules, Side, Track, TrackGeometry, Via, Zone, ZoneFills,
+    BoardCutout, BoardOutline, BoardSetup, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER,
+    DielectricEntry, DrcCheck, DrcSeverities, FillShape, FootprintInstance, FreePad, GraphicShape,
+    HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net,
+    NetClass, PadConnection, PadNet, PcbDocument, PcbGraphic, PcbText, PlacementOrigin, Rules,
+    Side, Stackup, StackupEntry, StackupSeeds, StackupTotals, Track, TrackGeometry, Via, Zone,
+    ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

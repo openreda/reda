@@ -13,4 +13,4 @@ pub use angle::{Millideg, rotate};
 pub use bounds::Bounds;
 pub use contour::{ContourError, Segment, Vertex, chain, check_contour, rounded_rect};
 pub use length::{Nm, Point};
-pub use units::UnitError;
+pub use units::{NM_PER_OZ, UnitError};

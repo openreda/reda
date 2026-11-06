@@ -165,6 +165,29 @@
         "edge_clearance"
       ],
       "type": "object"
+    },
+    "StackupSeeds": {
+      "additionalProperties": false,
+      "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
+      "properties": {
+        "copper": {
+          "description": "The copper thickness of every copper Layer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "thickness": {
+          "description": "The finished board thickness.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -201,6 +224,11 @@
     "rules": {
       "$ref": "#/$defs/Rules",
       "description": "The design rules a new board is seeded with."
+    },
+    "stackup": {
+      "$ref": "#/$defs/StackupSeeds",
+      "default": {},
+      "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither, and then a new board gets 1.6 mm and 1 oz."
     }
   },
   "required": [

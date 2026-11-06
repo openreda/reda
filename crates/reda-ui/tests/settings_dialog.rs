@@ -4,7 +4,6 @@
 
 use std::path::Path;
 
-use egui::Key;
 use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
@@ -84,13 +83,15 @@ fn an_invalid_value_is_flagged_and_disables_ok_and_apply_until_fixed() {
     let mut h = harness(home.path(), work.path(), "Dlg");
     open_settings(&mut h, "Dlg");
     type_into(&mut h, "Title", "Motor driver");
-    type_into(&mut h, "Board thickness (mm)", "1.6x");
-    h.get_by_label("Not a length. Give mm, such as 1.6, or a unit, such as 63mil.");
-    h.get_by_role_and_label(Role::TreeItem, "Properties (has invalid values)");
+    h.get_by_role_and_label(Role::TreeItem, "Libraries").click();
+    h.run();
+    h.get_by_label("Add Path").click();
+    h.run();
+    h.get_by_label("Give a folder.");
+    h.get_by_role_and_label(Role::TreeItem, "Libraries (has invalid values)");
     assert!(disabled(&h, "OK") && disabled(&h, "Apply"));
 
-    h.key_press(Key::Backspace);
-    h.run();
+    type_into(&mut h, "Library folder 1", "parts");
     assert!(!disabled(&h, "OK") && !disabled(&h, "Apply"));
     let journal = h.state().shell().engine().journal().len();
     h.get_by_label("OK").click();
@@ -107,10 +108,7 @@ fn an_invalid_value_is_flagged_and_disables_ok_and_apply_until_fixed() {
         .props()
         .clone();
     assert_eq!(props.properties.title, "Motor driver");
-    assert_eq!(
-        props.properties.board_thickness.map(|t| t.0),
-        Some(1_600_000)
-    );
+    assert_eq!(props.libraries, ["parts"]);
 }
 
 #[test]

@@ -7,7 +7,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{Rules, Uuid};
+use crate::{Rules, StackupSeeds, Uuid};
 
 /// How the Gerber and drill files of a job are named.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -83,6 +83,10 @@ pub struct FabPreset {
     pub name: String,
     /// The design rules a new board is seeded with, and the minimums a job checks against.
     pub rules: Rules,
+    /// The thickness and copper a new board's Stackup starts with; left out when the
+    /// preset seeds neither.
+    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
+    pub stackup: StackupSeeds,
     pub gerber: GerberSettings,
     /// The BOM columns, in order.
     pub bom: Vec<Column>,
@@ -99,6 +103,8 @@ pub struct ProjectFabPreset {
     /// The name of the preset it was copied from.
     pub name: String,
     pub rules: Rules,
+    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
+    pub stackup: StackupSeeds,
     pub gerber: GerberSettings,
     pub bom: Vec<Column>,
     pub cpl: Vec<Column>,
@@ -110,6 +116,7 @@ impl ProjectFabPreset {
         let FabPreset {
             name,
             rules,
+            stackup,
             gerber,
             bom,
             cpl,
@@ -118,6 +125,7 @@ impl ProjectFabPreset {
             uuid,
             name,
             rules,
+            stackup,
             gerber,
             bom,
             cpl,
@@ -129,6 +137,7 @@ impl ProjectFabPreset {
         FabPreset {
             name: self.name.clone(),
             rules: self.rules,
+            stackup: self.stackup,
             gerber: self.gerber,
             bom: self.bom.clone(),
             cpl: self.cpl.clone(),

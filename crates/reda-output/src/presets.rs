@@ -6,7 +6,9 @@
 //! (JLCPCB's hole spacing is 0.20 mm between vias but 0.45 mm between pad holes, so 0.45).
 
 use reda_model::geom::Nm;
-use reda_model::{Column, ColumnSource, FabPreset, FileNaming, GerberSettings, Rules};
+use reda_model::{
+    Column, ColumnSource, FabPreset, FileNaming, GerberSettings, Rules, StackupSeeds,
+};
 
 /// The name of the preset a Project gets when none is asked for.
 pub const GENERIC_NAME: &str = "Generic";
@@ -51,6 +53,7 @@ pub fn generic() -> FabPreset {
             hole_to_hole: Nm::from_um(500),
             edge_clearance: Nm::from_um(400),
         },
+        stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
         bom: columns(&[
             ("Designator", Designator),
@@ -88,6 +91,7 @@ fn jlcpcb() -> FabPreset {
             // Routed edges; V-cut edges need 0.40 mm.
             edge_clearance: Nm::from_um(200),
         },
+        stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
         bom: columns(&[
             ("Comment", Value),
@@ -121,6 +125,7 @@ fn pcbway() -> FabPreset {
             hole_to_hole: Nm::from_um(500),
             edge_clearance: Nm::from_um(400),
         },
+        stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
         bom: columns(&[
             ("Line #", Line),

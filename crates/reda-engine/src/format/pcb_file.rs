@@ -8,6 +8,13 @@
 //!     {"uuid":"…","kind":"courtyard","side":"top"},
 //!     …
 //!   ]},
+//!   "stackups": [
+//!     {"uuid":"…","thickness":1600000,"entries":[
+//!       {"layer":"…","thickness":35000},
+//!       {"uuid":"…"},
+//!       {"layer":"…","thickness":35000}
+//!     ],"finish":"ENIG"}
+//!   ],
 //!   "board": {"uuid":"…","default_net_class":"…"},
 //!   "rules": {"clearance":160000,"track_width":200000,…},
 //!   "severities": {"clearance":"error",…},
@@ -64,7 +71,9 @@
 //! }
 //! ```
 //!
-//! The board setup is one object in the model; the file splits it over the `board`, `rules`
+//! `stackups` holds one Stackup in v0.1: copper `{layer, thickness}` and dielectric
+//! `{uuid, thickness?}` entries top to bottom, with `finish`, `mask_color` and `silk_color`
+//! left out while unset. The board setup is one object in the model; the file splits it over the `board`, `rules`
 //! and `severities` lines so a rule change and a severity change touch different lines.
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
@@ -78,7 +87,7 @@ use std::path::Path;
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, FreePad, InDocument,
     Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, PlacementOrigin,
-    Rules, Track, Uuid, Via, Waiver, Zone,
+    Rules, Stackup, Track, Uuid, Via, Waiver, Zone,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -100,6 +109,8 @@ pub(crate) struct PcbFile {
     pcb: PcbRow,
     /// The Layers, top to bottom. Objects name a Layer by its UUID.
     layers: LayerSet,
+    /// The board's physical build: one Stackup in v0.1.
+    stackups: Vec<Stackup>,
     /// The board setup's identity and its Default Net Class.
     board: BoardRow,
     /// The board-wide design rules.
@@ -172,6 +183,7 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("pcb", &PcbRow { uuid: pcb.uuid })?;
     w.container("layers", pcb.layers(), "layers")?;
+    w.containers("stackups", pcb.stackups(), |s| s.uuid, "entries")?;
     w.field(
         "board",
         &BoardRow {
@@ -253,6 +265,11 @@ pub(crate) fn read_pcb_file(
             },
         )),
     ];
+    objects.extend(
+        file.stackups
+            .into_iter()
+            .map(|s| Object::Stackup(InDocument::new(doc, s))),
+    );
     objects.extend(
         file.board_outline
             .map(|o| Object::BoardOutline(InDocument::new(doc, o))),

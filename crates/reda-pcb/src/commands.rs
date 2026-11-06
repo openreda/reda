@@ -11,6 +11,7 @@ mod net_class;
 mod outline;
 pub(crate) mod placement;
 mod rules;
+mod stackup;
 mod text;
 mod text_geometry;
 mod track;
@@ -40,6 +41,7 @@ use serde::Serialize;
 pub fn register_all(registry: &mut Registry, sync: SyncCheck) {
     outline::register_all(registry);
     rules::register_all(registry);
+    stackup::register_all(registry);
     net_class::register_all(registry);
     text::register_all(registry);
     registry.add(text_geometry::TextGeometry);

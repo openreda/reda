@@ -357,3 +357,46 @@ fn a_deleted_user_preset_goes_to_the_trash() {
         "a shipped preset is not the user's"
     );
 }
+
+#[test]
+fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
+    let home = TempDir::new("fab-stackup-home");
+    let dir = TempDir::new("fab-stackup");
+    let mut engine = with_user_preset(&home, &dir);
+    let generic = engine.project().unwrap().pcb().unwrap().stackup().clone();
+    // The shipped presets seed nothing, so the board is 1.6 mm with 1 oz copper.
+    assert_eq!(generic.thickness, Nm::from_um(1_600));
+    assert!(generic.copper().all(|c| c.thickness == Nm::from_um(35)));
+
+    let path = home.path().join("config/fab-presets/My JLC.redafab");
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        !text.contains("stackup"),
+        "empty seeds are left out: {text}"
+    );
+    let text = text.replace(
+        "  \"gerber\":",
+        "  \"stackup\": {\"thickness\":800000,\"copper\":70000},\n  \"gerber\":",
+    );
+    std::fs::write(&path, text).unwrap();
+
+    let other = TempDir::new("fab-stackup-2");
+    new_project(&mut engine, &other, json!({"fab_preset": "My JLC"}));
+    let stackup = engine.project().unwrap().pcb().unwrap().stackup().clone();
+    assert_eq!(stackup.thickness, Nm::from_um(800));
+    let copper: Vec<Nm> = stackup.copper().map(|c| c.thickness).collect();
+    assert_eq!(copper, [Nm::from_um(70), Nm::from_um(70)]);
+    assert_eq!(stackup.dielectrics().count(), 1);
+    assert_eq!(only_preset(&engine).stackup.copper, Some(Nm::from_um(70)));
+    // The copy keeps the seeds, and they come back after save and open.
+    let folder = other.path().join("work/Demo");
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = test_engine();
+    reopened.run_ok("project.open", json!({"path": folder}));
+    assert_eq!(
+        only_preset(&reopened).stackup.thickness,
+        Some(Nm::from_um(800))
+    );
+    let board = reopened.project().unwrap().pcb().unwrap().stackup().clone();
+    assert_eq!(board, stackup);
+}
