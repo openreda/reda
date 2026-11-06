@@ -396,6 +396,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
         // A Free Pad and the Output Origin come with it: through-hole on a Net, or SMD.
         let free_pad = FreePad {
+            mask: None,
+            paste: None,
             uuid: id(),
             kind: if flag {
                 PadKind::PlatedThroughHole
@@ -472,6 +474,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Via(InDocument::new(
             doc,
             Via {
+                mask: None,
                 uuid: id(),
                 at: from,
                 net,
@@ -983,6 +986,8 @@ fn fab_rules(lengths: [Nm; 7]) -> FabRules {
         edge_clearance,
     ] = lengths;
     FabRules {
+        mask_expansion: Default::default(),
+        paste_expansion: Default::default(),
         clearance,
         track_width,
         via_diameter,

@@ -245,7 +245,10 @@ fn a_legacy_module_footprint_is_read_with_y_pointing_up() {
     assert_eq!(pad("2").shape, PadShape::Oval);
     assert_eq!((pad("2").width, pad("2").height), (mm("1.6"), mm("1.2")));
     assert_eq!(pad("8").hole, Some(Hole::new(mm("0.8"), mm("1.2"))));
-    assert_eq!(pad("8").mask_margin, Some(mm("0.05")));
+    assert_eq!(
+        serde_json::to_value(pad("8").mask).unwrap()["top"]["expansion"],
+        50_000
+    );
     assert_eq!(pad("").kind, PadKind::NonPlated);
 
     let field = |name: &str| footprint.texts.iter().find(|t| t.field == name).unwrap();
@@ -551,4 +554,42 @@ fn imported_text_is_escaped_so_it_displays_as_written() {
     text::symbol_texts(&out.symbol, &mut stored);
     text::footprint_texts(&out.footprint, &mut stored);
     assert_eq!(text::check_texts("imported", &stored), Ok(()));
+}
+
+#[test]
+fn paste_only_pads_become_windows_and_never_copper() {
+    let footprint = r#"(footprint "PasteWindows"
+      (pad "1" smd rect (at 0 0) (size 4 4) (layers "F.Cu" "F.Mask"))
+      (pad "" smd rect (at -1 0) (size 1 1) (layers "F.Paste"))
+      (pad "" smd roundrect (at 1 0) (size 1 1) (layers "F.Paste") (roundrect_rratio 0.25))
+      (pad "" smd rect (at 10 0) (size 1 1) (layers "F.Paste"))
+      (pad "" smd rect (at 20 0) (size 1 1) (layers "F.Mask")))"#;
+    let out = import(
+        &fixture("divider.kicad_sym"),
+        footprint,
+        &ImportOptions::default(),
+        &mut ids(),
+    )
+    .unwrap();
+    assert_eq!(
+        out.footprint.pads.len(),
+        1,
+        "paste-only/mask-only pads must never become copper"
+    );
+    let pad = serde_json::to_value(&out.footprint.pads[0]).unwrap();
+    assert_eq!(pad["paste"]["windows"].as_array().unwrap().len(), 2);
+    assert_eq!(pad["paste"]["windows"][0]["at"]["x"], -1_000_000);
+    assert_eq!(pad["paste"]["windows"][1]["corner_ratio"], 50_000);
+    assert!(
+        out.warnings
+            .iter()
+            .any(|w| w.contains("paste") && w.contains("contain")),
+        "{:?}",
+        out.warnings
+    );
+    assert!(
+        out.warnings.iter().any(|w| w.contains("mask-only")),
+        "{:?}",
+        out.warnings
+    );
 }

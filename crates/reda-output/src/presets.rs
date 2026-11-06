@@ -41,6 +41,16 @@ pub fn generic() -> FabPreset {
     FabPreset {
         name: GENERIC_NAME.into(),
         rules: FabRules {
+            mask_expansion: reda_model::MaskExpansion {
+                top: Nm(50_000),
+                bottom: Nm(50_000),
+                from_hole_edge: false,
+                tent_vias_top: true,
+                tent_vias_bottom: true,
+            },
+            paste_expansion: reda_model::PasteExpansion::Expansion {
+                expansion: Nm::ZERO,
+            },
             clearance: Nm::from_um(160),
             track_width: Nm::from_um(200),
             // A 0.30 mm drill with a 0.20 mm ring.
@@ -91,6 +101,16 @@ fn jlcpcb() -> FabPreset {
     let mut preset = FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
+            mask_expansion: reda_model::MaskExpansion {
+                top: Nm(0),
+                bottom: Nm(0),
+                from_hole_edge: false,
+                tent_vias_top: true,
+                tent_vias_bottom: true,
+            },
+            paste_expansion: reda_model::PasteExpansion::Expansion {
+                expansion: Nm::ZERO,
+            },
             clearance: Nm::from_um(100),
             track_width: Nm::from_um(100),
             // A 0.15 mm drill with the 0.18 mm ring the rule asks of every hole. JLCPCB's
@@ -152,6 +172,16 @@ fn pcbway() -> FabPreset {
     let mut preset = FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
+            mask_expansion: reda_model::MaskExpansion {
+                top: Nm(50_000),
+                bottom: Nm(50_000),
+                from_hole_edge: false,
+                tent_vias_top: true,
+                tent_vias_bottom: true,
+            },
+            paste_expansion: reda_model::PasteExpansion::Expansion {
+                expansion: Nm::ZERO,
+            },
             clearance: Nm::from_um(100),
             track_width: Nm::from_um(100),
             // A 0.15 mm drill with a 0.15 mm ring.

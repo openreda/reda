@@ -9,7 +9,7 @@ use reda_testkit::{TempDir, TestEngine, probe_engine, test_engine_with_library};
 use serde_json::{Value, json};
 
 /// The Output Job `project.new` makes, on seed 0.
-const JOB: &str = "00000000-0000-4000-8000-00000000001f";
+const JOB: &str = "00000000-0000-4000-8000-000000000021";
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
 
 fn pt(x: f64, y: f64) -> Value {

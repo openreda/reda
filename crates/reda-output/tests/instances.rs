@@ -43,6 +43,14 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         "at": {"x": "5mm", "y": "6mm"}, "width": "3mm", "height": "2mm",
         "hole": {"width": "1.2mm", "height": "0.4mm"}}),
     );
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "shape": "rect",
+        "at": {"x": "12mm", "y": "8mm"}, "width": "2mm", "height": "1mm",
+        "mask": {"top": {"expansion": "0.2mm"}},
+        "paste": {"windows": [{"at": {"x": "0.5mm", "y": 0},
+            "width": "0.4mm", "height": "0.2mm"}]}}),
+    );
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let fills = reda_pcb::zone::current(pcb, None);
@@ -115,6 +123,41 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         !aperture.contains(900_000.0, 0.0),
         "the rectangular pad rotates with its board"
     );
+    for (name, at, inside_x, outside_x, inside_y, outside_y) in [
+        (
+            "Demo.GTS",
+            (2_000_000, 32_000_000),
+            690_000.0,
+            710_000.0,
+            1_190_000.0,
+            1_210_000.0,
+        ),
+        (
+            "Demo.GTP",
+            (2_000_000, 32_500_000),
+            90_000.0,
+            110_000.0,
+            190_000.0,
+            210_000.0,
+        ),
+    ] {
+        let layer = read(name);
+        let aperture = layer
+            .flashes()
+            .find_map(|o| match o {
+                gerber_reader::Object::Flash {
+                    at: position,
+                    aperture,
+                    ..
+                } if *position == at => Some(aperture),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("{name}: transformed opening at {at:?}"));
+        assert!(aperture.contains(inside_x, 0.0), "{name}");
+        assert!(!aperture.contains(outside_x, 0.0), "{name}");
+        assert!(aperture.contains(0.0, inside_y), "{name}");
+        assert!(!aperture.contains(0.0, outside_y), "{name}");
+    }
     let profile = read("Demo.GKO");
     assert_eq!(profile.draws().count(), 8);
     let drills = drill_files(&plot);

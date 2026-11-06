@@ -358,3 +358,50 @@ fn applying_a_fab_preset_reseeds_board_records_and_keeps_class_records() {
         Some(Nm::from_mm(1))
     );
 }
+
+#[test]
+fn mask_and_paste_rules_are_seeded_and_accept_signed_values() {
+    let dir = TempDir::new("rules-openings");
+    let mut engine = engine(&dir);
+    let out = set(
+        &mut engine,
+        json!({"kind": "mask_expansion", "values": {"bottom": "-0.025mm"}}),
+    );
+    assert_eq!(out["values"]["top"], 50_000);
+    assert_eq!(out["values"]["bottom"], -25_000);
+    assert_eq!(out["values"]["tent_vias_top"], true);
+    assert_eq!(out["values"]["tent_vias_bottom"], true);
+    assert_eq!(out["values"]["from_hole_edge"], false);
+    let out = set(
+        &mut engine,
+        json!({"kind": "paste_expansion", "values": {"expansion": null, "percent": -10}}),
+    );
+    assert_eq!(out["values"]["percent"], -10);
+    assert!(out["values"].get("expansion").is_none());
+    let bad = engine.run_err(
+        "pcb.rules.set",
+        json!({"kind": "paste_expansion", "values": {"percent": -100}}),
+    );
+    assert_eq!(bad.code, ErrorCode::InvalidParams);
+}
+
+#[test]
+fn mask_and_paste_preset_seeds_match_the_specification_table() {
+    for (preset, expansion) in [("Generic", 50_000), ("JLCPCB", 0), ("PCBWay", 50_000)] {
+        let dir = TempDir::new("opening-preset");
+        let mut engine = probe_engine();
+        engine.run_ok(
+            "project.new",
+            json!({"path":dir.path(),"name":"Demo","fab_preset":preset}),
+        );
+        let mask = serde_json::to_value(pcb(&engine).board_rule(RuleKind::MaskExpansion)).unwrap();
+        assert_eq!(
+            mask["values"],
+            json!({"top":expansion,"bottom":expansion,"from_hole_edge":false,"tent_vias_top":true,"tent_vias_bottom":true}),
+            "{preset}"
+        );
+        let paste =
+            serde_json::to_value(pcb(&engine).board_rule(RuleKind::PasteExpansion)).unwrap();
+        assert_eq!(paste["values"], json!({"expansion":0}), "{preset}");
+    }
+}

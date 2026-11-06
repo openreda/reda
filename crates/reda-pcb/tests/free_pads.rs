@@ -310,3 +310,87 @@ fn free_pads_and_the_output_origin_survive_save_and_open() {
     assert_eq!(after.free_pad(pad), before.free_pad(pad));
     assert_eq!(after.output_origin(), before.output_origin());
 }
+
+#[test]
+fn mask_and_paste_overrides_roundtrip_and_validate_the_pad_side() {
+    let dir = TempDir::new("opening-overrides");
+    let mut engine = engine(&dir);
+    let out = engine.run_ok(
+        "pcb.free_pad.add",
+        json!({
+            "kind": "smd", "shape": "rect", "at": {"x": 0,"y": 0}, "width": "2mm", "height": "1mm",
+            "side": "bottom", "mask": {"bottom": "tent"}, "paste": {"percent": -10}
+        }),
+    );
+    let pad = created(&out);
+    let via = created(&engine.run_ok(
+        "pcb.via.add",
+        json!({"at": {"x": "5mm", "y": 0},
+        "mask": {"top": {"expansion": "0.1mm"}, "bottom": "tent", "from_hole_edge": true}}),
+    ));
+    for mask in [json!({"top": "tent"}), json!({"from_hole_edge": false})] {
+        let err = engine.run_err(
+            "pcb.free_pad.add",
+            json!({"kind": "smd", "side": "bottom",
+            "at": {"x": 0,"y": 0}, "width": "1mm", "mask": mask}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams);
+    }
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = reda_testkit::probe_engine();
+    reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    let pad = serde_json::to_value(pcb(&reopened).free_pad(pad).unwrap()).unwrap();
+    assert_eq!(pad["mask"], json!({"bottom": "tent"}));
+    assert_eq!(pad["paste"], json!({"percent": -10}));
+    let via = serde_json::to_value(pcb(&reopened).via(via).unwrap()).unwrap();
+    assert_eq!(via["mask"]["top"]["expansion"], 100_000);
+    assert_eq!(via["mask"]["from_hole_edge"], true);
+}
+
+#[test]
+fn drc_reports_collapsed_openings_but_ignores_intentional_tenting_and_none() {
+    let dir = TempDir::new("collapsed-openings");
+    let mut engine = engine(&dir);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","shape":"rect","at":{"x":"5mm","y":"5mm"},
+        "width":"1mm","mask":{"top":{"expansion":"-0.5mm"}},"paste":{"expansion":"-0.6mm"}}),
+    );
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","shape":"rect","at":{"x":"10mm","y":"5mm"},
+        "width":"1mm","mask":{"top":"tent"},"paste":"none"}),
+    );
+    let run = engine.run_ok("drc.run", json!({}));
+    let found: Vec<_> = run["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "opening_collapsed")
+        .collect();
+    assert_eq!(found.len(), 2, "{run}");
+    assert!(found.iter().all(|v| v["severity"] == "warning"));
+}
+
+#[test]
+fn silkscreen_drc_uses_resolved_tenting_and_shrunken_openings() {
+    let dir = TempDir::new("silk-openings");
+    let mut engine = engine(&dir);
+    for (x, mask) in [
+        (5, json!({"top":"tent"})),
+        (10, json!({"top":{"expansion":"-0.4mm"}})),
+    ] {
+        engine.run_ok("pcb.free_pad.add",json!({"kind":"smd","shape":"rect","at":{"x":format!("{x}mm"),"y":"5mm"},"width":"1mm","mask":mask}));
+        engine.run_ok("pcb.graphic.add_line",json!({"layer":"silkscreen_top","width":"0.05mm",
+            "from":{"x":format!("{}mm",f64::from(x)+0.3),"y":"4mm"},"to":{"x":format!("{}mm",f64::from(x)+0.3),"y":"6mm"}}));
+    }
+    let run = engine.run_ok("drc.run", json!({}));
+    assert!(
+        !run["violations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["check"] == "silkscreen_over_pads"),
+        "{run}"
+    );
+}

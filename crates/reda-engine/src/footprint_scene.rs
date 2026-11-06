@@ -110,6 +110,8 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
     });
     let document = new_id();
     let rules = FabRules {
+        mask_expansion: Default::default(),
+        paste_expansion: Default::default(),
         clearance: Nm(0),
         track_width: Nm(0),
         via_diameter: Nm(0),

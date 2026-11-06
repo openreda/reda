@@ -83,6 +83,20 @@ fn check_footprint(footprint: &Footprint) -> Vec<Violation> {
         out.push(Violation::new("missing_courtyard", Severity::Warning).object(footprint.uuid));
     }
     for pad in &footprint.pads {
+        if let Some(reda_model::Paste::Windows { windows }) = &pad.paste {
+            let copper = pad.outline();
+            for (window, w) in windows.iter().enumerate() {
+                if !w.fits(&copper) {
+                    out.push(
+                        Violation::new("paste_window_outside_copper", Severity::Warning)
+                            .arg("pad", pad.number.as_str())
+                            .arg("window", window as i64)
+                            .objects([footprint.uuid, pad.uuid]),
+                    );
+                }
+            }
+        }
+
         let outside = pad.kind == PadKind::PlatedThroughHole
             && pad
                 .form()

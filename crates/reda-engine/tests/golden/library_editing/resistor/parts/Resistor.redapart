@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "part": {"uuid":"00000000-0000-4000-8000-00000000002e","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"00000000-0000-4000-8000-000000000020"},
+  "part": {"uuid":"00000000-0000-4000-8000-000000000030","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"00000000-0000-4000-8000-000000000022"},
   "footprints": [
-    "00000000-0000-4000-8000-000000000025"
+    "00000000-0000-4000-8000-000000000027"
   ],
   "fields": {"value":"10k","description":"Generic resistor","keywords":"resistor R"},
   "pin_map": {}

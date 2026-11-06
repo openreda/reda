@@ -31,8 +31,8 @@ pub struct PadSource {
     pub offset: Option<Point>,
     pub hole: Option<Hole>,
     pub side: Option<Side>,
-    pub mask_margin: Option<Nm>,
-    pub paste_margin: Option<Nm>,
+    pub mask: Option<reda_model::Mask>,
+    pub paste: Option<reda_model::Paste>,
     pub zone_connection: Option<ZoneConnection>,
 }
 
@@ -114,9 +114,21 @@ pub fn read(root: &Sexp) -> Read<FootprintSource> {
         }
     };
     note_copyright(&description, &mut out);
+    let mut windows = Vec::new();
     for item in root.args() {
         match item.head() {
-            Some("pad") => out.pads.push(read_pad(item, &mut out.warnings)?),
+            Some("pad") => {
+                let layers = pad_layers(item);
+                let copper = layers.is_empty() || layers.iter().any(|l| l.ends_with(".Cu"));
+                if copper {
+                    out.pads.push(read_pad(item, &mut out.warnings)?);
+                } else if layers.iter().any(|l| l.ends_with(".Paste")) {
+                    windows.push(read_pad(item, &mut out.warnings)?);
+                } else {
+                    out.warnings
+                        .push("dropped a mask-only Pad, which REDA cannot represent".into());
+                }
+            }
             Some("fp_text") => {
                 let kind = node::text(item, 0)?;
                 let text = node::text(item, 1)?;
@@ -145,7 +157,81 @@ pub fn read(root: &Sexp) -> Read<FootprintSource> {
             _ => {}
         }
     }
+    for window in windows {
+        attach_window(window, &mut out);
+    }
     Ok(out)
+}
+
+fn pad_layers(pad: &Sexp) -> Vec<&str> {
+    pad.child("layers")
+        .map(|l| l.args().iter().filter_map(Sexp::text).collect())
+        .unwrap_or_default()
+}
+
+fn attach_window(window: PadSource, out: &mut FootprintSource) {
+    if window.shape == PadShape::ChamferedRect {
+        out.warnings.push(
+            "dropped a paste-only Pad: its chamfers cannot be represented by a paste window".into(),
+        );
+        return;
+    }
+    for copper in &mut out.pads {
+        if copper.kind != PadKind::Smd || copper.side != window.side {
+            continue;
+        }
+        let at = (window.at - copper.at).rotated_about(Point::default(), -copper.rotation);
+        let angle = (window.rotation - copper.rotation).0.rem_euclid(180_000);
+        if angle % 90_000 != 0 && window.shape != PadShape::Circle {
+            continue;
+        }
+        let (width, height) = if angle == 90_000 {
+            (window.height, window.width)
+        } else {
+            (window.width, window.height)
+        };
+        let candidate = reda_model::PasteWindow {
+            at,
+            width,
+            height,
+            corner_ratio: if matches!(window.shape, PadShape::Circle | PadShape::Oval) {
+                Some(Ratio::FULL)
+            } else {
+                window.corner_ratio
+            },
+        };
+        let copper_outline = Pad {
+            uuid: Uuid::NIL,
+            number: String::new(),
+            kind: copper.kind,
+            shape: copper.shape,
+            at: copper.at,
+            rotation: copper.rotation,
+            width: copper.width,
+            height: copper.height,
+            corner_ratio: copper.corner_ratio,
+            chamfer_ratio: copper.chamfer_ratio,
+            corners: copper.corners,
+            offset: copper.offset,
+            hole: copper.hole,
+            side: copper.side,
+            mask: None,
+            paste: None,
+            zone_connection: None,
+        }
+        .outline();
+        if candidate.fits(&copper_outline) {
+            if !matches!(copper.paste, Some(reda_model::Paste::Windows { .. })) {
+                copper.paste = Some(reda_model::Paste::Windows { windows: vec![] });
+            }
+            if let Some(reda_model::Paste::Windows { windows }) = &mut copper.paste {
+                windows.push(candidate);
+            }
+            return;
+        }
+    }
+    out.warnings
+        .push("dropped a paste-only Pad: no containing copper Pad can represent its window".into());
 }
 
 fn read_text(item: &Sexp, kind: &str, text: &str, out: &mut FootprintSource) -> Read<()> {
@@ -371,17 +457,61 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
     if kind != PadKind::Smd && hole.is_none() {
         return fail(pad, format!("through-hole pad {number:?} has no drill"));
     }
-    let layers: Vec<&str> = pad
-        .child("layers")
-        .map(|l| l.args().iter().filter_map(Sexp::text).collect())
-        .unwrap_or_default();
-    let side = (kind == PadKind::Smd && layers.contains(&"B.Cu") && !layers.contains(&"F.Cu"))
-        .then_some(Side::Bottom);
+    let layers = pad_layers(pad);
+    let side = (kind == PadKind::Smd
+        && (layers.contains(&"B.Cu") || layers.contains(&"B.Paste"))
+        && !layers.contains(&"F.Cu"))
+    .then_some(Side::Bottom);
     let margin = |name: &str| pad.child(name).map(|m| node::mm(m, 0)).transpose();
     let zone_connection = if kind == PadKind::NonPlated {
         None
     } else {
         zone_connection(pad, kind, &number, warnings)?
+    };
+    let mask_expansion = margin("solder_mask_margin")?;
+    let own = |present: bool| {
+        if present {
+            mask_expansion.map(|expansion| reda_model::MaskSide::Expansion { expansion })
+        } else {
+            Some(reda_model::MaskSide::Mode(reda_model::Tenting::Tent))
+        }
+    };
+    let has = |name: &str, all: &str| layers.contains(&name) || layers.contains(&all);
+    let mask = reda_model::Mask {
+        top: if kind != PadKind::Smd || side != Some(Side::Bottom) {
+            own(has("F.Mask", "*.Mask"))
+        } else {
+            None
+        },
+        bottom: if kind != PadKind::Smd || side == Some(Side::Bottom) {
+            own(has("B.Mask", "*.Mask"))
+        } else {
+            None
+        },
+        from_hole_edge: None,
+    };
+    let has_paste = has(
+        if side == Some(Side::Bottom) {
+            "B.Paste"
+        } else {
+            "F.Paste"
+        },
+        "*.Paste",
+    );
+    let paste = if kind == PadKind::Smd {
+        if !has_paste {
+            Some(reda_model::Paste::Mode(reda_model::PasteMode::None))
+        } else {
+            margin("solder_paste_margin")?
+                .map(|expansion| reda_model::Paste::Expansion { expansion })
+        }
+    } else {
+        if layers.iter().any(|l| l.ends_with(".Paste")) {
+            warnings.push(format!(
+                "pad {number:?}: dropped paste on a through-hole Pad"
+            ));
+        }
+        None
     };
     Ok(PadSource {
         number,
@@ -397,8 +527,8 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
         offset,
         hole: if kind == PadKind::Smd { None } else { hole },
         side,
-        mask_margin: margin("solder_mask_margin")?,
-        paste_margin: margin("solder_paste_margin")?,
+        mask: (mask != reda_model::Mask::default()).then_some(mask),
+        paste,
         zone_connection,
     })
 }
@@ -503,8 +633,8 @@ pub fn build(
             offset: p.offset,
             hole: p.hole,
             side: p.side,
-            mask_margin: p.mask_margin,
-            paste_margin: p.paste_margin,
+            mask: p.mask,
+            paste: p.paste,
             zone_connection: p.zone_connection,
         })
         .collect();

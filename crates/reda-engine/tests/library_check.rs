@@ -56,8 +56,8 @@ fn write_flawed_library(folder: &Path) {
             corners: None,
             offset: None,
             hole: None,
-            mask_margin: None,
-            paste_margin: None,
+            mask: None,
+            paste: None,
             side: None,
             zone_connection: None,
         }],
@@ -199,4 +199,34 @@ fn an_element_and_a_library_together_are_refused() {
         json!({"element": PART, "library": LIBRARY}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+#[test]
+fn paste_windows_outside_copper_are_warnings_and_never_block_saving() {
+    let dir = TempDir::new("paste-window-check");
+    let mut e = engine_with_library(&dir);
+    let fp = e.run_ok(
+        "library.element.new",
+        json!({"library":LIBRARY,"kind":"footprint","name":"Windows"}),
+    )["element"]
+        .clone();
+    e.run_ok(
+        "library.footprint.pad.add",
+        json!({"footprint":fp,"number":"1","kind":"smd","shape":"circle",
+        "at":{"x":0,"y":0},"width":"2mm","height":"2mm","paste":{"windows":[
+            {"at":{"x":0,"y":0},"width":"1mm","height":"1mm"},
+            {"at":{"x":"0.8mm","y":0},"width":"1mm","height":"1mm"},
+            {"at":{"x":0,"y":0},"width":"2mm","height":"2mm","corner_ratio":100000}]}}),
+    );
+    let out = e.run_ok("library.check", json!({"element":fp}));
+    let found: Vec<_> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "paste_window_outside_copper")
+        .collect();
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["args"]["window"], 1);
+    e.run_ok("library.element.save", json!({"element":fp}));
 }

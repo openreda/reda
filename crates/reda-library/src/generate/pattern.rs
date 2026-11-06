@@ -106,8 +106,8 @@ impl PadSpec {
             offset: None,
             hole,
             side: None,
-            mask_margin: None,
-            paste_margin: None,
+            mask: None,
+            paste: None,
             zone_connection: None,
         }
     }

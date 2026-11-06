@@ -133,15 +133,17 @@ fn soic() -> Footprint {
         corners: None,
         offset: None,
         hole: None,
-        mask_margin: None,
-        paste_margin: None,
+        mask: None,
+        paste: None,
         side: None,
         zone_connection: None,
     };
     let mut exposed = pad(0x33, "4", 0);
     exposed.shape = PadShape::Rect;
     exposed.corner_ratio = None;
-    exposed.paste_margin = Some(Nm::from_um(-100));
+    exposed.paste = Some(reda_engine::model::Paste::Expansion {
+        expansion: Nm::from_um(-100),
+    });
     Footprint {
         uuid: id(0x30),
         name: "SOIC-8".into(),
@@ -220,8 +222,16 @@ fn hole() -> Footprint {
             corners: None,
             offset: None,
             hole: Some(Hole::new(Nm::from_um(3200), Nm::from_um(3200))),
-            mask_margin: Some(Nm::from_um(50)),
-            paste_margin: None,
+            mask: Some(reda_engine::model::Mask {
+                top: Some(reda_engine::model::MaskSide::Expansion {
+                    expansion: Nm::from_um(50),
+                }),
+                bottom: Some(reda_engine::model::MaskSide::Expansion {
+                    expansion: Nm::from_um(50),
+                }),
+                from_hole_edge: None,
+            }),
+            paste: None,
             side: None,
             zone_connection: None,
         }],

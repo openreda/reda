@@ -249,12 +249,12 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
     pad(
         json!({"number": "1", "kind": "smd", "shape": "rounded_rect",
                "at": {"x": "-1mm", "y": 0}, "width": "1mm", "height": "0.8mm",
-               "paste_margin": "-0.05mm"}),
+               "paste": {"expansion": "-0.05mm"}}),
     );
     pad(
         json!({"number": "2", "kind": "plated_through_hole", "shape": "circle",
                "at": {"x": "1mm", "y": 0}, "width": "1.6mm", "height": "1.6mm",
-               "hole": {"width": "0.8mm"}, "mask_margin": "0.05mm"}),
+               "hole": {"width": "0.8mm"}, "mask": {"top": {"expansion": "0.05mm"}, "bottom": {"expansion": "0.05mm"}}}),
     );
     pad(
         json!({"number": "3", "kind": "plated_through_hole", "shape": "oval",
@@ -277,12 +277,12 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
         50_000,
         "a radius of a quarter of the shorter side"
     );
-    assert_eq!(by_number("1")["paste_margin"], -50_000);
+    assert_eq!(by_number("1")["paste"]["expansion"], -50_000);
     assert_eq!(
         by_number("2")["hole"],
         json!({"width": 800_000, "height": 800_000})
     );
-    assert_eq!(by_number("2")["mask_margin"], 50_000);
+    assert_eq!(by_number("2")["mask"]["top"]["expansion"], 50_000);
     assert_eq!(
         by_number("3")["hole"],
         json!({"width": 800_000, "height": 1_600_000})
@@ -291,18 +291,18 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
 
     e.run_ok(
         "library.footprint.pad.edit",
-        json!({"footprint": fp, "pad": npth, "mask_margin": "0.1mm", "number": "MH"}),
+        json!({"footprint": fp, "pad": npth, "mask": {"top": {"expansion": "0.1mm"}, "bottom": {"expansion": "0.1mm"}}, "number": "MH"}),
     );
     let pad1 = by_number("1")["uuid"].clone();
     e.run_ok(
         "library.footprint.pad.edit",
-        json!({"footprint": fp, "pad": pad1, "paste_margin": null, "shape": "rect"}),
+        json!({"footprint": fp, "pad": pad1, "paste": null, "shape": "rect"}),
     );
     let obj = object(&mut e, &fp);
     let pads = obj["pads"].as_array().unwrap();
     let edited = pads.iter().find(|p| p["uuid"] == pad1).unwrap();
     assert_eq!(
-        edited["paste_margin"],
+        edited["paste"]["expansion"],
         Value::Null,
         "null clears the override"
     );
@@ -313,7 +313,7 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
     );
     assert!(
         pads.iter()
-            .any(|p| p["number"] == "MH" && p["mask_margin"] == 100_000)
+            .any(|p| p["number"] == "MH" && p["mask"]["top"]["expansion"] == 100_000)
     );
 
     e.run_ok(

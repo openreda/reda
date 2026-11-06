@@ -186,10 +186,10 @@ pub struct PlacedPad {
     /// The copper side of an SMD Pad; `None` for a Pad with a hole, which is on both.
     pub side: Option<Side>,
     pub net: Option<Uuid>,
-    /// The Pad's own solder-mask margin, overriding the board's; Free Pads have none.
-    pub mask_margin: Option<Nm>,
-    /// The Pad's own solder-paste margin, overriding the board's; Free Pads have none.
-    pub paste_margin: Option<Nm>,
+    /// Per-side mask overrides in board sides.
+    pub mask: Option<reda_model::Mask>,
+    /// Paste overrides, with windows in the placed Pad's frame.
+    pub paste: Option<reda_model::Paste>,
     pub zone_connection: Option<ZoneConnection>,
 }
 
@@ -249,8 +249,24 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
                 hole,
                 side: pad.copper_side().map(|s| frame.side(s)),
                 net: instance.pad_net(pad.uuid),
-                mask_margin: pad.mask_margin,
-                paste_margin: pad.paste_margin,
+                mask: pad.mask.map(|m| {
+                    if bottom {
+                        reda_model::Mask {
+                            top: m.bottom,
+                            bottom: m.top,
+                            ..m
+                        }
+                    } else {
+                        m
+                    }
+                }),
+                paste: pad.paste.clone().map(|p| {
+                    p.map(
+                        |n| n,
+                        |p| if bottom { Point::new(-p.x, p.y) } else { p },
+                        |r| r,
+                    )
+                }),
                 zone_connection: pad.zone_connection,
             }
         })
@@ -270,8 +286,8 @@ pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
         hole: pad.hole,
         side: pad.form().copper_side(),
         net: pad.net,
-        mask_margin: None,
-        paste_margin: None,
+        mask: pad.mask,
+        paste: pad.paste.clone(),
         zone_connection: pad.zone_connection,
     }
 }
