@@ -4,6 +4,7 @@
 //! [`Transaction`], which records a [`ChangeSet`] of before/after states per object. The
 //! file format is not defined here: the engine maps these types to canonical JSON.
 
+pub mod auto_increment;
 mod change;
 mod check;
 mod derived;
@@ -50,9 +51,9 @@ pub use pcb::{
 pub use probe::Probe;
 pub use project::{Project, ProjectProperties, ProjectProps, SchematicOptions};
 pub use schematic::{
-    ComponentRef, FootprintCopy, NetLabel, NoConnect, PartEntry, Port, PortDirection, PowerPort,
-    PowerPortStyle, SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText,
-    UnitInstance, Wire,
+    ComponentRef, FieldText, FootprintCopy, NetLabel, NoConnect, PartEntry, Port, PortDirection,
+    PowerPort, PowerPortStyle, SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize,
+    SheetText, UnitInstance, UnitSuffix, Wire,
 };
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};

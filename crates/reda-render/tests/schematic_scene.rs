@@ -2,9 +2,11 @@
 
 use std::path::{Path, PathBuf};
 
-use reda_model::Uuid;
-use reda_model::geom::Point;
-use reda_render::{Primitive, SceneLayer, schematic_scene};
+use reda_model::geom::{Nm, Point};
+use reda_model::{UnitSuffix, Uuid};
+use reda_render::{
+    Primitive, SceneLayer, SchematicColor, SchematicStyle, schematic_scene, schematic_scene_styled,
+};
 use reda_testkit::{TempDir, TestEngine, assert_golden, test_engine_with_library};
 use serde_json::json;
 
@@ -305,4 +307,125 @@ impl Mm for i64 {
     fn mm(self) -> reda_model::geom::Nm {
         reda_model::geom::Nm::from_mm(self)
     }
+}
+
+/// The field text runs a Unit draws, as (text, anchor, rotation, height).
+fn field_runs(
+    scene: &reda_render::Scene,
+    unit: &str,
+) -> Vec<(String, Point, i64, reda_model::geom::Nm)> {
+    let unit: Uuid = unit.parse().unwrap();
+    scene
+        .items_of(unit)
+        .filter(|i| {
+            matches!(
+                i.color,
+                reda_render::ColorKey::Schematic(
+                    SchematicColor::Designator | SchematicColor::Value | SchematicColor::Field
+                )
+            )
+        })
+        .filter_map(|i| match &i.primitive {
+            Primitive::Glyphs(run) => Some((run.text.clone(), run.at, run.rotation.0, run.height)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn fields_stack_right_of_the_body_at_0_and_180_and_above_it_at_90_and_270() {
+    let dir = TempDir::new("render-field-stack");
+    let mut engine = demo(&dir);
+    let mut units = vec![];
+    for (i, rotation) in [0, 90, 180, 270].into_iter().enumerate() {
+        units.push(place(&mut engine, R_10K, 2000 * i as i64 + 1000, 2000, rotation).0);
+    }
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    for (i, (unit, rotation)) in units.iter().zip([0, 90, 180, 270]).enumerate() {
+        let body = scene
+            .items_of(unit.parse().unwrap())
+            .filter(|i| !matches!(i.primitive, Primitive::Glyphs(_)))
+            .filter_map(|i| i.primitive.bounds())
+            .reduce(|(lo, hi), (l, h)| {
+                (
+                    Point::new(lo.x.min(l.x), lo.y.min(l.y)),
+                    Point::new(hi.x.max(h.x), hi.y.max(h.y)),
+                )
+            })
+            .unwrap();
+        let runs = field_runs(&scene, unit);
+        let texts: Vec<&str> = runs.iter().map(|r| r.0.as_str()).collect();
+        assert_eq!(texts, [format!("R{}", i + 1).as_str(), "10k"]);
+        for (text, at, angle, _) in &runs {
+            assert_eq!(*angle, 0, "{text} at {rotation}° is right-reading");
+            if rotation % 180 == 0 {
+                assert!(
+                    at.x > body.1.x,
+                    "{text} at {rotation}° is right of the body"
+                );
+            } else {
+                assert!(at.y > body.1.y, "{text} at {rotation}° is above the body");
+                assert_eq!(at.x, Nm((body.0.x.0 + body.1.x.0) / 2), "centred on it");
+            }
+        }
+        assert!(
+            runs[0].1.y > runs[1].1.y,
+            "the Designator comes first, on top"
+        );
+    }
+}
+
+#[test]
+fn a_moved_field_follows_its_unit_and_stays_right_reading() {
+    let dir = TempDir::new("render-field-moved");
+    let mut engine = demo(&dir);
+    let (unit, _) = place(&mut engine, R_10K, 1000, 1000, 0);
+    engine.run_ok(
+        "schematic.field.move",
+        json!({"unit": unit, "field": "value", "at": at(1200, 1000), "size": "2mm"}),
+    );
+    engine.run_ok(
+        "schematic.unit.move",
+        json!({"unit": unit, "at": at(1000, 1000), "rotation": "180deg"}),
+    );
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    let runs = field_runs(&scene, &unit);
+    let value = runs.iter().find(|r| r.0 == "10k").unwrap();
+    assert_eq!(
+        value.1,
+        Point::new(800.mil(), 1000.mil()),
+        "the offset turns with it"
+    );
+    assert_eq!(value.2, 0, "upside down would not be right-reading");
+    assert_eq!(value.3, 2.mm());
+}
+
+#[test]
+fn the_unit_suffix_follows_the_designator_from_the_units_position() {
+    let dir = TempDir::new("render-unit-suffix");
+    let mut engine = demo(&dir);
+    let (a, component) = place(&mut engine, LM358, 1000, 1000, 0);
+    let b = engine.run_ok(
+        "schematic.unit.place",
+        json!({"document": SHEET, "component": component, "at": at(3000, 1000)}),
+    )["result"]["unit"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let (r, _) = place(&mut engine, R_10K, 5000, 1000, 0);
+    let project = engine.project().unwrap();
+    let designators = |style: UnitSuffix| {
+        let scene = schematic_scene_styled(
+            project,
+            sheet(),
+            &[],
+            &SchematicStyle { unit_suffix: style },
+        )
+        .unwrap();
+        [&a, &b, &r].map(|u| field_runs(&scene, u)[0].0.clone())
+    };
+    assert_eq!(designators(UnitSuffix::Alpha), ["U1A", "U1B", "R1"]);
+    assert_eq!(designators(UnitSuffix::Numeric), ["U1:1", "U1:2", "R1"]);
+    let default = schematic_scene(project, sheet(), &[]).unwrap();
+    assert_eq!(field_runs(&default, &a)[0].0, "U1A");
 }

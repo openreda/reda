@@ -89,6 +89,32 @@
       ],
       "type": "object"
     },
+    "FieldText": {
+      "additionalProperties": false,
+      "description": "Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's\nown frame (so rotating or mirroring the Unit carries it along), and its text height\nwhen it is not the default.",
+      "properties": {
+        "field": {
+          "description": "The field, by name.",
+          "type": "string"
+        },
+        "offset": {
+          "$ref": "#/$defs/Point"
+        },
+        "size": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "field",
+        "offset"
+      ],
+      "type": "object"
+    },
     "Fields": {
       "additionalProperties": false,
       "description": "A Part's default fields, copied onto each Component placed from it.",
@@ -1462,6 +1488,13 @@
           "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
           "type": "boolean"
         },
+        "field_text": {
+          "description": "The fields moved by hand on this Unit, one entry per field, sorted by field name\n(the names of `visible_fields`). A field with no entry is autopositioned. Each\nUnit has its own.",
+          "items": {
+            "$ref": "#/$defs/FieldText"
+          },
+          "type": "array"
+        },
         "fields": {
           "$ref": "#/$defs/Fields",
           "description": "The value is `fields.value`."
@@ -1481,6 +1514,14 @@
         "in_cpl": {
           "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
           "type": "boolean"
+        },
+        "locked_fields": {
+          "description": "The Locked Fields, by name: Update from Library leaves them as they are, though\nthey can still be edited by hand. Every Unit of a Component carries the same set.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
         },
         "mirror": {
           "description": "Mirrored left to right before rotating.",

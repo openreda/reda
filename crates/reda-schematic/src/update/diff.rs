@@ -24,13 +24,16 @@ pub enum PartChange {
         edited: bool,
     },
     /// A default field changed (`""` = not set). `edited` when the Component has its own
-    /// value for it, which it keeps; otherwise it takes the new default.
+    /// value for it, and `locked` when it is one of the Component's Locked Fields: either
+    /// way it keeps its value; otherwise it takes the new default.
     Field {
         name: String,
         from: String,
         to: String,
         #[serde(default, skip_serializing_if = "is_false")]
         edited: bool,
+        #[serde(default, skip_serializing_if = "is_false")]
+        locked: bool,
     },
     /// The Part's pin-pad map overrides changed.
     PinMap,
@@ -101,6 +104,7 @@ pub fn changes(
         if from != to {
             out.push(PartChange::Field {
                 edited: component.fields.get(&name) != from,
+                locked: component.locked_fields.contains(&name),
                 from: from.to_owned(),
                 to: to.to_owned(),
                 name,
@@ -202,8 +206,9 @@ fn field_names(old: &Fields, new: &Fields) -> Vec<String> {
     names
 }
 
-/// The Unit as the update leaves it: pointing at `entry`, with every changed field and
-/// Component Type the Component had not edited taking the new default, a Footprint that
+/// The Unit as the update leaves it: pointing at `entry`, with every changed field the
+/// Component had neither edited nor locked, and a Component Type it had not edited,
+/// taking the new default, a Footprint that
 /// is no longer an alternate moved to the new default, and Not Fitted cleared on a Net Tie.
 pub fn updated_unit(unit: &UnitInstance, entry: Uuid, changes: &[PartChange]) -> UnitInstance {
     let mut unit = unit.clone();
@@ -214,6 +219,7 @@ pub fn updated_unit(unit: &UnitInstance, entry: Uuid, changes: &[PartChange]) ->
                 name,
                 to,
                 edited: false,
+                locked: false,
                 ..
             } => unit.fields.set(name, to),
             PartChange::ComponentType {
