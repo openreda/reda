@@ -37699,6 +37699,173 @@
       "title": "Break Wire"
     },
     {
+      "category": "schematic",
+      "description": "Finds a 90° path between two points on a Schematic Sheet for Auto Wire, around placed objects: it never enters a Unit's body or Pins, never passes over a Pin end, Net Label, Port, Power Port, No-Connect Marker or Wire vertex, never runs along or turns on a Wire, and crosses Wires only as `avoid_cutting_wires` allows. It prefers short paths with few corners, a grid step clear of bodies. The same inputs always give the same path. Nothing is drawn.",
+      "icon": "wire",
+      "id": "schematic.wire.route",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Avoid": {
+            "description": "How hard a route tries not to cross Wires: the Avoid cutting wires slider.",
+            "oneOf": [
+              {
+                "const": "low",
+                "description": "A crossing costs as much as two grid steps of Wire.",
+                "type": "string"
+              },
+              {
+                "const": "medium",
+                "description": "A crossing costs as much as ten grid steps.",
+                "type": "string"
+              },
+              {
+                "const": "high",
+                "description": "A crossing costs as much as a hundred grid steps.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "avoid_cutting_wires": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Avoid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How hard it tries not to cross Wires; `medium` by default."
+          },
+          "document": {
+            "description": "The Schematic Sheet to route on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/$defs/At",
+            "description": "Where the route starts: the run's last vertex."
+          },
+          "grid": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The grid its corners sit on; 50 mil by default."
+          },
+          "timeout_ms": {
+            "description": "Time Out After, in milliseconds, 100 to 60000; 3000 by default. It buys a fixed\namount of search, so the answer does not depend on the machine.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "to": {
+            "$ref": "#/$defs/At",
+            "description": "Where it ends: the clicked point."
+          }
+        },
+        "required": [
+          "document",
+          "from",
+          "to"
+        ],
+        "title": "WireRouteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The route `schematic.wire.route` found.",
+        "properties": {
+          "crossings": {
+            "description": "How many Wires it crosses mid-span.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "points": {
+            "description": "The path's vertices from `from` to `to`, corners only, ready for\n`schematic.wire.add`.",
+            "items": {
+              "$ref": "#/$defs/Point"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "points",
+          "crossings"
+        ],
+        "title": "WireRouteResult",
+        "type": "object"
+      },
+      "title": "Route Wire"
+    },
+    {
       "category": "sync",
       "description": "Applies the Change List of `sync.preview` to the PCB Document in one transaction, leaving out the `exclude`d changes and every change that requires one. New Footprints go into a fresh cluster outside the Board Outline (at the origin with no outline), grouped by sheet and sorted by Designator. Fails with `conflict` when the Change List no longer matches `hash`.",
       "icon": "sync",

@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "project": {"uuid":"00000000-0000-4000-8000-000000000001"},
+  "documents": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","path":"AutoWire.redasch","title":"Sheet 1"},
+    {"uuid":"00000000-0000-4000-8000-000000000003","path":"AutoWire.redapcb","title":"AutoWire"}
+  ],
+  "fab_presets": [
+    {"uuid":"00000000-0000-4000-8000-000000000018","name":"Generic","rules":{"clearance":160000,"track_width":200000,"via_diameter":700000,"via_hole":300000,"annular_ring":200000,"hole_to_hole":500000,"edge_clearance":400000},"gerber":{"x2_attributes":true,"naming":"protel"},"bom":[{"header":"Designator","source":"designator"},{"header":"Quantity","source":"quantity"},{"header":"Value","source":"value"},{"header":"Footprint","source":"footprint"},{"header":"Manufacturer","source":{"field":"Manufacturer"}},{"header":"MPN","source":{"field":"MPN"}}],"cpl":[{"header":"Designator","source":"designator"},{"header":"Mid X","source":"mid_x"},{"header":"Mid Y","source":"mid_y"},{"header":"Layer","source":"layer"},{"header":"Rotation","source":"rotation"}]}
+  ],
+  "output_jobs": [
+    {"uuid":"00000000-0000-4000-8000-000000000019","name":"Generic","pcb":"00000000-0000-4000-8000-000000000003","fab_preset":"00000000-0000-4000-8000-000000000018","outputs":{"gerber":true,"drill":true,"bom":true,"cpl":true}}
+  ]
+}
