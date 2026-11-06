@@ -199,7 +199,7 @@ fn build_project(
         name: name.clone(),
         title: name,
     };
-    let board = reda_pcb::new_board(pcb.uuid, preset.rules, || cx.new_id());
+    let board = reda_pcb::new_board(pcb.uuid, &preset.rules, || cx.new_id());
     let copy = ProjectFabPreset::new(cx.new_id(), preset);
     let job = reda_output::new_job(cx.new_id(), copy.name.clone(), pcb.uuid, copy.uuid);
     let outline = outline.map(|vertices| {

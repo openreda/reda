@@ -40,7 +40,7 @@ fn pointer(err: &reda_command::CommandError) -> &str {
 }
 
 #[test]
-fn a_route_adds_one_line_track_per_segment_with_the_net_class_width() {
+fn a_route_adds_one_line_track_per_segment_with_the_preferred_width() {
     let dir = TempDir::new("track-add");
     let mut engine = engine_with_pcb(&dir);
     let net = add_net(&mut engine, "SIG");
@@ -56,13 +56,13 @@ fn a_route_adds_one_line_track_per_segment_with_the_net_class_width() {
         .layers()
         .find(LayerKind::Copper, Some(Side::Top))
         .unwrap();
-    let rules = pcb.setup().rules;
     let first = pcb.track(tracks[0]).unwrap();
     assert_eq!(first.layer, top.uuid);
     assert_eq!(first.net, Some(net));
     assert_eq!(
-        first.width, rules.track_width,
-        "the Default class has no override"
+        first.width,
+        Nm::from_um(250),
+        "the board-wide preferred width"
     );
     assert_eq!(
         first.geometry,
@@ -87,10 +87,10 @@ fn the_net_class_track_width_wins_over_the_rule_and_a_param_over_both() {
     let net = add_net(&mut engine, "VCC");
     let power = engine.run_ok(
         "pcb.net_class.add",
-        json!({"name": "Power", "track_width": "0.5mm"}),
+        json!({"name": "Power", "rules": [{"kind": "track_width", "values": {"preferred": "0.5mm"}}]}),
     );
     engine.run_ok(
-        "pcb.net.set_class",
+        "pcb.net.add_to_class",
         json!({"nets": [net.to_string()], "class": power["result"]["uuid"]}),
     );
     let by_class = engine.run_ok(
@@ -198,10 +198,10 @@ fn a_through_via_spans_the_outer_copper_layers_and_sizes_from_the_net_class() {
         (copper(Side::Top), copper(Side::Bottom))
     );
     assert_eq!(via.net, Some(net));
-    let rules = pcb.setup().rules;
     assert_eq!(
         (via.diameter, via.hole),
-        (rules.via_diameter, rules.via_hole)
+        (Nm::from_um(700), Nm::from_um(300)),
+        "the board-wide preferred size"
     );
 
     let err = engine.run_err(
@@ -366,7 +366,7 @@ fn clearance(engine: &mut TestEngine, params: Value) -> Value {
 }
 
 fn at_y(net: Uuid, y: &str) -> Value {
-    json!({"layer": "copper_top", "net": net.to_string(),
+    json!({"layer": "copper_top", "net": net.to_string(), "width": "0.2mm",
            "from": {"x": 0, "y": y}, "to": {"x": "10mm", "y": y}})
 }
 
@@ -378,7 +378,7 @@ fn the_clearance_query_flags_copper_of_other_nets_too_close() {
     let b = add_net(&mut engine, "B");
     let existing = engine.run_ok(
         "pcb.track.add",
-        json!({"layer": "copper_top", "net": a.to_string(),
+        json!({"layer": "copper_top", "net": a.to_string(), "width": "0.2mm",
                "points": [{"x": 0, "y": 0}, {"x": "10mm", "y": 0}]}),
     );
     let existing = uuids(&existing["result"]["tracks"])[0];
@@ -416,15 +416,15 @@ fn the_larger_net_class_clearance_wins() {
     let b = add_net(&mut engine, "B");
     let hv = engine.run_ok(
         "pcb.net_class.add",
-        json!({"name": "HV", "clearance": "0.5mm"}),
+        json!({"name": "HV", "rules": [{"kind": "clearance", "values": {"value": "0.5mm"}}]}),
     );
     engine.run_ok(
-        "pcb.net.set_class",
+        "pcb.net.add_to_class",
         json!({"nets": [a.to_string()], "class": hv["result"]["uuid"]}),
     );
     engine.run_ok(
         "pcb.track.add",
-        json!({"layer": "copper_top", "net": b.to_string(),
+        json!({"layer": "copper_top", "net": b.to_string(), "width": "0.2mm",
                "points": [{"x": 0, "y": 0}, {"x": "10mm", "y": 0}]}),
     );
     let hit = clearance(&mut engine, at_y(a, "0.4mm"));

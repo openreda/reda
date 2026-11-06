@@ -192,7 +192,7 @@ fn the_footprint_is_chosen_from_the_parts_alternates() {
 }
 
 #[test]
-fn selected_copper_and_highlighted_nets_set_the_net_class_of_all_their_nets() {
+fn selected_copper_and_highlighted_nets_join_or_leave_a_net_class_together() {
     let dir = TempDir::new("properties-net-class");
     let mut shell = shell(&dir);
     let net = |shell: &mut Shell, name: &str| -> Uuid {
@@ -237,15 +237,28 @@ fn selected_copper_and_highlighted_nets_set_the_net_class_of_all_their_nets() {
     let p = properties(&shell);
     let class = p.net_class.as_ref().expect("a Net Class row");
     assert_eq!(class.nets, sorted(vec![gnd, vcc]));
-    assert!(matches!(class.class, Shared::Same(_)));
-    assert_eq!(class.classes.len(), 2);
+    assert_eq!(
+        class.class,
+        Shared::Same(vec![]),
+        "the Default Net Class only"
+    );
+    assert_eq!(class.classes.len(), 1, "the stored classes");
 
     let (id, params) = apply(&mut shell, Edit::NetClass(power));
-    assert_eq!(id, "pcb.net.set_class");
+    assert_eq!(id, "pcb.net.add_to_class");
     assert_eq!(
         params,
         json!({"nets": sorted(vec![gnd, vcc]), "class": power})
     );
+    // With every Net in it, picking the class again takes them out.
+    let p = properties(&shell);
+    assert_eq!(
+        p.net_class.as_ref().unwrap().class,
+        Shared::Same(vec![power])
+    );
+    let (id, _) = apply(&mut shell, Edit::NetClass(power));
+    assert_eq!(id, "pcb.net.remove_from_class");
+    apply(&mut shell, Edit::NetClass(power));
 
     // A Footprint's Pad and a highlighted Net: one is now Power, the other Default.
     select(&mut shell, json!({"pads": [pad], "nets": [gnd]}));
