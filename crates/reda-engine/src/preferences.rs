@@ -32,7 +32,7 @@ pub const ALIASES: &[(&str, &str)] = &[];
 pub struct Preferences {
     pub general: General,
     /// Editing in Schematic Sheets.
-    pub schematic: Editing,
+    pub schematic: SchematicEditing,
     /// Editing in the PCB Document.
     pub pcb: Editing,
     pub display: Display,
@@ -102,6 +102,48 @@ impl Default for Editing {
             electrical_snap: true,
             auto_pan: true,
             default_grid: None,
+        }
+    }
+}
+
+/// Editing settings for Schematic Sheets: those of every Document type, and how names
+/// are drawn.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct SchematicEditing {
+    /// The units new values are shown and typed in.
+    pub default_units: Units,
+    /// Keep placing copies of an object until the placement is cancelled.
+    pub repeat_placement: bool,
+    /// Snap the cursor to nearby electrical points, such as pins and wire ends.
+    pub electrical_snap: bool,
+    /// Pan the view when the cursor reaches the canvas edge during an operation.
+    pub auto_pan: bool,
+    /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
+    /// not one of the presets, is the schematic default.
+    pub default_grid: Option<Length>,
+    /// Single '\' Negation: a leading backslash draws an overbar over a whole Net Label,
+    /// Port or Power Port name, as in `\RESET`. Off, a leading backslash has no effect and
+    /// isn't drawn. Only how names are drawn changes, never the names.
+    pub single_negation: bool,
+}
+
+impl Default for SchematicEditing {
+    fn default() -> SchematicEditing {
+        let Editing {
+            default_units,
+            repeat_placement,
+            electrical_snap,
+            auto_pan,
+            default_grid,
+        } = Editing::default();
+        SchematicEditing {
+            default_units,
+            repeat_placement,
+            electrical_snap,
+            auto_pan,
+            default_grid,
+            single_negation: false,
         }
     }
 }

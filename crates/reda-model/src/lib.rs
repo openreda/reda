@@ -9,6 +9,7 @@ mod check;
 mod derived;
 mod document;
 mod library;
+pub mod net_name;
 mod output;
 mod pad;
 mod pcb;
@@ -46,7 +47,7 @@ pub use pcb::{
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
-pub use project::{Project, ProjectProperties, ProjectProps};
+pub use project::{Project, ProjectProperties, ProjectProps, SchematicOptions};
 pub use schematic::{
     ComponentRef, FootprintCopy, NetLabel, NoConnect, PartEntry, Port, PortDirection, PowerPort,
     PowerPortStyle, SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText,

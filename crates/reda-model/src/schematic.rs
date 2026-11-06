@@ -661,15 +661,30 @@ impl SchematicSheet {
             if label.name.trim().is_empty() {
                 return Err(format!("Net Label {} has no name", label.uuid));
             }
+            if let Some(problem) = crate::net_name::name_problem(&label.name) {
+                return Err(format!(
+                    "Net Label {} {:?}: {problem}",
+                    label.uuid, label.name
+                ));
+            }
         }
         for port in self.ports.values() {
             if port.name.trim().is_empty() {
                 return Err(format!("Port {} has no name", port.uuid));
             }
+            if let Some(problem) = crate::net_name::name_problem(&port.name) {
+                return Err(format!("Port {} {:?}: {problem}", port.uuid, port.name));
+            }
         }
         for port in self.power_ports.values() {
             if port.name.trim().is_empty() {
                 return Err(format!("Power Port {} has no name", port.uuid));
+            }
+            if let Some(problem) = crate::net_name::name_problem(&port.name) {
+                return Err(format!(
+                    "Power Port {} {:?}: {problem}",
+                    port.uuid, port.name
+                ));
             }
         }
         for text in self.texts.values() {

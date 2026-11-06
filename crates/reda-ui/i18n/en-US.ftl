@@ -394,7 +394,31 @@ violation-single-pin-net = Net { $net } connects only Pin { $pin }
 violation-dangling-wire = Wire end at ({ $x }, { $y }) touches nothing
 violation-unattached-label = { $name } is attached to nothing
 violation-no-connect-connected = No-Connect Marker on connected Pin { $pin }
-violation-multiple-net-names = Net { $net } has several names: { $names }
+violation-net-names-on-sheet = Net { $net } has several names on one sheet: { $names }. { $net } wins { $reason ->
+        [code_point] as the lowest by code point of the { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names
+       *[priority] because { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names take priority
+    }.
+violation-net-names-across-sheets = Net { $net } has different names on different sheets: { $names }. { $net } wins { $reason ->
+        [code_point] as the lowest by code point of the { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names
+       *[priority] because { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names take priority
+    }.
+violation-duplicate-nets = { $count } different Nets have the board name { $name }
 violation-single-sheet-port = Port { $name } is on only one sheet
 violation-duplicate-designator = Designator { $designator } is used more than once
 violation-unplaced-units = { $designator } has unplaced Units: { $units }
@@ -463,7 +487,9 @@ check-single-pin-net = Single-Pin Net
 check-dangling-wire = Dangling Wire
 check-unattached-label = Unattached Label
 check-no-connect-connected = No-Connect on a Connected Pin
-check-multiple-net-names = Several Net Names
+check-net-names-on-sheet = Several Net Names on a Sheet
+check-net-names-across-sheets = Several Net Names Across Sheets
+check-duplicate-nets = Duplicate Nets
 check-single-sheet-port = Port on One Sheet
 check-duplicate-designator = Duplicate Designator
 check-unplaced-units = Unplaced Units
@@ -503,6 +529,17 @@ crash-open-folder = Open Folder
 crash-report-github = Report on GitHub…
 crash-report-github-hint = Opens a pre-filled issue in your browser for you to review before sending.
 crash-dismiss = Close
+
+## Closing and quitting
+
+closing-title = Unsaved Changes
+closing-tab-intro = Save the changes to { $document } before closing it?
+closing-list-intro = These files have unsaved changes. Save the ticked ones?
+closing-save = Save
+closing-save-selected = Save Selected
+closing-dont-save = Don't Save
+closing-cancel = Cancel
+closing-save-failed = { $file } could not be saved: { $error }
 
 ## Settings dialogs
 

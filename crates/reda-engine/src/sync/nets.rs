@@ -8,10 +8,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use reda_model::net_name::same_name;
 use reda_model::{ComponentRef, PcbDocument, Project, Uuid};
-use reda_schematic::connectivity::{
-    ProjectNet, SheetConnectivity, project_connectivity, project_nets,
-};
+use reda_schematic::connectivity::project_nets;
 
 use super::components::{Components, linked_instances};
 use super::{Change, ChangeKind, NetLink, NetRef, change_id, component_key};
@@ -226,7 +225,7 @@ fn schematic_nets(project: &Project, components: &Components) -> Vec<SchNet> {
         if pads.is_empty() || (pads.len() < 2 && net.names.is_empty()) {
             continue;
         }
-        let name = net.name.unwrap_or_default();
+        let name = net.board_name.unwrap_or_default();
         let (first, number) = pads.first().expect("a Net with Pads");
         let add_id = change_id("add_net", &[&name, &component_key(first), number]);
         out.push(SchNet {
@@ -248,41 +247,16 @@ pub(crate) fn links(project: &Project, pcb: &PcbDocument, components: &Component
     if nets.iter().all(|n| n.matched.is_none()) {
         return Vec::new();
     }
-    let project_nets = project_nets(project);
-    let sheets = project_connectivity(project);
+    let mut project_nets = project_nets(project);
     nets.into_iter()
         .filter_map(|net| {
             Some(NetLink {
                 pcb: net.matched?,
-                objects: drawn_objects(&sheets, &project_nets[net.index]),
+                objects: std::mem::take(&mut project_nets[net.index].objects),
                 name: net.name,
             })
         })
         .collect()
-}
-
-/// The objects on a project-wide Net on every sheet (see `SchematicNet::objects`): those
-/// of the sheet Nets with its name, or for an unnamed Net of the ones holding its Pins.
-fn drawn_objects(sheets: &[SheetConnectivity], net: &ProjectNet) -> Vec<Uuid> {
-    let mut out = BTreeSet::new();
-    for sheet in sheets {
-        for part in &sheet.nets {
-            let belongs = match &net.name {
-                Some(name) => part.name.as_ref() == Some(name),
-                None => net.pins.iter().any(|p| {
-                    p.document == sheet.document
-                        && part
-                            .pins
-                            .iter()
-                            .any(|q| q.unit == p.pin.unit && q.pin == p.pin.pin)
-                }),
-            };
-            if belongs {
-                out.extend(part.objects());
-            }
-        }
-    }
-    out.into_iter().collect()
 }
 
 /// The current PCB Nets of every linked Footprint instance's Pads, by Pad key.
@@ -328,7 +302,8 @@ fn match_nets(nets: &mut [SchNet], pcb: &PcbDocument, pcb_pads: &BTreeMap<PadKey
                 continue;
             };
             let shared = overlap(net, pcb_pads, uuid);
-            candidates.push((std::cmp::Reverse(shared), pcb_net.name != net.name, i, uuid));
+            let other_name = !same_name(&pcb_net.name, &net.name);
+            candidates.push((std::cmp::Reverse(shared), other_name, i, uuid));
         }
     }
     candidates.sort();
@@ -342,7 +317,7 @@ fn match_nets(nets: &mut [SchNet], pcb: &PcbDocument, pcb_pads: &BTreeMap<PadKey
     for net in nets.iter_mut().filter(|n| n.matched.is_none()) {
         if let Some(pcb_net) = pcb
             .nets()
-            .find(|p| !used.contains(&p.uuid) && p.name == net.name)
+            .find(|p| !used.contains(&p.uuid) && same_name(&p.name, &net.name))
         {
             net.matched = Some(pcb_net.uuid);
             used.insert(pcb_net.uuid);

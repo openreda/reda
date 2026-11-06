@@ -316,6 +316,14 @@ mod tests {
     }
 
     #[test]
+    fn single_negation_is_a_schematic_preference_that_starts_off() {
+        assert!(!parse_with("", &[]).values.schematic.single_negation);
+        let loaded = parse_with("[schematic]\nsingle_negation = true\n", &[]);
+        assert!(loaded.values.schematic.single_negation);
+        assert_eq!(loaded.warnings, Vec::<String>::new());
+    }
+
+    #[test]
     fn the_new_spelling_wins_over_the_old() {
         let loaded = parse_with(
             "[schematic]\nrepeat_placement = true\nrepeat = false\n",
