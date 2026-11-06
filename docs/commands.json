@@ -31926,7 +31926,7 @@
     },
     {
       "category": "schematic",
-      "description": "Copies the selected objects and pastes them on the same sheet at an offset, with fresh Designators.",
+      "description": "Copies the selected objects and pastes them on the same sheet at an offset, with Designators following schematic.paste's rule.",
       "icon": "duplicate",
       "id": "schematic.duplicate",
       "kind": "edit",
@@ -33783,7 +33783,7 @@
     },
     {
       "category": "schematic",
-      "description": "Pastes a clipboard onto a Schematic Sheet. Everything gets a fresh UUID; each copied Component becomes a new Component with the next free Designator, its copied Units staying together. Part-table entries the sheet lacks are added.",
+      "description": "Pastes a clipboard onto a Schematic Sheet. Everything gets a fresh UUID, even after a cut; each copied Component becomes a new Component, its copied Units staying together, and keeps its Designator if no Component uses it, else takes the next free one. Part-table entries the sheet lacks are added. schematic.selection.move_to_sheet keeps UUIDs instead.",
       "icon": "paste",
       "id": "schematic.paste",
       "kind": "edit",
@@ -36994,6 +36994,180 @@
         "type": "object"
       },
       "title": "Select Similar"
+    },
+    {
+      "category": "schematic",
+      "description": "Moves the selected objects to another Schematic Sheet in one Command, keeping every UUID and Designator, so the Footprints, their placement and routing stay linked and Sync shows no Component changes. Part-table entries go with their Units. Objects keep their coordinates unless `at` is given. Returns the Nets that changed. Each sheet gets its own undo entry: undo on the target sheet first.",
+      "icon": "move",
+      "id": "schematic.selection.move_to_sheet",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the lower-left corner of the selection's extent goes; the objects keep their\ncoordinates when left out."
+          },
+          "document": {
+            "description": "The Schematic Sheet to move them to.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "objects": {
+            "description": "The objects to move, by UUID, all on one sheet: down to a single Unit.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised, on both sheets; the fixed defaults\nwhen left out."
+          }
+        },
+        "required": [
+          "objects",
+          "document"
+        ],
+        "title": "MoveToSheetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "NetChange": {
+            "description": "One Net the move renamed, split or joined.",
+            "properties": {
+              "from": {
+                "description": "The Net's name before; `null` for Pins that were on no named Net.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to": {
+                "description": "The name of the Net (some of) its Pins are on now.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.selection.move_to_sheet` did.",
+        "properties": {
+          "nets": {
+            "description": "The Nets the move changed, as pairs of the name a Net had and the name its Pins\nhave now (the name the board gets). A Net Label is sheet-local, so moving one can\nsplit a Net: that gives one pair per piece. Sorted; empty when no Net changed.",
+            "items": {
+              "$ref": "#/$defs/NetChange"
+            },
+            "type": "array"
+          },
+          "objects": {
+            "description": "The moved objects on the target sheet, in selection order, ready to select. They\nkeep their UUIDs, unless normalising merged a Wire into another.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "nets"
+        ],
+        "title": "MoveToSheetResult",
+        "type": "object"
+      },
+      "title": "Move to Sheet"
     },
     {
       "category": "schematic",
