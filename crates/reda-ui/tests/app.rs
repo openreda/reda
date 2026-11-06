@@ -244,7 +244,11 @@ impl std::ops::Deref for SnapshotFolder {
 }
 
 fn snapshot_folder(name: &str) -> SnapshotFolder {
-    let root = PathBuf::from("/tmp/reda-ui-snapshots");
+    // Local runs can keep their files under the configured scratch directory while
+    // CI retains the fixed paths already shown in the reference images.
+    let root = std::env::var_os("REDA_SNAPSHOT_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/tmp/reda-ui-snapshots"));
     std::fs::create_dir_all(&root).unwrap();
     let lock = std::fs::OpenOptions::new()
         .create(true)
@@ -1007,12 +1011,23 @@ fn snapshot_of_a_blocked_run_report() {
 fn preferences_snapshot(page: Option<reda_ui::preferences_dialog::PageId>, name: &str) {
     let home = TempDir::new("app-home");
     set_theme(home.path(), "dark");
+    if page.is_none() {
+        preferences::set(
+            &UserDirs::under(home.path()),
+            "user.name",
+            json!("REDA Author"),
+        )
+        .unwrap();
+    }
     let Some(mut h) = snapshot_harness(home.path()) else {
         return;
     };
     h.run();
     h.state_mut().open_preferences(page);
     h.run();
+    if page.is_none() {
+        h.get_by_role_and_label(Role::TextInput, "User name");
+    }
     h.snapshot(name);
 }
 

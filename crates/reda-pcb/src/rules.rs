@@ -247,3 +247,21 @@ pub fn blocking_problems(board: &DesignRule, record: &DesignRule) -> Vec<(RuleFi
     }
     problems
 }
+
+/// The larger limit between two Nets. Equal values name the first Net's record.
+pub fn resolve_pair(
+    pcb: &PcbDocument,
+    a: Option<Uuid>,
+    b: Option<Uuid>,
+    kind: RuleKind,
+    field: RuleField,
+) -> Option<Sourced<RuleValue>> {
+    match (resolve(pcb, a, kind, field), resolve(pcb, b, kind, field)) {
+        (Some(a), Some(b)) => Some(if a.value.length() >= b.value.length() {
+            a
+        } else {
+            b
+        }),
+        (a, b) => a.or(b),
+    }
+}

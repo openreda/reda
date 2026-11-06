@@ -33,6 +33,7 @@ pub const ALIASES: &[(&str, &str)] = &[];
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
     pub general: General,
+    pub user: User,
     /// Editing in Schematic Sheets.
     pub schematic: SchematicEditing,
     /// Editing in the PCB Document.
@@ -41,6 +42,32 @@ pub struct Preferences {
     pub libraries: Libraries,
     pub agents: Agents,
     pub keymap: Keymap,
+}
+
+/// The identity recorded when a user accepts a Violation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct User {
+    /// The author of new Waivers; defaults to the OS user name.
+    pub name: String,
+}
+
+impl Default for User {
+    fn default() -> Self {
+        Self {
+            name: reda_command::os_user_name(None),
+        }
+    }
+}
+
+/// Resolves the author at the instant a Waiver is created.
+pub(crate) fn waiver_author(dirs: Option<&UserDirs>) -> String {
+    let name = current(dirs).user.name;
+    if name.trim().is_empty() {
+        reda_command::os_user_name(dirs)
+    } else {
+        name
+    }
 }
 
 /// General settings.

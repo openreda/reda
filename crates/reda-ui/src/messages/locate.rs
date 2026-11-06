@@ -2,9 +2,8 @@
 //! box "go to" zooms to.
 
 use reda_engine::model::geom::{Nm, Point};
-use reda_engine::model::{Project, Uuid, Violation, ViolationArg};
+use reda_engine::model::{Project, Uuid, Violation};
 use reda_engine::render::Scene;
-use reda_engine::schematic::connectivity::pin_position;
 
 /// The smallest box "go to" frames, so a Violation at one point is not zoomed in on
 /// absurdly far: 10 mm.
@@ -19,53 +18,23 @@ pub struct Location {
     pub frame: (Point, Point),
 }
 
-/// Where `violation` is in `document`, drawn as `scene`. The marker goes, in order of
-/// preference, on the point its `x`/`y` arguments name (a dangling end), on the first
-/// Pin it names (a Unit followed by one of its Pins), or on the middle of the last object
-/// it names that `scene` draws. `None` when none of these is on the Document.
+/// Uses the check's stored marker position. Scene geometry only determines the zoom
+/// frame; it never moves a marker after a design edit or an object's deletion.
 pub fn locate(
-    project: &Project,
+    _project: &Project,
     document: Uuid,
     scene: &Scene,
     violation: &Violation,
 ) -> Option<Location> {
-    let mut points = Vec::new();
-    if let (Some(ViolationArg::Int(x)), Some(ViolationArg::Int(y))) =
-        (violation.args.get("x"), violation.args.get("y"))
-    {
-        points.push(Point::new(Nm(*x), Nm(*y)));
+    if violation.document != Some(document) {
+        return None;
     }
-    if let Some(sheet) = project.schematic_sheet(document) {
-        for pair in violation.objects.windows(2) {
-            let Some(unit) = sheet.unit(pair[0]) else {
-                continue;
-            };
-            let Some(entry) = sheet.part(unit.part) else {
-                continue;
-            };
-            if let Some(pin) = entry
-                .symbol
-                .unit_pins(unit.unit)
-                .find(|p| p.uuid == pair[1])
-            {
-                points.push(pin_position(unit, pin));
-            }
-        }
-    }
-    let objects: Vec<(Point, Point)> = violation
+    let at = violation.at?;
+    let objects = violation
         .objects
         .iter()
-        .filter_map(|o| bounds(scene.items_of(*o).filter_map(|i| i.primitive.bounds())))
-        .collect();
-    let at = match points.first() {
-        Some(p) => *p,
-        None => {
-            let (lo, hi) = *objects.last()?;
-            Point::new(Nm((lo.x.0 + hi.x.0) / 2), Nm((lo.y.0 + hi.y.0) / 2))
-        }
-    };
-    let (lo, hi) =
-        bounds(objects.into_iter().chain(points.iter().map(|p| (*p, *p)))).unwrap_or((at, at));
+        .filter_map(|o| bounds(scene.items_of(*o).filter_map(|i| i.primitive.bounds())));
+    let (lo, hi) = bounds(objects.chain(std::iter::once((at, at)))).unwrap_or((at, at));
     Some(Location {
         at,
         frame: at_least(lo, hi, MIN_FRAME),

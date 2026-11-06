@@ -10,6 +10,8 @@
 //!
 //! Orientation and intersection tests are exact in `i128`; distances are `f64`.
 
+mod closest;
+
 use reda_model::geom::{CornerRect, Millideg, Nm, Point};
 use reda_model::{FootprintInstance, FreePad, Pad, Side, TrackGeometry};
 use rstar::AABB;

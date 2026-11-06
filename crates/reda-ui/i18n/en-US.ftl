@@ -449,6 +449,7 @@ violation-dangling = Unconnected end at ({ $x }, { $y })
 violation-courtyard-overlap = Courtyards overlap
 violation-silkscreen-over-pads = Silkscreen over exposed Pads
 violation-out-of-sync = The PCB is out of sync with the schematic
+violation-opening-collapsed = The { $side } { $kind } opening has collapsed
 
 ## Messages panel
 
@@ -690,6 +691,7 @@ pref-general-ui-scale = UI scale
 pref-general-reopen-last-project = Reopen the last Project on start
 pref-general-undo-depth = Undo depth
 pref-general-default-layout = Default Saved Layout for new Projects
+pref-user-name = User name
 pref-schematic-default-units = Default units
 pref-schematic-default-units-mm = mm
 pref-schematic-default-units-mil = mil

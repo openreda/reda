@@ -2245,13 +2245,18 @@
       "additionalProperties": false,
       "description": "A recorded acceptance that one Violation is intentional, so checks stop reporting it.\n\nIt is stored in the Document that holds the objects involved, and matches a Violation\nof the same check whose objects are exactly these, in any order. Once those objects no\nlonger break the check together, it matches nothing.",
       "properties": {
+        "author": {
+          "description": "Preference `user.name` at the instant this Waiver was created.",
+          "type": "string"
+        },
         "check": {
           "description": "The check id of the waived Violation, such as `unconnected_pin` or `clearance`.",
           "type": "string"
         },
-        "comment": {
-          "description": "Why it is waived. Left out when empty.",
-          "type": "string"
+        "created": {
+          "description": "Milliseconds since the Unix epoch, UTC, from the injected Clock.",
+          "format": "int64",
+          "type": "integer"
         },
         "objects": {
           "description": "The UUIDs of the objects involved, sorted.",
@@ -2261,6 +2266,10 @@
           },
           "type": "array"
         },
+        "reason": {
+          "description": "Why it is waived. Left out when empty.",
+          "type": "string"
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
@@ -2269,7 +2278,9 @@
       "required": [
         "uuid",
         "check",
-        "objects"
+        "objects",
+        "author",
+        "created"
       ],
       "type": "object"
     },

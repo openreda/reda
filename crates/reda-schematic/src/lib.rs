@@ -82,6 +82,11 @@ pub use wiring::{
 
 /// Adds every Command defined in `reda-schematic`.
 pub fn register_all(registry: &mut Registry) {
+    register_all_with_user(registry, reda_command::os_user_name);
+}
+
+/// Adds the Commands with a source for the Preference-backed Waiver author.
+pub fn register_all_with_user(registry: &mut Registry, user_name: reda_command::UserName) {
     registry.add(ComponentPlace);
     registry.add(UnitPlace);
     registry.add(ComponentSet);
@@ -129,7 +134,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(LineAdd);
     registry.add(RectAdd);
     registry.add(GraphicSet);
-    erc::register_all(registry);
+    erc::register_all(registry, user_name);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

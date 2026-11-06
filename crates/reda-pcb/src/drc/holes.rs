@@ -2,12 +2,12 @@
 //! of placed Footprints and Free Pads.
 
 use reda_model::geom::{Nm, Point};
-use reda_model::{DrcCheck, Hole, PadKind, PcbDocument, RuleField, RuleKind, Uuid};
+use reda_model::{DrcCheck, Hole, Limit, PadKind, PcbDocument, RuleField, RuleKind, Uuid};
 
 use super::{Board, Report};
 use crate::copper::shape::{Core, Prim, Shape};
 use crate::placed::{self, PlacedPad};
-use crate::rules::{hole_to_hole_between, largest, net_rules};
+use crate::rules::{hole_to_hole_between, largest, net_rules, resolve, resolve_pair};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     let holes = holes(board);
@@ -18,7 +18,10 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         };
         if actual < minimum {
             report.add(DrcCheck::HoleSize, |v| {
-                v.arg("minimum", minimum)
+                v.length(actual, minimum, Limit::Min, hole.rule)
+                    .located(board.pcb.uuid, hole.shape.closest_points(&hole.shape)[0])
+                    .on_layers(board.pcb.copper_layers().map(|l| l.uuid))
+                    .arg("minimum", minimum)
                     .arg("actual", actual)
                     .objects(hole.objects.iter().copied())
             });
@@ -30,9 +33,19 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
             && ring < minimum
         {
             report.add(DrcCheck::AnnularRing, |v| {
-                v.arg("minimum", minimum)
-                    .arg("actual", ring)
-                    .objects(hole.objects.iter().copied())
+                v.length(
+                    ring,
+                    minimum,
+                    Limit::Min,
+                    resolve(board.pcb, hole.net, RuleKind::AnnularRing, RuleField::Min)
+                        .expect("ring limit applies")
+                        .rule,
+                )
+                .located(board.pcb.uuid, hole.shape.closest_points(&hole.shape)[0])
+                .on_layers(board.pcb.copper_layers().map(|l| l.uuid))
+                .arg("minimum", minimum)
+                .arg("actual", ring)
+                .objects(hole.objects.iter().copied())
             });
         }
     }
@@ -50,6 +63,7 @@ struct DrillHole {
     net: Option<Uuid>,
     /// The smallest hole the rules allow it; `None` where the limit is absent.
     minimum: Option<Nm>,
+    rule: Uuid,
     /// The copper ring around a plated hole; `None` for a bare hole.
     ring: Option<Nm>,
     shape: Shape,
@@ -66,6 +80,8 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
             size,
             net: via.net,
             minimum: net_rules(pcb, via.net).via_hole.min,
+            rule: resolve(pcb, via.net, RuleKind::ViaSize, RuleField::HoleMin)
+                .map_or(pcb.board_rule(RuleKind::ViaSize).uuid, |s| s.rule),
             ring: Some(Nm((via.diameter.0 - via.hole.0) / 2)),
             shape: hole_shape((via.at, via.at), size),
         });
@@ -77,7 +93,9 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
             objects,
             size,
             net: pad.net,
-            minimum: net_rules(pcb, pad.net).via_hole.min,
+            minimum: net_rules(pcb, pad.net).hole_min,
+            rule: resolve(pcb, pad.net, RuleKind::HoleSize, RuleField::Min)
+                .map_or(pcb.board_rule(RuleKind::HoleSize).uuid, |s| s.rule),
             ring,
             shape: hole_shape(pad.hole_ends()?, size),
         })
@@ -142,8 +160,20 @@ fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
     }
     pairs.sort();
     for (i, j, actual, required) in pairs {
+        let source = resolve_pair(
+            pcb,
+            holes[i].net,
+            holes[j].net,
+            RuleKind::HoleToHole,
+            RuleField::Min,
+        )
+        .expect("spacing limit applies");
+        let [a, b] = holes[i].shape.closest_points(&holes[j].shape);
         report.add(DrcCheck::HoleToHole, |v| {
-            v.arg("required", required)
+            v.length(actual, required, Limit::Min, source.rule)
+                .distance_points(a, b)
+                .on_layers(pcb.copper_layers().map(|l| l.uuid))
+                .arg("required", required)
                 .arg("actual", actual)
                 .objects(holes[i].objects.iter().copied())
                 .objects(holes[j].objects.iter().copied())

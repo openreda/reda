@@ -1409,16 +1409,48 @@ impl Shell {
         self.update_markers();
     }
 
-    /// Waives a line's Violation (`erc.waive`/`drc.waive`) and runs the check again.
+    /// Waives a line's Violation and runs its check again.
     pub fn waive(&mut self, key: LineKey) -> Result<(), CommandError> {
-        let Some((kind, v)) = self.violation_of(key) else {
-            return Ok(());
-        };
-        self.run_reporting(
-            &format!("{}.waive", kind.id()),
-            json!({"check": v.check, "objects": v.objects}),
-        )?;
-        self.run_check(kind)
+        self.waive_many(&[key], "")
+    }
+
+    /// Waives a selection with one reason. A mixed ERC/DRC selection is one atomic
+    /// batch; normal per-Document history gives each affected Document one undo entry.
+    pub fn waive_many(&mut self, keys: &[LineKey], reason: &str) -> Result<(), CommandError> {
+        let mut groups: BTreeMap<CheckKind, Vec<Value>> = BTreeMap::new();
+        for key in keys {
+            if let Some((kind, v)) = self.violation_of(*key) {
+                groups
+                    .entry(kind)
+                    .or_default()
+                    .push(json!({"check":v.check,"objects":v.objects}));
+            }
+        }
+        let commands: Vec<Value> = groups
+            .iter()
+            .map(|(kind, violations)| {
+                json!({
+                    "id": format!("{}.waive", kind.id()),
+                    "params": {"violations": violations, "reason": reason},
+                })
+            })
+            .collect();
+        match commands.as_slice() {
+            [] => return Ok(()),
+            [one] => {
+                self.run_reporting(
+                    one["id"].as_str().expect("Command id"),
+                    one["params"].clone(),
+                )?;
+            }
+            _ => {
+                self.run_reporting("batch", json!({"commands":commands}))?;
+            }
+        }
+        for kind in groups.keys() {
+            self.run_check(*kind)?;
+        }
+        Ok(())
     }
 
     /// Deletes the Waiver waiving a line's Violation and runs the check again.
