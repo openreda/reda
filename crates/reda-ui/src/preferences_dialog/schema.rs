@@ -4,7 +4,7 @@
 //! (`pref-<key>`, dots and underscores written as `-`), else from the schema's
 //! description.
 
-use reda_engine::preferences::{self, Preferences};
+use reda_engine::preferences::{self, pages};
 use serde_json::Value;
 
 use super::PageId;
@@ -63,86 +63,83 @@ const ORDER: &[&str] = &[
     "display.inactive_layer_mode",
 ];
 
-/// Keys no page shows: the base Keymap has only one choice in v0.1.
-const HIDDEN: &[&str] = &["keymap.base"];
+/// Keys no page shows: the base Keymap has only one choice in v0.1. All settings still
+/// lists them.
+pub const HIDDEN: &[&str] = &["keymap.base"];
 
 /// Every Preference key, in key order.
 pub fn preference_keys() -> Vec<String> {
-    let defaults = serde_json::to_value(Preferences::default()).expect("Preferences serialise");
-    let mut keys = Vec::new();
-    leaves(&defaults, String::new(), &mut keys);
-    keys
+    preferences::keys()
 }
 
-fn leaves(value: &Value, prefix: String, out: &mut Vec<String>) {
-    match value {
-        Value::Object(map) => {
-            for (name, child) in map {
-                let key = if prefix.is_empty() {
-                    name.clone()
-                } else {
-                    format!("{prefix}.{name}")
-                };
-                leaves(child, key, out);
-            }
-        }
-        _ => out.push(prefix),
-    }
-}
-
-/// The page a Preference section belongs on.
-fn page_of(key: &str) -> PageId {
-    match key.split('.').next().unwrap_or_default() {
-        "schematic" => PageId::Schematic,
-        "pcb" => PageId::Pcb,
-        "display" => PageId::Display,
-        "libraries" => PageId::Libraries,
-        "agents" => PageId::Agents,
-        "keymap" => PageId::KeyboardShortcuts,
-        _ => PageId::General,
-    }
-}
-
-/// The settings `page` shows, in order.
+/// The settings `page` shows, in order: every key on All settings, else the page's own
+/// keys (from [`pages::page_of`]) without the hidden ones. On the Editing pages, which
+/// hold a value per Document type, the Schematic values come first under their heading,
+/// then the PCB ones.
 pub fn settings_on(page: PageId) -> Vec<Setting> {
     let schema = preferences::schema();
-    let mut keys: Vec<String> = preference_keys()
+    if page == PageId::ALL_SETTINGS {
+        return preference_keys()
+            .into_iter()
+            .map(|k| setting_in(&schema, k))
+            .collect();
+    }
+    let mut keys: Vec<String> = pages::keys_on(page.id(), false)
         .into_iter()
-        .filter(|k| page_of(k) == page && !HIDDEN.contains(&k.as_str()))
+        .filter(|k| !HIDDEN.contains(&k.as_str()))
         .collect();
     let rank = |key: &str| {
         let leaf = key.split_once('.').map_or(key, |(_, rest)| rest);
-        ORDER
+        let order = ORDER
             .iter()
             .position(|o| *o == key || *o == leaf)
-            .unwrap_or(ORDER.len())
+            .unwrap_or(ORDER.len());
+        (per_document(key).is_some_and(|s| s != "schematic"), order)
     };
     keys.sort_by_key(|k| rank(k));
-    keys.into_iter().map(|k| setting(&schema, k)).collect()
+    keys.into_iter().map(|k| setting_in(&schema, k)).collect()
+}
+
+/// The setting of one key, wherever it is shown.
+pub fn setting(key: &str) -> Setting {
+    setting_in(&preferences::schema(), key.to_owned())
+}
+
+/// The Document type section of a key on an Editing page, where each Document type has
+/// its own value.
+fn per_document(key: &str) -> Option<&str> {
+    let section = key.split('.').next()?;
+    pages::is_in(pages::page_of(key), "editing").then_some(section)
 }
 
 /// Every setting whose label, description or key contains `query` (ignoring case), with
 /// its page, in page order. An empty query finds nothing.
 pub fn search(query: &str) -> Vec<(PageId, Setting)> {
-    let query = query.trim().to_lowercase();
-    if query.is_empty() {
+    if query.trim().is_empty() {
         return Vec::new();
     }
-    PageId::ALL
-        .iter()
-        .flat_map(|&page| settings_on(page).into_iter().map(move |s| (page, s)))
-        .filter(|(_, s)| {
-            [&s.label, &s.description, &s.key]
-                .iter()
-                .any(|t| t.to_lowercase().contains(&query))
-                || s.heading
-                    .as_ref()
-                    .is_some_and(|h| h.to_lowercase().contains(&query))
-        })
+    PageId::tree()
+        .into_iter()
+        .filter(|&page| page != PageId::ALL_SETTINGS)
+        .flat_map(|page| settings_on(page).into_iter().map(move |s| (page, s)))
+        .filter(|(_, s)| matches(s, query))
         .collect()
 }
 
-fn setting(schema: &Value, key: String) -> Setting {
+/// Whether `setting` matches the search `query`: its label, description, key or heading
+/// contains it, ignoring case. An empty query matches everything.
+pub fn matches(setting: &Setting, query: &str) -> bool {
+    let query = query.trim().to_lowercase();
+    [&setting.label, &setting.description, &setting.key]
+        .iter()
+        .any(|t| t.to_lowercase().contains(&query))
+        || setting
+            .heading
+            .as_ref()
+            .is_some_and(|h| h.to_lowercase().contains(&query))
+}
+
+fn setting_in(schema: &Value, key: String) -> Setting {
     let node = node(schema, &key);
     let resolved = resolve(schema, &node);
     let description = node["description"]
@@ -151,13 +148,18 @@ fn setting(schema: &Value, key: String) -> Setting {
         .unwrap_or_default()
         .to_owned();
     let label = catalogue(&key).unwrap_or_else(|| sentence(&description, &key));
-    let heading = key.rsplit_once('.').and_then(|(parent, _)| {
-        // Only nested settings (deeper than `section.name`) get a heading.
-        parent.contains('.').then(|| {
-            catalogue(parent).unwrap_or_else(|| {
-                let parent_node = self::node(schema, parent);
-                let text = parent_node["description"].as_str().unwrap_or_default();
-                sentence(text, parent)
+    let document = per_document(&key)
+        .and_then(PageId::from_id)
+        .map(PageId::title);
+    let heading = document.or_else(|| {
+        key.rsplit_once('.').and_then(|(parent, _)| {
+            // Only nested settings (deeper than `section.name`) get a heading.
+            parent.contains('.').then(|| {
+                catalogue(parent).unwrap_or_else(|| {
+                    let parent_node = self::node(schema, parent);
+                    let text = parent_node["description"].as_str().unwrap_or_default();
+                    sentence(text, parent)
+                })
             })
         })
     });

@@ -71,13 +71,16 @@ fn the_dialog_opens_from_the_file_menu_and_lists_every_page() {
     open_preferences(&mut h);
     for title in [
         "General",
+        "Editing",
+        "Snap",
         "Schematic",
-        "PCB",
+        "Wires",
         "Display",
         "Libraries",
         "Fab Presets",
         "Agents",
         "Keyboard Shortcuts",
+        "All settings",
     ] {
         assert!(
             h.query_by_role_and_label(Role::TreeItem, title).is_some(),
@@ -265,4 +268,111 @@ fn the_fab_presets_page_renames_and_deletes_user_presets() {
         .click();
     h.run();
     assert_eq!(last_journal_id(&h), "fab_preset.delete_user");
+}
+
+#[test]
+fn a_changed_setting_gets_a_dot_and_its_page_a_count() {
+    let home = TempDir::new("pref-dialog-dot");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Wires");
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Reset Optimize Wires to default")
+            .is_none(),
+        "an unchanged setting has no dot"
+    );
+    h.get_by_role_and_label(Role::CheckBox, "Optimize Wires")
+        .click();
+    h.run();
+    assert!(!h.state().shell().preferences().schematic.optimize_wires);
+    assert!(
+        h.query_by_role_and_label(Role::TreeItem, "Wires, 1 changed")
+            .is_some()
+    );
+    h.get_by_role_and_label(Role::Button, "Reset Optimize Wires to default")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.reset");
+    assert!(h.state().shell().preferences().schematic.optimize_wires);
+    assert!(h.query_by_role_and_label(Role::TreeItem, "Wires").is_some());
+}
+
+#[test]
+fn reset_page_branch_and_all_from_the_window() {
+    let home = TempDir::new("pref-dialog-reset-tree");
+    let mut h = harness(home.path());
+    {
+        let shell = h.state_mut().shell_mut();
+        for (key, value) in [
+            ("schematic.auto_increment.primary", json!(2)),
+            ("schematic.optimize_wires", json!(false)),
+            ("general.theme", json!("dark")),
+        ] {
+            shell
+                .run("app.preferences.set", json!({"key": key, "value": value}))
+                .unwrap();
+        }
+    }
+    h.run();
+    open_preferences(&mut h);
+    h.get_by_role_and_label(Role::TreeItem, "Schematic, 1 changed")
+        .click();
+    h.run();
+    h.get_by_label("Reset page").click();
+    h.run();
+    let prefs = h.state().shell().preferences().schematic.clone();
+    assert_eq!(prefs.auto_increment.primary, 1);
+    assert!(!prefs.optimize_wires, "the sub-page is left");
+    h.get_by_label("Reset branch").click();
+    h.run();
+    assert!(h.state().shell().preferences().schematic.optimize_wires);
+    h.get_by_label("Reset all").click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.reset");
+    assert_eq!(
+        h.ctx.options(|o| o.theme_preference),
+        egui::ThemePreference::System
+    );
+}
+
+#[test]
+fn modified_only_and_all_settings() {
+    let home = TempDir::new("pref-dialog-all");
+    let mut h = harness(home.path());
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key": "pcb.auto_pan", "value": false}),
+        )
+        .unwrap();
+    h.run();
+    open_preferences(&mut h);
+    h.get_by_role_and_label(Role::CheckBox, "Modified only")
+        .click();
+    h.run();
+    assert!(
+        h.query_by_role_and_label(Role::TreeItem, "Display")
+            .is_none()
+    );
+    assert!(
+        h.query_by_role_and_label(Role::TreeItem, "Auto-pan, 1 changed")
+            .is_some()
+    );
+    h.get_by_role_and_label(Role::CheckBox, "Modified only")
+        .click();
+    h.run();
+
+    h.get_by_role_and_label(Role::TreeItem, "All settings, 1 changed")
+        .click();
+    h.run();
+    assert!(h.query_by_label("schematic.single_negation").is_some());
+    type_into(&mut h, Role::SearchInput, "Search settings", "pcb.auto");
+    // The search filters the table rather than leaving the page.
+    assert!(h.query_by_label("schematic.single_negation").is_none());
+    assert!(h.query_by_label("pcb.auto_pan").is_some());
+    h.get_by_role_and_label(Role::Button, "Reset Auto-pan at the canvas edge to default")
+        .click();
+    h.run();
+    assert!(h.state().shell().preferences().pcb.auto_pan);
 }
