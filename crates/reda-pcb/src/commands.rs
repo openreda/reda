@@ -3,6 +3,7 @@
 
 mod copper;
 mod drc;
+mod find;
 mod free_pad;
 mod graphic;
 mod layer;
@@ -54,6 +55,7 @@ pub fn register_all(registry: &mut Registry, sync: SyncCheck) {
     placement::register_all(registry);
     mechanical::register_all(registry);
     free_pad::register_all(registry);
+    registry.add(find::PcbFind);
 }
 
 /// Why a PCB Command cannot run in a Project without a PCB Document.
