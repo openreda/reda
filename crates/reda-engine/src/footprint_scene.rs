@@ -8,8 +8,8 @@
 use reda_command::Fonts;
 use reda_model::geom::Nm;
 use reda_model::{
-    DocumentEntry, DocumentKind, FabRules, Footprint, Layer, PreferredSeeds, Project,
-    ProjectProps, Shape, Uuid,
+    DocumentEntry, DocumentKind, FabRules, Footprint, Layer, PreferredSeeds, Project, ProjectProps,
+    Shape, Uuid,
 };
 use reda_pcb::{board_layer, element_texts, new_board, text_geometry};
 use reda_render::{BoardGeometry, BoardGraphic, BoardPad, BoardText, Mesh, Scene, Segment};

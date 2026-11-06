@@ -39,6 +39,9 @@ const LEFT_OUT: [&str; 6] = [
     "wire_width",
 ];
 
+/// One mapped value: the rule kind, the value in its record and the length.
+type Mapped = (RuleKind, RuleField, Nm);
+
 /// One net class as a REDA Net Class.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportedNetClass {
@@ -68,9 +71,7 @@ fn error(message: impl Into<String>) -> ImportError {
 }
 
 /// A class's mapped values, by field.
-fn values(
-    class: &serde_json::Map<String, Value>,
-) -> Result<Vec<(RuleKind, RuleField, Nm)>, ImportError> {
+fn values(class: &serde_json::Map<String, Value>) -> Result<Vec<Mapped>, ImportError> {
     let mut out = Vec::new();
     for (key, kind, field) in FIELDS {
         let Some(value) = class.get(key) else {
@@ -87,9 +88,7 @@ fn values(
 }
 
 /// Groups `values` into one record per kind, in kind order.
-fn records(
-    values: impl IntoIterator<Item = (RuleKind, RuleField, Nm)>,
-) -> Vec<(RuleKind, RuleValues)> {
+fn records(values: impl IntoIterator<Item = Mapped>) -> Vec<(RuleKind, RuleValues)> {
     let mut out: Vec<(RuleKind, RuleValues)> = Vec::new();
     for (kind, field, length) in values {
         let i = match out.iter().position(|(k, _)| *k == kind) {
@@ -119,8 +118,8 @@ pub fn import_net_classes(project: &str) -> Result<ImportedRules, ImportError> {
         .as_array()
         .ok_or_else(|| error("`net_settings.classes` is not a list"))?;
     let mut out = ImportedRules::default();
-    let mut default: Vec<(RuleKind, RuleField, Nm)> = Vec::new();
-    let mut others: Vec<(String, Vec<(RuleKind, RuleField, Nm)>)> = Vec::new();
+    let mut default: Vec<Mapped> = Vec::new();
+    let mut others: Vec<(String, Vec<Mapped>)> = Vec::new();
     for class in classes {
         let class = class
             .as_object()
