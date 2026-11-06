@@ -161,7 +161,13 @@ fn a_new_symbol_opens_in_a_document_tab_with_no_project_open() {
         .iter()
         .map(|m| m.id.as_str())
         .collect();
-    assert!(menus.contains(&"library"), "{menus:?}");
+    // The element's own items fold into File and Tools.
+    assert_eq!(
+        menus,
+        [
+            "file", "edit", "view", "project", "place", "tools", "window", "help"
+        ]
+    );
 }
 
 #[test]
