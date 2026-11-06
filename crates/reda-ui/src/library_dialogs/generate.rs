@@ -5,7 +5,7 @@
 
 use std::any::Any;
 
-use egui::{Id, Modal, Ui};
+use egui::{Id, Ui};
 use reda_engine::command::CommandError;
 use reda_engine::model::{Footprint, Uuid};
 use serde_json::Value;
@@ -136,9 +136,12 @@ impl ParamsDialog for GenerateDialog {
         }
         self.sync_library();
         let mut outcome = Outcome::Open;
-        let modal = Modal::new(Id::NULL.with("generate-footprint")).show(ctx, |ui| {
-            ui.set_width(480.0);
-            ui.heading(self.form.title().to_owned());
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("generate-footprint"),
+            self.form.title().to_owned(),
+        )
+        .width(480.0)
+        .show(ctx, |ui| {
             ui.weak(self.form.description().to_owned());
             ui.add_space(6.0);
             self.draw_form(ui, shell);

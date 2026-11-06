@@ -250,3 +250,28 @@ fn select_similar_matches_on_the_chosen_fields_on_a_sheet_or_the_project() {
 fn object_component(engine: &mut TestEngine, unit: &Value) -> Value {
     engine.run_ok("object.get", json!({"uuid": unit}))["object"]["component"]["uuid"].clone()
 }
+
+#[test]
+fn find_matches_a_designator_with_or_without_its_unit_suffix() {
+    let dir = TempDir::new("find-unit-suffix");
+    let mut engine = demo(&dir);
+    let sheet = json!(SHEET);
+    let a = place_on(&mut engine, &sheet, LM358, 0);
+    let b = engine.run_ok(
+        "schematic.unit.place",
+        json!({"document": SHEET, "component": a["component"]["uuid"], "at": {"x": "30mm", "y": 0}}),
+    )["result"]
+        .clone();
+    let (a, b) = (&a["unit"], &b["unit"]);
+
+    let exact = |text: &str| json!({"text": text, "fields": ["designator"], "exact": true});
+    assert_eq!(
+        find(&mut engine, exact("U1")),
+        [m("designator", "U1", a), m("designator", "U1", b)]
+    );
+    assert_eq!(find(&mut engine, exact("u1b")), [m("designator", "U1B", b)]);
+    assert_eq!(
+        find(&mut engine, exact("U1:1")),
+        [m("designator", "U1:1", a)]
+    );
+}

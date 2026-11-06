@@ -1,7 +1,7 @@
 //! The New Project dialog: name, location, Fab Preset and the board. It builds the
 //! params of one `project.new` Command.
 
-use egui::{Id, Modal, Ui};
+use egui::{Id, Ui};
 use serde_json::{Value, json};
 
 use crate::tr;
@@ -79,70 +79,76 @@ impl NewProjectForm {
     /// Shows the dialog as a modal.
     pub fn show(&mut self, ctx: &egui::Context) -> FormAction {
         let mut action = FormAction::None;
-        let modal = Modal::new(Id::NULL.with("new-project")).show(ctx, |ui| {
-            ui.set_width(380.0);
-            ui.heading(tr!("new-project-title"));
-            ui.add_space(6.0);
-            egui::Grid::new("new-project-fields")
-                .num_columns(2)
-                .spacing([8.0, 6.0])
-                .show(ui, |ui| {
-                    labelled_field(ui, &tr!("new-project-name"), &mut self.name, true);
-                    ui.end_row();
-                    labelled_field(ui, &tr!("new-project-location"), &mut self.location, true);
-                    ui.end_row();
-                    ui.label("");
-                    if ui.button(tr!("new-project-browse")).clicked() {
-                        action = FormAction::Browse;
+        let modal =
+            crate::modal::Dialog::new(Id::NULL.with("new-project"), tr!("new-project-title"))
+                .width(380.0)
+                .show(ctx, |ui| {
+                    ui.add_space(6.0);
+                    egui::Grid::new("new-project-fields")
+                        .num_columns(2)
+                        .spacing([8.0, 6.0])
+                        .show(ui, |ui| {
+                            labelled_field(ui, &tr!("new-project-name"), &mut self.name, true);
+                            ui.end_row();
+                            labelled_field(
+                                ui,
+                                &tr!("new-project-location"),
+                                &mut self.location,
+                                true,
+                            );
+                            ui.end_row();
+                            ui.label("");
+                            if ui.button(tr!("new-project-browse")).clicked() {
+                                action = FormAction::Browse;
+                            }
+                            ui.end_row();
+                        });
+                    ui.add_space(8.0);
+                    ui.strong(tr!("new-project-fab-preset"));
+                    for preset in &self.presets {
+                        ui.radio_value(&mut self.preset, preset.clone(), preset);
                     }
-                    ui.end_row();
+                    ui.weak(tr!("new-project-fab-preset-note"));
+                    ui.add_space(8.0);
+                    ui.strong(tr!("new-project-board"));
+                    ui.radio_value(
+                        &mut self.board,
+                        Board::DrawLater,
+                        tr!("new-project-draw-later"),
+                    );
+                    ui.radio_value(
+                        &mut self.board,
+                        Board::Rectangle,
+                        tr!("new-project-rectangle"),
+                    );
+                    let rectangle = self.board == Board::Rectangle;
+                    egui::Grid::new("new-project-board")
+                        .num_columns(2)
+                        .spacing([8.0, 6.0])
+                        .show(ui, |ui| {
+                            for (label, value) in [
+                                (tr!("new-project-width"), &mut self.width),
+                                (tr!("new-project-height"), &mut self.height),
+                                (tr!("new-project-corner-radius"), &mut self.corner_radius),
+                            ] {
+                                labelled_field(ui, &label, value, rectangle);
+                                ui.end_row();
+                            }
+                        });
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        let ready = self.params().is_some();
+                        if ui
+                            .add_enabled(ready, egui::Button::new(tr!("new-project-create")))
+                            .clicked()
+                        {
+                            action = FormAction::Create;
+                        }
+                        if ui.button(tr!("dialog-cancel")).clicked() {
+                            action = FormAction::Cancel;
+                        }
+                    });
                 });
-            ui.add_space(8.0);
-            ui.strong(tr!("new-project-fab-preset"));
-            for preset in &self.presets {
-                ui.radio_value(&mut self.preset, preset.clone(), preset);
-            }
-            ui.weak(tr!("new-project-fab-preset-note"));
-            ui.add_space(8.0);
-            ui.strong(tr!("new-project-board"));
-            ui.radio_value(
-                &mut self.board,
-                Board::DrawLater,
-                tr!("new-project-draw-later"),
-            );
-            ui.radio_value(
-                &mut self.board,
-                Board::Rectangle,
-                tr!("new-project-rectangle"),
-            );
-            let rectangle = self.board == Board::Rectangle;
-            egui::Grid::new("new-project-board")
-                .num_columns(2)
-                .spacing([8.0, 6.0])
-                .show(ui, |ui| {
-                    for (label, value) in [
-                        (tr!("new-project-width"), &mut self.width),
-                        (tr!("new-project-height"), &mut self.height),
-                        (tr!("new-project-corner-radius"), &mut self.corner_radius),
-                    ] {
-                        labelled_field(ui, &label, value, rectangle);
-                        ui.end_row();
-                    }
-                });
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                let ready = self.params().is_some();
-                if ui
-                    .add_enabled(ready, egui::Button::new(tr!("new-project-create")))
-                    .clicked()
-                {
-                    action = FormAction::Create;
-                }
-                if ui.button(tr!("dialog-cancel")).clicked() {
-                    action = FormAction::Cancel;
-                }
-            });
-        });
         if modal.should_close() && action == FormAction::None {
             action = FormAction::Cancel;
         }
