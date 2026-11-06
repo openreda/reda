@@ -137,7 +137,12 @@ impl Fixture {
     }
 
     fn click(&mut self, label: &str) {
-        self.h.get_by_role_and_label(Role::Button, label).click();
+        // The prompt is drawn after the quick strip, whose Save shares a name with it.
+        self.h
+            .get_all_by_role_and_label(Role::Button, label)
+            .last()
+            .unwrap()
+            .click();
         self.h.run();
     }
 
@@ -189,7 +194,11 @@ fn closing_a_dirty_tab_asks_and_cancel_keeps_it() {
     f.close_sheet_tab();
     assert!(f.prompt_open());
     f.h.get_by_label_contains("Save the changes to Sheet 1");
-    f.h.get_by_role_and_label(Role::Button, "Save");
+    // The prompt's Save, besides the quick strip's.
+    assert_eq!(
+        f.h.get_all_by_role_and_label(Role::Button, "Save").count(),
+        2
+    );
     f.h.get_by_role_and_label(Role::Button, "Don't Save");
     f.click("Cancel");
     assert!(!f.prompt_open());

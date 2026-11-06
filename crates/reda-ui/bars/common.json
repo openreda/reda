@@ -28,27 +28,6 @@
         { "id": "view.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } },
         "separator",
         {
-          "id": "view.panels",
-          "title": "menu-view-panels",
-          "items": [
-            { "id": "view.panels.projects", "command": "panel.show:projects" },
-            { "id": "view.panels.properties", "command": "panel.show:properties" },
-            { "id": "view.panels.messages", "command": "panel.show:messages" },
-            { "id": "view.panels.library", "command": "panel.show:library" },
-            { "id": "view.panels.layers", "command": "panel.show:layers" },
-            { "id": "view.panels.journal", "command": "panel.show:journal" }
-          ]
-        },
-        {
-          "id": "view.docks",
-          "title": "menu-view-docks",
-          "items": [
-            { "id": "view.docks.collapse_left", "command": "layout.dock.collapse:left" },
-            { "id": "view.docks.collapse_right", "command": "layout.dock.collapse:right" },
-            { "id": "view.docks.collapse_bottom", "command": "layout.dock.collapse:bottom" }
-          ]
-        },
-        {
           "id": "view.theme",
           "title": "menu-view-theme",
           "items": [
@@ -57,6 +36,40 @@
             { "id": "view.theme.light", "command": "view.theme.set:light" }
           ]
         }
+      ]
+    },
+    {
+      "id": "project",
+      "title": "menu-project",
+      "items": [
+        { "id": "project.settings", "command": "app.settings.open:project_settings" },
+        { "id": "project.board_setup", "command": "app.settings.open:board_setup" },
+        "separator",
+        { "id": "project.sync", "command": "app.dialog.open:change_list" },
+        { "id": "project.save", "command": "project.save" }
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "menu-tools",
+      "items": [
+        { "id": "tools.keyboard_shortcuts", "command": "app.dialog.open:keyboard_shortcuts" }
+      ]
+    },
+    {
+      "id": "window",
+      "title": "menu-window",
+      "items": [
+        { "id": "window.panel.projects", "command": "panel.show:projects" },
+        { "id": "window.panel.properties", "command": "panel.show:properties" },
+        { "id": "window.panel.messages", "command": "panel.show:messages" },
+        { "id": "window.panel.library", "command": "panel.show:library" },
+        { "id": "window.panel.layers", "command": "panel.show:layers" },
+        { "id": "window.panel.journal", "command": "panel.show:journal" },
+        "separator",
+        { "id": "window.collapse.left", "command": "layout.dock.collapse:left" },
+        { "id": "window.collapse.right", "command": "layout.dock.collapse:right" },
+        { "id": "window.collapse.bottom", "command": "layout.dock.collapse:bottom" }
       ]
     },
     {
@@ -71,13 +84,9 @@
     }
   ],
   "toolbar": [
-    { "id": "toolbar.new_project", "command": "app.dialog.open:new_project" },
-    { "id": "toolbar.open_project", "command": "app.dialog.open:open_project" },
+    { "id": "toolbar.save", "command": "project.save", "params": { "document": "$active_document" }, "title": "toolbar-save", "icon": "save" },
     { "id": "toolbar.save_all", "command": "project.save" },
-    "separator",
     { "id": "toolbar.undo", "command": "edit.undo", "params": { "document": "$undo_stack" } },
-    { "id": "toolbar.redo", "command": "edit.redo", "params": { "document": "$undo_stack" } },
-    "separator",
-    { "id": "toolbar.zoom_fit", "command": "view.zoom_fit", "params": { "document": "$active_document" } }
+    { "id": "toolbar.redo", "command": "edit.redo", "params": { "document": "$undo_stack" } }
   ]
 }

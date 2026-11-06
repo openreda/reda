@@ -95,7 +95,7 @@ fn the_new_project_form_creates_and_opens_a_project() {
     let mut h = harness(home.path());
     h.run();
 
-    // The toolbar's New Project button comes first; the Start page's last.
+    // The Start page's New Project button.
     h.get_all_by_label("New Project…").last().unwrap().click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "Name")

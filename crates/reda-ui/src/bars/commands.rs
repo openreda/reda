@@ -9,7 +9,8 @@ use std::sync::{Arc, Mutex};
 
 use reda_engine::Engine;
 use reda_engine::command::{
-    Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, NoParams, Preset,
+    Registry, Unavailable,
 };
 use reda_engine::model::Uuid;
 use reda_engine::preferences::{self, Theme};
@@ -44,6 +45,12 @@ pub enum Request {
     Schematic(crate::schematic_dialogs::DialogKind),
     /// Show the Change List dialog (Update PCB from Schematic).
     ChangeList,
+    /// Show the Project Settings dialog.
+    ProjectSettings,
+    /// Show the Board Setup dialog.
+    BoardSetup,
+    /// Show Preferences on the Keyboard Shortcuts page.
+    KeyboardShortcuts,
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -66,6 +73,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ZoomFit);
     registry.add(ZoomSelection);
     registry.add(SetTheme);
+    registry.add(OpenSettings);
 }
 
 /// Adds the Commands to `engine` and gives it a request queue. The Shell does this.
@@ -110,6 +118,8 @@ pub enum Dialog {
     About,
     /// The Change List dialog: Update PCB from Schematic.
     ChangeList,
+    /// Preferences, on the Keyboard Shortcuts page.
+    KeyboardShortcuts,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -165,6 +175,12 @@ impl Command for OpenDialog {
                 "sync",
                 json!({"dialog": "change_list"}),
             ),
+            Preset::new(
+                "keyboard_shortcuts",
+                "Keyboard Shortcuts…",
+                "preferences",
+                json!({"dialog": "keyboard_shortcuts"}),
+            ),
         ]
     }
 
@@ -176,6 +192,78 @@ impl Command for OpenDialog {
             Dialog::CommandPalette => Request::CommandPalette,
             Dialog::About => Request::About,
             Dialog::ChangeList => Request::ChangeList,
+            Dialog::KeyboardShortcuts => Request::KeyboardShortcuts,
+        };
+        request(cx, r)?;
+        Ok(Done {})
+    }
+}
+
+/// A Project's settings dialog.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Settings {
+    /// Project Settings.
+    ProjectSettings,
+    /// Board Setup, for the PCB Document.
+    BoardSetup,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OpenSettingsParams {
+    settings: Settings,
+}
+
+/// Opens Project Settings or Board Setup: greyed while no Project is open.
+struct OpenSettings;
+
+impl Command for OpenSettings {
+    const META: Meta = Meta {
+        id: "app.settings.open",
+        title: "Open Project Settings",
+        description: "Opens the open Project's Project Settings or its Board Setup.",
+        category: "app",
+        icon: "properties",
+        kind: Kind::View,
+    };
+    type Params = OpenSettingsParams;
+    type Output = Done;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        match cx.project {
+            Some(_) => Ok(()),
+            None => Err(Unavailable {
+                reason: NO_PROJECT.into(),
+            }),
+        }
+    }
+
+    fn presets(&self) -> Vec<Preset> {
+        vec![
+            Preset::new(
+                "project_settings",
+                "Project Settings…",
+                "properties",
+                json!({"settings": "project_settings"}),
+            ),
+            Preset::new(
+                "board_setup",
+                "Board Setup…",
+                "rules",
+                json!({"settings": "board_setup"}),
+            ),
+        ]
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: OpenSettingsParams) -> Result<Done, CommandError> {
+        let project = cx.project()?;
+        let r = match p.settings {
+            Settings::ProjectSettings => Request::ProjectSettings,
+            Settings::BoardSetup if project.pcb().is_none() => {
+                return Err(CommandError::unavailable(reda_engine::sync::NO_PCB));
+            }
+            Settings::BoardSetup => Request::BoardSetup,
         };
         request(cx, r)?;
         Ok(Done {})
