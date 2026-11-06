@@ -10,7 +10,8 @@ mod turn;
 use reda_command::{CommandError, Context, Registry};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    FootprintInstance, FreePad, InDocument, Object, PcbDocument, PlacementOrigin, Side, Uuid,
+    Corners, FootprintInstance, FreePad, InDocument, Object, PcbDocument, PlacementOrigin, Side,
+    Uuid,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -35,7 +36,7 @@ pub struct Placed {
 #[derive(Clone, Debug)]
 pub(super) enum Item {
     Footprint(Box<FootprintInstance>),
-    FreePad(FreePad),
+    FreePad(Box<FreePad>),
     Origin(PlacementOrigin),
 }
 
@@ -78,7 +79,12 @@ impl Item {
     fn apply(&mut self, op: Op) {
         let (at, rotation, side) = match self {
             Item::Footprint(f) => (&mut f.at, Some(&mut f.rotation), Some(&mut f.side)),
-            Item::FreePad(p) => (&mut p.at, Some(&mut p.rotation), p.side.as_mut()),
+            Item::FreePad(p) => {
+                if let Op::Flip(_) = op {
+                    mirror_free_pad(p);
+                }
+                (&mut p.at, Some(&mut p.rotation), None)
+            }
             Item::Origin(o) => (&mut o.at, None, None),
         };
         match op {
@@ -107,9 +113,26 @@ impl Item {
     fn into_object(self, document: Uuid) -> Object {
         match self {
             Item::Footprint(f) => Object::FootprintInstance(InDocument::new(document, *f)),
-            Item::FreePad(p) => Object::FreePad(InDocument::new(document, p)),
+            Item::FreePad(p) => Object::FreePad(InDocument::new(document, *p)),
             Item::Origin(o) => Object::PlacementOrigin(InDocument::new(document, o)),
         }
+    }
+}
+
+/// Mirrors a Free Pad's own frame left-right, as flipping it does: its corners, offset
+/// and slot turn over, and an SMD Pad moves to the other side. The caller mirrors its
+/// position and rotation.
+fn mirror_free_pad(pad: &mut FreePad) {
+    pad.corners = pad.corners.map(Corners::mirrored);
+    pad.offset = pad.offset.map(|o| Point::new(-o.x, o.y));
+    if let Some(hole) = &mut pad.hole {
+        hole.rotation = Millideg((-hole.rotation.0).rem_euclid(180_000));
+    }
+    if let Some(side) = pad.form().copper_side() {
+        pad.side = match side {
+            Side::Top => Some(Side::Bottom),
+            Side::Bottom => None,
+        };
     }
 }
 
@@ -130,7 +153,7 @@ pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, Co
         let item = if let Some(f) = pcb.footprint(uuid) {
             Item::Footprint(Box::new(f.clone()))
         } else if let Some(p) = pcb.free_pad(uuid) {
-            Item::FreePad(p.clone())
+            Item::FreePad(Box::new(p.clone()))
         } else if let Some(o) = pcb.placement_origin().filter(|o| o.uuid == uuid) {
             Item::Origin(o.clone())
         } else {

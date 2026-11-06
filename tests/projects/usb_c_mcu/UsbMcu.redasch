@@ -2,7 +2,7 @@
   "format": 1,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-00000000001a","hash":"8d7a3aa84bd7c5b334afc5c960fe0283","part":{"uuid":"8888e4af-6def-4590-a0f3-9b2bb26386ec","name":"USB_C_Receptacle_USB2.0","component_type":"standard","symbol":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39"},"footprints":["13f78ea2-b54f-4c17-86db-609c54392855"],"copies":["00000000-0000-4000-8000-000000000019"],"fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"pin_map":{"pins":[{"pin":"A1","pads":["A1","B1"]},{"pin":"A4","pads":["A4","B4"]},{"pin":"A6","pads":["A6","B6"]},{"pin":"A7","pads":["A7","B7"]},{"pin":"S1","pads":["S1","S2","S3","S4"]}]},"symbol":{"uuid":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39","name":"USB_C_USB2.0","designator_prefix":"J","description":"USB 2.0 Type-C receptacle"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000001a","hash":"8d7a3aa84bd7c5b334afc5c960fe0283","part":{"uuid":"8888e4af-6def-4590-a0f3-9b2bb26386ec","name":"USB_C_Receptacle_USB2.0","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39"},"footprints":["13f78ea2-b54f-4c17-86db-609c54392855"],"copies":["00000000-0000-4000-8000-000000000019"],"fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"pin_map":{"pins":[{"pin":"A1","pads":["A1","B1"]},{"pin":"A4","pads":["A4","B4"]},{"pin":"A6","pads":["A6","B6"]},{"pin":"A7","pads":["A7","B7"]},{"pin":"S1","pads":["S1","S2","S3","S4"]}]},"symbol":{"uuid":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39","name":"USB_C_USB2.0","designator_prefix":"J","description":"USB 2.0 Type-C receptacle"},"units":[
       {"uuid":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"A"}
     ],"pins":[
       {"uuid":"145f4f48-67a9-4f99-8fe8-82c7f099d1b5","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"VBUS","number":"A4","electrical_type":"passive","at":{"x":10160000,"y":7620000},"rotation":180000,"length":2540000},
@@ -17,7 +17,7 @@
     ],"graphics":[
       {"uuid":"f7e0f145-3134-4c6b-a312-4c266167104b","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","shape":{"kind":"rect","start":{"x":-7620000,"y":-11430000},"end":{"x":7620000,"y":10160000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000001f","hash":"b2e162ea3a5d259ebf3a22e10b4b4c87","part":{"uuid":"49144713-0245-4d42-90aa-5e72e3bf3912","name":"Header_1x05","component_type":"standard","symbol":"3fddfeb4-42ed-488a-a2f3-fd90bd847255"},"footprints":["52217535-29ec-4cda-bd22-4076c17fb28c","4d7572bd-ed85-485a-80e6-254ad6c66519"],"copies":["00000000-0000-4000-8000-00000000001d","00000000-0000-4000-8000-00000000001e"],"fields":{"value":"Header 1x5","description":"1 × 5 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"3fddfeb4-42ed-488a-a2f3-fd90bd847255","name":"Conn_1x05","designator_prefix":"J","description":"Generic connector, 1 × 5 pins"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000001f","hash":"b2e162ea3a5d259ebf3a22e10b4b4c87","part":{"uuid":"49144713-0245-4d42-90aa-5e72e3bf3912","name":"Header_1x05","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"3fddfeb4-42ed-488a-a2f3-fd90bd847255"},"footprints":["52217535-29ec-4cda-bd22-4076c17fb28c","4d7572bd-ed85-485a-80e6-254ad6c66519"],"copies":["00000000-0000-4000-8000-00000000001d","00000000-0000-4000-8000-00000000001e"],"fields":{"value":"Header 1x5","description":"1 × 5 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"3fddfeb4-42ed-488a-a2f3-fd90bd847255","name":"Conn_1x05","designator_prefix":"J","description":"Generic connector, 1 × 5 pins"},"units":[
       {"uuid":"641fc2fc-cf42-486c-adbe-598de7d42dc6","name":"A"}
     ],"pins":[
       {"uuid":"00813dc0-41cd-41fe-a2fc-49ac126bc989","unit":"641fc2fc-cf42-486c-adbe-598de7d42dc6","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":5080000},"rotation":0,"length":2540000,"name_visible":false},
@@ -28,7 +28,7 @@
     ],"graphics":[
       {"uuid":"cd7fa72e-6daa-4cfc-ae97-1982aaee0b54","unit":"641fc2fc-cf42-486c-adbe-598de7d42dc6","shape":{"kind":"rect","start":{"x":-2540000,"y":-6350000},"end":{"x":0,"y":6350000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"9df14cd186804ea2bc151254658d9eba","part":{"uuid":"b72ceef7-e0ba-41e5-a2c0-bfbc744436eb","name":"STM32F042F6P6","component_type":"standard","symbol":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc"},"footprints":["5082bf81-7326-4bbd-8274-54c43985cd53"],"copies":["00000000-0000-4000-8000-000000000022"],"fields":{"value":"STM32F042F6P6","description":"Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)","datasheet":"STM32F042x4/x6 datasheet, DocID025832","manufacturer":"STMicroelectronics","mpn":"STM32F042F6P6","keywords":"U microcontroller MCU USB STM32 Cortex-M0"},"pin_map":{},"symbol":{"uuid":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc","name":"STM32F042F6P6","designator_prefix":"U","description":"STM32F042F6P6 Cortex-M0 microcontroller with USB, TSSOP-20 pinout"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"9df14cd186804ea2bc151254658d9eba","part":{"uuid":"b72ceef7-e0ba-41e5-a2c0-bfbc744436eb","name":"STM32F042F6P6","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc"},"footprints":["5082bf81-7326-4bbd-8274-54c43985cd53"],"copies":["00000000-0000-4000-8000-000000000022"],"fields":{"value":"STM32F042F6P6","description":"Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)","datasheet":"STM32F042x4/x6 datasheet, DocID025832","manufacturer":"STMicroelectronics","mpn":"STM32F042F6P6","keywords":"U microcontroller MCU USB STM32 Cortex-M0"},"pin_map":{},"symbol":{"uuid":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc","name":"STM32F042F6P6","designator_prefix":"U","description":"STM32F042F6P6 Cortex-M0 microcontroller with USB, TSSOP-20 pinout"},"units":[
       {"uuid":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"A"}
     ],"pins":[
       {"uuid":"0a16e967-dce6-4a84-977c-6daa5782c91e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA1","number":"7","electrical_type":"bidirectional","at":{"x":15240000,"y":10160000},"rotation":180000,"length":2540000},
@@ -55,7 +55,7 @@
       {"uuid":"006ba5bd-63d7-44a2-bcbf-f346d0bec399","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","shape":{"kind":"text","at":{"x":0,"y":-11430000},"text":"STM32F042","size":1270000,"rotation":0},"width":254000},
       {"uuid":"f2314a4d-6896-4a60-bc02-4cef25386996","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","shape":{"kind":"rect","start":{"x":-12700000,"y":-13970000},"end":{"x":12700000,"y":13970000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000027","hash":"8d1ef05e22d6cc3fc8880b994b903f54","part":{"uuid":"625b953b-31e3-41bd-8ac2-68f5b35f3140","name":"LDO_SOT-223","component_type":"standard","symbol":"19d1ebee-1ef7-4886-a492-7aba5ba4b452"},"footprints":["29bd1760-af17-4842-97db-7d25d557604a"],"copies":["00000000-0000-4000-8000-000000000026"],"fields":{"value":"3.3V","description":"Fixed-output LDO regulator, SOT-223, GND-VOUT-VIN with VOUT on the tab","keywords":"U regulator LDO linear voltage"},"pin_map":{"pins":[{"pin":"2","pads":["2","4"]}]},"symbol":{"uuid":"19d1ebee-1ef7-4886-a492-7aba5ba4b452","name":"LDO","designator_prefix":"U","description":"Fixed-output low-dropout regulator"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000027","hash":"8d1ef05e22d6cc3fc8880b994b903f54","part":{"uuid":"625b953b-31e3-41bd-8ac2-68f5b35f3140","name":"LDO_SOT-223","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"19d1ebee-1ef7-4886-a492-7aba5ba4b452"},"footprints":["29bd1760-af17-4842-97db-7d25d557604a"],"copies":["00000000-0000-4000-8000-000000000026"],"fields":{"value":"3.3V","description":"Fixed-output LDO regulator, SOT-223, GND-VOUT-VIN with VOUT on the tab","keywords":"U regulator LDO linear voltage"},"pin_map":{"pins":[{"pin":"2","pads":["2","4"]}]},"symbol":{"uuid":"19d1ebee-1ef7-4886-a492-7aba5ba4b452","name":"LDO","designator_prefix":"U","description":"Fixed-output low-dropout regulator"},"units":[
       {"uuid":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"A"}
     ],"pins":[
       {"uuid":"44019af8-5e21-44b6-890d-87b39497975d","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"GND","number":"1","electrical_type":"power_in","at":{"x":0,"y":-5080000},"rotation":90000,"length":2540000},
@@ -65,7 +65,7 @@
       {"uuid":"41976ca9-bd36-48ec-be86-d733fdd7ab46","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","shape":{"kind":"text","at":{"x":0,"y":1270000},"text":"LDO","size":1270000,"rotation":0},"width":254000},
       {"uuid":"77a24631-977d-40e0-9811-b0a12d5111bb","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","shape":{"kind":"rect","start":{"x":-5080000,"y":-2540000},"end":{"x":5080000,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002f","hash":"df522226472833c6fdcbbb6f421785a0","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b","00000000-0000-4000-8000-00000000002c","00000000-0000-4000-8000-00000000002d","00000000-0000-4000-8000-00000000002e"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000002f","hash":"df522226472833c6fdcbbb6f421785a0","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b","00000000-0000-4000-8000-00000000002c","00000000-0000-4000-8000-00000000002d","00000000-0000-4000-8000-00000000002e"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
       {"uuid":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"A"}
     ],"pins":[
       {"uuid":"4d8013c9-7801-4d73-93ac-a5c047a300b5","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000,"name_visible":false,"number_visible":false},
@@ -73,7 +73,7 @@
     ],"graphics":[
       {"uuid":"0e65c72b-7ee9-49c4-94cc-ef11deea34c0","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","shape":{"kind":"rect","start":{"x":-1016000,"y":-2540000},"end":{"x":1016000,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003b","hash":"4e4053a0181d02d002ec5162332b1647","part":{"uuid":"b4351766-9551-4986-9f92-46fd72d7e385","name":"Capacitor","component_type":"standard","symbol":"e2a20189-4b01-467b-a2c0-1e5ddd811319"},"footprints":["4cbeeb47-93a7-4a38-9bfa-49862757d1ea","2f30e497-fa3d-473c-89eb-c952d32ae866","9f2fe3a0-4816-480e-afcc-1165dc5d603c","15dd7aa2-d617-4a1d-875b-9e6177603525","cd0be5b4-30b8-43a1-86a0-04fe884fe2c5"],"copies":["00000000-0000-4000-8000-000000000036","00000000-0000-4000-8000-000000000037","00000000-0000-4000-8000-000000000038","00000000-0000-4000-8000-000000000039","00000000-0000-4000-8000-00000000003a"],"fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"pin_map":{},"symbol":{"uuid":"e2a20189-4b01-467b-a2c0-1e5ddd811319","name":"Capacitor","designator_prefix":"C","description":"Capacitor"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000003b","hash":"4e4053a0181d02d002ec5162332b1647","part":{"uuid":"b4351766-9551-4986-9f92-46fd72d7e385","name":"Capacitor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"e2a20189-4b01-467b-a2c0-1e5ddd811319"},"footprints":["4cbeeb47-93a7-4a38-9bfa-49862757d1ea","2f30e497-fa3d-473c-89eb-c952d32ae866","9f2fe3a0-4816-480e-afcc-1165dc5d603c","15dd7aa2-d617-4a1d-875b-9e6177603525","cd0be5b4-30b8-43a1-86a0-04fe884fe2c5"],"copies":["00000000-0000-4000-8000-000000000036","00000000-0000-4000-8000-000000000037","00000000-0000-4000-8000-000000000038","00000000-0000-4000-8000-000000000039","00000000-0000-4000-8000-00000000003a"],"fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"pin_map":{},"symbol":{"uuid":"e2a20189-4b01-467b-a2c0-1e5ddd811319","name":"Capacitor","designator_prefix":"C","description":"Capacitor"},"units":[
       {"uuid":"5066b805-cd8b-4a7e-9d84-c514cbd67273","name":"A"}
     ],"pins":[
       {"uuid":"4c3b1b00-84af-4a10-8546-a73b55a2a70e","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":3302000,"name_visible":false,"number_visible":false},
@@ -82,7 +82,7 @@
       {"uuid":"8aab28e9-82a2-4b70-9c95-c663eda97630","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","shape":{"kind":"line","start":{"x":-2032000,"y":508000},"end":{"x":2032000,"y":508000}},"width":254000},
       {"uuid":"c083b96f-c08b-4436-9ed4-c77a9ab4a55d","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","shape":{"kind":"line","start":{"x":-2032000,"y":-508000},"end":{"x":2032000,"y":-508000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000049","hash":"6b622c1f8d47b0768a816b50e51b0c46","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000044","00000000-0000-4000-8000-000000000045","00000000-0000-4000-8000-000000000046","00000000-0000-4000-8000-000000000047","00000000-0000-4000-8000-000000000048"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000049","hash":"6b622c1f8d47b0768a816b50e51b0c46","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000044","00000000-0000-4000-8000-000000000045","00000000-0000-4000-8000-000000000046","00000000-0000-4000-8000-000000000047","00000000-0000-4000-8000-000000000048"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
       {"uuid":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A"}
     ],"pins":[
       {"uuid":"4c45e5ee-3d76-48d7-9fbf-f1aac5cb4e5c","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
@@ -97,7 +97,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000019","hash":"2120f2b7ac8ad2824c425d59e2ece55b","footprint":{"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout"},"text":{"designator":{"at":{"x":0,"y":5350000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000019","hash":"2120f2b7ac8ad2824c425d59e2ece55b","footprint":{"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout"},"pads":[
       {"uuid":"0f8b3078-57ca-4e48-b465-770d7f72d774","number":"S2","kind":"plated_through_hole","shape":"oval","at":{"x":4320000,"y":3130000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},
       {"uuid":"12ef56d9-c47e-41ae-8e4f-7dddcba6fe4c","number":"","kind":"non_plated","shape":"circle","at":{"x":-2890000,"y":2630000},"rotation":0,"width":650000,"height":650000,"hole":{"width":650000,"height":650000}},
       {"uuid":"2b134d11-46f1-461b-bf65-95eab8e16666","number":"","kind":"non_plated","shape":"circle","at":{"x":2890000,"y":2630000},"rotation":0,"width":650000,"height":650000,"hole":{"width":650000,"height":650000}},
@@ -123,8 +123,11 @@
       {"uuid":"c2fa5e32-8674-48e0-a157-28c076f501ad","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-5100000,"y":-3900000},"end":{"x":5100000,"y":4550000}},"width":50000},
       {"uuid":"c9a67e77-9a05-4045-8fad-2820487216b7","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":4470000,"y":110000},"end":{"x":4470000,"y":1820000}},"width":120000},
       {"uuid":"d6fee22f-7de8-4f6b-90c9-cd0c068acbaa","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":4470000,"y":-3650000},"end":{"x":4470000,"y":-2210000}},"width":120000}
+    ],"texts":[
+      {"uuid":"210590f8-c0cc-4dfb-b429-4245f9d06fa3","field":"Designator","at":{"x":0,"y":5350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000001d","hash":"4cc641b927797520d70875bda44e9f29","footprint":{"uuid":"52217535-29ec-4cda-bd22-4076c17fb28c","name":"HDR254P1X5","description":"Pin header, 1 × 5, 2.54 mm pitch"},"text":{"designator":{"at":{"x":0,"y":7300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000001d","hash":"4cc641b927797520d70875bda44e9f29","footprint":{"uuid":"52217535-29ec-4cda-bd22-4076c17fb28c","name":"HDR254P1X5","description":"Pin header, 1 × 5, 2.54 mm pitch"},"pads":[
       {"uuid":"1761c40f-5c73-4ff9-81b4-02095f5348d4","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"1d6d5460-6bdd-436b-9bf0-2718d739e788","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"6dd5cda9-a82f-4b07-a6c5-1abe3f22b385","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -137,8 +140,11 @@
       {"uuid":"7f7059e0-40be-41d1-adb3-40e99f86c3a9","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-6410000},"end":{"x":1330000,"y":-6410000}},"width":120000},
       {"uuid":"83db77c4-4524-48ef-b05c-849921a16689","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":6410000},"end":{"x":1330000,"y":6410000}},"width":120000},
       {"uuid":"974bf7af-3d78-4f4a-95b5-f3e1687fc698","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-6410000},"end":{"x":-1330000,"y":6410000}},"width":120000}
+    ],"texts":[
+      {"uuid":"19148f57-6b93-491b-b178-020070df6ff8","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+      {"uuid":"82d580fe-f0f2-433e-b575-0baabc34cbbc","field":"Designator","at":{"x":0,"y":7300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000001e","hash":"2c8530ceccff96ecc9e0a77b83dd24d4","footprint":{"uuid":"4d7572bd-ed85-485a-80e6-254ad6c66519","name":"HDR127P1X5","description":"Pin header, 1 × 5, 1.27 mm pitch"},"text":{"designator":{"at":{"x":0,"y":4150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":630000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000001e","hash":"2c8530ceccff96ecc9e0a77b83dd24d4","footprint":{"uuid":"4d7572bd-ed85-485a-80e6-254ad6c66519","name":"HDR127P1X5","description":"Pin header, 1 × 5, 1.27 mm pitch"},"pads":[
       {"uuid":"439cb620-b8a9-4a4e-8ffa-e7307989ffa1","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"5fa73d23-be96-4e50-b444-35f2a87ef7b3","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"6acdfcd8-aa15-44b2-8e57-b857c58d9f52","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
@@ -151,74 +157,95 @@
       {"uuid":"750fcff4-5a69-4f09-86ea-59019da5a105","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-3300000},"end":{"x":760000,"y":-3300000}},"width":120000},
       {"uuid":"acad2d20-0e55-4ddd-9c0e-18fa8c0afbea","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-3300000},"end":{"x":-760000,"y":3300000}},"width":120000},
       {"uuid":"ee5dbc1e-e9bf-433e-b294-76d57bda2708","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":3175000},{"x":635000,"y":3175000},{"x":635000,"y":-3175000},{"x":-635000,"y":-3175000},{"x":-635000,"y":2857500}]},"width":100000}
+    ],"texts":[
+      {"uuid":"115a84f7-43c1-449a-ac4c-43bf0b1a7bf7","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500},"layer":"assembly_top"},
+      {"uuid":"8447ee8f-b1cc-4d5c-bfd6-9fc9dd2fc805","field":"Designator","at":{"x":0,"y":4150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000022","hash":"2c09c2e22203493ae810f9e53741ffec","footprint":{"uuid":"5082bf81-7326-4bbd-8274-54c43985cd53","name":"SOP65P640X120-20N","description":"TSSOP-20, 0.65 mm pitch, IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":4250000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"1b1f9d7c-8089-4874-84c0-e0388295769f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"203e19b1-649a-49b9-b3e6-17682ff34b7f","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"27fa8621-6d46-4dbc-a360-dffa41521580","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"3062d483-3f08-464e-8785-ee5aff3aa69c","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"3ae3dcbd-205f-4f1f-8f03-72f94fbebf40","number":"18","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"3c9a9c73-5ace-4fb5-9d86-855d528b7fe3","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"45a1517c-fcff-4376-8f27-1f384bf0107d","number":"17","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"673341ae-3ff6-4d4a-8f4b-a0ca81d71b0c","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"73d149e2-f367-4e91-bfb8-5f92fef32e08","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"779e438a-4509-4a1c-8bb6-38bf851eb1c7","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"8e863eb0-6b25-4315-b731-d8645a32b1d9","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"93b07cfc-dc98-4168-9a41-4a96cd3cd580","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"a530f5d0-a8a5-4ea3-bb3e-c4c6a662679b","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"a9d90e22-da14-465d-bdae-4a395b4b2924","number":"20","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"bc53a129-ea55-4768-8d2d-1b72d016bf0e","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"bd7874c8-0bd1-43d9-ad67-f41885b9dfa9","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"cce9cf87-0bc9-4a86-a3d3-cb043e3df56b","number":"19","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"d1dd8eba-d7a4-4040-a8ec-89239b6bdb35","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"eefbf8eb-0eef-4beb-849c-52050e1b2951","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"f379f266-12e4-4162-9d8c-eb1e0616ce06","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000}
+    {"uuid":"00000000-0000-4000-8000-000000000022","hash":"2c09c2e22203493ae810f9e53741ffec","footprint":{"uuid":"5082bf81-7326-4bbd-8274-54c43985cd53","name":"SOP65P640X120-20N","description":"TSSOP-20, 0.65 mm pitch, IPC-7351 Nominal"},"pads":[
+      {"uuid":"1b1f9d7c-8089-4874-84c0-e0388295769f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"203e19b1-649a-49b9-b3e6-17682ff34b7f","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"27fa8621-6d46-4dbc-a360-dffa41521580","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"3062d483-3f08-464e-8785-ee5aff3aa69c","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"3ae3dcbd-205f-4f1f-8f03-72f94fbebf40","number":"18","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"3c9a9c73-5ace-4fb5-9d86-855d528b7fe3","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"45a1517c-fcff-4376-8f27-1f384bf0107d","number":"17","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"673341ae-3ff6-4d4a-8f4b-a0ca81d71b0c","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"73d149e2-f367-4e91-bfb8-5f92fef32e08","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"779e438a-4509-4a1c-8bb6-38bf851eb1c7","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"8e863eb0-6b25-4315-b731-d8645a32b1d9","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"93b07cfc-dc98-4168-9a41-4a96cd3cd580","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"a530f5d0-a8a5-4ea3-bb3e-c4c6a662679b","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"a9d90e22-da14-465d-bdae-4a395b4b2924","number":"20","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"bc53a129-ea55-4768-8d2d-1b72d016bf0e","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"bd7874c8-0bd1-43d9-ad67-f41885b9dfa9","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"cce9cf87-0bc9-4a86-a3d3-cb043e3df56b","number":"19","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"d1dd8eba-d7a4-4040-a8ec-89239b6bdb35","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"eefbf8eb-0eef-4beb-849c-52050e1b2951","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"f379f266-12e4-4162-9d8c-eb1e0616ce06","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"04a3cb47-87a3-490d-8b70-814dd43cbf15","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3950000,"y":-3550000},"end":{"x":3950000,"y":3550000}},"width":50000},
       {"uuid":"54946491-c568-4e44-bbad-1ce63f23faef","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1200000,"y":3250000},{"x":2200000,"y":3250000},{"x":2200000,"y":-3250000},{"x":-2200000,"y":-3250000},{"x":-2200000,"y":2250000}]},"width":100000},
       {"uuid":"87aa025a-cfe8-4063-a6d0-0b7d5154c888","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1840000,"y":-3360000},"end":{"x":1840000,"y":-3360000}},"width":120000},
       {"uuid":"e5f85610-f8ab-4d13-879b-21e5f31b6e07","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1840000,"y":3360000},"end":{"x":1840000,"y":3360000}},"width":120000}
+    ],"texts":[
+      {"uuid":"645a4337-cf3c-4f5e-a0b7-5995d195c227","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+      {"uuid":"d98a7ce5-2de4-4a80-95e1-24bd528380a8","field":"Designator","at":{"x":0,"y":4250000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000026","hash":"05a488325d7686005e67697c3601df71","footprint":{"uuid":"29bd1760-af17-4842-97db-7d25d557604a","name":"SOT230P700X180-4N","description":"SOT-223, IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":4300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"24407872-9d48-4769-8484-9ab168833218","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":0},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000},
-      {"uuid":"3dd64c1f-65bb-48cb-bb85-cdfe931447f7","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":-2300000},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000},
-      {"uuid":"a98e58a3-2ebd-4d76-a1cd-1caa5e709bf2","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":3025000,"y":0},"rotation":0,"width":2000000,"height":3200000,"corner_radius":250000},
-      {"uuid":"d58ceb36-767d-40d8-9f0a-159801db3049","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":2300000},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000}
+    {"uuid":"00000000-0000-4000-8000-000000000026","hash":"05a488325d7686005e67697c3601df71","footprint":{"uuid":"29bd1760-af17-4842-97db-7d25d557604a","name":"SOT230P700X180-4N","description":"SOT-223, IPC-7351 Nominal"},"pads":[
+      {"uuid":"24407872-9d48-4769-8484-9ab168833218","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":0},"rotation":0,"width":2000000,"height":900000,"corner_ratio":50000},
+      {"uuid":"3dd64c1f-65bb-48cb-bb85-cdfe931447f7","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":-2300000},"rotation":0,"width":2000000,"height":900000,"corner_ratio":50000},
+      {"uuid":"a98e58a3-2ebd-4d76-a1cd-1caa5e709bf2","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":3025000,"y":0},"rotation":0,"width":2000000,"height":3200000,"corner_ratio":25000},
+      {"uuid":"d58ceb36-767d-40d8-9f0a-159801db3049","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":2300000},"rotation":0,"width":2000000,"height":900000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"26ebd8a0-a320-4313-8d20-386e9fbd90be","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4025000,"y":3410000},"end":{"x":1850000,"y":3410000}},"width":120000},
       {"uuid":"72c214e6-9c97-47bf-9a7c-0e4ed41f2525","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4300000,"y":-3600000},"end":{"x":4300000,"y":3600000}},"width":50000},
       {"uuid":"a94f7bfc-c3bb-4196-9655-0c949e8fd927","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-875000,"y":3250000},{"x":1750000,"y":3250000},{"x":1750000,"y":-3250000},{"x":-1750000,"y":-3250000},{"x":-1750000,"y":2375000}]},"width":100000},
       {"uuid":"e40715f9-3a0e-4b39-943c-97d966ac691f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1850000,"y":-3410000},"end":{"x":1850000,"y":-3410000}},"width":120000}
+    ],"texts":[
+      {"uuid":"1a422e69-4fcc-491f-8a3a-a7b7b8740df1","field":"Designator","at":{"x":0,"y":4300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"be7f7793-7325-46df-88d6-d8dab480c7de","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002a","hash":"efd1f62d91a359fdb9f414d73332ab76","footprint":{"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":250000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500},
-      {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500}
+    {"uuid":"00000000-0000-4000-8000-00000000002a","hash":"efd1f62d91a359fdb9f414d73332ab76","footprint":{"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000},
+      {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"76d3f486-feab-4215-99a9-4ea1d56c579c","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
       {"uuid":"832a282d-a408-4a5e-ad34-ce518f62238b","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000}
+    ],"texts":[
+      {"uuid":"b7de30cc-6911-42ef-af7b-7178beafa8ad","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500},"layer":"assembly_top"},
+      {"uuid":"de5dcc6d-625e-48ed-af87-d03436b3784d","field":"Designator","at":{"x":0,"y":1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"c427bc924315cc6a206a2862774d714c","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":400000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
-      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
+    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"c427bc924315cc6a206a2862774d714c","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
+      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"c40aeae4-dd1b-4c6b-bca1-573bf549d9e9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"e47f7153-007a-4925-bff2-7afa18cc14f7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
+    ],"texts":[
+      {"uuid":"c857cef7-4c11-4e1a-a3f0-cc25b527e5db","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"},
+      {"uuid":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002c","hash":"919350f2981a286c88af9c295b5a9e0f","footprint":{"uuid":"71936419-d9da-4a2b-8429-13c6a21ecace","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1700000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":620000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"69d36719-97ac-43be-a0c6-d39c2b2ee7f5","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000},
-      {"uuid":"d8f3a9df-6725-4db0-9d8c-221acd8d66ae","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-00000000002c","hash":"919350f2981a286c88af9c295b5a9e0f","footprint":{"uuid":"71936419-d9da-4a2b-8429-13c6a21ecace","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"69d36719-97ac-43be-a0c6-d39c2b2ee7f5","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
+      {"uuid":"d8f3a9df-6725-4db0-9d8c-221acd8d66ae","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
     ],"graphics":[
       {"uuid":"1b556a87-5cdf-45c1-a13f-a5b14bd76ae1","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000},
       {"uuid":"5797dfa9-0d27-4c46-98f9-8d101e340f22","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000}
+    ],"texts":[
+      {"uuid":"3741e149-09f6-4b5e-a1be-b23c21c48161","field":"Designator","at":{"x":0,"y":1700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"ef217695-e8b4-4f9c-ae28-018ae8e6ef32","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002d","hash":"3a3cda3b980216a1d5731353dadfa457","footprint":{"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1900000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":800000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000},
-      {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-00000000002d","hash":"3a3cda3b980216a1d5731353dadfa457","footprint":{"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667},
+      {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667}
     ],"graphics":[
       {"uuid":"44297572-5b1e-47bb-9e7a-f3198c88aa8b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000},
       {"uuid":"6702b208-3d83-4920-a07a-7ff576d7b69d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000}
+    ],"texts":[
+      {"uuid":"44f25427-334b-4b3d-a058-5711924b22fc","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"531eb07c-ec51-40a0-9a33-ad9123eca689","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002e","hash":"c302fce647a151fa14bfbed9b5cbd1ac","footprint":{"uuid":"afd4eee0-373d-4487-aade-3ad89f20f99d","name":"RES_Axial_L6.3mm_D2.5mm_P10.16mm","description":"Axial resistor, 0207 body (6.3 × 2.5 mm), leads 10.16 mm apart"},"text":{"designator":{"at":{"x":0,"y":2400000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000002e","hash":"c302fce647a151fa14bfbed9b5cbd1ac","footprint":{"uuid":"afd4eee0-373d-4487-aade-3ad89f20f99d","name":"RES_Axial_L6.3mm_D2.5mm_P10.16mm","description":"Axial resistor, 0207 body (6.3 × 2.5 mm), leads 10.16 mm apart"},"pads":[
       {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
       {"uuid":"670c3969-f1f4-4732-bbf4-a72a224e8ae3","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
     ],"graphics":[
@@ -227,36 +254,51 @@
       {"uuid":"a3451996-a692-4def-b945-a4889a6711ee","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":3210000,"y":0},"end":{"x":4020000,"y":0}},"width":120000},
       {"uuid":"af720601-71ec-427b-8d14-4e3ca21befab","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3150000,"y":-1250000},"end":{"x":3150000,"y":1250000}},"width":100000},
       {"uuid":"cb042bfe-c1e6-4836-a31e-831a7b9fc7a8","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-6130000,"y":-1600000},"end":{"x":6130000,"y":1600000}},"width":50000}
+    ],"texts":[
+      {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+      {"uuid":"93505dbc-3734-4000-9025-215dbd4b74cb","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000036","hash":"59ead8e575bf4221de8d1ae825264045","footprint":{"uuid":"4cbeeb47-93a7-4a38-9bfa-49862757d1ea","name":"CAPC1005X40N","description":"Chip capacitor, 0402 (1005 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":250000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"7b8d370a-7d71-44dc-b5bd-db3b2c86e655","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500},
-      {"uuid":"96a5c6f3-2cd2-41a0-91c1-4cc6ed8ab8fe","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500}
+    {"uuid":"00000000-0000-4000-8000-000000000036","hash":"59ead8e575bf4221de8d1ae825264045","footprint":{"uuid":"4cbeeb47-93a7-4a38-9bfa-49862757d1ea","name":"CAPC1005X40N","description":"Chip capacitor, 0402 (1005 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"7b8d370a-7d71-44dc-b5bd-db3b2c86e655","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000},
+      {"uuid":"96a5c6f3-2cd2-41a0-91c1-4cc6ed8ab8fe","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"f4e94a75-a80a-42e3-9161-dd1b976aba9f","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
       {"uuid":"fe6178c8-eaf6-4865-84cf-0d55fe59ad95","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000}
+    ],"texts":[
+      {"uuid":"229e04a7-8c74-41ad-bd1b-c664949c2c30","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500},"layer":"assembly_top"},
+      {"uuid":"5c0de4d5-c756-4a08-a8f0-b9b9772c533f","field":"Designator","at":{"x":0,"y":1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000037","hash":"714346e77c61beaf7ddfb4348f5ba985","footprint":{"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":400000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
-      {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
+    {"uuid":"00000000-0000-4000-8000-000000000037","hash":"714346e77c61beaf7ddfb4348f5ba985","footprint":{"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
+      {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"17938c85-55ca-4562-acab-13c590e07881","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"507e76c1-9511-4c85-a79e-ade8abe04cea","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
+    ],"texts":[
+      {"uuid":"6650f912-5820-4887-8288-a5f8f074951c","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"9dd1b274-9c71-4195-8c2e-dd89d3a15ce3","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000038","hash":"5fe5e02816331ab3c31f093d9a8fb113","footprint":{"uuid":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","name":"CAPC2012X60N","description":"Chip capacitor, 0805 (2012 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1700000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":620000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000},
-      {"uuid":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000038","hash":"5fe5e02816331ab3c31f093d9a8fb113","footprint":{"uuid":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","name":"CAPC2012X60N","description":"Chip capacitor, 0805 (2012 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
+      {"uuid":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
     ],"graphics":[
       {"uuid":"5b33eed9-1982-475a-ad63-257d16634887","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000},
       {"uuid":"7c799cd7-6425-477d-80a2-28efbec8f762","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
+    ],"texts":[
+      {"uuid":"c07530dc-4f1d-48a6-9a6c-031aa8b2f981","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000},"layer":"assembly_top"},
+      {"uuid":"d34cad27-7d92-4c97-bb86-d12508678534","field":"Designator","at":{"x":0,"y":1700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000039","hash":"b3e374ebd3c24326c4d4f160f8a0cdcc","footprint":{"uuid":"15dd7aa2-d617-4a1d-875b-9e6177603525","name":"CAPC3216X65N","description":"Chip capacitor, 1206 (3216 metric), IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1900000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":800000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"e4bb84b4-6dc5-4d7e-a006-64cab0318d65","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000},
-      {"uuid":"e8afdd95-7b49-46da-9ab4-9431635efdec","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000039","hash":"b3e374ebd3c24326c4d4f160f8a0cdcc","footprint":{"uuid":"15dd7aa2-d617-4a1d-875b-9e6177603525","name":"CAPC3216X65N","description":"Chip capacitor, 1206 (3216 metric), IPC-7351 Nominal"},"pads":[
+      {"uuid":"e4bb84b4-6dc5-4d7e-a006-64cab0318d65","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667},
+      {"uuid":"e8afdd95-7b49-46da-9ab4-9431635efdec","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667}
     ],"graphics":[
       {"uuid":"8389c8ac-735d-4da8-99c7-0e9ec975447e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000},
       {"uuid":"873afb3a-fdc0-4470-a8ff-2c510f245501","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000}
+    ],"texts":[
+      {"uuid":"528341fd-4f89-4ff6-95ec-44aaec9ffd8c","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"8186a33f-d231-497f-a4ca-a9150288f5eb","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003a","hash":"e98696a34a1ee0e47b4d0ab0258e181f","footprint":{"uuid":"cd0be5b4-30b8-43a1-86a0-04fe884fe2c5","name":"CAP_Disc_D5.0mm_W2.5mm_P5.08mm","description":"Ceramic disc capacitor, 5.0 × 2.5 mm body, leads 5.08 mm apart"},"text":{"designator":{"at":{"x":0,"y":2300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003a","hash":"e98696a34a1ee0e47b4d0ab0258e181f","footprint":{"uuid":"cd0be5b4-30b8-43a1-86a0-04fe884fe2c5","name":"CAP_Disc_D5.0mm_W2.5mm_P5.08mm","description":"Ceramic disc capacitor, 5.0 × 2.5 mm body, leads 5.08 mm apart"},"pads":[
       {"uuid":"b4dbdb7b-6578-40b8-ae0b-e50f2b7b8206","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":2540000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
       {"uuid":"d892f725-4b0a-4cea-9b32-7beea19dcad3","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-2540000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
     ],"graphics":[
@@ -264,104 +306,122 @@
       {"uuid":"6ba85f01-5e09-4497-997a-ab6908cad773","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2500000,"y":-1250000},"end":{"x":2500000,"y":1250000}},"width":100000},
       {"uuid":"994ab059-2eb6-42ec-ae9c-ebade935e3b0","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3590000,"y":-1500000},"end":{"x":3590000,"y":1500000}},"width":50000},
       {"uuid":"fdf40709-28ed-4787-b83c-9a01b0ede2f3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2560000,"y":1310000},"end":{"x":2560000,"y":1310000}},"width":120000}
+    ],"texts":[
+      {"uuid":"44e00762-a41d-49b3-9770-d4b89f8e2d8d","field":"Designator","at":{"x":0,"y":2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"d892f725-4b0a-4cea-9b32-7beea19dcad3","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000044","hash":"7ad7a77fce622e212b2960b59d4a9c72","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":400000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250},
-      {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250}
+    {"uuid":"00000000-0000-4000-8000-000000000044","hash":"7ad7a77fce622e212b2960b59d4a9c72","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal"},"pads":[
+      {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000},
+      {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"21fd2982-c15f-4ec3-ad3c-af15a6130fb9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"2ab07252-ab3d-4a95-9ee7-87caa212790c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000},
       {"uuid":"c70db547-1153-49e5-858c-eaccb665d0f9","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1485000,"y":-475000},"end":{"x":-1485000,"y":475000}},"width":120000}
+    ],"texts":[
+      {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"},
+      {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"a5c300fd16a85cd19c95381d4f1165b8","footprint":{"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1650000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":620000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_radius":231250},
-      {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_radius":231250}
+    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"a5c300fd16a85cd19c95381d4f1165b8","footprint":{"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal"},"pads":[
+      {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000},
+      {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"3400cc70-58f1-40c1-bef5-8ccf9cf34469","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-950000},"end":{"x":1700000,"y":950000}},"width":50000},
       {"uuid":"639faa5c-e0b5-48df-a74e-fdbce618d495","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1685000,"y":-700000},"end":{"x":-1685000,"y":700000}},"width":120000},
       {"uuid":"6b85221b-1d33-485b-9dc8-d462bd5a8b22","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
+    ],"texts":[
+      {"uuid":"7834d3ac-71d5-4c71-b361-fdd7bd61b8e0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000},"layer":"assembly_top"},
+      {"uuid":"ae4e5903-f838-48a2-8847-c94a2b7f12b2","field":"Designator","at":{"x":0,"y":1650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000046","hash":"bd3c4e9bcd9825d5489096ca3f3518df","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal"},"text":{"designator":{"at":{"x":0,"y":1900000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":800000,"layer":"assembly_top"}},"pads":[
-      {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000},
-      {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000046","hash":"bd3c4e9bcd9825d5489096ca3f3518df","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal"},"pads":[
+      {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455},
+      {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455}
     ],"graphics":[
       {"uuid":"87b32797-9ffe-4e67-a9f1-19b476028f28","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2335000,"y":-925000},"end":{"x":-2335000,"y":925000}},"width":120000},
       {"uuid":"acbe1e68-5d92-4a59-84a6-d4ec3a923002","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000},
       {"uuid":"d0acbb24-93e9-4ed9-a3d6-97691f18cdc5","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000}
+    ],"texts":[
+      {"uuid":"4b6333a3-f466-4490-bcb8-326f7019c4e8","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000},"layer":"assembly_top"},
+      {"uuid":"59d44a1c-b042-46e4-9c50-3f7cf392f24a","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000047","hash":"ca1a1d41c91a6bb73d5ec8a47df94665","footprint":{"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart"},"text":{"designator":{"at":{"x":0,"y":3610000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000047","hash":"ca1a1d41c91a6bb73d5ec8a47df94665","footprint":{"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart"},"pads":[
       {"uuid":"4f5b333c-5a38-48c1-a05d-1fc8b2f53f93","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}},
       {"uuid":"6a99ad72-426c-478c-b3f3-067cf1f78846","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}}
     ],"graphics":[
       {"uuid":"5fb9b982-8c9d-4d86-ace6-12dfc9dfd84d","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":120000},
       {"uuid":"cf86bc5f-9203-4149-9c67-dd6852644f96","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2810000,"y":-2810000},"end":{"x":2810000,"y":2810000}},"width":50000},
       {"uuid":"f0bbb8ef-024c-462a-9de5-7faf95d15725","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1500000},"width":100000}
+    ],"texts":[
+      {"uuid":"4b0f0018-82bb-4cfc-8b8a-3d5d9bc44b62","field":"Designator","at":{"x":0,"y":3610000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"4f5b333c-5a38-48c1-a05d-1fc8b2f53f93","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000048","hash":"ff586f82a39e9e15b7efa457bc407ab7","footprint":{"uuid":"a98b17f8-5ccd-4961-80a0-035239726052","name":"LED_THT_D5.0mm_P2.54mm","description":"LED, 5 mm round, leads 2.54 mm apart"},"text":{"designator":{"at":{"x":0,"y":4070000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000048","hash":"ff586f82a39e9e15b7efa457bc407ab7","footprint":{"uuid":"a98b17f8-5ccd-4961-80a0-035239726052","name":"LED_THT_D5.0mm_P2.54mm","description":"LED, 5 mm round, leads 2.54 mm apart"},"pads":[
       {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}},
       {"uuid":"d1525900-8215-470d-90a8-caf671d62058","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}}
     ],"graphics":[
       {"uuid":"1364b159-c76e-47f8-b56f-577f1a2f81d5","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2960000},"width":120000},
       {"uuid":"4be44faa-f0e0-4de9-8817-e4d5dea6a581","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3270000,"y":-3270000},"end":{"x":3270000,"y":3270000}},"width":50000},
       {"uuid":"74141d46-6319-4f05-9e44-f274e2e07c2f","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":100000}
+    ],"texts":[
+      {"uuid":"032141cd-ebdf-4466-b6fe-393be90bd26f","field":"Designator","at":{"x":0,"y":4070000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+      {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
     ]}
   ],
   "units": [
-    {"uuid":"00000000-0000-4000-8000-00000000001c","component":{"uuid":"00000000-0000-4000-8000-00000000001b"},"part":"00000000-0000-4000-8000-00000000001a","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","at":{"x":50800000,"y":127000000},"rotation":0,"designator":"J1","fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"footprint":"13f78ea2-b54f-4c17-86db-609c54392855","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000021","component":{"uuid":"00000000-0000-4000-8000-000000000020"},"part":"00000000-0000-4000-8000-00000000001f","unit":"641fc2fc-cf42-486c-adbe-598de7d42dc6","at":{"x":228600000,"y":101600000},"rotation":0,"designator":"J2","fields":{"value":"Header 1x5","description":"1 × 5 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"footprint":"52217535-29ec-4cda-bd22-4076c17fb28c","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000025","component":{"uuid":"00000000-0000-4000-8000-000000000024"},"part":"00000000-0000-4000-8000-000000000023","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","at":{"x":165100000,"y":101600000},"rotation":0,"designator":"U1","fields":{"value":"STM32F042F6P6","description":"Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)","datasheet":"STM32F042x4/x6 datasheet, DocID025832","manufacturer":"STMicroelectronics","mpn":"STM32F042F6P6","keywords":"U microcontroller MCU USB STM32 Cortex-M0"},"footprint":"5082bf81-7326-4bbd-8274-54c43985cd53","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000029","component":{"uuid":"00000000-0000-4000-8000-000000000028"},"part":"00000000-0000-4000-8000-000000000027","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","at":{"x":101600000,"y":152400000},"rotation":0,"designator":"U2","fields":{"value":"3.3V","description":"Fixed-output LDO regulator, SOT-223, GND-VOUT-VIN with VOUT on the tab","keywords":"U regulator LDO linear voltage"},"footprint":"29bd1760-af17-4842-97db-7d25d557604a","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000031","component":{"uuid":"00000000-0000-4000-8000-000000000030"},"part":"00000000-0000-4000-8000-00000000002f","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":76200000,"y":101600000},"rotation":0,"designator":"R1","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000033","component":{"uuid":"00000000-0000-4000-8000-000000000032"},"part":"00000000-0000-4000-8000-00000000002f","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":91440000,"y":101600000},"rotation":0,"designator":"R2","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000035","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"part":"00000000-0000-4000-8000-00000000002f","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":203200000,"y":63500000},"rotation":0,"designator":"R3","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-00000000003d","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":76200000,"y":152400000},"rotation":0,"designator":"C1","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-00000000003f","component":{"uuid":"00000000-0000-4000-8000-00000000003e"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":127000000,"y":152400000},"rotation":0,"designator":"C2","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000041","component":{"uuid":"00000000-0000-4000-8000-000000000040"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":139700000,"y":152400000},"rotation":0,"designator":"C3","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"2f30e497-fa3d-473c-89eb-c952d32ae866","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-000000000043","component":{"uuid":"00000000-0000-4000-8000-000000000042"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":152400000,"y":152400000},"rotation":0,"designator":"C4","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"2f30e497-fa3d-473c-89eb-c952d32ae866","component_type":"standard"},
-    {"uuid":"00000000-0000-4000-8000-00000000004b","component":{"uuid":"00000000-0000-4000-8000-00000000004a"},"part":"00000000-0000-4000-8000-000000000049","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","at":{"x":215900000,"y":63500000},"rotation":0,"designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"footprint":"dc181a05-7861-4a1b-b740-ff448eb58ad6","component_type":"standard"}
+    {"uuid":"00000000-0000-4000-8000-00000000001c","component":{"uuid":"00000000-0000-4000-8000-00000000001b"},"part":"00000000-0000-4000-8000-00000000001a","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","at":{"x":50800000,"y":127000000},"rotation":0,"designator":"J1","fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"footprint":"13f78ea2-b54f-4c17-86db-609c54392855","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000021","component":{"uuid":"00000000-0000-4000-8000-000000000020"},"part":"00000000-0000-4000-8000-00000000001f","unit":"641fc2fc-cf42-486c-adbe-598de7d42dc6","at":{"x":228600000,"y":101600000},"rotation":0,"designator":"J2","fields":{"value":"Header 1x5","description":"1 × 5 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"footprint":"52217535-29ec-4cda-bd22-4076c17fb28c","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000025","component":{"uuid":"00000000-0000-4000-8000-000000000024"},"part":"00000000-0000-4000-8000-000000000023","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","at":{"x":165100000,"y":101600000},"rotation":0,"designator":"U1","fields":{"value":"STM32F042F6P6","description":"Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)","datasheet":"STM32F042x4/x6 datasheet, DocID025832","manufacturer":"STMicroelectronics","mpn":"STM32F042F6P6","keywords":"U microcontroller MCU USB STM32 Cortex-M0"},"footprint":"5082bf81-7326-4bbd-8274-54c43985cd53","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000029","component":{"uuid":"00000000-0000-4000-8000-000000000028"},"part":"00000000-0000-4000-8000-000000000027","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","at":{"x":101600000,"y":152400000},"rotation":0,"designator":"U2","fields":{"value":"3.3V","description":"Fixed-output LDO regulator, SOT-223, GND-VOUT-VIN with VOUT on the tab","keywords":"U regulator LDO linear voltage"},"footprint":"29bd1760-af17-4842-97db-7d25d557604a","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000031","component":{"uuid":"00000000-0000-4000-8000-000000000030"},"part":"00000000-0000-4000-8000-00000000002f","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":76200000,"y":101600000},"rotation":0,"designator":"R1","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000033","component":{"uuid":"00000000-0000-4000-8000-000000000032"},"part":"00000000-0000-4000-8000-00000000002f","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":91440000,"y":101600000},"rotation":0,"designator":"R2","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000035","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"part":"00000000-0000-4000-8000-00000000002f","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":203200000,"y":63500000},"rotation":0,"designator":"R3","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-00000000003d","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":76200000,"y":152400000},"rotation":0,"designator":"C1","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-00000000003f","component":{"uuid":"00000000-0000-4000-8000-00000000003e"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":127000000,"y":152400000},"rotation":0,"designator":"C2","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000041","component":{"uuid":"00000000-0000-4000-8000-000000000040"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":139700000,"y":152400000},"rotation":0,"designator":"C3","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"2f30e497-fa3d-473c-89eb-c952d32ae866","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000043","component":{"uuid":"00000000-0000-4000-8000-000000000042"},"part":"00000000-0000-4000-8000-00000000003b","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":152400000,"y":152400000},"rotation":0,"designator":"C4","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"2f30e497-fa3d-473c-89eb-c952d32ae866","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-00000000004b","component":{"uuid":"00000000-0000-4000-8000-00000000004a"},"part":"00000000-0000-4000-8000-000000000049","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","at":{"x":215900000,"y":63500000},"rotation":0,"designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"footprint":"dc181a05-7861-4a1b-b740-ff448eb58ad6","component_type":"standard","in_bom":true,"in_cpl":true}
   ],
   "wires": [
-    {"uuid":"00000000-0000-4000-8000-00000000004c","from":{"x":60960000,"y":134620000},"to":{"x":63500000,"y":134620000}},
-    {"uuid":"00000000-0000-4000-8000-00000000004e","from":{"x":60960000,"y":130810000},"to":{"x":63500000,"y":130810000}},
-    {"uuid":"00000000-0000-4000-8000-000000000050","from":{"x":60960000,"y":128270000},"to":{"x":63500000,"y":128270000}},
-    {"uuid":"00000000-0000-4000-8000-000000000052","from":{"x":60960000,"y":125730000},"to":{"x":63500000,"y":125730000}},
-    {"uuid":"00000000-0000-4000-8000-000000000054","from":{"x":60960000,"y":123190000},"to":{"x":63500000,"y":123190000}},
-    {"uuid":"00000000-0000-4000-8000-000000000058","from":{"x":50800000,"y":113030000},"to":{"x":50800000,"y":110490000}},
-    {"uuid":"00000000-0000-4000-8000-00000000005a","from":{"x":45720000,"y":113030000},"to":{"x":45720000,"y":110490000}},
-    {"uuid":"00000000-0000-4000-8000-00000000005c","from":{"x":223520000,"y":106680000},"to":{"x":220980000,"y":106680000}},
-    {"uuid":"00000000-0000-4000-8000-00000000005e","from":{"x":223520000,"y":104140000},"to":{"x":220980000,"y":104140000}},
-    {"uuid":"00000000-0000-4000-8000-000000000060","from":{"x":223520000,"y":101600000},"to":{"x":220980000,"y":101600000}},
-    {"uuid":"00000000-0000-4000-8000-000000000062","from":{"x":223520000,"y":99060000},"to":{"x":220980000,"y":99060000}},
-    {"uuid":"00000000-0000-4000-8000-000000000064","from":{"x":223520000,"y":96520000},"to":{"x":220980000,"y":96520000}},
-    {"uuid":"00000000-0000-4000-8000-000000000066","from":{"x":162560000,"y":118110000},"to":{"x":162560000,"y":120650000}},
-    {"uuid":"00000000-0000-4000-8000-000000000068","from":{"x":167640000,"y":118110000},"to":{"x":167640000,"y":120650000}},
-    {"uuid":"00000000-0000-4000-8000-00000000006a","from":{"x":165100000,"y":85090000},"to":{"x":165100000,"y":82550000}},
-    {"uuid":"00000000-0000-4000-8000-00000000006c","from":{"x":149860000,"y":109220000},"to":{"x":147320000,"y":109220000}},
-    {"uuid":"00000000-0000-4000-8000-00000000006e","from":{"x":149860000,"y":106680000},"to":{"x":147320000,"y":106680000}},
-    {"uuid":"00000000-0000-4000-8000-000000000070","from":{"x":149860000,"y":101600000},"to":{"x":147320000,"y":101600000}},
-    {"uuid":"00000000-0000-4000-8000-000000000072","from":{"x":149860000,"y":99060000},"to":{"x":147320000,"y":99060000}},
-    {"uuid":"00000000-0000-4000-8000-000000000074","from":{"x":149860000,"y":93980000},"to":{"x":147320000,"y":93980000}},
-    {"uuid":"00000000-0000-4000-8000-000000000076","from":{"x":149860000,"y":91440000},"to":{"x":147320000,"y":91440000}},
-    {"uuid":"00000000-0000-4000-8000-000000000078","from":{"x":180340000,"y":99060000},"to":{"x":182880000,"y":99060000}},
-    {"uuid":"00000000-0000-4000-8000-000000000084","from":{"x":93980000,"y":152400000},"to":{"x":91440000,"y":152400000}},
-    {"uuid":"00000000-0000-4000-8000-000000000086","from":{"x":109220000,"y":152400000},"to":{"x":111760000,"y":152400000}},
-    {"uuid":"00000000-0000-4000-8000-000000000088","from":{"x":101600000,"y":147320000},"to":{"x":101600000,"y":144780000}},
-    {"uuid":"00000000-0000-4000-8000-00000000008a","from":{"x":76200000,"y":105410000},"to":{"x":76200000,"y":107950000}},
-    {"uuid":"00000000-0000-4000-8000-00000000008c","from":{"x":76200000,"y":97790000},"to":{"x":76200000,"y":95250000}},
-    {"uuid":"00000000-0000-4000-8000-00000000008e","from":{"x":91440000,"y":105410000},"to":{"x":91440000,"y":107950000}},
-    {"uuid":"00000000-0000-4000-8000-000000000090","from":{"x":91440000,"y":97790000},"to":{"x":91440000,"y":95250000}},
-    {"uuid":"00000000-0000-4000-8000-000000000092","from":{"x":203200000,"y":67310000},"to":{"x":203200000,"y":69850000}},
-    {"uuid":"00000000-0000-4000-8000-000000000094","from":{"x":203200000,"y":59690000},"to":{"x":203200000,"y":57150000}},
-    {"uuid":"00000000-0000-4000-8000-000000000096","from":{"x":76200000,"y":156210000},"to":{"x":76200000,"y":158750000}},
-    {"uuid":"00000000-0000-4000-8000-000000000098","from":{"x":76200000,"y":148590000},"to":{"x":76200000,"y":146050000}},
-    {"uuid":"00000000-0000-4000-8000-00000000009a","from":{"x":127000000,"y":156210000},"to":{"x":127000000,"y":158750000}},
-    {"uuid":"00000000-0000-4000-8000-00000000009c","from":{"x":127000000,"y":148590000},"to":{"x":127000000,"y":146050000}},
-    {"uuid":"00000000-0000-4000-8000-00000000009e","from":{"x":139700000,"y":156210000},"to":{"x":139700000,"y":158750000}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a0","from":{"x":139700000,"y":148590000},"to":{"x":139700000,"y":146050000}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a2","from":{"x":152400000,"y":156210000},"to":{"x":152400000,"y":158750000}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a4","from":{"x":152400000,"y":148590000},"to":{"x":152400000,"y":146050000}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a6","from":{"x":215900000,"y":67310000},"to":{"x":215900000,"y":69850000}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a8","from":{"x":215900000,"y":59690000},"to":{"x":215900000,"y":57150000}}
+    {"uuid":"00000000-0000-4000-8000-00000000004c","vertices":[{"x":60960000,"y":134620000},{"x":63500000,"y":134620000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000004e","vertices":[{"x":60960000,"y":130810000},{"x":63500000,"y":130810000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000050","vertices":[{"x":60960000,"y":128270000},{"x":63500000,"y":128270000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000052","vertices":[{"x":60960000,"y":125730000},{"x":63500000,"y":125730000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000054","vertices":[{"x":60960000,"y":123190000},{"x":63500000,"y":123190000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000058","vertices":[{"x":50800000,"y":113030000},{"x":50800000,"y":110490000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000005a","vertices":[{"x":45720000,"y":113030000},{"x":45720000,"y":110490000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000005c","vertices":[{"x":223520000,"y":106680000},{"x":220980000,"y":106680000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000005e","vertices":[{"x":223520000,"y":104140000},{"x":220980000,"y":104140000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000060","vertices":[{"x":223520000,"y":101600000},{"x":220980000,"y":101600000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000062","vertices":[{"x":223520000,"y":99060000},{"x":220980000,"y":99060000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000064","vertices":[{"x":223520000,"y":96520000},{"x":220980000,"y":96520000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000066","vertices":[{"x":162560000,"y":118110000},{"x":162560000,"y":120650000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000068","vertices":[{"x":167640000,"y":118110000},{"x":167640000,"y":120650000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000006a","vertices":[{"x":165100000,"y":85090000},{"x":165100000,"y":82550000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000006c","vertices":[{"x":149860000,"y":109220000},{"x":147320000,"y":109220000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000006e","vertices":[{"x":149860000,"y":106680000},{"x":147320000,"y":106680000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000070","vertices":[{"x":149860000,"y":101600000},{"x":147320000,"y":101600000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000072","vertices":[{"x":149860000,"y":99060000},{"x":147320000,"y":99060000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000074","vertices":[{"x":149860000,"y":93980000},{"x":147320000,"y":93980000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000076","vertices":[{"x":149860000,"y":91440000},{"x":147320000,"y":91440000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000078","vertices":[{"x":180340000,"y":99060000},{"x":182880000,"y":99060000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000084","vertices":[{"x":93980000,"y":152400000},{"x":91440000,"y":152400000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000086","vertices":[{"x":109220000,"y":152400000},{"x":111760000,"y":152400000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000088","vertices":[{"x":101600000,"y":147320000},{"x":101600000,"y":144780000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000008a","vertices":[{"x":76200000,"y":105410000},{"x":76200000,"y":107950000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000008c","vertices":[{"x":76200000,"y":97790000},{"x":76200000,"y":95250000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000008e","vertices":[{"x":91440000,"y":105410000},{"x":91440000,"y":107950000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000090","vertices":[{"x":91440000,"y":97790000},{"x":91440000,"y":95250000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000092","vertices":[{"x":203200000,"y":67310000},{"x":203200000,"y":69850000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000094","vertices":[{"x":203200000,"y":59690000},{"x":203200000,"y":57150000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000096","vertices":[{"x":76200000,"y":156210000},{"x":76200000,"y":158750000}]},
+    {"uuid":"00000000-0000-4000-8000-000000000098","vertices":[{"x":76200000,"y":148590000},{"x":76200000,"y":146050000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000009a","vertices":[{"x":127000000,"y":156210000},{"x":127000000,"y":158750000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000009c","vertices":[{"x":127000000,"y":148590000},{"x":127000000,"y":146050000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000009e","vertices":[{"x":139700000,"y":156210000},{"x":139700000,"y":158750000}]},
+    {"uuid":"00000000-0000-4000-8000-0000000000a0","vertices":[{"x":139700000,"y":148590000},{"x":139700000,"y":146050000}]},
+    {"uuid":"00000000-0000-4000-8000-0000000000a2","vertices":[{"x":152400000,"y":156210000},{"x":152400000,"y":158750000}]},
+    {"uuid":"00000000-0000-4000-8000-0000000000a4","vertices":[{"x":152400000,"y":148590000},{"x":152400000,"y":146050000}]},
+    {"uuid":"00000000-0000-4000-8000-0000000000a6","vertices":[{"x":215900000,"y":67310000},{"x":215900000,"y":69850000}]},
+    {"uuid":"00000000-0000-4000-8000-0000000000a8","vertices":[{"x":215900000,"y":59690000},{"x":215900000,"y":57150000}]}
   ],
   "net_labels": [
     {"uuid":"00000000-0000-4000-8000-00000000004f","name":"CC1","at":{"x":63500000,"y":130810000},"rotation":0},

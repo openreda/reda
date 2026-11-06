@@ -17,8 +17,8 @@ use crate::component::At;
 pub struct RotateParams {
     /// The objects to turn, by UUID, all on one sheet.
     pub objects: Vec<Uuid>,
-    /// Counter-clockwise; a quarter turn by default. Any angle turns Units, labels,
-    /// Ports, Power Ports and text; Wires and rectangles turn only in quarter turns.
+    /// Counter-clockwise; a quarter turn by default. Any angle turns Units, Wires, labels,
+    /// Ports, Power Ports and text; rectangles turn only in quarter turns.
     pub angle: Option<Angle>,
     /// The point to turn about. By default a lone object's own origin (a Unit's origin, a
     /// label's or text's point), else the centre of the selection's extent.
@@ -36,7 +36,7 @@ impl Command for Rotate {
         id: "schematic.rotate",
         title: "Rotate",
         description: "Turns the selected objects counter-clockwise about a centre, a quarter \
-                      turn by default. Units, labels and text turn by any angle; Wires and \
+                      turn by default. Units, Wires, labels and text turn by any angle; \
                       rectangles only by quarter turns.",
         category: "schematic",
         icon: "rotate",

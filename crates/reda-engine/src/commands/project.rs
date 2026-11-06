@@ -1,4 +1,4 @@
-//! `project.new`, `project.open` and `project.save`.
+//! `project.new`, `project.open`, `project.save` and `project.close`.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -23,6 +23,7 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(ProjectNew);
     registry.add(ProjectOpen);
     registry.add(ProjectSave);
+    registry.add(ProjectClose);
 }
 
 /// The title of the first sheet of a new Project.
@@ -380,6 +381,65 @@ impl Command for ProjectSave {
                 .collect(),
             trashed: saved.trashed,
         })
+    }
+}
+
+pub struct ProjectClose;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectCloseParams {}
+
+/// What `project.close` returns.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ProjectCloseResult {
+    /// The Project file of the Project closed.
+    pub path: PathBuf,
+}
+
+impl Command for ProjectClose {
+    const META: Meta = Meta {
+        id: "project.close",
+        title: "Close Project",
+        description: "Closes the open Project without saving: unsaved changes to its files \
+                      are dropped, and its files stay as last saved. Library elements open \
+                      for editing stay open, with their unsaved changes and undo history.",
+        category: "project",
+        icon: "close",
+        kind: Kind::File,
+    };
+    type Params = ProjectCloseParams;
+    type Output = ProjectCloseResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        match cx.project {
+            Some(_) => Ok(()),
+            None => Err(Unavailable {
+                reason: NO_PROJECT.into(),
+            }),
+        }
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        _: ProjectCloseParams,
+    ) -> Result<ProjectCloseResult, CommandError> {
+        let session = cx.session()?;
+        let project = session
+            .project
+            .take()
+            .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
+        let folder = session.location.take().unwrap_or_default();
+        let path = store::project_file_path(&folder, &project.props().name);
+        session.files_on_disk.clear();
+        // Only the open Library elements' stacks stay.
+        session.history.clear();
+        for (source, element) in project.elements() {
+            // The workbench starts empty, so this cannot clash.
+            let _ = super::elements::holder(session).open_element(source, element.clone());
+        }
+        Ok(ProjectCloseResult { path })
     }
 }
 

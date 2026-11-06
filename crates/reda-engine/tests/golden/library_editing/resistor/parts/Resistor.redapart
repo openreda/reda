@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"00000000-0000-4000-8000-000000000027","name":"Resistor","component_type":"standard","symbol":"00000000-0000-4000-8000-00000000001a"},
+  "part": {"uuid":"00000000-0000-4000-8000-000000000028","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"00000000-0000-4000-8000-00000000001a"},
   "footprints": [
     "00000000-0000-4000-8000-00000000001f"
   ],

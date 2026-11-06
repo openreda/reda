@@ -9,7 +9,7 @@ use reda_geom::{Millideg, Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::Uuid;
+use crate::{Pad, Uuid};
 
 /// A Library's own description, stored in `<name>.redalib` at the root of its folder.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -81,6 +81,35 @@ pub struct Pin {
     /// Whether the Pin's number is drawn.
     #[serde(default = "yes", skip_serializing_if = "is_true")]
     pub number_visible: bool,
+    /// What the Pin is for, shown on hover. Left out when empty.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// The glyph drawn just inside the body edge, such as a clock wedge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inside_edge: Option<InsideEdge>,
+    /// The glyph drawn just outside the body edge, such as an inversion dot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outside_edge: Option<OutsideEdge>,
+}
+
+/// A Pin decoration just inside the body edge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InsideEdge {
+    /// A clock input's wedge.
+    Clock,
+}
+
+/// A Pin decoration just outside the body edge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OutsideEdge {
+    /// An inversion circle.
+    Dot,
+    /// The active-low input flag.
+    ActiveLowInput,
+    /// The active-low output flag.
+    ActiveLowOutput,
 }
 
 fn yes() -> bool {
@@ -135,17 +164,72 @@ pub struct Footprint {
     pub uuid: Uuid,
     pub name: String,
     pub description: String,
+    /// The part's greatest height above the board, when known. Generators fill it in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<Nm>,
     /// Sorted by UUID. Numbers may repeat: Pads that share a number belong to one Pin.
     pub pads: Vec<Pad>,
     /// Silkscreen, Courtyard and Assembly drawing, sorted by UUID.
     pub graphics: Vec<FootprintGraphic>,
-    /// Where the Designator text goes.
-    pub designator: FootprintText,
-    /// Where the value text goes.
-    pub value: FootprintText,
+    /// The field texts it draws, such as its Designator and value, sorted by UUID.
+    pub texts: Vec<FootprintText>,
+    /// The generator Command and resolved params that made it. It lives only in the
+    /// Library's `.redafp`: the copies Documents hold, and their hashes, leave it out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generator: Option<Box<FootprintGenerator>>,
     /// Where an imported Footprint came from. Elements made in REDA have none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provenance: Option<Box<Provenance>>,
+}
+
+impl Footprint {
+    /// The text that shows the Designator on the board: the first `Designator` entry on a
+    /// Silkscreen Layer, or else the first `Designator` entry.
+    pub fn designator_text(&self) -> Option<&FootprintText> {
+        let designators = || self.texts.iter().filter(|t| t.field == DESIGNATOR_FIELD);
+        designators()
+            .find(|t| t.layer.is_silkscreen())
+            .or_else(|| designators().next())
+    }
+
+    /// The Footprint as a Document copies it: without its `generator`.
+    pub fn without_generator(&self) -> Footprint {
+        Footprint {
+            generator: None,
+            ..self.clone()
+        }
+    }
+}
+
+/// The `field` of a [`FootprintText`] that draws the Designator.
+pub const DESIGNATOR_FIELD: &str = "Designator";
+/// The `field` of a [`FootprintText`] that draws the value.
+pub const VALUE_FIELD: &str = "Value";
+
+/// The text of field `field` on a Component with `designator` and `fields`: `Designator`
+/// is the Designator, a built-in field matches its name in any case (`Value`, `MPN`), and
+/// any other name is a free-form field. Empty when the Component does not have it.
+pub fn field_text<'a>(field: &str, designator: &'a str, fields: &'a Fields) -> &'a str {
+    if field == DESIGNATOR_FIELD {
+        return designator;
+    }
+    match Fields::BUILT_IN
+        .iter()
+        .find(|name| name.eq_ignore_ascii_case(field))
+    {
+        Some(name) => fields.get(name),
+        None => fields.get(field),
+    }
+}
+
+/// The command and params that generated a Footprint, every value resolved, so running
+/// them again gives the same Footprint unless the generator itself changed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintGenerator {
+    /// The generator Command, such as `library.footprint.generate.chip`.
+    pub command: String,
+    pub params: serde_json::Value,
 }
 
 /// The Layers a Footprint draws on besides copper.
@@ -160,15 +244,50 @@ pub enum FootprintLayer {
     AssemblyBottom,
 }
 
-/// The placement of a Footprint's Designator or value text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+impl FootprintLayer {
+    pub fn is_silkscreen(self) -> bool {
+        matches!(
+            self,
+            FootprintLayer::SilkscreenTop | FootprintLayer::SilkscreenBottom
+        )
+    }
+
+    pub fn is_courtyard(self) -> bool {
+        matches!(
+            self,
+            FootprintLayer::CourtyardTop | FootprintLayer::CourtyardBottom
+        )
+    }
+
+    pub fn is_assembly(self) -> bool {
+        matches!(
+            self,
+            FootprintLayer::AssemblyTop | FootprintLayer::AssemblyBottom
+        )
+    }
+
+    pub fn is_bottom(self) -> bool {
+        matches!(
+            self,
+            FootprintLayer::SilkscreenBottom
+                | FootprintLayer::CourtyardBottom
+                | FootprintLayer::AssemblyBottom
+        )
+    }
+}
+
+/// One field text of a Footprint, on a Silkscreen or Assembly Layer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FootprintText {
+    pub uuid: Uuid,
+    /// The field it shows: `Designator`, `Value` or any field name. A field the Component
+    /// does not have draws nothing.
+    pub field: String,
     /// The text centre, relative to the Footprint origin.
     pub at: Point,
     pub rotation: Millideg,
-    /// The text height.
-    pub size: Nm,
+    pub style: TextStyle,
     pub layer: FootprintLayer,
     #[serde(default = "yes", skip_serializing_if = "is_true")]
     pub visible: bool,
@@ -177,23 +296,54 @@ pub struct FootprintText {
 impl FootprintText {
     /// The Designator text of a new Footprint: 1 mm high on the top Silkscreen, at the
     /// origin.
-    pub const DESIGNATOR: FootprintText = FootprintText {
-        at: Point::new(Nm(0), Nm(0)),
-        rotation: Millideg(0),
-        size: Nm::from_mm(1),
-        layer: FootprintLayer::SilkscreenTop,
-        visible: true,
-    };
+    pub fn designator(uuid: Uuid) -> FootprintText {
+        FootprintText {
+            uuid,
+            field: DESIGNATOR_FIELD.to_owned(),
+            at: Point::new(Nm(0), Nm(0)),
+            rotation: Millideg(0),
+            style: TextStyle::of_height(Nm::from_mm(1)),
+            layer: FootprintLayer::SilkscreenTop,
+            visible: true,
+        }
+    }
 
     /// The value text of a new Footprint: 1 mm high on the top Assembly Layer, at the
     /// origin.
-    pub const VALUE: FootprintText = FootprintText {
-        at: Point::new(Nm(0), Nm(0)),
-        rotation: Millideg(0),
-        size: Nm::from_mm(1),
-        layer: FootprintLayer::AssemblyTop,
-        visible: true,
-    };
+    pub fn value(uuid: Uuid) -> FootprintText {
+        FootprintText {
+            field: VALUE_FIELD.to_owned(),
+            layer: FootprintLayer::AssemblyTop,
+            ..FootprintText::designator(uuid)
+        }
+    }
+}
+
+/// How a Footprint text is drawn.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextStyle {
+    /// The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing
+    /// on this machine draws as Noto Sans.
+    pub font: String,
+    /// The capital height.
+    pub height: Nm,
+    /// The pen width of stroke-font text; outline fonts are filled and ignore it.
+    pub thickness: Nm,
+}
+
+impl TextStyle {
+    /// The default pen width as a fraction of the height (`.0 / .1`).
+    pub const PEN: (i64, i64) = (3, 20);
+
+    /// Hershey text `height` high, with the default pen width for that height.
+    pub fn of_height(height: Nm) -> TextStyle {
+        TextStyle {
+            font: crate::HERSHEY_FONT.to_owned(),
+            height,
+            thickness: Nm(height.0 * TextStyle::PEN.0 / TextStyle::PEN.1),
+        }
+    }
 }
 
 /// A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.
@@ -284,67 +434,21 @@ pub struct FootprintGraphic {
     pub fill: bool,
 }
 
-/// A copper area, with or without a hole, of a Footprint.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Pad {
-    pub uuid: Uuid,
-    pub number: String,
-    pub kind: PadKind,
-    pub shape: PadShape,
-    /// The Pad centre, relative to the Footprint origin.
-    pub at: Point,
-    pub rotation: Millideg,
-    pub width: Nm,
-    pub height: Nm,
-    /// The corner radius of a rounded-rectangle Pad.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub corner_radius: Option<Nm>,
-    /// A round hole when width equals height, otherwise a slot. SMD Pads have none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hole: Option<Hole>,
-    /// Overrides the board's solder-mask margin for this Pad.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mask_margin: Option<Nm>,
-    /// Overrides the board's solder-paste margin for this Pad.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub paste_margin: Option<Nm>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum PadKind {
-    Smd,
-    PlatedThroughHole,
-    NonPlated,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum PadShape {
-    Circle,
-    Rect,
-    RoundedRect,
-    Oval,
-}
-
-/// A drilled hole: round when `width == height`, otherwise a slot along the longer side.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Hole {
-    pub width: Nm,
-    pub height: Nm,
-}
-
 /// A Library definition that binds a Symbol to its alternate Footprints, with default
-/// fields and a Component Type.
+/// fields, a Component Type and the In BOM and In CPL defaults.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Part {
     pub uuid: Uuid,
     pub name: String,
     pub component_type: ComponentType,
-    /// Mechanical Parts may have none; Standard Parts need one.
+    /// Whether its Components go into the BOM, by default. Stored explicitly, never
+    /// inferred from the type.
+    pub in_bom: bool,
+    /// Whether its Components go into the CPL, by default. Stored explicitly, never
+    /// inferred from the type.
+    pub in_cpl: bool,
+    /// Mechanical Parts may have none; Standard and Net Tie Parts need one.
     pub symbol: Option<Uuid>,
     /// The alternate Footprints, in order; the first is the default.
     pub footprints: Vec<Uuid>,
@@ -370,12 +474,66 @@ pub struct Provenance {
     pub copyright: Vec<String>,
 }
 
-/// Whether a part's Components go into the BOM and may exist only on the board.
+/// What kind of part a Part is: it decides what the Part needs and where it may be
+/// placed, and gives the defaults for In BOM and In CPL, which are separate flags.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ComponentType {
+    /// An ordinary part: it needs a Symbol and a Footprint, and reaches the board only
+    /// through Sync.
     Standard,
+    /// A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a
+    /// mounting hole. It may be placed straight onto the board.
     Mechanical,
+    /// A deliberate short between Nets, made of touching Pads. It syncs like a Standard
+    /// part and is never Not Fitted.
+    NetTie,
+}
+
+impl ComponentType {
+    /// Every type, in the order editors list them.
+    pub const ALL: [ComponentType; 3] = [
+        ComponentType::Standard,
+        ComponentType::Mechanical,
+        ComponentType::NetTie,
+    ];
+
+    /// The type as messages name it: `Standard`, `Mechanical` or `Net Tie`.
+    pub fn name(self) -> &'static str {
+        match self {
+            ComponentType::Standard => "Standard",
+            ComponentType::Mechanical => "Mechanical",
+            ComponentType::NetTie => "Net Tie",
+        }
+    }
+
+    /// In BOM for a Part of this type, until it is edited.
+    pub fn default_in_bom(self) -> bool {
+        match self {
+            ComponentType::Standard | ComponentType::Mechanical => true,
+            ComponentType::NetTie => false,
+        }
+    }
+
+    /// In CPL for a Part of this type, until it is edited.
+    pub fn default_in_cpl(self) -> bool {
+        match self {
+            ComponentType::Standard => true,
+            ComponentType::Mechanical | ComponentType::NetTie => false,
+        }
+    }
+
+    /// Whether a part of this type needs both a Symbol and a Footprint. A Mechanical part
+    /// needs only one of them.
+    pub fn needs_symbol_and_footprint(self) -> bool {
+        self != ComponentType::Mechanical
+    }
+
+    /// Whether a Component of this type may be Not Fitted. A Net Tie's copper is on the
+    /// board either way.
+    pub fn allows_not_fitted(self) -> bool {
+        self != ComponentType::NetTie
+    }
 }
 
 /// A Part's default fields, copied onto each Component placed from it.

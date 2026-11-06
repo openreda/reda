@@ -273,9 +273,9 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
     let pads = obj["pads"].as_array().unwrap();
     let by_number = |n: &str| pads.iter().find(|p| p["number"] == n).unwrap().clone();
     assert_eq!(
-        by_number("1")["corner_radius"],
-        200_000,
-        "a quarter of 0.8 mm"
+        by_number("1")["corner_ratio"],
+        50_000,
+        "a radius of a quarter of the shorter side"
     );
     assert_eq!(by_number("1")["paste_margin"], -50_000);
     assert_eq!(
@@ -307,9 +307,9 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
         "null clears the override"
     );
     assert_eq!(
-        edited["corner_radius"],
+        edited["corner_ratio"],
         Value::Null,
-        "a rect has no corner radius"
+        "a rect has no corner ratio"
     );
     assert!(
         pads.iter()
@@ -350,8 +350,27 @@ fn pads_that_cannot_be_made_are_refused() {
         ),
         (with(json!({"kind": "smd", "width": 0})), "/width"),
         (
-            with(json!({"kind": "smd", "corner_radius": "0.1mm"})),
-            "/corner_radius",
+            with(json!({"kind": "smd", "corner_ratio": "10%"})),
+            "/corner_ratio",
+        ),
+        (
+            with(json!({"kind": "smd", "shape": "chamfered_rect"})),
+            "/chamfer_ratio",
+        ),
+        (
+            with(json!({"kind": "smd", "shape": "rounded_rect", "corner_ratio": "120%"})),
+            "/corner_ratio",
+        ),
+        (
+            with(
+                json!({"kind": "plated_through_hole", "hole": {"width": "0.5mm"},
+                        "side": "bottom"}),
+            ),
+            "/side",
+        ),
+        (
+            with(json!({"kind": "smd", "zone_connection": {"angle": "30deg"}})),
+            "/zone_connection/angle",
         ),
     ] {
         let err = e.run_err("library.footprint.pad.add", params.clone());
@@ -384,10 +403,15 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
         "assembly_top",
         "assembly_bottom",
     ] {
+        // A Courtyard Layer takes only closed shapes.
+        let shape = if layer.starts_with("courtyard") {
+            json!({"kind": "rect", "start": {"x": 0, "y": 0}, "end": {"x": "2mm", "y": "2mm"}})
+        } else {
+            json!({"kind": "line", "start": {"x": 0, "y": 0}, "end": {"x": "2mm", "y": 0}})
+        };
         let out = e.run_ok(
             "library.footprint.graphic.add",
-            json!({"footprint": fp, "layer": layer, "shape": {"kind": "line",
-                   "start": {"x": 0, "y": 0}, "end": {"x": "2mm", "y": 0}}}),
+            json!({"footprint": fp, "layer": layer, "shape": shape}),
         );
         graphics.push(out["result"]["graphic"].as_str().unwrap().to_owned());
     }
@@ -401,14 +425,25 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
         "library.footprint.graphic.remove",
         json!({"footprint": fp, "graphic": graphics[5]}),
     );
+    let texts = object(&mut e, &fp)["texts"].clone();
+    let text = |field: &str| {
+        texts
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == field)
+            .unwrap()["uuid"]
+            .clone()
+    };
     e.run_ok(
-        "library.footprint.text.set",
-        json!({"footprint": fp, "text": "designator", "at": {"x": 0, "y": "-2mm"},
-               "size": "0.8mm"}),
+        "library.footprint.text.edit",
+        json!({"footprint": fp, "text": text("Designator"), "at": {"x": 0, "y": "-2mm"},
+               "height": "0.8mm"}),
     );
     e.run_ok(
-        "library.footprint.text.set",
-        json!({"footprint": fp, "text": "value", "visible": false, "layer": "assembly_bottom"}),
+        "library.footprint.text.edit",
+        json!({"footprint": fp, "text": text("Value"), "visible": false,
+               "layer": "assembly_bottom"}),
     );
     e.run_ok(
         "library.footprint.origin.set",
@@ -432,8 +467,8 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
     assert_eq!(courtyard["width"], 50_000, "the Courtyard default");
     assert_eq!(
         courtyard["shape"],
-        json!({"kind": "line", "start": {"x": -1_000_000, "y": -1_000_000},
-               "end": {"x": 1_000_000, "y": -1_000_000}})
+        json!({"kind": "rect", "start": {"x": -1_000_000, "y": -1_000_000},
+               "end": {"x": 1_000_000, "y": 1_000_000}})
     );
     let silk = graphics
         .iter()
@@ -441,13 +476,20 @@ fn footprint_graphics_text_and_origin_are_edited_by_commands() {
         .unwrap();
     assert_eq!(silk["width"], 200_000);
     assert_eq!(silk["shape"]["kind"], "polygon");
-    assert_eq!(
-        obj["designator"]["at"],
-        json!({"x": -1_000_000, "y": -3_000_000})
-    );
-    assert_eq!(obj["designator"]["size"], 800_000);
-    assert_eq!(obj["value"]["visible"], false);
-    assert_eq!(obj["value"]["layer"], "assembly_bottom");
+    let field = |name: &str| {
+        obj["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == name)
+            .unwrap()
+            .clone()
+    };
+    let (designator, value) = (field("Designator"), field("Value"));
+    assert_eq!(designator["at"], json!({"x": -1_000_000, "y": -3_000_000}));
+    assert_eq!(designator["style"]["height"], 800_000);
+    assert_eq!(value["visible"], false);
+    assert_eq!(value["layer"], "assembly_bottom");
 }
 
 #[test]
@@ -535,6 +577,51 @@ fn part_commands_pick_symbol_footprints_pin_map_fields_and_type() {
         assert_eq!(err.code, ErrorCode::InvalidParams, "{params}");
         assert_eq!(err.details.unwrap()["pointer"], pointer, "{params}");
     }
+}
+
+#[test]
+fn a_new_type_resets_in_bom_and_in_cpl_to_its_defaults() {
+    let dir = TempDir::new("lib-part-flags");
+    let mut e = engine_with_library(&dir);
+    let part = new_element(&mut e, "part", "Tie");
+    let flags = |e: &mut TestEngine| {
+        let obj = object(e, &part);
+        (
+            obj["component_type"].as_str().unwrap().to_owned(),
+            obj["in_bom"].as_bool().unwrap(),
+            obj["in_cpl"].as_bool().unwrap(),
+        )
+    };
+    assert_eq!(flags(&mut e), ("standard".into(), true, true));
+
+    for (kind, in_bom, in_cpl) in [
+        ("net_tie", false, false),
+        ("mechanical", true, false),
+        ("standard", true, true),
+    ] {
+        e.run_ok(
+            "library.part.edit",
+            json!({"part": part, "component_type": kind}),
+        );
+        assert_eq!(flags(&mut e), (kind.into(), in_bom, in_cpl), "{kind}");
+    }
+
+    // The flags are edited on their own, and given with a new type they win over its
+    // defaults.
+    e.run_ok("library.part.edit", json!({"part": part, "in_cpl": false}));
+    assert_eq!(flags(&mut e), ("standard".into(), true, false));
+    e.run_ok("library.part.edit", json!({"part": part, "in_cpl": true}));
+    e.run_ok(
+        "library.part.edit",
+        json!({"part": part, "component_type": "mechanical", "in_cpl": true}),
+    );
+    assert_eq!(flags(&mut e), ("mechanical".into(), true, true));
+    // Setting the type it already has keeps the edited flags.
+    e.run_ok(
+        "library.part.edit",
+        json!({"part": part, "component_type": "mechanical"}),
+    );
+    assert_eq!(flags(&mut e), ("mechanical".into(), true, true));
 }
 
 /// The Demo Library of the file-format goldens: LM358 and MountingHole_M3.
@@ -722,9 +809,16 @@ fn scenario_build_a_resistor_part_end_to_end() {
         json!({"footprint": footprint, "layer": "assembly_top", "shape": {"kind": "rect",
                "start": {"x": "-0.8mm", "y": "-0.4mm"}, "end": {"x": "0.8mm", "y": "0.4mm"}}}),
     );
+    let designator = object(&mut e, &footprint)["texts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["field"] == "Designator")
+        .unwrap()["uuid"]
+        .clone();
     e.run_ok(
-        "library.footprint.text.set",
-        json!({"footprint": footprint, "text": "designator", "at": {"x": 0, "y": "-1.43mm"}}),
+        "library.footprint.text.edit",
+        json!({"footprint": footprint, "text": designator, "at": {"x": 0, "y": "-1.43mm"}}),
     );
 
     let part = new_element(&mut e, "part", "Resistor");

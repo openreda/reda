@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"dc650dde-c418-44bc-83df-b8a8444dc423","name":"Fuse","component_type":"standard","symbol":"51328428-3f15-4566-9894-e834d0fb7d0d"},
+  "part": {"uuid":"dc650dde-c418-44bc-83df-b8a8444dc423","name":"Fuse","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"51328428-3f15-4566-9894-e834d0fb7d0d"},
   "footprints": [
     "e80f4a40-24ca-407b-844c-e5cab9631e1c",
     "71936419-d9da-4a2b-8429-13c6a21ecace",

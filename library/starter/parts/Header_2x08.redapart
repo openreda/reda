@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"cc9d1d2c-439e-472b-92d0-1c4b989bdc90","name":"Header_2x08","component_type":"standard","symbol":"7cc318a2-d5ea-496e-b208-4249759acc92"},
+  "part": {"uuid":"cc9d1d2c-439e-472b-92d0-1c4b989bdc90","name":"Header_2x08","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"7cc318a2-d5ea-496e-b208-4249759acc92"},
   "footprints": [
     "ab94a12b-0b7e-4db7-accd-6c4e0f2e111e",
     "5cbdff91-3724-4104-ba12-5b16fb09bcc0"

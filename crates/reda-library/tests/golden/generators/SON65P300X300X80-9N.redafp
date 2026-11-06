@@ -1,22 +1,26 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SON65P300X300X80-9N","description":"DFN-8, 3 × 3 mm body, 0.65 mm pitch, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":2500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SON65P300X300X80-9N","description":"DFN-8, 3 × 3 mm body, 0.65 mm pitch, IPC-7351 Nominal","height":800000},
+  "generator": {"command":"library.footprint.generate.dfn","params":{"dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"pins":8}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":0,"y":0},"rotation":0,"width":1500000,"height":2400000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":0,"y":0},"rotation":0,"width":1500000,"height":2400000,"corner_ratio":33333}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-00000000000b","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2150000,"y":-1800000},"end":{"x":2150000,"y":1800000}},"width":50000},
     {"uuid":"00000000-0000-4000-8000-00000000000c","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-750000,"y":1500000},{"x":1500000,"y":1500000},{"x":1500000,"y":-1500000},{"x":-1500000,"y":-1500000},{"x":-1500000,"y":750000}]},"width":100000},
     {"uuid":"00000000-0000-4000-8000-00000000000d","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1875000,"y":1610000},"end":{"x":1550000,"y":1610000}},"width":120000},
     {"uuid":"00000000-0000-4000-8000-00000000000e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1550000,"y":-1610000},"end":{"x":1550000,"y":-1610000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-00000000000f","field":"Designator","at":{"x":0,"y":2500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000010","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

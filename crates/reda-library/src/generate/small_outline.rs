@@ -5,13 +5,13 @@
 use reda_command::{CommandError, Kind, Meta};
 use reda_model::Uuid;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, GullWingDimensions};
 use super::ipc::{Termination, Tol};
 use super::{FootprintFamily, FootprintPlan, Target};
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SoicParams {
     /// The registered Library to write the Footprint into.
@@ -31,7 +31,7 @@ pub struct SoicParams {
     pub dimensions: Option<GullWingDimensions>,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SmallOutlineParams {
     /// The registered Library to write the Footprint into.

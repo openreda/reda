@@ -26,9 +26,14 @@ const AUTH_LIMIT: u64 = 64 * 1024;
 /// How often a connection waiting for its next request checks whether the server stopped.
 const STOP_POLL: Duration = Duration::from_millis(100);
 
-/// Commands a bridged session may not run: saving belongs to the host, and opening or
-/// creating a Project would replace the one the host holds.
-const REFUSED: &[&str] = &["project.save", "project.new", "project.open"];
+/// Commands a bridged session may not run: saving belongs to the host, and opening,
+/// creating or closing a Project would replace or drop the one the host holds.
+const REFUSED: &[&str] = &[
+    "project.save",
+    "project.new",
+    "project.open",
+    "project.close",
+];
 
 /// The connection's writing half, shared by the reader and the waiters.
 type Writer = Arc<Mutex<TcpStream>>;

@@ -1,14 +1,18 @@
 {
   "format": 1,
-  "footprint": {"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":1650000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":620000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal","height":1000000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":{"height":1000000,"length":{"max":2100000,"min":1900000},"terminal":{"max":500000,"min":300000},"width":{"max":1350000,"min":1150000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"LEDC2012X100N","size":null}},
   "pads": [
-    {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_radius":231250},
-    {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_radius":231250}
+    {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000},
+    {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"3400cc70-58f1-40c1-bef5-8ccf9cf34469","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-950000},"end":{"x":1700000,"y":950000}},"width":50000},
     {"uuid":"639faa5c-e0b5-48df-a74e-fdbce618d495","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1685000,"y":-700000},"end":{"x":-1685000,"y":700000}},"width":120000},
     {"uuid":"6b85221b-1d33-485b-9dc8-d462bd5a8b22","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"7834d3ac-71d5-4c71-b361-fdd7bd61b8e0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000},"layer":"assembly_top"},
+    {"uuid":"ae4e5903-f838-48a2-8847-c94a2b7f12b2","field":"Designator","at":{"x":0,"y":1650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

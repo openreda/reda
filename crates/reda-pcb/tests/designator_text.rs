@@ -43,7 +43,7 @@ fn the_designator_text_moves_and_turns_in_board_coordinates() {
     assert_eq!(text.rotation, Millideg::ZERO);
     assert_eq!(text.layer, FootprintLayer::SilkscreenTop);
     // Stored in the Footprint's own frame, so it follows the Footprint.
-    let stored = footprint(&engine, r1).designator_text.unwrap();
+    let stored = footprint(&engine, r1).designator_text.clone().unwrap();
     assert_eq!(stored.at, Point::new(Nm(0), Nm::from_mm(-2)));
     assert_eq!(stored.rotation, Millideg::from_deg(270));
 
@@ -66,7 +66,7 @@ fn the_designator_text_can_be_resized_hidden_and_reset() {
         json!({"footprint": r1, "size": "0.8mm", "visible": false}),
     );
     let text = designator(&engine, r1);
-    assert_eq!(text.size, Nm::from_um(800));
+    assert_eq!(text.style.height, Nm::from_um(800));
     assert!(!text.visible);
     assert_eq!(text.at, original.at);
 

@@ -1,13 +1,17 @@
 {
   "format": 1,
-  "footprint": {"uuid":"15dd7aa2-d617-4a1d-875b-9e6177603525","name":"CAPC3216X65N","description":"Chip capacitor, 1206 (3216 metric), IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":1900000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":800000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"15dd7aa2-d617-4a1d-875b-9e6177603525","name":"CAPC3216X65N","description":"Chip capacitor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"size":"1206"}},
   "pads": [
-    {"uuid":"e4bb84b4-6dc5-4d7e-a006-64cab0318d65","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000},
-    {"uuid":"e8afdd95-7b49-46da-9ab4-9431635efdec","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000}
+    {"uuid":"e4bb84b4-6dc5-4d7e-a006-64cab0318d65","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667},
+    {"uuid":"e8afdd95-7b49-46da-9ab4-9431635efdec","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667}
   ],
   "graphics": [
     {"uuid":"8389c8ac-735d-4da8-99c7-0e9ec975447e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000},
     {"uuid":"873afb3a-fdc0-4470-a8ff-2c510f245501","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"528341fd-4f89-4ff6-95ec-44aaec9ffd8c","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"8186a33f-d231-497f-a4ca-a9150288f5eb","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000},"layer":"assembly_top"}
   ]
 }

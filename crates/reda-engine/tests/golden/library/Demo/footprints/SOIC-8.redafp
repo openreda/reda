@@ -1,14 +1,19 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000030-0000-4000-8000-000000000000","name":"SOIC-8"},
-  "text": {"designator":{"at":{"x":0,"y":-3500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top","visible":false}},
+  "footprint": {"uuid":"00000030-0000-4000-8000-000000000000","name":"SOIC-8","height":1750000},
+  "generator": {"command":"library.footprint.generate.soic","params":{"library":"00000001-0000-4000-8000-000000000000","pins":8}},
   "pads": [
-    {"uuid":"00000031-0000-4000-8000-000000000000","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000},
-    {"uuid":"00000032-0000-4000-8000-000000000000","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000},
+    {"uuid":"00000031-0000-4000-8000-000000000000","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000,"corner_ratio":50000},
+    {"uuid":"00000032-0000-4000-8000-000000000000","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000,"corner_ratio":50000},
     {"uuid":"00000033-0000-4000-8000-000000000000","number":"4","kind":"smd","shape":"rect","at":{"x":0,"y":-1905000},"rotation":0,"width":600000,"height":1550000,"paste_margin":-100000}
   ],
   "graphics": [
     {"uuid":"00000034-0000-4000-8000-000000000000","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3700000,"y":-2700000},"end":{"x":3700000,"y":2700000}},"width":50000},
     {"uuid":"00000035-0000-4000-8000-000000000000","layer":"silkscreen_top","shape":{"kind":"arc","center":{"x":-2500000,"y":0},"start":{"x":-2500000,"y":500000},"sweep":-180000},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000036-0000-4000-8000-000000000000","field":"Designator","at":{"x":0,"y":-3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"00000037-0000-4000-8000-000000000000","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top","visible":false},
+    {"uuid":"00000038-0000-4000-8000-000000000000","field":"MPN","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Noto Sans","height":600000,"thickness":90000},"layer":"assembly_bottom"}
   ]
 }

@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"ab94a12b-0b7e-4db7-accd-6c4e0f2e111e","name":"HDR254P2X8","description":"Pin header, 2 × 8, 2.54 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":11150000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":8,"pitch":"2.54","rows":2,"socket":false}},
   "pads": [
     {"uuid":"0fc1970e-49da-4945-b66c-53595f6ec400","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
     {"uuid":"16b21ab7-e39f-44c3-8b7c-9f71ff005dd0","number":"15","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -27,5 +27,9 @@
     {"uuid":"d3a4463b-6d7a-4da5-80f4-9c1e759bea78","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":-10220000},"end":{"x":-2600000,"y":10220000}},"width":120000},
     {"uuid":"da187376-a9ca-474a-a076-1e6eb29c3098","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1540000,"y":10160000},{"x":2540000,"y":10160000},{"x":2540000,"y":-10160000},{"x":-2540000,"y":-10160000},{"x":-2540000,"y":9160000}]},"width":100000},
     {"uuid":"ffc88736-ffc1-4924-83bc-1b1c4b08c61e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2600000,"y":-10220000},"end":{"x":2600000,"y":10220000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"dfd9a8f7-d7e0-4bd6-bda5-8c681ebd332a","field":"Designator","at":{"x":0,"y":11150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"e4c63406-b5fa-40fa-8da6-88fa4d8428fe","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

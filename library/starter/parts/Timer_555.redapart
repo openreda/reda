@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"6ad2a4fb-15fe-4c32-b244-29a4bee87635","name":"Timer_555","component_type":"standard","symbol":"eebdad0d-b78a-4f9b-be97-ae74568d41ed"},
+  "part": {"uuid":"6ad2a4fb-15fe-4c32-b244-29a4bee87635","name":"Timer_555","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"eebdad0d-b78a-4f9b-be97-ae74568d41ed"},
   "footprints": [
     "7afee21e-6914-4820-8f71-a396e8dd3ac1",
     "a3c5aa5c-0015-43fb-8fe0-b72305a1157d"

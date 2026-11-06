@@ -6,5 +6,9 @@
     {"uuid":"a0000000-0000-4000-8000-000000000072","number":"2","kind":"smd","shape":"rect","at":{"x":3000000,"y":-1000000},"rotation":0,"width":1500000,"height":1500000},
     {"uuid":"a0000000-0000-4000-8000-000000000073","number":"3","kind":"smd","shape":"rect","at":{"x":-3000000,"y":1000000},"rotation":0,"width":1500000,"height":1500000},
     {"uuid":"a0000000-0000-4000-8000-000000000074","number":"4","kind":"smd","shape":"rect","at":{"x":3000000,"y":1000000},"rotation":0,"width":1500000,"height":1500000}
+  ],
+  "texts": [
+    {"uuid":"a0000000-0000-4000-8000-00000000007e","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"a0000000-0000-4000-8000-00000000007f","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

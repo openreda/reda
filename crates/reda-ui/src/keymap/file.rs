@@ -117,6 +117,7 @@ fn entry(table: &Table, unbind: bool) -> Result<Entry, String> {
         id: format!("keymap/{context}/{}", chord.portable()),
         binding,
         title: None,
+        icon: None,
     };
     Ok(Entry::Bind {
         context,

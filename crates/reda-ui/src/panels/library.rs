@@ -297,20 +297,13 @@ fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) {
             })
             .response;
         response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
-        let type_name = |t: Option<ComponentType>| match t {
-            None => tr!("library-all-types"),
-            Some(ComponentType::Standard) => tr!("library-type-standard"),
-            Some(ComponentType::Mechanical) => tr!("library-type-mechanical"),
-        };
+        let type_name =
+            |t: Option<ComponentType>| t.map_or_else(|| tr!("library-all-types"), type_name);
         let label = tr!("library-filter-type");
         let response = ComboBox::from_id_salt("library-filter-type")
             .selected_text(type_name(panel.component_type))
             .show_ui(ui, |ui| {
-                for t in [
-                    None,
-                    Some(ComponentType::Standard),
-                    Some(ComponentType::Mechanical),
-                ] {
+                for t in std::iter::once(None).chain(ComponentType::ALL.map(Some)) {
                     ui.selectable_value(&mut panel.component_type, t, type_name(t));
                 }
             })
@@ -431,4 +424,13 @@ fn details(
         actions.extend(place(target, part, unit, footprint));
     }
     actions
+}
+
+/// A Component Type as the Library panel and the Part editor show it.
+pub(crate) fn type_name(t: ComponentType) -> String {
+    match t {
+        ComponentType::Standard => tr!("library-type-standard"),
+        ComponentType::Mechanical => tr!("library-type-mechanical"),
+        ComponentType::NetTie => tr!("library-type-net-tie"),
+    }
 }
