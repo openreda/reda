@@ -2,7 +2,7 @@
 //! agents and the allowed agents, as on the Preferences dialog's Agents page) and the
 //! "Allow this agent?" prompt. The state is in [`Bridge`].
 
-use egui::{Id, Modal, Ui};
+use egui::{Id, Ui};
 
 use crate::bridge::Bridge;
 use crate::shell::Shell;
@@ -67,22 +67,24 @@ pub fn ask(ctx: &egui::Context, bridge: &mut Bridge, shell: &mut Shell) {
         return;
     };
     let mut answer = None;
-    Modal::new(Id::NULL.with("bridge-allow-agent")).show(ctx, |ui| {
-        ui.heading(tr!("bridge-ask-title"));
-        ui.label(tr!(
-            "bridge-ask-body",
-            agent = agent.name.as_str(),
-            source = agent.source.label()
-        ));
-        ui.horizontal(|ui| {
-            if ui.button(tr!("bridge-allow")).clicked() {
-                answer = Some(true);
-            }
-            if ui.button(tr!("bridge-deny")).clicked() {
-                answer = Some(false);
-            }
-        });
-    });
+    crate::modal::Dialog::new(Id::NULL.with("bridge-allow-agent"), tr!("bridge-ask-title")).show(
+        ctx,
+        |ui| {
+            ui.label(tr!(
+                "bridge-ask-body",
+                agent = agent.name.as_str(),
+                source = agent.source.label()
+            ));
+            ui.horizontal(|ui| {
+                if ui.button(tr!("bridge-allow")).clicked() {
+                    answer = Some(true);
+                }
+                if ui.button(tr!("bridge-deny")).clicked() {
+                    answer = Some(false);
+                }
+            });
+        },
+    );
     if let Some(allow) = answer {
         bridge.answer(shell, allow);
     }

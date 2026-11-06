@@ -147,6 +147,32 @@ pub struct SchematicEditing {
     /// Convert Cross-Junctions: a Wire that would make a 4-way is offset into two
     /// adjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.
     pub convert_cross_junctions: bool,
+    /// How a multi-Unit Component's Unit is written after its Designator, from the
+    /// Unit's position in the Symbol: `alpha` (`U1A`) or `numeric` (`U1:1`). Only the
+    /// drawing changes, never the Designator.
+    pub unit_suffix: reda_model::UnitSuffix,
+    /// How far repeat placement steps a trailing number in the next name.
+    pub auto_increment: AutoIncrement,
+}
+
+/// The steps of Auto-increment. Only a trailing number steps, keeping its padding; a
+/// negative step counts down and stops at 0.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct AutoIncrement {
+    /// The step for Designators, Net Labels and Ports.
+    pub primary: i64,
+    /// The step for Pin names in the Symbol editor.
+    pub secondary: i64,
+}
+
+impl Default for AutoIncrement {
+    fn default() -> AutoIncrement {
+        AutoIncrement {
+            primary: 1,
+            secondary: 1,
+        }
+    }
 }
 
 impl Default for SchematicEditing {
@@ -171,6 +197,8 @@ impl Default for SchematicEditing {
             components_cut_wires: true,
             break_wires_at_autojunctions: true,
             convert_cross_junctions: true,
+            unit_suffix: reda_model::UnitSuffix::Alpha,
+            auto_increment: AutoIncrement::default(),
         }
     }
 }

@@ -118,6 +118,15 @@ impl Page for LibrariesPage {
         removes.chain(adds).collect()
     }
 
+    fn has_defaults(&self) -> bool {
+        true
+    }
+
+    /// No Project Library paths.
+    fn reset_to_defaults(&mut self, _shell: &mut crate::shell::Shell) {
+        self.rows.set(Vec::new());
+    }
+
     fn problems(&self) -> Vec<Problem> {
         self.checked()
             .into_iter()

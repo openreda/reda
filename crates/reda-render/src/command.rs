@@ -11,7 +11,7 @@ use crate::color::{Palette, Theme};
 use crate::layers::{Composite, InactiveLayers, LayerView, board_composites};
 use crate::pcb::{BoardGeometry, pcb_scene};
 use crate::scene::Scene;
-use crate::schematic::schematic_scene;
+use crate::schematic::{SchematicStyle, schematic_scene_styled};
 use crate::svg::to_svg_layers;
 use crate::viewport::Viewport;
 
@@ -36,12 +36,13 @@ pub fn register_all(registry: &mut Registry, derive: Derive) {
 }
 
 /// The Scene of any Document this crate can draw (`not_found` for an unknown Document).
-/// `fonts` are the installed fonts PCB text may name.
+/// `fonts` are the installed fonts PCB text may name; a sheet is drawn in `style`.
 pub fn document_scene(
     project: &Project,
     document: Uuid,
     derive: &Derive,
     fonts: &Fonts,
+    style: &SchematicStyle,
 ) -> Result<Scene, CommandError> {
     let entry = project
         .document(document)
@@ -51,7 +52,7 @@ pub fn document_scene(
         DocumentKind::Schematic => {
             let sheet = project.schematic_sheet(document).ok_or_else(missing)?;
             let junctions = (derive.junctions)(sheet);
-            Ok(schematic_scene(project, document, &junctions).unwrap_or_default())
+            Ok(schematic_scene_styled(project, document, &junctions, style).unwrap_or_default())
         }
         DocumentKind::Pcb => {
             let pcb = project.pcb_document(document).ok_or_else(missing)?;
@@ -197,7 +198,8 @@ impl Command for DocumentRender {
         p: DocumentRenderParams,
     ) -> Result<DocumentRenderResult, CommandError> {
         let project = cx.project()?;
-        let scene = document_scene(project, p.document, &self.derive, cx.fonts())?;
+        let style = SchematicStyle::default();
+        let scene = document_scene(project, p.document, &self.derive, cx.fonts(), &style)?;
         let composites = match project.pcb_document(p.document) {
             Some(pcb) => Some(pcb_layers(pcb, &p)?),
             None => {

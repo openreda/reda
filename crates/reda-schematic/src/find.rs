@@ -2,7 +2,7 @@
 //! name.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta};
-use reda_model::{ComponentRef, Project, Uuid};
+use reda_model::{ComponentRef, Project, UnitSuffix, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -67,7 +67,8 @@ impl Command for Find {
         id: "schematic.find",
         title: "Find",
         description: "Finds objects on every Schematic Sheet whose Designator, value or Net \
-                      name contains the text (or equals it, with `exact`), ignoring case.",
+                      name contains the text (or equals it, with `exact`), ignoring case. A \
+                      Designator also matches with its Unit suffix, as `U1A` or `U1:1`.",
         category: "schematic",
         icon: "find",
         kind: Kind::Query,
@@ -122,6 +123,17 @@ pub fn find(project: &Project, matcher: &Matcher, fields: &[FindField]) -> Vec<F
     {
         let mut found = Vec::new();
         for unit in sheet.units() {
+            // A Designator matches with the Unit suffix after it too, in either style.
+            let symbol = sheet.part(unit.part).map(|e| &e.symbol);
+            let designators: Vec<String> = std::iter::once(unit.designator.clone())
+                .chain(symbol.into_iter().flat_map(|symbol| {
+                    [UnitSuffix::Alpha, UnitSuffix::Numeric]
+                        .into_iter()
+                        .map(|style| style.of(symbol, unit.unit))
+                        .filter(|suffix| !suffix.is_empty())
+                        .map(|suffix| format!("{}{suffix}", unit.designator))
+                }))
+                .collect();
             let mut hit = |field: FindField, text: &str| {
                 if fields.contains(&field) && matcher.matches(text) {
                     found.push((
@@ -131,7 +143,9 @@ pub fn find(project: &Project, matcher: &Matcher, fields: &[FindField]) -> Vec<F
                     ));
                 }
             };
-            hit(FindField::Designator, &unit.designator);
+            if let Some(text) = designators.iter().find(|d| matcher.matches(d)) {
+                hit(FindField::Designator, text);
+            }
             hit(FindField::Value, &unit.fields.value);
         }
         found.sort_by(|(fa, da, a), (fb, db, b)| {

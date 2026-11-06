@@ -2,7 +2,7 @@
 //! matrix shown read-only beside the Pin conflict checks.
 
 use egui::{Button, RichText, Role, Ui, WidgetInfo};
-use reda_engine::model::{ErcCheck, PinType, Project, Severity, pin_conflict};
+use reda_engine::model::{ErcCheck, ErcSeverities, PinType, Project, Severity, pin_conflict};
 use serde_json::json;
 
 use crate::settings::{Draft, Page, PageCx, Problem, Step};
@@ -124,6 +124,16 @@ impl Page for ErcPage {
                 )
             })
             .collect()
+    }
+
+    fn has_defaults(&self) -> bool {
+        true
+    }
+
+    fn reset_to_defaults(&mut self, _shell: &mut crate::shell::Shell) {
+        for (check, draft) in &mut self.severities {
+            draft.set(ErcSeverities::DEFAULT.get(*check));
+        }
     }
 
     fn problems(&self) -> Vec<Problem> {

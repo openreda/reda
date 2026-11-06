@@ -115,6 +115,11 @@ impl PreferencesDialog {
         }
     }
 
+    /// Whether the Keyboard Shortcuts page is recording a key.
+    pub fn is_recording(&self) -> bool {
+        self.shortcuts.recording.is_some()
+    }
+
     pub fn page(&self) -> PageId {
         self.page
     }
