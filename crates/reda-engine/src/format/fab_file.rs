@@ -21,7 +21,7 @@
 
 use std::path::Path;
 
-use reda_model::{Column, FabPreset, GerberSettings, Rules};
+use reda_model::{Column, FabPreset, FabRules, GerberSettings};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -39,8 +39,9 @@ pub(crate) struct FabPresetFile {
     format: u32,
     /// The preset's name, as the New Project dialog lists it.
     name: String,
-    /// The design rules a new board is seeded with.
-    rules: Rules,
+    /// The flat limits a job checks the board against, and the preferred seeds of a new
+    /// board's rules.
+    rules: FabRules,
     /// The Gerber and drill switches.
     gerber: GerberSettings,
     /// The BOM columns, in order.

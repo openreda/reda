@@ -47,12 +47,6 @@
     "BoardRow": {
       "additionalProperties": false,
       "properties": {
-        "default_net_class": {
-          "description": "The Net Class new Nets get.",
-          "format": "uuid",
-          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-          "type": "string"
-        },
         "uuid": {
           "format": "uuid",
           "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
@@ -60,9 +54,39 @@
         }
       },
       "required": [
-        "uuid",
-        "default_net_class"
+        "uuid"
       ],
+      "type": "object"
+    },
+    "Bounds": {
+      "additionalProperties": false,
+      "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
+      "properties": {
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "ComponentRef": {
@@ -136,6 +160,43 @@
         "bottom_right"
       ],
       "type": "string"
+    },
+    "DesignRule": {
+      "additionalProperties": false,
+      "description": "One design rule record: the values it sets for one kind, within one scope.",
+      "properties": {
+        "comment": {
+          "description": "A note for the user.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "enabled": {
+          "description": "Whether the record counts; left out when it does. A disabled board-wide limit is\nabsent, but its preferred values still supply routing defaults.",
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/RuleKind"
+        },
+        "scope": {
+          "$ref": "#/$defs/RuleScope"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "values": {
+          "$ref": "#/$defs/RuleValues"
+        }
+      },
+      "required": [
+        "uuid",
+        "kind",
+        "scope",
+        "values"
+      ],
+      "type": "object"
     },
     "DrcSeverities": {
       "additionalProperties": false,
@@ -927,13 +988,40 @@
       "additionalProperties": false,
       "description": "A PCB Net: Pads, Tracks, Vias and Zones name it by UUID.",
       "properties": {
-        "class": {
-          "description": "Its Net Class.",
-          "format": "uuid",
-          "type": "string"
+        "classes": {
+          "description": "The Net Classes it is in besides the Default Net Class, which every Net is in;\nleft out when there are none.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
         },
         "name": {
           "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name"
+      ],
+      "type": "object"
+    },
+    "NetClass": {
+      "additionalProperties": false,
+      "description": "A named, ranked group of Nets that share design rules. Its values are the rule records\nscoped to it. The Default Net Class is not stored: it is the board-wide records.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "rank": {
+          "description": "Its rank, unique on the board: 1 ranks highest. Where a Net's classes set the same\nvalue, the highest-ranked class wins; the Default Net Class ranks below them all.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
         },
         "uuid": {
           "format": "uuid",
@@ -943,57 +1031,7 @@
       "required": [
         "uuid",
         "name",
-        "class"
-      ],
-      "type": "object"
-    },
-    "NetClass": {
-      "additionalProperties": false,
-      "description": "A named group of Nets that share design rules. A value left out uses the board-wide\nrule.",
-      "properties": {
-        "clearance": {
-          "description": "Clearance to copper of other Nets; where two classes meet, the larger applies.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "name": {
-          "type": "string"
-        },
-        "track_width": {
-          "description": "Track width for routing this class.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "uuid": {
-          "format": "uuid",
-          "type": "string"
-        },
-        "via_diameter": {
-          "description": "Via diameter for this class.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "via_hole": {
-          "description": "Via hole for this class.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "uuid",
-        "name"
+        "rank"
       ],
       "type": "object"
     },
@@ -1367,55 +1405,127 @@
       ],
       "type": "object"
     },
-    "Rules": {
+    "RuleKind": {
+      "description": "What a rule record limits.",
+      "oneOf": [
+        {
+          "const": "clearance",
+          "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+          "type": "string"
+        },
+        {
+          "const": "track_width",
+          "description": "Track width: `min`, `preferred`, `max?`.",
+          "type": "string"
+        },
+        {
+          "const": "via_size",
+          "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+          "type": "string"
+        },
+        {
+          "const": "hole_size",
+          "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+          "type": "string"
+        },
+        {
+          "const": "annular_ring",
+          "description": "Annular ring: `min`.",
+          "type": "string"
+        },
+        {
+          "const": "hole_to_hole",
+          "description": "Spacing between hole edges: `min`.",
+          "type": "string"
+        },
+        {
+          "const": "edge_clearance",
+          "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+          "type": "string"
+        }
+      ]
+    },
+    "RuleScope": {
       "additionalProperties": false,
-      "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+      "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
       "properties": {
-        "annular_ring": {
-          "description": "Minimum annular ring of Vias and plated Pads.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "clearance": {
-          "description": "Minimum clearance between copper of different Nets.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "edge_clearance": {
-          "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "hole_to_hole": {
-          "description": "Minimum spacing between hole edges.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "track_width": {
-          "description": "Minimum Track width.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "via_diameter": {
-          "description": "Minimum Via diameter.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "via_hole": {
-          "description": "Minimum Via hole.",
-          "format": "int64",
-          "type": "integer"
+        "net_class": {
+          "description": "The Net Class whose Nets it applies to.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
-      "required": [
-        "clearance",
-        "track_width",
-        "via_diameter",
-        "via_hole",
-        "annular_ring",
-        "hole_to_hole",
-        "edge_clearance"
-      ],
+      "type": "object"
+    },
+    "RuleValues": {
+      "additionalProperties": false,
+      "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
+      "properties": {
+        "diameter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bounds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Via size only: the Via's copper diameter."
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bounds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Via size only: the Via's drilled hole."
+        },
+        "ignore_pad_to_pad": {
+          "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "Severity": {
@@ -1944,7 +2054,7 @@
   "properties": {
     "board": {
       "$ref": "#/$defs/BoardRow",
-      "description": "The board setup's identity and its Default Net Class."
+      "description": "The board setup's identity."
     },
     "board_cutouts": {
       "description": "Holes in the board material.",
@@ -2014,7 +2124,7 @@
       "description": "The Layers, top to bottom. Objects name a Layer by its UUID."
     },
     "net_classes": {
-      "description": "The Net Classes, the Default Net Class among them.",
+      "description": "The Net Classes besides the Default Net Class, which is not stored.",
       "items": {
         "$ref": "#/$defs/NetClass"
       },
@@ -2044,8 +2154,11 @@
       "description": "The point the CPL measures from; left out while it is not set."
     },
     "rules": {
-      "$ref": "#/$defs/Rules",
-      "description": "The board-wide design rules."
+      "description": "The design rule records: one board-wide record per kind, and Net Class records.",
+      "items": {
+        "$ref": "#/$defs/DesignRule"
+      },
+      "type": "array"
     },
     "severities": {
       "$ref": "#/$defs/DrcSeverities",

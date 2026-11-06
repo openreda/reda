@@ -86,6 +86,74 @@
         }
       ]
     },
+    "FabRules": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's design rules: flat limits with no scope, which a job compares the board\nwith, and the preferred values a new board's routing starts from.",
+      "properties": {
+        "annular_ring": {
+          "description": "Minimum annular ring of Vias and plated Pads.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "clearance": {
+          "description": "Minimum clearance between copper of different Nets.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_max": {
+          "description": "Maximum Pad, Free Pad and non-plated hole.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_min": {
+          "description": "Minimum Pad, Free Pad and non-plated hole.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_to_hole": {
+          "description": "Minimum spacing between hole edges.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "preferred": {
+          "$ref": "#/$defs/PreferredSeeds",
+          "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
+        },
+        "track_width": {
+          "description": "Minimum Track width.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_diameter": {
+          "description": "Minimum Via diameter.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_hole": {
+          "description": "Minimum Via hole.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "clearance",
+        "track_width",
+        "via_diameter",
+        "via_hole",
+        "hole_min",
+        "hole_max",
+        "annular_ring",
+        "hole_to_hole",
+        "edge_clearance",
+        "preferred"
+      ],
+      "type": "object"
+    },
     "FileNaming": {
       "description": "How the Gerber and drill files of a job are named.",
       "oneOf": [
@@ -115,54 +183,30 @@
       ],
       "type": "object"
     },
-    "Rules": {
+    "PreferredSeeds": {
       "additionalProperties": false,
-      "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+      "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
       "properties": {
-        "annular_ring": {
-          "description": "Minimum annular ring of Vias and plated Pads.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "clearance": {
-          "description": "Minimum clearance between copper of different Nets.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "edge_clearance": {
-          "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "hole_to_hole": {
-          "description": "Minimum spacing between hole edges.",
-          "format": "int64",
-          "type": "integer"
-        },
         "track_width": {
-          "description": "Minimum Track width.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         },
         "via_diameter": {
-          "description": "Minimum Via diameter.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         },
         "via_hole": {
-          "description": "Minimum Via hole.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         }
       },
       "required": [
-        "clearance",
         "track_width",
         "via_diameter",
-        "via_hole",
-        "annular_ring",
-        "hole_to_hole",
-        "edge_clearance"
+        "via_hole"
       ],
       "type": "object"
     }
@@ -199,8 +243,8 @@
       "type": "string"
     },
     "rules": {
-      "$ref": "#/$defs/Rules",
-      "description": "The design rules a new board is seeded with."
+      "$ref": "#/$defs/FabRules",
+      "description": "The flat limits a job checks the board against, and the preferred seeds of a new\nboard's rules."
     }
   },
   "required": [

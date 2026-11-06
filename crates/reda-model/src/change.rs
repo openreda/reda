@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
-    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, FreePad, InDocument, Keepout,
-    LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Track, Via, Zone,
+    BoardCutout, BoardOutline, BoardSetup, DesignRule, FootprintInstance, FreePad, InDocument,
+    Keepout, LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Track, Via, Zone,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -35,6 +35,7 @@ pub enum Object {
     Part(Part),
     LayerSet(InDocument<LayerSet>),
     BoardSetup(InDocument<BoardSetup>),
+    DesignRule(InDocument<DesignRule>),
     BoardOutline(InDocument<BoardOutline>),
     BoardCutout(InDocument<BoardCutout>),
     NetClass(InDocument<NetClass>),
@@ -89,8 +90,10 @@ pub enum ObjectType {
     Part,
     /// The PCB Document's ordered Layers.
     LayerSet,
-    /// The PCB Document's rules, DRC severities and Default Net Class.
+    /// The PCB Document's DRC severities.
     BoardSetup,
+    /// One design rule record: a kind, a scope and the values it sets.
+    DesignRule,
     /// The board's physical edge.
     BoardOutline,
     /// A hole in the board material.
@@ -159,6 +162,7 @@ impl Object {
             Object::Part(p) => p.uuid,
             Object::LayerSet(o) => o.uuid,
             Object::BoardSetup(o) => o.uuid,
+            Object::DesignRule(o) => o.uuid,
             Object::BoardOutline(o) => o.uuid,
             Object::BoardCutout(o) => o.uuid,
             Object::NetClass(o) => o.uuid,
@@ -200,6 +204,7 @@ impl Object {
             Object::Part(_) => ObjectType::Part,
             Object::LayerSet(_) => ObjectType::LayerSet,
             Object::BoardSetup(_) => ObjectType::BoardSetup,
+            Object::DesignRule(_) => ObjectType::DesignRule,
             Object::BoardOutline(_) => ObjectType::BoardOutline,
             Object::BoardCutout(_) => ObjectType::BoardCutout,
             Object::NetClass(_) => ObjectType::NetClass,
@@ -242,6 +247,7 @@ impl Object {
             }
             Object::LayerSet(o) => Scope::Document(o.document),
             Object::BoardSetup(o) => Scope::Document(o.document),
+            Object::DesignRule(o) => Scope::Document(o.document),
             Object::BoardOutline(o) => Scope::Document(o.document),
             Object::BoardCutout(o) => Scope::Document(o.document),
             Object::NetClass(o) => Scope::Document(o.document),

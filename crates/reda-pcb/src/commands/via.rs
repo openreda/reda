@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::outline::PointParam;
 use super::track::existing_net;
 use super::{needs_pcb, pcb, positive};
-use crate::net_rules::net_rules;
+use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(ViaAdd);
@@ -94,10 +94,12 @@ impl Command for ViaAdd {
         let rules = net_rules(pcb, net);
         let diameter = p
             .diameter
-            .map_or(Ok(rules.via_diameter), |d| positive("/diameter", d))?;
+            .map_or(Ok(rules.via_diameter.default_size()), |d| {
+                positive("/diameter", d)
+            })?;
         let hole = p
             .hole
-            .map_or(Ok(rules.via_hole), |h| positive("/hole", h))?;
+            .map_or(Ok(rules.via_hole.default_size()), |h| positive("/hole", h))?;
         if diameter <= hole {
             return Err(CommandError::invalid_params(
                 "/diameter",

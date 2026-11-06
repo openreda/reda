@@ -13,7 +13,7 @@ use super::outline::PointParam;
 use super::track::{copper_layer, existing_net};
 use super::{needs_pcb, pcb, positive};
 use crate::copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine};
-use crate::net_rules::net_rules;
+use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(Connected);
@@ -228,7 +228,7 @@ impl Command for ClearanceTrack {
         let net = existing_net(pcb, p.net, "/net")?;
         let width = match p.width {
             Some(w) => positive("/width", w)?,
-            None => net_rules(pcb, net).track_width,
+            None => net_rules(pcb, net).track_width.default_size(),
         };
         let geometry = TrackGeometry::Line {
             from: p.from.point(),
@@ -287,7 +287,7 @@ impl Command for ClearanceVia {
         let net = existing_net(pcb, p.net, "/net")?;
         let diameter: Nm = match p.diameter {
             Some(d) => positive("/diameter", d)?,
-            None => net_rules(pcb, net).via_diameter,
+            None => net_rules(pcb, net).via_diameter.default_size(),
         };
         let proposal = Proposal::Via {
             at: p.at.point(),
