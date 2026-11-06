@@ -8,6 +8,6 @@
     {"uuid":"00000042-0000-4000-8000-000000000000","layer":"assembly_bottom","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1600000},"width":100000}
   ],
   "texts": [
-    {"uuid":"00000043-0000-4000-8000-000000000000","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
+    {"uuid":"00000043-0000-4000-8000-000000000000","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

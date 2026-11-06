@@ -185,6 +185,8 @@ fn soic() -> Footprint {
             FootprintText {
                 field: "MPN".into(),
                 style: TextStyle {
+                    justify: Default::default(),
+                    knockout: None,
                     font: "Noto Sans".into(),
                     height: Nm::from_um(600),
                     thickness: Nm::from_um(90),

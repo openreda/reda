@@ -319,31 +319,78 @@ impl FootprintText {
     }
 }
 
-/// How a Footprint text is drawn.
+/// The shared style of free PCB text and Footprint field text.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TextStyle {
-    /// The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing
-    /// on this machine draws as Noto Sans.
     pub font: String,
-    /// The capital height.
     pub height: Nm,
-    /// The pen width of stroke-font text; outline fonts are filled and ignore it.
     pub thickness: Nm,
+    #[serde(default)]
+    pub justify: TextJustify,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knockout: Option<TextKnockout>,
 }
 
 impl TextStyle {
-    /// The default pen width as a fraction of the height (`.0 / .1`).
     pub const PEN: (i64, i64) = (3, 20);
 
-    /// Hershey text `height` high, with the default pen width for that height.
+    /// Centred Hershey text, the default for Footprint entries.
     pub fn of_height(height: Nm) -> TextStyle {
         TextStyle {
             font: crate::HERSHEY_FONT.to_owned(),
             height,
             thickness: Nm(height.0 * TextStyle::PEN.0 / TextStyle::PEN.1),
+            justify: TextJustify::CENTER,
+            knockout: None,
         }
     }
+}
+
+/// How a text block sits on its anchor. Bottom is the last line's baseline.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextJustify {
+    pub h: TextHJustify,
+    pub v: TextVJustify,
+}
+
+impl TextJustify {
+    pub const CENTER: Self = Self {
+        h: TextHJustify::Center,
+        v: TextVJustify::Center,
+    };
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TextHJustify {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TextVJustify {
+    Top,
+    Center,
+    #[default]
+    Bottom,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextKnockout {
+    pub margin: Nm,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextFrame {
+    pub width: Nm,
+    pub height: Nm,
 }
 
 /// A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.

@@ -6,8 +6,8 @@
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    DESIGNATOR_FIELD, Footprint, FootprintInstance, FootprintLayer, FootprintText, HERSHEY_FONT,
-    LayerKind, PcbDocument, PcbText, Shape, Side, TextStyle, Uuid, VALUE_FIELD, field_text,
+    DESIGNATOR_FIELD, Footprint, FootprintInstance, FootprintLayer, FootprintText, LayerKind,
+    PcbDocument, PcbText, Shape, Side, TextAutoposition, TextStyle, Uuid, VALUE_FIELD, field_text,
 };
 
 use crate::placed::{self, Bounds, Frame};
@@ -64,14 +64,89 @@ pub fn footprint_texts(
             ));
         }
     }
-    for entry in placed::instance_texts(pcb, instance) {
+    for entry in placed_field_texts(pcb, instance, fonts) {
         let text = field_text(&entry.field, &instance.designator, &instance.fields);
         if !entry.visible || text.is_empty() {
             continue;
         }
-        out.extend(centred_text(pcb, object, text, &frame.text(&entry), fonts));
+        out.extend(centred_text(pcb, object, text, &entry, fonts));
     }
     out
+}
+
+/// Resolved field text placements in board coordinates, including Autoposition.
+pub fn placed_field_texts(
+    pcb: &PcbDocument,
+    instance: &FootprintInstance,
+    fonts: &Fonts,
+) -> Vec<FootprintText> {
+    use TextAutoposition::*;
+    let frame = Frame::of(instance);
+    let copy = pcb
+        .footprint_copy(instance.footprint)
+        .expect("committed Footprint copy");
+    let local_box = crate::cluster::footprint_box(&copy.footprint);
+    let corners = [
+        local_box.min,
+        Point::new(local_box.max.x, local_box.min.y),
+        local_box.max,
+        Point::new(local_box.min.x, local_box.max.y),
+    ];
+    let bounds = Bounds::of_points(corners.map(|p| frame.point(p))).expect("four corners");
+    placed::instance_texts(pcb, instance)
+        .into_iter()
+        .map(|entry| {
+            let mut placed = frame.text(&entry);
+            let mode = instance
+                .text_overrides
+                .iter()
+                .find(|o| o.text == entry.uuid)
+                .and_then(|o| o.autoposition)
+                .unwrap_or_default();
+            if mode == Manual {
+                return placed;
+            }
+            // Automatic placements read upright on both sides and after any Footprint turn.
+            placed.rotation = Millideg::ZERO;
+            let content = field_text(&entry.field, &instance.designator, &instance.fields);
+            let Some(mut probe) = centred_text(pcb, instance.uuid, content, &placed, fonts) else {
+                return placed;
+            };
+            probe.position = Point::default();
+            let geometry = super::text_geometry(&probe, fonts);
+            let r = Nm(geometry.stroke_width.0 / 2);
+            let ink = geometry
+                .fill
+                .points
+                .iter()
+                .map(|&p| Bounds::of_point(p))
+                .chain(
+                    geometry
+                        .strokes
+                        .iter()
+                        .flat_map(|s| [s.a, s.b])
+                        .map(|p| Bounds {
+                            min: Point::new(p.x - r, p.y - r),
+                            max: Point::new(p.x + r, p.y + r),
+                        }),
+                )
+                .reduce(Bounds::union)
+                .unwrap_or_else(|| Bounds::of_point(Point::default()));
+            let mid = |a: Nm, b: Nm| Nm((a.0 + b.0) / 2);
+            let x = match mode {
+                LeftAbove | LeftCenter | LeftBelow => bounds.min.x - ink.max.x,
+                RightAbove | RightCenter | RightBelow => bounds.max.x - ink.min.x,
+                _ => mid(bounds.min.x, bounds.max.x) - mid(ink.min.x, ink.max.x),
+            };
+            let y = match mode {
+                LeftAbove | CenterAbove | RightAbove => bounds.max.y - ink.min.y,
+                LeftBelow | CenterBelow | RightBelow => bounds.min.y - ink.max.y,
+                _ => mid(bounds.min.y, bounds.max.y) - mid(ink.min.y, ink.max.y),
+            };
+            placed.at = Point::new(x, y);
+            placed
+        })
+        .collect()
 }
 
 /// Every text a Footprint draws as the Footprint editor shows it, unplaced (at its own
@@ -133,10 +208,12 @@ fn pcb_text(
         uuid: object,
         layer,
         text: text.to_owned(),
-        font: HERSHEY_FONT.to_owned(),
         position,
-        height,
-        thickness: Nm(height.0 * FOOTPRINT_TEXT_PEN.0 / FOOTPRINT_TEXT_PEN.1),
+        style: TextStyle {
+            justify: Default::default(),
+            ..TextStyle::of_height(height)
+        },
+        frame: None,
         rotation,
         mirrored,
     }
@@ -147,36 +224,21 @@ fn pcb_text(
 /// Gerber silkscreen and DRC centre Footprint text.
 fn centred_text(
     pcb: &PcbDocument,
-    object: Uuid,
+    _object: Uuid,
     text: &str,
     placement: &FootprintText,
-    fonts: &Fonts,
+    _fonts: &Fonts,
 ) -> Option<PcbText> {
     let layer = board_layer(pcb, placement.layer)?;
     let mirrored = placement.layer.is_bottom();
-    let styled = |position: Point, rotation: Millideg, mirrored: bool| PcbText {
-        uuid: object,
+    Some(PcbText {
+        uuid: placement.uuid,
         layer,
         text: text.to_owned(),
-        font: placement.style.font.clone(),
-        position,
-        height: placement.style.height,
-        thickness: placement.style.thickness,
-        rotation,
+        position: placement.at,
+        style: placement.style.clone(),
+        frame: None,
+        rotation: placement.rotation,
         mirrored,
-    };
-    // Lay it out upright at the origin to find its centre, then move that onto `at`.
-    let probe = styled(Point::default(), Millideg::ZERO, false);
-    let laid = super::text_geometry(&probe, fonts);
-    let points = laid.strokes.iter().flat_map(|s| [s.a, s.b]);
-    let points = points.chain(laid.fill.points.iter().copied());
-    let centre = Bounds::of_points(points).map_or(Point::default(), |b| b.center());
-    let centre = if mirrored {
-        Point::new(-centre.x, centre.y)
-    } else {
-        centre
-    };
-    let d = placed::rotate(centre, Point::default(), placement.rotation);
-    let position = Point::new(placement.at.x - d.x, placement.at.y - d.y);
-    Some(styled(position, placement.rotation, mirrored))
+    })
 }

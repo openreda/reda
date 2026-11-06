@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::Side;
-use crate::{ComponentRef, ComponentType, Fields, FootprintText, Uuid};
+use crate::{ComponentRef, ComponentType, Fields, TextStyle, Uuid};
 
 /// One Footprint placed on the board.
 ///
@@ -43,10 +43,9 @@ pub struct FootprintInstance {
     pub in_cpl: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub not_fitted: bool,
-    /// Where this instance draws its Designator text, when moved from the Footprint's own
-    /// placement.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub designator_text: Option<FootprintText>,
+    /// Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub text_overrides: Vec<FootprintTextOverride>,
     /// One entry per Pad of the Footprint copy, sorted by Pad UUID.
     pub pads: Vec<PadNet>,
 }
@@ -56,6 +55,69 @@ impl FootprintInstance {
     pub fn pad_net(&self, pad: Uuid) -> Option<Uuid> {
         self.pads.iter().find(|p| p.pad == pad).and_then(|p| p.net)
     }
+}
+
+/// One field text on one placed Footprint, independent of other instances of its copy.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintTextRef {
+    pub footprint: Uuid,
+    pub text: Uuid,
+}
+
+/// An instance changes only the properties present here; the Footprint supplies the rest.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintTextOverride {
+    pub text: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Point>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Millideg>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<TextStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub autoposition: Option<TextAutoposition>,
+}
+
+impl FootprintTextOverride {
+    pub fn new(text: Uuid) -> Self {
+        Self {
+            text,
+            at: None,
+            rotation: None,
+            style: None,
+            visible: None,
+            autoposition: None,
+        }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.at.is_none()
+            && self.rotation.is_none()
+            && self.style.is_none()
+            && self.visible.is_none()
+            && self.autoposition.is_none()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TextAutoposition {
+    #[default]
+    Manual,
+    LeftAbove,
+    CenterAbove,
+    RightAbove,
+    LeftCenter,
+    Center,
+    RightCenter,
+    LeftBelow,
+    CenterBelow,
+    RightBelow,
 }
 
 /// The Net a Pad of a Footprint instance is on.

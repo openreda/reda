@@ -1005,7 +1005,7 @@ fn a_footprint_swap_keeps_placement_lock_and_designator_text() {
     let before = instances(&mut engine)[0].clone();
     assert_eq!(before["side"], "bottom");
     assert_eq!(before["locked"], true);
-    assert!(before.get("designator_text").is_some(), "{before}");
+    assert!(before.get("text_overrides").is_some(), "{before}");
 
     engine.run_ok(
         "schematic.component.set",
@@ -1016,16 +1016,14 @@ fn a_footprint_swap_keeps_placement_lock_and_designator_text() {
 
     let after = instances(&mut engine)[0].clone();
     assert_ne!(after["footprint"], before["footprint"]);
-    for key in [
-        "uuid",
-        "at",
-        "rotation",
-        "side",
-        "locked",
-        "designator_text",
-    ] {
+    for key in ["uuid", "at", "rotation", "side", "locked"] {
         assert_eq!(after[key], before[key], "{key} is kept");
     }
+    let mut placement_before = before["text_overrides"][0].clone();
+    let mut placement_after = after["text_overrides"][0].clone();
+    placement_before.as_object_mut().unwrap().remove("text");
+    placement_after.as_object_mut().unwrap().remove("text");
+    assert_eq!(placement_after, placement_before);
     assert_eq!(after["pads"].as_array().unwrap().len(), 4);
 }
 

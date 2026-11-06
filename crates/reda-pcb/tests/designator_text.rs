@@ -43,9 +43,9 @@ fn the_designator_text_moves_and_turns_in_board_coordinates() {
     assert_eq!(text.rotation, Millideg::ZERO);
     assert_eq!(text.layer, FootprintLayer::SilkscreenTop);
     // Stored in the Footprint's own frame, so it follows the Footprint.
-    let stored = footprint(&engine, r1).designator_text.clone().unwrap();
-    assert_eq!(stored.at, Point::new(Nm(0), Nm::from_mm(-2)));
-    assert_eq!(stored.rotation, Millideg::from_deg(270));
+    let stored = footprint(&engine, r1).text_overrides[0].clone();
+    assert_eq!(stored.at, Some(Point::new(Nm(0), Nm::from_mm(-2))));
+    assert_eq!(stored.rotation, Some(Millideg::from_deg(270)));
 
     engine.run_ok(
         "pcb.move",
@@ -74,7 +74,7 @@ fn the_designator_text_can_be_resized_hidden_and_reset() {
         "pcb.designator_text.set",
         json!({"footprint": r1, "reset": true}),
     );
-    assert_eq!(footprint(&engine, r1).designator_text, None);
+    assert!(footprint(&engine, r1).text_overrides.is_empty());
     assert_eq!(designator(&engine, r1), original);
 }
 
