@@ -135,7 +135,8 @@ fn keys_and_clicks_draw_a_wire_run_that_ends_on_a_pin() {
             "schematic.wire.add"
         ]
     );
-    assert_eq!(wires(&h), 2);
+    // The run is one Wire.
+    assert_eq!(wires(&h), 1);
     assert!(
         h.state()
             .shell()

@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{SchematicSheet, Uuid};
-use reda_engine::schematic::connectivity::{net_at, on_segment, placed_pins};
+use reda_engine::schematic::connectivity::{net_at, placed_pins};
 use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
 use serde_json::{Value, json};
 
@@ -388,7 +388,12 @@ fn show(
             f.preview.hidden.clone(),
             (f.offset.x.0 as f64, f.offset.y.0 as f64),
             Overlay {
-                wires: f.preview.wires.clone().into(),
+                wires: f
+                    .preview
+                    .wires
+                    .iter()
+                    .flat_map(|v| v.windows(2).map(|pair| (pair[0], pair[1])))
+                    .collect(),
                 cursor: Some(f.anchor + f.offset),
                 ..Overlay::default()
             },
@@ -454,12 +459,7 @@ fn preview_run(shell: &mut Shell, document: Uuid, state: &mut Interaction) {
                 .project()
                 .and_then(|p| p.schematic_sheet(document))
             {
-                objects.extend(
-                    sheet
-                        .wires()
-                        .filter(|w| on_segment(w, start))
-                        .map(|w| w.uuid),
-                );
+                objects.extend(sheet.wires().filter(|w| w.contains(start)).map(|w| w.uuid));
                 objects.extend(
                     placed_pins(sheet)
                         .into_iter()
@@ -899,8 +899,8 @@ fn snap_targets(sheet: &SchematicSheet, moving: &BTreeSet<Uuid>) -> SnapTargets 
         }
     }
     for wire in sheet.wires().filter(|w| !moving.contains(&w.uuid)) {
-        targets.points.extend([wire.from, wire.to]);
-        targets.segments.push((wire.from, wire.to));
+        targets.points.extend(wire.vertices.iter().copied());
+        targets.segments.extend(wire.segments());
     }
     targets
 }

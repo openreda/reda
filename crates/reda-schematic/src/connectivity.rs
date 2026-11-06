@@ -2,14 +2,16 @@
 //! drawing. Nothing here is stored; derive again after every transaction.
 //!
 //! The rules, from the spec:
-//! - A Wire connects where one of its ends touches a Pin's connection point, another
-//!   Wire's end, or anywhere along another Wire. A Pin in the middle of a Wire, or two
-//!   Wires crossing mid-segment, do not connect.
+//! - A Wire is a polyline at any angle. It connects where one of its ends touches a Pin's
+//!   connection point or any point of another Wire, and where it passes over a Pin's
+//!   connection point, a Port, a Power Port or a Net Label. Two Wires crossing mid-span do
+//!   not connect.
 //! - Pins whose connection points coincide connect.
 //! - A Net Label joins the Wires through its point (and any Pin there) to every Net Label
 //!   with the same name on the sheet.
 //! - A Junction sits where three or more Wire ends, Wire passes and Pins meet, at least
-//!   one of them a Wire end.
+//!   one of them a Wire end (a pass, corners included, counts twice), and where a Wire
+//!   passes over a Pin's connection point, a Port or a Power Port. A Net Label makes none.
 //! - A Port joins the Wires through its point (and any Pin there) to every Port with the
 //!   same name on any sheet; a Power Port likewise to every Power Port of its name in the
 //!   Project. Net Labels stay on their sheet.
@@ -389,27 +391,6 @@ pub fn pin_position(unit: &UnitInstance, pin: &Pin) -> Point {
 
 pub(crate) use reda_model::geom::rotate;
 
-/// Whether `p` lies on the Wire strictly between its ends.
-pub fn in_interior(wire: &Wire, p: Point) -> bool {
-    on_segment(wire, p) && p != wire.from && p != wire.to
-}
-
-/// Whether `p` lies on the Wire, ends included.
-pub fn on_segment(wire: &Wire, p: Point) -> bool {
-    let (a, b) = (wire.from, wire.to);
-    if a.x == b.x {
-        p.x == a.x && between(p.y, a.y, b.y)
-    } else if a.y == b.y {
-        p.y == a.y && between(p.x, a.x, b.x)
-    } else {
-        false
-    }
-}
-
-fn between(v: Nm, a: Nm, b: Nm) -> bool {
-    a.min(b) <= v && v <= a.max(b)
-}
-
 /// Every Pin of every placed Unit on the sheet, with its connection point.
 pub fn placed_pins(sheet: &SchematicSheet) -> Vec<(&UnitInstance, &Pin, Point)> {
     sheet
@@ -424,10 +405,12 @@ pub fn placed_pins(sheet: &SchematicSheet) -> Vec<(&UnitInstance, &Pin, Point)> 
         .collect()
 }
 
-/// Wires indexed by the line they run along, for point lookups.
+/// Wire segments indexed by the line they run along, for point lookups. Horizontal and
+/// vertical segments are keyed by their line; the few at other angles are scanned.
 struct WireIndex<'a> {
-    horizontal: BTreeMap<Nm, Vec<&'a Wire>>,
-    vertical: BTreeMap<Nm, Vec<&'a Wire>>,
+    horizontal: BTreeMap<Nm, Vec<(&'a Wire, Point, Point)>>,
+    vertical: BTreeMap<Nm, Vec<(&'a Wire, Point, Point)>>,
+    oblique: Vec<(&'a Wire, Point, Point)>,
 }
 
 impl<'a> WireIndex<'a> {
@@ -435,22 +418,35 @@ impl<'a> WireIndex<'a> {
         let mut index = WireIndex {
             horizontal: BTreeMap::new(),
             vertical: BTreeMap::new(),
+            oblique: vec![],
         };
         for w in wires {
-            if w.from.y == w.to.y {
-                index.horizontal.entry(w.from.y).or_default().push(w);
-            } else {
-                index.vertical.entry(w.from.x).or_default().push(w);
+            for (a, b) in w.segments() {
+                if a.y == b.y {
+                    index.horizontal.entry(a.y).or_default().push((w, a, b));
+                } else if a.x == b.x {
+                    index.vertical.entry(a.x).or_default().push((w, a, b));
+                } else {
+                    index.oblique.push((w, a, b));
+                }
             }
         }
         index
     }
 
-    /// The Wires passing through `p`, ends included.
-    fn through(&self, p: Point) -> impl Iterator<Item = &'a Wire> + '_ {
+    /// The Wires passing through `p`, ends included, each once, sorted by UUID.
+    fn through(&self, p: Point) -> Vec<&'a Wire> {
         let h = self.horizontal.get(&p.y).into_iter().flatten();
         let v = self.vertical.get(&p.x).into_iter().flatten();
-        h.chain(v).copied().filter(move |w| on_segment(w, p))
+        let mut out: Vec<&'a Wire> = h
+            .chain(v)
+            .chain(&self.oblique)
+            .filter(|(_, a, b)| p.on_segment(*a, *b))
+            .map(|(w, _, _)| *w)
+            .collect();
+        out.sort_by_key(|w| w.uuid);
+        out.dedup_by_key(|w| w.uuid);
+        out
     }
 }
 
@@ -503,8 +499,9 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
     }
     let mut ends_at: BTreeMap<Point, Vec<usize>> = BTreeMap::new();
     for (i, w) in wires.iter().enumerate() {
-        ends_at.entry(w.from).or_default().push(i);
-        ends_at.entry(w.to).or_default().push(i);
+        for end in w.ends() {
+            ends_at.entry(end).or_default().push(i);
+        }
     }
 
     // Pins on the same point.
@@ -513,14 +510,14 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
             sets.union(pair[0], pair[1]);
         }
     }
+    // Each Junction, with an item on its Net.
+    let mut junctions: BTreeMap<Point, usize> = BTreeMap::new();
     // Wire ends join everything through their point.
-    let mut junctions = BTreeSet::new();
     for (&p, ends) in &ends_at {
         let mut passes = 0;
         for other in index.through(p) {
-            let o = wire_item[&other.uuid];
-            sets.union(ends[0], o);
-            if in_interior(other, p) {
+            sets.union(ends[0], wire_item[&other.uuid]);
+            if other.passes_over(p) {
                 passes += 1;
             }
         }
@@ -529,11 +526,22 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
             sets.union(ends[0], pin);
         }
         if ends.len() + 2 * passes + pins_here.len() >= 3 {
-            junctions.insert(p);
+            junctions.insert(p, ends[0]);
+        }
+    }
+    // A Wire passing over a Pin joins it there, with a Junction.
+    for (&p, items) in &pins_at {
+        for w in index.through(p) {
+            let item = wire_item[&w.uuid];
+            sets.union(items[0], item);
+            if w.passes_over(p) {
+                junctions.entry(p).or_insert(item);
+            }
         }
     }
     // Net Labels, Ports and Power Ports join the Wires and Pins under them, and each
-    // other by kind and name.
+    // other by kind and name. A Wire passing over a Port or Power Port makes a Junction
+    // there; a Net Label never does.
     let named = (labels.iter().enumerate())
         .map(|(i, l)| (label_base + i, 0, l.name.as_str(), l.at))
         .chain((ports.iter().enumerate()).map(|(i, p)| (port_base + i, 1, p.name.as_str(), p.at)))
@@ -544,6 +552,9 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
     for (item, kind, name, at) in named {
         for w in index.through(at) {
             sets.union(item, wire_item[&w.uuid]);
+            if kind != 0 && w.passes_over(at) {
+                junctions.entry(at).or_insert(item);
+            }
         }
         for &pin in pins_at.get(&at).into_iter().flatten() {
             sets.union(item, pin);
@@ -598,15 +609,14 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
         net.power_ports.push(power.uuid);
         net.power_port_names.push(power.name.clone());
     }
-    for p in &junctions {
-        let first_end = ends_at[p][0];
-        group(&mut groups, &mut sets, first_end).junctions.push(*p);
+    for (&p, &item) in &junctions {
+        group(&mut groups, &mut sets, item).junctions.push(p);
     }
 
     let mut conn = SheetConnectivity {
         document: sheet.uuid,
         nets: groups.into_values().map(finish).collect(),
-        junctions: junctions.into_iter().collect(),
+        junctions: junctions.into_keys().collect(),
         index: BTreeMap::new(),
         pin_index: BTreeMap::new(),
     };
