@@ -2,7 +2,7 @@
 //! free drawing (text, lines and rectangles).
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{JustifyAxis, SchematicSheet, SheetShape, Wire};
+use reda_model::{JustifyAxis, SchematicSheet, SheetShape};
 
 use super::Builder;
 use crate::color::SchematicColor as C;
@@ -22,15 +22,17 @@ const NO_CONNECT_HALF: i64 = 635_000;
 
 pub(super) fn wires(b: &mut Builder, sheet: &SchematicSheet) {
     for wire in sheet.wires() {
-        b.push(
-            wire.uuid,
-            C::Wire,
-            Primitive::Capsule {
-                a: wire.from,
-                b: wire.to,
-                width: WIRE_WIDTH,
-            },
-        );
+        for (a, z) in wire.segments() {
+            b.push(
+                wire.uuid,
+                C::Wire,
+                Primitive::Capsule {
+                    a,
+                    b: z,
+                    width: WIRE_WIDTH,
+                },
+            );
+        }
     }
 }
 
@@ -40,7 +42,7 @@ pub(super) fn junctions(b: &mut Builder, sheet: &SchematicSheet, junctions: &[Po
     for &at in junctions {
         let object = sheet
             .wires()
-            .find(|w| touches(w, at))
+            .find(|w| w.contains(at))
             .map_or(sheet.uuid, |w| w.uuid);
         b.push(
             object,
@@ -52,12 +54,6 @@ pub(super) fn junctions(b: &mut Builder, sheet: &SchematicSheet, junctions: &[Po
             },
         );
     }
-}
-
-fn touches(wire: &Wire, p: Point) -> bool {
-    let (a, z) = (wire.from, wire.to);
-    let within = |v: Nm, a: Nm, z: Nm| a.min(z) <= v && v <= a.max(z);
-    within(p.x, a.x, z.x) && within(p.y, a.y, z.y) && (a.x == z.x || a.y == z.y)
 }
 
 pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet) {

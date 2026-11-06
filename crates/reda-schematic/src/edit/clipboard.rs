@@ -321,8 +321,9 @@ fn paste(
     }
     for mut wire in clip.wires {
         wire.uuid = cx.new_id();
-        wire.from = wire.from + offset;
-        wire.to = wire.to + offset;
+        for v in &mut wire.vertices {
+            *v = *v + offset;
+        }
         pasted.push(wire.uuid);
         cx.tx()?
             .insert(Object::Wire(InDocument::new(document, wire)))?;

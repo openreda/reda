@@ -630,8 +630,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             sheet,
             Wire {
                 uuid: id(5),
-                from,
-                to,
+                vertices: vec![from, to],
             },
         )));
         objects.push(Object::NetLabel(InDocument::new(

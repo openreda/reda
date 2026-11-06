@@ -134,6 +134,30 @@ fn every_schematic_object_kind_is_drawn() {
 }
 
 #[test]
+fn a_wire_draws_one_stroke_per_segment_at_any_angle() {
+    let dir = TempDir::new("render-polyline");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok(
+        "schematic.wire.add",
+        json!({"document": SHEET, "points": [at(0, 0), at(100, 0), at(200, 100)]}),
+    );
+    let wire: Uuid = out["result"]["wires"][0].as_str().unwrap().parse().unwrap();
+    let scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    let strokes: Vec<(Point, Point)> = scene
+        .items_of(wire)
+        .map(|item| match item.primitive {
+            Primitive::Capsule { a, b, .. } => (a, b),
+            ref other => panic!("a Wire draws capsules, not {other:?}"),
+        })
+        .collect();
+    let mil = |x: i64, y: i64| Point::new(x.mil(), y.mil());
+    assert_eq!(
+        strokes,
+        [(mil(0, 0), mil(100, 0)), (mil(100, 0), mil(200, 100))]
+    );
+}
+
+#[test]
 fn every_item_is_tagged_with_an_object_on_the_sheet() {
     let dir = TempDir::new("render-tags");
     let mut engine = demo(&dir);

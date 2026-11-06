@@ -134,13 +134,14 @@ pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet) {
     }
 }
 
-/// Whether a Wire ending on `port`'s point leaves it towards the side the flag reaches.
+/// Whether a Wire segment ending on `port`'s point leaves it towards the side the flag
+/// reaches.
 fn wire_on_flag_side(sheet: &SchematicSheet, port: &Port) -> bool {
     let (fx, fy) = rotate(1_000_000, 0, port.rotation);
-    sheet.wires().any(|w| {
-        let other = match (w.from == port.at, w.to == port.at) {
-            (true, _) => w.to,
-            (_, true) => w.from,
+    sheet.wires().flat_map(|w| w.segments()).any(|(a, b)| {
+        let other = match (a == port.at, b == port.at) {
+            (true, _) => b,
+            (_, true) => a,
             _ => return false,
         };
         let (vx, vy) = ((other.x - port.at.x).0, (other.y - port.at.y).0);
