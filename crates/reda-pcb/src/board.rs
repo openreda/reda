@@ -81,6 +81,30 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
         (RuleKind::AnnularRing, min(rules.annular_ring)),
         (RuleKind::HoleToHole, min(rules.hole_to_hole)),
         (RuleKind::EdgeClearance, value(rules.edge_clearance)),
+        (
+            RuleKind::MaskExpansion,
+            RuleValues {
+                top: Some(rules.mask_expansion.top),
+                bottom: Some(rules.mask_expansion.bottom),
+                from_hole_edge: Some(rules.mask_expansion.from_hole_edge),
+                tent_vias_top: Some(rules.mask_expansion.tent_vias_top),
+                tent_vias_bottom: Some(rules.mask_expansion.tent_vias_bottom),
+                ..RuleValues::default()
+            },
+        ),
+        (
+            RuleKind::PasteExpansion,
+            match rules.paste_expansion {
+                reda_model::PasteExpansion::Expansion { expansion } => RuleValues {
+                    expansion: Some(expansion),
+                    ..RuleValues::default()
+                },
+                reda_model::PasteExpansion::Percent { percent } => RuleValues {
+                    percent: Some(percent),
+                    ..RuleValues::default()
+                },
+            },
+        ),
     ]
 }
 

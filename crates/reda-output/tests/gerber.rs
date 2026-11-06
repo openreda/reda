@@ -631,3 +631,25 @@ fn the_zip_holds_every_file_stamped_with_the_clock() {
         assert_eq!(content, f.bytes);
     }
 }
+
+#[test]
+fn pcbway_mask_files_record_the_specified_fifty_micrometre_expansion() {
+    let dir = TempDir::new("gerber-pcbway-mask");
+    let mut engine = demo(&dir);
+    let preset =
+        engine.run_ok("fab_preset.add", json!({"name":"PCBWay"}))["result"]["uuid"].clone();
+    engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    for file in plot(&engine)
+        .into_iter()
+        .filter(|f| f.name.ends_with(".GTS") || f.name.ends_with(".GBS"))
+    {
+        reda_testkit::assert_golden(
+            format!(
+                "{}/tests/golden/gerber-pcbway/{}",
+                env!("CARGO_MANIFEST_DIR"),
+                file.name
+            ),
+            &file.bytes,
+        );
+    }
+}

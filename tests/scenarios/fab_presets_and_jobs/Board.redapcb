@@ -19,9 +19,9 @@
     {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-00000000001d","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-00000000001f","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-00000000001c"},
+      {"uuid":"00000000-0000-4000-8000-00000000001e"},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000}
     ]}
   ],
@@ -33,10 +33,12 @@
     {"uuid":"00000000-0000-4000-8000-000000000018","kind":"hole_size","scope":{},"values":{"min":200000,"max":6300000}},
     {"uuid":"00000000-0000-4000-8000-000000000019","kind":"annular_ring","scope":{},"values":{"min":150000}},
     {"uuid":"00000000-0000-4000-8000-00000000001a","kind":"hole_to_hole","scope":{},"values":{"min":500000}},
-    {"uuid":"00000000-0000-4000-8000-00000000001b","kind":"edge_clearance","scope":{},"values":{"value":400000}}
+    {"uuid":"00000000-0000-4000-8000-00000000001b","kind":"edge_clearance","scope":{},"values":{"value":400000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001c","kind":"mask_expansion","scope":{},"values":{"top":50000,"bottom":50000,"from_hole_edge":false,"tent_vias_top":true,"tent_vias_bottom":true}},
+    {"uuid":"00000000-0000-4000-8000-00000000001d","kind":"paste_expansion","scope":{},"values":{"expansion":0}}
   ],
-  "severities": {"clearance":"error","short_circuit":"error","track_width":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","courtyard_overlap":"warning","silkscreen_over_pads":"warning","out_of_sync":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000020","vertices":[
+  "severities": {"clearance":"error","short_circuit":"error","track_width":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","courtyard_overlap":"warning","silkscreen_over_pads":"warning","out_of_sync":"warning","opening_collapsed":"warning"},
+  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000022","vertices":[
     {"x":1000000,"y":0},
     {"x":49000000,"y":0,"sweep":90000},
     {"x":50000000,"y":1000000},

@@ -45,6 +45,10 @@ pub struct FreePad {
     /// Net.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<crate::Mask>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paste: Option<crate::Paste>,
     /// How Zone fills of its Net join it. Each value left out inherits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zone_connection: Option<ZoneConnection>,
@@ -76,6 +80,14 @@ impl FreePad {
     /// What is wrong with this Pad, if anything: a JSON pointer to the field and a message.
     pub fn problem(&self) -> Option<(String, String)> {
         if let Some(problem) = self.form().problem() {
+            return Some(problem);
+        }
+        if let Some(problem) = crate::opening_problem(
+            self.kind,
+            self.side,
+            self.mask.as_ref(),
+            self.paste.as_ref(),
+        ) {
             return Some(problem);
         }
         if self.kind == PadKind::NonPlated && self.net.is_some() {

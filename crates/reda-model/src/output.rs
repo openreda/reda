@@ -36,6 +36,8 @@ pub struct FabRules {
     /// The preferred sizes a new board is seeded with. They are never compared with the
     /// board.
     pub preferred: PreferredSeeds,
+    pub mask_expansion: crate::MaskExpansion,
+    pub paste_expansion: crate::PasteExpansion,
 }
 
 /// The preferred Track and Via sizes a Fab Preset seeds a new board with.

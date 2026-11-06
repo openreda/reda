@@ -73,6 +73,8 @@ pub struct FreePadAddParams {
     /// The PCB Net, by UUID; non-plated Pads have none.
     #[serde(default)]
     pub net: Option<Uuid>,
+    pub mask: Option<reda_command::MaskParam>,
+    pub paste: Option<reda_command::PasteParam>,
     /// How Zone fills of its Net join it; each value left out inherits.
     #[serde(default)]
     pub zone_connection: Option<ZoneConnectionParam>,
@@ -132,6 +134,8 @@ impl Command for FreePadAdd {
             hole: p.hole.map(HoleParam::hole),
             side: p.side.filter(|s| *s != Side::Top || p.kind != PadKind::Smd),
             net: p.net,
+            mask: reda_command::mask(p.mask),
+            paste: reda_command::paste(p.paste),
             zone_connection: zone_connection(p.zone_connection),
         };
         if let Some((pointer, problem)) = pad.problem() {

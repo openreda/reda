@@ -187,3 +187,26 @@ mod tests {
         assert!(parse_percent("-3%").is_err());
     }
 }
+
+/// Mask overrides accept the same length syntax as every Command.
+pub type MaskParam = reda_model::Mask<Length>;
+/// Paste windows are in the Pad's frame.
+pub type PasteParam = reda_model::Paste<Length, OpeningPointParam, RatioParam>;
+pub fn mask(param: Option<MaskParam>) -> Option<reda_model::Mask> {
+    param.map(|m| m.map(Length::nm))
+}
+pub fn paste(param: Option<PasteParam>) -> Option<reda_model::Paste> {
+    param.map(|p| p.map(Length::nm, OpeningPointParam::point, RatioParam::ratio))
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OpeningPointParam {
+    pub x: Length,
+    pub y: Length,
+}
+impl OpeningPointParam {
+    pub fn point(self) -> reda_model::geom::Point {
+        reda_model::geom::Point::new(self.x.nm(), self.y.nm())
+    }
+}

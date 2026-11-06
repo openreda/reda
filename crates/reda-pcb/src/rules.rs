@@ -187,6 +187,9 @@ pub fn effective_values(board: &DesignRule, record: &DesignRule) -> RuleValues {
     let mut values = record.values;
     if !record.scope.is_board_wide() {
         for &field in record.kind.fields() {
+            if record.kind == RuleKind::PasteExpansion && !record.values.is_empty() {
+                continue;
+            }
             if values.get(field).is_none() {
                 values
                     .set(field, board.values.get(field))
@@ -205,7 +208,10 @@ pub fn blocking_problems(board: &DesignRule, record: &DesignRule) -> Vec<(RuleFi
     let values = effective_values(board, record);
     let mut problems = Vec::new();
     for &field in record.kind.fields() {
-        if let Some(n) = values.length(field)
+        if !matches!(
+            record.kind,
+            RuleKind::MaskExpansion | RuleKind::PasteExpansion
+        ) && let Some(n) = values.length(field)
             && n < Nm::ZERO
         {
             problems.push((field, format!("`{}` cannot be negative", field.path())));

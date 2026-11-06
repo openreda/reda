@@ -38,6 +38,7 @@ pub fn check_name(check: DrcCheck) -> String {
         DrcCheck::CourtyardOverlap => tr!("check-courtyard-overlap"),
         DrcCheck::SilkscreenOverPads => tr!("check-silkscreen-over-pads"),
         DrcCheck::OutOfSync => tr!("check-out-of-sync"),
+        DrcCheck::OpeningCollapsed => tr!("check-opening-collapsed"),
     }
 }
 

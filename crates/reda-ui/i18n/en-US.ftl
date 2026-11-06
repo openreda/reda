@@ -889,8 +889,8 @@ footprint-pad-width = Width
 footprint-pad-height = Height
 footprint-hole-width = Hole width
 footprint-hole-height = Hole height
-footprint-mask-margin = Mask margin
-footprint-paste-margin = Paste margin
+footprint-mask-margin = Mask expansion
+footprint-paste-margin = Paste expansion
 footprint-rotation = Rotation
 footprint-stroke-width = Stroke width
 footprint-text-size = Size
@@ -1144,3 +1144,4 @@ tab-out-of-sync = { $tab }, out of sync: { $count ->
     [one] 1 change
    *[other] { $count } changes
 }
+check-opening-collapsed = Mask or paste opening collapsed

@@ -35,7 +35,10 @@ pub use history::{Entry, History};
 pub use inputs::SystemClock;
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, Timestamp};
 pub use library::{ElementLocation, FootprintCopyData, NoLibraries, PartCopy, PartSource};
-pub use pad::{HoleParam, HoleToleranceParam, RatioParam, ZoneConnectionParam, zone_connection};
+pub use pad::{
+    HoleParam, HoleToleranceParam, MaskParam, PasteParam, RatioParam, ZoneConnectionParam, mask,
+    paste, zone_connection,
+};
 pub use registry::{Registry, scope_key};
 pub use signals::{CancelToken, Progress, Signals};
 pub use trash::Trash;

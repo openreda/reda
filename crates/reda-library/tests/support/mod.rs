@@ -164,8 +164,8 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         offset: None,
         hole: None,
         side: None,
-        mask_margin: None,
-        paste_margin: None,
+        mask: None,
+        paste: None,
         zone_connection: None,
     };
     Footprint {

@@ -189,7 +189,10 @@ fn the_pad_tool_places_pads_from_its_settings_with_the_next_number() {
         (800_000, 1_200_000),
         "a slot"
     );
-    assert_eq!(pad.mask_margin.map(|m| m.0), Some(50_000));
+    assert_eq!(
+        serde_json::to_value(pad.mask).unwrap()["top"]["expansion"],
+        50_000
+    );
 
     // Undo takes back one Pad: each placement is one step on the element's stack.
     shell.undo(false, None).unwrap();
