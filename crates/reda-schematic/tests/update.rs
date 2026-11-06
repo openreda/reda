@@ -354,3 +354,81 @@ fn the_preview_defaults_to_every_outdated_component() {
         json!([{"kind": "symbol", "name": "Resistor"}])
     );
 }
+
+#[test]
+fn a_locked_field_blocks_updates_but_can_still_be_edited_by_hand() {
+    let mut f = fixture("locked-field");
+    let r1 = f.place(R_10K, "0mm");
+    let component = r1["component"]["uuid"].clone();
+    f.engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [component], "locked": {"LCSC": true}}),
+    );
+    assert_eq!(f.object(&r1["unit"])["locked_fields"], json!(["LCSC"]));
+    f.edit_library("parts/R_10k.redapart", "C25804", "C99999");
+    f.edit_library("parts/R_10k.redapart", "RC0603FR-0710KL", "RC0603FR-07NEW");
+
+    let preview = f.engine.run_ok(
+        "schematic.component.update_preview",
+        json!({"components": [component]}),
+    );
+    assert_eq!(
+        preview["components"][0]["changes"],
+        json!([
+            {"kind": "field", "name": "mpn", "from": "RC0603FR-0710KL", "to": "RC0603FR-07NEW"},
+            {"kind": "field", "name": "LCSC", "from": "C25804", "to": "C99999", "locked": true},
+        ])
+    );
+    f.engine.run_ok(
+        "schematic.component.update_from_library",
+        json!({"components": [component]}),
+    );
+    let unit = f.object(&r1["unit"]);
+    assert_eq!(unit["fields"]["mpn"], "RC0603FR-07NEW");
+    assert_eq!(
+        unit["fields"]["custom"],
+        json!([{"name": "LCSC", "value": "C25804"}]),
+        "the locked field keeps its value"
+    );
+
+    f.engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [component], "fields": {"LCSC": "C12345"}}),
+    );
+    assert_eq!(
+        f.object(&r1["unit"])["fields"]["custom"],
+        json!([{"name": "LCSC", "value": "C12345"}]),
+        "a lock does not stop a hand edit"
+    );
+    f.engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [component], "locked": {"LCSC": false}}),
+    );
+    assert!(f.object(&r1["unit"]).get("locked_fields").is_none());
+}
+
+#[test]
+fn locked_fields_are_kept_equal_on_every_unit() {
+    let mut f = fixture("locked-units");
+    let u1 = f.place(LM358, "0mm");
+    let component = u1["component"]["uuid"].clone();
+    f.engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [component], "locked": {"mpn": true}}),
+    );
+    let b = f.engine.run_ok(
+        "schematic.unit.place",
+        json!({"document": SHEET, "component": component, "at": {"x": "30mm", "y": 0}}),
+    );
+    assert_eq!(
+        f.object(&b["result"]["unit"])["locked_fields"],
+        json!(["mpn"])
+    );
+    f.engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [component], "locked": {"value": true}}),
+    );
+    for unit in [&u1["unit"], &b["result"]["unit"]] {
+        assert_eq!(f.object(unit)["locked_fields"], json!(["mpn", "value"]));
+    }
+}

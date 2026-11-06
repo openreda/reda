@@ -4,6 +4,7 @@
 //! [`Transaction`], which records a [`ChangeSet`] of before/after states per object. The
 //! file format is not defined here: the engine maps these types to canonical JSON.
 
+pub mod auto_increment;
 mod change;
 mod check;
 mod derived;
@@ -53,9 +54,10 @@ pub use project::{
     SchematicOptions, SheetStyle,
 };
 pub use schematic::{
-    BorderZones, ComponentRef, FootprintCopy, FrameSize, Justify, JustifyAxis, NetLabel, NoConnect,
-    Orientation, PartEntry, Port, PortDirection, PowerPort, PowerPortStyle, SchematicSheet,
-    SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, UnitInstance, Wire,
+    BorderZones, ComponentRef, FieldText, FootprintCopy, FrameSize, Justify, JustifyAxis, NetLabel,
+    NoConnect, Orientation, PartEntry, Port, PortDirection, PowerPort, PowerPortStyle,
+    SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, UnitInstance,
+    UnitSuffix, Wire,
 };
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};

@@ -93,6 +93,10 @@ impl SavedLayout {
             windows: layout
                 .windows
                 .iter()
+                // A window holding only settings windows is not kept.
+                .filter(|w| {
+                    (layout.tabs_in_window(w.id).iter()).any(|t| !matches!(t, TabKey::Settings(_)))
+                })
                 .map(|w| FloatingWindow {
                     id: w.id,
                     root: map_node(&w.root, &mut slots_of),
@@ -110,7 +114,7 @@ impl SavedLayout {
             .groups()
             .into_iter()
             .flat_map(|(_, g)| g.tabs.iter())
-            .filter(|t| !matches!(t, TabKey::Panel(_)))
+            .filter(|t| matches!(t, TabKey::Start | TabKey::Document(_)))
             .cloned()
             .collect();
         let active = current.active_document().map(TabKey::Document);
@@ -167,6 +171,20 @@ impl SavedLayout {
             current.active_document(),
         )
         .map_err(|e| CommandError::rejected(format!("the Saved Layout cannot apply: {e}")))?;
+        // Saved Layouts do not keep the settings windows: the open ones stay open, each in
+        // a window of its own where its window was.
+        let focus = layout.focus.clone();
+        for (_, g) in current.groups() {
+            for tab in &g.tabs {
+                if let TabKey::Settings(window) = tab {
+                    let rect = (current.window_of(tab))
+                        .and_then(|w| current.windows.iter().find(|f| f.id == w))
+                        .and_then(|f| f.rect);
+                    layout.open_settings(*window, rect);
+                }
+            }
+        }
+        layout.focus = focus.filter(|t| layout.place(t).is_some());
         layout.flyout = None;
         Ok(layout)
     }
@@ -178,6 +196,7 @@ fn slots_of(g: &Group) -> Group<Slot> {
     for (i, tab) in g.tabs.iter().enumerate() {
         let slot = match tab {
             TabKey::Panel(panel) => Some(Slot::Panel(*panel)),
+            TabKey::Settings(_) => None,
             TabKey::Start | TabKey::Document(_) => {
                 (!out.tabs.contains(&Slot::Documents)).then_some(Slot::Documents)
             }

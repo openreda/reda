@@ -10028,6 +10028,32 @@
             ],
             "type": "object"
           },
+          "FieldText": {
+            "additionalProperties": false,
+            "description": "Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's\nown frame (so rotating or mirroring the Unit carries it along), and its text height\nwhen it is not the default.",
+            "properties": {
+              "field": {
+                "description": "The field, by name.",
+                "type": "string"
+              },
+              "offset": {
+                "$ref": "#/$defs/Point"
+              },
+              "size": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "offset"
+            ],
+            "type": "object"
+          },
           "Fields": {
             "additionalProperties": false,
             "description": "A Part's default fields, copied onto each Component placed from it.",
@@ -10472,6 +10498,13 @@
                 "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
                 "type": "boolean"
               },
+              "field_text": {
+                "description": "The fields moved by hand on this Unit, one entry per field, sorted by field name\n(the names of `visible_fields`). A field with no entry is autopositioned. Each\nUnit has its own.",
+                "items": {
+                  "$ref": "#/$defs/FieldText"
+                },
+                "type": "array"
+              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -10491,6 +10524,14 @@
               "in_cpl": {
                 "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
                 "type": "boolean"
+              },
+              "locked_fields": {
+                "description": "The Locked Fields, by name: Update from Library leaves them as they are, though\nthey can still be edited by hand. Every Unit of a Component carries the same set.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
@@ -14304,6 +14345,32 @@
             ],
             "type": "object"
           },
+          "FieldText": {
+            "additionalProperties": false,
+            "description": "Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's\nown frame (so rotating or mirroring the Unit carries it along), and its text height\nwhen it is not the default.",
+            "properties": {
+              "field": {
+                "description": "The field, by name.",
+                "type": "string"
+              },
+              "offset": {
+                "$ref": "#/$defs/Point"
+              },
+              "size": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "offset"
+            ],
+            "type": "object"
+          },
           "Fields": {
             "additionalProperties": false,
             "description": "A Part's default fields, copied onto each Component placed from it.",
@@ -14748,6 +14815,13 @@
                 "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
                 "type": "boolean"
               },
+              "field_text": {
+                "description": "The fields moved by hand on this Unit, one entry per field, sorted by field name\n(the names of `visible_fields`). A field with no entry is autopositioned. Each\nUnit has its own.",
+                "items": {
+                  "$ref": "#/$defs/FieldText"
+                },
+                "type": "array"
+              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -14767,6 +14841,14 @@
               "in_cpl": {
                 "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
                 "type": "boolean"
+              },
+              "locked_fields": {
+                "description": "The Locked Fields, by name: Update from Library leaves them as they are, though\nthey can still be edited by hand. Every Unit of a Component carries the same set.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
@@ -26128,6 +26210,14 @@
               "null"
             ]
           },
+          "locked": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "default": {},
+            "description": "Which fields to lock (`true`) or unlock (`false`), by the same names as\n`visible`. Update from Library leaves a Locked Field as it is; it can still be\nedited by hand.",
+            "type": "object"
+          },
           "not_fitted": {
             "description": "Whether this build leaves the Components off the board and out of the BOM and\nCPL. A Net Tie refuses it.",
             "type": [
@@ -26386,7 +26476,7 @@
                 "type": "object"
               },
               {
-                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, which it keeps; otherwise it takes the new default.",
+                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, and `locked` when it is one of the Component's Locked Fields: either\nway it keeps its value; otherwise it takes the new default.",
                 "properties": {
                   "edited": {
                     "type": "boolean"
@@ -26397,6 +26487,9 @@
                   "kind": {
                     "const": "field",
                     "type": "string"
+                  },
+                  "locked": {
+                    "type": "boolean"
                   },
                   "name": {
                     "type": "string"
@@ -26694,7 +26787,7 @@
                 "type": "object"
               },
               {
-                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, which it keeps; otherwise it takes the new default.",
+                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, and `locked` when it is one of the Component's Locked Fields: either\nway it keeps its value; otherwise it takes the new default.",
                 "properties": {
                   "edited": {
                     "type": "boolean"
@@ -26705,6 +26798,9 @@
                   "kind": {
                     "const": "field",
                     "type": "string"
+                  },
+                  "locked": {
+                    "type": "boolean"
                   },
                   "name": {
                     "type": "string"
@@ -26968,6 +27064,32 @@
             "required": [
               "name",
               "value"
+            ],
+            "type": "object"
+          },
+          "FieldText": {
+            "additionalProperties": false,
+            "description": "Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's\nown frame (so rotating or mirroring the Unit carries it along), and its text height\nwhen it is not the default.",
+            "properties": {
+              "field": {
+                "description": "The field, by name.",
+                "type": "string"
+              },
+              "offset": {
+                "$ref": "#/$defs/Point"
+              },
+              "size": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "offset"
             ],
             "type": "object"
           },
@@ -28364,6 +28486,13 @@
                 "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
                 "type": "boolean"
               },
+              "field_text": {
+                "description": "The fields moved by hand on this Unit, one entry per field, sorted by field name\n(the names of `visible_fields`). A field with no entry is autopositioned. Each\nUnit has its own.",
+                "items": {
+                  "$ref": "#/$defs/FieldText"
+                },
+                "type": "array"
+              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -28383,6 +28512,14 @@
               "in_cpl": {
                 "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
                 "type": "boolean"
+              },
+              "locked_fields": {
+                "description": "The Locked Fields, by name: Update from Library leaves them as they are, though\nthey can still be edited by hand. Every Unit of a Component carries the same set.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
@@ -28762,6 +28899,32 @@
             ],
             "type": "object"
           },
+          "FieldText": {
+            "additionalProperties": false,
+            "description": "Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's\nown frame (so rotating or mirroring the Unit carries it along), and its text height\nwhen it is not the default.",
+            "properties": {
+              "field": {
+                "description": "The field, by name.",
+                "type": "string"
+              },
+              "offset": {
+                "$ref": "#/$defs/Point"
+              },
+              "size": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "offset"
+            ],
+            "type": "object"
+          },
           "Fields": {
             "additionalProperties": false,
             "description": "A Part's default fields, copied onto each Component placed from it.",
@@ -30155,6 +30318,13 @@
                 "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
                 "type": "boolean"
               },
+              "field_text": {
+                "description": "The fields moved by hand on this Unit, one entry per field, sorted by field name\n(the names of `visible_fields`). A field with no entry is autopositioned. Each\nUnit has its own.",
+                "items": {
+                  "$ref": "#/$defs/FieldText"
+                },
+                "type": "array"
+              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -30174,6 +30344,14 @@
               "in_cpl": {
                 "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
                 "type": "boolean"
+              },
+              "locked_fields": {
+                "description": "The Locked Fields, by name: Update from Library leaves them as they are, though\nthey can still be edited by hand. Every Unit of a Component carries the same set.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
@@ -30920,7 +31098,158 @@
     },
     {
       "category": "schematic",
-      "description": "Finds objects on every Schematic Sheet whose Designator, value or Net name contains the text (or equals it, with `exact`), ignoring case.",
+      "description": "Moves one field of a placed Unit by hand, taking it off Autoposition: the Unit's `field_text` stores it by name, as an offset from the Symbol origin (so it follows the Unit as it moves, rotates and mirrors) with an optional text height. The text stays right-reading. `schematic.field.reset_position` puts it back on Autoposition.",
+      "icon": "move",
+      "id": "schematic.field.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/At",
+            "description": "Where the start of the field's text goes on the sheet (its left end, centred\nvertically)."
+          },
+          "field": {
+            "description": "The field, by name: `designator`, `value`, another built-in field or a free-form\nfield's name.",
+            "type": "string"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The text height; unchanged by default (the default height for a field not moved\nbefore)."
+          },
+          "unit": {
+            "description": "The placed Unit, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "field",
+          "at"
+        ],
+        "title": "FieldMoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The Unit whose field was moved or reset.",
+        "properties": {
+          "document": {
+            "description": "The sheet it is on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "document"
+        ],
+        "title": "FieldResult",
+        "type": "object"
+      },
+      "title": "Move Field"
+    },
+    {
+      "category": "schematic",
+      "description": "Puts a field moved by hand back on Autoposition, removing its entry (position and text height) from the Unit's `field_text`. A field already autopositioned is left as it is.",
+      "icon": "home",
+      "id": "schematic.field.reset_position",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "description": "The field, by name, as for `schematic.field.move`.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "The placed Unit, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "field"
+        ],
+        "title": "FieldResetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The Unit whose field was moved or reset.",
+        "properties": {
+          "document": {
+            "description": "The sheet it is on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "document"
+        ],
+        "title": "FieldResult",
+        "type": "object"
+      },
+      "title": "Reset Field Position"
+    },
+    {
+      "category": "schematic",
+      "description": "Finds objects on every Schematic Sheet whose Designator, value or Net name contains the text (or equals it, with `exact`), ignoring case. A Designator also matches with its Unit suffix, as `U1A` or `U1:1`.",
       "icon": "find",
       "id": "schematic.find",
       "kind": "query",
@@ -32622,6 +32951,32 @@
             ],
             "type": "object"
           },
+          "FieldText": {
+            "additionalProperties": false,
+            "description": "Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's\nown frame (so rotating or mirroring the Unit carries it along), and its text height\nwhen it is not the default.",
+            "properties": {
+              "field": {
+                "description": "The field, by name.",
+                "type": "string"
+              },
+              "offset": {
+                "$ref": "#/$defs/Point"
+              },
+              "size": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "offset"
+            ],
+            "type": "object"
+          },
           "Fields": {
             "additionalProperties": false,
             "description": "A Part's default fields, copied onto each Component placed from it.",
@@ -34028,6 +34383,13 @@
                 "description": "Locked against Re-annotate, which then leaves the Designator as it is.",
                 "type": "boolean"
               },
+              "field_text": {
+                "description": "The fields moved by hand on this Unit, one entry per field, sorted by field name\n(the names of `visible_fields`). A field with no entry is autopositioned. Each\nUnit has its own.",
+                "items": {
+                  "$ref": "#/$defs/FieldText"
+                },
+                "type": "array"
+              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -34047,6 +34409,14 @@
               "in_cpl": {
                 "description": "Whether the Component goes into the CPL; copied from the Part, then editable.",
                 "type": "boolean"
+              },
+              "locked_fields": {
+                "description": "The Locked Fields, by name: Update from Library leaves them as they are, though\nthey can still be edited by hand. Every Unit of a Component carries the same set.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               },
               "mirror": {
                 "description": "Mirrored left to right before rotating.",
@@ -36676,6 +37046,122 @@
         "type": "object"
       },
       "title": "Edit Text"
+    },
+    {
+      "category": "schematic",
+      "description": "Turns a placed symbol into the next Unit of its Component, in Symbol order and wrapping round, skipping every Unit already placed on any sheet. Refused when every Unit is placed, so no Unit is ever placed twice. The symbol keeps its position, rotation and fields.",
+      "icon": "units",
+      "id": "schematic.unit.cycle",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "unit": {
+            "description": "The placed Unit, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
+          }
+        },
+        "required": [
+          "unit"
+        ],
+        "title": "UnitCycleParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.unit.cycle` changed.",
+        "properties": {
+          "document": {
+            "description": "The sheet it is on.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "That Unit's name.",
+            "type": "string"
+          },
+          "shows": {
+            "description": "The Symbol Unit it shows now, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "document",
+          "shows",
+          "name"
+        ],
+        "title": "UnitCycleResult",
+        "type": "object"
+      },
+      "title": "Next Unit"
     },
     {
       "category": "schematic",

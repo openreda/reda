@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use egui::{Button, CollapsingHeader, Id, Modal, Role, Sense, TextEdit, Ui, WidgetInfo};
+use egui::{Button, CollapsingHeader, Id, Role, Sense, TextEdit, Ui, WidgetInfo};
 use reda_engine::model::{DocumentEntry, DocumentKind, Project, Scope, Uuid};
 use serde_json::{Value, json};
 
@@ -427,8 +427,12 @@ impl Tree<'_> {
             .schematic_sheet(sheet)
             .map_or(0, |s| s.units().count());
         let mut close = false;
-        let modal = Modal::new(Id::NULL.with("projects-confirm-delete")).show(ctx, |ui| {
-            ui.set_max_width(360.0);
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("projects-confirm-delete"),
+            tr!("projects-confirm-delete-title"),
+        )
+        .width(360.0)
+        .show(ctx, |ui| {
             ui.label(tr!(
                 "projects-confirm-delete",
                 name = entry.title.as_str(),

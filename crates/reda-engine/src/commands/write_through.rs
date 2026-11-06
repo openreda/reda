@@ -153,6 +153,7 @@ impl Command for FootprintSet {
                 in_cpl: p.in_cpl,
                 not_fitted: p.not_fitted,
                 visible: BTreeMap::new(),
+                locked: BTreeMap::new(),
             };
             units = sync::write_through(cx, |cx| ComponentSet.run(cx, params))?.units;
         }

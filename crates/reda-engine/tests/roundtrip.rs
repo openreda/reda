@@ -621,6 +621,20 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             } else {
                 UnitInstance::default_visible_fields()
             },
+            field_text: if mirror {
+                vec![reda_engine::model::FieldText {
+                    field: "value".to_owned(),
+                    offset: Point::new(y, x),
+                    size: Some(Nm(1_524_000)),
+                }]
+            } else {
+                Default::default()
+            },
+            locked_fields: if mirror {
+                ["LCSC".to_owned()].into()
+            } else {
+                Default::default()
+            },
         };
         objects.push(Object::FootprintCopy(InDocument::new(sheet, copy)));
         objects.push(Object::PartEntry(InDocument::new(sheet, entry)));

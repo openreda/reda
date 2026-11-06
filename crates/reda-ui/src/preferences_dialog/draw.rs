@@ -1,10 +1,10 @@
-//! Drawing the Preferences dialog: the modal with the search box, the page list, the shown
+//! Drawing the Preferences window into its tab: the search box, the page list, the shown
 //! page (or the search results) and Close. Every change runs at once; there is no OK or
 //! Cancel.
 
 use std::path::PathBuf;
 
-use egui::{Button, ComboBox, Id, Key, Modal, RichText, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Button, ComboBox, Key, RichText, Role, TextEdit, Ui, WidgetInfo};
 use reda_engine::fab_presets;
 use serde_json::json;
 
@@ -13,12 +13,10 @@ use super::{Kind, LIBRARY_PATHS, PageId, PreferencesDialog, Setting, schema};
 use crate::bars::DocumentType;
 use crate::bridge::Bridge;
 use crate::keymap::{Chord, Context};
-use crate::settings::{Problem, field};
+use crate::settings::{Problem, field, tree_row};
 use crate::shell::Shell;
 use crate::tr;
 
-/// The dialog's size; pages scroll inside it.
-const SIZE: egui::Vec2 = egui::vec2(820.0, 480.0);
 /// The width of the page list.
 const LIST_WIDTH: f32 = 160.0;
 /// The width of the label column.
@@ -33,7 +31,7 @@ const BRIDGE: &str = "agents.bridge";
 pub enum Outcome {
     /// It stays open.
     Open,
-    /// It closed (Close or Escape).
+    /// It closed (Close).
     Closed,
     /// The Libraries page wants a folder picked; the answer goes to
     /// [`PreferencesDialog::picked_folder`].
@@ -50,19 +48,25 @@ struct Cx<'a> {
 }
 
 impl PreferencesDialog {
-    /// Draws the dialog as a modal for one frame.
-    pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell, bridge: &mut Bridge) -> Outcome {
+    /// Draws the window's content into `ui` (its tab) for one frame.
+    pub fn show(&mut self, ui: &mut Ui, shell: &mut Shell, bridge: &mut Bridge) -> Outcome {
         let mut cx = Cx {
             shell,
             bridge,
             outcome: Outcome::Open,
         };
-        Modal::new(Id::NULL.with("preferences-dialog")).show(ctx, |ui| {
-            ui.set_width(SIZE.x);
-            ui.set_max_width(SIZE.x);
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
             ui.horizontal(|ui| {
-                ui.heading(tr!("pref-title"));
+                ui.weak(tr!("pref-live"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button(tr!("pref-close")).clicked() {
+                        cx.outcome = Outcome::Closed;
+                    }
+                });
+            });
+            ui.separator();
+            ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                ui.horizontal(|ui| {
                     let search = ui.add(
                         TextEdit::singleline(&mut self.query)
                             .hint_text(tr!("pref-search-hint"))
@@ -72,45 +76,32 @@ impl PreferencesDialog {
                         WidgetInfo::labeled(Role::SearchInput, true, tr!("pref-search"))
                     });
                 });
-            });
-            ui.separator();
-            ui.horizontal_top(|ui| {
-                ui.set_height(SIZE.y);
-                let found = schema::search(&self.query);
-                self.page_list(ui, &found);
                 ui.separator();
-                ui.vertical(|ui| {
+                ui.horizontal_top(|ui| {
+                    let found = schema::search(&self.query);
                     egui::ScrollArea::vertical()
-                        .id_salt("preferences-page")
-                        .auto_shrink(false)
-                        .show(ui, |ui| {
-                            if self.query.trim().is_empty() {
-                                ui.strong(self.page.title());
-                                ui.add_space(6.0);
-                                self.page_content(ui, &mut cx);
-                            } else {
-                                self.results(ui, &mut cx, found);
-                            }
-                        });
-                });
-            });
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.weak(tr!("pref-live"));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button(tr!("pref-close")).clicked() {
-                        cx.outcome = Outcome::Closed;
-                    }
+                        .id_salt("preferences-tree")
+                        .max_width(LIST_WIDTH)
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| self.page_list(ui, &found));
+                    ui.separator();
+                    ui.vertical(|ui| {
+                        egui::ScrollArea::both()
+                            .id_salt("preferences-page")
+                            .auto_shrink(false)
+                            .show(ui, |ui| {
+                                if self.query.trim().is_empty() {
+                                    ui.strong(self.page.title());
+                                    ui.add_space(6.0);
+                                    self.page_content(ui, &mut cx);
+                                } else {
+                                    self.results(ui, &mut cx, found);
+                                }
+                            });
+                    });
                 });
             });
         });
-        let recording = self.shortcuts.recording.is_some();
-        if !recording
-            && ctx.input(|i| i.key_pressed(Key::Escape))
-            && !ctx.egui_wants_keyboard_input()
-        {
-            cx.outcome = Outcome::Closed;
-        }
         cx.outcome
     }
 
@@ -125,10 +116,7 @@ impl PreferencesDialog {
                 if searching && !found.iter().any(|(p, _)| *p == page) {
                     text = text.weak();
                 }
-                let row = ui.add_sized(
-                    [ui.available_width(), 20.0],
-                    Button::selectable(page == self.page && !searching, text),
-                );
+                let row = ui.add(tree_row(ui, page == self.page && !searching, text));
                 row.widget_info(|| WidgetInfo::labeled(Role::TreeItem, true, title.clone()));
                 if row.clicked() {
                     self.page = page;

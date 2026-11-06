@@ -127,6 +127,7 @@ projects-move-down = Move Down
 projects-cannot-move = It cannot move further.
 projects-delete = Delete
 projects-delete-sheet = Delete Sheet
+projects-confirm-delete-title = Confirm Delete
 projects-confirm-delete = Delete { $name }? It holds { $count } { $count ->
     [one] Component, which is
    *[other] Components, which are
@@ -548,11 +549,17 @@ closing-save-selected = Save Selected
 closing-dont-save = Don't Save
 closing-cancel = Cancel
 closing-save-failed = { $file } could not be saved: { $error }
+closing-settings-intro = Apply the changes in { $window } before closing it?
+closing-settings-row = { $window } (changes not applied)
+closing-apply = Apply
+closing-discard = Discard
 
 ## Settings dialogs
 
 settings-ok = OK
 settings-apply = Apply
+settings-close = Close
+settings-reset-defaults = Reset to Defaults
 settings-invalid = Fix the flagged values first.
 settings-page-invalid = { $page } (has invalid values)
 project-settings-title = Project Settings
@@ -927,6 +934,7 @@ board-setup-class-of = Net Class of { $net }
 ## Output Job dialog and job runs
 
 output-job-title = Output Job: { $job }
+output-job-window-title = Output Job
 output-job-page = Job
 output-job-name = Name
 output-job-pcb = PCB Document
