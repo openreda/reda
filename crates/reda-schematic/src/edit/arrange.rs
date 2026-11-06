@@ -36,7 +36,7 @@ pub enum AlignTo {
 #[serde(deny_unknown_fields)]
 pub struct AlignParams {
     /// The objects to align, by UUID, all on one sheet. Each one's extent is its Pins
-    /// and body drawing (Units), its ends (Wires, graphics) or its point (labels,
+    /// and body drawing (Units), its vertices (Wires), its ends (graphics) or its point (labels,
     /// markers, Ports, Power Ports, text).
     pub objects: Vec<Uuid>,
     pub to: AlignTo,
@@ -161,7 +161,7 @@ impl Command for SnapToGrid {
         id: "schematic.snap_to_grid",
         title: "Snap to Grid",
         description: "Moves each selected object's anchor points to the nearest grid point: \
-                      a Unit's origin, a Wire's or line's ends, a rectangle's corners, a \
+                      a Unit's origin, a Wire's vertices, a line's ends, a rectangle's corners, a \
                       label's, marker's or text's point. 50 mil by default.",
         category: "schematic",
         icon: "grid",

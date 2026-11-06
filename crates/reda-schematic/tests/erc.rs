@@ -303,7 +303,7 @@ fn a_wire_end_touching_nothing_is_dangling() {
     let out = erc(&mut engine);
     let found = of(&out, "dangling_wire");
     assert_eq!(found.len(), 1, "{out}");
-    assert_eq!(found[0]["objects"], json!([wires[1]]));
+    assert_eq!(found[0]["objects"], json!([wires[0]]));
     assert_eq!(
         found[0]["args"],
         json!({"x": 200 * 25_400, "y": 300 * 25_400})

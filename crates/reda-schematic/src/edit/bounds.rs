@@ -21,12 +21,12 @@ pub(crate) fn anchor(body: &SchematicSheet, object: &Object) -> Point {
     }
 }
 
-/// The box `object` covers on `body`: a Unit's Pins and body drawing, a Wire's or graphic's
+/// The box `object` covers on `body`: a Unit's Pins and body drawing, a Wire's vertices, a graphic's
 /// ends, or a label's, marker's, Port's, Power Port's or text's point.
 pub(crate) fn bounds(body: &SchematicSheet, object: &Object) -> Bounds {
     let points: Vec<Point> = match object {
         Object::Unit(u) => unit_points(body, u),
-        Object::Wire(w) => vec![w.from, w.to],
+        Object::Wire(w) => w.vertices.clone(),
         Object::NetLabel(l) => vec![l.at],
         Object::NoConnect(m) => vec![m.at],
         Object::Port(p) => vec![p.at],

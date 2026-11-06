@@ -137,7 +137,8 @@ fn wire_ends(shell: &Shell, wire: Uuid) -> ((i64, i64), (i64, i64)) {
         .unwrap();
     let w = sheet.wire(wire).unwrap();
     let mil = |p: reda_ui::engine::model::geom::Point| (p.x.0 / 25_400, p.y.0 / 25_400);
-    (mil(w.from), mil(w.to))
+    let [first, last] = w.ends();
+    (mil(first), mil(last))
 }
 
 fn wire_count(shell: &Shell) -> usize {
@@ -245,9 +246,9 @@ fn a_plain_drag_previews_then_commits_one_drag_that_keeps_connections() {
         journal_since(&shell, before),
         ["selection.set", "schematic.drag"]
     );
-    // The Wire stayed and a new one turns the corner to the moved Pin.
-    assert_eq!(wire_ends(&shell, up), ((0, 150), (0, 500)));
-    assert_eq!(wire_count(&shell), 2);
+    // The Wire's far end stayed, and it turns a corner to the moved Pin.
+    assert_eq!(wire_ends(&shell, up), ((300, 150), (0, 500)));
+    assert_eq!(wire_count(&shell), 1);
     let tab = shell.document_tab(sheet()).unwrap();
     assert_eq!(tab.interaction, Interaction::Idle);
     assert!(tab.live.moving.is_empty() && tab.overlay.wires.is_empty());

@@ -21,7 +21,7 @@
 //!     {"uuid":"…","component":{"uuid":"…"},"part":"…","unit":"…","at":{…},"rotation":0,"designator":"U1",…}
 //!   ],
 //!   "wires": [
-//!     {"uuid":"…","from":{"x":0,"y":0},"to":{"x":2540000,"y":0}}
+//!     {"uuid":"…","vertices":[{"x":0,"y":0},{"x":2540000,"y":0},{"x":2540000,"y":2540000}]}
 //!   ],
 //!   "net_labels": [
 //!     {"uuid":"…","name":"SDA","at":{…},"rotation":0}

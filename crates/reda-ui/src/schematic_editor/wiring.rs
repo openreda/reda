@@ -12,7 +12,7 @@ use reda_engine::model::{
     InDocument, NetLabel, NoConnect, Object, Port, PortDirection, PowerPort, Project, SheetText,
     Uuid,
 };
-use reda_engine::schematic::connectivity::{on_segment, placed_pins};
+use reda_engine::schematic::connectivity::placed_pins;
 use reda_engine::schematic::default_power_port_style;
 use serde_json::{Value, json};
 
@@ -239,8 +239,7 @@ impl Cx<'_> {
         let Some(sheet) = self.sheet() else {
             return false;
         };
-        placed_pins(sheet).iter().any(|(_, _, at)| *at == p)
-            || sheet.wires().any(|w| on_segment(w, p))
+        placed_pins(sheet).iter().any(|(_, _, at)| *at == p) || sheet.wires().any(|w| w.contains(p))
     }
 
     /// The Wire Tool on one pointer event.

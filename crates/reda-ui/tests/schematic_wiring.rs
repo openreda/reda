@@ -128,7 +128,7 @@ fn journal_since(shell: &Shell, from: usize) -> Vec<String> {
         .collect()
 }
 
-/// The Wires on the sheet, as (from, to) in mil.
+/// The segments of the Wires on the sheet, as (from, to) in mil.
 fn wires(shell: &Shell) -> Vec<((i64, i64), (i64, i64))> {
     let mil = |p: Point| (p.x.0 / 25_400, p.y.0 / 25_400);
     let project = shell.engine().project().unwrap();
@@ -136,7 +136,8 @@ fn wires(shell: &Shell) -> Vec<((i64, i64), (i64, i64))> {
         .schematic_sheet(sheet())
         .unwrap()
         .wires()
-        .map(|w| (mil(w.from), mil(w.to)))
+        .flat_map(|w| w.segments())
+        .map(|(a, b)| (mil(a), mil(b)))
         .collect();
     out.sort();
     out
