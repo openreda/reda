@@ -9347,21 +9347,20 @@
           "InDocument11": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           },
@@ -13022,21 +13021,20 @@
           "InDocument11": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           },
@@ -23016,7 +23014,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The objects to align, by UUID, all on one sheet. Each one's extent is its Pins\nand body drawing (Units), its ends (Wires, graphics) or its point (labels,\nmarkers, Ports, Power Ports, text).",
+            "description": "The objects to align, by UUID, all on one sheet. Each one's extent is its Pins\nand body drawing (Units), its vertices (Wires), its ends (graphics) or its point (labels,\nmarkers, Ports, Power Ports, text).",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -25450,23 +25448,22 @@
           },
           "Wire": {
             "additionalProperties": false,
-            "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
+            "description": "A Wire: a polyline at any angle through its `vertices`, in order, at least two. It\nconnects where an end touches a Pin's connection point or any point of another Wire,\nand anywhere along it that it passes over a Pin's connection point, a Port, a Power\nPort or a Net Label. Two Wires crossing mid-span never connect.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           }
@@ -26808,23 +26805,22 @@
           },
           "Wire": {
             "additionalProperties": false,
-            "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
+            "description": "A Wire: a polyline at any angle through its `vertices`, in order, at least two. It\nconnects where an end touches a Pin's connection point or any point of another Wire,\nand anywhere along it that it passes over a Pin's connection point, a Port, a Power\nPort or a Net Label. Two Wires crossing mid-span never connect.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           }
@@ -27019,7 +27015,7 @@
     },
     {
       "category": "schematic",
-      "description": "Moves the selected objects by an offset and keeps their connections: the ends of unselected Wires on a moved Pin, Wire end or Net Label follow it, turning a corner where a Wire would go diagonal, and Net Labels, No-Connect Markers, Ports and Power Ports on a moved Pin come along.",
+      "description": "Moves the selected objects by an offset and keeps their connections: the ends of unselected Wires on a moved Pin, Wire end or Net Label follow it, turning a corner where an orthogonal Wire would go diagonal, and Net Labels, No-Connect Markers, Ports and Power Ports on a moved Pin come along.",
       "icon": "drag",
       "id": "schematic.drag",
       "kind": "edit",
@@ -29691,23 +29687,22 @@
           },
           "Wire": {
             "additionalProperties": false,
-            "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
+            "description": "A Wire: a polyline at any angle through its `vertices`, in order, at least two. It\nconnects where an end touches a Pin's connection point or any point of another Wire,\nand anywhere along it that it passes over a Pin's connection point, a Port, a Power\nPort or a Net Label. Two Wires crossing mid-span never connect.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           }
@@ -30528,7 +30523,7 @@
     },
     {
       "category": "schematic",
-      "description": "Turns the selected objects counter-clockwise about a centre, a quarter turn by default. Units, labels and text turn by any angle; Wires and rectangles only by quarter turns.",
+      "description": "Turns the selected objects counter-clockwise about a centre, a quarter turn by default. Units, Wires, labels and text turn by any angle; rectangles only by quarter turns.",
       "icon": "rotate",
       "id": "schematic.rotate",
       "kind": "edit",
@@ -30592,7 +30587,7 @@
                 "type": "null"
               }
             ],
-            "description": "Counter-clockwise; a quarter turn by default. Any angle turns Units, labels,\nPorts, Power Ports and text; Wires and rectangles turn only in quarter turns."
+            "description": "Counter-clockwise; a quarter turn by default. Any angle turns Units, Wires, labels,\nPorts, Power Ports and text; rectangles turn only in quarter turns."
           },
           "center": {
             "anyOf": [
@@ -30959,7 +30954,7 @@
     },
     {
       "category": "schematic",
-      "description": "Moves each selected object's anchor points to the nearest grid point: a Unit's origin, a Wire's or line's ends, a rectangle's corners, a label's, marker's or text's point. 50 mil by default.",
+      "description": "Moves each selected object's anchor points to the nearest grid point: a Unit's origin, a Wire's vertices, a line's ends, a rectangle's corners, a label's, marker's or text's point. 50 mil by default.",
       "icon": "grid",
       "id": "schematic.snap_to_grid",
       "kind": "edit",
@@ -31564,7 +31559,7 @@
     },
     {
       "category": "schematic",
-      "description": "Draws a Wire run through the given points on a Schematic Sheet, one Wire per horizontal or vertical segment. A Wire connects only where one of its ends touches a Pin or another Wire exactly; Nets and Junctions follow from the drawing.",
+      "description": "Draws a Wire run through the given points on a Schematic Sheet as one Wire, at any angle. A Wire connects where an end touches a Pin or any point of another Wire exactly, and where it passes over a Pin, Port, Power Port or Net Label; two Wires crossing mid-span do not. Nets and Junctions follow from the drawing.",
       "icon": "wire",
       "id": "schematic.wire.add",
       "kind": "edit",
@@ -31611,7 +31606,7 @@
             "type": "string"
           },
           "points": {
-            "description": "The run's corners in order, at least two. Each segment must be horizontal or\nvertical; each becomes one Wire.",
+            "description": "The run's vertices in order, at least two distinct, at any angle. Repeated points\n(zero-length segments) are dropped.",
             "items": {
               "$ref": "#/$defs/At"
             },
@@ -31631,7 +31626,7 @@
         "description": "What `schematic.wire.add` made.",
         "properties": {
           "wires": {
-            "description": "The new Wires, one per segment, in run order.",
+            "description": "The new Wires: the one Wire the run makes.",
             "items": {
               "format": "uuid",
               "type": "string"

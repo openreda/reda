@@ -325,7 +325,9 @@ fn a_split_net_keeps_its_uuid_on_the_larger_part() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|w| w["object"]["to"]["x"] == 20_000_000 || w["object"]["from"]["x"] == 20_000_000)
+        .find(|w| {
+            (w["object"]["vertices"].as_array().unwrap().iter()).any(|v| v["x"] == 20_000_000)
+        })
         .unwrap()["object"]["uuid"]
         .clone();
     engine.run_ok("schematic.delete", json!({"objects": [right]}));
@@ -979,7 +981,7 @@ fn copper_on_a_removed_net_with_no_merge_target_becomes_unassigned() {
         .unwrap()
         .clone()
     {
-        if object["object"]["from"]["x"].as_i64().unwrap() >= 30_000_000 {
+        if object["object"]["vertices"][0]["x"].as_i64().unwrap() >= 30_000_000 {
             engine.run_ok(
                 "schematic.delete",
                 json!({"objects": [object["object"]["uuid"]]}),

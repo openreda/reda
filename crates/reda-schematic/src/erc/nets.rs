@@ -13,7 +13,7 @@ use super::Report;
 use super::matrix::{conflict, type_name};
 use crate::connectivity::{
     NameSource, Naming, NetPin, SchematicNet, SheetConnectivity, joined, name_priority, naming,
-    on_segment, placed_pins, project_nets,
+    placed_pins, project_nets,
 };
 use crate::natural::natural_cmp;
 
@@ -99,7 +99,7 @@ fn drawing(sheet: &SchematicSheet, report: &mut Report) {
     let on_wire = |p: Point, except: Option<Uuid>| {
         sheet
             .wires()
-            .any(|w| Some(w.uuid) != except && on_segment(w, p))
+            .any(|w| Some(w.uuid) != except && w.contains(p))
     };
     if !report.is_off(ErcCheck::DanglingWire) {
         let attached: BTreeSet<Point> = (sheet.net_labels().map(|l| l.at))
@@ -107,7 +107,7 @@ fn drawing(sheet: &SchematicSheet, report: &mut Report) {
             .chain(sheet.power_ports().map(|p| p.at))
             .collect();
         for wire in sheet.wires() {
-            for end in [wire.from, wire.to] {
+            for end in wire.ends() {
                 if !pins.contains(&end)
                     && !attached.contains(&end)
                     && !on_wire(end, Some(wire.uuid))

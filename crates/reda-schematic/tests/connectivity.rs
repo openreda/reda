@@ -91,32 +91,38 @@ fn pins(net: &Value) -> Vec<String> {
 }
 
 #[test]
-fn a_wire_run_is_stored_as_one_wire_per_orthogonal_segment() {
+fn a_wire_run_is_stored_as_one_wire_through_its_vertices() {
     let dir = TempDir::new("wire-add");
     let mut engine = demo(&dir);
     let wires = wire(&mut engine, &[(0, 0), (100, 0), (100, 50)]);
-    assert_eq!(wires.len(), 2);
-    let first = object(&mut engine, &wires[0]);
-    assert_eq!(first["type"], "wire");
-    assert_eq!(first["from"], point(0, 0));
-    assert_eq!(first["to"], point(100, 0));
-    let second = object(&mut engine, &wires[1]);
-    assert_eq!(second["from"], point(100, 0));
-    assert_eq!(second["to"], point(100, 50));
+    assert_eq!(wires.len(), 1);
+    let run = object(&mut engine, &wires[0]);
+    assert_eq!(run["type"], "wire");
+    assert_eq!(
+        run["vertices"],
+        json!([point(0, 0), point(100, 0), point(100, 50)])
+    );
 }
 
 #[test]
-fn a_diagonal_or_empty_segment_is_refused() {
-    let dir = TempDir::new("wire-diagonal");
+fn a_wire_runs_at_any_angle() {
+    let dir = TempDir::new("wire-any-angle");
     let mut engine = demo(&dir);
-    let err = engine.run_err(
-        "schematic.wire.add",
-        json!({"document": SHEET, "points": [
-            {"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 20, "y": 5}
-        ]}),
+    let wires = wire(&mut engine, &[(0, 0), (100, 50), (130, 0)]);
+    let run = object(&mut engine, &wires[0]);
+    assert_eq!(
+        run["vertices"],
+        json!([point(0, 0), point(100, 50), point(130, 0)])
     );
-    assert_eq!(err.code, ErrorCode::InvalidParams);
-    assert_eq!(err.details.unwrap()["pointer"], "/points/2");
+}
+
+#[test]
+fn zero_length_segments_are_dropped_and_a_run_of_no_length_is_refused() {
+    let dir = TempDir::new("wire-empty");
+    let mut engine = demo(&dir);
+    let wires = wire(&mut engine, &[(0, 0), (0, 0), (100, 0), (100, 0)]);
+    let run = object(&mut engine, &wires[0]);
+    assert_eq!(run["vertices"], json!([point(0, 0), point(100, 0)]));
     let err = engine.run_err(
         "schematic.wire.add",
         json!({"document": SHEET, "points": [{"x": 0, "y": 0}, {"x": 0, "y": 0}]}),
@@ -254,16 +260,14 @@ fn a_rotated_component_has_its_pins_rotated_about_its_origin() {
 }
 
 #[test]
-fn wires_connect_only_where_an_end_touches() {
-    let dir = TempDir::new("net-ends");
+fn wires_crossing_mid_span_do_not_connect() {
+    let dir = TempDir::new("net-crossing");
     let mut engine = demo(&dir);
-    place(&mut engine, R_10K, 0, 0, 0);
-    // A Wire running through a Pin's connection point without ending there misses it.
-    wire(&mut engine, &[(-100, 150), (100, 150)]);
-    assert_eq!(pins(&net_of_pin(&mut engine, "R1", "1")), ["R1-1"]);
-    // Two Wires crossing mid-segment do not connect.
     let across = wire(&mut engine, &[(1000, 0), (1000, 200)]);
     let along = wire(&mut engine, &[(900, 100), (1100, 100)]);
+    // Diagonals crossing each other, or crossing a corner, do not connect either.
+    let slash = wire(&mut engine, &[(0, 0), (200, 200)]);
+    let backslash = wire(&mut engine, &[(0, 200), (200, 0)]);
     let all = nets(&mut engine);
     let net_of = |w: &Value| {
         all["nets"]
@@ -274,7 +278,102 @@ fn wires_connect_only_where_an_end_touches() {
             .unwrap()
     };
     assert_ne!(net_of(&across[0]), net_of(&along[0]));
+    assert_ne!(net_of(&slash[0]), net_of(&backslash[0]));
     assert_eq!(all["junctions"], json!([]));
+}
+
+#[test]
+fn a_wire_passing_over_a_pin_connects_with_a_junction() {
+    let dir = TempDir::new("net-pass-pin");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 0, 0, 0);
+    // Through Pin 1 mid-segment, and with a corner on Pin 2.
+    wire(&mut engine, &[(-100, 150), (100, 150)]);
+    wire(&mut engine, &[(-100, -100), (0, -150), (100, -100)]);
+    assert_eq!(
+        net_of_pin(&mut engine, "R1", "1")["wires"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        net_of_pin(&mut engine, "R1", "2")["wires"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        nets(&mut engine)["junctions"],
+        json!([point(0, -150), point(0, 150)])
+    );
+}
+
+#[test]
+fn a_wire_passing_over_a_port_or_power_port_connects_with_a_junction() {
+    let dir = TempDir::new("net-pass-port");
+    let mut engine = demo(&dir);
+    let a = wire(&mut engine, &[(0, 0), (200, 0)]);
+    let b = wire(&mut engine, &[(0, 500), (100, 600), (200, 500)]);
+    engine.run_ok(
+        "schematic.port.add",
+        json!({"document": SHEET, "name": "SDA", "at": at(100, 0)}),
+    );
+    engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": "GND", "at": at(100, 600)}),
+    );
+    let all = nets(&mut engine);
+    let net = |w: &Value| {
+        all["nets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["wires"].as_array().unwrap().contains(w))
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(net(&a[0])["name"], "SDA");
+    assert_eq!(net(&b[0])["name"], "GND");
+    assert_eq!(all["junctions"], json!([point(100, 0), point(100, 600)]));
+}
+
+#[test]
+fn a_net_label_along_a_wire_connects_without_a_junction() {
+    let dir = TempDir::new("net-pass-label");
+    let mut engine = demo(&dir);
+    let run = wire(&mut engine, &[(0, 0), (100, 100), (200, 0)]);
+    label(&mut engine, SHEET, "MID", 50, 50);
+    label(&mut engine, SHEET, "MID", 100, 100);
+    let all = nets(&mut engine);
+    let net = &all["nets"][0];
+    assert_eq!(net["wires"], json!(run));
+    assert_eq!(net["name"], "MID");
+    assert_eq!(all["junctions"], json!([]));
+}
+
+#[test]
+fn a_wire_end_on_any_point_of_another_wire_connects() {
+    let dir = TempDir::new("net-end-on-diagonal");
+    let mut engine = demo(&dir);
+    // One end on a diagonal's interior, one on another run's corner.
+    let slope = wire(&mut engine, &[(0, 0), (300, 150)]);
+    let onto_slope = wire(&mut engine, &[(100, 50), (100, 500)]);
+    let corner = wire(&mut engine, &[(1000, 0), (1100, 0), (1100, 100)]);
+    let onto_corner = wire(&mut engine, &[(1100, 0), (1200, 0)]);
+    let all = nets(&mut engine);
+    let nets = all["nets"].as_array().unwrap();
+    assert_eq!(nets.len(), 2);
+    let together = |a: &Value, b: &Value| {
+        nets.iter().any(|n| {
+            let w = n["wires"].as_array().unwrap();
+            w.contains(a) && w.contains(b)
+        })
+    };
+    assert!(together(&slope[0], &onto_slope[0]));
+    assert!(together(&corner[0], &onto_corner[0]));
+    assert_eq!(all["junctions"], json!([point(100, 50), point(1100, 0)]));
 }
 
 #[test]
@@ -393,7 +492,7 @@ fn the_drawing_is_saved_but_nets_and_junctions_are_not() {
     assert_eq!(nets(&mut reopened), before);
 }
 
-/// Every Wire on the sheet as `((x1, y1), (x2, y2))` in mil, sorted.
+/// Every segment of every Wire on the sheet as `((x1, y1), (x2, y2))` in mil, sorted.
 fn wire_segments(engine: &mut TestEngine) -> Vec<((i64, i64), (i64, i64))> {
     let out = engine.run_ok("objects.query", json!({"document": SHEET, "type": "wire"}));
     let mil = |p: &Value| {
@@ -406,9 +505,14 @@ fn wire_segments(engine: &mut TestEngine) -> Vec<((i64, i64), (i64, i64))> {
         .as_array()
         .unwrap()
         .iter()
-        .map(|w| {
-            let (a, b) = (mil(&w["object"]["from"]), mil(&w["object"]["to"]));
-            (a.min(b), a.max(b))
+        .flat_map(|w| {
+            let vertices: Vec<_> = (w["object"]["vertices"].as_array().unwrap().iter())
+                .map(mil)
+                .collect();
+            let pairs: Vec<_> = (vertices.windows(2))
+                .map(|p| (p[0].min(p[1]), p[0].max(p[1])))
+                .collect();
+            pairs
         })
         .collect();
     segments.sort();
@@ -512,4 +616,27 @@ fn find_by_net_name_returns_the_objects_on_the_derived_net() {
         json!({"text": "Net-(R1-2)", "fields": ["net"], "exact": true}),
     );
     assert_eq!(out["matches"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn dropping_a_component_on_a_straight_stretch_of_a_polyline_cuts_out_the_piece_between_its_pins() {
+    let dir = TempDir::new("split-polyline");
+    let mut engine = demo(&dir);
+    let run = wire(&mut engine, &[(-500, -500), (0, -500), (0, 500)]);
+    place(&mut engine, R_10K, 0, 0, 0);
+    assert_eq!(
+        wire_segments(&mut engine),
+        [
+            ((-500, -500), (0, -500)),
+            ((0, -500), (0, -150)),
+            ((0, 150), (0, 500))
+        ]
+    );
+    // The piece from the first vertex keeps the UUID, corner and all.
+    assert_eq!(
+        object(&mut engine, &run[0])["vertices"],
+        json!([point(-500, -500), point(0, -500), point(0, -150)])
+    );
+    assert_eq!(pins(&net_of_pin(&mut engine, "R1", "1")), ["R1-1"]);
+    assert_eq!(pins(&net_of_pin(&mut engine, "R1", "2")), ["R1-2"]);
 }
