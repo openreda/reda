@@ -202,3 +202,35 @@ fn open_refuses_a_sheet_whose_uuid_disagrees_with_the_project_file() {
     let err = test_engine().run_err("project.open", json!({"path": folder}));
     assert_eq!(err.code, ErrorCode::Rejected);
 }
+
+/// Document-level grids and guides are reserved names for v0.3: the PCB file has no
+/// tables for them, not even empty ones, and refuses them on read.
+#[test]
+fn grids_and_guides_stay_reserved_in_the_pcb_file() {
+    let (_dir, folder) = saved_project("open-reserved");
+    let file = folder.join("Demo.redapcb");
+    let text = std::fs::read_to_string(&file).unwrap();
+    for name in ["\"grids\"", "\"guides\""] {
+        assert!(!text.contains(name), "{text}");
+    }
+    let schema = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/schemas/redapcb.schema.json"
+    );
+    let schema: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(schema).unwrap()).unwrap();
+    for name in ["grids", "guides"] {
+        assert!(schema["properties"].get(name).is_none(), "{name}");
+        let err = {
+            edit(
+                &file,
+                "\"format\": 1",
+                &format!("\"format\": 1, \"{name}\": []"),
+            );
+            test_engine().run_err("project.open", json!({"path": folder}))
+        };
+        assert_eq!(err.code, ErrorCode::Rejected);
+        assert!(err.message.contains(name), "{}", err.message);
+        std::fs::write(&file, &text).unwrap();
+    }
+}

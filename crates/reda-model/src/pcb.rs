@@ -25,7 +25,7 @@ mod zone;
 
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 
-pub use footprint::{FootprintInstance, PadNet};
+pub use footprint::{FootprintInstance, PadNet, PadRef};
 pub use placement::{FreePad, PlacementOrigin};
 pub use rules::{Bounds, DesignRule, RuleField, RuleKind, RuleScope, RuleValue, RuleValues};
 pub use stackup::{
@@ -523,7 +523,7 @@ impl PcbDocument {
     }
 
     /// Every object this Document holds, cloned.
-    pub(crate) fn objects(&self) -> Vec<Object> {
+    pub fn objects(&self) -> Vec<Object> {
         let doc = self.uuid;
         let mut out = Vec::new();
         macro_rules! all {

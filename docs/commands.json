@@ -14147,6 +14147,155 @@
     },
     {
       "category": "query",
+      "description": "Lists the objects like a template, attribute by attribute: each rule says an attribute is `any`, the `same` as the template's, `different`, or matches a `*` pattern. Kind stays the same unless `type` is `any`. The scope is the template's sheet, the Project's sheets, the board, or the open Library element. Pads of Footprints can be found; other parts of a Component or Footprint cannot.",
+      "icon": "select_similar",
+      "id": "objects.find_similar",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          },
+          "SimilarRule": {
+            "description": "`any`, `same` (as the template), `different`, or a pattern the attribute's text must match, where `*` is any run of characters, ignoring case.",
+            "type": "string"
+          },
+          "SimilarScope": {
+            "description": "Where to look.",
+            "oneOf": [
+              {
+                "const": "sheet",
+                "description": "The template's Schematic Sheet.",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "description": "Every Schematic Sheet of the Project.",
+                "type": "string"
+              },
+              {
+                "const": "board",
+                "description": "The PCB Document.",
+                "type": "string"
+              },
+              {
+                "const": "element",
+                "description": "The open Library element the template is part of.",
+                "type": "string"
+              }
+            ]
+          },
+          "Template": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/PadRef"
+              }
+            ],
+            "description": "The object to compare with: a UUID, or a Pad of a Footprint instance."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "additionalProperties": {
+              "$ref": "#/$defs/SimilarRule"
+            },
+            "description": "How each attribute must compare, by attribute name: a field of the object schema,\na nested one by dotted path such as `fields.value`, or `type` for the kind.\nAttributes left out are `any`, except `type`, which is `same`.",
+            "type": "object"
+          },
+          "scope": {
+            "$ref": "#/$defs/SimilarScope"
+          },
+          "template": {
+            "$ref": "#/$defs/Template",
+            "description": "The object to compare with, by UUID, or a Pad of a Footprint instance as\n`{footprint, pad}`."
+          }
+        },
+        "required": [
+          "template",
+          "scope"
+        ],
+        "title": "FindSimilarParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `objects.find_similar` found: what `selection.set` takes.",
+        "properties": {
+          "objects": {
+            "description": "The matching objects, the template included when it is one: sheet by sheet in\nDocument order, then by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pads": {
+            "description": "The matching Pads of Footprint instances, by Footprint instance then Pad.",
+            "items": {
+              "$ref": "#/$defs/PadRef"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects",
+          "pads"
+        ],
+        "title": "FindSimilarResult",
+        "type": "object"
+      },
+      "title": "Find Similar Objects"
+    },
+    {
+      "category": "query",
       "description": "Lists the objects that match every given filter, sorted by UUID: `document` keeps the objects in one Document, `type` the objects of one type, `net` the objects on the schematic Nets with that name. With no filter it lists every object in the Project.",
       "icon": "search",
       "id": "objects.query",
@@ -20977,6 +21126,227 @@
         "type": "object"
       },
       "title": "Distribute"
+    },
+    {
+      "category": "pcb",
+      "description": "Finds Footprints by Designator or value, Nets by name and Pads by name such as `U1-6`, as the Find Panel lists them on a board: exact matches first, then those containing the text, then those ignoring case.",
+      "icon": "find",
+      "id": "pcb.find",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "PcbFindField": {
+            "description": "What `pcb.find` compares the text with.",
+            "oneOf": [
+              {
+                "const": "designator",
+                "description": "A Footprint instance's Designator.",
+                "type": "string"
+              },
+              {
+                "const": "value",
+                "description": "A Footprint instance's value.",
+                "type": "string"
+              },
+              {
+                "const": "net",
+                "description": "The name of a PCB Net.",
+                "type": "string"
+              },
+              {
+                "const": "pad",
+                "description": "A Pad of a Footprint instance, as `U1-6`. Only the whole name matches, so `U1`\ndoesn't list every Pad of U1.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "exact": {
+            "default": false,
+            "description": "Match the whole text rather than any part of it.",
+            "type": "boolean"
+          },
+          "fields": {
+            "default": null,
+            "description": "What to search; every field by default.",
+            "items": {
+              "$ref": "#/$defs/PcbFindField"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "match_case": {
+            "default": false,
+            "description": "Match case. Without it, matches that differ only in case rank last.",
+            "type": "boolean"
+          },
+          "text": {
+            "description": "The text to look for.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "PcbFindParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FindRank": {
+            "description": "How closely a match fits: results rank in this order.",
+            "oneOf": [
+              {
+                "const": "exact",
+                "description": "The whole text, case included.",
+                "type": "string"
+              },
+              {
+                "const": "contains",
+                "description": "Part of the text, case included.",
+                "type": "string"
+              },
+              {
+                "const": "ignoring_case",
+                "description": "The whole text or part of it, ignoring case.",
+                "type": "string"
+              }
+            ]
+          },
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          },
+          "PcbFindField": {
+            "description": "What `pcb.find` compares the text with.",
+            "oneOf": [
+              {
+                "const": "designator",
+                "description": "A Footprint instance's Designator.",
+                "type": "string"
+              },
+              {
+                "const": "value",
+                "description": "A Footprint instance's value.",
+                "type": "string"
+              },
+              {
+                "const": "net",
+                "description": "The name of a PCB Net.",
+                "type": "string"
+              },
+              {
+                "const": "pad",
+                "description": "A Pad of a Footprint instance, as `U1-6`. Only the whole name matches, so `U1`\ndoesn't list every Pad of U1.",
+                "type": "string"
+              }
+            ]
+          },
+          "PcbFindMatch": {
+            "description": "One found object.",
+            "properties": {
+              "field": {
+                "$ref": "#/$defs/PcbFindField"
+              },
+              "footprint": {
+                "description": "The Footprint instance, for Designator, value and Pad matches.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "net": {
+                "description": "The PCB Net, for Net matches.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "objects": {
+                "description": "The copper on the Net (Tracks, Vias, Zones and Free Pads), for Net matches.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Pad, for Pad matches."
+              },
+              "pads": {
+                "description": "The Footprint Pads on the Net, for Net matches.",
+                "items": {
+                  "$ref": "#/$defs/PadRef"
+                },
+                "type": "array"
+              },
+              "rank": {
+                "$ref": "#/$defs/FindRank"
+              },
+              "text": {
+                "description": "The whole matching text, such as the Designator or `U1-6`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "field",
+              "rank",
+              "text"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `pcb.find` found.",
+        "properties": {
+          "matches": {
+            "description": "Exact matches, then those containing the text, then those ignoring case; within\neach, Designators, values, Nets and Pads, each in natural order of the text.",
+            "items": {
+              "$ref": "#/$defs/PcbFindMatch"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "matches"
+        ],
+        "title": "PcbFindResult",
+        "type": "object"
+      },
+      "title": "Find on Board"
     },
     {
       "category": "pcb",
