@@ -11,14 +11,18 @@ use crate::component::At;
 use crate::connectivity::{self, ProjectNet};
 use crate::sheet;
 
-/// A trimmed, non-blank name, or `invalid_params` at `/name`.
-fn name(name: &str, what: &str) -> Result<String, CommandError> {
+/// A trimmed, non-blank Net name without reserved characters (`[ ] { } , ..` and
+/// control characters), or `invalid_params` at `/name`.
+pub(crate) fn net_name(name: &str, what: &str) -> Result<String, CommandError> {
     match name.trim() {
         "" => Err(CommandError::invalid_params(
             "/name",
             format!("a {what} needs a name"),
         )),
-        name => Ok(name.to_owned()),
+        name => match reda_model::net_name::name_problem(name) {
+            Some(problem) => Err(CommandError::invalid_params("/name", problem)),
+            None => Ok(name.to_owned()),
+        },
     }
 }
 
@@ -27,7 +31,8 @@ fn name(name: &str, what: &str) -> Result<String, CommandError> {
 pub struct PortAddParams {
     /// The Schematic Sheet to place on.
     pub document: Uuid,
-    /// The Net name; surrounding spaces are trimmed and a blank name is refused.
+    /// The Net name; surrounding spaces are trimmed, and a blank name or one holding
+    /// `[ ] { } , ..` or a control character is refused.
     pub name: String,
     /// The connection point: it joins the Wires through it and any Pin there.
     pub at: At,
@@ -53,7 +58,8 @@ impl Command for PortAdd {
         title: "Add Port",
         description: "Places a Port on a Schematic Sheet. It joins the Wires through its \
                       point (and any Pin there) to every Port with the same name on any \
-                      sheet of the Project, and names that Net unless a Power Port does.",
+                      sheet of the Project, and names that Net unless a Net Label or Power \
+                      Port does (or the Project stops Ports naming Nets).",
         category: "schematic",
         icon: "port",
         kind: Kind::Edit,
@@ -65,7 +71,7 @@ impl Command for PortAdd {
         sheet(cx.project()?, p.document)?;
         let port = Port {
             uuid: cx.new_id(),
-            name: name(&p.name, "Port")?,
+            name: net_name(&p.name, "Port")?,
             direction: p.direction,
             at: p.at.point(),
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
@@ -82,8 +88,8 @@ impl Command for PortAdd {
 pub struct PowerPortAddParams {
     /// The Schematic Sheet to place on.
     pub document: Uuid,
-    /// The Net name, such as GND or 3V3; surrounding spaces are trimmed and a blank name
-    /// is refused.
+    /// The Net name, such as GND or 3V3; surrounding spaces are trimmed, and a blank name
+    /// or one holding `[ ] { } , ..` or a control character is refused.
     pub name: String,
     /// The connection point: it joins the Wires through it and any Pin there.
     pub at: At,
@@ -109,7 +115,8 @@ impl Command for PowerPortAdd {
         description: "Places a Power Port (a built-in symbol in a fixed style, not a Library \
                       element) on a Schematic Sheet. It joins the Wires through its point \
                       (and any Pin there) to the Project-wide Net of its name, which it \
-                      names ahead of any Port or Net Label.",
+                      names ahead of any Port, and ahead of Net Labels when the Project's \
+                      Power Port Names Take Priority option is on.",
         category: "schematic",
         icon: "power_port",
         kind: Kind::Edit,
@@ -123,7 +130,7 @@ impl Command for PowerPortAdd {
         p: PowerPortAddParams,
     ) -> Result<PowerPortAddResult, CommandError> {
         sheet(cx.project()?, p.document)?;
-        let name = name(&p.name, "Power Port")?;
+        let name = net_name(&p.name, "Power Port")?;
         let style = p.style.unwrap_or_else(|| default_power_port_style(&name));
         let port = PowerPort {
             uuid: cx.new_id(),
@@ -164,9 +171,11 @@ impl Command for ProjectNets {
         id: "schematic.project_nets",
         title: "Project Nets",
         description: "Derives the Nets of the whole Project: each sheet's Nets joined \
-                      across sheets by Ports and Power Ports, with the winning name \
-                      (Power Port > Port > Net Label > auto-name), every name on the Net, \
-                      the sheets it is on and its Pins. Nothing is stored.",
+                      across sheets by Ports and Power Ports (names compare ignoring \
+                      case), with the winning name (Net Label > Power Port > Port > \
+                      auto-name, as the Project's options change it, then the lowest by \
+                      code point), the board name, every name on the Net, the sheets it \
+                      is on and its Pins. Nothing is stored.",
         category: "schematic",
         icon: "net",
         kind: Kind::Query,

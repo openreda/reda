@@ -184,6 +184,7 @@ fn build_project(
         libraries: vec![],
         properties: Default::default(),
         erc: Default::default(),
+        schematic: Default::default(),
     });
     let sheet = DocumentEntry {
         uuid: cx.new_id(),

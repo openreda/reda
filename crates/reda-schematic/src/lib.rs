@@ -9,6 +9,7 @@ pub mod erc;
 mod find;
 mod library_element;
 mod natural;
+mod options;
 mod pins;
 mod ports;
 mod properties;
@@ -38,6 +39,7 @@ pub use library_element::{
     ElementFile, LibraryElement, LibraryElementParams, LibraryElementResult,
 };
 pub use natural::natural_cmp;
+pub use options::{OptionsSet, OptionsSetParams};
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use ports::{
     PortAdd, PortAddParams, PortAddResult, PowerPortAdd, PowerPortAddParams, PowerPortAddResult,
@@ -84,6 +86,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(PortAdd);
     registry.add(PowerPortAdd);
     registry.add(ProjectNets);
+    registry.add(OptionsSet);
     registry.add(Delete);
     registry.add(Copy);
     registry.add(Cut);

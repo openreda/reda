@@ -4,6 +4,7 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
+use reda_model::net_name::name_key;
 use reda_model::{
     DesignRule, InDocument, Net, NetClass, Object, PcbDocument, RuleKind, RuleScope, Uuid,
 };
@@ -285,7 +286,7 @@ fn membership(
         (Some(nets), None) => nets,
         (None, Some(pattern)) => pcb
             .nets()
-            .filter(|n| glob_match(&pattern, &n.name))
+            .filter(|n| glob_match(&name_key(&pattern), &name_key(&n.name)))
             .map(|n| n.uuid)
             .collect(),
         _ => {
@@ -391,10 +392,11 @@ fn with_class(
 }
 
 /// Whether `name` matches the glob `pattern`: `*` any run, `?` one character, the rest
-/// literal, ignoring case.
+/// literal. Callers compare Net names through [`name_key`], so case is ignored the way
+/// connectivity ignores it.
 pub fn glob_match(pattern: &str, name: &str) -> bool {
-    let p: Vec<char> = pattern.to_lowercase().chars().collect();
-    let n: Vec<char> = name.to_lowercase().chars().collect();
+    let p: Vec<char> = pattern.chars().collect();
+    let n: Vec<char> = name.chars().collect();
     let (mut pi, mut ni) = (0, 0);
     let mut star: Option<(usize, usize)> = None;
     while ni < n.len() {
@@ -420,8 +422,12 @@ mod tests {
     use super::glob_match;
 
     #[test]
-    fn globs_match_runs_and_single_characters_ignoring_case() {
-        assert!(glob_match("VCC*", "vcc_3v3"));
+    fn globs_match_runs_and_single_characters() {
+        assert!(glob_match("vcc*", "vcc_3v3"));
+        assert!(
+            !glob_match("VCC*", "vcc_3v3"),
+            "case is the caller's to fold"
+        );
         assert!(glob_match("*", ""));
         assert!(glob_match("D?", "D1"));
         assert!(!glob_match("D?", "D10"));

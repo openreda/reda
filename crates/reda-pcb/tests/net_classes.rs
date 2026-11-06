@@ -269,3 +269,26 @@ fn a_net_class_is_added_with_its_nets_in_one_step() {
         "nothing added"
     );
 }
+
+#[test]
+fn pattern_assignment_ignores_case_as_connectivity_does() {
+    let dir = TempDir::new("net-class-pattern-case");
+    let mut engine = engine_with_pcb(&dir);
+    let usb = add_class(&mut engine, json!({"name": "USB"}));
+    let dp = add_net(&mut engine, "USB_DP");
+    let dm = add_net(&mut engine, "Usb_Dm");
+    let other = add_net(&mut engine, "USB_VBUS");
+    engine.run_ok(
+        "pcb.net.add_to_class",
+        json!({"pattern": "usb_d?", "class": usb}),
+    );
+    assert_eq!(classes(&engine, dp), vec![usb]);
+    assert_eq!(classes(&engine, dm), vec![usb]);
+    assert!(classes(&engine, other).is_empty());
+    engine.run_ok(
+        "pcb.net.remove_from_class",
+        json!({"pattern": "USB_DM", "class": usb}),
+    );
+    assert!(classes(&engine, dm).is_empty());
+    assert_eq!(classes(&engine, dp), vec![usb]);
+}

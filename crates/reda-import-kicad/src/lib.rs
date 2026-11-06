@@ -14,12 +14,16 @@
 //!   lines in the files.
 //! - 3D models are ignored.
 //!
+//! [`import_net_classes`] separately maps a project file's net classes to rule records
+//! (see `net_classes.rs`).
+//!
 //! KiCad symbol coordinates point up, like REDA's; footprint coordinates point down, so the
 //! footprint's y is negated. Angles keep their sign, because a turn that looks
 //! counter-clockwise on screen stays counter-clockwise when the axis flips with the view.
 
 mod fields;
 mod footprint;
+mod net_classes;
 mod node;
 mod number;
 mod provenance;
@@ -32,6 +36,7 @@ use std::fmt;
 use reda_library::check_element_name;
 use reda_model::{ComponentType, Footprint, Part, PinMap, Provenance, Symbol, Uuid};
 
+pub use net_classes::{ImportedNetClass, ImportedRules, import_net_classes};
 pub use provenance::{Service, VENDOR_TERMS_NOTICE};
 pub use sexpr::MAX_DEPTH;
 
@@ -66,6 +71,8 @@ pub struct Imported {
 pub enum SourceFile {
     Symbol,
     Footprint,
+    /// A project file, for its net classes ([`import_net_classes`]).
+    Project,
 }
 
 /// Why the files could not be imported.
@@ -82,6 +89,7 @@ impl fmt::Display for ImportError {
         let file = match self.file {
             SourceFile::Symbol => "the symbol file",
             SourceFile::Footprint => "the footprint file",
+            SourceFile::Project => "the project file",
         };
         match self.line {
             Some((line, column)) => {

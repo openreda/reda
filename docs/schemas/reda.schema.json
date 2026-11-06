@@ -124,10 +124,20 @@
           "default": "error",
           "description": "Several Components with the same Designator."
         },
-        "multiple_net_names": {
+        "duplicate_nets": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync."
+        },
+        "net_names_across_sheets": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
-          "description": "One Net with several names."
+          "description": "One Net with different names on different sheets."
+        },
+        "net_names_on_sheet": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "One Net with different names on one sheet; names differing only in case are one\nname."
         },
         "no_connect_connected": {
           "$ref": "#/$defs/Severity",
@@ -476,6 +486,28 @@
       ],
       "type": "object"
     },
+    "SchematicOptions": {
+      "additionalProperties": false,
+      "description": "The Project's schematic options: how Nets are named.",
+      "properties": {
+        "allow_ports_to_name_nets": {
+          "default": true,
+          "description": "Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never\nnames it.",
+          "type": "boolean"
+        },
+        "append_sheet_numbers": {
+          "default": false,
+          "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
+          "type": "boolean"
+        },
+        "power_port_names_priority": {
+          "default": false,
+          "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "Severity": {
       "description": "How a check's Violations are reported.",
       "enum": [
@@ -502,7 +534,9 @@
       "default": {
         "dangling_wire": "warning",
         "duplicate_designator": "error",
-        "multiple_net_names": "warning",
+        "duplicate_nets": "error",
+        "net_names_across_sheets": "warning",
+        "net_names_on_sheet": "error",
         "no_connect_connected": "warning",
         "pin_conflict": "error",
         "pin_conflict_mixed": "warning",
@@ -560,6 +594,15 @@
         "title": ""
       },
       "description": "The Project properties that fill the sheets' title blocks. Written only when any\nis set."
+    },
+    "schematic": {
+      "$ref": "#/$defs/SchematicOptions",
+      "default": {
+        "allow_ports_to_name_nets": true,
+        "append_sheet_numbers": false,
+        "power_port_names_priority": false
+      },
+      "description": "The schematic options: how Nets are named. Written only when any differs from its\ndefault; an option left out has its default."
     }
   },
   "required": [

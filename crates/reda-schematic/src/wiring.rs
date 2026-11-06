@@ -135,7 +135,8 @@ pub(crate) fn split_wires_at_pins(
 pub struct NetLabelAddParams {
     /// The Schematic Sheet to place on.
     pub document: Uuid,
-    /// The Net name; surrounding spaces are trimmed and a blank name is refused.
+    /// The Net name; surrounding spaces are trimmed, and a blank name or one holding
+    /// `[ ] { } , ..` or a control character is refused.
     pub name: String,
     /// The connection point: it joins the Wires through it and any Pin there.
     pub at: At,
@@ -157,7 +158,7 @@ impl Command for NetLabelAdd {
         title: "Add Net Label",
         description: "Places a Net Label on a Schematic Sheet. It names the Net of the Wires \
                       through its point (and any Pin there) and joins it to every Net Label \
-                      with the same name on the same sheet.",
+                      with the same name, ignoring case, on the same sheet.",
         category: "schematic",
         icon: "net_label",
         kind: Kind::Edit,
@@ -171,16 +172,10 @@ impl Command for NetLabelAdd {
         p: NetLabelAddParams,
     ) -> Result<NetLabelAddResult, CommandError> {
         sheet(cx.project()?, p.document)?;
-        let name = p.name.trim();
-        if name.is_empty() {
-            return Err(CommandError::invalid_params(
-                "/name",
-                "a Net Label needs a name",
-            ));
-        }
+        let name = crate::ports::net_name(&p.name, "Net Label")?;
         let label = NetLabel {
             uuid: cx.new_id(),
-            name: name.to_owned(),
+            name,
             at: p.at.point(),
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
         };
