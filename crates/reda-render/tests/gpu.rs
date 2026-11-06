@@ -35,6 +35,7 @@ fn id(n: u128) -> Uuid {
 
 fn push(scene: &mut Scene, object: Uuid, color: SchematicColor, primitive: Primitive) {
     scene.items.push(reda_render::Item {
+        child: None,
         object,
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(color),
@@ -323,6 +324,7 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
 
 fn push_board(scene: &mut Scene, layer: u128, color: BoardColor, primitive: Primitive) {
     scene.items.push(reda_render::Item {
+        child: None,
         object: id(100 + layer),
         layer: SceneLayer::Board(id(layer)),
         color: ColorKey::Board(color),
