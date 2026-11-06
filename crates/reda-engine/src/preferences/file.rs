@@ -316,6 +316,18 @@ mod tests {
     }
 
     #[test]
+    fn the_four_wiring_preferences_are_schematic_preferences_that_start_on() {
+        let schematic = parse_with("", &[]).values.schematic;
+        assert!(schematic.optimize_wires);
+        assert!(schematic.components_cut_wires);
+        assert!(schematic.break_wires_at_autojunctions);
+        assert!(schematic.convert_cross_junctions);
+        let loaded = parse_with("[schematic]\noptimize_wires = false\n", &[]);
+        assert!(!loaded.values.schematic.optimize_wires);
+        assert_eq!(loaded.warnings, Vec::<String>::new());
+    }
+
+    #[test]
     fn single_negation_is_a_schematic_preference_that_starts_off() {
         assert!(!parse_with("", &[]).values.schematic.single_negation);
         let loaded = parse_with("[schematic]\nsingle_negation = true\n", &[]);

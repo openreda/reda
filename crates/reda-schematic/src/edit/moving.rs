@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::selection::{one_sheet, resolve};
 use super::transform::{Axis, Placement, place_anew, plan};
 use crate::component::At;
+use crate::normalise::Wiring;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +21,8 @@ pub struct ShiftParams {
     pub objects: Vec<Uuid>,
     /// How far to move them.
     pub by: At,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 /// The sheet an editing Command changed.
@@ -132,7 +135,13 @@ fn shift(
     let document = one_sheet(&objects, "/objects")?;
     let how = Placement::Translate(p.by.point());
     let moves: Vec<_> = objects.into_iter().map(|o| (o, how)).collect();
-    place_anew(cx, document, &moves, keep_connections)?;
+    place_anew(
+        cx,
+        document,
+        &moves,
+        keep_connections,
+        &p.wiring.unwrap_or_default(),
+    )?;
     Ok(EditResult { document })
 }
 

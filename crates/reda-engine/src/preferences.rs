@@ -133,16 +133,20 @@ pub struct SchematicEditing {
     /// Port Cross References Location Style (`none`, `zone` or `xy`), used by Projects
     /// that follow the Preferences for cross-references.
     pub cross_reference_location_style: LocationStyle,
-}
-
-impl SchematicEditing {
-    /// The cross-reference styles a Project that follows the Preferences uses.
-    pub fn cross_reference_styles(&self) -> CrossReferenceStyles {
-        CrossReferenceStyles {
-            sheet: self.cross_reference_sheet_style,
-            location: self.cross_reference_location_style,
-        }
-    }
+    /// Optimize Wires: overlapping collinear Wires merge, and so do collinear Wires
+    /// meeting end to end with nothing else at that point; collinear vertices inside a
+    /// Wire are removed. Off, Wires stay as drawn.
+    pub optimize_wires: bool,
+    /// Components Cut Wires (needs Optimize Wires): a Component dropped with two or more
+    /// Pins on one straight stretch of a Wire cuts out the pieces between them, so the
+    /// part isn't shorted. Off, the Pins connect and the part may be shorted.
+    pub components_cut_wires: bool,
+    /// Break Wires At Autojunctions: a Wire splits at each Junction on its interior. Off,
+    /// it stays one Wire through the Junction.
+    pub break_wires_at_autojunctions: bool,
+    /// Convert Cross-Junctions: a Wire that would make a 4-way is offset into two
+    /// adjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.
+    pub convert_cross_junctions: bool,
 }
 
 impl Default for SchematicEditing {
@@ -163,6 +167,32 @@ impl Default for SchematicEditing {
             single_negation: false,
             cross_reference_sheet_style: CrossReferenceStyles::DEFAULT.sheet,
             cross_reference_location_style: CrossReferenceStyles::DEFAULT.location,
+            optimize_wires: true,
+            components_cut_wires: true,
+            break_wires_at_autojunctions: true,
+            convert_cross_junctions: true,
+        }
+    }
+}
+
+impl SchematicEditing {
+    /// The cross-reference styles a Project that follows the Preferences uses.
+    pub fn cross_reference_styles(&self) -> CrossReferenceStyles {
+        CrossReferenceStyles {
+            sheet: self.cross_reference_sheet_style,
+            location: self.cross_reference_location_style,
+        }
+    }
+
+    /// The `wiring` parameter the app passes to schematic edit Commands: these four
+    /// Preferences, with the sheet's snap grid `snap_grid`.
+    pub fn wiring(&self, snap_grid: reda_model::geom::Nm) -> reda_schematic::Wiring {
+        reda_schematic::Wiring {
+            optimize_wires: self.optimize_wires,
+            components_cut_wires: self.components_cut_wires,
+            break_wires_at_autojunctions: self.break_wires_at_autojunctions,
+            convert_cross_junctions: self.convert_cross_junctions,
+            snap_grid: Length(snap_grid),
         }
     }
 }
