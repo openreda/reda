@@ -18,6 +18,7 @@ fn headless() -> Option<Headless> {
 fn paper() -> Scene {
     let mut scene = Scene::new(SceneSource::None);
     scene.items.push(Item {
+        child: None,
         object: Uuid::from_u128(1),
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(SchematicColor::Paper),

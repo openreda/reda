@@ -3,6 +3,8 @@
 use reda_model::Uuid;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_text::{Mesh, Segment};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::color::ColorKey;
 
@@ -40,9 +42,36 @@ pub struct Item {
     /// highlighting key on. The sheet frame and title block use the sheet's frame object,
     /// or the sheet's Document UUID when it has none.
     pub object: Uuid,
+    /// Independently pickable text or Pad within its owning object.
+    pub child: Option<Child>,
     pub layer: SceneLayer,
     pub color: ColorKey,
     pub primitive: Primitive,
+}
+
+/// A canvas target inside a placed Component or Footprint. The owner remains the
+/// primitive's `object`, so a parent move and highlight also include its children.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Child {
+    Field { unit: Uuid, field: String },
+    Pad { footprint: Uuid, pad: Uuid },
+    FootprintText { footprint: Uuid, text: Uuid },
+}
+
+impl Child {
+    /// A stable view-only identity for GPU flags. Version 8 keeps it separate from
+    /// persisted version-4 object UUIDs. The actual public identity is the full reference.
+    pub fn id(&self) -> Uuid {
+        let mut hash = 0x6c62272e07bb014262b821756295c58du128;
+        let bytes = serde_json::to_vec(self).expect("a Child is serializable");
+        for byte in bytes { hash = (hash ^ u128::from(byte)).wrapping_mul(0x1000000000000000000013b); }
+        Uuid::from_u128((hash & !(0xf << 76)) | (8 << 76))
+    }
+
+    pub fn owner(&self) -> Uuid {
+        match self { Self::Field {unit,..} => *unit, Self::Pad {footprint,..} | Self::FootprintText {footprint,..} => *footprint }
+    }
 }
 
 /// The Layer an item is composited on. Each Layer is drawn opaque, then blended at its
@@ -211,6 +240,7 @@ impl Scene {
     ) {
         self.items.push(Item {
             object,
+            child: None,
             layer,
             color,
             primitive,

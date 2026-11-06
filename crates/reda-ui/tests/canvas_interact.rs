@@ -27,6 +27,7 @@ fn id(n: u128) -> Uuid {
 
 fn push(scene: &mut Scene, object: Uuid, primitive: Primitive) {
     scene.items.push(Item {
+        child: None,
         object,
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(SchematicColor::Wire),
