@@ -351,3 +351,111 @@ fn layer_colours_are_overridden_per_theme_and_layer_kind() {
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
 }
+
+#[test]
+fn reset_puts_the_given_keys_back_and_keeps_the_rest() {
+    let home = TempDir::new("prefs-reset-keys");
+    write_prefs(
+        home.path(),
+        "# mine\n[general]\ntheme = \"dark\"\nui_scale = 1.5\n\n[pcb]\nauto_pan = false\n",
+    );
+    let mut engine = test_engine_in(home.path());
+    let out = engine.run_ok(
+        "app.preferences.reset",
+        json!({"keys": ["general.theme", "pcb.auto_pan", "pcb.electrical_snap"]}),
+    );
+    // Only the keys that were changed are reported, sorted.
+    assert_eq!(out, json!({"reset": ["general.theme", "pcb.auto_pan"]}));
+    assert_eq!(
+        read_prefs(home.path()),
+        "# mine\n[general]\nui_scale = 1.5\n\n[pcb]\n"
+    );
+}
+
+#[test]
+fn reset_a_page_or_its_branch() {
+    let home = TempDir::new("prefs-reset-page");
+    write_prefs(
+        home.path(),
+        "[schematic]\nrepeat_placement = false\nelectrical_snap = false\noptimize_wires = false\n",
+    );
+    let mut engine = test_engine_in(home.path());
+    // Editing holds repeat placement; its Snap sub-page holds electrical snap.
+    let out = engine.run_ok("app.preferences.reset", json!({"page": "editing"}));
+    assert_eq!(out, json!({"reset": ["schematic.repeat_placement"]}));
+    let out = engine.run_ok(
+        "app.preferences.reset",
+        json!({"page": "editing", "branch": true}),
+    );
+    assert_eq!(out, json!({"reset": ["schematic.electrical_snap"]}));
+    assert_eq!(
+        read_prefs(home.path()),
+        "[schematic]\noptimize_wires = false\n"
+    );
+}
+
+#[test]
+fn reset_all_empties_the_file_of_values() {
+    let home = TempDir::new("prefs-reset-all");
+    write_prefs(home.path(), "[agents]\nbridge = false\n");
+    let mut engine = test_engine_in(home.path());
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "general.undo_depth", "value": 3}),
+    );
+    assert_eq!(engine.history().depth(), Some(3));
+    let out = engine.run_ok("app.preferences.reset", json!({"all": true}));
+    assert_eq!(
+        out,
+        json!({"reset": ["agents.bridge", "general.undo_depth"]})
+    );
+    assert_eq!(read_prefs(home.path()), "[agents]\n\n[general]\n");
+    // Resetting the undo depth applies at once, like setting it.
+    assert_eq!(engine.history().depth(), None);
+}
+
+#[test]
+fn reset_takes_exactly_one_of_keys_page_and_all() {
+    let home = TempDir::new("prefs-reset-bad");
+    let mut engine = test_engine_in(home.path());
+    for params in [
+        json!({}),
+        json!({"keys": ["general.theme"], "all": true}),
+        json!({"page": "general", "keys": []}),
+        json!({"all": false}),
+    ] {
+        let e = engine
+            .run("app.preferences.reset", params.clone())
+            .unwrap_err();
+        assert_eq!(e.code, ErrorCode::InvalidParams, "{params}");
+    }
+    let e = engine
+        .run("app.preferences.reset", json!({"keys": ["general.nope"]}))
+        .unwrap_err();
+    assert_eq!(e.code, ErrorCode::InvalidParams);
+    assert_eq!(e.details.unwrap()["pointer"], "/keys/0");
+    let e = engine
+        .run("app.preferences.reset", json!({"page": "nope"}))
+        .unwrap_err();
+    assert_eq!(e.details.unwrap()["pointer"], "/page");
+}
+
+#[test]
+fn every_preference_is_on_a_page_of_the_tree() {
+    use reda_engine::preferences::pages;
+    let ids: Vec<&str> = pages::PAGES.iter().map(|p| p.id).collect();
+    for page in pages::PAGES {
+        if let Some(parent) = page.parent {
+            assert!(ids.contains(&parent), "{} has an unknown parent", page.id);
+        }
+    }
+    for key in reda_engine::preferences::keys() {
+        assert!(ids.contains(&pages::page_of(&key)), "{key}");
+    }
+    assert_eq!(
+        pages::page_of("schematic.optimize_wires"),
+        "schematic.wires"
+    );
+    assert_eq!(pages::page_of("pcb.electrical_snap"), "editing.snap");
+    assert_eq!(pages::page_of("general.default_layout"), "window");
+}
