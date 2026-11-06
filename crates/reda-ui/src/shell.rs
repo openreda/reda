@@ -1006,6 +1006,7 @@ impl Shell {
             self.save_view();
         }
         let kind = self.engine.registry().get(base).map(|meta| meta.kind);
+        let params = self.with_wiring(base, params);
         let out = self.engine.run(id, params);
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.
@@ -1019,6 +1020,32 @@ impl Shell {
         }
         self.after_element_run(base, &out);
         Ok(out)
+    }
+
+    /// `params` for Command `id` with its `wiring` filled in from the wiring Preferences
+    /// and the sheet's snap grid, when `id` takes one and the caller gave none. Agents'
+    /// Commands keep the fixed defaults, so their results don't depend on this machine.
+    fn with_wiring(&self, id: &str, mut params: Value) -> Value {
+        if !reda_engine::schematic::WIRING_COMMANDS.contains(&id) {
+            return params;
+        }
+        let document = (params.get("document"))
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse::<Uuid>().ok())
+            .or_else(|| self.active_document().map(|t| t.document));
+        let Some(map) = params.as_object_mut() else {
+            return params;
+        };
+        if map.contains_key("wiring") {
+            return params;
+        }
+        let grid = document.map_or(grid::SCHEMATIC_DEFAULT, |d| self.grid(d));
+        let wiring = self.preferences().schematic.wiring(grid);
+        map.insert(
+            "wiring".to_owned(),
+            serde_json::to_value(wiring).expect("wiring serialises"),
+        );
+        params
     }
 
     /// What the Library editors do once `id` ran (with result `out`) and the tabs are
