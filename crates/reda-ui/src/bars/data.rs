@@ -106,6 +106,10 @@ fn menu(map: &Map<String, Value>) -> Result<Menu, String> {
     let id = string(map, "id", "a menu")?;
     Ok(Menu {
         title: string(map, "title", &id)?,
+        icon: match map.get("icon") {
+            Some(_) => Some(string(map, "icon", &id)?),
+            None => None,
+        },
         items: items(map.get("items").ok_or(format!("{id} has no items"))?, &id)?,
         id,
     })
@@ -126,7 +130,7 @@ fn item(value: &Value) -> Result<Item, String> {
     }
     let map = object(value, "an item")?;
     if map.contains_key("items") {
-        only(map, &["id", "title", "items"], "a submenu")?;
+        only(map, &["id", "title", "icon", "items"], "a submenu")?;
         return Ok(Item::Submenu(menu(map)?));
     }
     let id = string(map, "id", "an item")?;

@@ -57,7 +57,7 @@ impl TitleBlock {
 
 pub(super) fn build(b: &mut Builder, project: &Project, sheet: &SchematicSheet) {
     let object = sheet.frame().map_or(sheet.uuid, |f| f.uuid);
-    let (w, h) = sheet.size().dimensions();
+    let (w, h) = sheet.dimensions();
     b.push(
         object,
         C::Paper,

@@ -1,13 +1,14 @@
 //! Ports and Power Ports.
 //!
 //! Both are drawn in their own frame, then turned by their rotation about their connection
-//! point. A Port is a flag reaching along +x from its point, with its name inside: pointed
+//! point. A Port is a flag reaching along +x from its point (or -x when its Wire leaves
+//! along +x, so the flag reaches away from the Wire), with its name inside: pointed
 //! at the far end for `out`, at the connection end for `in`, at both for `bidirectional`.
 //! A Power Port is a stem with a fixed symbol at its end and its name beyond; ground
 //! styles hang down (-y), the rest stand up (+y).
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{PortDirection, PowerPortStyle, SchematicSheet, Uuid};
+use reda_model::{Port, PortDirection, PowerPortStyle, SchematicSheet, Uuid};
 
 use super::Builder;
 use crate::color::SchematicColor as C;
@@ -114,16 +115,38 @@ pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet) {
                 (tip, -h),
             ],
         };
+        // The flag reaches away from its Wire: one that leaves on the flag's side turns it
+        // half a turn, which keeps an `out` point at the far end and an `in` point at the
+        // Wire.
+        let rotation = match wire_on_flag_side(sheet, port) {
+            true => (port.rotation + Millideg::from_deg(180)).normalized(),
+            false => port.rotation,
+        };
         let mut l = Local {
             b,
             object: port.uuid,
             color: C::Port,
             at: port.at,
-            rotation: port.rotation,
+            rotation,
         };
         l.closed(outline);
         l.name(&port.name, (len / 2, 0));
     }
+}
+
+/// Whether a Wire segment ending on `port`'s point leaves it towards the side the flag
+/// reaches.
+fn wire_on_flag_side(sheet: &SchematicSheet, port: &Port) -> bool {
+    let (fx, fy) = rotate(1_000_000, 0, port.rotation);
+    sheet.wires().flat_map(|w| w.segments()).any(|(a, b)| {
+        let other = match (a == port.at, b == port.at) {
+            (true, _) => b,
+            (_, true) => a,
+            _ => return false,
+        };
+        let (vx, vy) = ((other.x - port.at.x).0, (other.y - port.at.y).0);
+        i128::from(vx) * i128::from(fx) + i128::from(vy) * i128::from(fy) > 0
+    })
 }
 
 pub(super) fn power_ports(b: &mut Builder, sheet: &SchematicSheet) {
@@ -190,7 +213,9 @@ pub(super) fn power_ports(b: &mut Builder, sheet: &SchematicSheet) {
                 -(s + gap)
             }
         };
-        let beyond = NAME_GAP + NAME_TEXT.0 / 2;
-        l.name(&port.name, (0, reach + reach.signum() * beyond));
+        if !port.hide_name {
+            let beyond = NAME_GAP + NAME_TEXT.0 / 2;
+            l.name(&port.name, (0, reach + reach.signum() * beyond));
+        }
     }
 }
