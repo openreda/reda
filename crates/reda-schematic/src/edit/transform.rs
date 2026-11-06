@@ -33,7 +33,7 @@ pub(crate) enum Placement {
     /// Flipped about a centre.
     Mirror { center: Point, axis: Axis },
     /// Each of its anchor points moved to the nearest grid point (a Unit's origin, a
-    /// Wire's or line's ends, a label's or Port's point).
+    /// Wire's vertices, a line's ends, a label's or Port's point).
     Snap(Nm),
 }
 
@@ -127,15 +127,6 @@ pub(crate) fn place_anew(
     for object in plan.replaced {
         tx.replace(object)?;
     }
-    // The corner Wires take their UUIDs from the Command's id source, in order.
-    for wire in plan.inserted {
-        let wire = Wire {
-            uuid: cx.new_id(),
-            ..wire
-        };
-        cx.tx()?
-            .insert(Object::Wire(InDocument::new(document, wire)))?;
-    }
     for unit in plan.units {
         split_wires_at_pins(cx, document, unit)?;
     }
@@ -148,8 +139,6 @@ pub(crate) struct Plan {
     pub replaced: Vec<Object>,
     /// Objects that fold away to nothing (Wires and lines of no length).
     pub removed: Vec<Uuid>,
-    /// New Wires turning a rubber-banded Wire's corner; their UUIDs are placeholders.
-    pub inserted: Vec<Wire>,
     /// The moved Units, whose Pins may now split Wires.
     pub units: Vec<Uuid>,
 }
@@ -180,23 +169,13 @@ pub(crate) fn plan(
                 replaced.push(Object::Unit(InDocument::new(document, new)));
             }
             Object::Wire(w) => {
-                let new = Wire {
-                    uuid: w.uuid,
-                    from: how.point(w.from),
-                    to: how.point(w.to),
-                };
-                follow(w.from, new.from);
-                follow(w.to, new.to);
-                if new.from == new.to {
-                    removed.push(w.uuid);
-                } else if !new.is_orthogonal() {
-                    return Err(CommandError::rejected(format!(
-                        "Wire {} would no longer be horizontal or vertical; Wires turn only \
-                         in quarter turns",
-                        w.uuid
-                    )));
-                } else {
-                    replaced.push(Object::Wire(InDocument::new(document, new)));
+                let vertices: Vec<Point> = w.vertices.iter().map(|&v| how.point(v)).collect();
+                for (&old, &now) in w.vertices.iter().zip(&vertices) {
+                    follow(old, now);
+                }
+                match Wire::through(w.uuid, vertices) {
+                    Some(new) => replaced.push(Object::Wire(InDocument::new(document, new))),
+                    None => removed.push(w.uuid),
                 }
             }
             Object::NetLabel(l) => {
@@ -259,21 +238,12 @@ pub(crate) fn plan(
     }
     followed.retain(|from, to| from != to);
     let selected: BTreeSet<Uuid> = moves.iter().map(|(o, _)| o.uuid()).collect();
-    let mut inserted = vec![];
     if keep_connections && !followed.is_empty() {
-        rubber_band(
-            body,
-            &selected,
-            &followed,
-            &mut replaced,
-            &mut removed,
-            &mut inserted,
-        );
+        rubber_band(body, &selected, &followed, &mut replaced, &mut removed);
     }
     Ok(Plan {
         replaced,
         removed,
-        inserted,
         units,
     })
 }
@@ -288,6 +258,59 @@ fn pins(body: &SchematicSheet, unit: &UnitInstance) -> Vec<Point> {
         .collect()
 }
 
+/// The vertices of unselected `wire` once its ends follow the moved connection points
+/// `followed`, or `None` when neither end moved. An end segment that was horizontal or
+/// vertical keeps its direction from the vertex that stayed and turns a corner to the moved
+/// end, so the Wire stays orthogonal; one at another angle just goes straight to it.
+fn rubber_banded(wire: &Wire, followed: &BTreeMap<Point, Point>) -> Option<Vec<Point>> {
+    let [first, last] = wire.ends();
+    let (to_first, to_last) = (followed.get(&first), followed.get(&last));
+    if to_first.is_none() && to_last.is_none() {
+        return None;
+    }
+    let original = &wire.vertices;
+    let n = original.len();
+    let mut vertices = original.clone();
+    // A straight Wire with both ends moved bends at its far end, as if only that one moved
+    // after the first.
+    if let Some(&to) = to_first {
+        vertices[0] = to;
+        if n > 2 || to_last.is_none() {
+            bend(&mut vertices, 0, 1, (original[0], original[1]));
+        }
+    }
+    if let Some(&to) = to_last {
+        let n = vertices.len();
+        vertices[n - 1] = to;
+        let next = n - 2;
+        let o = original.len();
+        bend(
+            &mut vertices,
+            n - 1,
+            next,
+            (original[o - 1], original[o - 2]),
+        );
+    }
+    Some(vertices)
+}
+
+/// Turns a corner between the moved end `vertices[end]` and its neighbour `vertices[next]`
+/// when the segment between them was orthogonal (`was`, as it was drawn) and no longer is.
+fn bend(vertices: &mut Vec<Point>, end: usize, next: usize, was: (Point, Point)) {
+    let (keep, go) = (vertices[next], vertices[end]);
+    let horizontal = was.0.y == was.1.y && was.0.x != was.1.x;
+    let vertical = was.0.x == was.1.x && was.0.y != was.1.y;
+    if !(horizontal || vertical) || keep.x == go.x || keep.y == go.y {
+        return;
+    }
+    let corner = if horizontal {
+        Point::new(go.x, keep.y)
+    } else {
+        Point::new(keep.x, go.y)
+    };
+    vertices.insert(end.max(next), corner);
+}
+
 /// Makes the unselected objects on `body` follow the moved connection points `followed`.
 fn rubber_band(
     body: &SchematicSheet,
@@ -295,56 +318,16 @@ fn rubber_band(
     followed: &BTreeMap<Point, Point>,
     replaced: &mut Vec<Object>,
     removed: &mut Vec<Uuid>,
-    inserted: &mut Vec<Wire>,
 ) {
     let document = body.uuid;
-    let moved = |p: Point| followed.get(&p).copied().unwrap_or(p);
     for wire in body.wires().filter(|w| !selected.contains(&w.uuid)) {
-        let (from, to) = (moved(wire.from), moved(wire.to));
-        if (from, to) == (wire.from, wire.to) {
+        let Some(vertices) = rubber_banded(wire, followed) else {
             continue;
-        }
-        if from == to {
-            removed.push(wire.uuid);
-            continue;
-        }
-        let horizontal = wire.from.y == wire.to.y;
-        let bent = Wire {
-            uuid: wire.uuid,
-            from,
-            to,
         };
-        if bent.is_orthogonal() {
-            replaced.push(Object::Wire(InDocument::new(document, bent)));
-            continue;
+        match Wire::through(wire.uuid, vertices) {
+            Some(new) => replaced.push(Object::Wire(InDocument::new(document, new))),
+            None => removed.push(wire.uuid),
         }
-        // The Wire keeps its direction from its end that stayed (its `from` when both
-        // moved), then a new Wire turns the corner to the other end.
-        let to_stayed = followed.contains_key(&wire.from) && !followed.contains_key(&wire.to);
-        let (keep, go) = if to_stayed { (to, from) } else { (from, to) };
-        let corner = if horizontal {
-            Point::new(go.x, keep.y)
-        } else {
-            Point::new(keep.x, go.y)
-        };
-        let (kept, turn) = if to_stayed {
-            ((corner, keep), (go, corner))
-        } else {
-            ((keep, corner), (corner, go))
-        };
-        replaced.push(Object::Wire(InDocument::new(
-            document,
-            Wire {
-                uuid: wire.uuid,
-                from: kept.0,
-                to: kept.1,
-            },
-        )));
-        inserted.push(Wire {
-            uuid: wire.uuid,
-            from: turn.0,
-            to: turn.1,
-        });
     }
     for label in body.net_labels().filter(|l| !selected.contains(&l.uuid)) {
         if let Some(&at) = followed.get(&label.at) {
