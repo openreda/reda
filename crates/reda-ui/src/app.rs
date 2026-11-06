@@ -746,6 +746,7 @@ impl App {
                 Request::ZoomSelection(document) => {
                     self.shell.zoom_to_selection(document);
                 }
+                Request::JumpTo(document, jump) => self.shell.jump(document, jump),
                 Request::Preferences => self.open_preferences(None),
                 Request::Theme(choice) => ctx.set_theme(match choice {
                     preferences::Theme::FollowOs => ThemePreference::System,

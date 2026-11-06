@@ -8,7 +8,8 @@
 use reda_command::Fonts;
 use reda_model::geom::Nm;
 use reda_model::{
-    DocumentEntry, DocumentKind, Footprint, Layer, Project, ProjectProps, Rules, Shape, Uuid,
+    DocumentEntry, DocumentKind, FabRules, Footprint, Layer, PreferredSeeds, Project, ProjectProps,
+    Shape, Uuid,
 };
 use reda_pcb::{board_layer, element_texts, new_board, text_geometry};
 use reda_render::{BoardGeometry, BoardGraphic, BoardPad, BoardText, Mesh, Scene, Segment};
@@ -107,14 +108,21 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         schematic: Default::default(),
     });
     let document = new_id();
-    let rules = Rules {
+    let rules = FabRules {
         clearance: Nm(0),
         track_width: Nm(0),
         via_diameter: Nm(0),
         via_hole: Nm(0),
+        hole_min: Nm(0),
+        hole_max: Nm(0),
         annular_ring: Nm(0),
         hole_to_hole: Nm(0),
         edge_clearance: Nm(0),
+        preferred: PreferredSeeds {
+            track_width: Nm(0),
+            via_diameter: Nm(0),
+            via_hole: Nm(0),
+        },
     };
     let mut tx = project.transaction();
     let entry = DocumentEntry {
@@ -124,7 +132,7 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         title: String::new(),
     };
     add_document(&mut tx, entry).expect("a blank Project takes a board");
-    for object in new_board(document, rules, &mut new_id) {
+    for object in new_board(document, &rules, &mut new_id) {
         tx.insert(object).expect("a new board's objects fit");
     }
     tx.commit().expect("a new board commits");

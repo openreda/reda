@@ -1,9 +1,9 @@
 //! What a new PCB Document holds: the fixed v0.1 Layer set, the board setup and the
-//! Default Net Class.
+//! board-wide rule records, seeded from a Fab Preset.
 
 use reda_model::{
-    BoardSetup, DrcSeverities, InDocument, Layer, LayerKind, LayerSet, NetClass, Object, Rules,
-    Side, Uuid,
+    BoardSetup, Bounds, DesignRule, DrcSeverities, FabRules, InDocument, Layer, LayerKind,
+    LayerSet, Object, RuleKind, RuleScope, RuleValues, Side, Uuid,
 };
 
 /// The v0.1 Layers, top to bottom.
@@ -30,13 +30,67 @@ pub const V01_LAYERS: [(LayerKind, Option<Side>); 15] = {
     ]
 };
 
-/// The name of the Net Class every new board starts with.
+/// The name of the Default Net Class, which every Net is in and which is not stored.
 pub const DEFAULT_NET_CLASS: &str = "Default";
 
+/// The board-wide values of every rule kind, seeded from a Fab Preset's rules: its limits
+/// as the minimums (and the hole maximum), its preferred seeds, Track and Via maximums
+/// empty.
+pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
+    let min = |min: reda_model::geom::Nm| RuleValues {
+        min: Some(min),
+        ..RuleValues::default()
+    };
+    let value = |value| RuleValues {
+        value: Some(value),
+        ..RuleValues::default()
+    };
+    let bounds = |min, preferred| Bounds {
+        min: Some(min),
+        preferred: Some(preferred),
+        max: None,
+    };
+    let p = rules.preferred;
+    vec![
+        (RuleKind::Clearance, value(rules.clearance)),
+        (
+            RuleKind::TrackWidth,
+            RuleValues {
+                min: Some(rules.track_width),
+                preferred: Some(p.track_width),
+                ..RuleValues::default()
+            },
+        ),
+        (
+            RuleKind::ViaSize,
+            RuleValues {
+                diameter: Some(bounds(rules.via_diameter, p.via_diameter)),
+                hole: Some(bounds(rules.via_hole, p.via_hole)),
+                ..RuleValues::default()
+            },
+        ),
+        (
+            RuleKind::HoleSize,
+            RuleValues {
+                min: Some(rules.hole_min),
+                max: Some(rules.hole_max),
+                ..RuleValues::default()
+            },
+        ),
+        (RuleKind::AnnularRing, min(rules.annular_ring)),
+        (RuleKind::HoleToHole, min(rules.hole_to_hole)),
+        (RuleKind::EdgeClearance, value(rules.edge_clearance)),
+    ]
+}
+
 /// The objects of a new, empty board in PCB Document `document`: its Layers, its board
-/// setup with `rules` (a Fab Preset's seed rules) and the default DRC severities, and the Default Net Class. `new_id`
-/// supplies every UUID.
-pub fn new_board(document: Uuid, rules: Rules, mut new_id: impl FnMut() -> Uuid) -> Vec<Object> {
+/// setup with the default DRC severities, and one board-wide record per rule kind seeded
+/// from `rules` (a Fab Preset's). `new_id` supplies every UUID.
+pub fn new_board(
+    document: Uuid,
+    rules: &FabRules,
+    mut new_id: impl FnMut() -> Uuid,
+) -> Vec<Object> {
     let layers = LayerSet {
         uuid: new_id(),
         layers: V01_LAYERS
@@ -48,23 +102,24 @@ pub fn new_board(document: Uuid, rules: Rules, mut new_id: impl FnMut() -> Uuid)
             })
             .collect(),
     };
-    let default = NetClass {
-        uuid: new_id(),
-        name: DEFAULT_NET_CLASS.into(),
-        clearance: None,
-        track_width: None,
-        via_diameter: None,
-        via_hole: None,
-    };
     let setup = BoardSetup {
         uuid: new_id(),
-        default_net_class: default.uuid,
-        rules,
         severities: DrcSeverities::DEFAULT,
     };
-    vec![
+    let mut objects = vec![
         Object::LayerSet(InDocument::new(document, layers)),
-        Object::NetClass(InDocument::new(document, default)),
         Object::BoardSetup(InDocument::new(document, setup)),
-    ]
+    ];
+    for (kind, values) in seed_rules(rules) {
+        let rule = DesignRule {
+            uuid: new_id(),
+            kind,
+            scope: RuleScope::BOARD,
+            values,
+            enabled: true,
+            comment: None,
+        };
+        objects.push(Object::DesignRule(InDocument::new(document, rule)));
+    }
+    objects
 }

@@ -32,15 +32,7 @@ impl Selection {
     }
 }
 
-/// A Pad of a Footprint instance on the PCB.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PadRef {
-    /// The Footprint instance.
-    pub footprint: Uuid,
-    /// The Pad of its Footprint copy.
-    pub pad: Uuid,
-}
+pub use reda_engine::model::PadRef;
 
 /// Adds `selection.set` to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {

@@ -9,7 +9,7 @@ use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::json;
 
 /// The Output Job `project.new` makes, on seed 0.
-const JOB: &str = "00000000-0000-4000-8000-000000000017";
+const JOB: &str = "00000000-0000-4000-8000-00000000001d";
 
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();

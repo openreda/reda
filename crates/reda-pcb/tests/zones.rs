@@ -52,15 +52,16 @@ fn a_zone_takes_its_defaults_from_the_board_rules() {
         .layers()
         .find(LayerKind::Copper, Some(Side::Bottom))
         .unwrap();
-    let rules = pcb.setup().rules;
+    // The Generic preset's clearance and minimum Track width.
+    let (clearance, track_min) = (Nm::from_um(160), Nm::from_um(200));
     assert_eq!(zone.layer, bottom.uuid);
     assert_eq!(zone.net, Some(gnd));
     assert_eq!(zone.vertices.len(), 4);
-    assert_eq!(zone.clearance, rules.clearance);
-    assert_eq!(zone.min_width, rules.track_width);
+    assert_eq!(zone.clearance, clearance);
+    assert_eq!(zone.min_width, track_min);
     assert_eq!(zone.pad_connection, PadConnection::Thermal);
-    assert_eq!(zone.thermal_gap, rules.clearance);
-    assert_eq!(zone.thermal_spoke_width, rules.track_width);
+    assert_eq!(zone.thermal_gap, clearance);
+    assert_eq!(zone.thermal_spoke_width, track_min);
     assert!(zone.remove_islands);
     assert_eq!(zone.priority, 0);
 }

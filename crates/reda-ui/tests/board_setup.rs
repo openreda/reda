@@ -5,7 +5,7 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::model::geom::Nm;
-use reda_ui::engine::model::{DrcCheck, PcbDocument, Severity, Uuid};
+use reda_ui::engine::model::{DrcCheck, PcbDocument, RuleKind, Severity, Uuid};
 use reda_ui::settings::board_setup::{self, ClassKey, DrcPage, NetClassesPage, RuleField};
 use reda_ui::settings::{SettingsDialog, Step};
 use reda_ui::shell::Shell;
@@ -36,6 +36,10 @@ fn add_net(shell: &mut Shell, name: &str) -> Uuid {
     out["result"]["uuid"].as_str().unwrap().parse().unwrap()
 }
 
+fn board_value(shell: &Shell, rule: RuleField) -> Option<Nm> {
+    rule.get(pcb(shell))
+}
+
 fn journal_ids(shell: &Shell) -> Vec<String> {
     shell
         .engine()
@@ -57,6 +61,7 @@ fn board_setup_has_a_page_per_rule_then_net_classes_and_drc() {
             "Clearance",
             "Track Width",
             "Via",
+            "Hole Size",
             "Annular Ring",
             "Hole Spacing",
             "Edge Clearance",
@@ -71,14 +76,18 @@ fn board_setup_has_a_page_per_rule_then_net_classes_and_drc() {
 fn rules_overrides_and_severities_apply_as_one_batch_and_one_undo_entry_on_the_pcb() {
     let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
     let mut shell = shell_with_board(&home, &work);
+    let power = shell
+        .run("pcb.net_class.add", json!({"name": "Power"}))
+        .unwrap();
+    let power: Uuid = power["result"]["uuid"].as_str().unwrap().parse().unwrap();
     let mut d = dialog(&shell);
-    let default = ClassKey::Existing(pcb(&shell).setup().default_net_class);
     {
         let mut board = d.page::<DrcPage>().unwrap().board();
         assert_eq!(board.rule(RuleField::Clearance), "0.16");
+        assert_eq!(board.rule(RuleField::TrackPreferred), "0.25");
         board.set_rule(RuleField::Clearance, "0.2");
         board.set_rule(RuleField::EdgeClearance, "20mil");
-        board.set_class_override(default, RuleField::TrackWidth, "0.25");
+        board.set_class_override(ClassKey::Existing(power), RuleField::TrackPreferred, "0.5");
         board.set_severity(DrcCheck::CourtyardOverlap, Severity::Off);
         board.set_severity(DrcCheck::Clearance, Severity::Warning);
     }
@@ -87,15 +96,21 @@ fn rules_overrides_and_severities_apply_as_one_batch_and_one_undo_entry_on_the_p
     d.apply(&mut shell).unwrap();
     assert_eq!(journal_ids(&shell)[before..], ["batch"]);
     let setup = pcb(&shell).setup().clone();
-    assert_eq!(setup.rules.clearance, Nm::from_um(200));
-    assert_eq!(setup.rules.edge_clearance, Nm(508_000));
+    assert_eq!(
+        board_value(&shell, RuleField::Clearance),
+        Some(Nm::from_um(200))
+    );
+    assert_eq!(
+        board_value(&shell, RuleField::EdgeClearance),
+        Some(Nm(508_000))
+    );
     assert_eq!(
         setup.severities.get(DrcCheck::CourtyardOverlap),
         Severity::Off
     );
     assert_eq!(setup.severities.get(DrcCheck::Clearance), Severity::Warning);
-    let class = pcb(&shell).net_class(setup.default_net_class).unwrap();
-    assert_eq!(class.track_width, Some(Nm::from_um(250)));
+    let record = pcb(&shell).class_rule(RuleKind::TrackWidth, power).unwrap();
+    assert_eq!(record.values.preferred, Some(Nm::from_um(500)));
     assert!(!d.has_changes(), "applied changes are no longer pending");
     // Typing the same value another way is not a change.
     d.page::<DrcPage>()
@@ -110,7 +125,10 @@ fn rules_overrides_and_severities_apply_as_one_batch_and_one_undo_entry_on_the_p
         .unwrap();
     d.sync(shell.engine().project().unwrap());
     let board = d.page::<DrcPage>().unwrap().board();
-    assert_eq!(pcb(&shell).setup().rules.clearance, Nm::from_um(160));
+    assert_eq!(
+        board_value(&shell, RuleField::Clearance),
+        Some(Nm::from_um(160))
+    );
     assert_eq!(board.rule(RuleField::EdgeClearance), "0.4");
     assert_eq!(
         board.severity(DrcCheck::CourtyardOverlap),
@@ -132,10 +150,16 @@ fn undo_with_board_setup_open_undoes_its_changes_on_the_pcb() {
         .board()
         .set_rule(RuleField::Clearance, "0.3");
     d.apply(&mut shell).unwrap();
-    assert_eq!(pcb(&shell).setup().rules.clearance, Nm::from_um(300));
+    assert_eq!(
+        board_value(&shell, RuleField::Clearance),
+        Some(Nm::from_um(300))
+    );
 
     shell.undo(false, Some(d.undo_scope())).unwrap();
-    assert_eq!(pcb(&shell).setup().rules.clearance, Nm::from_um(160));
+    assert_eq!(
+        board_value(&shell, RuleField::Clearance),
+        Some(Nm::from_um(160))
+    );
     assert_eq!(
         shell.engine().project().unwrap().props().properties.title,
         "Amp"
@@ -145,14 +169,18 @@ fn undo_with_board_setup_open_undoes_its_changes_on_the_pcb() {
 #[test]
 fn each_rule_page_flags_its_own_invalid_values() {
     let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
-    let shell = shell_with_board(&home, &work);
+    let mut shell = shell_with_board(&home, &work);
+    let power = shell
+        .run("pcb.net_class.add", json!({"name": "Power"}))
+        .unwrap();
+    let power: Uuid = power["result"]["uuid"].as_str().unwrap().parse().unwrap();
+    let power = ClassKey::Existing(power);
     let d = dialog(&shell);
-    let default = ClassKey::Existing(pcb(&shell).setup().default_net_class);
     {
         let mut board = d.page::<DrcPage>().unwrap().board();
         board.set_rule(RuleField::Clearance, "-0.1");
         board.set_rule(RuleField::ViaHole, "");
-        board.set_class_override(default, RuleField::TrackWidth, "wide");
+        board.set_class_override(power, RuleField::TrackWidth, "wide");
     }
     let flagged: Vec<(String, String)> = d
         .problems()
@@ -162,12 +190,12 @@ fn each_rule_page_flags_its_own_invalid_values() {
     assert_eq!(
         flagged,
         [
-            ("Clearance".to_owned(), "rule/clearance".to_owned()),
+            ("Clearance".to_owned(), "rule/clearance.value".to_owned()),
             (
                 "Track Width".to_owned(),
-                format!("class/{default}/track_width")
+                format!("class/{power}/track_width.min")
             ),
-            ("Via".to_owned(), "rule/via_hole".to_owned()),
+            ("Via".to_owned(), "rule/via_size.hole.min".to_owned()),
         ]
     );
     assert!(!d.can_ok() && !d.can_apply());
@@ -180,7 +208,13 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
     shell
         .run(
             "pcb.rules.set",
-            json!({"clearance": "0.3mm", "via_hole": "0.4mm"}),
+            json!({"kind": "clearance", "values": {"value": "0.3mm"}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm", "preferred": "0.4mm"}}}),
         )
         .unwrap();
     let mut d = dialog(&shell);
@@ -201,6 +235,7 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
             [
                 (RuleField::Clearance, "0.3", Nm::from_um(160)),
                 (RuleField::ViaHole, "0.4", Nm::from_um(300)),
+                (RuleField::ViaHolePreferred, "0.4", Nm::from_um(300)),
             ]
         );
     }
@@ -208,13 +243,23 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
     d.page::<DrcPage>().unwrap().board().accept_fab_preview();
     assert_eq!(
         d.steps(),
-        [Step::new(
-            "pcb.rules.set",
-            json!({"clearance": 160_000, "via_hole": 300_000})
-        )]
+        [
+            Step::new(
+                "pcb.rules.set",
+                json!({"kind": "clearance", "values": {"value": 160_000}})
+            ),
+            Step::new(
+                "pcb.rules.set",
+                json!({"kind": "via_size",
+                       "values": {"hole": {"min": 300_000, "preferred": 300_000}}})
+            ),
+        ]
     );
     d.apply(&mut shell).unwrap();
-    assert_eq!(pcb(&shell).setup().rules.via_hole, Nm::from_um(300));
+    assert_eq!(
+        board_value(&shell, RuleField::ViaHole),
+        Some(Nm::from_um(300))
+    );
 }
 
 #[test]
@@ -231,11 +276,14 @@ fn net_classes_are_added_renamed_and_deleted_and_nets_assigned_in_one_batch() {
         .unwrap();
     let old: Uuid = old["result"]["uuid"].as_str().unwrap().parse().unwrap();
     let mut d = dialog(&shell);
-    let default = pcb(&shell).setup().default_net_class;
     {
         let mut board = d.page::<NetClassesPage>().unwrap().board();
         let names: Vec<&str> = board.live_classes().map(|c| c.name()).collect();
-        assert_eq!(names, ["Default", "Old"]);
+        assert_eq!(
+            names,
+            ["Old"],
+            "the Default Net Class is not a stored class"
+        );
         board.net_filter = "c".into();
         let shown: Vec<&str> = board.filtered_nets().map(|n| n.name.as_str()).collect();
         assert_eq!(shown, ["VCC"], "the filter ignores case");
@@ -246,31 +294,23 @@ fn net_classes_are_added_renamed_and_deleted_and_nets_assigned_in_one_batch() {
         board.set_class_override(power, RuleField::Clearance, "0.3");
         board.set_net_class(vcc, power);
         board.set_net_class(gnd, ClassKey::Existing(old));
-        board.rename_class(ClassKey::Existing(default), "Signal");
         board.delete_class(ClassKey::Existing(old));
         let gnd_row = board.nets().iter().find(|n| n.uuid == gnd).unwrap();
-        assert_eq!(gnd_row.class(), ClassKey::Existing(default));
+        assert_eq!(gnd_row.class(), ClassKey::Default);
     }
     let ids: Vec<String> = d.steps().into_iter().map(|s| s.id).collect();
-    assert_eq!(
-        ids,
-        [
-            "pcb.net_class.delete",
-            "pcb.net_class.rename",
-            "pcb.net_class.add"
-        ]
-    );
+    assert_eq!(ids, ["pcb.net_class.delete", "pcb.net_class.add"]);
     let before = journal_ids(&shell).len();
     d.apply(&mut shell).unwrap();
     assert_eq!(journal_ids(&shell)[before..], ["batch"]);
     let board = pcb(&shell);
     assert!(board.net_class(old).is_none());
-    assert_eq!(board.net_class(default).unwrap().name, "Signal");
     let power = board.net_class_named("Power").unwrap();
-    assert_eq!(power.clearance, Some(Nm::from_um(300)));
-    assert_eq!(board.net(vcc).unwrap().class, power.uuid);
-    assert_eq!(board.net(gnd).unwrap().class, default);
-    assert_eq!(board.net(sig).unwrap().class, default);
+    let clearance = board.class_rule(RuleKind::Clearance, power.uuid).unwrap();
+    assert_eq!(clearance.values.value, Some(Nm::from_um(300)));
+    assert_eq!(board.net(vcc).unwrap().classes, [power.uuid]);
+    assert!(board.net(gnd).unwrap().classes.is_empty());
+    assert!(board.net(sig).unwrap().classes.is_empty());
 }
 
 #[test]
@@ -297,7 +337,7 @@ fn two_net_classes_can_swap_names_in_one_apply() {
 }
 
 #[test]
-fn a_net_moved_between_existing_classes_is_one_set_class_step() {
+fn a_net_moved_into_an_existing_class_is_one_add_to_class_step() {
     let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
     let mut shell = shell_with_board(&home, &work);
     let vcc = add_net(&mut shell, "VCC");
@@ -313,12 +353,25 @@ fn a_net_moved_between_existing_classes_is_one_set_class_step() {
     assert_eq!(
         d.steps(),
         [Step::new(
-            "pcb.net.set_class",
+            "pcb.net.add_to_class",
             json!({"nets": [vcc], "class": power})
         )]
     );
     d.apply(&mut shell).unwrap();
-    assert_eq!(pcb(&shell).net(vcc).unwrap().class, power);
+    assert_eq!(pcb(&shell).net(vcc).unwrap().classes, [power]);
+    // Back to the Default Net Class alone: one step out of Power.
+    let d = dialog(&shell);
+    d.page::<NetClassesPage>()
+        .unwrap()
+        .board()
+        .set_net_class(vcc, ClassKey::Default);
+    assert_eq!(
+        d.steps(),
+        [Step::new(
+            "pcb.net.remove_from_class",
+            json!({"nets": [vcc], "class": power})
+        )]
+    );
 }
 
 #[test]

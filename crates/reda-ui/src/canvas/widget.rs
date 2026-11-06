@@ -148,6 +148,9 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
         });
         Camera::fit(lo, hi, rect.size())
     });
+    if let Some(at) = tab.center_on.take() {
+        camera.center = (at.x.0 as f64, at.y.0 as f64);
+    }
 
     let mirrored = tab.layers.from_bottom && tab.scene.layers.is_some();
     let mut input = CanvasInput::default();

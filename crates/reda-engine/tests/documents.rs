@@ -3,7 +3,8 @@
 use std::path::Path;
 
 use reda_engine::command::ErrorCode;
-use reda_engine::model::{DrcCheck, LayerKind, Scope, Severity, Side, Uuid};
+use reda_engine::model::geom::Nm;
+use reda_engine::model::{DrcCheck, LayerKind, RuleField, RuleKind, Scope, Severity, Side, Uuid};
 use reda_testkit::{TempDir, TestEngine, assert_golden, read_tree, test_engine};
 use serde_json::{Value, json};
 
@@ -79,23 +80,40 @@ fn adding_a_pcb_document_creates_the_fixed_layer_set() {
 }
 
 #[test]
-fn a_new_pcb_document_has_generic_rules_default_severities_and_a_default_net_class() {
+fn a_new_pcb_document_has_generic_rule_records_and_default_severities() {
     let dir = TempDir::new("pcb-setup");
     let mut engine = new_project(dir.path());
     add_pcb(&mut engine);
     let pcb = engine.project().unwrap().pcb().unwrap();
     let setup = pcb.setup();
     // The Generic Fab Preset's 2-layer values from the fab research.
-    assert_eq!(setup.rules.track_width.0, 200_000);
-    assert_eq!(setup.rules.clearance.0, 160_000);
-    assert_eq!(setup.rules.via_hole.0, 300_000);
+    let value = |kind: RuleKind, field: RuleField| pcb.board_rule(kind).values.length(field);
+    assert_eq!(
+        value(RuleKind::TrackWidth, RuleField::Min),
+        Some(Nm(200_000))
+    );
+    assert_eq!(
+        value(RuleKind::TrackWidth, RuleField::Preferred),
+        Some(Nm(250_000))
+    );
+    assert_eq!(
+        value(RuleKind::Clearance, RuleField::Value),
+        Some(Nm(160_000))
+    );
+    assert_eq!(
+        value(RuleKind::ViaSize, RuleField::HoleMin),
+        Some(Nm(300_000))
+    );
     assert_eq!(setup.severities.get(DrcCheck::Clearance), Severity::Error);
     assert_eq!(
         setup.severities.get(DrcCheck::CourtyardOverlap),
         Severity::Warning
     );
-    let default = pcb.net_class(setup.default_net_class).unwrap();
-    assert_eq!(default.name, "Default");
+    assert_eq!(
+        pcb.net_classes().count(),
+        0,
+        "the Default Net Class is not stored"
+    );
     assert!(pcb.outline().is_none());
 }
 
@@ -214,7 +232,10 @@ fn saved_with_pcb(label: &str) -> (TempDir, std::path::PathBuf) {
     );
     engine.run_ok(
         "pcb.net_class.add",
-        json!({"name": "Power", "track_width": "0.5mm", "clearance": "0.3mm"}),
+        json!({"name": "Power", "rules": [
+            {"kind": "track_width", "values": {"preferred": "0.5mm"}},
+            {"kind": "clearance", "values": {"value": "0.3mm"}}
+        ]}),
     );
     engine.run_ok(
         "pcb.text.add",

@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
-    BoardCutout, BoardOutline, BoardSetup, FootprintInstance, FreePad, InDocument, Keepout,
-    LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Track, Via, Zone,
+    BoardCutout, BoardOutline, BoardSetup, DesignRule, FootprintInstance, FreePad, InDocument,
+    Keepout, LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Track, Via, Zone,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -35,6 +35,7 @@ pub enum Object {
     Part(Part),
     LayerSet(InDocument<LayerSet>),
     BoardSetup(InDocument<BoardSetup>),
+    DesignRule(InDocument<DesignRule>),
     BoardOutline(InDocument<BoardOutline>),
     BoardCutout(InDocument<BoardCutout>),
     NetClass(InDocument<NetClass>),
@@ -89,8 +90,10 @@ pub enum ObjectType {
     Part,
     /// The PCB Document's ordered Layers.
     LayerSet,
-    /// The PCB Document's rules, DRC severities and Default Net Class.
+    /// The PCB Document's DRC severities.
     BoardSetup,
+    /// One design rule record: a kind, a scope and the values it sets.
+    DesignRule,
     /// The board's physical edge.
     BoardOutline,
     /// A hole in the board material.
@@ -159,6 +162,7 @@ impl Object {
             Object::Part(p) => p.uuid,
             Object::LayerSet(o) => o.uuid,
             Object::BoardSetup(o) => o.uuid,
+            Object::DesignRule(o) => o.uuid,
             Object::BoardOutline(o) => o.uuid,
             Object::BoardCutout(o) => o.uuid,
             Object::NetClass(o) => o.uuid,
@@ -200,6 +204,7 @@ impl Object {
             Object::Part(_) => ObjectType::Part,
             Object::LayerSet(_) => ObjectType::LayerSet,
             Object::BoardSetup(_) => ObjectType::BoardSetup,
+            Object::DesignRule(_) => ObjectType::DesignRule,
             Object::BoardOutline(_) => ObjectType::BoardOutline,
             Object::BoardCutout(_) => ObjectType::BoardCutout,
             Object::NetClass(_) => ObjectType::NetClass,
@@ -242,6 +247,7 @@ impl Object {
             }
             Object::LayerSet(o) => Scope::Document(o.document),
             Object::BoardSetup(o) => Scope::Document(o.document),
+            Object::DesignRule(o) => Scope::Document(o.document),
             Object::BoardOutline(o) => Scope::Document(o.document),
             Object::BoardCutout(o) => Scope::Document(o.document),
             Object::NetClass(o) => Scope::Document(o.document),
@@ -315,6 +321,15 @@ pub struct Change {
     pub after: Option<Object>,
 }
 
+impl Change {
+    /// The scope the object was in before, when it moved to another one (`scope` is
+    /// where it is after), as Move to Sheet moves objects between Documents.
+    pub fn moved_from(&self) -> Option<Scope> {
+        let from = self.before.as_ref()?.scope();
+        (self.after.is_some() && from != self.scope).then_some(from)
+    }
+}
+
 /// The UUIDs a change set created, modified and deleted in one scope, each sorted.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct ScopeSummary {
@@ -349,7 +364,12 @@ impl ChangeSet {
 
     /// The scopes this change set touches.
     pub fn scopes(&self) -> std::collections::BTreeSet<Scope> {
-        self.changes.values().map(|c| c.scope).collect()
+        let moved = self.changes.values().filter_map(Change::moved_from);
+        self.changes
+            .values()
+            .map(|c| c.scope)
+            .chain(moved)
+            .collect()
     }
 
     /// Every change in the order that applies it safely: Project-scope upserts first, so a
@@ -368,37 +388,57 @@ impl ChangeSet {
     }
 
     /// The change set split into one per scope, each holding only that scope's changes.
+    /// An object that moved between scopes counts as removed from the one and added to
+    /// the other.
     pub fn split_by_scope(&self) -> BTreeMap<Scope, ChangeSet> {
-        let mut out: BTreeMap<Scope, ChangeSet> = BTreeMap::new();
-        for (uuid, change) in &self.changes {
-            out.entry(change.scope)
-                .or_default()
-                .changes
-                .insert(*uuid, change.clone());
-        }
-        out
+        self.split(|scope| scope)
     }
 
     /// The change set split into one per undo stack: as [`ChangeSet::split_by_scope`],
     /// except that the changes inside a Document this change set creates or deletes go
     /// with the Project's part. Adding or deleting a Document, contents and all, is then
-    /// one step on the Project's stack, which undoes and redoes whole.
+    /// one step on the Project's stack, which undoes and redoes whole. An object moved
+    /// between Documents, as Move to Sheet does, leaves an independent entry on each
+    /// stack: a removal on the one, an addition on the other.
     pub fn split_by_stack(&self) -> BTreeMap<Scope, ChangeSet> {
         let whole: std::collections::BTreeSet<Uuid> = self
             .created_documents()
             .into_iter()
             .chain(self.deleted_documents())
             .collect();
+        self.split(|scope| match scope {
+            Scope::Document(doc) if whole.contains(&doc) => Scope::Project,
+            scope => scope,
+        })
+    }
+
+    /// Splits by `part(scope)`, cutting a move between parts in two.
+    fn split(&self, part: impl Fn(Scope) -> Scope) -> BTreeMap<Scope, ChangeSet> {
         let mut out: BTreeMap<Scope, ChangeSet> = BTreeMap::new();
-        for (uuid, change) in &self.changes {
-            let stack = match change.scope {
-                Scope::Document(doc) if whole.contains(&doc) => Scope::Project,
-                scope => scope,
-            };
-            out.entry(stack)
+        let mut put = |scope: Scope, uuid: Uuid, change: Change| {
+            out.entry(part(scope))
                 .or_default()
                 .changes
-                .insert(*uuid, change.clone());
+                .insert(uuid, change);
+        };
+        for (uuid, change) in &self.changes {
+            match change.moved_from() {
+                Some(from) if part(from) != part(change.scope) => {
+                    let removal = Change {
+                        scope: from,
+                        before: change.before.clone(),
+                        after: None,
+                    };
+                    let addition = Change {
+                        scope: change.scope,
+                        before: None,
+                        after: change.after.clone(),
+                    };
+                    put(from, *uuid, removal);
+                    put(change.scope, *uuid, addition);
+                }
+                _ => put(change.scope, *uuid, change.clone()),
+            }
         }
         out
     }
@@ -445,6 +485,11 @@ impl ChangeSet {
     pub fn summary(&self) -> BTreeMap<Scope, ScopeSummary> {
         let mut out: BTreeMap<Scope, ScopeSummary> = BTreeMap::new();
         for (uuid, change) in &self.changes {
+            if let Some(from) = change.moved_from() {
+                out.entry(from).or_default().deleted.push(*uuid);
+                out.entry(change.scope).or_default().created.push(*uuid);
+                continue;
+            }
             let entry = out.entry(change.scope).or_default();
             match (&change.before, &change.after) {
                 (None, Some(_)) => entry.created.push(*uuid),

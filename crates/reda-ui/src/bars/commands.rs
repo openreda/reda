@@ -35,6 +35,8 @@ pub enum Request {
     ZoomFit(Uuid),
     /// Zoom this Document's canvas to the selection.
     ZoomSelection(Uuid),
+    /// Move this Document's canvas (`view.jump_to`).
+    JumpTo(Uuid, crate::navigation::Jump),
     /// Show the window in this theme.
     Theme(Theme),
     /// Show the About box.
@@ -72,6 +74,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Quit);
     registry.add(ZoomFit);
     registry.add(ZoomSelection);
+    registry.add(crate::navigation::JumpTo);
     registry.add(SetTheme);
     registry.add(OpenSettings);
 }

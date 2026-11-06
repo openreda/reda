@@ -157,11 +157,13 @@ fn unknown_or_unplaceable_objects_are_refused() {
     let dir = TempDir::new("placement-unknown");
     let mut engine = engine(&dir);
     let [r1, _] = synced_resistors(&mut engine);
-    let net_class = pcb(&engine).setup().default_net_class;
+    let rule = pcb(&engine)
+        .board_rule(reda_model::RuleKind::Clearance)
+        .uuid;
 
     let err = engine.run_err(
         "pcb.move",
-        json!({"objects": [r1, net_class], "by": {"x": 0, "y": 0}}),
+        json!({"objects": [r1, rule], "by": {"x": 0, "y": 0}}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
     assert_eq!(err.details.unwrap()["pointer"], "/objects/1");

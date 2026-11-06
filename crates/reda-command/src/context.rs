@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use reda_model::{Project, Scope, Transaction, Uuid};
+use reda_model::{Project, Scope, Transaction, TxError, Uuid};
 
 use crate::command::NO_PROJECT;
 use crate::{
@@ -51,6 +51,31 @@ impl Session {
     pub fn elements_mut(&mut self) -> Option<&mut Project> {
         self.project.as_mut().or(self.workbench.as_mut())
     }
+}
+
+/// The `conflict` for an undo or redo that would restore `uuid`, which now lives in
+/// `scope`: it says which stack to step first, and `details.first` names it as `edit.undo`
+/// and `edit.redo` take it (a Document's UUID, or `"project"`).
+fn elsewhere(project: &Project, step: Step, uuid: Uuid, scope: Scope) -> CommandError {
+    let verb = match step {
+        Step::Undo(_) => "undo",
+        Step::Redo(_) => "redo",
+    };
+    let (place, first) = match scope {
+        Scope::Project => ("the Project".to_owned(), "project".to_owned()),
+        Scope::Document(d) | Scope::Element(d) => {
+            let name = project
+                .document(d)
+                .map_or(d.to_string(), |e| e.title.clone());
+            (format!("\"{name}\""), d.to_string())
+        }
+    };
+    let mut err = CommandError::conflict(format!(
+        "cannot {verb} here: it would restore object {uuid}, which is now on {place}; \
+         {verb} on {place} first"
+    ));
+    err.details = Some(serde_json::json!({ "uuid": uuid, "first": first }));
+    err
 }
 
 /// The injected inputs a Command run needs besides the session.
@@ -181,7 +206,12 @@ impl<'a> Context<'a> {
         let (Some(entry), Some(changes)) = (entry, changes) else {
             return Err(CommandError::unavailable(nothing));
         };
-        tx.apply(&changes)?;
+        if let Err(err) = tx.apply(&changes) {
+            return Err(match err {
+                TxError::Elsewhere { uuid, scope } => elsewhere(tx.project(), step, uuid, scope),
+                err => err.into(),
+            });
+        }
         self.step = Some(step);
         Ok(entry.label.clone())
     }
