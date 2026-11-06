@@ -1458,8 +1458,18 @@
                 "type": "string"
               },
               {
-                "const": "multiple_net_names",
-                "description": "One Net with several names.",
+                "const": "net_names_on_sheet",
+                "description": "One Net with different names on one sheet; names differing only in case are one\nname.",
+                "type": "string"
+              },
+              {
+                "const": "net_names_across_sheets",
+                "description": "One Net with different names on different sheets.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_nets",
+                "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync.",
                 "type": "string"
               },
               {
@@ -1661,8 +1671,18 @@
                 "type": "string"
               },
               {
-                "const": "multiple_net_names",
-                "description": "One Net with several names.",
+                "const": "net_names_on_sheet",
+                "description": "One Net with different names on one sheet; names differing only in case are one\nname.",
+                "type": "string"
+              },
+              {
+                "const": "net_names_across_sheets",
+                "description": "One Net with different names on different sheets.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_nets",
+                "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync.",
                 "type": "string"
               },
               {
@@ -8818,10 +8838,20 @@
                 "default": "error",
                 "description": "Several Components with the same Designator."
               },
-              "multiple_net_names": {
+              "duplicate_nets": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync."
+              },
+              "net_names_across_sheets": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "One Net with several names."
+                "description": "One Net with different names on different sheets."
+              },
+              "net_names_on_sheet": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "One Net with different names on one sheet; names differing only in case are one\nname."
               },
               "no_connect_connected": {
                 "$ref": "#/$defs/Severity",
@@ -8889,7 +8919,9 @@
               "dangling_wire",
               "unattached_label",
               "no_connect_connected",
-              "multiple_net_names",
+              "net_names_on_sheet",
+              "net_names_across_sheets",
+              "duplicate_nets",
               "single_sheet_port",
               "duplicate_designator",
               "unplaced_units",
@@ -9315,21 +9347,20 @@
           "InDocument11": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           },
@@ -10283,7 +10314,9 @@
                     "default": {
                       "dangling_wire": "warning",
                       "duplicate_designator": "error",
-                      "multiple_net_names": "warning",
+                      "duplicate_nets": "error",
+                      "net_names_across_sheets": "warning",
+                      "net_names_on_sheet": "error",
                       "no_connect_connected": "warning",
                       "pin_conflict": "error",
                       "pin_conflict_mixed": "warning",
@@ -10319,6 +10352,15 @@
                     },
                     "description": "The Project properties that fill the sheets' title blocks."
                   },
+                  "schematic": {
+                    "$ref": "#/$defs/SchematicOptions",
+                    "default": {
+                      "allow_ports_to_name_nets": true,
+                      "append_sheet_numbers": false,
+                      "power_port_names_priority": false
+                    },
+                    "description": "The schematic options."
+                  },
                   "type": {
                     "const": "project",
                     "type": "string"
@@ -10334,7 +10376,8 @@
                   "name",
                   "documents",
                   "properties",
-                  "erc"
+                  "erc",
+                  "schematic"
                 ],
                 "type": "object"
               },
@@ -11539,6 +11582,33 @@
             ],
             "type": "object"
           },
+          "SchematicOptions": {
+            "additionalProperties": false,
+            "description": "The Project's schematic options: how Nets are named.",
+            "properties": {
+              "allow_ports_to_name_nets": {
+                "default": true,
+                "description": "Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never\nnames it.",
+                "type": "boolean"
+              },
+              "append_sheet_numbers": {
+                "default": false,
+                "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
+                "type": "boolean"
+              },
+              "power_port_names_priority": {
+                "default": false,
+                "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "power_port_names_priority",
+              "allow_ports_to_name_nets",
+              "append_sheet_numbers"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -12442,10 +12512,20 @@
                 "default": "error",
                 "description": "Several Components with the same Designator."
               },
-              "multiple_net_names": {
+              "duplicate_nets": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync."
+              },
+              "net_names_across_sheets": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "One Net with several names."
+                "description": "One Net with different names on different sheets."
+              },
+              "net_names_on_sheet": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "One Net with different names on one sheet; names differing only in case are one\nname."
               },
               "no_connect_connected": {
                 "$ref": "#/$defs/Severity",
@@ -12513,7 +12593,9 @@
               "dangling_wire",
               "unattached_label",
               "no_connect_connected",
-              "multiple_net_names",
+              "net_names_on_sheet",
+              "net_names_across_sheets",
+              "duplicate_nets",
               "single_sheet_port",
               "duplicate_designator",
               "unplaced_units",
@@ -12939,21 +13021,20 @@
           "InDocument11": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           },
@@ -13907,7 +13988,9 @@
                     "default": {
                       "dangling_wire": "warning",
                       "duplicate_designator": "error",
-                      "multiple_net_names": "warning",
+                      "duplicate_nets": "error",
+                      "net_names_across_sheets": "warning",
+                      "net_names_on_sheet": "error",
                       "no_connect_connected": "warning",
                       "pin_conflict": "error",
                       "pin_conflict_mixed": "warning",
@@ -13943,6 +14026,15 @@
                     },
                     "description": "The Project properties that fill the sheets' title blocks."
                   },
+                  "schematic": {
+                    "$ref": "#/$defs/SchematicOptions",
+                    "default": {
+                      "allow_ports_to_name_nets": true,
+                      "append_sheet_numbers": false,
+                      "power_port_names_priority": false
+                    },
+                    "description": "The schematic options."
+                  },
                   "type": {
                     "const": "project",
                     "type": "string"
@@ -13958,7 +14050,8 @@
                   "name",
                   "documents",
                   "properties",
-                  "erc"
+                  "erc",
+                  "schematic"
                 ],
                 "type": "object"
               },
@@ -15181,6 +15274,33 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance"
+            ],
+            "type": "object"
+          },
+          "SchematicOptions": {
+            "additionalProperties": false,
+            "description": "The Project's schematic options: how Nets are named.",
+            "properties": {
+              "allow_ports_to_name_nets": {
+                "default": true,
+                "description": "Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never\nnames it.",
+                "type": "boolean"
+              },
+              "append_sheet_numbers": {
+                "default": false,
+                "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
+                "type": "boolean"
+              },
+              "power_port_names_priority": {
+                "default": false,
+                "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "power_port_names_priority",
+              "allow_ports_to_name_nets",
+              "append_sheet_numbers"
             ],
             "type": "object"
           },
@@ -22864,7 +22984,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The objects to align, by UUID, all on one sheet. Each one's extent is its Pins\nand body drawing (Units), its ends (Wires, graphics) or its point (labels,\nmarkers, Ports, Power Ports, text).",
+            "description": "The objects to align, by UUID, all on one sheet. Each one's extent is its Pins\nand body drawing (Units), its vertices (Wires), its ends (graphics) or its point (labels,\nmarkers, Ports, Power Ports, text).",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -25298,23 +25418,22 @@
           },
           "Wire": {
             "additionalProperties": false,
-            "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
+            "description": "A Wire: a polyline at any angle through its `vertices`, in order, at least two. It\nconnects where an end touches a Pin's connection point or any point of another Wire,\nand anywhere along it that it passes over a Pin's connection point, a Port, a Power\nPort or a Net Label. Two Wires crossing mid-span never connect.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           }
@@ -26656,23 +26775,22 @@
           },
           "Wire": {
             "additionalProperties": false,
-            "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
+            "description": "A Wire: a polyline at any angle through its `vertices`, in order, at least two. It\nconnects where an end touches a Pin's connection point or any point of another Wire,\nand anywhere along it that it passes over a Pin's connection point, a Port, a Power\nPort or a Net Label. Two Wires crossing mid-span never connect.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           }
@@ -26867,7 +26985,7 @@
     },
     {
       "category": "schematic",
-      "description": "Moves the selected objects by an offset and keeps their connections: the ends of unselected Wires on a moved Pin, Wire end or Net Label follow it, turning a corner where a Wire would go diagonal, and Net Labels, No-Connect Markers, Ports and Power Ports on a moved Pin come along.",
+      "description": "Moves the selected objects by an offset and keeps their connections: the ends of unselected Wires on a moved Pin, Wire end or Net Label follow it, turning a corner where an orthogonal Wire would go diagonal, and Net Labels, No-Connect Markers, Ports and Power Ports on a moved Pin come along.",
       "icon": "drag",
       "id": "schematic.drag",
       "kind": "edit",
@@ -27704,7 +27822,7 @@
     },
     {
       "category": "schematic",
-      "description": "Places a Net Label on a Schematic Sheet. It names the Net of the Wires through its point (and any Pin there) and joins it to every Net Label with the same name on the same sheet.",
+      "description": "Places a Net Label on a Schematic Sheet. It names the Net of the Wires through its point (and any Pin there) and joins it to every Net Label with the same name, ignoring case, on the same sheet.",
       "icon": "net_label",
       "id": "schematic.net_label.add",
       "kind": "edit",
@@ -27769,7 +27887,7 @@
             "type": "string"
           },
           "name": {
-            "description": "The Net name; surrounding spaces are trimmed and a blank name is refused.",
+            "description": "The Net name; surrounding spaces are trimmed, and a blank name or one holding\n`[ ] { } , ..` or a control character is refused.",
             "type": "string"
           },
           "rotation": {
@@ -27934,14 +28052,14 @@
                 "type": "array"
               },
               "labels": {
-                "description": "Every distinct Net Label name on the Net, in natural order. More than one name of\nany kind is a naming conflict for ERC to report.",
+                "description": "Every distinct Net Label name on the Net, by code point. Names differing in more\nthan case are a naming conflict for ERC to report.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "name": {
-                "description": "The winning name by priority: a Power Port's name, else a Port's, else a Net\nLabel's, else the auto-name `Net-(<Designator>-<Pin number>)` from its lowest\nDesignator and Pin number in natural order; chosen over the whole Project-wide Net\nwhen derived by [`project_connectivity`]. `null` for a Net with neither a name nor\na Pin.",
+                "description": "The winning name by priority (by default a Net Label's name, else a Power Port's,\nelse a Port's, the lowest by code point within a kind), else the auto-name\n`Net-(<Designator>-<Pin number>)` from its lowest Designator and Pin number in\nnatural order; chosen over the whole Project-wide Net when derived by\n[`project_connectivity`]. `null` for a Net with neither a name nor a Pin.",
                 "type": [
                   "string",
                   "null"
@@ -27963,7 +28081,7 @@
                 "type": "array"
               },
               "port_names": {
-                "description": "Every distinct Port name on the Net, in natural order.",
+                "description": "Every distinct Port name on the Net, by code point.",
                 "items": {
                   "type": "string"
                 },
@@ -27978,7 +28096,7 @@
                 "type": "array"
               },
               "power_port_names": {
-                "description": "Every distinct Power Port name on the Net, in natural order.",
+                "description": "Every distinct Power Port name on the Net, by code point.",
                 "items": {
                   "type": "string"
                 },
@@ -28126,6 +28244,74 @@
         "type": "object"
       },
       "title": "Add No-Connect Marker"
+    },
+    {
+      "category": "schematic",
+      "description": "Sets the Project's Net naming options: Power Port Names Take Priority, Allow Ports to Name Nets and Append Sheet Numbers to Local Nets. Options left out keep their value. Stored in the Project; returns all of them.",
+      "icon": "properties",
+      "id": "schematic.options.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The options to change; those left out keep their value.",
+        "properties": {
+          "allow_ports_to_name_nets": {
+            "description": "Allow Ports to Name Nets. On by default; off, a Port still joins its Net across\nsheets but never names it.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "append_sheet_numbers": {
+            "description": "Append Sheet Numbers to Local Nets: a Local Net named by a Net Label gets the board\nname `<name>_<sheet number>`. Off by default.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "power_port_names_priority": {
+            "description": "Power Port Names Take Priority: Power Port > Net Label > Port > auto-name instead\nof Net Label > Power Port > Port > auto-name. Off by default.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "title": "OptionsSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The Project's schematic options: how Nets are named.",
+        "properties": {
+          "allow_ports_to_name_nets": {
+            "default": true,
+            "description": "Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never\nnames it.",
+            "type": "boolean"
+          },
+          "append_sheet_numbers": {
+            "default": false,
+            "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
+            "type": "boolean"
+          },
+          "power_port_names_priority": {
+            "default": false,
+            "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "power_port_names_priority",
+          "allow_ports_to_name_nets",
+          "append_sheet_numbers"
+        ],
+        "title": "SchematicOptions",
+        "type": "object"
+      },
+      "title": "Set Schematic Options"
     },
     {
       "category": "schematic",
@@ -29471,23 +29657,22 @@
           },
           "Wire": {
             "additionalProperties": false,
-            "description": "One straight, orthogonal segment of a Wire run. It connects only where one of its ends\ntouches a Pin or another Wire exactly.",
+            "description": "A Wire: a polyline at any angle through its `vertices`, in order, at least two. It\nconnects where an end touches a Pin's connection point or any point of another Wire,\nand anywhere along it that it passes over a Pin's connection point, a Port, a Power\nPort or a Net Label. Two Wires crossing mid-span never connect.",
             "properties": {
-              "from": {
-                "$ref": "#/$defs/Point"
-              },
-              "to": {
-                "$ref": "#/$defs/Point"
-              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
-              "from",
-              "to"
+              "vertices"
             ],
             "type": "object"
           }
@@ -29547,7 +29732,7 @@
     },
     {
       "category": "schematic",
-      "description": "Places a Port on a Schematic Sheet. It joins the Wires through its point (and any Pin there) to every Port with the same name on any sheet of the Project, and names that Net unless a Power Port does.",
+      "description": "Places a Port on a Schematic Sheet. It joins the Wires through its point (and any Pin there) to every Port with the same name on any sheet of the Project, and names that Net unless a Net Label or Power Port does (or the Project stops Ports naming Nets).",
       "icon": "port",
       "id": "schematic.port.add",
       "kind": "edit",
@@ -29626,7 +29811,7 @@
             "type": "string"
           },
           "name": {
-            "description": "The Net name; surrounding spaces are trimmed and a blank name is refused.",
+            "description": "The Net name; surrounding spaces are trimmed, and a blank name or one holding\n`[ ] { } , ..` or a control character is refused.",
             "type": "string"
           },
           "rotation": {
@@ -29669,7 +29854,7 @@
     },
     {
       "category": "schematic",
-      "description": "Places a Power Port (a built-in symbol in a fixed style, not a Library element) on a Schematic Sheet. It joins the Wires through its point (and any Pin there) to the Project-wide Net of its name, which it names ahead of any Port or Net Label.",
+      "description": "Places a Power Port (a built-in symbol in a fixed style, not a Library element) on a Schematic Sheet. It joins the Wires through its point (and any Pin there) to the Project-wide Net of its name, which it names ahead of any Port, and ahead of Net Labels when the Project's Power Port Names Take Priority option is on.",
       "icon": "power_port",
       "id": "schematic.power_port.add",
       "kind": "edit",
@@ -29767,7 +29952,7 @@
             "type": "string"
           },
           "name": {
-            "description": "The Net name, such as GND or 3V3; surrounding spaces are trimmed and a blank name\nis refused.",
+            "description": "The Net name, such as GND or 3V3; surrounding spaces are trimmed, and a blank name\nor one holding `[ ] { } , ..` or a control character is refused.",
             "type": "string"
           },
           "rotation": {
@@ -29821,7 +30006,7 @@
     },
     {
       "category": "schematic",
-      "description": "Derives the Nets of the whole Project: each sheet's Nets joined across sheets by Ports and Power Ports, with the winning name (Power Port > Port > Net Label > auto-name), every name on the Net, the sheets it is on and its Pins. Nothing is stored.",
+      "description": "Derives the Nets of the whole Project: each sheet's Nets joined across sheets by Ports and Power Ports (names compare ignoring case), with the winning name (Net Label > Power Port > Port > auto-name, as the Project's options change it, then the lowest by code point), the board name, every name on the Net, the sheets it is on and its Pins. Nothing is stored.",
       "icon": "net",
       "id": "schematic.project_nets",
       "kind": "query",
@@ -29857,6 +30042,24 @@
             ],
             "type": "object"
           },
+          "NameSource": {
+            "description": "The kind of identifier that names a Net.",
+            "oneOf": [
+              {
+                "enum": [
+                  "net_label",
+                  "power_port",
+                  "port"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "auto_name",
+                "description": "`Net-(<Designator>-<Pin number>)`, from the lowest Pin.",
+                "type": "string"
+              }
+            ]
+          },
           "Point": {
             "additionalProperties": false,
             "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
@@ -29881,6 +30084,13 @@
           "ProjectNet": {
             "description": "A Net across the whole Project: the sheet Nets that Ports and Power Ports join.",
             "properties": {
+              "board_name": {
+                "description": "The name the board gets: the winning name, with `_<sheet number>` appended for a\nLocal Net named by a Net Label when Append Sheet Numbers to Local Nets is on.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "name": {
                 "description": "The winning name, chosen as for a sheet Net over every part of this Net.",
                 "type": [
@@ -29888,8 +30098,19 @@
                   "null"
                 ]
               },
+              "name_source": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/NameSource"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What gave it its name: `net_label`, `power_port`, `port` or `auto_name`; `null`\nfor a Net with neither a name nor a Pin."
+              },
               "names": {
-                "description": "Every distinct name on it by priority: Power Port names, then Port names, then Net\nLabel names, each in natural order. More than one is a naming conflict.",
+                "description": "Every distinct name that can name it, ignoring case, by priority and then code\npoint: the first is the winner. More than one is a naming conflict. Port names are\nleft out when Ports may not name Nets.",
                 "items": {
                   "type": "string"
                 },
@@ -29913,6 +30134,8 @@
             },
             "required": [
               "name",
+              "board_name",
+              "name_source",
               "names",
               "sheets",
               "pins"
@@ -30270,7 +30493,7 @@
     },
     {
       "category": "schematic",
-      "description": "Turns the selected objects counter-clockwise about a centre, a quarter turn by default. Units, labels and text turn by any angle; Wires and rectangles only by quarter turns.",
+      "description": "Turns the selected objects counter-clockwise about a centre, a quarter turn by default. Units, Wires, labels and text turn by any angle; rectangles only by quarter turns.",
       "icon": "rotate",
       "id": "schematic.rotate",
       "kind": "edit",
@@ -30334,7 +30557,7 @@
                 "type": "null"
               }
             ],
-            "description": "Counter-clockwise; a quarter turn by default. Any angle turns Units, labels,\nPorts, Power Ports and text; Wires and rectangles turn only in quarter turns."
+            "description": "Counter-clockwise; a quarter turn by default. Any angle turns Units, Wires, labels,\nPorts, Power Ports and text; rectangles turn only in quarter turns."
           },
           "center": {
             "anyOf": [
@@ -30701,7 +30924,7 @@
     },
     {
       "category": "schematic",
-      "description": "Moves each selected object's anchor points to the nearest grid point: a Unit's origin, a Wire's or line's ends, a rectangle's corners, a label's, marker's or text's point. 50 mil by default.",
+      "description": "Moves each selected object's anchor points to the nearest grid point: a Unit's origin, a Wire's vertices, a line's ends, a rectangle's corners, a label's, marker's or text's point. 50 mil by default.",
       "icon": "grid",
       "id": "schematic.snap_to_grid",
       "kind": "edit",
@@ -31306,7 +31529,7 @@
     },
     {
       "category": "schematic",
-      "description": "Draws a Wire run through the given points on a Schematic Sheet, one Wire per horizontal or vertical segment. A Wire connects only where one of its ends touches a Pin or another Wire exactly; Nets and Junctions follow from the drawing.",
+      "description": "Draws a Wire run through the given points on a Schematic Sheet as one Wire, at any angle. A Wire connects where an end touches a Pin or any point of another Wire exactly, and where it passes over a Pin, Port, Power Port or Net Label; two Wires crossing mid-span do not. Nets and Junctions follow from the drawing.",
       "icon": "wire",
       "id": "schematic.wire.add",
       "kind": "edit",
@@ -31353,7 +31576,7 @@
             "type": "string"
           },
           "points": {
-            "description": "The run's corners in order, at least two. Each segment must be horizontal or\nvertical; each becomes one Wire.",
+            "description": "The run's vertices in order, at least two distinct, at any angle. Repeated points\n(zero-length segments) are dropped.",
             "items": {
               "$ref": "#/$defs/At"
             },
@@ -31373,7 +31596,7 @@
         "description": "What `schematic.wire.add` made.",
         "properties": {
           "wires": {
-            "description": "The new Wires, one per segment, in run order.",
+            "description": "The new Wires: the one Wire the run makes.",
             "items": {
               "format": "uuid",
               "type": "string"

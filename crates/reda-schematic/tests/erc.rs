@@ -303,7 +303,7 @@ fn a_wire_end_touching_nothing_is_dangling() {
     let out = erc(&mut engine);
     let found = of(&out, "dangling_wire");
     assert_eq!(found.len(), 1, "{out}");
-    assert_eq!(found[0]["objects"], json!([wires[1]]));
+    assert_eq!(found[0]["objects"], json!([wires[0]]));
     assert_eq!(
         found[0]["args"],
         json!({"x": 200 * 25_400, "y": 300 * 25_400})
@@ -325,14 +325,14 @@ fn a_net_label_or_port_on_nothing_is_unattached() {
 }
 
 #[test]
-fn a_net_with_two_label_names_has_several_names() {
+fn a_net_with_two_label_names_has_several_names_on_its_sheet() {
     let dir = TempDir::new("erc-names");
     let mut engine = demo(&dir);
     wire(&mut engine, &[(0, 0), (100, 0)]);
     let b = label(&mut engine, "B", 0, 0);
     let a = label(&mut engine, "A", 100, 0);
     let out = erc(&mut engine);
-    let found = of(&out, "multiple_net_names");
+    let found = of(&out, "net_names_on_sheet");
     assert_eq!(found.len(), 1, "{out}");
     assert_eq!(found[0]["args"]["names"], "A, B");
     assert_eq!(found[0]["args"]["net"], "A");

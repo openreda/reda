@@ -604,6 +604,8 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
     if let Some((name, x, y, len)) = seed.drawing {
         let from = Point::new(x, y);
         let to = Point::new(x, y + Nm(len.0.abs() + 1));
+        // Net names refuse `[ ] { } , ..` and control characters.
+        let name = reda_model::net_name::sanitize(&name);
         let name = if name.trim().is_empty() {
             "N".into()
         } else {
@@ -613,8 +615,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             sheet,
             Wire {
                 uuid: id(5),
-                from,
-                to,
+                vertices: vec![from, to],
             },
         )));
         objects.push(Object::NetLabel(InDocument::new(
@@ -728,7 +729,7 @@ prop_compose! {
         let properties = ProjectProperties {
             title, revision, date, author, company, board_thickness, copper_weight,
         };
-        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities });
+        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities, schematic: Default::default() });
         let mut tx = project.transaction();
         let mut order = vec![];
         let mut names = std::collections::BTreeSet::new();
@@ -847,6 +848,7 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         libraries: vec![],
         properties: Default::default(),
         erc: Default::default(),
+        schematic: Default::default(),
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
 }

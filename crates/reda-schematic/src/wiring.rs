@@ -17,15 +17,15 @@ use crate::sheet;
 pub struct WireAddParams {
     /// The Schematic Sheet to draw on.
     pub document: Uuid,
-    /// The run's corners in order, at least two. Each segment must be horizontal or
-    /// vertical; each becomes one Wire.
+    /// The run's vertices in order, at least two distinct, at any angle. Repeated points
+    /// (zero-length segments) are dropped.
     pub points: Vec<At>,
 }
 
 /// What `schematic.wire.add` made.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct WireAddResult {
-    /// The new Wires, one per segment, in run order.
+    /// The new Wires: the one Wire the run makes.
     pub wires: Vec<Uuid>,
 }
 
@@ -35,10 +35,11 @@ impl Command for WireAdd {
     const META: Meta = Meta {
         id: "schematic.wire.add",
         title: "Add Wire",
-        description: "Draws a Wire run through the given points on a Schematic Sheet, one \
-                      Wire per horizontal or vertical segment. A Wire connects only where \
-                      one of its ends touches a Pin or another Wire exactly; Nets and \
-                      Junctions follow from the drawing.",
+        description: "Draws a Wire run through the given points on a Schematic Sheet as \
+                      one Wire, at any angle. A Wire connects where an end touches a Pin or \
+                      any point of another Wire exactly, and where it passes over a Pin, \
+                      Port, Power Port or Net Label; two Wires crossing mid-span do not. \
+                      Nets and Junctions follow from the drawing.",
         category: "schematic",
         icon: "wire",
         kind: Kind::Edit,
@@ -55,24 +56,16 @@ impl Command for WireAdd {
             ));
         }
         let points: Vec<Point> = p.points.iter().map(|a| a.point()).collect();
-        let mut wires = Vec::with_capacity(points.len() - 1);
-        for (i, pair) in points.windows(2).enumerate() {
-            let wire = Wire {
-                uuid: cx.new_id(),
-                from: pair[0],
-                to: pair[1],
-            };
-            if !wire.is_orthogonal() {
-                return Err(CommandError::invalid_params(
-                    &format!("/points/{}", i + 1),
-                    "each Wire segment must be horizontal or vertical and not empty",
-                ));
-            }
-            wires.push(wire.uuid);
-            cx.tx()?
-                .insert(Object::Wire(InDocument::new(p.document, wire)))?;
-        }
-        Ok(WireAddResult { wires })
+        let Some(wire) = Wire::through(cx.new_id(), points) else {
+            return Err(CommandError::invalid_params(
+                "/points",
+                "a Wire run needs at least two different points",
+            ));
+        };
+        let uuid = wire.uuid;
+        cx.tx()?
+            .insert(Object::Wire(InDocument::new(p.document, wire)))?;
+        Ok(WireAddResult { wires: vec![uuid] })
     }
 }
 
@@ -97,37 +90,65 @@ pub(crate) fn split_wires_at_pins(
         .unit_pins(instance.unit)
         .map(|pin| connectivity::pin_position(instance, pin))
         .collect();
-    let mut cuts: Vec<(Wire, Vec<Point>)> = vec![];
-    for wire in body.wires() {
-        let mut inside: Vec<Point> = points
-            .iter()
-            .copied()
-            .filter(|&p| connectivity::in_interior(wire, p))
-            .collect();
-        if inside.is_empty() {
-            continue;
+    let splits: Vec<(Uuid, Vec<Vec<Point>>)> = body
+        .wires()
+        .filter(|w| points.iter().any(|&p| w.passes_over(p)))
+        .map(|w| (w.uuid, split_at(w, &points)))
+        .collect();
+    for (uuid, pieces) in splits {
+        let mut pieces = pieces.into_iter();
+        let vertices = pieces.next().expect("the piece from its first vertex");
+        cx.tx()?.replace(Object::Wire(InDocument::new(
+            document,
+            Wire { uuid, vertices },
+        )))?;
+        for vertices in pieces {
+            let wire = Wire {
+                uuid: cx.new_id(),
+                vertices,
+            };
+            cx.tx()?
+                .insert(Object::Wire(InDocument::new(document, wire)))?;
         }
-        let from = wire.from;
-        inside.sort_by_key(|p| (p.x - from.x).0.abs() + (p.y - from.y).0.abs());
-        inside.dedup();
-        cuts.push((wire.clone(), inside));
-    }
-    for (wire, inside) in cuts {
-        let first = Wire {
-            to: inside[0],
-            ..wire.clone()
-        };
-        cx.tx()?
-            .replace(Object::Wire(InDocument::new(document, first)))?;
-        let last = Wire {
-            uuid: cx.new_id(),
-            from: *inside.last().expect("at least one cut"),
-            to: wire.to,
-        };
-        cx.tx()?
-            .insert(Object::Wire(InDocument::new(document, last)))?;
     }
     Ok(())
+}
+
+/// `wire` cut at each of `cuts` it passes over, as the vertex lists of its pieces in order
+/// along it. A piece running straight from one cut to the next is left out, so two Pins on
+/// one straight stretch are not shorted; a piece that turns a corner between them stays.
+fn split_at(wire: &Wire, cuts: &[Point]) -> Vec<Vec<Point>> {
+    let [start, end] = wire.ends();
+    let is_cut = |p: Point| p != start && p != end && cuts.contains(&p);
+    let mut pieces = vec![];
+    let mut current = vec![start];
+    for (a, b) in wire.segments() {
+        let mut inside: Vec<Point> = cuts
+            .iter()
+            .copied()
+            .filter(|&p| p != a && p != b && p.on_segment(a, b))
+            .collect();
+        inside.sort_by_key(|p| (p.x - a.x).0.abs() + (p.y - a.y).0.abs());
+        inside.dedup();
+        for p in inside.into_iter().chain([b]) {
+            current.push(p);
+            if is_cut(p) {
+                pieces.push(std::mem::replace(&mut current, vec![p]));
+            }
+        }
+    }
+    pieces.push(current);
+    let count = pieces.len();
+    pieces
+        .into_iter()
+        .enumerate()
+        .filter(|(i, piece)| *i == 0 || *i == count - 1 || piece.len() > 2)
+        .map(|(_, mut piece)| {
+            piece.dedup();
+            piece
+        })
+        .filter(|piece| piece.len() >= 2)
+        .collect()
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -135,7 +156,8 @@ pub(crate) fn split_wires_at_pins(
 pub struct NetLabelAddParams {
     /// The Schematic Sheet to place on.
     pub document: Uuid,
-    /// The Net name; surrounding spaces are trimmed and a blank name is refused.
+    /// The Net name; surrounding spaces are trimmed, and a blank name or one holding
+    /// `[ ] { } , ..` or a control character is refused.
     pub name: String,
     /// The connection point: it joins the Wires through it and any Pin there.
     pub at: At,
@@ -157,7 +179,7 @@ impl Command for NetLabelAdd {
         title: "Add Net Label",
         description: "Places a Net Label on a Schematic Sheet. It names the Net of the Wires \
                       through its point (and any Pin there) and joins it to every Net Label \
-                      with the same name on the same sheet.",
+                      with the same name, ignoring case, on the same sheet.",
         category: "schematic",
         icon: "net_label",
         kind: Kind::Edit,
@@ -171,16 +193,10 @@ impl Command for NetLabelAdd {
         p: NetLabelAddParams,
     ) -> Result<NetLabelAddResult, CommandError> {
         sheet(cx.project()?, p.document)?;
-        let name = p.name.trim();
-        if name.is_empty() {
-            return Err(CommandError::invalid_params(
-                "/name",
-                "a Net Label needs a name",
-            ));
-        }
+        let name = crate::ports::net_name(&p.name, "Net Label")?;
         let label = NetLabel {
             uuid: cx.new_id(),
-            name: name.to_owned(),
+            name,
             at: p.at.point(),
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
         };

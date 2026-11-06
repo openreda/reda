@@ -4,7 +4,7 @@ use reda_command::{Command, CommandError, Context, Kind, Meta};
 use std::collections::BTreeSet;
 
 use reda_model::geom::{Millideg, Point};
-use reda_model::{InDocument, Object, Project, Uuid, Wire};
+use reda_model::{Object, Project, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -57,7 +57,7 @@ impl Command for Drag {
         title: "Drag",
         description: "Moves the selected objects by an offset and keeps their connections: \
                       the ends of unselected Wires on a moved Pin, Wire end or Net Label \
-                      follow it, turning a corner where a Wire would go diagonal, and Net \
+                      follow it, turning a corner where an orthogonal Wire would go diagonal, and Net \
                       Labels, No-Connect Markers, Ports and Power Ports on a moved Pin come \
                       along.",
         category: "schematic",
@@ -81,8 +81,8 @@ pub struct ShiftPreview {
     /// Unselected Wires a drag reshapes or folds away, drawn instead as [`wires`](Self::wires).
     /// Sorted.
     pub hidden: Vec<Uuid>,
-    /// The rubber-banded Wires as they would be, corners included, as (from, to).
-    pub wires: Vec<(Point, Point)>,
+    /// The rubber-banded Wires as they would be, corners included, as their vertices.
+    pub wires: Vec<Vec<Point>>,
 }
 
 /// Works out what `schematic.drag` (with `keep_connections`) or `schematic.move` of
@@ -106,7 +106,7 @@ pub fn shift_preview(
         match object {
             Object::Wire(w) if !selected.contains(&w.uuid) => {
                 preview.hidden.push(w.uuid);
-                preview.wires.push((w.from, w.to));
+                preview.wires.push(w.object.vertices);
             }
             other => preview.moved.push(other.uuid()),
         }
@@ -116,9 +116,6 @@ pub fn shift_preview(
             preview.hidden.push(uuid);
         }
     }
-    preview
-        .wires
-        .extend(plan.inserted.iter().map(|w| (w.from, w.to)));
     preview.moved.sort();
     preview.moved.dedup();
     preview.hidden.sort();
@@ -162,7 +159,6 @@ pub fn flight_preview(
     keep_connections: bool,
 ) -> Result<Project, CommandError> {
     let mut out = project.clone();
-    let mut corners = 0u128;
     for step in steps {
         let resolved = resolve(&out, objects, "/objects")?;
         let document = one_sheet(&resolved, "/objects")?;
@@ -181,18 +177,7 @@ pub fn flight_preview(
         for object in plan.replaced {
             tx.replace(object)?;
         }
-        for wire in plan.inserted {
-            corners += 1;
-            let uuid = Uuid::from_u128(PREVIEW_CORNERS + corners);
-            tx.insert(Object::Wire(InDocument::new(
-                document,
-                Wire { uuid, ..wire },
-            )))?;
-        }
         tx.commit()?;
     }
     Ok(out)
 }
-
-/// Where the UUIDs of the corner Wires a preview adds start; never stored.
-const PREVIEW_CORNERS: u128 = 0x0000_0000_0000_4000_8000_7072_0000_0000;

@@ -219,8 +219,14 @@ severities! {
     unattached_label => UnattachedLabel = Warning,
     /// A No-Connect Marker on a Pin that is connected.
     no_connect_connected => NoConnectConnected = Warning,
-    /// One Net with several names.
-    multiple_net_names => MultipleNetNames = Warning,
+    /// One Net with different names on one sheet; names differing only in case are one
+    /// name.
+    net_names_on_sheet => NetNamesOnSheet = Error,
+    /// One Net with different names on different sheets.
+    net_names_across_sheets => NetNamesAcrossSheets = Warning,
+    /// Different Nets with the same board name, such as one Net Label on two sheets. It
+    /// blocks Sync.
+    duplicate_nets => DuplicateNets = Error,
     /// A Port whose name no other sheet has.
     single_sheet_port => SingleSheetPort = Warning,
     /// Several Components with the same Designator.

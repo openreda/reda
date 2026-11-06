@@ -160,20 +160,49 @@ impl UnitInstance {
     }
 }
 
-/// One straight, orthogonal segment of a Wire run. It connects only where one of its ends
-/// touches a Pin or another Wire exactly.
+/// A Wire: a polyline at any angle through its `vertices`, in order, at least two. It
+/// connects where an end touches a Pin's connection point or any point of another Wire,
+/// and anywhere along it that it passes over a Pin's connection point, a Port, a Power
+/// Port or a Net Label. Two Wires crossing mid-span never connect.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Wire {
     pub uuid: Uuid,
-    pub from: Point,
-    pub to: Point,
+    pub vertices: Vec<Point>,
 }
 
 impl Wire {
-    /// Whether the segment is horizontal or vertical and not a single point.
-    pub fn is_orthogonal(&self) -> bool {
-        self.from != self.to && (self.from.x == self.to.x || self.from.y == self.to.y)
+    /// The Wire through `vertices` with its zero-length segments dropped (repeated
+    /// vertices merged). `None` when fewer than two distinct vertices are left.
+    pub fn through(uuid: Uuid, mut vertices: Vec<Point>) -> Option<Wire> {
+        vertices.dedup();
+        (vertices.len() >= 2).then_some(Wire { uuid, vertices })
+    }
+
+    /// Its first and last vertex.
+    pub fn ends(&self) -> [Point; 2] {
+        [self.vertices[0], self.vertices[self.vertices.len() - 1]]
+    }
+
+    /// Its segments in order, as (from, to).
+    pub fn segments(&self) -> impl Iterator<Item = (Point, Point)> + '_ {
+        self.vertices.windows(2).map(|pair| (pair[0], pair[1]))
+    }
+
+    /// Whether `p` lies on the Wire, ends included.
+    pub fn contains(&self, p: Point) -> bool {
+        self.segments().any(|(a, b)| p.on_segment(a, b))
+    }
+
+    /// Whether the Wire passes over `p`: `p` lies on it but is not one of its ends.
+    pub fn passes_over(&self, p: Point) -> bool {
+        !self.ends().contains(&p) && self.contains(p)
+    }
+
+    /// Whether it has at least two vertices and some length. A zero-length segment
+    /// inside it is harmless (edit Commands drop them, but a hand-edited file may keep one).
+    pub fn has_length(&self) -> bool {
+        self.segments().any(|(a, b)| a != b)
     }
 }
 
@@ -650,9 +679,9 @@ impl SchematicSheet {
             }
         }
         for wire in self.wires.values() {
-            if !wire.is_orthogonal() {
+            if !wire.has_length() {
                 return Err(format!(
-                    "Wire {} is not a horizontal or vertical segment",
+                    "Wire {} needs at least two vertices, not all at one point",
                     wire.uuid
                 ));
             }
@@ -661,15 +690,30 @@ impl SchematicSheet {
             if label.name.trim().is_empty() {
                 return Err(format!("Net Label {} has no name", label.uuid));
             }
+            if let Some(problem) = crate::net_name::name_problem(&label.name) {
+                return Err(format!(
+                    "Net Label {} {:?}: {problem}",
+                    label.uuid, label.name
+                ));
+            }
         }
         for port in self.ports.values() {
             if port.name.trim().is_empty() {
                 return Err(format!("Port {} has no name", port.uuid));
             }
+            if let Some(problem) = crate::net_name::name_problem(&port.name) {
+                return Err(format!("Port {} {:?}: {problem}", port.uuid, port.name));
+            }
         }
         for port in self.power_ports.values() {
             if port.name.trim().is_empty() {
                 return Err(format!("Power Port {} has no name", port.uuid));
+            }
+            if let Some(problem) = crate::net_name::name_problem(&port.name) {
+                return Err(format!(
+                    "Power Port {} {:?}: {problem}",
+                    port.uuid, port.name
+                ));
             }
         }
         for text in self.texts.values() {

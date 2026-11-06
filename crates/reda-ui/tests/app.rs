@@ -347,14 +347,18 @@ fn snapshot_of_a_drag_in_flight() {
     let shell = h.state_mut().shell_mut();
     shell.open_project(&file).unwrap();
     let sheet = shell.active_document().expect("a sheet tab").document;
-    shell
-        .run(
-            "schematic.wire.add",
-            json!({"document": sheet,
-                   "points": [{"x": "50mm", "y": "100mm"}, {"x": "150mm", "y": "100mm"},
-                              {"x": "150mm", "y": "60mm"}]}),
-        )
-        .unwrap();
+    // Two Wires meeting at a corner (one run would be one Wire, dragged whole).
+    for points in [
+        json!([{"x": "50mm", "y": "100mm"}, {"x": "150mm", "y": "100mm"}]),
+        json!([{"x": "150mm", "y": "100mm"}, {"x": "150mm", "y": "60mm"}]),
+    ] {
+        shell
+            .run(
+                "schematic.wire.add",
+                json!({"document": sheet, "points": points}),
+            )
+            .unwrap();
+    }
     // The Properties panel would show the Wire's UUID, which differs run to run.
     shell
         .run("layout.tab.close", json!({"tab": "properties"}))
