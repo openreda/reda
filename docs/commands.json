@@ -22169,6 +22169,36 @@
       "title": "Change Zone"
     },
     {
+      "category": "project",
+      "description": "Closes the open Project without saving: unsaved changes to its files are dropped, and its files stay as last saved. Library elements open for editing stay open, with their unsaved changes and undo history.",
+      "icon": "close",
+      "id": "project.close",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "title": "ProjectCloseParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `project.close` returns.",
+        "properties": {
+          "path": {
+            "description": "The Project file of the Project closed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "ProjectCloseResult",
+        "type": "object"
+      },
+      "title": "Close Project"
+    },
+    {
       "category": "library",
       "description": "Registers a Library folder with the Project. The path is relative to the Project folder and is stored in the `.reda` file, so the Library travels with the Project.",
       "icon": "library_add",
