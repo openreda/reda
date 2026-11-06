@@ -30,6 +30,8 @@ struct Fixture {
     work: TempDir,
     shell: Shell,
     t0: Instant,
+    /// Wires drawn so far: each new one goes on its own row, so it never merges.
+    wires: i64,
 }
 
 impl Fixture {
@@ -44,6 +46,7 @@ impl Fixture {
             work,
             shell,
             t0: Instant::now(),
+            wires: 0,
         }
     }
 
@@ -62,10 +65,12 @@ impl Fixture {
     }
 
     fn wire(&mut self) {
+        let y = format!("{}mm", self.wires * 10);
+        self.wires += 1;
         self.shell
             .run(
                 "schematic.wire.add",
-                json!({"document": SHEET, "points": [{"x": "0mm", "y": "0mm"}, {"x": "5mm", "y": "0mm"}]}),
+                json!({"document": SHEET, "points": [{"x": "0mm", "y": y}, {"x": "5mm", "y": y}]}),
             )
             .unwrap();
     }

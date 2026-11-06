@@ -1,6 +1,5 @@
 //! Drawing connectivity: `schematic.wire.add`, `schematic.net_label.add` and
-//! `schematic.no_connect.add`, the Wire splitting placement and moves share, and the
-//! `schematic.nets` query.
+//! `schematic.no_connect.add`, and the `schematic.nets` query.
 
 use reda_command::{Angle, Command, CommandError, Context, Kind, Meta};
 use reda_model::geom::{Millideg, Point};
@@ -10,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::component::At;
 use crate::connectivity::{self, SheetConnectivity};
+use crate::normalise::{Wiring, normalise};
 use crate::sheet;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -20,12 +20,15 @@ pub struct WireAddParams {
     /// The run's vertices in order, at least two distinct, at any angle. Repeated points
     /// (zero-length segments) are dropped.
     pub points: Vec<At>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 /// What `schematic.wire.add` made.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct WireAddResult {
-    /// The new Wires: the one Wire the run makes.
+    /// The Wires now holding the run: the one Wire it makes, or its pieces once
+    /// normalising splits it, or the Wire it merged into.
     pub wires: Vec<Uuid>,
 }
 
@@ -39,7 +42,8 @@ impl Command for WireAdd {
                       one Wire, at any angle. A Wire connects where an end touches a Pin or \
                       any point of another Wire exactly, and where it passes over a Pin, \
                       Port, Power Port or Net Label; two Wires crossing mid-span do not. \
-                      Nets and Junctions follow from the drawing.",
+                      Nets and Junctions follow from the drawing. The Wires it touches are \
+                      normalised as `wiring` says.",
         category: "schematic",
         icon: "wire",
         kind: Kind::Edit,
@@ -48,7 +52,7 @@ impl Command for WireAdd {
     type Output = WireAddResult;
 
     fn run(&self, cx: &mut Context<'_>, p: WireAddParams) -> Result<WireAddResult, CommandError> {
-        sheet(cx.project()?, p.document)?;
+        let before = sheet(cx.project()?, p.document)?.clone();
         if p.points.len() < 2 {
             return Err(CommandError::invalid_params(
                 "/points",
@@ -65,90 +69,11 @@ impl Command for WireAdd {
         let uuid = wire.uuid;
         cx.tx()?
             .insert(Object::Wire(InDocument::new(p.document, wire)))?;
-        Ok(WireAddResult { wires: vec![uuid] })
-    }
-}
-
-/// Connects placed Unit `unit` to the Wires its Pins land on partway along: each such Wire
-/// is split at those Pins, and the pieces between two of the Unit's Pins are removed, so a
-/// Component dropped inline on a Wire is not shorted out. The first piece keeps the Wire's
-/// UUID. Call it after placing or moving a Unit.
-pub(crate) fn split_wires_at_pins(
-    cx: &mut Context<'_>,
-    document: Uuid,
-    unit: Uuid,
-) -> Result<(), CommandError> {
-    let body = sheet(cx.project()?, document)?;
-    let Some(instance) = body.unit(unit) else {
-        return Ok(());
-    };
-    let entry = body
-        .part(instance.part)
-        .expect("a Unit's part entry exists");
-    let points: Vec<Point> = entry
-        .symbol
-        .unit_pins(instance.unit)
-        .map(|pin| connectivity::pin_position(instance, pin))
-        .collect();
-    let splits: Vec<(Uuid, Vec<Vec<Point>>)> = body
-        .wires()
-        .filter(|w| points.iter().any(|&p| w.passes_over(p)))
-        .map(|w| (w.uuid, split_at(w, &points)))
-        .collect();
-    for (uuid, pieces) in splits {
-        let mut pieces = pieces.into_iter();
-        let vertices = pieces.next().expect("the piece from its first vertex");
-        cx.tx()?.replace(Object::Wire(InDocument::new(
-            document,
-            Wire { uuid, vertices },
-        )))?;
-        for vertices in pieces {
-            let wire = Wire {
-                uuid: cx.new_id(),
-                vertices,
-            };
-            cx.tx()?
-                .insert(Object::Wire(InDocument::new(document, wire)))?;
-        }
-    }
-    Ok(())
-}
-
-/// `wire` cut at each of `cuts` it passes over, as the vertex lists of its pieces in order
-/// along it. A piece running straight from one cut to the next is left out, so two Pins on
-/// one straight stretch are not shorted; a piece that turns a corner between them stays.
-fn split_at(wire: &Wire, cuts: &[Point]) -> Vec<Vec<Point>> {
-    let [start, end] = wire.ends();
-    let is_cut = |p: Point| p != start && p != end && cuts.contains(&p);
-    let mut pieces = vec![];
-    let mut current = vec![start];
-    for (a, b) in wire.segments() {
-        let mut inside: Vec<Point> = cuts
-            .iter()
-            .copied()
-            .filter(|&p| p != a && p != b && p.on_segment(a, b))
-            .collect();
-        inside.sort_by_key(|p| (p.x - a.x).0.abs() + (p.y - a.y).0.abs());
-        inside.dedup();
-        for p in inside.into_iter().chain([b]) {
-            current.push(p);
-            if is_cut(p) {
-                pieces.push(std::mem::replace(&mut current, vec![p]));
-            }
-        }
-    }
-    pieces.push(current);
-    let count = pieces.len();
-    pieces
-        .into_iter()
-        .enumerate()
-        .filter(|(i, piece)| *i == 0 || *i == count - 1 || piece.len() > 2)
-        .map(|(_, mut piece)| {
-            piece.dedup();
-            piece
+        let lineage = normalise(cx, p.document, &before, &p.wiring.unwrap_or_default())?;
+        Ok(WireAddResult {
+            wires: lineage.trace(uuid),
         })
-        .filter(|piece| piece.len() >= 2)
-        .collect()
+    }
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
