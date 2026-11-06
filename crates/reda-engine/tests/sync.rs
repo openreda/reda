@@ -664,11 +664,12 @@ fn new_footprints_cluster_outside_the_board_by_sheet_then_designator() {
         at(&mut engine, "R2"),
         at(&mut engine, "R3"),
     );
-    // Right of the 50 mm board, sheet 1 (R1, R3) in a row above sheet 2 (R2).
+    // Right of the 50 mm board, sheet 1's block (R1 then R3) above sheet 2's (R2), all
+    // from one left edge. Two small boxes make a row narrower than both, so R3 wraps.
     assert!(r1.0 > 50_000_000);
-    assert!(r3.0 > r1.0);
-    assert_eq!(r1.1, r3.1);
-    assert!(r2.1 < r1.1);
+    assert_eq!(r3.0, r1.0);
+    assert!(r3.1 < r1.1);
+    assert!(r2.1 < r3.1);
     assert_eq!(r2.0, r1.0);
 
     // The next Sync's cluster goes beside this one.
