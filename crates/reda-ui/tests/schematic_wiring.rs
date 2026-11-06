@@ -177,7 +177,8 @@ fn a_wire_run_previews_toggles_its_corner_and_commits_once_on_reaching_a_wire() 
     assert!(shell.engine().project().unwrap() == &project);
 
     // Clicking onto the Wire at x = 2000 ends the run: one Command for the whole run,
-    // whose straight stretch through (1500, 500) is one Wire.
+    // whose straight stretch through (1500, 500) is one Wire. The Wire it ends on splits
+    // at the new Junction.
     let ran = click(&mut shell, at(1998.0, 503.0));
     assert_eq!(ran, ["schematic.wire.add"]);
     assert_eq!(
@@ -193,7 +194,8 @@ fn a_wire_run_previews_toggles_its_corner_and_commits_once_on_reaching_a_wire() 
         [
             ((1000, 0), (1000, 500)),
             ((1000, 500), (2000, 500)),
-            ((2000, 0), (2000, 1000)),
+            ((2000, 0), (2000, 500)),
+            ((2000, 500), (2000, 1000)),
         ]
     );
     // The Tool stays, ready for the next run.
@@ -579,4 +581,39 @@ fn an_agent_deleting_the_wire_a_run_starts_on_cancels_the_run() {
     assert!(run_points(&shell).is_empty());
     assert!(overlay(&shell).is_empty());
     assert_eq!(shell.tool(), Tool::Wire);
+}
+
+#[test]
+fn the_app_passes_the_wiring_preferences_and_the_sheet_grid_to_edit_commands() {
+    let home = TempDir::new("ui-wiring-prefs-home");
+    let dir = TempDir::new("ui-wiring-prefs");
+    let engine = Engine::builder()
+        .ids(SeededIds::new(0))
+        .clock(FixedClock::EPOCH)
+        .user_dirs(Some(reda_ui::engine::command::UserDirs::under(home.path())))
+        .starter_library(Some(library()))
+        .headless(false)
+        .build();
+    let mut shell = Shell::new(engine);
+    shell.new_project(dir.path(), "Demo").unwrap();
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "schematic.optimize_wires", "value": false}),
+        )
+        .unwrap();
+    wire(&mut shell, &[(0, 0), (500, 0)]);
+    wire(&mut shell, &[(500, 0), (1000, 0)]);
+    // Optimize Wires is off, so the two collinear Wires stay apart.
+    let out = shell
+        .run("objects.query", json!({"document": SHEET, "type": "wire"}))
+        .unwrap();
+    assert_eq!(out["objects"].as_array().unwrap().len(), 2, "{out}");
+    // The Journal keeps the wiring given, so replaying it gives the same drawing.
+    let entry = (shell.engine().journal().iter().rev())
+        .find(|e| e.id == "schematic.wire.add")
+        .unwrap();
+    assert_eq!(entry.params["wiring"]["optimize_wires"], false);
+    assert_eq!(entry.params["wiring"]["break_wires_at_autojunctions"], true);
+    assert_eq!(entry.params["wiring"]["snap_grid"], 50 * 25_400);
 }

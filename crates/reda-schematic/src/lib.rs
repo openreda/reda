@@ -9,6 +9,7 @@ pub mod erc;
 mod find;
 mod library_element;
 mod natural;
+mod normalise;
 mod options;
 mod pins;
 mod ports;
@@ -27,18 +28,21 @@ pub use component::{
     next_free_designator,
 };
 pub use edit::{
-    Align, AlignParams, AlignTo, Axis, Clipboard, Copy, CopyParams, Cut, Delete, DeleteParams,
+    Align, AlignParams, AlignTo, Axis, Clipboard, ConvertCross, ConvertCrossParams,
+    ConvertCrossResult, ConvertedJunction, Copy, CopyParams, Cut, CutParams, Delete, DeleteParams,
     DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
     EditResult, FlightStep, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams,
     Mirror, MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
     RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams,
-    TextResult, TextSet, TextSetParams, flight_preview, selectable, shift_preview,
+    TextResult, TextSet, TextSetParams, WireBreak, WireBreakParams, WireBreakResult,
+    flight_preview, selectable, shift_preview,
 };
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{
     ElementFile, LibraryElement, LibraryElementParams, LibraryElementResult,
 };
 pub use natural::natural_cmp;
+pub use normalise::{DEFAULT_SNAP_GRID, WIRING_COMMANDS, Wiring};
 pub use options::{OptionsSet, OptionsSetParams};
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use ports::{
@@ -57,7 +61,7 @@ pub use similar::{
 pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
 pub use update::{
     ComponentUpdate, FootprintChange, Outdated, OutdatedComponent, OutdatedResult, PartChange,
-    UpdateFromLibrary, UpdateParams, UpdatePreview, UpdateResult,
+    UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams, UpdatePreview, UpdateResult,
 };
 pub use wiring::{
     NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
@@ -79,6 +83,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(SheetSetSize);
     registry.add(SheetTitleBlock);
     registry.add(WireAdd);
+    registry.add(WireBreak);
+    registry.add(ConvertCross);
     registry.add(NetLabelAdd);
     registry.add(UnitMove);
     registry.add(NoConnectAdd);

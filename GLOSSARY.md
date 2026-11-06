@@ -144,6 +144,10 @@ _Avoid_: Trace, track (those are copper on the board), connection
 The dot marking where Wires meet in a T or a 4-way, or where a Wire passes over a Pin, Port or Power Port; it follows from the drawing and is never placed by hand.
 _Avoid_: Node, dot, connection point
 
+**Normalisation**:
+The tidying an edit Command does to the Wires it touches, in the same undo step: merging, cutting at a dropped Component, splitting at Junctions and offsetting 4-ways, as the wiring Preferences (or the Command's `wiring` parameter) say.
+_Avoid_: Cleanup, optimisation (Optimize Wires is one of its steps)
+
 **Net Label**:
 A named marker attached to a Wire or Pin that joins it to every other Wire with the same name on the same Schematic Sheet.
 _Avoid_: Tag, net name, label (alone), local label
