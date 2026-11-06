@@ -15,6 +15,7 @@ mod options;
 mod pins;
 mod ports;
 mod properties;
+mod route;
 mod sheet;
 mod similar;
 mod unit_move;
@@ -52,6 +53,10 @@ pub use ports::{
     ProjectNets, ProjectNetsResult, SetResult, default_power_port_style,
 };
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
+pub use route::{
+    Avoid, Obstacles, Options, Route, RouteError, WireRoute, WireRouteParams, WireRouteResult,
+    route,
+};
 pub use sheet::{
     FrameSizeParam, SheetFrameView, SheetRef, SheetSetFrame, SheetSetFrameParams, SheetTitleBlock,
     TitleBlock, ZoneCounts, title_block,
@@ -85,6 +90,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(SheetSetFrame);
     registry.add(SheetTitleBlock);
     registry.add(WireAdd);
+    registry.add(WireRoute);
     registry.add(WireBreak);
     registry.add(ConvertCross);
     registry.add(NetLabelAdd);
