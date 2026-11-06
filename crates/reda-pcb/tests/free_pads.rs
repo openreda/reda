@@ -1,4 +1,4 @@
-//! Free Pads (plated or non-plated, optionally on a Net) and the Placement Origin.
+//! Free Pads (plated or non-plated, optionally on a Net) and the Output Origin.
 
 mod common;
 
@@ -252,38 +252,38 @@ fn a_free_pad_has_the_whole_pad_model_and_flipping_mirrors_it() {
 }
 
 #[test]
-fn the_placement_origin_is_optional_and_single() {
+fn the_output_origin_is_optional_and_single() {
     let dir = TempDir::new("placement-origin");
     let mut engine = engine(&dir);
-    assert!(pcb(&engine).placement_origin().is_none());
+    assert!(pcb(&engine).output_origin().is_none());
 
     let origin = created(&engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "2mm", "y": "3mm"}}),
     ));
-    assert_eq!(pcb(&engine).placement_origin().unwrap().at, mm(2, 3));
+    assert_eq!(pcb(&engine).output_origin().unwrap().at, mm(2, 3));
 
     let again = created(&engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "5mm", "y": "5mm"}}),
     ));
     assert_eq!(again, origin, "setting it again moves the one origin");
-    assert_eq!(pcb(&engine).placement_origin().unwrap().at, mm(5, 5));
+    assert_eq!(pcb(&engine).output_origin().unwrap().at, mm(5, 5));
 
     engine.run_ok(
         "pcb.move",
         json!({"objects": [origin], "by": {"x": "1mm", "y": 0}}),
     );
-    assert_eq!(pcb(&engine).placement_origin().unwrap().at, mm(6, 5));
+    assert_eq!(pcb(&engine).output_origin().unwrap().at, mm(6, 5));
 
-    engine.run_ok("pcb.placement_origin.delete", json!({}));
-    assert!(pcb(&engine).placement_origin().is_none());
-    let err = engine.run_err("pcb.placement_origin.delete", json!({}));
+    engine.run_ok("pcb.output_origin.delete", json!({}));
+    assert!(pcb(&engine).output_origin().is_none());
+    let err = engine.run_err("pcb.output_origin.delete", json!({}));
     assert_eq!(err.code, ErrorCode::Rejected);
 }
 
 #[test]
-fn free_pads_and_the_placement_origin_survive_save_and_open() {
+fn free_pads_and_the_output_origin_survive_save_and_open() {
     let dir = TempDir::new("free-pad-save");
     let mut engine = engine(&dir);
     let sig = net_sig(&mut engine);
@@ -295,18 +295,18 @@ fn free_pads_and_the_placement_origin_survive_save_and_open() {
                "rotation": "90deg", "net": sig}),
     ));
     engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "2mm", "y": "3mm"}}),
     );
     let before = pcb(&engine).clone();
     engine.run_ok("project.save", json!({}));
     let text = std::fs::read_to_string(dir.path().join("Demo/Demo.redapcb")).unwrap();
     assert!(text.contains("\"free_pads\""), "{text}");
-    assert!(text.contains("\"placement_origin\""), "{text}");
+    assert!(text.contains("\"output_origin\""), "{text}");
 
     let mut reopened = reda_testkit::test_engine();
     reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
     let after = reopened.project().unwrap().pcb().unwrap();
     assert_eq!(after.free_pad(pad), before.free_pad(pad));
-    assert_eq!(after.placement_origin(), before.placement_origin());
+    assert_eq!(after.output_origin(), before.output_origin());
 }

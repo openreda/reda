@@ -9,8 +9,8 @@
 
 use reda_model::geom::Nm;
 use reda_model::{
-    Column, ColumnSource, FabPreset, FabRules, FileNaming, GerberSettings, PreferredSeeds,
-    StackupSeeds,
+    BomSettings, BottomRotation, Column, ColumnSource, CplSettings, FabPreset, FabRules,
+    FileOrigin, GerberSettings, PreferredSeeds, StackupSeeds, StackupSuggestions,
 };
 
 /// The name of the preset a Project gets when none is asked for.
@@ -27,12 +27,6 @@ pub fn shipped_named(name: &str) -> Option<FabPreset> {
         .into_iter()
         .find(|p| p.name.eq_ignore_ascii_case(name))
 }
-
-/// Gerber X2 with Protel extensions, which every fab in the research reads.
-const X2_PROTEL: GerberSettings = GerberSettings {
-    x2_attributes: true,
-    naming: FileNaming::Protel,
-};
 
 fn columns(list: &[(&str, ColumnSource)]) -> Vec<Column> {
     list.iter()
@@ -64,29 +58,37 @@ pub fn generic() -> FabPreset {
             },
         },
         stackup: StackupSeeds::default(),
-        gerber: X2_PROTEL,
-        bom: columns(&[
-            ("Designator", Designator),
-            ("Quantity", Quantity),
-            ("Value", Value),
-            ("Footprint", Footprint),
-            ("Manufacturer", Field("Manufacturer".into())),
-            ("MPN", Field("MPN".into())),
-        ]),
-        cpl: columns(&[
-            ("Designator", Designator),
-            ("Mid X", MidX),
-            ("Mid Y", MidY),
-            ("Layer", Layer),
-            ("Rotation", Rotation),
-        ]),
+        gerber: GerberSettings::default(),
+        zip_assembly: false,
+        stackup_suggestions: suggestions(GENERIC_NAME),
+        bom: BomSettings {
+            columns: columns(&[
+                ("Designator", Designator),
+                ("Quantity", Quantity),
+                ("Value", Value),
+                ("Footprint", Footprint),
+                ("Manufacturer", Field("Manufacturer".into())),
+                ("MPN", Field("MPN".into())),
+            ]),
+            ..Default::default()
+        },
+        cpl: CplSettings {
+            columns: columns(&[
+                ("Designator", Designator),
+                ("Mid X", CentreX),
+                ("Mid Y", CentreY),
+                ("Layer", Side),
+                ("Rotation", Rotation),
+            ]),
+            ..Default::default()
+        },
     }
 }
 
 /// JLCPCB's 2-layer standard service and its assembly BOM and CPL columns.
 fn jlcpcb() -> FabPreset {
     use ColumnSource::*;
-    FabPreset {
+    let mut preset = FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
             clearance: Nm::from_um(100),
@@ -109,28 +111,45 @@ fn jlcpcb() -> FabPreset {
             },
         },
         stackup: StackupSeeds::default(),
-        gerber: X2_PROTEL,
-        bom: columns(&[
-            ("Comment", Value),
-            ("Designator", Designator),
-            ("Footprint", Footprint),
-            ("LCSC Part #", Field("LCSC".into())),
-        ]),
-        cpl: columns(&[
-            ("Designator", Designator),
-            ("Mid X", MidX),
-            ("Mid Y", MidY),
-            ("Layer", Layer),
-            ("Rotation", Rotation),
-        ]),
-    }
+        gerber: GerberSettings::default(),
+        zip_assembly: false,
+        stackup_suggestions: suggestions("JLCPCB"),
+        bom: BomSettings {
+            columns: columns(&[
+                ("Comment", Value),
+                ("Designator", Designator),
+                ("Footprint", Footprint),
+                ("LCSC Part #", Field("LCSC".into())),
+            ]),
+            ..Default::default()
+        },
+        cpl: CplSettings {
+            columns: columns(&[
+                ("Designator", Designator),
+                ("Mid X", CentreX),
+                ("Mid Y", CentreY),
+                ("Layer", Side),
+                ("Rotation", Rotation),
+            ]),
+            ..Default::default()
+        },
+    };
+    preset.stackup = StackupSeeds {
+        thickness: Some(Nm::from_um(1600)),
+        copper: Some(Nm::from_um(35)),
+    };
+    preset.bom.required_fields = vec!["LCSC".into()];
+    preset.bom.list_unplaced = false;
+    preset.cpl.bottom_rotation = BottomRotation::Negate;
+    preset
 }
 
 /// PCBWay's standard service and its assembly BOM and centroid columns. PCBWay publishes
-/// no hole spacing or edge clearance, so those keep the Generic values.
+/// hole spacing and edge clearance in its Advanced table, but not its Standard table;
+/// this standard-service preset therefore keeps the Generic values.
 fn pcbway() -> FabPreset {
     use ColumnSource::*;
-    FabPreset {
+    let mut preset = FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
             clearance: Nm::from_um(100),
@@ -150,23 +169,107 @@ fn pcbway() -> FabPreset {
             },
         },
         stackup: StackupSeeds::default(),
-        gerber: X2_PROTEL,
-        bom: columns(&[
-            ("Line #", Line),
-            ("Quantity", Quantity),
-            ("Reference Designator", Designator),
-            ("Part Number", Field("MPN".into())),
-            ("Manufacturer", Field("Manufacturer".into())),
-            ("Description", Value),
-            ("Package", Footprint),
-            ("Type", Mount),
-        ]),
-        cpl: columns(&[
-            ("Designator", Designator),
-            ("X", MidX),
-            ("Y", MidY),
-            ("Rotation", Rotation),
-            ("Side", Layer),
-        ]),
+        gerber: GerberSettings {
+            file_origin: FileOrigin::Relative,
+            ..Default::default()
+        },
+        zip_assembly: false,
+        stackup_suggestions: suggestions("PCBWay"),
+        bom: BomSettings {
+            columns: columns(&[
+                ("Item #", Line),
+                ("Designator", Designator),
+                ("Qty", Quantity),
+                ("Manufacturer", Field("Manufacturer".into())),
+                ("Mfg Part #", Field("MPN".into())),
+                ("Description / Value", Value),
+                ("Package/Footprint", Footprint),
+                ("Type", Mount),
+            ]),
+            ..Default::default()
+        },
+        cpl: CplSettings {
+            columns: columns(&[
+                ("Designator", Designator),
+                ("Footprint", Footprint),
+                ("Mid X", CentreX),
+                ("Mid Y", CentreY),
+                ("Ref X", OriginX),
+                ("Ref Y", OriginY),
+                ("Pad X", Pad1X),
+                ("Pad Y", Pad1Y),
+                ("TB", Side),
+                ("Rotation", Rotation),
+                ("Comment", Value),
+            ]),
+            ..Default::default()
+        },
+    };
+    preset.stackup = StackupSeeds {
+        thickness: Some(Nm::from_um(1600)),
+        copper: Some(Nm::from_um(35)),
+    };
+    preset.bom.required_fields = vec!["MPN".into()];
+    preset.bom.list_unplaced = false;
+    preset.bom.line_numbers.enabled = true;
+    preset.bom.mount_values.smt = "SMD".into();
+    preset.cpl.unit_suffix = true;
+    preset.cpl.exclude_through_hole = true;
+    preset
+}
+
+/// Published 2-layer options, from the 2026-11-04 fab research (#142).
+fn suggestions(name: &str) -> StackupSuggestions {
+    let strings = |values: &[&str]| values.iter().map(|v| (*v).to_owned()).collect();
+    let thickness = if name == "PCBWay" {
+        vec![
+            200, 400, 600, 800, 1000, 1200, 1600, 2000, 2400, 2600, 2800, 3000, 3200,
+        ]
+    } else {
+        vec![400, 600, 800, 1000, 1200, 1600, 2000]
+    };
+    let copper = match name {
+        "JLCPCB" => vec![35_000, 70_000, 87_500, 122_500, 157_500],
+        "PCBWay" => (1..=8).map(|oz| 35_000 * oz).collect(),
+        _ => vec![35_000, 70_000],
+    };
+    StackupSuggestions {
+        thickness: thickness.into_iter().map(Nm::from_um).collect(),
+        copper: copper.into_iter().map(Nm).collect(),
+        finish: strings(if name == "PCBWay" {
+            &[
+                "HASL with lead",
+                "HASL lead free",
+                "Immersion Gold",
+                "OSP",
+                "Hard Gold",
+                "Immersion Silver",
+                "Immersion Tin",
+                "ENEPIG",
+            ]
+        } else {
+            &["HASL (leaded)", "HASL (lead-free)", "ENIG", "OSP"]
+        }),
+        mask_color: strings(if name == "PCBWay" {
+            &[
+                "Green",
+                "Red",
+                "Yellow",
+                "Blue",
+                "White",
+                "Black",
+                "Matt green",
+                "Matte black",
+                "Purple",
+                "none",
+            ]
+        } else {
+            &["Green", "Purple", "Red", "Yellow", "Blue", "White", "Black"]
+        }),
+        silk_color: strings(if name == "PCBWay" {
+            &["White", "Black", "Yellow", "None"]
+        } else {
+            &[]
+        }),
     }
 }

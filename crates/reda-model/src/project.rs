@@ -390,7 +390,7 @@ impl Project {
             Object::Zone(o) => o.document,
             Object::Keepout(o) => o.document,
             Object::FreePad(o) => o.document,
-            Object::PlacementOrigin(o) => o.document,
+            Object::OutputOrigin(o) => o.document,
             _ => return Ok(()),
         };
         match self.pcb_documents.contains_key(&pcb) {
@@ -580,9 +580,9 @@ impl Project {
             Some(Object::FreePad(o)) => {
                 self.pcb_mut(o.document).free_pads.insert(uuid, o.object);
             }
-            Some(Object::PlacementOrigin(o)) => {
+            Some(Object::OutputOrigin(o)) => {
                 self.pcb_mut(o.document)
-                    .placement_origins
+                    .output_origins
                     .insert(uuid, o.object);
             }
             #[cfg(feature = "test-objects")]

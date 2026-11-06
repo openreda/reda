@@ -14,8 +14,8 @@ use reda_engine::model::{
     ErcSeverities, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FootprintText,
     FrameSize, FreePad, GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer,
     LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation,
-    OutputJob, Outputs, PadConnection, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText,
-    PlacementOrigin, Port, PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset,
+    OutputJob, OutputOrigin, Outputs, PadConnection, PadKind, PadNet, PadShape, PartEntry,
+    PcbGraphic, PcbText, Port, PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset,
     ProjectProperties, ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize,
     SheetText, Side, Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver,
     Wire, Zone,
@@ -390,7 +390,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         };
         objects.push(Object::FootprintCopy(InDocument::new(doc, copy)));
         objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
-        // A Free Pad and the Placement Origin come with it: through-hole on a Net, or SMD.
+        // A Free Pad and the Output Origin come with it: through-hole on a Net, or SMD.
         let free_pad = FreePad {
             uuid: id(),
             kind: if flag {
@@ -413,9 +413,9 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             zone_connection: None,
         };
         objects.push(Object::FreePad(InDocument::new(doc, free_pad)));
-        objects.push(Object::PlacementOrigin(InDocument::new(
+        objects.push(Object::OutputOrigin(InDocument::new(
             doc,
-            PlacementOrigin { uuid: id(), at },
+            OutputOrigin { uuid: id(), at },
         )));
     }
     let layer_ids: Vec<Uuid> = layers_of(&objects);
@@ -556,7 +556,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
 fn column() -> impl Strategy<Value = Column> {
     let source = prop_oneof![
         Just(ColumnSource::Designator),
-        Just(ColumnSource::MidX),
+        Just(ColumnSource::CentreX),
         any::<String>().prop_map(ColumnSource::Field),
     ];
     (any::<String>(), source).prop_map(|(header, source)| Column { header, source })
@@ -578,15 +578,18 @@ prop_compose! {
         destination in prop::option::of(stem("d")),
     ) -> (ProjectFabPreset, OutputJob) {
         let rules = fab_rules(lengths);
-        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Protel };
-        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, stackup: Default::default(), gerber, bom, cpl });
+        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Classic, ..Default::default() };
+        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, stackup: Default::default(), stackup_suggestions: Default::default(), zip_assembly: false, gerber, bom: reda_engine::model::BomSettings { columns: bom, ..Default::default() }, cpl: reda_engine::model::CplSettings { columns: cpl, ..Default::default() } });
         let [gerber, drill, bom, cpl] = outputs;
         let job = OutputJob {
             uuid: job,
             name: job_name,
             pcb,
             fab_preset: preset,
-            outputs: Outputs { gerber, drill, bom, cpl },
+            outputs: Outputs { gerber, drill, bom, cpl, ..Outputs::ALL },
+            name_template: "${project}-${job}".into(),
+            not_fitted_paste: Default::default(),
+            schematic_pdf_colour: Default::default(),
             destination,
         };
         (copy, job)

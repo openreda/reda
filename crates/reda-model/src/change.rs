@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, DesignRule, FootprintInstance, FreePad, InDocument,
-    Keepout, LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Stackup, Track, Via,
-    Zone,
+    Keepout, LayerSet, Net, NetClass, OutputOrigin, PcbGraphic, PcbText, Stackup, Track, Via, Zone,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -62,7 +61,7 @@ pub enum Object {
     Zone(InDocument<Zone>),
     Keepout(InDocument<Keepout>),
     FreePad(InDocument<FreePad>),
-    PlacementOrigin(InDocument<PlacementOrigin>),
+    OutputOrigin(InDocument<OutputOrigin>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -147,7 +146,7 @@ pub enum ObjectType {
     /// A Pad placed directly on the board, belonging to no Footprint.
     FreePad,
     /// The point manufacturing outputs measure Footprint positions from.
-    PlacementOrigin,
+    OutputOrigin,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -192,7 +191,7 @@ impl Object {
             Object::Zone(o) => o.uuid,
             Object::Keepout(o) => o.uuid,
             Object::FreePad(o) => o.uuid,
-            Object::PlacementOrigin(o) => o.uuid,
+            Object::OutputOrigin(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -235,7 +234,7 @@ impl Object {
             Object::Zone(_) => ObjectType::Zone,
             Object::Keepout(_) => ObjectType::Keepout,
             Object::FreePad(_) => ObjectType::FreePad,
-            Object::PlacementOrigin(_) => ObjectType::PlacementOrigin,
+            Object::OutputOrigin(_) => ObjectType::OutputOrigin,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -279,7 +278,7 @@ impl Object {
             Object::Zone(o) => Scope::Document(o.document),
             Object::Keepout(o) => Scope::Document(o.document),
             Object::FreePad(o) => Scope::Document(o.document),
-            Object::PlacementOrigin(o) => Scope::Document(o.document),
+            Object::OutputOrigin(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }

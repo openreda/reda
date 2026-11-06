@@ -17,19 +17,20 @@ use crate::gerber::{Gerber, MacroShape, NO_FUNCTION, Template, escape};
 /// The pen the Profile is drawn with.
 const PROFILE_PEN: Nm = Nm(100_000);
 
-/// What a job plots.
+/// What a job plots. All geometry writers consume the same board instances.
 pub struct Plot<'a> {
-    /// The Project, for its name, UUID and revision.
     pub project: &'a Project,
-    pub pcb: &'a PcbDocument,
-    /// The board's current Zone fills ([`reda_pcb::zone::current`]).
-    pub fills: &'a ZoneFills,
-    /// The Fab Preset's Gerber switches.
-    pub gerber: GerberSettings,
-    /// The fonts installed on this machine, for text in fonts other than the built-in ones.
+    pub instances: &'a [crate::BoardInstance<'a>],
+    pub gerber: &'a GerberSettings,
     pub fonts: &'a Fonts,
-    /// The creation time stamped into the files, from the injected `Clock`.
     pub created: Timestamp,
+}
+
+/// Per-board geometry context; the writer owns the instance transform.
+pub(crate) struct BoardPlot<'a> {
+    pub pcb: &'a PcbDocument,
+    pub fills: &'a ZoneFills,
+    pub fonts: &'a Fonts,
 }
 
 /// One written file.
@@ -45,49 +46,111 @@ pub struct OutputFile {
 /// The Gerber files of `plot`: every copper Layer top to bottom, Solder Mask, Paste and Silkscreen,
 /// then the Profile.
 pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
+    let Some(first) = plot.instances.first() else {
+        return Vec::new();
+    };
     let name = &plot.project.props().name;
     let file = |extension: &str, function, bytes| OutputFile {
         name: format!("{name}.{extension}"),
         function,
         bytes,
     };
-    let copper: Vec<Uuid> = plot.pcb.copper_layers().map(|l| l.uuid).collect();
     let mut files = Vec::new();
-    // Top, then any inner copper as `G1`, `G2`, … in Layer order, then bottom.
-    let last = copper.len().saturating_sub(1);
-    for (i, &layer) in copper.iter().enumerate() {
+    let copper = first.pcb.copper_layers().count();
+    for i in 0..copper {
         let number = i + 1;
         let (extension, function, attribute) = match i {
-            0 => ("GTL".to_owned(), "copper_top", "Top".to_owned()),
-            i if i == last => ("GBL".to_owned(), "copper_bottom", "Bot".to_owned()),
-            i => (format!("G{i}"), "copper_inner", "Inr".to_owned()),
+            0 => ("GTL".to_owned(), "copper_top", "Top"),
+            i if i + 1 == copper => ("GBL".to_owned(), "copper_bottom", "Bot"),
+            i => (format!("G{i}"), "copper_inner", "Inr"),
         };
-        let bytes = copper_layer(plot, layer, format!("Copper,L{number},{attribute}"));
+        let bytes = render(
+            plot,
+            format!("Copper,L{number},{attribute}"),
+            "Positive",
+            |board, g| {
+                if let Some(layer) = board.pcb.copper_layers().nth(i) {
+                    copper_layer(board, layer.uuid, g);
+                }
+            },
+        );
         files.push(file(&extension, function, bytes));
     }
     for (extension, function, side) in [
         ("GTS", "solder_mask_top", Side::Top),
         ("GBS", "solder_mask_bottom", Side::Bottom),
     ] {
-        files.push(file(extension, function, openings::mask(plot, side)));
+        let bytes = render(
+            plot,
+            format!("Soldermask,{}", openings::side_name(side)),
+            "Negative",
+            |board, g| openings::mask(board, side, g),
+        );
+        files.push(file(extension, function, bytes));
     }
     for (extension, function, side) in [
         ("GTP", "paste_top", Side::Top),
         ("GBP", "paste_bottom", Side::Bottom),
     ] {
-        files.push(file(extension, function, openings::paste(plot, side)));
+        let bytes = render(
+            plot,
+            format!("Paste,{}", openings::side_name(side)),
+            "Positive",
+            |board, g| openings::paste(board, side, g),
+        );
+        files.push(file(extension, function, bytes));
     }
     for (extension, function, side) in [
         ("GTO", "silkscreen_top", Side::Top),
         ("GBO", "silkscreen_bottom", Side::Bottom),
     ] {
-        if let Some(layer) = plot.pcb.layers().find(LayerKind::Silkscreen, Some(side)) {
-            let bytes = artwork::silkscreen(plot, layer.uuid, side);
+        if first
+            .pcb
+            .layers()
+            .find(LayerKind::Silkscreen, Some(side))
+            .is_some()
+        {
+            let bytes = render(
+                plot,
+                format!("Legend,{}", openings::side_name(side)),
+                "Positive",
+                |board, g| {
+                    if let Some(layer) = board.pcb.layers().find(LayerKind::Silkscreen, Some(side))
+                    {
+                        artwork::silkscreen(board, layer.uuid, side, g);
+                    }
+                },
+            );
             files.push(file(extension, function, bytes));
         }
     }
-    files.push(file("GKO", "profile", profile(plot)));
+    files.push(file(
+        "GKO",
+        "profile",
+        render(plot, "Profile,NP".into(), "Positive", profile),
+    ));
     files
+}
+
+fn render(
+    plot: &Plot<'_>,
+    function: String,
+    polarity: &str,
+    draw: impl Fn(&BoardPlot<'_>, &mut Gerber),
+) -> Vec<u8> {
+    let mut g = Gerber::new(plot.gerber.x2_attributes);
+    for instance in plot.instances {
+        g.set_transform(instance.transform);
+        draw(
+            &BoardPlot {
+                pcb: instance.pcb,
+                fills: instance.fills,
+                fonts: plot.fonts,
+            },
+            &mut g,
+        );
+    }
+    g.finish(&file_attributes_with(plot, function, polarity))
 }
 
 /// The file attributes of a positive image: what every file starts with, then `function`
@@ -119,7 +182,10 @@ fn file_attributes_with(
                 escape(revision)
             ),
         ),
-        (".SameCoordinates", plot.pcb.uuid.to_string()),
+        (
+            ".SameCoordinates",
+            crate::instance::coordinates_id(plot.instances).to_string(),
+        ),
         (".FileFunction", function),
         (".FilePolarity", polarity.into()),
     ]
@@ -155,10 +221,8 @@ fn twice_area(ring: &[Point]) -> i128 {
         .sum()
 }
 
-fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
+fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
     let pcb = plot.pcb;
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
-
     // Zone fills first, biggest outline first, each shape's holes cleared right after it:
     // copper inside a hole is smaller than the hole, so it is drawn after the clearing.
     let mut shapes: Vec<(i128, Option<String>, &reda_model::FillShape)> = Vec::new();
@@ -224,7 +288,7 @@ fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
                 let net = net_name(pcb, pad.net);
                 let mut attrs = vec![(".P", pin.as_str())];
                 attrs.extend(net_attribute(&net));
-                flash_pad(&mut g, &pad, &attrs);
+                flash_pad(g, &pad, &attrs);
             }
         }
     }
@@ -232,14 +296,12 @@ fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
         let pad = placed::placed_free_pad(free);
         if on_layer(&pad) {
             let net = net_name(pcb, pad.net);
-            flash_pad(&mut g, &pad, &net_attribute(&net));
+            flash_pad(g, &pad, &net_attribute(&net));
         }
     }
 
     // Copper text and drawing carry no current.
-    artwork::draw_layer(&mut g, plot, layer, "NonConductor");
-
-    g.finish(&file_attributes(plot, function))
+    artwork::draw_layer(g, plot, layer, "NonConductor");
 }
 
 /// The aperture of a Pad and where it is flashed: a standard aperture at the copper's
@@ -289,9 +351,8 @@ fn flash_pad(g: &mut Gerber, pad: &PlacedPad, attrs: &[(&str, &str)]) {
 }
 
 /// The Board Outline and the Board Cutouts drawn with a thin pen.
-fn profile(plot: &Plot<'_>) -> Vec<u8> {
+fn profile(plot: &BoardPlot<'_>, g: &mut Gerber) {
     let pcb = plot.pcb;
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
     let contours = pcb
         .outline()
         .map(|o| &o.vertices)
@@ -310,5 +371,4 @@ fn profile(plot: &Plot<'_>) -> Vec<u8> {
             );
         }
     }
-    g.finish(&file_attributes(plot, "Profile,NP".into()))
 }

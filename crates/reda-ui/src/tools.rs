@@ -52,8 +52,8 @@ pub enum Tool {
     Rect,
     /// Places Free Pads.
     FreePad,
-    /// Places (or moves) the Placement Origin.
-    PlacementOrigin,
+    /// Places (or moves) the Output Origin.
+    OutputOrigin,
     /// Sets the user origin the cursor position is measured from.
     UserOrigin,
     /// Measures between two points.
@@ -104,7 +104,7 @@ impl Tool {
             Tool::Arc => "arc",
             Tool::Rect => "rect",
             Tool::FreePad => "free_pad",
-            Tool::PlacementOrigin => "placement_origin",
+            Tool::OutputOrigin => "output_origin",
             Tool::UserOrigin => "user_origin",
             Tool::Measure => "measure",
             Tool::Route => "route",
@@ -152,7 +152,7 @@ const BOARD_TOOLS: [(Tool, &str, &str); 13] = [
     (Tool::Arc, "Arc", "arc"),
     (Tool::Rect, "Rectangle", "rectangle"),
     (Tool::FreePad, "Free Pad", "pad"),
-    (Tool::PlacementOrigin, "Placement Origin", "origin"),
+    (Tool::OutputOrigin, "Output Origin", "origin"),
     (Tool::UserOrigin, "User Origin", "user_origin"),
     (Tool::Measure, "Measure", "measure"),
 ];

@@ -71,7 +71,7 @@ impl Command for JobRun {
                       Outline as the Profile) and the Excellon drill files (plated and \
                       non-plated) and writes them with the CSV BOM and CPL (columns from the \
                       job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions \
-                      from the Placement Origin, else the Board Outline's lower-left) and their \
+                      from the preset's common origin for Gerber, drill and CPL) and their \
                       zip, `<project>-<job>.zip`, to the job's destination \
                       (default `outputs/<job>/`), replacing the last run's files. The checks \
                       that block read only the job's PCB: duplicate Designators, an open \
@@ -157,16 +157,20 @@ impl Command for JobRun {
             .as_ref()
             .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
         let name = project.props().name.clone();
+        let instances = [reda_output::BoardInstance::single(
+            &pcb,
+            &fills,
+            preset.gerber.file_origin,
+        )];
         let plot = Plot {
             project,
-            pcb: &pcb,
-            fills: &fills,
-            gerber: preset.gerber,
+            instances: &instances,
+            gerber: &preset.gerber,
             fonts: &fonts,
             created,
         };
-        let bom = reda_output::bom_file(project, &pcb, &preset.bom);
-        let cpl = reda_output::cpl_file(project, &pcb, &preset.cpl);
+        let bom = reda_output::bom_file(project, &pcb, &preset.bom.columns);
+        let cpl = reda_output::cpl_file(project, &instances, &preset.cpl.columns);
         let mut known: Vec<String> = Vec::new();
         let mut files: Vec<OutputFile> = Vec::new();
         for (on, every) in [

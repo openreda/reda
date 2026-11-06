@@ -42,9 +42,12 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
     let preset = project.fab_presets().next().unwrap().preset();
     gerber_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber: preset.gerber,
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &preset.gerber,
         fonts: &reda_command::Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })
@@ -585,11 +588,15 @@ fn without_x2_attributes_the_files_are_plain_x1() {
     let fills = reda_pcb::zone::current(pcb, None);
     let files = gerber_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber: reda_model::GerberSettings {
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &reda_model::GerberSettings {
             x2_attributes: false,
-            naming: reda_model::FileNaming::Protel,
+            naming: reda_model::FileNaming::Classic,
+            ..Default::default()
         },
         fonts: &reda_command::Fonts::default(),
         created: Timestamp(0),

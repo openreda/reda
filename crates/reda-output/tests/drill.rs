@@ -38,9 +38,12 @@ fn plot_with(engine: &TestEngine, x2_attributes: bool) -> Vec<OutputFile> {
     gerber.x2_attributes = x2_attributes;
     drill_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber,
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &gerber,
         fonts: &reda_command::Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })

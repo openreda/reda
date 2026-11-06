@@ -1,7 +1,9 @@
 //! Output Jobs on the Project stack: add, edit, duplicate and delete.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_model::{DocumentKind, Object, OutputJob, Outputs, Project, Uuid};
+use reda_model::{
+    DocumentKind, NotFittedPaste, Object, OutputJob, Outputs, PdfColour, Project, Uuid,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +25,9 @@ pub fn new_job(uuid: Uuid, name: String, pcb: Uuid, fab_preset: Uuid) -> OutputJ
         fab_preset,
         outputs: Outputs::ALL,
         destination: None,
+        name_template: "${project}-${job}".into(),
+        not_fitted_paste: NotFittedPaste::Keep,
+        schematic_pdf_colour: PdfColour::Colour,
     }
 }
 
@@ -47,6 +52,16 @@ pub struct OutputsParam {
     pub bom: Option<bool>,
     #[serde(default)]
     pub cpl: Option<bool>,
+    #[serde(default)]
+    pub fab_notes: Option<bool>,
+    #[serde(default)]
+    pub drill_report: Option<bool>,
+    #[serde(default)]
+    pub gerber_job: Option<bool>,
+    #[serde(default)]
+    pub reports: Option<bool>,
+    #[serde(default)]
+    pub schematic_pdf: Option<bool>,
 }
 
 impl OutputsParam {
@@ -56,6 +71,11 @@ impl OutputsParam {
             (self.drill, &mut outputs.drill),
             (self.bom, &mut outputs.bom),
             (self.cpl, &mut outputs.cpl),
+            (self.fab_notes, &mut outputs.fab_notes),
+            (self.drill_report, &mut outputs.drill_report),
+            (self.gerber_job, &mut outputs.gerber_job),
+            (self.reports, &mut outputs.reports),
+            (self.schematic_pdf, &mut outputs.schematic_pdf),
         ];
         for (value, field) in fields {
             if let Some(value) = value {
@@ -165,6 +185,12 @@ pub struct JobAddParams {
     /// The output folder inside the Project folder; defaults to `outputs/<job name>`.
     #[serde(default)]
     pub destination: Option<String>,
+    #[serde(default)]
+    pub name_template: Option<String>,
+    #[serde(default)]
+    pub not_fitted_paste: Option<NotFittedPaste>,
+    #[serde(default)]
+    pub schematic_pdf_colour: Option<PdfColour>,
 }
 
 impl Command for JobAdd {
@@ -207,6 +233,15 @@ impl Command for JobAdd {
         if let Some(value) = p.destination {
             job.destination = job_destination(value)?;
         }
+        if let Some(value) = p.name_template {
+            job.name_template = value;
+        }
+        if let Some(value) = p.not_fitted_paste {
+            job.not_fitted_paste = value;
+        }
+        if let Some(value) = p.schematic_pdf_colour {
+            job.schematic_pdf_colour = value;
+        }
         let created = JobCreated {
             uuid: job.uuid,
             name: job.name.clone(),
@@ -236,6 +271,12 @@ pub struct JobSetParams {
     /// The output folder inside the Project folder; empty for `outputs/<job name>`.
     #[serde(default)]
     pub destination: Option<String>,
+    #[serde(default)]
+    pub name_template: Option<String>,
+    #[serde(default)]
+    pub not_fitted_paste: Option<NotFittedPaste>,
+    #[serde(default)]
+    pub schematic_pdf_colour: Option<PdfColour>,
 }
 
 impl Command for JobSet {
@@ -271,6 +312,15 @@ impl Command for JobSet {
         }
         if let Some(value) = p.destination {
             job.destination = job_destination(value)?;
+        }
+        if let Some(value) = p.name_template {
+            job.name_template = value;
+        }
+        if let Some(value) = p.not_fitted_paste {
+            job.not_fitted_paste = value;
+        }
+        if let Some(value) = p.schematic_pdf_colour {
+            job.schematic_pdf_colour = value;
         }
         cx.tx()?.replace(Object::OutputJob(job.clone()))?;
         Ok(job)

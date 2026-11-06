@@ -1,4 +1,4 @@
-//! Placement objects that are not Footprints: Free Pads and the Placement Origin.
+//! Placement objects that are not Footprints: Free Pads and the Output Origin.
 
 use reda_geom::{CornerRect, Millideg, Nm, Point};
 use schemars::JsonSchema;
@@ -88,12 +88,11 @@ impl FreePad {
     }
 }
 
-/// The point from which Footprint positions are measured in the manufacturing outputs
-/// (CPL). A PCB Document has at most one; without it the outputs measure from the
-/// lower-left corner of the Board Outline's bounding box.
+/// The point the editor measures coordinates and grid from, and manufacturing files use
+/// when a Fab Preset requests a relative origin. A PCB Document has at most one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct PlacementOrigin {
+pub struct OutputOrigin {
     pub uuid: Uuid,
     pub at: Point,
 }

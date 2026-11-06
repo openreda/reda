@@ -310,7 +310,7 @@ fn jump_to_measures_from_the_output_origin_on_a_board() {
     assert_eq!(out["at"], json!({"x": 1_000_000, "y": 0}));
     shell
         .run(
-            "pcb.placement_origin.set",
+            "pcb.output_origin.set",
             json!({"at": {"x": "20mm", "y": "30mm"}}),
         )
         .unwrap();

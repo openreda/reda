@@ -2,7 +2,7 @@
 //! geometry ([`placed`]), and the PCB Commands for its outline, cutouts, rules, DRC
 //! severities, Net Classes, free text and graphics, and placement: moving, turning,
 //! flipping, locking and arranging Footprints, their Designator text, Mechanical Parts,
-//! Free Pads and the Placement Origin.
+//! Free Pads and the Output Origin.
 //!
 //! Copper connectivity and the Ratsnest are in [`copper`], the rule resolver in
 //! [`rules`], Zone fill in [`zone`], the design rules check in [`drc`], and the packing

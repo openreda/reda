@@ -9,13 +9,15 @@ mod assembly;
 mod civil;
 mod drill;
 mod gerber;
+mod instance;
 mod jobs;
 mod plot;
 mod presets;
 
 pub use archive::zip;
-pub use assembly::{bom_file, cpl_file, cpl_origin};
+pub use assembly::{bom_file, cpl_file};
 pub use drill::drill_files;
+pub use instance::{BoardInstance, InstanceTransform, resolve_origin};
 pub use jobs::{job_destination, new_job, register_all};
 pub use plot::{OutputFile, Plot, gerber_files};
 pub use presets::{GENERIC_NAME, generic, shipped, shipped_named};
