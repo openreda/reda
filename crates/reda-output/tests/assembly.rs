@@ -115,7 +115,7 @@ fn preset_columns(engine: &TestEngine) -> (Vec<Column>, Vec<Column>) {
         .next()
         .unwrap()
         .preset();
-    (preset.bom, preset.cpl)
+    (preset.bom.columns, preset.cpl.columns)
 }
 
 fn bom_with(engine: &TestEngine, columns: &[Column]) -> String {
@@ -125,7 +125,15 @@ fn bom_with(engine: &TestEngine, columns: &[Column]) -> String {
 
 fn cpl_with(engine: &TestEngine, columns: &[Column]) -> String {
     let project = engine.project().unwrap();
-    text(cpl_file(project, project.pcb().unwrap(), columns))
+    text(cpl_file(
+        project,
+        &[reda_output::BoardInstance::single(
+            project.pcb().unwrap(),
+            &Default::default(),
+            reda_model::FileOrigin::Absolute,
+        )],
+        columns,
+    ))
 }
 
 fn bom(engine: &TestEngine) -> String {
@@ -159,7 +167,15 @@ fn the_files_are_named_after_the_project() {
     let (b, c) = preset_columns(&engine);
     let bom = bom_file(project, pcb, &b);
     assert_eq!((bom.name.as_str(), bom.function), ("Demo-BOM.csv", "bom"));
-    let cpl = cpl_file(project, pcb, &c);
+    let cpl = cpl_file(
+        project,
+        &[reda_output::BoardInstance::single(
+            pcb,
+            &Default::default(),
+            reda_model::FileOrigin::Absolute,
+        )],
+        &c,
+    );
     assert_eq!((cpl.name.as_str(), cpl.function), ("Demo-CPL.csv", "cpl"));
     assert_eq!(
         String::from_utf8(cpl.bytes).unwrap(),
@@ -331,7 +347,7 @@ fn a_mechanical_component_on_a_sheet_reaches_the_bom_with_or_without_a_footprint
 }
 
 #[test]
-fn cpl_positions_are_from_the_board_outline_lower_left_without_a_placement_origin() {
+fn cpl_positions_are_from_the_board_outline_lower_left_without_an_output_origin() {
     let dir = TempDir::new("assembly-origin");
     let mut engine = engine(&dir);
     place(&mut engine, RESISTOR, Some(RESC1608), 2);
@@ -348,7 +364,7 @@ fn cpl_positions_are_from_the_board_outline_lower_left_without_a_placement_origi
     put(&mut engine, "R1", 20, 15, 0);
     put(&mut engine, "R2", 7, 6, 0);
     assert_eq!(
-        lines(&cpl(&engine))[1..],
+        lines(&relative_cpl(&engine))[1..],
         [
             "R1,20.000000,10.000000,Top,0.000",
             "R2,7.000000,1.000000,Top,0.000",
@@ -356,16 +372,16 @@ fn cpl_positions_are_from_the_board_outline_lower_left_without_a_placement_origi
     );
 
     engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "20mm", "y": "10mm"}}),
     );
     assert_eq!(
-        lines(&cpl(&engine))[1..],
+        lines(&relative_cpl(&engine))[1..],
         [
             "R1,0.000000,5.000000,Top,0.000",
             "R2,-13.000000,-4.000000,Top,0.000",
         ],
-        "a Placement Origin wins"
+        "a Output Origin wins"
     );
 }
 
@@ -390,7 +406,7 @@ fn cpl_rotation_is_the_footprint_turn_and_layer_its_side() {
 }
 
 #[test]
-fn every_column_source_is_filled_from_the_preset_mapping() {
+fn common_column_sources_follow_the_preset_mapping() {
     let dir = TempDir::new("assembly-columns");
     let mut engine = engine(&dir);
     place(&mut engine, RESISTOR, Some(RESC1608), 2);
@@ -413,9 +429,9 @@ fn every_column_source_is_filled_from_the_preset_mapping() {
         ("Val", ColumnSource::Value),
         ("Pkg", ColumnSource::Footprint),
         ("Type", ColumnSource::Mount),
-        ("X", ColumnSource::MidX),
-        ("Y", ColumnSource::MidY),
-        ("Side", ColumnSource::Layer),
+        ("X", ColumnSource::CentreX),
+        ("Y", ColumnSource::CentreY),
+        ("Side", ColumnSource::Side),
         ("Rot", ColumnSource::Rotation),
         ("Maker", ColumnSource::Field("Manufacturer".into())),
         ("Part Number", ColumnSource::Field("MPN".into())),
@@ -481,9 +497,32 @@ fn bom_and_cpl_match_their_goldens_for_every_shipped_preset() {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     for preset in reda_output::shipped() {
-        let bom = bom_file(project, pcb, &preset.bom);
+        let bom = bom_file(project, pcb, &preset.bom.columns);
         assert_golden(golden(&format!("{}-BOM.csv", preset.name)), &bom.bytes);
-        let cpl = cpl_file(project, pcb, &preset.cpl);
+        let cpl = cpl_file(
+            project,
+            &[reda_output::BoardInstance::single(
+                pcb,
+                &Default::default(),
+                preset.gerber.file_origin,
+            )],
+            &preset.cpl.columns,
+        );
         assert_golden(golden(&format!("{}-CPL.csv", preset.name)), &cpl.bytes);
     }
+}
+
+fn relative_cpl(engine: &TestEngine) -> String {
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let preset = project.fab_presets().next().unwrap().preset();
+    text(cpl_file(
+        project,
+        &[reda_output::BoardInstance::single(
+            pcb,
+            &Default::default(),
+            reda_model::FileOrigin::Relative,
+        )],
+        &preset.cpl.columns,
+    ))
 }

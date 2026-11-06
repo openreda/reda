@@ -43,6 +43,28 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
     placement::check(&board, &mut report);
     silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
+    for opening in crate::openings::resolve(pcb)
+        .into_iter()
+        .filter(|o| o.geometry.is_none())
+    {
+        report.add(DrcCheck::OpeningCollapsed, |v| {
+            v.objects(opening.objects)
+                .arg(
+                    "kind",
+                    match opening.kind {
+                        crate::openings::Kind::Mask => "mask",
+                        crate::openings::Kind::Paste => "paste",
+                    },
+                )
+                .arg(
+                    "side",
+                    match opening.side {
+                        reda_model::Side::Top => "top",
+                        reda_model::Side::Bottom => "bottom",
+                    },
+                )
+        });
+    }
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
     found.into_iter().map(|(_, v)| v).collect()

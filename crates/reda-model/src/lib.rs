@@ -11,7 +11,9 @@ mod derived;
 mod document;
 mod library;
 pub mod net_name;
+mod openings;
 mod output;
+pub use openings::{Mask, MaskSide, Paste, PasteMode, PasteWindow, Tenting, opening_problem};
 mod pad;
 mod pcb;
 #[cfg(feature = "test-objects")]
@@ -35,21 +37,23 @@ pub use library::{
     TextStyle, Unit, VALUE_FIELD, field_text,
 };
 pub use output::{
-    Column, ColumnSource, FabPreset, FabRules, FileNaming, GerberSettings, OutputJob, Outputs,
-    PreferredSeeds, ProjectFabPreset,
+    BomGroup, BomLayout, BomSettings, BottomPosition, BottomRotation, Column, ColumnSource,
+    CplSettings, CplUnits, FabPreset, FabRules, FileNaming, FileOrigin, GerberSettings,
+    LayerFileName, LineNumbers, MountValues, NotFittedBom, NotFittedPaste, OutputJob, Outputs,
+    PdfColour, PreferredSeeds, ProjectFabPreset, SideValues, SlotCommand, StackupSuggestions,
 };
 pub use pad::{
-    ConnectionStyle, Corner, Corners, Hole, HoleTolerance, Pad, PadForm, PadKind, PadShape, Ratio,
-    ZoneConnection,
+    ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadForm, PadKind,
+    PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS,
     DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities, FillShape,
     FootprintInstance, FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind,
-    LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PadRef, PcbDocument,
-    PcbGraphic, PcbText, PlacementOrigin, RuleField, RuleKind, RuleScope, RuleValue, RuleValues,
-    Side, Stackup, StackupEntry, StackupSeeds, StackupTotals, Track, TrackGeometry, Via, Zone,
-    ZoneFills,
+    LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadConnection, PadNet,
+    PadRef, PcbDocument, PcbGraphic, PcbText, RuleField, RuleKind, RuleScope, RuleValue,
+    RuleValues, Side, Stackup, StackupEntry, StackupSeeds, StackupTotals, Track, TrackGeometry,
+    Via, Zone, ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

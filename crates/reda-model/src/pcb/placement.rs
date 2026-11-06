@@ -1,4 +1,4 @@
-//! Placement objects that are not Footprints: Free Pads and the Placement Origin.
+//! Placement objects that are not Footprints: Free Pads and the Output Origin.
 
 use reda_geom::{CornerRect, Millideg, Nm, Point};
 use schemars::JsonSchema;
@@ -45,6 +45,10 @@ pub struct FreePad {
     /// Net.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<crate::Mask>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paste: Option<crate::Paste>,
     /// How Zone fills of its Net join it. Each value left out inherits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zone_connection: Option<ZoneConnection>,
@@ -78,6 +82,14 @@ impl FreePad {
         if let Some(problem) = self.form().problem() {
             return Some(problem);
         }
+        if let Some(problem) = crate::opening_problem(
+            self.kind,
+            self.side,
+            self.mask.as_ref(),
+            self.paste.as_ref(),
+        ) {
+            return Some(problem);
+        }
         if self.kind == PadKind::NonPlated && self.net.is_some() {
             return Some((
                 "/net".into(),
@@ -88,12 +100,11 @@ impl FreePad {
     }
 }
 
-/// The point from which Footprint positions are measured in the manufacturing outputs
-/// (CPL). A PCB Document has at most one; without it the outputs measure from the
-/// lower-left corner of the Board Outline's bounding box.
+/// The point the editor measures coordinates and grid from, and manufacturing files use
+/// when a Fab Preset requests a relative origin. A PCB Document has at most one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct PlacementOrigin {
+pub struct OutputOrigin {
     pub uuid: Uuid,
     pub at: Point,
 }

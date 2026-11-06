@@ -126,7 +126,7 @@ impl Command for JumpTo {
             JumpOrigin::Design => Point::new(Nm(0), Nm(0)),
             JumpOrigin::Output if kind == Some(DocumentKind::Pcb) => project
                 .pcb_document(document)
-                .and_then(|pcb| pcb.placement_origin())
+                .and_then(|pcb| pcb.output_origin())
                 .map_or(Point::new(Nm(0), Nm(0)), |o| o.at),
             JumpOrigin::Output => {
                 return Err(CommandError::invalid_params(

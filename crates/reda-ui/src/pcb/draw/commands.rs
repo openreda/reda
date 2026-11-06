@@ -47,7 +47,7 @@ impl Command for OriginSet {
         description: "Sets the user origin that the cursor position on the board is \
                       measured from, or with no point goes back to the board's own origin. \
                       It changes only the view, not the design or the outputs (the \
-                      Placement Origin does that).",
+                      Output Origin does that).",
         category: "pcb_view",
         icon: "user_origin",
         kind: Kind::View,

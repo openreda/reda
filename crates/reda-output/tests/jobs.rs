@@ -134,3 +134,42 @@ fn a_job_can_be_pointed_at_another_preset_copy() {
     );
     assert_eq!(jobs(&engine)[0].fab_preset, pcbway);
 }
+
+#[test]
+fn build_choices_are_editable_saved_and_reserved_keys_are_rejected() {
+    let dir = TempDir::new("jobs-build-choices");
+    let mut engine = engine(&dir);
+    let job = jobs(&engine)[0].clone();
+    let defaults = serde_json::to_value(&job).unwrap();
+    assert_eq!(defaults["name_template"], "${project}-${job}");
+    assert_eq!(defaults["not_fitted_paste"], "keep");
+    assert_eq!(defaults["schematic_pdf_colour"], "colour");
+    assert_eq!(
+        defaults["outputs"],
+        json!({"gerber":true,"drill":true,"bom":true,"cpl":true,
+        "fab_notes":true,"drill_report":true,"gerber_job":true,"reports":true,"schematic_pdf":true})
+    );
+    let changed = engine.run_ok(
+        "output.job.set",
+        json!({
+            "job": job.uuid, "name_template": "${project}-${revision}-${date}",
+            "not_fitted_paste": "remove", "schematic_pdf_colour": "mono",
+            "outputs": {"fab_notes": false, "drill_report": false, "gerber_job": false,
+                        "reports": false, "schematic_pdf": false}
+        }),
+    );
+    assert_eq!(
+        changed["result"]["name_template"],
+        "${project}-${revision}-${date}"
+    );
+    assert_eq!(changed["result"]["not_fitted_paste"], "remove");
+    assert_eq!(changed["result"]["outputs"]["schematic_pdf"], false);
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = reda_testkit::test_engine();
+    reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    assert_eq!(jobs(&reopened), jobs(&engine));
+    for key in ["checks", "overrides", "variant"] {
+        let err = engine.run_err("output.job.set", json!({"job": job.uuid, key: {}}));
+        assert_eq!(err.code, ErrorCode::InvalidParams);
+    }
+}

@@ -26,7 +26,7 @@ mod zone;
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 
 pub use footprint::{FootprintInstance, PadNet, PadRef};
-pub use placement::{FreePad, PlacementOrigin};
+pub use placement::{FreePad, OutputOrigin};
 pub use rules::{Bounds, DesignRule, RuleField, RuleKind, RuleScope, RuleValue, RuleValues};
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
@@ -132,6 +132,8 @@ crate::check::severities! {
     silkscreen_over_pads => SilkscreenOverPads = Warning,
     /// The PCB out of sync with the schematic.
     out_of_sync => OutOfSync = Warning,
+    /// A negative mask or paste expansion leaves no opening.
+    opening_collapsed => OpeningCollapsed = Warning,
 }
 
 /// The board's own settings: its DRC severities. The design rules are records of their
@@ -232,7 +234,7 @@ pub struct PcbDocument {
     pub(crate) zones: BTreeMap<Uuid, Zone>,
     pub(crate) keepouts: BTreeMap<Uuid, Keepout>,
     pub(crate) free_pads: BTreeMap<Uuid, FreePad>,
-    pub(crate) placement_origins: BTreeMap<Uuid, PlacementOrigin>,
+    pub(crate) output_origins: BTreeMap<Uuid, OutputOrigin>,
     pub(crate) waivers: BTreeMap<Uuid, Waiver>,
 }
 
@@ -257,7 +259,7 @@ impl PcbDocument {
             zones: BTreeMap::new(),
             keepouts: BTreeMap::new(),
             free_pads: BTreeMap::new(),
-            placement_origins: BTreeMap::new(),
+            output_origins: BTreeMap::new(),
             waivers: BTreeMap::new(),
         }
     }
@@ -474,9 +476,9 @@ impl PcbDocument {
         self.free_pads.get(&uuid)
     }
 
-    /// The Placement Origin, if the user has set one.
-    pub fn placement_origin(&self) -> Option<&PlacementOrigin> {
-        self.placement_origins.values().next()
+    /// The Output Origin, if the user has set one.
+    pub fn output_origin(&self) -> Option<&OutputOrigin> {
+        self.output_origins.values().next()
     }
 
     /// The Waivers of DRC Violations, sorted by UUID.
@@ -517,7 +519,7 @@ impl PcbDocument {
             zones => Zone,
             keepouts => Keepout,
             free_pads => FreePad,
-            placement_origins => PlacementOrigin,
+            output_origins => OutputOrigin,
             waivers => Waiver
         )
     }
@@ -553,7 +555,7 @@ impl PcbDocument {
             zones => Zone,
             keepouts => Keepout,
             free_pads => FreePad,
-            placement_origins => PlacementOrigin,
+            output_origins => OutputOrigin,
             waivers => Waiver
         );
         out
@@ -578,7 +580,7 @@ impl PcbDocument {
         self.zones.remove(&uuid);
         self.keepouts.remove(&uuid);
         self.free_pads.remove(&uuid);
-        self.placement_origins.remove(&uuid);
+        self.output_origins.remove(&uuid);
         self.waivers.remove(&uuid);
     }
 
@@ -600,7 +602,7 @@ impl PcbDocument {
             && self.zones.is_empty()
             && self.keepouts.is_empty()
             && self.free_pads.is_empty()
-            && self.placement_origins.is_empty()
+            && self.output_origins.is_empty()
             && self.waivers.is_empty()
     }
 
@@ -622,9 +624,9 @@ impl PcbDocument {
                 "PCB Document {doc} has more than one Board Outline"
             ));
         }
-        if self.placement_origins.len() > 1 {
+        if self.output_origins.len() > 1 {
             return Err(format!(
-                "PCB Document {doc} has more than one Placement Origin"
+                "PCB Document {doc} has more than one Output Origin"
             ));
         }
         if self.stackups.len() != 1 {
@@ -874,6 +876,16 @@ impl PcbDocument {
     fn check_footprints(&self) -> Result<(), String> {
         let mut keys = std::collections::BTreeSet::new();
         for copy in self.footprint_copies.values() {
+            for pad in &copy.footprint.pads {
+                if let Some((field, problem)) = crate::opening_problem(
+                    pad.kind,
+                    pad.side,
+                    pad.mask.as_ref(),
+                    pad.paste.as_ref(),
+                ) {
+                    return Err(format!("Pad {}{field}: {problem}", pad.uuid));
+                }
+            }
             if !keys.insert((copy.footprint.uuid, copy.hash.as_str())) {
                 return Err(format!(
                     "the PCB holds Footprint {} with hash {} twice",

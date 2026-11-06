@@ -1,78 +1,43 @@
-//! The Solder Mask and Paste files: one flash per Pad opening, the Pad's copper grown (or
-//! shrunk) by its margin.
-//!
-//! The Solder Mask image is the openings (negative polarity). It opens over every Pad on
-//! that side, through-hole and non-plated Pads on both; Vias stay tented. The Paste image
-//! is the stencil apertures of the SMD Pads on that side.
+//! Solder Mask and Paste geometry resolved from the board's rules and Pad/Via overrides.
+//! Each board contributes openings to the shared writer, which applies its instance transform.
 
-use reda_model::geom::Nm;
-use reda_model::{PadKind, Side};
-use reda_pcb::placed::{self, PlacedPad};
+use reda_model::Side;
+use reda_pcb::openings::{self, Kind};
+use reda_pcb::placed::PlacedPad;
 
-use super::{Plot, file_attributes, file_attributes_with, flash_pad};
+use super::{BoardPlot, flash_pad};
 use crate::gerber::Gerber;
 
-/// The solder-mask margin of a Pad without its own. The board has no setting yet, so the
-/// openings match the copper and the fab applies its own expansion.
-const MASK_MARGIN: Nm = Nm::ZERO;
-
-/// The solder-paste margin of a Pad without its own: apertures match the copper.
-const PASTE_MARGIN: Nm = Nm::ZERO;
-
 /// The Solder Mask file of `side`.
-pub(super) fn mask(plot: &Plot<'_>, side: Side) -> Vec<u8> {
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
+pub(super) fn mask(plot: &BoardPlot<'_>, side: Side, g: &mut Gerber) {
     for opening in mask_openings(plot, side) {
-        flash_pad(&mut g, &opening, &[]);
+        flash_pad(g, &opening, &[]);
     }
-    let function = format!("Soldermask,{}", side_name(side));
-    g.finish(&file_attributes_with(plot, function, "Negative"))
 }
 
-/// The Solder Mask openings on `side`: each Pad there grown by its mask margin.
-pub(super) fn mask_openings(plot: &Plot<'_>, side: Side) -> Vec<PlacedPad> {
-    pads(plot)
-        .filter(|pad| match pad.kind {
-            PadKind::Smd => pad.side.unwrap_or(Side::Top) == side,
-            PadKind::PlatedThroughHole | PadKind::NonPlated => true,
-        })
-        .filter_map(|pad| grown(&pad, pad.mask_margin.unwrap_or(MASK_MARGIN)))
+/// The same resolved Mask openings used to clear Silkscreen on `side`.
+pub(super) fn mask_openings(plot: &BoardPlot<'_>, side: Side) -> Vec<PlacedPad> {
+    openings::resolve(plot.pcb)
+        .into_iter()
+        .filter(|o| o.side == side && o.kind == Kind::Mask)
+        .filter_map(|o| o.geometry)
         .collect()
 }
 
 /// The Paste file of `side`.
-pub(super) fn paste(plot: &Plot<'_>, side: Side) -> Vec<u8> {
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
-    for pad in pads(plot) {
-        let on_side = pad.kind == PadKind::Smd && pad.side.unwrap_or(Side::Top) == side;
-        if on_side && let Some(grown) = grown(&pad, pad.paste_margin.unwrap_or(PASTE_MARGIN)) {
-            flash_pad(&mut g, &grown, &[]);
-        }
+pub(super) fn paste(plot: &BoardPlot<'_>, side: Side, g: &mut Gerber) {
+    for opening in openings::resolve(plot.pcb)
+        .into_iter()
+        .filter(|o| o.side == side && o.kind == Kind::Paste)
+        .filter_map(|o| o.geometry)
+    {
+        flash_pad(g, &opening, &[]);
     }
-    g.finish(&file_attributes(plot, format!("Paste,{}", side_name(side))))
 }
 
-/// `Top` or `Bot`, as `.FileFunction` names a side.
 pub(super) fn side_name(side: Side) -> &'static str {
     match side {
         Side::Top => "Top",
         Side::Bottom => "Bot",
     }
-}
-
-/// Every Pad of the board: the Footprints' in order, then the Free Pads.
-fn pads<'a>(plot: &'a Plot<'_>) -> impl Iterator<Item = PlacedPad> + 'a {
-    let pcb = plot.pcb;
-    pcb.footprints()
-        .flat_map(move |f| placed::placed_pads(pcb, f))
-        .chain(pcb.free_pads().map(placed::placed_free_pad))
-}
-
-/// The Pad grown by `margin` on every side (shrunk when negative); `None` when nothing is
-/// left of it. Rounded corners grow with it; square corners stay square.
-fn grown(pad: &PlacedPad, margin: Nm) -> Option<PlacedPad> {
-    Some(PlacedPad {
-        outline: pad.outline.grown(margin)?,
-        ..pad.clone()
-    })
 }

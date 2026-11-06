@@ -143,10 +143,10 @@ pub struct PadAddParams {
     pub hole: Option<HoleParam>,
     /// An SMD Pad's side in the Footprint's frame; top when left out.
     pub side: Option<Side>,
-    /// Overrides the board's solder-mask margin for this Pad.
-    pub mask_margin: Option<Length>,
-    /// Overrides the board's solder-paste margin for this Pad.
-    pub paste_margin: Option<Length>,
+    /// Per-side mask expansion or tenting; omitted sides inherit.
+    pub mask: Option<reda_command::MaskParam>,
+    /// SMD paste expansion, signed area percent, none or windows; omitted, inherit.
+    pub paste: Option<reda_command::PasteParam>,
     /// How Zone fills of its Net join it; each value left out inherits.
     pub zone_connection: Option<ZoneConnectionParam>,
 }
@@ -158,7 +158,7 @@ impl Command for PadAdd {
         "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, \
          rectangle, rounded or chamfered rectangle or oval, with its copper optionally \
          offset from its anchor, an optional round hole or slot, its side, per-Pad mask and \
-         paste margins and its Zone connection.",
+         paste overrides and its Zone connection.",
     );
     type Params = PadAddParams;
     type Output = PadResult;
@@ -189,8 +189,8 @@ impl Command for PadAdd {
             offset: p.offset.map(PointParam::point),
             hole: p.hole.map(HoleParam::hole),
             side: p.side,
-            mask_margin: p.mask_margin.map(Length::nm),
-            paste_margin: p.paste_margin.map(Length::nm),
+            mask: reda_command::mask(p.mask),
+            paste: reda_command::paste(p.paste),
             zone_connection: zone_connection(p.zone_connection),
         };
         let pad = finish_pad(pad, explicit)?;
@@ -244,7 +244,7 @@ fn finish_pad(mut pad: Pad, explicit: Explicit) -> Result<Pad, CommandError> {
     if pad.zone_connection == Some(ZoneConnection::default()) {
         pad.zone_connection = None;
     }
-    if let Some((pointer, message)) = pad.form().problem() {
+    if let Some((pointer, message)) = pad.problem() {
         return Err(CommandError::invalid_params(&pointer, message));
     }
     Ok(pad)
@@ -283,12 +283,12 @@ pub struct PadEditParams {
     /// `null` returns an SMD Pad to the top.
     #[serde(default, deserialize_with = "present")]
     pub side: Option<Option<Side>>,
-    /// `null` returns to the board's margin.
+    /// `null` inherits the board's rule.
     #[serde(default, deserialize_with = "present")]
-    pub mask_margin: Option<Option<Length>>,
-    /// `null` returns to the board's margin.
+    pub mask: Option<Option<reda_command::MaskParam>>,
+    /// `null` inherits the board's rule.
     #[serde(default, deserialize_with = "present")]
-    pub paste_margin: Option<Option<Length>>,
+    pub paste: Option<Option<reda_command::PasteParam>>,
     /// Replaces the whole Zone connection; `null` inherits every value.
     #[serde(default, deserialize_with = "present")]
     pub zone_connection: Option<Option<ZoneConnectionParam>>,
@@ -299,7 +299,7 @@ impl Command for PadEdit {
         "library.footprint.pad.edit",
         "Edit Pad",
         "Changes any of a Pad's number, kind, shape, position, rotation, size, corner and \
-         chamfer ratios and corners, offset, hole, side, mask and paste margins and Zone \
+         chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone \
          connection. Omitted fields keep their value; `null` clears an optional one. A \
          resized Pad keeps its ratios, and so its look.",
     );
@@ -357,11 +357,11 @@ impl Command for PadEdit {
             if let Some(side) = p.side {
                 pad.side = side;
             }
-            if let Some(margin) = p.mask_margin {
-                pad.mask_margin = margin.map(Length::nm);
+            if let Some(margin) = p.mask {
+                pad.mask = reda_command::mask(margin);
             }
-            if let Some(margin) = p.paste_margin {
-                pad.paste_margin = margin.map(Length::nm);
+            if let Some(margin) = p.paste {
+                pad.paste = reda_command::paste(margin);
             }
             if let Some(connection) = p.zone_connection {
                 pad.zone_connection = zone_connection(connection);

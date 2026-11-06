@@ -5,8 +5,11 @@
 //! ships, so a Project copy, a user preset and a shipped preset compare field by field.
 
 use reda_geom::Nm;
+
+mod settings;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+pub use settings::*;
 
 use crate::{StackupSeeds, Uuid};
 
@@ -36,6 +39,8 @@ pub struct FabRules {
     /// The preferred sizes a new board is seeded with. They are never compared with the
     /// board.
     pub preferred: PreferredSeeds,
+    pub mask_expansion: crate::MaskExpansion,
+    pub paste_expansion: crate::PasteExpansion,
 }
 
 /// The preferred Track and Via sizes a Fab Preset seeds a new board with.
@@ -51,18 +56,41 @@ pub struct PreferredSeeds {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FileNaming {
-    /// Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.
-    Protel,
+    /// Classic extensions: `.gtl`, `.gbl`, `.gts`, … and `.gm1` for the Profile.
+    Classic,
+    /// The project and Layer name, ending in `.gbr`.
+    Descriptive,
 }
 
 /// The Gerber and drill switches of a Fab Preset.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GerberSettings {
     /// Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.
     pub x2_attributes: bool,
     /// How the files are named.
     pub naming: FileNaming,
+    /// Shared by Gerber, drill and CPL.
+    pub file_origin: FileOrigin,
+    pub slot_command: SlotCommand,
+    pub merge_drill: bool,
+    pub outline_on_every_plot: bool,
+    /// Layer name to output file name; portable between boards and Projects.
+    pub file_names: Vec<LayerFileName>,
+}
+
+impl Default for GerberSettings {
+    fn default() -> Self {
+        Self {
+            x2_attributes: true,
+            naming: FileNaming::Classic,
+            file_origin: FileOrigin::Absolute,
+            slot_command: SlotCommand::Route,
+            merge_drill: false,
+            outline_on_every_plot: false,
+            file_names: Vec::new(),
+        }
+    }
 }
 
 /// Where a BOM or CPL column takes its values from.
@@ -81,12 +109,22 @@ pub enum ColumnSource {
     Footprint,
     /// `SMT` or `THT`.
     Mount,
-    /// The Footprint's centre, X, in mm from the CPL origin.
-    MidX,
-    /// The Footprint's centre, Y, in mm from the CPL origin.
-    MidY,
-    /// `Top` or `Bottom`.
-    Layer,
+    /// Footprint copper-Pad bounding box centre, X, from the output origin.
+    CentreX,
+    /// Footprint copper-Pad bounding box centre, Y.
+    CentreY,
+    /// Footprint origin, X.
+    OriginX,
+    /// Footprint origin, Y.
+    OriginY,
+    /// Pad 1, X.
+    Pad1X,
+    /// Pad 1, Y.
+    Pad1Y,
+    /// Whether the Component is fitted.
+    Fitted,
+    /// `Top` or `Bottom`, or the spellings from `side_values`.
+    Side,
     /// The Footprint's rotation in degrees, counter-clockwise.
     Rotation,
     /// The Component field with this name, such as `LCSC` or `MPN`.
@@ -126,10 +164,12 @@ pub struct FabPreset {
     #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
     pub stackup: StackupSeeds,
     pub gerber: GerberSettings,
-    /// The BOM columns, in order.
-    pub bom: Vec<Column>,
-    /// The CPL columns, in order.
-    pub cpl: Vec<Column>,
+    pub stackup_suggestions: StackupSuggestions,
+    pub zip_assembly: bool,
+    /// The BOM table form, columns and row conventions.
+    pub bom: BomSettings,
+    /// The CPL table form, columns and position conventions.
+    pub cpl: CplSettings,
 }
 
 /// The Project's own copy of a Fab Preset, so outputs come out the same on any machine.
@@ -144,8 +184,10 @@ pub struct ProjectFabPreset {
     #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
     pub stackup: StackupSeeds,
     pub gerber: GerberSettings,
-    pub bom: Vec<Column>,
-    pub cpl: Vec<Column>,
+    pub stackup_suggestions: StackupSuggestions,
+    pub zip_assembly: bool,
+    pub bom: BomSettings,
+    pub cpl: CplSettings,
 }
 
 impl ProjectFabPreset {
@@ -156,6 +198,8 @@ impl ProjectFabPreset {
             rules,
             stackup,
             gerber,
+            stackup_suggestions,
+            zip_assembly,
             bom,
             cpl,
         } = preset;
@@ -165,6 +209,8 @@ impl ProjectFabPreset {
             rules,
             stackup,
             gerber,
+            stackup_suggestions,
+            zip_assembly,
             bom,
             cpl,
         }
@@ -176,7 +222,9 @@ impl ProjectFabPreset {
             name: self.name.clone(),
             rules: self.rules,
             stackup: self.stackup,
-            gerber: self.gerber,
+            gerber: self.gerber.clone(),
+            stackup_suggestions: self.stackup_suggestions.clone(),
+            zip_assembly: self.zip_assembly,
             bom: self.bom.clone(),
             cpl: self.cpl.clone(),
         }
@@ -195,6 +243,11 @@ pub struct Outputs {
     pub bom: bool,
     /// The CSV pick-and-place file.
     pub cpl: bool,
+    pub fab_notes: bool,
+    pub drill_report: bool,
+    pub gerber_job: bool,
+    pub reports: bool,
+    pub schematic_pdf: bool,
 }
 
 impl Outputs {
@@ -204,7 +257,30 @@ impl Outputs {
         drill: true,
         bom: true,
         cpl: true,
+        fab_notes: true,
+        drill_report: true,
+        gerber_job: true,
+        reports: true,
+        schematic_pdf: true,
     };
+}
+
+/// Whether this build retains Not Fitted Components' paste openings.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NotFittedPaste {
+    #[default]
+    Keep,
+    Remove,
+}
+
+/// The schematic PDF's paper colour mode.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PdfColour {
+    #[default]
+    Colour,
+    Mono,
 }
 
 /// A named recipe for manufacturing files, stored in the Project file.
@@ -219,6 +295,10 @@ pub struct OutputJob {
     /// The Project copy of the Fab Preset it uses.
     pub fab_preset: Uuid,
     pub outputs: Outputs,
+    /// The zip and assembly files' stem, resolved with the shared text resolver.
+    pub name_template: String,
+    pub not_fitted_paste: NotFittedPaste,
+    pub schematic_pdf_colour: PdfColour,
     /// The output folder relative to the Project folder, `/`-separated; left out for
     /// `outputs/<job name>`.
     #[serde(default, skip_serializing_if = "Option::is_none")]

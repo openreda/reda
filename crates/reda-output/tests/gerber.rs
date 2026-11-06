@@ -42,9 +42,12 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
     let preset = project.fab_presets().next().unwrap().preset();
     gerber_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber: preset.gerber,
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &preset.gerber,
         fonts: &reda_command::Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })
@@ -585,11 +588,15 @@ fn without_x2_attributes_the_files_are_plain_x1() {
     let fills = reda_pcb::zone::current(pcb, None);
     let files = gerber_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber: reda_model::GerberSettings {
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &reda_model::GerberSettings {
             x2_attributes: false,
-            naming: reda_model::FileNaming::Protel,
+            naming: reda_model::FileNaming::Classic,
+            ..Default::default()
         },
         fonts: &reda_command::Fonts::default(),
         created: Timestamp(0),
@@ -629,5 +636,27 @@ fn the_zip_holds_every_file_stamped_with_the_clock() {
         let mut content = Vec::new();
         std::io::Read::read_to_end(&mut entry, &mut content).unwrap();
         assert_eq!(content, f.bytes);
+    }
+}
+
+#[test]
+fn pcbway_mask_files_record_the_specified_fifty_micrometre_expansion() {
+    let dir = TempDir::new("gerber-pcbway-mask");
+    let mut engine = demo(&dir);
+    let preset =
+        engine.run_ok("fab_preset.add", json!({"name":"PCBWay"}))["result"]["uuid"].clone();
+    engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    for file in plot(&engine)
+        .into_iter()
+        .filter(|f| f.name.ends_with(".GTS") || f.name.ends_with(".GBS"))
+    {
+        reda_testkit::assert_golden(
+            format!(
+                "{}/tests/golden/gerber-pcbway/{}",
+                env!("CARGO_MANIFEST_DIR"),
+                file.name
+            ),
+            &file.bytes,
+        );
     }
 }

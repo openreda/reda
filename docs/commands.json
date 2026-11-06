@@ -959,6 +959,11 @@
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
+              },
+              {
+                "const": "opening_collapsed",
+                "description": "A negative mask or paste expansion leaves no opening.",
+                "type": "string"
               }
             ]
           },
@@ -1166,6 +1171,11 @@
               {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
+                "type": "string"
+              },
+              {
+                "const": "opening_collapsed",
+                "description": "A negative mask or paste expansion leaves no opening.",
                 "type": "string"
               }
             ]
@@ -1962,6 +1972,119 @@
             ],
             "type": "object"
           },
+          "BomGroup": {
+            "description": "Sources shared by Components on a grouped BOM row.",
+            "oneOf": [
+              {
+                "enum": [
+                  "part",
+                  "footprint",
+                  "value"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "fields",
+                "description": "All Component value fields, including manufacturer and supplier numbers.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "BomLayout": {
+            "enum": [
+              "grouped",
+              "flat"
+            ],
+            "type": "string"
+          },
+          "BomSettings": {
+            "additionalProperties": false,
+            "properties": {
+              "columns": {
+                "items": {
+                  "$ref": "#/$defs/Column"
+                },
+                "type": "array"
+              },
+              "designator_separator": {
+                "type": "string"
+              },
+              "group_by": {
+                "items": {
+                  "$ref": "#/$defs/BomGroup"
+                },
+                "type": "array"
+              },
+              "layout": {
+                "$ref": "#/$defs/BomLayout"
+              },
+              "line_numbers": {
+                "$ref": "#/$defs/LineNumbers"
+              },
+              "list_unplaced": {
+                "type": "boolean"
+              },
+              "mount_values": {
+                "$ref": "#/$defs/MountValues"
+              },
+              "not_fitted": {
+                "$ref": "#/$defs/NotFittedBom"
+              },
+              "required_fields": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sort": {
+                "items": {
+                  "$ref": "#/$defs/ColumnSource"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "columns",
+              "layout",
+              "group_by",
+              "sort",
+              "line_numbers",
+              "designator_separator",
+              "not_fitted",
+              "required_fields",
+              "list_unplaced",
+              "mount_values"
+            ],
+            "type": "object"
+          },
+          "BottomPosition": {
+            "enum": [
+              "top_view",
+              "negate_x",
+              "negate_y"
+            ],
+            "type": "string"
+          },
+          "BottomRotation": {
+            "enum": [
+              "stored",
+              "plus_180",
+              "negate"
+            ],
+            "type": "string"
+          },
           "Column": {
             "additionalProperties": false,
             "description": "One column of a BOM or CPL file.",
@@ -2014,18 +2137,43 @@
                 "type": "string"
               },
               {
-                "const": "mid_x",
-                "description": "The Footprint's centre, X, in mm from the CPL origin.",
+                "const": "centre_x",
+                "description": "Footprint copper-Pad bounding box centre, X, from the output origin.",
                 "type": "string"
               },
               {
-                "const": "mid_y",
-                "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+                "const": "centre_y",
+                "description": "Footprint copper-Pad bounding box centre, Y.",
                 "type": "string"
               },
               {
-                "const": "layer",
-                "description": "`Top` or `Bottom`.",
+                "const": "origin_x",
+                "description": "Footprint origin, X.",
+                "type": "string"
+              },
+              {
+                "const": "origin_y",
+                "description": "Footprint origin, Y.",
+                "type": "string"
+              },
+              {
+                "const": "pad1_x",
+                "description": "Pad 1, X.",
+                "type": "string"
+              },
+              {
+                "const": "pad1_y",
+                "description": "Pad 1, Y.",
+                "type": "string"
+              },
+              {
+                "const": "fitted",
+                "description": "Whether the Component is fitted.",
+                "type": "string"
+              },
+              {
+                "const": "side",
+                "description": "`Top` or `Bottom`, or the spellings from `side_values`.",
                 "type": "string"
               },
               {
@@ -2048,23 +2196,64 @@
               }
             ]
           },
-          "FabPreset": {
+          "CplSettings": {
             "additionalProperties": false,
-            "description": "What a fab wants: seed design rules, the Gerber and drill switches, and the BOM and CPL\ncolumns. The same shape is a shipped preset, a user's `.redafab` file and the body of a\nProject copy.",
             "properties": {
-              "bom": {
-                "description": "The BOM columns, in order.",
+              "bottom_position": {
+                "$ref": "#/$defs/BottomPosition"
+              },
+              "bottom_rotation": {
+                "$ref": "#/$defs/BottomRotation"
+              },
+              "columns": {
                 "items": {
                   "$ref": "#/$defs/Column"
                 },
                 "type": "array"
               },
+              "exclude_through_hole": {
+                "type": "boolean"
+              },
+              "side_values": {
+                "$ref": "#/$defs/SideValues"
+              },
+              "unit_suffix": {
+                "type": "boolean"
+              },
+              "units": {
+                "$ref": "#/$defs/CplUnits"
+              }
+            },
+            "required": [
+              "columns",
+              "side_values",
+              "units",
+              "unit_suffix",
+              "bottom_rotation",
+              "bottom_position",
+              "exclude_through_hole"
+            ],
+            "type": "object"
+          },
+          "CplUnits": {
+            "enum": [
+              "mm",
+              "mil",
+              "in"
+            ],
+            "type": "string"
+          },
+          "FabPreset": {
+            "additionalProperties": false,
+            "description": "What a fab wants: seed design rules, the Gerber and drill switches, and the BOM and CPL\ncolumns. The same shape is a shipped preset, a user's `.redafab` file and the body of a\nProject copy.",
+            "properties": {
+              "bom": {
+                "$ref": "#/$defs/BomSettings",
+                "description": "The BOM table form, columns and row conventions."
+              },
               "cpl": {
-                "description": "The CPL columns, in order.",
-                "items": {
-                  "$ref": "#/$defs/Column"
-                },
-                "type": "array"
+                "$ref": "#/$defs/CplSettings",
+                "description": "The CPL table form, columns and position conventions."
               },
               "gerber": {
                 "$ref": "#/$defs/GerberSettings"
@@ -2080,12 +2269,20 @@
               "stackup": {
                 "$ref": "#/$defs/StackupSeeds",
                 "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither."
+              },
+              "stackup_suggestions": {
+                "$ref": "#/$defs/StackupSuggestions"
+              },
+              "zip_assembly": {
+                "type": "boolean"
               }
             },
             "required": [
               "name",
               "rules",
               "gerber",
+              "stackup_suggestions",
+              "zip_assembly",
               "bom",
               "cpl"
             ],
@@ -2125,6 +2322,12 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "mask_expansion": {
+                "$ref": "#/$defs/MaskExpansion"
+              },
+              "paste_expansion": {
+                "$ref": "#/$defs/PasteExpansion"
+              },
               "preferred": {
                 "$ref": "#/$defs/PreferredSeeds",
                 "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
@@ -2155,7 +2358,9 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance",
-              "preferred"
+              "preferred",
+              "mask_expansion",
+              "paste_expansion"
             ],
             "type": "object"
           },
@@ -2163,19 +2368,51 @@
             "description": "How the Gerber and drill files of a job are named.",
             "oneOf": [
               {
-                "const": "protel",
-                "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+                "const": "classic",
+                "description": "Classic extensions: `.gtl`, `.gbl`, `.gts`, … and `.gm1` for the Profile.",
+                "type": "string"
+              },
+              {
+                "const": "descriptive",
+                "description": "The project and Layer name, ending in `.gbr`.",
                 "type": "string"
               }
             ]
+          },
+          "FileOrigin": {
+            "enum": [
+              "absolute",
+              "relative"
+            ],
+            "type": "string"
           },
           "GerberSettings": {
             "additionalProperties": false,
             "description": "The Gerber and drill switches of a Fab Preset.",
             "properties": {
+              "file_names": {
+                "description": "Layer name to output file name; portable between boards and Projects.",
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              },
+              "file_origin": {
+                "$ref": "#/$defs/FileOrigin",
+                "description": "Shared by Gerber, drill and CPL."
+              },
+              "merge_drill": {
+                "type": "boolean"
+              },
               "naming": {
                 "$ref": "#/$defs/FileNaming",
                 "description": "How the files are named."
+              },
+              "outline_on_every_plot": {
+                "type": "boolean"
+              },
+              "slot_command": {
+                "$ref": "#/$defs/SlotCommand"
               },
               "x2_attributes": {
                 "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
@@ -2184,9 +2421,110 @@
             },
             "required": [
               "x2_attributes",
-              "naming"
+              "naming",
+              "file_origin",
+              "slot_command",
+              "merge_drill",
+              "outline_on_every_plot",
+              "file_names"
             ],
             "type": "object"
+          },
+          "LayerFileName": {
+            "additionalProperties": false,
+            "properties": {
+              "layer": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "layer",
+              "name"
+            ],
+            "type": "object"
+          },
+          "LineNumbers": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "start": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "step": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "start",
+              "step"
+            ],
+            "type": "object"
+          },
+          "MaskExpansion": {
+            "additionalProperties": false,
+            "description": "The board's solder-mask seed values. Tenting here applies only to Vias.",
+            "properties": {
+              "bottom": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "from_hole_edge": {
+                "type": "boolean"
+              },
+              "tent_vias_bottom": {
+                "type": "boolean"
+              },
+              "tent_vias_top": {
+                "type": "boolean"
+              },
+              "top": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "top",
+              "bottom",
+              "from_hole_edge",
+              "tent_vias_top",
+              "tent_vias_bottom"
+            ],
+            "type": "object"
+          },
+          "MountValues": {
+            "additionalProperties": false,
+            "properties": {
+              "smt": {
+                "type": "string"
+              },
+              "tht": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "smt",
+              "tht"
+            ],
+            "type": "object"
+          },
+          "NotFittedBom": {
+            "enum": [
+              "omit",
+              "list"
+            ],
+            "type": "string"
           },
           "Origin": {
             "description": "Where a preset comes from.",
@@ -2202,6 +2540,38 @@
                 "type": "string"
               }
             ]
+          },
+          "PasteExpansion": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "The board's paste seed: length per edge or signed change in area in percent."
           },
           "PreferredSeeds": {
             "additionalProperties": false,
@@ -2230,6 +2600,29 @@
             ],
             "type": "object"
           },
+          "SideValues": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "type": "string"
+              },
+              "top": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "top",
+              "bottom"
+            ],
+            "type": "object"
+          },
+          "SlotCommand": {
+            "enum": [
+              "route",
+              "g85"
+            ],
+            "type": "string"
+          },
           "StackupSeeds": {
             "additionalProperties": false,
             "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
@@ -2251,6 +2644,54 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "StackupSuggestions": {
+            "additionalProperties": false,
+            "description": "Suggestions never validate the board or seed its finish or colours.",
+            "properties": {
+              "copper": {
+                "items": {
+                  "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "mask_color": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "silk_color": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "thickness": {
+                "items": {
+                  "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "thickness",
+              "copper",
+              "finish",
+              "mask_color",
+              "silk_color"
+            ],
             "type": "object"
           }
         },
@@ -6104,7 +6545,7 @@
     },
     {
       "category": "library",
-      "description": "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, rectangle, rounded or chamfered rectangle or oval, with its copper optionally offset from its anchor, an optional round hole or slot, its side, per-Pad mask and paste margins and its Zone connection.",
+      "description": "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, rectangle, rounded or chamfered rectangle or oval, with its copper optionally offset from its anchor, an optional round hole or slot, its side, per-Pad mask and paste overrides and its Zone connection.",
       "icon": "footprint_edit",
       "id": "library.footprint.pad.add",
       "kind": "edit",
@@ -6233,6 +6674,73 @@
               }
             ]
           },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "OpeningPointParam": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "PadKind": {
             "enum": [
               "smd",
@@ -6262,6 +6770,89 @@
                 "type": "string"
               }
             ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/OpeningPointParam"
+              },
+              "corner_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "$ref": "#/$defs/Length"
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
           },
           "PointParam": {
             "additionalProperties": false,
@@ -6301,6 +6892,12 @@
             "enum": [
               "top",
               "bottom"
+            ],
+            "type": "string"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
             ],
             "type": "string"
           },
@@ -6432,16 +7029,16 @@
           "kind": {
             "$ref": "#/$defs/PadKind"
           },
-          "mask_margin": {
+          "mask": {
             "anyOf": [
               {
-                "$ref": "#/$defs/Length"
+                "$ref": "#/$defs/Mask"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Overrides the board's solder-mask margin for this Pad."
+            "description": "Per-side mask expansion or tenting; omitted sides inherit."
           },
           "number": {
             "description": "Pads that share a number belong to the same Pin. May be empty for a non-plated\nhole.",
@@ -6458,16 +7055,16 @@
             ],
             "description": "Moves the copper away from `at`, in the Pad's frame."
           },
-          "paste_margin": {
+          "paste": {
             "anyOf": [
               {
-                "$ref": "#/$defs/Length"
+                "$ref": "#/$defs/Paste"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Overrides the board's solder-paste margin for this Pad."
+            "description": "SMD paste expansion, signed area percent, none or windows; omitted, inherit."
           },
           "rotation": {
             "anyOf": [
@@ -6540,7 +7137,7 @@
     },
     {
       "category": "library",
-      "description": "Changes any of a Pad's number, kind, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste margins and Zone connection. Omitted fields keep their value; `null` clears an optional one. A resized Pad keeps its ratios, and so its look.",
+      "description": "Changes any of a Pad's number, kind, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection. Omitted fields keep their value; `null` clears an optional one. A resized Pad keeps its ratios, and so its look.",
       "icon": "footprint_edit",
       "id": "library.footprint.pad.edit",
       "kind": "edit",
@@ -6669,6 +7266,73 @@
               }
             ]
           },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "OpeningPointParam": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "PadKind": {
             "enum": [
               "smd",
@@ -6698,6 +7362,89 @@
                 "type": "string"
               }
             ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/OpeningPointParam"
+              },
+              "corner_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "$ref": "#/$defs/Length"
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
           },
           "PointParam": {
             "additionalProperties": false,
@@ -6737,6 +7484,12 @@
             "enum": [
               "top",
               "bottom"
+            ],
+            "type": "string"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
             ],
             "type": "string"
           },
@@ -6891,17 +7644,17 @@
               }
             ]
           },
-          "mask_margin": {
+          "mask": {
             "anyOf": [
               {
-                "$ref": "#/$defs/Length"
+                "$ref": "#/$defs/Mask"
               },
               {
                 "type": "null"
               }
             ],
             "default": null,
-            "description": "`null` returns to the board's margin."
+            "description": "`null` inherits the board's rule."
           },
           "number": {
             "type": [
@@ -6924,17 +7677,16 @@
             "format": "uuid",
             "type": "string"
           },
-          "paste_margin": {
+          "paste": {
             "anyOf": [
               {
-                "$ref": "#/$defs/Length"
+                "$ref": "#/$defs/Paste"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
-            "description": "`null` returns to the board's margin."
+            "description": "`null` inherits the board's rule."
           },
           "rotation": {
             "anyOf": [
@@ -9760,6 +10512,119 @@
       "presets": [],
       "result": {
         "$defs": {
+          "BomGroup": {
+            "description": "Sources shared by Components on a grouped BOM row.",
+            "oneOf": [
+              {
+                "enum": [
+                  "part",
+                  "footprint",
+                  "value"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "fields",
+                "description": "All Component value fields, including manufacturer and supplier numbers.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "BomLayout": {
+            "enum": [
+              "grouped",
+              "flat"
+            ],
+            "type": "string"
+          },
+          "BomSettings": {
+            "additionalProperties": false,
+            "properties": {
+              "columns": {
+                "items": {
+                  "$ref": "#/$defs/Column"
+                },
+                "type": "array"
+              },
+              "designator_separator": {
+                "type": "string"
+              },
+              "group_by": {
+                "items": {
+                  "$ref": "#/$defs/BomGroup"
+                },
+                "type": "array"
+              },
+              "layout": {
+                "$ref": "#/$defs/BomLayout"
+              },
+              "line_numbers": {
+                "$ref": "#/$defs/LineNumbers"
+              },
+              "list_unplaced": {
+                "type": "boolean"
+              },
+              "mount_values": {
+                "$ref": "#/$defs/MountValues"
+              },
+              "not_fitted": {
+                "$ref": "#/$defs/NotFittedBom"
+              },
+              "required_fields": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sort": {
+                "items": {
+                  "$ref": "#/$defs/ColumnSource"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "columns",
+              "layout",
+              "group_by",
+              "sort",
+              "line_numbers",
+              "designator_separator",
+              "not_fitted",
+              "required_fields",
+              "list_unplaced",
+              "mount_values"
+            ],
+            "type": "object"
+          },
+          "BottomPosition": {
+            "enum": [
+              "top_view",
+              "negate_x",
+              "negate_y"
+            ],
+            "type": "string"
+          },
+          "BottomRotation": {
+            "enum": [
+              "stored",
+              "plus_180",
+              "negate"
+            ],
+            "type": "string"
+          },
           "Bounds": {
             "additionalProperties": false,
             "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
@@ -9843,18 +10708,43 @@
                 "type": "string"
               },
               {
-                "const": "mid_x",
-                "description": "The Footprint's centre, X, in mm from the CPL origin.",
+                "const": "centre_x",
+                "description": "Footprint copper-Pad bounding box centre, X, from the output origin.",
                 "type": "string"
               },
               {
-                "const": "mid_y",
-                "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+                "const": "centre_y",
+                "description": "Footprint copper-Pad bounding box centre, Y.",
                 "type": "string"
               },
               {
-                "const": "layer",
-                "description": "`Top` or `Bottom`.",
+                "const": "origin_x",
+                "description": "Footprint origin, X.",
+                "type": "string"
+              },
+              {
+                "const": "origin_y",
+                "description": "Footprint origin, Y.",
+                "type": "string"
+              },
+              {
+                "const": "pad1_x",
+                "description": "Pad 1, X.",
+                "type": "string"
+              },
+              {
+                "const": "pad1_y",
+                "description": "Pad 1, Y.",
+                "type": "string"
+              },
+              {
+                "const": "fitted",
+                "description": "Whether the Component is fitted.",
+                "type": "string"
+              },
+              {
+                "const": "side",
+                "description": "`Top` or `Bottom`, or the spellings from `side_values`.",
                 "type": "string"
               },
               {
@@ -9970,6 +10860,53 @@
             ],
             "type": "string"
           },
+          "CplSettings": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom_position": {
+                "$ref": "#/$defs/BottomPosition"
+              },
+              "bottom_rotation": {
+                "$ref": "#/$defs/BottomRotation"
+              },
+              "columns": {
+                "items": {
+                  "$ref": "#/$defs/Column"
+                },
+                "type": "array"
+              },
+              "exclude_through_hole": {
+                "type": "boolean"
+              },
+              "side_values": {
+                "$ref": "#/$defs/SideValues"
+              },
+              "unit_suffix": {
+                "type": "boolean"
+              },
+              "units": {
+                "$ref": "#/$defs/CplUnits"
+              }
+            },
+            "required": [
+              "columns",
+              "side_values",
+              "units",
+              "unit_suffix",
+              "bottom_rotation",
+              "bottom_position",
+              "exclude_through_hole"
+            ],
+            "type": "object"
+          },
+          "CplUnits": {
+            "enum": [
+              "mm",
+              "mil",
+              "in"
+            ],
+            "type": "string"
+          },
           "CrossReferenceStyles": {
             "additionalProperties": false,
             "description": "How a Port cross-reference names its partners' places: by sheet, then by location on\nthat sheet.",
@@ -10065,6 +11002,10 @@
                 "$ref": "#/$defs/Severity",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "opening_collapsed": {
+                "$ref": "#/$defs/Severity",
+                "description": "A negative mask or paste expansion leaves no opening."
+              },
               "out_of_sync": {
                 "$ref": "#/$defs/Severity",
                 "description": "The PCB out of sync with the schematic."
@@ -10101,7 +11042,8 @@
               "dangling",
               "courtyard_overlap",
               "silkscreen_over_pads",
-              "out_of_sync"
+              "out_of_sync",
+              "opening_collapsed"
             ],
             "type": "object"
           },
@@ -10244,6 +11186,12 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "mask_expansion": {
+                "$ref": "#/$defs/MaskExpansion"
+              },
+              "paste_expansion": {
+                "$ref": "#/$defs/PasteExpansion"
+              },
               "preferred": {
                 "$ref": "#/$defs/PreferredSeeds",
                 "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
@@ -10274,7 +11222,9 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance",
-              "preferred"
+              "preferred",
+              "mask_expansion",
+              "paste_expansion"
             ],
             "type": "object"
           },
@@ -10357,11 +11307,23 @@
             "description": "How the Gerber and drill files of a job are named.",
             "oneOf": [
               {
-                "const": "protel",
-                "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+                "const": "classic",
+                "description": "Classic extensions: `.gtl`, `.gbl`, `.gts`, … and `.gm1` for the Profile.",
+                "type": "string"
+              },
+              {
+                "const": "descriptive",
+                "description": "The project and Layer name, ending in `.gbr`.",
                 "type": "string"
               }
             ]
+          },
+          "FileOrigin": {
+            "enum": [
+              "absolute",
+              "relative"
+            ],
+            "type": "string"
           },
           "Footprint": {
             "additionalProperties": false,
@@ -10572,9 +11534,29 @@
             "additionalProperties": false,
             "description": "The Gerber and drill switches of a Fab Preset.",
             "properties": {
+              "file_names": {
+                "description": "Layer name to output file name; portable between boards and Projects.",
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              },
+              "file_origin": {
+                "$ref": "#/$defs/FileOrigin",
+                "description": "Shared by Gerber, drill and CPL."
+              },
+              "merge_drill": {
+                "type": "boolean"
+              },
               "naming": {
                 "$ref": "#/$defs/FileNaming",
                 "description": "How the files are named."
+              },
+              "outline_on_every_plot": {
+                "type": "boolean"
+              },
+              "slot_command": {
+                "$ref": "#/$defs/SlotCommand"
               },
               "x2_attributes": {
                 "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
@@ -10583,7 +11565,12 @@
             },
             "required": [
               "x2_attributes",
-              "naming"
+              "naming",
+              "file_origin",
+              "slot_command",
+              "merge_drill",
+              "outline_on_every_plot",
+              "file_names"
             ],
             "type": "object"
           },
@@ -11381,6 +12368,16 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net": {
                 "description": "Its PCB Net; left out for a Via on no Net.",
                 "format": "uuid",
@@ -11578,6 +12575,16 @@
                 "$ref": "#/$defs/PadKind",
                 "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
               },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net": {
                 "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
                 "format": "uuid",
@@ -11596,6 +12603,16 @@
                   }
                 ],
                 "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+              },
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "rotation": {
                 "description": "Counter-clockwise.",
@@ -11931,6 +12948,22 @@
             ],
             "type": "object"
           },
+          "LayerFileName": {
+            "additionalProperties": false,
+            "properties": {
+              "layer": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "layer",
+              "name"
+            ],
+            "type": "object"
+          },
           "LayerKind": {
             "description": "What a Layer is for. Copper and the sided kinds come with a [`Side`].",
             "enum": [
@@ -11965,6 +12998,30 @@
             ],
             "type": "object"
           },
+          "LineNumbers": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "start": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "step": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "start",
+              "step"
+            ],
+            "type": "object"
+          },
           "LocationStyle": {
             "description": "How a cross-reference names where on its sheet a partner is.",
             "oneOf": [
@@ -11984,6 +13041,123 @@
                 "type": "string"
               }
             ]
+          },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskExpansion": {
+            "additionalProperties": false,
+            "description": "The board's solder-mask seed values. Tenting here applies only to Vias.",
+            "properties": {
+              "bottom": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "from_hole_edge": {
+                "type": "boolean"
+              },
+              "tent_vias_bottom": {
+                "type": "boolean"
+              },
+              "tent_vias_top": {
+                "type": "boolean"
+              },
+              "top": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "top",
+              "bottom",
+              "from_hole_edge",
+              "tent_vias_top",
+              "tent_vias_bottom"
+            ],
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "MountValues": {
+            "additionalProperties": false,
+            "properties": {
+              "smt": {
+                "type": "string"
+              },
+              "tht": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "smt",
+              "tht"
+            ],
+            "type": "object"
+          },
+          "NotFittedBom": {
+            "enum": [
+              "omit",
+              "list"
+            ],
+            "type": "string"
+          },
+          "NotFittedPaste": {
+            "description": "Whether this build retains Not Fitted Components' paste openings.",
+            "enum": [
+              "keep",
+              "remove"
+            ],
+            "type": "string"
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -12116,16 +13290,10 @@
                 "description": "The Project's own copy of a Fab Preset, so outputs come out the same on any machine.\nIts fields are a [`FabPreset`]'s, after the UUID.",
                 "properties": {
                   "bom": {
-                    "items": {
-                      "$ref": "#/$defs/Column"
-                    },
-                    "type": "array"
+                    "$ref": "#/$defs/BomSettings"
                   },
                   "cpl": {
-                    "items": {
-                      "$ref": "#/$defs/Column"
-                    },
-                    "type": "array"
+                    "$ref": "#/$defs/CplSettings"
                   },
                   "gerber": {
                     "$ref": "#/$defs/GerberSettings"
@@ -12140,6 +13308,9 @@
                   "stackup": {
                     "$ref": "#/$defs/StackupSeeds"
                   },
+                  "stackup_suggestions": {
+                    "$ref": "#/$defs/StackupSuggestions"
+                  },
                   "type": {
                     "const": "fab_preset",
                     "type": "string"
@@ -12147,6 +13318,9 @@
                   "uuid": {
                     "format": "uuid",
                     "type": "string"
+                  },
+                  "zip_assembly": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -12155,6 +13329,8 @@
                   "name",
                   "rules",
                   "gerber",
+                  "stackup_suggestions",
+                  "zip_assembly",
                   "bom",
                   "cpl"
                 ],
@@ -12179,6 +13355,13 @@
                   "name": {
                     "type": "string"
                   },
+                  "name_template": {
+                    "description": "The zip and assembly files' stem, resolved with the shared text resolver.",
+                    "type": "string"
+                  },
+                  "not_fitted_paste": {
+                    "$ref": "#/$defs/NotFittedPaste"
+                  },
                   "outputs": {
                     "$ref": "#/$defs/Outputs"
                   },
@@ -12186,6 +13369,9 @@
                     "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
                     "format": "uuid",
                     "type": "string"
+                  },
+                  "schematic_pdf_colour": {
+                    "$ref": "#/$defs/PdfColour"
                   },
                   "type": {
                     "const": "output_job",
@@ -12202,7 +13388,10 @@
                   "name",
                   "pcb",
                   "fab_preset",
-                  "outputs"
+                  "outputs",
+                  "name_template",
+                  "not_fitted_paste",
+                  "schematic_pdf_colour"
                 ],
                 "type": "object"
               },
@@ -12796,7 +13985,7 @@
                 "$ref": "#/$defs/InDocument29",
                 "properties": {
                   "type": {
-                    "const": "placement_origin",
+                    "const": "output_origin",
                     "type": "string"
                   }
                 },
@@ -12838,8 +14027,23 @@
                 "description": "Excellon drill files, plated and non-plated.",
                 "type": "boolean"
               },
+              "drill_report": {
+                "type": "boolean"
+              },
+              "fab_notes": {
+                "type": "boolean"
+              },
               "gerber": {
                 "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+                "type": "boolean"
+              },
+              "gerber_job": {
+                "type": "boolean"
+              },
+              "reports": {
+                "type": "boolean"
+              },
+              "schematic_pdf": {
                 "type": "boolean"
               }
             },
@@ -12847,7 +14051,12 @@
               "gerber",
               "drill",
               "bom",
-              "cpl"
+              "cpl",
+              "fab_notes",
+              "drill_report",
+              "gerber_job",
+              "reports",
+              "schematic_pdf"
             ],
             "type": "object"
           },
@@ -12927,13 +14136,16 @@
               "kind": {
                 "$ref": "#/$defs/PadKind"
               },
-              "mask_margin": {
-                "description": "Overrides the board's solder-mask margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
               },
               "number": {
                 "type": "string"
@@ -12949,13 +14161,16 @@
                 ],
                 "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
               },
-              "paste_margin": {
-                "description": "Overrides the board's solder-paste margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -13145,6 +14360,134 @@
               "pin_map"
             ],
             "type": "object"
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteExpansion": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "The board's paste seed: length per edge or signed change in area in percent."
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PdfColour": {
+            "description": "The schematic PDF's paper colour mode.",
+            "enum": [
+              "colour",
+              "mono"
+            ],
+            "type": "string"
           },
           "Pin": {
             "additionalProperties": false,
@@ -13474,6 +14817,16 @@
                 "const": "edge_clearance",
                 "description": "Copper to the Board Outline and Board Cutouts: `value`.",
                 "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
               }
             ]
           },
@@ -13496,6 +14849,14 @@
             "additionalProperties": false,
             "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
             "properties": {
+              "bottom": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "diameter": {
                 "anyOf": [
                   {
@@ -13506,6 +14867,20 @@
                   }
                 ],
                 "description": "Via size only: the Via's copper diameter."
+              },
+              "expansion": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "hole": {
                 "anyOf": [
@@ -13541,7 +14916,35 @@
                   "null"
                 ]
               },
+              "percent": {
+                "description": "Signed change in area in percent, strictly above -100.",
+                "format": "int32",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "tent_vias_bottom": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "tent_vias_top": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": [
@@ -13865,6 +15268,29 @@
             ],
             "type": "string"
           },
+          "SideValues": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "type": "string"
+              },
+              "top": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "top",
+              "bottom"
+            ],
+            "type": "object"
+          },
+          "SlotCommand": {
+            "enum": [
+              "route",
+              "g85"
+            ],
+            "type": "string"
+          },
           "StackupEntry": {
             "anyOf": [
               {
@@ -13899,6 +15325,54 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "StackupSuggestions": {
+            "additionalProperties": false,
+            "description": "Suggestions never validate the board or seed its finish or colours.",
+            "properties": {
+              "copper": {
+                "items": {
+                  "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "mask_color": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "silk_color": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "thickness": {
+                "items": {
+                  "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "thickness",
+              "copper",
+              "finish",
+              "mask_color",
+              "silk_color"
+            ],
             "type": "object"
           },
           "Symbol": {
@@ -13996,6 +15470,12 @@
               "width"
             ],
             "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
           },
           "TextStyle": {
             "additionalProperties": false,
@@ -14535,7 +16015,7 @@
                 "type": "string"
               },
               {
-                "const": "placement_origin",
+                "const": "output_origin",
                 "description": "The point manufacturing outputs measure Footprint positions from.",
                 "type": "string"
               }
@@ -14581,6 +16061,119 @@
       "presets": [],
       "result": {
         "$defs": {
+          "BomGroup": {
+            "description": "Sources shared by Components on a grouped BOM row.",
+            "oneOf": [
+              {
+                "enum": [
+                  "part",
+                  "footprint",
+                  "value"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "fields",
+                "description": "All Component value fields, including manufacturer and supplier numbers.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "BomLayout": {
+            "enum": [
+              "grouped",
+              "flat"
+            ],
+            "type": "string"
+          },
+          "BomSettings": {
+            "additionalProperties": false,
+            "properties": {
+              "columns": {
+                "items": {
+                  "$ref": "#/$defs/Column"
+                },
+                "type": "array"
+              },
+              "designator_separator": {
+                "type": "string"
+              },
+              "group_by": {
+                "items": {
+                  "$ref": "#/$defs/BomGroup"
+                },
+                "type": "array"
+              },
+              "layout": {
+                "$ref": "#/$defs/BomLayout"
+              },
+              "line_numbers": {
+                "$ref": "#/$defs/LineNumbers"
+              },
+              "list_unplaced": {
+                "type": "boolean"
+              },
+              "mount_values": {
+                "$ref": "#/$defs/MountValues"
+              },
+              "not_fitted": {
+                "$ref": "#/$defs/NotFittedBom"
+              },
+              "required_fields": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sort": {
+                "items": {
+                  "$ref": "#/$defs/ColumnSource"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "columns",
+              "layout",
+              "group_by",
+              "sort",
+              "line_numbers",
+              "designator_separator",
+              "not_fitted",
+              "required_fields",
+              "list_unplaced",
+              "mount_values"
+            ],
+            "type": "object"
+          },
+          "BottomPosition": {
+            "enum": [
+              "top_view",
+              "negate_x",
+              "negate_y"
+            ],
+            "type": "string"
+          },
+          "BottomRotation": {
+            "enum": [
+              "stored",
+              "plus_180",
+              "negate"
+            ],
+            "type": "string"
+          },
           "Bounds": {
             "additionalProperties": false,
             "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
@@ -14664,18 +16257,43 @@
                 "type": "string"
               },
               {
-                "const": "mid_x",
-                "description": "The Footprint's centre, X, in mm from the CPL origin.",
+                "const": "centre_x",
+                "description": "Footprint copper-Pad bounding box centre, X, from the output origin.",
                 "type": "string"
               },
               {
-                "const": "mid_y",
-                "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+                "const": "centre_y",
+                "description": "Footprint copper-Pad bounding box centre, Y.",
                 "type": "string"
               },
               {
-                "const": "layer",
-                "description": "`Top` or `Bottom`.",
+                "const": "origin_x",
+                "description": "Footprint origin, X.",
+                "type": "string"
+              },
+              {
+                "const": "origin_y",
+                "description": "Footprint origin, Y.",
+                "type": "string"
+              },
+              {
+                "const": "pad1_x",
+                "description": "Pad 1, X.",
+                "type": "string"
+              },
+              {
+                "const": "pad1_y",
+                "description": "Pad 1, Y.",
+                "type": "string"
+              },
+              {
+                "const": "fitted",
+                "description": "Whether the Component is fitted.",
+                "type": "string"
+              },
+              {
+                "const": "side",
+                "description": "`Top` or `Bottom`, or the spellings from `side_values`.",
                 "type": "string"
               },
               {
@@ -14791,6 +16409,53 @@
             ],
             "type": "string"
           },
+          "CplSettings": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom_position": {
+                "$ref": "#/$defs/BottomPosition"
+              },
+              "bottom_rotation": {
+                "$ref": "#/$defs/BottomRotation"
+              },
+              "columns": {
+                "items": {
+                  "$ref": "#/$defs/Column"
+                },
+                "type": "array"
+              },
+              "exclude_through_hole": {
+                "type": "boolean"
+              },
+              "side_values": {
+                "$ref": "#/$defs/SideValues"
+              },
+              "unit_suffix": {
+                "type": "boolean"
+              },
+              "units": {
+                "$ref": "#/$defs/CplUnits"
+              }
+            },
+            "required": [
+              "columns",
+              "side_values",
+              "units",
+              "unit_suffix",
+              "bottom_rotation",
+              "bottom_position",
+              "exclude_through_hole"
+            ],
+            "type": "object"
+          },
+          "CplUnits": {
+            "enum": [
+              "mm",
+              "mil",
+              "in"
+            ],
+            "type": "string"
+          },
           "CrossReferenceStyles": {
             "additionalProperties": false,
             "description": "How a Port cross-reference names its partners' places: by sheet, then by location on\nthat sheet.",
@@ -14886,6 +16551,10 @@
                 "$ref": "#/$defs/Severity",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "opening_collapsed": {
+                "$ref": "#/$defs/Severity",
+                "description": "A negative mask or paste expansion leaves no opening."
+              },
               "out_of_sync": {
                 "$ref": "#/$defs/Severity",
                 "description": "The PCB out of sync with the schematic."
@@ -14922,7 +16591,8 @@
               "dangling",
               "courtyard_overlap",
               "silkscreen_over_pads",
-              "out_of_sync"
+              "out_of_sync",
+              "opening_collapsed"
             ],
             "type": "object"
           },
@@ -15065,6 +16735,12 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "mask_expansion": {
+                "$ref": "#/$defs/MaskExpansion"
+              },
+              "paste_expansion": {
+                "$ref": "#/$defs/PasteExpansion"
+              },
               "preferred": {
                 "$ref": "#/$defs/PreferredSeeds",
                 "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
@@ -15095,7 +16771,9 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance",
-              "preferred"
+              "preferred",
+              "mask_expansion",
+              "paste_expansion"
             ],
             "type": "object"
           },
@@ -15178,11 +16856,23 @@
             "description": "How the Gerber and drill files of a job are named.",
             "oneOf": [
               {
-                "const": "protel",
-                "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+                "const": "classic",
+                "description": "Classic extensions: `.gtl`, `.gbl`, `.gts`, … and `.gm1` for the Profile.",
+                "type": "string"
+              },
+              {
+                "const": "descriptive",
+                "description": "The project and Layer name, ending in `.gbr`.",
                 "type": "string"
               }
             ]
+          },
+          "FileOrigin": {
+            "enum": [
+              "absolute",
+              "relative"
+            ],
+            "type": "string"
           },
           "Footprint": {
             "additionalProperties": false,
@@ -15393,9 +17083,29 @@
             "additionalProperties": false,
             "description": "The Gerber and drill switches of a Fab Preset.",
             "properties": {
+              "file_names": {
+                "description": "Layer name to output file name; portable between boards and Projects.",
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              },
+              "file_origin": {
+                "$ref": "#/$defs/FileOrigin",
+                "description": "Shared by Gerber, drill and CPL."
+              },
+              "merge_drill": {
+                "type": "boolean"
+              },
               "naming": {
                 "$ref": "#/$defs/FileNaming",
                 "description": "How the files are named."
+              },
+              "outline_on_every_plot": {
+                "type": "boolean"
+              },
+              "slot_command": {
+                "$ref": "#/$defs/SlotCommand"
               },
               "x2_attributes": {
                 "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
@@ -15404,7 +17114,12 @@
             },
             "required": [
               "x2_attributes",
-              "naming"
+              "naming",
+              "file_origin",
+              "slot_command",
+              "merge_drill",
+              "outline_on_every_plot",
+              "file_names"
             ],
             "type": "object"
           },
@@ -16202,6 +17917,16 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net": {
                 "description": "Its PCB Net; left out for a Via on no Net.",
                 "format": "uuid",
@@ -16399,6 +18124,16 @@
                 "$ref": "#/$defs/PadKind",
                 "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
               },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net": {
                 "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
                 "format": "uuid",
@@ -16417,6 +18152,16 @@
                   }
                 ],
                 "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+              },
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "rotation": {
                 "description": "Counter-clockwise.",
@@ -16752,6 +18497,22 @@
             ],
             "type": "object"
           },
+          "LayerFileName": {
+            "additionalProperties": false,
+            "properties": {
+              "layer": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "layer",
+              "name"
+            ],
+            "type": "object"
+          },
           "LayerKind": {
             "description": "What a Layer is for. Copper and the sided kinds come with a [`Side`].",
             "enum": [
@@ -16786,6 +18547,30 @@
             ],
             "type": "object"
           },
+          "LineNumbers": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "start": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "step": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "start",
+              "step"
+            ],
+            "type": "object"
+          },
           "LocationStyle": {
             "description": "How a cross-reference names where on its sheet a partner is.",
             "oneOf": [
@@ -16805,6 +18590,123 @@
                 "type": "string"
               }
             ]
+          },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskExpansion": {
+            "additionalProperties": false,
+            "description": "The board's solder-mask seed values. Tenting here applies only to Vias.",
+            "properties": {
+              "bottom": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "from_hole_edge": {
+                "type": "boolean"
+              },
+              "tent_vias_bottom": {
+                "type": "boolean"
+              },
+              "tent_vias_top": {
+                "type": "boolean"
+              },
+              "top": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "top",
+              "bottom",
+              "from_hole_edge",
+              "tent_vias_top",
+              "tent_vias_bottom"
+            ],
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "MountValues": {
+            "additionalProperties": false,
+            "properties": {
+              "smt": {
+                "type": "string"
+              },
+              "tht": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "smt",
+              "tht"
+            ],
+            "type": "object"
+          },
+          "NotFittedBom": {
+            "enum": [
+              "omit",
+              "list"
+            ],
+            "type": "string"
+          },
+          "NotFittedPaste": {
+            "description": "Whether this build retains Not Fitted Components' paste openings.",
+            "enum": [
+              "keep",
+              "remove"
+            ],
+            "type": "string"
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -16937,16 +18839,10 @@
                 "description": "The Project's own copy of a Fab Preset, so outputs come out the same on any machine.\nIts fields are a [`FabPreset`]'s, after the UUID.",
                 "properties": {
                   "bom": {
-                    "items": {
-                      "$ref": "#/$defs/Column"
-                    },
-                    "type": "array"
+                    "$ref": "#/$defs/BomSettings"
                   },
                   "cpl": {
-                    "items": {
-                      "$ref": "#/$defs/Column"
-                    },
-                    "type": "array"
+                    "$ref": "#/$defs/CplSettings"
                   },
                   "gerber": {
                     "$ref": "#/$defs/GerberSettings"
@@ -16961,6 +18857,9 @@
                   "stackup": {
                     "$ref": "#/$defs/StackupSeeds"
                   },
+                  "stackup_suggestions": {
+                    "$ref": "#/$defs/StackupSuggestions"
+                  },
                   "type": {
                     "const": "fab_preset",
                     "type": "string"
@@ -16968,6 +18867,9 @@
                   "uuid": {
                     "format": "uuid",
                     "type": "string"
+                  },
+                  "zip_assembly": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -16976,6 +18878,8 @@
                   "name",
                   "rules",
                   "gerber",
+                  "stackup_suggestions",
+                  "zip_assembly",
                   "bom",
                   "cpl"
                 ],
@@ -17000,6 +18904,13 @@
                   "name": {
                     "type": "string"
                   },
+                  "name_template": {
+                    "description": "The zip and assembly files' stem, resolved with the shared text resolver.",
+                    "type": "string"
+                  },
+                  "not_fitted_paste": {
+                    "$ref": "#/$defs/NotFittedPaste"
+                  },
                   "outputs": {
                     "$ref": "#/$defs/Outputs"
                   },
@@ -17007,6 +18918,9 @@
                     "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
                     "format": "uuid",
                     "type": "string"
+                  },
+                  "schematic_pdf_colour": {
+                    "$ref": "#/$defs/PdfColour"
                   },
                   "type": {
                     "const": "output_job",
@@ -17023,7 +18937,10 @@
                   "name",
                   "pcb",
                   "fab_preset",
-                  "outputs"
+                  "outputs",
+                  "name_template",
+                  "not_fitted_paste",
+                  "schematic_pdf_colour"
                 ],
                 "type": "object"
               },
@@ -17617,7 +19534,7 @@
                 "$ref": "#/$defs/InDocument29",
                 "properties": {
                   "type": {
-                    "const": "placement_origin",
+                    "const": "output_origin",
                     "type": "string"
                   }
                 },
@@ -17680,8 +19597,23 @@
                 "description": "Excellon drill files, plated and non-plated.",
                 "type": "boolean"
               },
+              "drill_report": {
+                "type": "boolean"
+              },
+              "fab_notes": {
+                "type": "boolean"
+              },
               "gerber": {
                 "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+                "type": "boolean"
+              },
+              "gerber_job": {
+                "type": "boolean"
+              },
+              "reports": {
+                "type": "boolean"
+              },
+              "schematic_pdf": {
                 "type": "boolean"
               }
             },
@@ -17689,7 +19621,12 @@
               "gerber",
               "drill",
               "bom",
-              "cpl"
+              "cpl",
+              "fab_notes",
+              "drill_report",
+              "gerber_job",
+              "reports",
+              "schematic_pdf"
             ],
             "type": "object"
           },
@@ -17769,13 +19706,16 @@
               "kind": {
                 "$ref": "#/$defs/PadKind"
               },
-              "mask_margin": {
-                "description": "Overrides the board's solder-mask margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
               },
               "number": {
                 "type": "string"
@@ -17791,13 +19731,16 @@
                 ],
                 "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
               },
-              "paste_margin": {
-                "description": "Overrides the board's solder-paste margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -17987,6 +19930,134 @@
               "pin_map"
             ],
             "type": "object"
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteExpansion": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "The board's paste seed: length per edge or signed change in area in percent."
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PdfColour": {
+            "description": "The schematic PDF's paper colour mode.",
+            "enum": [
+              "colour",
+              "mono"
+            ],
+            "type": "string"
           },
           "Pin": {
             "additionalProperties": false,
@@ -18316,6 +20387,16 @@
                 "const": "edge_clearance",
                 "description": "Copper to the Board Outline and Board Cutouts: `value`.",
                 "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
               }
             ]
           },
@@ -18338,6 +20419,14 @@
             "additionalProperties": false,
             "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
             "properties": {
+              "bottom": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "diameter": {
                 "anyOf": [
                   {
@@ -18348,6 +20437,20 @@
                   }
                 ],
                 "description": "Via size only: the Via's copper diameter."
+              },
+              "expansion": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "hole": {
                 "anyOf": [
@@ -18383,7 +20486,35 @@
                   "null"
                 ]
               },
+              "percent": {
+                "description": "Signed change in area in percent, strictly above -100.",
+                "format": "int32",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "tent_vias_bottom": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "tent_vias_top": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": [
@@ -18707,6 +20838,29 @@
             ],
             "type": "string"
           },
+          "SideValues": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "type": "string"
+              },
+              "top": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "top",
+              "bottom"
+            ],
+            "type": "object"
+          },
+          "SlotCommand": {
+            "enum": [
+              "route",
+              "g85"
+            ],
+            "type": "string"
+          },
           "StackupEntry": {
             "anyOf": [
               {
@@ -18741,6 +20895,54 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "StackupSuggestions": {
+            "additionalProperties": false,
+            "description": "Suggestions never validate the board or seed its finish or colours.",
+            "properties": {
+              "copper": {
+                "items": {
+                  "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "mask_color": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "silk_color": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "thickness": {
+                "items": {
+                  "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "thickness",
+              "copper",
+              "finish",
+              "mask_color",
+              "silk_color"
+            ],
             "type": "object"
           },
           "Symbol": {
@@ -18838,6 +21040,12 @@
               "width"
             ],
             "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
           },
           "TextStyle": {
             "additionalProperties": false,
@@ -19044,6 +21252,14 @@
       "kind": "edit",
       "params": {
         "$defs": {
+          "NotFittedPaste": {
+            "description": "Whether this build retains Not Fitted Components' paste openings.",
+            "enum": [
+              "keep",
+              "remove"
+            ],
+            "type": "string"
+          },
           "OutputsParam": {
             "additionalProperties": false,
             "description": "Which outputs to write; each one left out keeps its current value (on for a new job).",
@@ -19069,7 +21285,42 @@
                   "null"
                 ]
               },
+              "drill_report": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "fab_notes": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
               "gerber": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "gerber_job": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "reports": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "schematic_pdf": {
                 "default": null,
                 "type": [
                   "boolean",
@@ -19078,6 +21329,14 @@
               }
             },
             "type": "object"
+          },
+          "PdfColour": {
+            "description": "The schematic PDF's paper colour mode.",
+            "enum": [
+              "colour",
+              "mono"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -19104,6 +21363,24 @@
               "null"
             ]
           },
+          "name_template": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "not_fitted_paste": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NotFittedPaste"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "outputs": {
             "anyOf": [
               {
@@ -19123,6 +21400,17 @@
               "string",
               "null"
             ]
+          },
+          "schematic_pdf_colour": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PdfColour"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -19233,7 +21521,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions from the Placement Origin, else the Board Outline's lower-left) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline and a Footprint the PCB cannot resolve block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions from the preset's common origin for Gerber, drill and CPL) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline and a Footprint the PCB cannot resolve block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -19384,6 +21672,14 @@
       "kind": "edit",
       "params": {
         "$defs": {
+          "NotFittedPaste": {
+            "description": "Whether this build retains Not Fitted Components' paste openings.",
+            "enum": [
+              "keep",
+              "remove"
+            ],
+            "type": "string"
+          },
           "OutputsParam": {
             "additionalProperties": false,
             "description": "Which outputs to write; each one left out keeps its current value (on for a new job).",
@@ -19409,7 +21705,42 @@
                   "null"
                 ]
               },
+              "drill_report": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "fab_notes": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
               "gerber": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "gerber_job": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "reports": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "schematic_pdf": {
                 "default": null,
                 "type": [
                   "boolean",
@@ -19418,6 +21749,14 @@
               }
             },
             "type": "object"
+          },
+          "PdfColour": {
+            "description": "The schematic PDF's paper colour mode.",
+            "enum": [
+              "colour",
+              "mono"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -19452,6 +21791,24 @@
               "null"
             ]
           },
+          "name_template": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "not_fitted_paste": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NotFittedPaste"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "outputs": {
             "anyOf": [
               {
@@ -19470,6 +21827,17 @@
               "string",
               "null"
             ]
+          },
+          "schematic_pdf_colour": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PdfColour"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -19481,6 +21849,14 @@
       "presets": [],
       "result": {
         "$defs": {
+          "NotFittedPaste": {
+            "description": "Whether this build retains Not Fitted Components' paste openings.",
+            "enum": [
+              "keep",
+              "remove"
+            ],
+            "type": "string"
+          },
           "Outputs": {
             "additionalProperties": false,
             "description": "Which files an Output Job writes.",
@@ -19497,8 +21873,23 @@
                 "description": "Excellon drill files, plated and non-plated.",
                 "type": "boolean"
               },
+              "drill_report": {
+                "type": "boolean"
+              },
+              "fab_notes": {
+                "type": "boolean"
+              },
               "gerber": {
                 "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+                "type": "boolean"
+              },
+              "gerber_job": {
+                "type": "boolean"
+              },
+              "reports": {
+                "type": "boolean"
+              },
+              "schematic_pdf": {
                 "type": "boolean"
               }
             },
@@ -19506,9 +21897,22 @@
               "gerber",
               "drill",
               "bom",
-              "cpl"
+              "cpl",
+              "fab_notes",
+              "drill_report",
+              "gerber_job",
+              "reports",
+              "schematic_pdf"
             ],
             "type": "object"
+          },
+          "PdfColour": {
+            "description": "The schematic PDF's paper colour mode.",
+            "enum": [
+              "colour",
+              "mono"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -19530,6 +21934,13 @@
           "name": {
             "type": "string"
           },
+          "name_template": {
+            "description": "The zip and assembly files' stem, resolved with the shared text resolver.",
+            "type": "string"
+          },
+          "not_fitted_paste": {
+            "$ref": "#/$defs/NotFittedPaste"
+          },
           "outputs": {
             "$ref": "#/$defs/Outputs"
           },
@@ -19537,6 +21948,9 @@
             "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
             "format": "uuid",
             "type": "string"
+          },
+          "schematic_pdf_colour": {
+            "$ref": "#/$defs/PdfColour"
           },
           "uuid": {
             "format": "uuid",
@@ -19548,7 +21962,10 @@
           "name",
           "pcb",
           "fab_preset",
-          "outputs"
+          "outputs",
+          "name_template",
+          "not_fitted_paste",
+          "schematic_pdf_colour"
         ],
         "title": "OutputJob",
         "type": "object"
@@ -19603,7 +22020,7 @@
         "additionalProperties": false,
         "properties": {
           "objects": {
-            "description": "The Footprints, Free Pads and Placement Origin to align, by UUID. A Footprint's\nextent is its Pads and drawing.",
+            "description": "The Footprints, Free Pads and Output Origin to align, by UUID. A Footprint's\nextent is its Pads and drawing.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -21144,7 +23561,7 @@
             "$ref": "#/$defs/Direction"
           },
           "objects": {
-            "description": "The Footprints, Free Pads and Placement Origin to space out, by UUID.",
+            "description": "The Footprints, Free Pads and Output Origin to space out, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -21457,7 +23874,7 @@
             "description": "A point on the vertical line to mirror about: by default a lone object's own\nposition, else the middle of the selection's extent. Only its x counts."
           },
           "objects": {
-            "description": "The Footprints, Free Pads and Placement Origin to flip, by UUID.",
+            "description": "The Footprints, Free Pads and Output Origin to flip, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -21740,6 +24157,73 @@
               }
             ]
           },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "OpeningPointParam": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "PadKind": {
             "enum": [
               "smd",
@@ -21769,6 +24253,89 @@
                 "type": "string"
               }
             ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/OpeningPointParam"
+              },
+              "corner_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "$ref": "#/$defs/Length"
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
           },
           "PointParam": {
             "additionalProperties": false,
@@ -21808,6 +24375,12 @@
             "enum": [
               "top",
               "bottom"
+            ],
+            "type": "string"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
             ],
             "type": "string"
           },
@@ -21947,6 +24520,16 @@
             "$ref": "#/$defs/PadKind",
             "description": "`smd` (plated, no hole: fiducials, test points), `plated_through_hole` or\n`non_plated` (a bare hole)."
           },
+          "mask": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Mask"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "net": {
             "default": null,
             "description": "The PCB Net, by UUID; non-plated Pads have none.",
@@ -21966,6 +24549,16 @@
               }
             ],
             "description": "Moves the copper away from `at`, in the Pad's frame."
+          },
+          "paste": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Paste"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "rotation": {
             "anyOf": [
@@ -23141,7 +25734,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves Footprints, Free Pads and the Placement Origin by an offset. Refused when any of them is a locked Footprint.",
+      "description": "Moves Footprints, Free Pads and the Output Origin by an offset. Refused when any of them is a locked Footprint.",
       "icon": "move",
       "id": "pcb.move",
       "kind": "edit",
@@ -23187,7 +25780,7 @@
             "description": "How far to move them."
           },
           "objects": {
-            "description": "The Footprints, Free Pads and Placement Origin to move, by UUID.",
+            "description": "The Footprints, Free Pads and Output Origin to move, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -23483,13 +26076,34 @@
                 "const": "edge_clearance",
                 "description": "Copper to the Board Outline and Board Cutouts: `value`.",
                 "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
               }
             ]
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "diameter": {
                 "anyOf": [
                   {
@@ -23498,6 +26112,24 @@
                   {
                     "type": "null"
                   }
+                ]
+              },
+              "expansion": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "from_hole_edge": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
                 ]
               },
               "hole": {
@@ -23539,7 +26171,40 @@
                 ],
                 "default": null
               },
+              "percent": {
+                "default": null,
+                "format": "int32",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "tent_vias_bottom": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "tent_vias_top": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
                 "anyOf": [
                   {
                     "$ref": "#/$defs/Length"
@@ -23681,9 +26346,9 @@
     },
     {
       "category": "pcb",
-      "description": "Removes the Placement Origin, so the outputs measure from the lower-left corner of the Board Outline's bounding box again.",
+      "description": "Removes the Output Origin. Relative manufacturing outputs then use the lower-left of the Board Outline's bounding box.",
       "icon": "delete",
-      "id": "pcb.placement_origin.delete",
+      "id": "pcb.output_origin.delete",
       "kind": "edit",
       "params": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -23712,13 +26377,13 @@
         "title": "Placed",
         "type": "object"
       },
-      "title": "Remove Placement Origin"
+      "title": "Remove Output Origin"
     },
     {
       "category": "pcb",
-      "description": "Sets the point the CPL measures Footprint positions from, creating the Placement Origin or moving the existing one. Without it the outputs measure from the lower-left corner of the Board Outline's bounding box.",
+      "description": "Sets the Output Origin, which the editor measures coordinates and the grid from. Gerber, drill and CPL use it together when the Fab Preset asks for a relative file origin; without it they use the Board Outline's lower-left.",
       "icon": "origin",
-      "id": "pcb.placement_origin.set",
+      "id": "pcb.output_origin.set",
       "kind": "edit",
       "params": {
         "$defs": {
@@ -23765,7 +26430,7 @@
         "required": [
           "at"
         ],
-        "title": "PlacementOriginSetParams",
+        "title": "OutputOriginSetParams",
         "type": "object"
       },
       "presets": [],
@@ -23785,7 +26450,7 @@
         "title": "Created",
         "type": "object"
       },
-      "title": "Set Placement Origin"
+      "title": "Set Output Origin"
     },
     {
       "category": "pcb",
@@ -23995,7 +26660,7 @@
     },
     {
       "category": "pcb",
-      "description": "Turns Footprints, Free Pads and the Placement Origin counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
+      "description": "Turns Footprints, Free Pads and the Output Origin counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
       "icon": "rotate",
       "id": "pcb.rotate",
       "kind": "edit",
@@ -24074,7 +26739,7 @@
             "description": "The point to turn about: by default a lone object's own position, else the middle\nof the selection's extent."
           },
           "objects": {
-            "description": "The Footprints, Free Pads and Placement Origin to turn, by UUID.",
+            "description": "The Footprints, Free Pads and Output Origin to turn, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -24140,9 +26805,15 @@
             "description": "One board-wide value the preset would change.",
             "properties": {
               "board": {
-                "description": "The board's value now.",
-                "format": "int64",
-                "type": "integer"
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleValue"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The board's value now."
               },
               "field": {
                 "$ref": "#/$defs/RuleField"
@@ -24151,9 +26822,8 @@
                 "$ref": "#/$defs/RuleKind"
               },
               "preset": {
-                "description": "The preset's value.",
-                "format": "int64",
-                "type": "integer"
+                "$ref": "#/$defs/RuleValue",
+                "description": "The preset's value."
               }
             },
             "required": [
@@ -24177,7 +26847,14 @@
               "diameter_max",
               "hole_min",
               "hole_preferred",
-              "hole_max"
+              "hole_max",
+              "top",
+              "bottom",
+              "from_hole_edge",
+              "tent_vias_top",
+              "tent_vias_bottom",
+              "expansion",
+              "percent"
             ],
             "type": "string"
           },
@@ -24218,8 +26895,35 @@
                 "const": "edge_clearance",
                 "description": "Copper to the Board Outline and Board Cutouts: `value`.",
                 "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
               }
             ]
+          },
+          "RuleValue": {
+            "anyOf": [
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "format": "int32",
+                "type": "integer"
+              }
+            ],
+            "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -24270,9 +26974,15 @@
             "description": "One board-wide value the preset would change.",
             "properties": {
               "board": {
-                "description": "The board's value now.",
-                "format": "int64",
-                "type": "integer"
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleValue"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The board's value now."
               },
               "field": {
                 "$ref": "#/$defs/RuleField"
@@ -24281,9 +26991,8 @@
                 "$ref": "#/$defs/RuleKind"
               },
               "preset": {
-                "description": "The preset's value.",
-                "format": "int64",
-                "type": "integer"
+                "$ref": "#/$defs/RuleValue",
+                "description": "The preset's value."
               }
             },
             "required": [
@@ -24307,7 +27016,14 @@
               "diameter_max",
               "hole_min",
               "hole_preferred",
-              "hole_max"
+              "hole_max",
+              "top",
+              "bottom",
+              "from_hole_edge",
+              "tent_vias_top",
+              "tent_vias_bottom",
+              "expansion",
+              "percent"
             ],
             "type": "string"
           },
@@ -24348,8 +27064,35 @@
                 "const": "edge_clearance",
                 "description": "Copper to the Board Outline and Board Cutouts: `value`.",
                 "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
               }
             ]
+          },
+          "RuleValue": {
+            "anyOf": [
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "format": "int32",
+                "type": "integer"
+              }
+            ],
+            "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -24372,7 +27115,7 @@
     },
     {
       "category": "pcb",
-      "description": "Sets values of one design rule record: the board-wide record of `kind`, or with `scope: {net_class}` that Net Class's, created when missing. Values left out keep theirs, and `null` clears one; a Net Class record with nothing left is deleted. Nothing is filled in, and a negative value, `min` above `max` or `preferred` outside the range is refused. Returns the record, or `null` once deleted.",
+      "description": "Sets values of one design rule record: the board-wide record of `kind`, or with `scope: {net_class}` that Net Class's, created when missing. Values left out keep theirs, and `null` clears one; a Net Class record with nothing left is deleted. Nothing is filled in, and a negative limit, `min` above `max` or `preferred` outside the range is refused. Returns the record, or `null` once deleted.",
       "icon": "rules",
       "id": "pcb.rules.set",
       "kind": "edit",
@@ -24469,6 +27212,16 @@
                 "const": "edge_clearance",
                 "description": "Copper to the Board Outline and Board Cutouts: `value`.",
                 "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
               }
             ]
           },
@@ -24489,8 +27242,19 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "diameter": {
                 "anyOf": [
                   {
@@ -24499,6 +27263,24 @@
                   {
                     "type": "null"
                   }
+                ]
+              },
+              "expansion": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "from_hole_edge": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
                 ]
               },
               "hole": {
@@ -24540,7 +27322,40 @@
                 ],
                 "default": null
               },
+              "percent": {
+                "default": null,
+                "format": "int32",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "tent_vias_bottom": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "tent_vias_top": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
                 "anyOf": [
                   {
                     "$ref": "#/$defs/Length"
@@ -24711,6 +27526,16 @@
                 "const": "edge_clearance",
                 "description": "Copper to the Board Outline and Board Cutouts: `value`.",
                 "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
               }
             ]
           },
@@ -24733,6 +27558,14 @@
             "additionalProperties": false,
             "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
             "properties": {
+              "bottom": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "diameter": {
                 "anyOf": [
                   {
@@ -24743,6 +27576,20 @@
                   }
                 ],
                 "description": "Via size only: the Via's copper diameter."
+              },
+              "expansion": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "hole": {
                 "anyOf": [
@@ -24778,7 +27625,35 @@
                   "null"
                 ]
               },
+              "percent": {
+                "description": "Signed change in area in percent, strictly above -100.",
+                "format": "int32",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "tent_vias_bottom": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "tent_vias_top": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": [
@@ -25896,6 +28771,57 @@
               }
             ]
           },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
           "PointParam": {
             "additionalProperties": false,
             "description": "A point param.",
@@ -25912,6 +28838,12 @@
               "y"
             ],
             "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -25944,6 +28876,16 @@
             ],
             "default": null,
             "description": "The hole; left out, the Net Class's Via hole, else the board's rule."
+          },
+          "mask": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Mask"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "net": {
             "default": null,
@@ -29413,6 +32355,59 @@
             ],
             "type": "string"
           },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
           "NetLabel": {
             "additionalProperties": false,
             "description": "A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the\nsame name on its sheet.",
@@ -29536,13 +32531,16 @@
               "kind": {
                 "$ref": "#/$defs/PadKind"
               },
-              "mask_margin": {
-                "description": "Overrides the board's solder-mask margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
               },
               "number": {
                 "type": "string"
@@ -29558,13 +32556,16 @@
                 ],
                 "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
               },
-              "paste_margin": {
-                "description": "Overrides the board's solder-paste margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -29751,6 +32752,94 @@
               "part",
               "symbol",
               "footprints"
+            ],
+            "type": "object"
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
             ],
             "type": "object"
           },
@@ -30424,6 +33513,12 @@
               "width"
             ],
             "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
           },
           "TextStyle": {
             "additionalProperties": false,
@@ -31245,6 +34340,59 @@
             ],
             "type": "string"
           },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
           "NetLabel": {
             "additionalProperties": false,
             "description": "A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the\nsame name on its sheet.",
@@ -31368,13 +34516,16 @@
               "kind": {
                 "$ref": "#/$defs/PadKind"
               },
-              "mask_margin": {
-                "description": "Overrides the board's solder-mask margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
               },
               "number": {
                 "type": "string"
@@ -31390,13 +34541,16 @@
                 ],
                 "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
               },
-              "paste_margin": {
-                "description": "Overrides the board's solder-paste margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -31583,6 +34737,94 @@
               "part",
               "symbol",
               "footprints"
+            ],
+            "type": "object"
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
             ],
             "type": "object"
           },
@@ -32256,6 +35498,12 @@
               "width"
             ],
             "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
           },
           "TextStyle": {
             "additionalProperties": false,
@@ -35311,6 +38559,59 @@
               }
             ]
           },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
           "NetLabel": {
             "additionalProperties": false,
             "description": "A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the\nsame name on its sheet.",
@@ -35434,13 +38735,16 @@
               "kind": {
                 "$ref": "#/$defs/PadKind"
               },
-              "mask_margin": {
-                "description": "Overrides the board's solder-mask margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
               },
               "number": {
                 "type": "string"
@@ -35456,13 +38760,16 @@
                 ],
                 "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
               },
-              "paste_margin": {
-                "description": "Overrides the board's solder-paste margin for this Pad.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -35648,6 +38955,94 @@
               "part",
               "symbol",
               "footprints"
+            ],
+            "type": "object"
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
             ],
             "type": "object"
           },
@@ -36321,6 +39716,12 @@
               "width"
             ],
             "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
           },
           "TextStyle": {
             "additionalProperties": false,

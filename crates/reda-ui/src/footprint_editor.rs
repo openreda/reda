@@ -114,10 +114,15 @@ impl PadTemplate {
             p["hole"] = json!({"width": w.0, "height": h.0});
         }
         if let Some(m) = self.mask_margin {
-            p["mask_margin"] = json!(m.0);
+            p["mask"] = json!({"top": {"expansion": m.0}});
+            if self.kind != PadKind::Smd {
+                p["mask"]["bottom"] = json!({"expansion": m.0});
+            }
         }
-        if let Some(m) = self.paste_margin {
-            p["paste_margin"] = json!(m.0);
+        if self.kind == PadKind::Smd
+            && let Some(m) = self.paste_margin
+        {
+            p["paste"] = json!({"expansion": m.0});
         }
         p
     }

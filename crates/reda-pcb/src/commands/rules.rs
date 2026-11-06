@@ -41,7 +41,8 @@ pub struct BoundsParam {
 /// holds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`
 /// and `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;
 /// `hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;
-/// `edge_clearance` `value`.
+/// `edge_clearance` `value`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting
+/// flags; `paste_expansion` either `expansion` or signed area `percent`.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ValuesParam {
@@ -64,6 +65,27 @@ pub struct ValuesParam {
     pub diameter: Option<BoundsParam>,
     #[serde(default)]
     pub hole: Option<BoundsParam>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub top: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub bottom: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<bool>")]
+    pub from_hole_edge: Option<Option<bool>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<bool>")]
+    pub tent_vias_top: Option<Option<bool>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<bool>")]
+    pub tent_vias_bottom: Option<Option<bool>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub expansion: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<i32>")]
+    pub percent: Option<Option<i32>>,
 }
 
 impl ValuesParam {
@@ -87,6 +109,21 @@ impl ValuesParam {
         put(RuleField::HoleMin, h.min);
         put(RuleField::HolePreferred, h.preferred);
         put(RuleField::HoleMax, h.max);
+        put(RuleField::Top, self.top);
+        put(RuleField::Bottom, self.bottom);
+        put(RuleField::Expansion, self.expansion);
+        if let Some(percent) = self.percent {
+            out.push((RuleField::Percent, percent.map(RuleValue::Percent)));
+        }
+        if let Some(flag) = self.from_hole_edge {
+            out.push((RuleField::FromHoleEdge, flag.map(RuleValue::Flag)));
+        }
+        if let Some(flag) = self.tent_vias_top {
+            out.push((RuleField::TentViasTop, flag.map(RuleValue::Flag)));
+        }
+        if let Some(flag) = self.tent_vias_bottom {
+            out.push((RuleField::TentViasBottom, flag.map(RuleValue::Flag)));
+        }
         if let Some(flag) = self.ignore_pad_to_pad {
             out.push((RuleField::IgnorePadToPad, flag.map(RuleValue::Flag)));
         }
@@ -153,9 +190,10 @@ pub(super) fn set_record(
                 format!("a `{}` rule has no value `{}`", kind.id(), field.path()),
             ));
         }
-        if value
-            .and_then(RuleValue::length)
-            .is_some_and(|n| n < Nm::ZERO)
+        if !matches!(kind, RuleKind::MaskExpansion | RuleKind::PasteExpansion)
+            && value
+                .and_then(RuleValue::length)
+                .is_some_and(|n| n < Nm::ZERO)
         {
             return Err(CommandError::invalid_params(
                 &pointer,
@@ -184,6 +222,9 @@ pub(super) fn set_record(
     }
     if !scope.is_board_wide() && rule.values.is_empty() {
         return Ok(None);
+    }
+    if let Some(problem) = rule.problem() {
+        return Err(CommandError::invalid_params("/values", problem));
     }
     refuse_blocking(pcb, &rule)?;
     Ok(Some(rule))
@@ -224,7 +265,7 @@ impl Command for RulesSet {
                       `kind`, or with `scope: {net_class}` that Net Class's, created when \
                       missing. Values left out keep theirs, and `null` clears one; a Net \
                       Class record with nothing left is deleted. Nothing is filled in, and a \
-                      negative value, `min` above `max` or `preferred` outside the range is \
+                      negative limit, `min` above `max` or `preferred` outside the range is \
                       refused. Returns the record, or `null` once deleted.",
         category: "pcb",
         icon: "rules",
@@ -300,9 +341,9 @@ pub struct RuleChange {
     pub kind: RuleKind,
     pub field: RuleField,
     /// The board's value now.
-    pub board: Nm,
+    pub board: Option<RuleValue>,
     /// The preset's value.
-    pub preset: Nm,
+    pub preset: RuleValue,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -317,15 +358,15 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
     for (kind, seeds) in seed_rules(preset) {
         let board = &pcb.board_rule(kind).values;
         for field in seeds.set_fields() {
-            let Some(to) = seeds.length(field) else {
+            let Some(to) = seeds.get(field) else {
                 continue;
             };
-            let now = board.length(field);
+            let now = board.get(field);
             if now != Some(to) {
                 out.push(RuleChange {
                     kind,
                     field,
-                    board: now.unwrap_or(Nm::ZERO),
+                    board: now,
                     preset: to,
                 });
             }
@@ -404,9 +445,13 @@ impl Command for FabPresetApply {
                     changed.last_mut().expect("just pushed")
                 }
             };
+            if change.kind == RuleKind::PasteExpansion {
+                rule.values.expansion = None;
+                rule.values.percent = None;
+            }
             rule.values
-                .set(change.field, Some(RuleValue::Length(change.preset)))
-                .expect("a seeded field holds a length");
+                .set(change.field, Some(change.preset))
+                .expect("a seeded field holds the correct type");
         }
         let tx = cx.tx()?;
         for rule in changed {

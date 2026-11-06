@@ -1,7 +1,7 @@
 //! The PCB drawing Tools, through the Shell with no window: each previews while it is
 //! drawn, touches the Journal only when the shape is finished, and then runs one Command
 //! (Board Outline and Cutouts, Zones (Z) and Keepouts (K), text, lines, arcs and
-//! rectangles on the active Layer, Free Pads and the Placement Origin);
+//! rectangles on the active Layer, Free Pads and the Output Origin);
 //! the user origin and the measure Tool change only the view; and the Shell says when
 //! Zones need refilling.
 
@@ -293,19 +293,19 @@ fn text_asks_for_its_words_then_runs_one_command() {
 }
 
 #[test]
-fn free_pads_and_the_placement_origin_are_placed_by_a_click() {
+fn free_pads_and_the_output_origin_are_placed_by_a_click() {
     let mut b = board();
     let start = b.mark();
     b.tool("free_pad");
     b.click(mm(2.0, 2.0));
-    b.tool("placement_origin");
+    b.tool("output_origin");
     b.click(mm(1.0, 1.0));
     assert_eq!(
         b.edits_since(start),
-        ["pcb.free_pad.add", "pcb.placement_origin.set"]
+        ["pcb.free_pad.add", "pcb.output_origin.set"]
     );
     assert_eq!(b.pcb().free_pads().next().unwrap().at, mm(2.0, 2.0));
-    assert_eq!(b.pcb().placement_origin().unwrap().at, mm(1.0, 1.0));
+    assert_eq!(b.pcb().output_origin().unwrap().at, mm(1.0, 1.0));
 }
 
 #[test]

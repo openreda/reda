@@ -17,7 +17,7 @@ use reda_model::{
 use super::placement::{corners, polyline};
 use super::{Board, Report};
 use crate::copper::shape::{Core, P, Prim, Shape as Copper, arc_points};
-use crate::placed::{Frame, placed_graphics};
+use crate::placed::placed_graphics;
 use crate::text::{PlacedText, footprint_texts, text_geometry};
 use crate::zone::poly::{self, Area, Contour, ip};
 
@@ -75,38 +75,27 @@ fn boxes_meet(a: (P, P), b: (P, P)) -> bool {
 
 /// Every Pad and Free Pad, as the solder-mask opening over it.
 fn openings(pcb: &PcbDocument) -> Vec<Opening> {
-    let both = || vec![Side::Top, Side::Bottom];
-    let mut out = Vec::new();
-    for instance in pcb.footprints() {
-        let Some(copy) = pcb.footprint_copy(instance.footprint) else {
-            continue;
-        };
-        let frame = Frame::of(instance);
-        for pad in &copy.footprint.pads {
-            let sides = match pad.copper_side() {
-                Some(side) => vec![frame.side(side)],
-                None => both(),
-            };
-            let margin = pad.mask_margin.map_or(0, |m| m.0.max(0));
-            out.push(Opening {
-                objects: vec![instance.uuid, pad.uuid],
-                sides,
-                area: poly::union(poly::grown(&Copper::pad(instance, pad), margin)),
-            });
-        }
-    }
-    for pad in pcb.free_pads() {
-        let sides = match pad.form().copper_side() {
-            Some(side) => vec![side],
-            None => both(),
-        };
-        out.push(Opening {
-            objects: vec![pad.uuid],
-            sides,
-            area: poly::union(poly::grown(&Copper::free_pad(pad), 0)),
-        });
-    }
-    out
+    crate::openings::resolve(pcb)
+        .into_iter()
+        .filter(|o| o.kind == crate::openings::Kind::Mask)
+        .filter_map(|o| {
+            let pad = o.geometry?;
+            let contour = pad
+                .outline
+                .polygon(reda_model::geom::Nm(1_000))
+                .into_iter()
+                .map(|p| {
+                    let p = pad.point(p);
+                    ip([p.x.0, p.y.0])
+                })
+                .collect();
+            Some(Opening {
+                objects: o.objects,
+                sides: vec![o.side],
+                area: vec![vec![contour]],
+            })
+        })
+        .collect()
 }
 
 /// The board side of a Footprint drawing Layer, for the silkscreen ones.

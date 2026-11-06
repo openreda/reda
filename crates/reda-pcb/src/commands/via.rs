@@ -39,6 +39,7 @@ pub struct ViaAdd;
 pub struct ViaAddParams {
     /// The centre.
     pub at: PointParam,
+    pub mask: Option<reda_command::MaskParam>,
     /// The Net's UUID. Left out, the Via takes the Net of the copper under its centre on
     /// any copper Layer, or else no Net.
     #[serde(default)]
@@ -114,6 +115,7 @@ impl Command for ViaAdd {
             diameter,
             hole,
             span,
+            mask: reda_command::mask(p.mask),
         };
         cx.tx()?
             .insert(Object::Via(InDocument::new(document, via)))?;

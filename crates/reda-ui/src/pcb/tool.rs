@@ -3,7 +3,7 @@
 //!
 //! - A click selects the topmost object under it (`selection.set`); `Mod`+click toggles
 //!   it; a click on nothing clears the selection.
-//! - Dragging a Footprint, Free Pad or the Placement Origin moves it (with the rest of the
+//! - Dragging a Footprint, Free Pad or the Output Origin moves it (with the rest of the
 //!   selection when it is selected). The move is drawn from a preview of the board
 //!   (`reda_pcb::placement_preview`) and runs nothing until release, when it becomes one
 //!   Command (`pcb.move`), or one `batch` when it was also turned or flipped in flight.
@@ -116,7 +116,7 @@ struct TrackDrag {
 fn movable(kind: ObjectType) -> bool {
     matches!(
         kind,
-        ObjectType::FootprintInstance | ObjectType::FreePad | ObjectType::PlacementOrigin
+        ObjectType::FootprintInstance | ObjectType::FreePad | ObjectType::OutputOrigin
     )
 }
 
@@ -366,7 +366,7 @@ impl SelectTool {
             .or_else(|| match project.object(object) {
                 Some(Object::FootprintInstance(f)) => Some(f.object.at),
                 Some(Object::FreePad(p)) => Some(p.object.at),
-                Some(Object::PlacementOrigin(o)) => Some(o.object.at),
+                Some(Object::OutputOrigin(o)) => Some(o.object.at),
                 _ => None,
             })
             .unwrap_or(at);

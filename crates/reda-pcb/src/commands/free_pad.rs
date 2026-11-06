@@ -1,7 +1,7 @@
-//! Free Pads and the Placement Origin: `pcb.free_pad.add`, `pcb.free_pad.set_net`,
-//! `pcb.free_pad.delete`, `pcb.placement_origin.set` and `pcb.placement_origin.delete`.
+//! Free Pads and the Output Origin: `pcb.free_pad.add`, `pcb.free_pad.set_net`,
+//! `pcb.free_pad.delete`, `pcb.output_origin.set` and `pcb.output_origin.delete`.
 //!
-//! Free Pads and the Placement Origin are moved, turned and flipped with the placement
+//! Free Pads and the Output Origin are moved, turned and flipped with the placement
 //! Commands (`pcb.move` and the rest).
 
 use reda_command::{
@@ -10,7 +10,7 @@ use reda_command::{
 };
 use reda_model::geom::{Millideg, Point};
 use reda_model::{
-    Corners, FreePad, InDocument, Object, PadKind, PadShape, PcbDocument, PlacementOrigin, Ratio,
+    Corners, FreePad, InDocument, Object, OutputOrigin, PadKind, PadShape, PcbDocument, Ratio,
     Side, Uuid,
 };
 use schemars::JsonSchema;
@@ -28,8 +28,8 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FreePadAdd);
     registry.add(FreePadSetNet);
     registry.add(FreePadDelete);
-    registry.add(PlacementOriginSet);
-    registry.add(PlacementOriginDelete);
+    registry.add(OutputOriginSet);
+    registry.add(OutputOriginDelete);
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -73,6 +73,8 @@ pub struct FreePadAddParams {
     /// The PCB Net, by UUID; non-plated Pads have none.
     #[serde(default)]
     pub net: Option<Uuid>,
+    pub mask: Option<reda_command::MaskParam>,
+    pub paste: Option<reda_command::PasteParam>,
     /// How Zone fills of its Net join it; each value left out inherits.
     #[serde(default)]
     pub zone_connection: Option<ZoneConnectionParam>,
@@ -132,6 +134,8 @@ impl Command for FreePadAdd {
             hole: p.hole.map(HoleParam::hole),
             side: p.side.filter(|s| *s != Side::Top || p.kind != PadKind::Smd),
             net: p.net,
+            mask: reda_command::mask(p.mask),
+            paste: reda_command::paste(p.paste),
             zone_connection: zone_connection(p.zone_connection),
         };
         if let Some((pointer, problem)) = pad.problem() {
@@ -277,56 +281,51 @@ impl Command for FreePadDelete {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct PlacementOriginSetParams {
+pub struct OutputOriginSetParams {
     /// Where Footprint positions are measured from in the manufacturing outputs.
     pub at: PointParam,
 }
 
-pub struct PlacementOriginSet;
+pub struct OutputOriginSet;
 
-impl Command for PlacementOriginSet {
+impl Command for OutputOriginSet {
     const META: Meta = Meta {
-        id: "pcb.placement_origin.set",
-        title: "Set Placement Origin",
-        description: "Sets the point the CPL measures Footprint positions from, creating the \
-                      Placement Origin or moving the existing one. Without it the outputs \
-                      measure from the lower-left corner of the Board Outline's bounding \
-                      box.",
+        id: "pcb.output_origin.set",
+        title: "Set Output Origin",
+        description: "Sets the Output Origin, which the editor measures coordinates and the grid \
+                      from. Gerber, drill and CPL use it together when the Fab Preset asks for \
+                      a relative file origin; without it they use the Board Outline's lower-left.",
         category: "pcb",
         icon: "origin",
         kind: Kind::Edit,
     };
-    type Params = PlacementOriginSetParams;
+    type Params = OutputOriginSetParams;
     type Output = Created;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(
-        &self,
-        cx: &mut Context<'_>,
-        p: PlacementOriginSetParams,
-    ) -> Result<Created, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, p: OutputOriginSetParams) -> Result<Created, CommandError> {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let at = p.at.point();
-        match pcb.placement_origin() {
+        match pcb.output_origin() {
             Some(origin) => {
-                let origin = PlacementOrigin {
+                let origin = OutputOrigin {
                     uuid: origin.uuid,
                     at,
                 };
                 let uuid = origin.uuid;
                 cx.tx()?
-                    .replace(Object::PlacementOrigin(InDocument::new(document, origin)))?;
+                    .replace(Object::OutputOrigin(InDocument::new(document, origin)))?;
                 Ok(Created { uuid })
             }
             None => {
                 let uuid = cx.new_id();
-                cx.tx()?.insert(Object::PlacementOrigin(InDocument::new(
+                cx.tx()?.insert(Object::OutputOrigin(InDocument::new(
                     document,
-                    PlacementOrigin { uuid, at },
+                    OutputOrigin { uuid, at },
                 )))?;
                 Ok(Created { uuid })
             }
@@ -334,14 +333,14 @@ impl Command for PlacementOriginSet {
     }
 }
 
-pub struct PlacementOriginDelete;
+pub struct OutputOriginDelete;
 
-impl Command for PlacementOriginDelete {
+impl Command for OutputOriginDelete {
     const META: Meta = Meta {
-        id: "pcb.placement_origin.delete",
-        title: "Remove Placement Origin",
-        description: "Removes the Placement Origin, so the outputs measure from the lower-left \
-                      corner of the Board Outline's bounding box again.",
+        id: "pcb.output_origin.delete",
+        title: "Remove Output Origin",
+        description: "Removes the Output Origin. Relative manufacturing outputs then use \
+                      the lower-left of the Board Outline's bounding box.",
         category: "pcb",
         icon: "delete",
         kind: Kind::Edit,
@@ -354,8 +353,8 @@ impl Command for PlacementOriginDelete {
     }
 
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Placed, CommandError> {
-        let Some(origin) = pcb(cx)?.placement_origin() else {
-            return Err(CommandError::rejected("the board has no Placement Origin"));
+        let Some(origin) = pcb(cx)?.output_origin() else {
+            return Err(CommandError::rejected("the board has no Output Origin"));
         };
         let uuid = origin.uuid;
         cx.tx()?.remove(uuid)?;

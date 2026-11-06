@@ -1,6 +1,6 @@
 //! The PCB drawing Tools: Board Outline (polygon or rectangle) and Cutouts, Zones and
 //! Keepouts, text, lines, arcs and rectangles on the active Layer, Free Pads, the
-//! Placement Origin, the user origin and the measure Tool. (Mechanical Parts are placed
+//! Output Origin, the user origin and the measure Tool. (Mechanical Parts are placed
 //! from the Library panel by the placement Tool, `crate::placement`.)
 //!
 //! Each is a small state machine over the same pointer events as the select Tool
@@ -11,7 +11,7 @@
 //!   `tool.undo_segment` (Backspace) takes back the last corner.
 //! - **Two points** (outline rectangle, line, rectangle): two clicks, or one drag.
 //! - **Arcs**: the two ends, then a point the arc passes through.
-//! - **One point** (text, Free Pad, Placement Origin, user origin): a click; text then
+//! - **One point** (text, Free Pad, Output Origin, user origin): a click; text then
 //!   asks for its words ([`Draw::pending_text`]).
 //! - **Measure**: a click starts, the cursor follows, a second click holds it.
 //!
@@ -84,7 +84,7 @@ fn shape(tool: Tool) -> Shape {
         Tool::BoardOutline | Tool::BoardCutout | Tool::Zone | Tool::Keepout => Shape::Polygon,
         Tool::BoardOutlineRect | Tool::Line | Tool::Rect => Shape::TwoPoints,
         Tool::Arc => Shape::Arc,
-        Tool::Text | Tool::FreePad | Tool::PlacementOrigin | Tool::UserOrigin => Shape::Point,
+        Tool::Text | Tool::FreePad | Tool::OutputOrigin | Tool::UserOrigin => Shape::Point,
         Tool::Measure => Shape::Measure,
         // Not a board drawing Tool (see `Tool::draws_on_board`).
         _ => Shape::None,
@@ -451,7 +451,7 @@ impl Draw {
                 json!({"kind": "plated_through_hole", "shape": "circle", "at": xy(points[0]),
                        "width": FREE_PAD_WIDTH, "hole": {"width": FREE_PAD_HOLE}}),
             ),
-            Tool::PlacementOrigin => ("pcb.placement_origin.set", json!({"at": xy(points[0])})),
+            Tool::OutputOrigin => ("pcb.output_origin.set", json!({"at": xy(points[0])})),
             Tool::UserOrigin => ("pcb.view.origin.set", json!({"at": xy(points[0])})),
             // Text and Measure commit elsewhere; the rest are not board drawing Tools.
             _ => return None,

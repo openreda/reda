@@ -387,16 +387,58 @@ fn pad_properties(ui: &mut Ui, id: Id, fp: Uuid, pad: &Pad, out: &mut Vec<Invoca
             ui.end_row();
         }
     }
-    for (key, label, value) in [
-        ("mask_margin", tr!("footprint-mask-margin"), pad.mask_margin),
-        (
-            "paste_margin",
-            tr!("footprint-paste-margin"),
-            pad.paste_margin,
-        ),
-    ] {
-        if let Some(v) = length(ui, id.with(key), &label, value, true) {
-            out.push(edit(key, v.map_or(Value::Null, |v| json!(v.0))));
+    let side = pad.copper_side().unwrap_or(reda_engine::model::Side::Top);
+    let mask = pad.mask.unwrap_or_default();
+    let own = match side {
+        reda_engine::model::Side::Top => mask.top,
+        reda_engine::model::Side::Bottom => mask.bottom,
+    };
+    let expansion = match own {
+        Some(reda_engine::model::MaskSide::Expansion { expansion }) => Some(expansion),
+        _ => None,
+    };
+    if let Some(value) = length(
+        ui,
+        id.with("mask"),
+        &tr!("footprint-mask-margin"),
+        expansion,
+        true,
+    ) {
+        let mut mask = mask;
+        let own = value.map(|expansion| reda_engine::model::MaskSide::Expansion { expansion });
+        match side {
+            reda_engine::model::Side::Top => mask.top = own,
+            reda_engine::model::Side::Bottom => mask.bottom = own,
+        }
+        if pad.kind != PadKind::Smd {
+            mask.bottom = own;
+        }
+        out.push(edit(
+            "mask",
+            if mask == Default::default() {
+                Value::Null
+            } else {
+                json!(mask)
+            },
+        ));
+    }
+    ui.end_row();
+    if pad.kind == PadKind::Smd {
+        let expansion = match pad.paste {
+            Some(reda_engine::model::Paste::Expansion { expansion }) => Some(expansion),
+            _ => None,
+        };
+        if let Some(value) = length(
+            ui,
+            id.with("paste"),
+            &tr!("footprint-paste-margin"),
+            expansion,
+            true,
+        ) {
+            out.push(edit(
+                "paste",
+                value.map_or(Value::Null, |expansion| json!({"expansion": expansion})),
+            ));
         }
         ui.end_row();
     }

@@ -36,9 +36,12 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
     let preset = project.fab_presets().next().unwrap().preset();
     gerber_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber: preset.gerber,
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &preset.gerber,
         fonts: &Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })
@@ -158,7 +161,17 @@ fn the_solder_mask_opens_over_every_pad_by_its_margin_and_tents_vias() {
             }
             let (aperture, _) = flash_at(layer, at(&pad))
                 .unwrap_or_else(|| panic!("no mask opening for pad at {:?}", pad.at));
-            assert_grown(&pad, aperture, pad.mask_margin.unwrap_or(Nm::ZERO).0);
+            assert_grown(
+                &pad,
+                aperture,
+                pad.mask
+                    .and_then(|m| match m.top.or(m.bottom) {
+                        Some(reda_model::MaskSide::Expansion { expansion }) => Some(expansion),
+                        _ => None,
+                    })
+                    .unwrap_or(Nm(50_000))
+                    .0,
+            );
         }
     }
     assert_eq!(top.flashes().count(), expected.0, "the Via is tented");
@@ -198,7 +211,10 @@ fn the_paste_opens_over_smd_pads_by_their_margin_only() {
             Some(Side::Bottom) => &bottom,
             _ => &top,
         };
-        let margin = pad.paste_margin.unwrap_or(Nm::ZERO).0;
+        let margin = match pad.paste {
+            Some(reda_model::Paste::Expansion { expansion }) => expansion.0,
+            _ => 0,
+        };
         if pad.outline.width.0 + 2 * margin <= 0 {
             assert!(flash_at(layer, at(pad)).is_none());
             continue;
@@ -600,4 +616,114 @@ fn every_copper_layer_gets_a_file_with_inner_copper_between_top_and_bottom() {
             "{name}: {text}"
         );
     }
+}
+
+#[test]
+fn openings_resolve_board_values_tenting_area_percent_and_windows() {
+    let dir = TempDir::new("resolved-openings");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "shape": "rect", "at": pt(5.0,5.0),
+        "width": "2mm", "height": "2mm", "paste": {"percent": -75}}),
+    );
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "shape": "rect", "at": pt(10.0,5.0),
+        "width": "2mm", "mask": {"top": "tent"}, "paste": "none"}),
+    );
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "shape": "rect", "at": pt(15.0,5.0),
+        "width": "3mm", "paste": {"windows": [{"at": pt(-0.5,0.0),"width":"0.5mm","height":"0.5mm"},
+        {"at": pt(0.5,0.0),"width":"0.5mm","height":"0.5mm"}]}}),
+    );
+    engine.run_ok(
+        "pcb.via.add",
+        json!({"at": pt(20.0,5.0), "mask": {"top":{"expansion":"0.1mm"}, "from_hole_edge": true}}),
+    );
+    let files = plot(&engine);
+    let mask = layer(&files, "Demo.GTS");
+    let paste = layer(&files, "Demo.GTP");
+    let (opening, _) = flash_at(&mask, (mm(5.0), mm(5.0))).unwrap();
+    assert!(opening.contains(mm(1.04) as f64, 0.0));
+    assert!(!opening.contains(mm(1.06) as f64, 0.0));
+    assert!(flash_at(&mask, (mm(10.0), mm(5.0))).is_none());
+    assert!(flash_at(&paste, (mm(10.0), mm(5.0))).is_none());
+    let (opening, _) = flash_at(&paste, (mm(5.0), mm(5.0))).unwrap();
+    assert!(opening.contains(mm(0.49) as f64, 0.0));
+    assert!(!opening.contains(mm(0.51) as f64, 0.0));
+    assert!(flash_at(&paste, (mm(14.5), mm(5.0))).is_some());
+    assert!(flash_at(&paste, (mm(15.5), mm(5.0))).is_some());
+    let (opening, _) = flash_at(&mask, (mm(20.0), mm(5.0))).unwrap();
+    assert!(opening.contains(mm(0.24) as f64, 0.0));
+    assert!(!opening.contains(mm(0.26) as f64, 0.0));
+    assert!(flash_at(&layer(&files, "Demo.GBS"), (mm(20.0), mm(5.0))).is_none());
+}
+
+#[test]
+fn flipped_rotated_footprints_keep_asymmetric_openings_in_their_pad_frame() {
+    let dir = TempDir::new("flipped-openings");
+    let mut engine = board(&dir);
+    engine.run_ok("test.footprint.add",json!({"at":pt(10.0,10.0),"side":"bottom","rotation":"90deg","pads":[
+        {"at":pt(0.0,0.0),"rotation":"90deg","width":"2mm","height":"1mm","offset":pt(0.5,0.0),
+         "mask":{"top":{"expansion":"0.2mm"}},"paste":{"windows":[{"at":pt(0.75,0.0),"width":"0.4mm","height":"0.4mm"}]}},
+        {"at":pt(3.0,0.0),"kind":"plated_through_hole","shape":"oval","width":"3mm","height":"2mm","offset":pt(1.0,0.0),
+         "hole":{"width":1000000,"height":400000,"rotation":90000},"mask":{"top":{"expansion":"0.1mm"},"bottom":"tent","from_hole_edge":true}}
+    ]}));
+    let files = plot(&engine);
+    let mask = layer(&files, "Demo.GBS");
+    assert!(flash_at(&mask, (mm(9.5), mm(10.0))).is_some());
+    assert!(flash_at(&layer(&files, "Demo.GBP"), (mm(9.25), mm(10.0))).is_some());
+    let (hole, _) = flash_at(&mask, (mm(10.0), mm(7.0))).unwrap();
+    assert!(hole.contains(mm(0.59) as f64, 0.0));
+    assert!(!hole.contains(0.0, mm(0.31) as f64));
+    assert!(flash_at(&mask, (mm(10.0), mm(6.0))).is_none());
+    assert!(flash_at(&layer(&files, "Demo.GTS"), (mm(10.0), mm(7.0))).is_none());
+}
+
+#[test]
+fn scoped_opening_rules_and_disabled_board_fallback_change_the_plotted_geometry() {
+    let dir = TempDir::new("scoped-openings");
+    let mut engine = board(&dir);
+    let net = engine.run_ok("test.net.add", json!({"name":"SIG"}))["result"]["uuid"].clone();
+    let class =
+        engine.run_ok("pcb.net_class.add", json!({"name":"Fine","nets":[net]}))["result"]["uuid"]
+            .clone();
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"mask_expansion","scope":{"net_class":class},"values":{"top":"0.2mm"}}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"paste_expansion","scope":{"net_class":class},"values":{"percent":-75}}),
+    );
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","shape":"rect","at":pt(5.0,5.0),"width":"2mm","net":net}),
+    );
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","shape":"rect","at":pt(10.0,5.0),"width":"2mm"}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"mask_expansion","enabled":false}),
+    );
+    engine.run_ok("pcb.via.add", json!({"at":pt(15.0,5.0)}));
+    let files = plot(&engine);
+    let mask = layer(&files, "Demo.GTS");
+    let (scoped, _) = flash_at(&mask, (mm(5.0), mm(5.0))).unwrap();
+    assert!(scoped.contains(mm(1.19) as f64, 0.0));
+    assert!(!scoped.contains(mm(1.21) as f64, 0.0));
+    let (fallback, _) = flash_at(&mask, (mm(10.0), mm(5.0))).unwrap();
+    assert!(!fallback.contains(mm(1.01) as f64, 0.0));
+    assert!(
+        flash_at(&mask, (mm(15.0), mm(5.0))).is_some(),
+        "a disabled board mask rule leaves Vias untented"
+    );
+    let paste = layer(&files, "Demo.GTP");
+    let (scoped, _) = flash_at(&paste, (mm(5.0), mm(5.0))).unwrap();
+    assert!(scoped.contains(mm(0.49) as f64, 0.0));
+    assert!(!scoped.contains(mm(0.51) as f64, 0.0));
 }

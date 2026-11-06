@@ -1,4 +1,4 @@
-//! Arranging what is placed on the board: Footprints, Free Pads and the Placement Origin.
+//! Arranging what is placed on the board: Footprints, Free Pads and the Output Origin.
 //!
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
 //! and writes the results back in one transaction. Locked Footprints refuse every Op.
@@ -10,8 +10,7 @@ mod turn;
 use reda_command::{CommandError, Context, Registry};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Corners, FootprintInstance, FreePad, InDocument, Object, PcbDocument, PlacementOrigin, Side,
-    Uuid,
+    Corners, FootprintInstance, FreePad, InDocument, Object, OutputOrigin, PcbDocument, Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -37,7 +36,7 @@ pub struct Placed {
 pub(super) enum Item {
     Footprint(Box<FootprintInstance>),
     FreePad(Box<FreePad>),
-    Origin(PlacementOrigin),
+    Origin(OutputOrigin),
 }
 
 /// A change of position applied to placed objects: what `pcb.move`, `pcb.rotate` and
@@ -114,7 +113,7 @@ impl Item {
         match self {
             Item::Footprint(f) => Object::FootprintInstance(InDocument::new(document, *f)),
             Item::FreePad(p) => Object::FreePad(InDocument::new(document, *p)),
-            Item::Origin(o) => Object::PlacementOrigin(InDocument::new(document, o)),
+            Item::Origin(o) => Object::OutputOrigin(InDocument::new(document, o)),
         }
     }
 }
@@ -137,7 +136,7 @@ fn mirror_free_pad(pad: &mut FreePad) {
 }
 
 /// The placeable objects named by `uuids` (each once, in order), or `invalid_params` at
-/// `/objects/i` for one that is not a Footprint, Free Pad or the Placement Origin.
+/// `/objects/i` for one that is not a Footprint, Free Pad or the Output Origin.
 pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, CommandError> {
     if uuids.is_empty() {
         return Err(CommandError::invalid_params(
@@ -154,12 +153,12 @@ pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, Co
             Item::Footprint(Box::new(f.clone()))
         } else if let Some(p) = pcb.free_pad(uuid) {
             Item::FreePad(Box::new(p.clone()))
-        } else if let Some(o) = pcb.placement_origin().filter(|o| o.uuid == uuid) {
+        } else if let Some(o) = pcb.output_origin().filter(|o| o.uuid == uuid) {
             Item::Origin(o.clone())
         } else {
             return Err(CommandError::invalid_params(
                 &format!("/objects/{i}"),
-                format!("{uuid} is not a Footprint, Free Pad or Placement Origin on the board"),
+                format!("{uuid} is not a Footprint, Free Pad or Output Origin on the board"),
             ));
         };
         items.push(item);
