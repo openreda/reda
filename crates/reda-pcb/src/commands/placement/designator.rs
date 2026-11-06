@@ -134,13 +134,13 @@ fn set_texts(cx: &mut Context<'_>, p: FootprintTextSetParams) -> Result<Placed, 
                 instance.designator
             )));
         }
-        if let Some(ids) = &p.texts {
-            if ids.iter().any(|id| !entries.iter().any(|t| t.uuid == *id)) {
-                return Err(CommandError::invalid_params(
-                    "/texts",
-                    "a text entry does not belong to a selected Footprint",
-                ));
-            }
+        if let Some(ids) = &p.texts
+            && ids.iter().any(|id| !entries.iter().any(|t| t.uuid == *id))
+        {
+            return Err(CommandError::invalid_params(
+                "/texts",
+                "a text entry does not belong to a selected Footprint",
+            ));
         }
         let frame = Frame::of(&instance);
         for entry in entries {

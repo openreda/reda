@@ -268,3 +268,114 @@ fn autoposition_uses_the_pad_box_when_the_footprint_has_no_courtyard() {
     assert_eq!(placed.at.x, reda_model::geom::Nm::ZERO);
     assert!(placed.at.y > reda_model::geom::Nm::from_um(500));
 }
+
+#[test]
+fn replacement_prefers_stable_text_ids_and_drops_entries_with_no_match() {
+    let dir = TempDir::new("footprint-text-match-priority");
+    let mut original = engine(&dir);
+    let [id, _] = synced_resistors(&mut original);
+    for field in ["Designator", "Value"] {
+        original.run_ok(
+            "pcb.footprint.text.set",
+            json!({"instances":[id],"field":field,"visible":false}),
+        );
+    }
+    let instance = pcb(&original).footprint(id).unwrap().clone();
+    let old_copy = pcb(&original)
+        .footprint_copy(instance.footprint)
+        .unwrap()
+        .clone();
+    let old_designator = old_copy.footprint.designator_text().unwrap().uuid;
+    let sheet = original
+        .project()
+        .unwrap()
+        .schematic_sheet(common::SHEET.parse().unwrap())
+        .unwrap();
+    let alternate = sheet
+        .parts()
+        .next()
+        .unwrap()
+        .footprints
+        .iter()
+        .find_map(|copy| {
+            let entry = sheet.footprint(*copy).unwrap();
+            (entry.footprint.uuid != old_copy.footprint.uuid).then_some(entry.footprint.uuid)
+        })
+        .unwrap();
+    original.run_ok("project.save", json!({}));
+    // Native file input can retain an entry UUID while its field name changes. Another
+    // old field disappears entirely. Sync must preserve identities, remap matching
+    // field/Layer entries and discard the obsolete override.
+    let folder = dir.path().join("Demo");
+    let sheet_path = folder.join("Demo.redasch");
+    let mut sheet: Value = serde_json::from_slice(&std::fs::read(&sheet_path).unwrap()).unwrap();
+    let target = sheet["footprints"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|copy| copy["footprint"]["uuid"] == json!(alternate))
+        .unwrap();
+    let new_value = target["texts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|text| text["field"] == "Value")
+        .unwrap()["uuid"]
+        .clone();
+    let designator = target["texts"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|text| text["field"] == "Designator")
+        .unwrap();
+    designator["uuid"] = json!(old_designator);
+    designator["field"] = json!("MPN");
+    std::fs::write(&sheet_path, serde_json::to_vec_pretty(&sheet).unwrap()).unwrap();
+    let pcb_path = folder.join("Demo.redapcb");
+    let mut board: Value = serde_json::from_slice(&std::fs::read(&pcb_path).unwrap()).unwrap();
+    let obsolete = reda_model::Uuid::v4_from_bits(0x5555);
+    let copy = board["footprint_copies"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|copy| copy["uuid"] == json!(instance.footprint))
+        .unwrap();
+    let mut extra = copy["texts"][0].clone();
+    extra["uuid"] = json!(obsolete);
+    extra["field"] = json!("Obsolete");
+    copy["texts"].as_array_mut().unwrap().push(extra);
+    let stored = board["footprints"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|entry| entry["uuid"] == json!(id))
+        .unwrap();
+    stored["text_overrides"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"text":obsolete,"visible":false}));
+    std::fs::write(&pcb_path, serde_json::to_vec_pretty(&board).unwrap()).unwrap();
+    let mut reopened = original;
+    reopened.run_ok("project.open", json!({"path":folder}));
+    reopened.run_ok(
+        "schematic.component.set",
+        json!({"components":[instance.component.unwrap().uuid],"footprint":alternate}),
+    );
+    let hash = reopened.run_ok("sync.preview", json!({}))["hash"].clone();
+    reopened.run_ok("sync.apply", json!({"hash":hash}));
+    let changes = &pcb(&reopened).footprint(id).unwrap().text_overrides;
+    assert_eq!(changes.len(), 2);
+    assert!(
+        changes
+            .iter()
+            .any(|change| change.text == old_designator && change.visible == Some(false)),
+        "UUID match wins despite the renamed field"
+    );
+    assert!(
+        changes
+            .iter()
+            .any(|change| json!(change.text) == new_value && change.visible == Some(false)),
+        "Value follows the matching field and Layer"
+    );
+    assert!(changes.iter().all(|change| change.text != obsolete));
+}
