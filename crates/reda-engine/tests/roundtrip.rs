@@ -11,13 +11,13 @@ use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck, ErcSeverities, FabPreset,
-    FileNaming, FootprintCopy, FootprintInstance, FootprintText, FreePad, GerberSettings,
-    GraphicShape, Hole, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass,
-    NetLabel, NoConnect, Object, OutputJob, Outputs, PadConnection, PadKind, PadNet, PadShape,
-    PartEntry, PcbGraphic, PcbText, PlacementOrigin, Port, PortDirection, PowerPort,
-    PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity,
-    SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry,
-    UnitInstance, Uuid, Via, Waiver, Wire, Zone,
+    FileNaming, FootprintCopy, FootprintInstance, FootprintText, FrameSize, FreePad,
+    GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer, LayerKind, LayerSet,
+    LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation, OutputJob, Outputs,
+    PadConnection, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, PlacementOrigin,
+    Port, PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
+    ProjectProps, Rules, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText,
+    Side, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -552,7 +552,7 @@ struct SheetSeed {
 prop_compose! {
     fn sheet_seed()(
         base in any::<u128>(),
-        size in prop::option::of(0usize..3),
+        size in prop::option::of(0usize..4),
         component in prop::option::of(
             (stored_text(), any::<String>(), length(), length(), any::<bool>())
         ),
@@ -566,11 +566,26 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
     let id = |k: u128| Uuid::v4_from_bits(seed.base.wrapping_add(k));
     let mut objects = vec![];
     if let Some(size) = seed.size {
-        let size = [SheetSize::A4, SheetSize::Letter, SheetSize::A0][size];
-        objects.push(Object::SheetFrame(InDocument::new(
-            sheet,
-            SheetFrame { uuid: id(0), size },
-        )));
+        let mut frame = SheetFrame::defaults(id(0));
+        match size {
+            0 => frame.size = FrameSize::Standard(SheetSize::A4),
+            1 => {
+                frame.size = FrameSize::Standard(SheetSize::Letter);
+                frame.orientation = Orientation::Portrait;
+                frame.border_zones = false;
+            }
+            2 => frame.size = FrameSize::Standard(SheetSize::A0),
+            _ => {
+                frame.size = FrameSize::Custom {
+                    width: Nm(123_456_789),
+                    height: Nm(98_765_432),
+                };
+                frame.title_block = false;
+                frame.drawing_number = "DWG-1\u{e9}".into();
+                frame.revision = "C".into();
+            }
+        }
+        objects.push(Object::SheetFrame(InDocument::new(sheet, frame)));
     }
     if let Some((value, designator, x, y, mirror)) = seed.component {
         let path = Path::new("x");
@@ -657,6 +672,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 direction: PortDirection::In,
                 at: to,
                 rotation: Millideg(90_000),
+                hide_cross_reference: len.0 % 2 == 0,
             },
         )));
         objects.push(Object::PowerPort(InDocument::new(
@@ -667,6 +683,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 style: PowerPortStyle::Ground,
                 at: from,
                 rotation: Millideg(0),
+                hide_name: len.0 % 2 != 0,
             },
         )));
         objects.push(Object::SheetText(InDocument::new(
@@ -677,6 +694,11 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 at: to,
                 height: Nm(len.0.abs() + 1),
                 rotation: Millideg(90_000),
+                justify: if len.0 % 2 == 0 {
+                    Justify::TopRight
+                } else {
+                    Justify::default()
+                },
             },
         )));
         objects.push(Object::SheetGraphic(InDocument::new(

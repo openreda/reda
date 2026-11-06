@@ -289,6 +289,34 @@
       ],
       "type": "object"
     },
+    "FrameSize": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SheetSize"
+        },
+        {
+          "description": "Two positive lengths. Which side runs across follows the [`Orientation`], so\n`{\"width\": 200 mm, \"height\": 300 mm}` landscape is 300 mm wide.",
+          "properties": {
+            "height": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "width": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "A sheet's paper: a standard size, written as its name (`\"a4\"`), or a custom one,\nwritten as `{\"width\": …, \"height\": …}`."
+    },
     "Hole": {
       "additionalProperties": false,
       "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
@@ -357,6 +385,21 @@
         }
       ]
     },
+    "Justify": {
+      "description": "One of the nine anchor points of a text block: its corners, the middles of its sides\nand its centre. Top is the first line's capital height, bottom the last line's\nbaseline, and middle halfway between them.",
+      "enum": [
+        "top_left",
+        "top",
+        "top_right",
+        "left",
+        "center",
+        "right",
+        "bottom_left",
+        "bottom",
+        "bottom_right"
+      ],
+      "type": "string"
+    },
     "NetLabel": {
       "additionalProperties": false,
       "description": "A named marker that joins the Wire (or Pin) under `at` to every other Net Label with the\nsame name on its sheet.",
@@ -403,6 +446,21 @@
         "at"
       ],
       "type": "object"
+    },
+    "Orientation": {
+      "description": "Which way up a sheet's paper is.",
+      "oneOf": [
+        {
+          "const": "landscape",
+          "description": "The longer side runs across.",
+          "type": "string"
+        },
+        {
+          "const": "portrait",
+          "description": "The longer side runs up.",
+          "type": "string"
+        }
+      ]
     },
     "OutsideEdge": {
       "description": "A Pin decoration just outside the body edge.",
@@ -901,6 +959,10 @@
         "direction": {
           "$ref": "#/$defs/PortDirection"
         },
+        "hide_cross_reference": {
+          "description": "Hides the Port's cross-reference note, when the Project shows them.",
+          "type": "boolean"
+        },
         "name": {
           "type": "string"
         },
@@ -939,6 +1001,10 @@
         "at": {
           "$ref": "#/$defs/Point",
           "description": "The connection point."
+        },
+        "hide_name": {
+          "description": "Draws the symbol without its name. The name still joins the Net.",
+          "type": "boolean"
         },
         "name": {
           "type": "string"
@@ -1179,10 +1245,30 @@
     },
     "SheetFrame": {
       "additionalProperties": false,
-      "description": "A sheet's frame settings. A sheet has at most one; with none it uses the defaults.",
+      "description": "A sheet's frame settings. A sheet has at most one; with none it uses\n[`SheetFrame::defaults`].",
       "properties": {
+        "border_zones": {
+          "description": "The Border Zones along the frame, on by default. Their counts are derived from the\npaper ([`BorderZones::for_paper`]), never stored.",
+          "type": "boolean"
+        },
+        "drawing_number": {
+          "description": "The sheet's drawing number; empty by default.",
+          "type": "string"
+        },
+        "orientation": {
+          "$ref": "#/$defs/Orientation",
+          "description": "Landscape unless stated."
+        },
+        "revision": {
+          "description": "The sheet's own revision. Empty, the title block shows the Project's.",
+          "type": "string"
+        },
         "size": {
-          "$ref": "#/$defs/SheetSize"
+          "$ref": "#/$defs/FrameSize"
+        },
+        "title_block": {
+          "description": "The built-in title block, on by default.",
+          "type": "boolean"
         },
         "uuid": {
           "format": "uuid",
@@ -1280,7 +1366,7 @@
       ]
     },
     "SheetSize": {
-      "description": "A sheet's paper size. Sheets are landscape.",
+      "description": "A standard paper size. Its dimensions are given landscape; [`Orientation`] turns it.",
       "enum": [
         "a4",
         "a3",
@@ -1299,12 +1385,16 @@
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
-          "description": "The left end of the first baseline."
+          "description": "The anchor point, which [`SheetText::justify`] places on the text block."
         },
         "height": {
           "description": "The capital height.",
           "format": "int64",
           "type": "integer"
+        },
+        "justify": {
+          "$ref": "#/$defs/Justify",
+          "description": "Which of the block's nine points sits on `at`; `bottom_left` by default."
         },
         "rotation": {
           "description": "Counter-clockwise about `at`.",

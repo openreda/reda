@@ -75,7 +75,7 @@ fn swapping_two_sheet_names_and_changing_case_survive_save() {
     engine.run_ok("document.rename", json!({"document": b, "title": "B"}));
     engine.run_ok("project.save", json!({}));
     engine.run_ok(
-        "schematic.sheet.set_size",
+        "schematic.sheet.set_frame",
         json!({"document": a, "size": "a3"}),
     );
     engine.run_ok("project.save", json!({}));
@@ -102,7 +102,7 @@ fn saving_a_renamed_sheet_alone_keeps_the_file_the_project_file_lists() {
         json!({"document": sheet, "title": "Power"}),
     );
     engine.run_ok(
-        "schematic.sheet.set_size",
+        "schematic.sheet.set_frame",
         json!({"document": sheet, "size": "a3"}),
     );
     engine.run_ok("project.save", json!({"document": sheet}));
@@ -144,7 +144,7 @@ fn a_new_sheet_reusing_a_deleted_sheets_file_name_trashes_the_old_file_first() {
     let (mut engine, folder) = new_project(dir.path());
     let old = add_sheet(&mut engine);
     engine.run_ok(
-        "schematic.sheet.set_size",
+        "schematic.sheet.set_frame",
         json!({"document": old, "size": "a3"}),
     );
     engine.run_ok("project.save", json!({}));
