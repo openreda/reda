@@ -264,6 +264,16 @@ impl FootprintRow {
         provenance: Option<Box<Provenance>>,
     ) -> Result<Footprint, String> {
         unique(pads.iter().map(|p| p.uuid), "Pad")?;
+        for pad in &pads {
+            if let Some((field, problem)) = reda_model::opening_problem(
+                pad.kind,
+                pad.side,
+                pad.mask.as_ref(),
+                pad.paste.as_ref(),
+            ) {
+                return Err(format!("Pad {}{field}: {problem}", pad.uuid));
+            }
+        }
         unique(graphics.iter().map(|g| g.uuid), "graphic")?;
         unique(texts.iter().map(|t| t.uuid), "text")?;
         pads.sort_by_key(|p| p.uuid);

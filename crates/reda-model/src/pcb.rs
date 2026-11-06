@@ -132,6 +132,8 @@ crate::check::severities! {
     silkscreen_over_pads => SilkscreenOverPads = Warning,
     /// The PCB out of sync with the schematic.
     out_of_sync => OutOfSync = Warning,
+    /// A negative mask or paste expansion leaves no opening.
+    opening_collapsed => OpeningCollapsed = Warning,
 }
 
 /// The board's own settings: its DRC severities. The design rules are records of their
@@ -874,6 +876,16 @@ impl PcbDocument {
     fn check_footprints(&self) -> Result<(), String> {
         let mut keys = std::collections::BTreeSet::new();
         for copy in self.footprint_copies.values() {
+            for pad in &copy.footprint.pads {
+                if let Some((field, problem)) = crate::opening_problem(
+                    pad.kind,
+                    pad.side,
+                    pad.mask.as_ref(),
+                    pad.paste.as_ref(),
+                ) {
+                    return Err(format!("Pad {}{field}: {problem}", pad.uuid));
+                }
+            }
             if !keys.insert((copy.footprint.uuid, copy.hash.as_str())) {
                 return Err(format!(
                     "the PCB holds Footprint {} with hash {} twice",

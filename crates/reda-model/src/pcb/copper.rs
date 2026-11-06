@@ -71,4 +71,6 @@ pub struct Via {
     pub hole: Nm,
     /// The copper Layers it joins.
     pub span: LayerSpan,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<crate::Mask>,
 }

@@ -433,6 +433,12 @@
           "format": "int64",
           "type": "integer"
         },
+        "mask_expansion": {
+          "$ref": "#/$defs/MaskExpansion"
+        },
+        "paste_expansion": {
+          "$ref": "#/$defs/PasteExpansion"
+        },
         "preferred": {
           "$ref": "#/$defs/PreferredSeeds",
           "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
@@ -463,7 +469,9 @@
         "annular_ring",
         "hole_to_hole",
         "edge_clearance",
-        "preferred"
+        "preferred",
+        "mask_expansion",
+        "paste_expansion"
       ],
       "type": "object"
     },
@@ -592,6 +600,39 @@
           "type": "string"
         }
       ]
+    },
+    "MaskExpansion": {
+      "additionalProperties": false,
+      "description": "The board's solder-mask seed values. Tenting here applies only to Vias.",
+      "properties": {
+        "bottom": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "from_hole_edge": {
+          "type": "boolean"
+        },
+        "tent_vias_bottom": {
+          "type": "boolean"
+        },
+        "tent_vias_top": {
+          "type": "boolean"
+        },
+        "top": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "top",
+        "bottom",
+        "from_hole_edge",
+        "tent_vias_top",
+        "tent_vias_bottom"
+      ],
+      "type": "object"
     },
     "MountValues": {
       "additionalProperties": false,
@@ -726,6 +767,38 @@
         "schematic_pdf"
       ],
       "type": "object"
+    },
+    "PasteExpansion": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expansion": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expansion"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "percent": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "percent"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "The board's paste seed: length per edge or signed change in area in percent."
     },
     "PdfColour": {
       "description": "The schematic PDF's paper colour mode.",

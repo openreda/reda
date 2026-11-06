@@ -72,7 +72,7 @@ fn fiducial(s: &mut Script) {
             "at": {"x": 0, "y": 0},
             "width": mm(1.0),
             "height": mm(1.0),
-            "mask_margin": mm(0.5),
+            "mask": {"top": {"expansion": mm(0.5)}},
         }),
     );
     s.fp_draw(&fp, "courtyard_top", circle(0, 0, mm(1.25)), mm(0.05));

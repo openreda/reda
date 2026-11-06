@@ -46,18 +46,29 @@ pub struct Pad {
     /// hole have none: their copper is on every Layer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub side: Option<Side>,
-    /// Overrides the board's solder-mask margin for this Pad.
+    /// Per-side solder-mask expansion or tenting; omitted values inherit the board's rule.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mask_margin: Option<Nm>,
-    /// Overrides the board's solder-paste margin for this Pad.
+    pub mask: Option<crate::Mask>,
+    /// An SMD Pad's paste opening; omitted, it inherits the board's rule.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub paste_margin: Option<Nm>,
+    pub paste: Option<crate::Paste>,
     /// How Zone fills of its Net join it. Each value left out inherits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zone_connection: Option<ZoneConnection>,
 }
 
 impl Pad {
+    pub fn problem(&self) -> Option<(String, String)> {
+        self.form().problem().or_else(|| {
+            crate::opening_problem(
+                self.kind,
+                self.side,
+                self.mask.as_ref(),
+                self.paste.as_ref(),
+            )
+        })
+    }
+
     /// Its shape fields, for the geometry and the checks every Pad shares.
     pub fn form(&self) -> PadForm {
         PadForm {
@@ -691,5 +702,43 @@ mod tests {
             ..Hole::new(Nm(1_500_000), Nm(500_000))
         });
         assert_eq!(f.problem().unwrap().0, "/hole");
+    }
+}
+
+/// The board's solder-mask seed values. Tenting here applies only to Vias.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MaskExpansion {
+    pub top: Nm,
+    pub bottom: Nm,
+    pub from_hole_edge: bool,
+    pub tent_vias_top: bool,
+    pub tent_vias_bottom: bool,
+}
+
+/// The board's paste seed: length per edge or signed change in area in percent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum PasteExpansion {
+    Expansion { expansion: Nm },
+    Percent { percent: i32 },
+}
+
+impl Default for MaskExpansion {
+    fn default() -> Self {
+        Self {
+            top: Nm(50_000),
+            bottom: Nm(50_000),
+            from_hole_edge: false,
+            tent_vias_top: true,
+            tent_vias_bottom: true,
+        }
+    }
+}
+impl Default for PasteExpansion {
+    fn default() -> Self {
+        Self::Expansion {
+            expansion: Nm::ZERO,
+        }
     }
 }

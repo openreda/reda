@@ -11,7 +11,9 @@ mod derived;
 mod document;
 mod library;
 pub mod net_name;
+mod openings;
 mod output;
+pub use openings::{Mask, MaskSide, Paste, PasteMode, PasteWindow, Tenting, opening_problem};
 mod pad;
 mod pcb;
 #[cfg(feature = "test-objects")]
@@ -41,8 +43,8 @@ pub use output::{
     PdfColour, PreferredSeeds, ProjectFabPreset, SideValues, SlotCommand, StackupSuggestions,
 };
 pub use pad::{
-    ConnectionStyle, Corner, Corners, Hole, HoleTolerance, Pad, PadForm, PadKind, PadShape, Ratio,
-    ZoneConnection,
+    ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadForm, PadKind,
+    PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS,

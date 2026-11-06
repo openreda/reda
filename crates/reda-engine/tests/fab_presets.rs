@@ -494,6 +494,18 @@ fn shipped_presets_describe_the_fabs_complete_output_conventions() {
             .iter()
             .find(|p| p["preset"]["name"] == name)
             .unwrap()["preset"];
+        let expansion = if name == "JLCPCB" { 0 } else { 50_000 };
+        assert_eq!(
+            preset["rules"]["mask_expansion"],
+            json!({"top":expansion,"bottom":expansion,"from_hole_edge":false,
+                "tent_vias_top":true,"tent_vias_bottom":true}),
+            "{name}"
+        );
+        assert_eq!(
+            preset["rules"]["paste_expansion"],
+            json!({"expansion":0}),
+            "{name}"
+        );
         assert_eq!(preset["gerber"]["file_origin"], origin, "{name}");
         assert_eq!(preset["gerber"]["naming"], "classic");
         assert_eq!(preset["gerber"]["slot_command"], "route");

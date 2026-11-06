@@ -67,8 +67,10 @@ struct PadParams {
     hole: Option<Hole>,
     #[serde(default)]
     mask_margin: Option<Length>,
+    mask: Option<reda_engine::command::MaskParam>,
     #[serde(default)]
     paste_margin: Option<Length>,
+    paste: Option<reda_engine::command::PasteParam>,
 }
 
 /// A drawing shape of the Footprint, in nm.
@@ -146,8 +148,18 @@ impl Command for FootprintAdd {
                 offset: pad.offset.as_ref().map(Xy::point),
                 hole: pad.hole,
                 side: pad.side,
-                mask_margin: pad.mask_margin.map(|m| m.nm()),
-                paste_margin: pad.paste_margin.map(|m| m.nm()),
+                mask: reda_engine::command::mask(pad.mask).or_else(|| {
+                    pad.mask_margin.map(|m| reda_model::Mask {
+                        top: Some(reda_model::MaskSide::Expansion { expansion: m.nm() }),
+                        bottom: (pad.kind.unwrap_or(PadKind::Smd) != PadKind::Smd)
+                            .then_some(reda_model::MaskSide::Expansion { expansion: m.nm() }),
+                        from_hole_edge: None,
+                    })
+                }),
+                paste: reda_engine::command::paste(pad.paste.clone()).or_else(|| {
+                    pad.paste_margin
+                        .map(|m| reda_model::Paste::Expansion { expansion: m.nm() })
+                }),
                 zone_connection: pad.zone_connection,
             });
             nets.push(PadNet {

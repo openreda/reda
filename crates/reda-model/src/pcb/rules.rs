@@ -31,11 +31,15 @@ pub enum RuleKind {
     HoleToHole,
     /// Copper to the Board Outline and Board Cutouts: `value`.
     EdgeClearance,
+    /// Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.
+    MaskExpansion,
+    /// Solder-paste expansion per edge or signed percent change in area; no DRC severity.
+    PasteExpansion,
 }
 
 impl RuleKind {
     /// Every kind, in file order.
-    pub const ALL: [RuleKind; 7] = [
+    pub const ALL: [RuleKind; 9] = [
         RuleKind::Clearance,
         RuleKind::TrackWidth,
         RuleKind::ViaSize,
@@ -43,6 +47,8 @@ impl RuleKind {
         RuleKind::AnnularRing,
         RuleKind::HoleToHole,
         RuleKind::EdgeClearance,
+        RuleKind::MaskExpansion,
+        RuleKind::PasteExpansion,
     ];
 
     /// Its name, as the file and Commands spell it.
@@ -55,6 +61,8 @@ impl RuleKind {
             RuleKind::AnnularRing => "annular_ring",
             RuleKind::HoleToHole => "hole_to_hole",
             RuleKind::EdgeClearance => "edge_clearance",
+            RuleKind::MaskExpansion => "mask_expansion",
+            RuleKind::PasteExpansion => "paste_expansion",
         }
     }
 
@@ -75,6 +83,8 @@ impl RuleKind {
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
             RuleKind::EdgeClearance => &[Value],
+            RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
+            RuleKind::PasteExpansion => &[Expansion, Percent],
         }
     }
 
@@ -87,6 +97,8 @@ impl RuleKind {
             RuleKind::ViaSize => &[DiameterMin, DiameterPreferred, HoleMin, HolePreferred],
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
+            RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
+            RuleKind::PasteExpansion => &[],
         }
     }
 }
@@ -108,6 +120,13 @@ pub enum RuleField {
     HoleMin,
     HolePreferred,
     HoleMax,
+    Top,
+    Bottom,
+    FromHoleEdge,
+    TentViasTop,
+    TentViasBottom,
+    Expansion,
+    Percent,
 }
 
 impl RuleField {
@@ -125,6 +144,13 @@ impl RuleField {
             RuleField::HoleMin => "hole.min",
             RuleField::HolePreferred => "hole.preferred",
             RuleField::HoleMax => "hole.max",
+            RuleField::Top => "top",
+            RuleField::Bottom => "bottom",
+            RuleField::FromHoleEdge => "from_hole_edge",
+            RuleField::TentViasTop => "tent_vias_top",
+            RuleField::TentViasBottom => "tent_vias_bottom",
+            RuleField::Expansion => "expansion",
+            RuleField::Percent => "percent",
         }
     }
 
@@ -138,26 +164,28 @@ impl RuleField {
     }
 }
 
-/// One value held by a rule record.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// One resolved value of a known rule field, serialized for previews. The field supplies
+/// its unit; persisted input is deserialized through the typed [`RuleValues`] fields.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(untagged)]
 pub enum RuleValue {
     Length(Nm),
     Flag(bool),
+    Percent(i32),
 }
 
 impl RuleValue {
     pub fn length(self) -> Option<Nm> {
         match self {
             RuleValue::Length(n) => Some(n),
-            RuleValue::Flag(_) => None,
+            RuleValue::Flag(_) | RuleValue::Percent(_) => None,
         }
     }
 
     pub fn flag(self) -> Option<bool> {
         match self {
             RuleValue::Flag(b) => Some(b),
-            RuleValue::Length(_) => None,
+            RuleValue::Length(_) | RuleValue::Percent(_) => None,
         }
     }
 }
@@ -202,6 +230,21 @@ pub struct RuleValues {
     /// Via size only: the Via's drilled hole.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hole: Option<Bounds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_hole_edge: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tent_vias_top: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tent_vias_bottom: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expansion: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Signed change in area in percent, strictly above -100.
+    pub percent: Option<i32>,
 }
 
 impl RuleValues {
@@ -222,6 +265,13 @@ impl RuleValues {
             RuleField::HoleMin => length(hole.min),
             RuleField::HolePreferred => length(hole.preferred),
             RuleField::HoleMax => length(hole.max),
+            RuleField::Top => length(self.top),
+            RuleField::Bottom => length(self.bottom),
+            RuleField::FromHoleEdge => self.from_hole_edge.map(RuleValue::Flag),
+            RuleField::TentViasTop => self.tent_vias_top.map(RuleValue::Flag),
+            RuleField::TentViasBottom => self.tent_vias_bottom.map(RuleValue::Flag),
+            RuleField::Expansion => length(self.expansion),
+            RuleField::Percent => self.percent.map(RuleValue::Percent),
         }
     }
 
@@ -234,10 +284,31 @@ impl RuleValues {
     /// the field is refused.
     pub fn set(&mut self, field: RuleField, value: Option<RuleValue>) -> Result<(), String> {
         let wrong = || format!("`{}` takes a {}", field.path(), type_name(field));
-        if field == RuleField::IgnorePadToPad {
-            self.ignore_pad_to_pad = match value {
+        if matches!(
+            field,
+            RuleField::IgnorePadToPad
+                | RuleField::FromHoleEdge
+                | RuleField::TentViasTop
+                | RuleField::TentViasBottom
+        ) {
+            let flag = match value {
                 None => None,
                 Some(RuleValue::Flag(b)) => Some(b),
+                Some(_) => return Err(wrong()),
+            };
+            match field {
+                RuleField::IgnorePadToPad => self.ignore_pad_to_pad = flag,
+                RuleField::FromHoleEdge => self.from_hole_edge = flag,
+                RuleField::TentViasTop => self.tent_vias_top = flag,
+                RuleField::TentViasBottom => self.tent_vias_bottom = flag,
+                _ => unreachable!(),
+            }
+            return Ok(());
+        }
+        if field == RuleField::Percent {
+            self.percent = match value {
+                None => None,
+                Some(RuleValue::Percent(p)) => Some(p),
                 Some(_) => return Err(wrong()),
             };
             return Ok(());
@@ -263,7 +334,10 @@ impl RuleValues {
             RuleField::HoleMin => in_bounds(&mut self.hole, |b| &mut b.min),
             RuleField::HolePreferred => in_bounds(&mut self.hole, |b| &mut b.preferred),
             RuleField::HoleMax => in_bounds(&mut self.hole, |b| &mut b.max),
-            RuleField::IgnorePadToPad => unreachable!("handled above"),
+            RuleField::Top => self.top = n,
+            RuleField::Bottom => self.bottom = n,
+            RuleField::Expansion => self.expansion = n,
+            _ => unreachable!("handled above"),
         }
         Ok(())
     }
@@ -284,12 +358,16 @@ impl RuleValues {
 
 fn type_name(field: RuleField) -> &'static str {
     match field {
-        RuleField::IgnorePadToPad => "boolean",
+        RuleField::IgnorePadToPad
+        | RuleField::FromHoleEdge
+        | RuleField::TentViasTop
+        | RuleField::TentViasBottom => "boolean",
+        RuleField::Percent => "percentage",
         _ => "length",
     }
 }
 
-const ALL_FIELDS: [RuleField; 11] = [
+const ALL_FIELDS: [RuleField; 18] = [
     RuleField::Value,
     RuleField::IgnorePadToPad,
     RuleField::Min,
@@ -301,6 +379,13 @@ const ALL_FIELDS: [RuleField; 11] = [
     RuleField::HoleMin,
     RuleField::HolePreferred,
     RuleField::HoleMax,
+    RuleField::Top,
+    RuleField::Bottom,
+    RuleField::FromHoleEdge,
+    RuleField::TentViasTop,
+    RuleField::TentViasBottom,
+    RuleField::Expansion,
+    RuleField::Percent,
 ];
 
 /// Where a rule record applies: filters that must all match. Empty is board-wide; v0.1
@@ -371,6 +456,20 @@ impl DesignRule {
     /// hold, or a board-wide record missing a value its kind requires.
     pub fn problem(&self) -> Option<String> {
         let kind = self.kind.id();
+        if self.kind == RuleKind::PasteExpansion {
+            if self.values.percent.is_some_and(|p| p <= -100) {
+                return Some("paste percent must be above -100".into());
+            }
+            if self.values.expansion.is_some() && self.values.percent.is_some() {
+                return Some("paste takes expansion or percent, not both".into());
+            }
+            if self.scope.is_board_wide()
+                && self.values.expansion.is_none()
+                && self.values.percent.is_none()
+            {
+                return Some("board-wide paste needs expansion or percent".into());
+            }
+        }
         if let Some(field) = self
             .values
             .set_fields()
