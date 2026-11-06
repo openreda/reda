@@ -32,6 +32,10 @@ pub struct UserState {
     /// The Fab Preset the last new Project used: the New Project dialog's default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_fab_preset: Option<String>,
+    /// Where each settings window was last put, by its id (such as `board_setup`), where
+    /// the platform says.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub settings_windows: BTreeMap<String, WindowPlace>,
     /// Fields written by another version of REDA, kept as they are.
     #[serde(flatten)]
     pub other: BTreeMap<String, Value>,
@@ -45,6 +49,15 @@ pub struct WindowGeometry {
     pub width: u32,
     pub height: u32,
     pub maximized: bool,
+}
+
+/// A window's place on screen in logical pixels: its outer top-left corner and inner size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowPlace {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl UserState {

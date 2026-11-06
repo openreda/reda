@@ -112,7 +112,11 @@ pub fn resolve_keys(
     dialog: Option<reda_engine::model::Scope>,
 ) -> Vec<(String, serde_json::Value)> {
     let mut active = active(shell);
-    let panel = matches!(shell.layout().focus, Some(crate::layout::TabKey::Panel(_)));
+    // Panels and settings windows take only global keys.
+    let panel = matches!(
+        shell.layout().focus,
+        Some(crate::layout::TabKey::Panel(_) | crate::layout::TabKey::Settings(_))
+    );
     if dialog.is_some() || panel {
         active = Active::default();
     }

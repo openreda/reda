@@ -354,6 +354,13 @@ impl Cx<'_> {
             _ => return,
         };
         self.commands.push((id.to_owned(), params));
-        p.name = next_name(self.shell.engine().project(), p.tool, Some(&p.name));
+        p.name = match p.tool {
+            // Auto-increment steps the name just placed, taken or not.
+            Tool::NetLabel | Tool::Port => reda_engine::model::auto_increment::step(
+                &p.name,
+                self.shell.preferences().schematic.auto_increment.primary,
+            ),
+            _ => next_name(self.shell.engine().project(), p.tool, Some(&p.name)),
+        };
     }
 }

@@ -107,6 +107,71 @@ pub struct UnitInstance {
         skip_serializing_if = "UnitInstance::shows_default_fields"
     )]
     pub visible_fields: BTreeSet<String>,
+    /// The fields moved by hand on this Unit, one entry per field, sorted by field name
+    /// (the names of `visible_fields`). A field with no entry is autopositioned. Each
+    /// Unit has its own.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub field_text: Vec<FieldText>,
+    /// The Locked Fields, by name: Update from Library leaves them as they are, though
+    /// they can still be edited by hand. Every Unit of a Component carries the same set.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub locked_fields: BTreeSet<String>,
+}
+
+/// Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's
+/// own frame (so rotating or mirroring the Unit carries it along), and its text height
+/// when it is not the default.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FieldText {
+    /// The field, by name.
+    pub field: String,
+    pub offset: Point,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<Nm>,
+}
+
+/// How a Unit's suffix is written after the Designator: `alpha` (`U1A`) or `numeric`
+/// (`U1:1`). It comes from the Unit's position in the Symbol, never its name, and never
+/// reaches the Designator itself.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UnitSuffix {
+    #[default]
+    Alpha,
+    Numeric,
+}
+
+impl UnitSuffix {
+    /// The suffix of the Unit at `index` (from 0) of a Symbol with `count` Units: `A`,
+    /// `B`, … `Z`, `AA`, … or `:1`, `:2`, …; empty for a Symbol with one Unit.
+    pub fn label(self, index: usize, count: usize) -> String {
+        if count <= 1 {
+            return String::new();
+        }
+        match self {
+            UnitSuffix::Numeric => format!(":{}", index + 1),
+            UnitSuffix::Alpha => {
+                let mut letters = Vec::new();
+                let mut n = index + 1;
+                while n > 0 {
+                    n -= 1;
+                    letters.push(char::from(b'A' + (n % 26) as u8));
+                    n /= 26;
+                }
+                letters.iter().rev().collect()
+            }
+        }
+    }
+
+    /// The suffix of `symbol`'s Unit `unit`; empty when the Symbol has one Unit or no
+    /// such Unit.
+    pub fn of(self, symbol: &Symbol, unit: Uuid) -> String {
+        match symbol.units.iter().position(|u| u.uuid == unit) {
+            Some(index) => self.label(index, symbol.units.len()),
+            None => String::new(),
+        }
+    }
 }
 
 impl UnitInstance {
@@ -123,6 +188,27 @@ impl UnitInstance {
 
     fn shows_default_fields(fields: &BTreeSet<String>) -> bool {
         *fields == Self::default_visible_fields()
+    }
+
+    /// Where field `name` was moved by hand; `None` when it is autopositioned.
+    pub fn field_text(&self, name: &str) -> Option<&FieldText> {
+        self.field_text.iter().find(|t| t.field == name)
+    }
+
+    /// Stores `text` for its field, replacing any entry it had, keeping the entries
+    /// sorted by field name.
+    pub fn set_field_text(&mut self, text: FieldText) {
+        self.remove_field_text(&text.field);
+        let at = self.field_text.partition_point(|t| t.field < text.field);
+        self.field_text.insert(at, text);
+    }
+
+    /// Removes field `name`'s entry, putting it back on Autoposition; returns whether it
+    /// had one.
+    pub fn remove_field_text(&mut self, name: &str) -> bool {
+        let before = self.field_text.len();
+        self.field_text.retain(|t| t.field != name);
+        self.field_text.len() != before
     }
 }
 

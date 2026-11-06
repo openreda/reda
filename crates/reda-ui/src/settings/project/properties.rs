@@ -51,6 +51,23 @@ impl Page for PropertiesPage {
         vec![Step::new("project.properties.set", Value::Object(params))]
     }
 
+    fn has_defaults(&self) -> bool {
+        true
+    }
+
+    /// Every field empty, as a new Project has them.
+    fn reset_to_defaults(&mut self, _shell: &mut crate::shell::Shell) {
+        for draft in [
+            &mut self.title,
+            &mut self.revision,
+            &mut self.date,
+            &mut self.author,
+            &mut self.company,
+        ] {
+            draft.set(String::new());
+        }
+    }
+
     fn problems(&self) -> Vec<Problem> {
         Vec::new()
     }

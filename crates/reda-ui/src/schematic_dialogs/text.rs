@@ -3,7 +3,7 @@
 
 use std::any::Any;
 
-use egui::{Id, Key, Modal, Role, WidgetInfo};
+use egui::{Id, Key, Role, WidgetInfo};
 use reda_engine::command::CommandError;
 use serde_json::Value;
 
@@ -47,8 +47,11 @@ impl ParamsDialog for TextDialog {
 
     fn show(&mut self, ctx: &egui::Context, _shell: &mut Shell) -> Outcome {
         let mut outcome = Outcome::Open;
-        let modal = Modal::new(Id::NULL.with("schematic-text-words")).show(ctx, |ui| {
-            ui.heading(tr!("schematic-text-title"));
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("schematic-text-words"),
+            tr!("schematic-text-title"),
+        )
+        .show(ctx, |ui| {
             let field = ui.text_edit_singleline(&mut self.words);
             field.widget_info(|| {
                 WidgetInfo::labeled(Role::TextInput, true, tr!("schematic-text-words"))

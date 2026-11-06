@@ -6,7 +6,7 @@ use reda_model::{
     PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance, Uuid,
 };
 
-use super::Builder;
+use super::{Builder, SchematicStyle};
 use crate::color::SchematicColor as C;
 use crate::polygon::triangulate;
 use crate::scene::{Align, HAlign, Primitive, Scene, SceneSource, VAlign};
@@ -20,22 +20,23 @@ const NAME_GAP: i64 = 508_000;
 /// Pin numbers sit this far off the Pin line.
 const NUMBER_GAP: i64 = 254_000;
 const FIELD_TEXT: Nm = Nm::from_um(1_270);
-/// Fields are stacked this far right of the body, this far apart.
+/// Autopositioned fields are stacked this far right of (or above) the body, this far
+/// apart.
 const FIELD_GAP: i64 = 1_270_000;
 const FIELD_PITCH: i64 = 2_032_000;
 /// Arcs are drawn as capsules at most this many millidegrees long.
 const ARC_STEP: i64 = 5_000;
 
-pub(super) fn build(b: &mut Builder, sheet: &SchematicSheet) {
+pub(super) fn build(b: &mut Builder, sheet: &SchematicSheet, style: &SchematicStyle) {
     for unit in sheet.units() {
         let Some(entry) = sheet.part(unit.part) else {
             continue;
         };
-        draw_unit(b, unit, entry);
+        draw_unit(b, unit, entry, style);
     }
 }
 
-fn draw_unit(b: &mut Builder, unit: &UnitInstance, entry: &PartEntry) {
+fn draw_unit(b: &mut Builder, unit: &UnitInstance, entry: &PartEntry, style: &SchematicStyle) {
     let place = Placement {
         at: unit.at,
         rotation: unit.rotation,
@@ -60,7 +61,8 @@ fn draw_unit(b: &mut Builder, unit: &UnitInstance, entry: &PartEntry) {
             )
         })
         .unwrap_or((unit.at, unit.at));
-    draw_fields(b, unit, body);
+    let suffix = style.unit_suffix.of(&entry.symbol, unit.unit);
+    draw_fields(b, unit, &place, &suffix, body);
 }
 
 fn draw_graphic(b: &mut Builder, object: Uuid, place: &Placement, g: &SymbolGraphic) {
@@ -252,38 +254,73 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, number:
     }
 }
 
-/// The visible fields, stacked right of the body and centred on it: the Designator,
-/// the value, then other fields by name.
-fn draw_fields(b: &mut Builder, unit: &UnitInstance, (lo, hi): (Point, Point)) {
-    let mut lines: Vec<(C, &str)> = Vec::new();
+/// The visible fields: the Designator (with the Unit suffix after it), the value, then
+/// other fields by name. A field moved by hand sits at its `field_text` offset, carried by
+/// the Unit's placement; the others are autopositioned, stacked right of the body and
+/// centred on it when the Unit is turned nearer 0° or 180°, and stacked above it and
+/// centred when nearer 90° or 270°. Field text is always horizontal, so it is never upside
+/// down or reading from the right.
+fn draw_fields(
+    b: &mut Builder,
+    unit: &UnitInstance,
+    place: &Placement,
+    suffix: &str,
+    (lo, hi): (Point, Point),
+) {
+    let designator = format!("{}{suffix}", unit.designator);
+    let mut lines: Vec<(&str, C, &str)> = Vec::new();
     let shown = |name: &str| unit.visible_fields.contains(name);
-    if shown("designator") {
-        lines.push((C::Designator, &unit.designator));
+    if shown(UnitInstance::DESIGNATOR) {
+        lines.push((UnitInstance::DESIGNATOR, C::Designator, &designator));
     }
     if shown("value") {
-        lines.push((C::Value, unit.fields.get("value")));
+        lines.push(("value", C::Value, unit.fields.get("value")));
     }
     for name in &unit.visible_fields {
-        if name != "designator" && name != "value" {
-            lines.push((C::Field, unit.fields.get(name)));
+        if name != UnitInstance::DESIGNATOR && name != "value" {
+            lines.push((name, C::Field, unit.fields.get(name)));
         }
     }
-    lines.retain(|(_, text)| !text.is_empty());
-    let n = lines.len() as i64;
-    let x = hi.x.0 + FIELD_GAP;
-    let top = (lo.y.0 + hi.y.0) / 2 + (n - 1) * FIELD_PITCH / 2;
-    for (i, (color, text)) in lines.into_iter().enumerate() {
+    lines.retain(|(_, _, text)| !text.is_empty());
+    let style = |height, h| TextStyle {
+        height,
+        rotation: Millideg(0),
+        align: Align::new(h, VAlign::Middle),
+        view_label: false,
+    };
+    let (moved, auto): (Vec<_>, Vec<_>) = lines
+        .into_iter()
+        .partition(|(name, _, _)| unit.field_text(name).is_some());
+    for (name, color, text) in moved {
+        let entry = unit.field_text(name).expect("a moved field");
+        let height = entry.size.unwrap_or(FIELD_TEXT);
         b.text(
             unit.uuid,
             color,
             text,
-            Point::new(Nm(x), Nm(top - i as i64 * FIELD_PITCH)),
-            TextStyle {
-                height: FIELD_TEXT,
-                rotation: Millideg(0),
-                align: Align::new(HAlign::Left, VAlign::Middle),
-                view_label: false,
-            },
+            place.apply(entry.offset),
+            style(height, HAlign::Left),
         );
+    }
+    let n = auto.len() as i64;
+    let turned = place.rotation.normalized().0;
+    let above = (45_000..135_000).contains(&turned) || (225_000..315_000).contains(&turned);
+    for (i, (_, color, text)) in auto.into_iter().enumerate() {
+        let i = i as i64;
+        let (at, h) = if above {
+            let bottom = hi.y.0 + FIELD_GAP + FIELD_TEXT.0 / 2;
+            let x = (lo.x.0 + hi.x.0) / 2;
+            (
+                Point::new(Nm(x), Nm(bottom + (n - 1 - i) * FIELD_PITCH)),
+                HAlign::Center,
+            )
+        } else {
+            let top = (lo.y.0 + hi.y.0) / 2 + (n - 1) * FIELD_PITCH / 2;
+            (
+                Point::new(Nm(hi.x.0 + FIELD_GAP), Nm(top - i * FIELD_PITCH)),
+                HAlign::Left,
+            )
+        };
+        b.text(unit.uuid, color, text, at, style(FIELD_TEXT, h));
     }
 }
