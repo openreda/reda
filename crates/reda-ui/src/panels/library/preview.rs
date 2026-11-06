@@ -230,23 +230,24 @@ pub fn footprint(ui: &mut Ui, footprint: &Footprint) {
         } else {
             (pad.width, pad.height)
         };
-        let c = fit.pos(pad.at);
+        let centre = pad.outline().center + pad.at;
+        let c = fit.pos(centre.rotated_about(pad.at, pad.rotation));
         let size = Vec2::new(fit.len(w), fit.len(h));
         match pad.shape {
             PadShape::Circle => {
                 painter.circle_filled(c, size.x / 2.0, copper);
             }
-            PadShape::Oval | PadShape::RoundedRect | PadShape::Rect => {
-                let radius = match pad.shape {
-                    PadShape::Oval => size.x.min(size.y) / 2.0,
-                    PadShape::RoundedRect => size.x.min(size.y) / 4.0,
-                    _ => 0.0,
-                };
+            PadShape::Oval | PadShape::RoundedRect | PadShape::ChamferedRect | PadShape::Rect => {
+                let radius = pad.outline().uniform_radius().map_or(0.0, |r| fit.len(r));
                 painter.rect_filled(Rect::from_center_size(c, size), radius, copper);
             }
         }
         if let Some(hole) = pad.hole {
-            painter.circle_filled(c, fit.len(hole.width) / 2.0, ui.visuals().extreme_bg_color);
+            painter.circle_filled(
+                fit.pos(pad.at),
+                fit.len(hole.width) / 2.0,
+                ui.visuals().extreme_bg_color,
+            );
         }
     }
     for g in &footprint.graphics {

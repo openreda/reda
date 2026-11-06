@@ -625,7 +625,16 @@ impl Layout {
     /// returns its group. The `document.open` Command does this, and so does the app when
     /// a Project opens.
     pub fn open_document(&mut self, document: Uuid) -> GroupId {
-        let tab = TabKey::Document(document);
+        self.open_in_document_group(TabKey::Document(document))
+    }
+
+    /// Opens the Start page in the Document group (or shows it where it is) and activates
+    /// it, as when the Project closes.
+    pub fn open_start(&mut self) -> GroupId {
+        self.open_in_document_group(TabKey::Start)
+    }
+
+    fn open_in_document_group(&mut self, tab: TabKey) -> GroupId {
         if self.place(&tab).is_none() {
             let group = self.document_group();
             if let Some(g) = self.group_mut(group) {

@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"8bac4a84-9009-4fde-bf59-3c6e47a39ae6","name":"Capacitor_Polarised","component_type":"standard","symbol":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe"},
+  "part": {"uuid":"8bac4a84-9009-4fde-bf59-3c6e47a39ae6","name":"Capacitor_Polarised","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe"},
   "footprints": [
     "ccb154ef-2442-491a-b1d0-d39c9fb13e8e",
     "2adccc08-5d68-4c21-a620-92fb92ec9033",

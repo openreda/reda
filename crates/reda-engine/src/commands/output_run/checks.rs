@@ -4,9 +4,7 @@
 use std::collections::BTreeMap;
 
 use reda_command::Fonts;
-use reda_model::{
-    ComponentType, FabPreset, PcbDocument, Project, Severity, Uuid, Violation, apply_waivers,
-};
+use reda_model::{FabPreset, PcbDocument, Project, Severity, Uuid, Violation, apply_waivers};
 
 /// The problems that stop a run, in a fixed order: duplicate Designators, an open Board
 /// Outline, then Footprints the PCB cannot resolve. All read only the job's PCB, which is
@@ -67,9 +65,10 @@ fn missing_footprints(pcb: &PcbDocument) -> Vec<Violation> {
         .collect()
 }
 
-/// One `unassigned_footprint` per fitted Standard Component on a sheet with no Footprint
-/// chosen: it never reaches the PCB, so no output shows it; objects are its Units. The fix
-/// is to assign a Footprint and Sync. Mechanical and Not Fitted Components need none.
+/// One `unassigned_footprint` per fitted Standard or Net Tie Component on a sheet with no
+/// Footprint chosen: it never reaches the PCB, so no output shows it; objects are its
+/// Units. The fix is to assign a Footprint and Sync. Mechanical and Not Fitted Components
+/// need none.
 fn unassigned_footprints(project: &Project) -> Vec<Violation> {
     let mut by_component: BTreeMap<Uuid, (&str, Vec<Uuid>)> = BTreeMap::new();
     for document in project.documents() {
@@ -77,7 +76,7 @@ fn unassigned_footprints(project: &Project) -> Vec<Violation> {
             for unit in sheet.units() {
                 if unit.footprint.is_none()
                     && !unit.not_fitted
-                    && unit.component_type == ComponentType::Standard
+                    && unit.component_type.needs_symbol_and_footprint()
                 {
                     by_component
                         .entry(unit.component.uuid)

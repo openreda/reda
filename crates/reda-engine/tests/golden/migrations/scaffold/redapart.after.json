@@ -24,6 +24,8 @@
   "format": 2,
   "part": {
     "component_type": "standard",
+    "in_bom": true,
+    "in_cpl": true,
     "name": "LM358",
     "symbol": "00000010-0000-4000-8000-000000000000",
     "uuid": "00000050-0000-4000-8000-000000000000"

@@ -39,7 +39,11 @@ fn harness(home: &Path) -> Harness<'static, App> {
 fn open_preferences(h: &mut Harness<'static, App>) {
     h.get_by_label("File").click();
     h.run();
-    h.get_by_label_contains("Preferences…").click();
+    // The menu item is drawn after the top row's gear of the same name.
+    h.get_all_by_label_contains("Preferences…")
+        .last()
+        .unwrap()
+        .click();
     h.run();
 }
 

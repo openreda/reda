@@ -5,19 +5,24 @@
 //! Commands (`pcb.move` and the rest).
 
 use reda_command::{
-    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams,
-    Registry, Unavailable,
+    Angle, AvailabilityContext, Command, CommandError, Context, HoleParam, Kind, Length, Meta,
+    NoParams, RatioParam, Registry, Unavailable, ZoneConnectionParam, zone_connection,
 };
-use reda_model::geom::Millideg;
+use reda_model::geom::{Millideg, Point};
 use reda_model::{
-    FreePad, Hole, InDocument, Object, PadKind, PadShape, PcbDocument, PlacementOrigin, Side, Uuid,
+    Corners, FreePad, InDocument, Object, PadKind, PadShape, PcbDocument, PlacementOrigin, Ratio,
+    Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::outline::PointParam;
 use super::placement::Placed;
-use super::{Created, needs_pcb, non_negative, pcb, positive};
+use super::{Created, needs_pcb, pcb, positive};
+
+/// The corner ratio of a `rounded_rect` that gives none: a radius of a quarter of the
+/// shorter side.
+const DEFAULT_CORNER_RATIO: Ratio = Ratio::percent(50);
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FreePadAdd);
@@ -25,16 +30,6 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FreePadDelete);
     registry.add(PlacementOriginSet);
     registry.add(PlacementOriginDelete);
-}
-
-/// A drilled hole param.
-#[derive(Clone, Copy, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct HoleParam {
-    pub width: Length,
-    /// A slot when it differs from the width; round when left out.
-    #[serde(default)]
-    pub height: Option<Length>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -46,15 +41,26 @@ pub struct FreePadAddParams {
     /// Circle when left out.
     #[serde(default)]
     pub shape: Option<PadShape>,
-    /// The Pad centre.
+    /// The Pad's anchor: the hole sits there and Tracks connect there.
     pub at: PointParam,
     pub width: Length,
     /// The width when left out.
     #[serde(default)]
     pub height: Option<Length>,
-    /// For a rounded rectangle.
+    /// For a `rounded_rect` (50% when left out) and the uncut corners of a
+    /// `chamfered_rect`.
     #[serde(default)]
-    pub corner_radius: Option<Length>,
+    pub corner_ratio: Option<RatioParam>,
+    /// For a `chamfered_rect`, which needs it.
+    #[serde(default)]
+    pub chamfer_ratio: Option<RatioParam>,
+    /// The corners a `rounded_rect` rounds or a `chamfered_rect` chamfers. All four when
+    /// left out.
+    #[serde(default)]
+    pub corners: Option<Corners>,
+    /// Moves the copper away from `at`, in the Pad's frame.
+    #[serde(default)]
+    pub offset: Option<PointParam>,
     /// Counter-clockwise; 0 when left out.
     #[serde(default)]
     pub rotation: Option<Angle>,
@@ -67,6 +73,9 @@ pub struct FreePadAddParams {
     /// The PCB Net, by UUID; non-plated Pads have none.
     #[serde(default)]
     pub net: Option<Uuid>,
+    /// How Zone fills of its Net join it; each value left out inherits.
+    #[serde(default)]
+    pub zone_connection: Option<ZoneConnectionParam>,
 }
 
 pub struct FreePadAdd;
@@ -92,48 +101,11 @@ impl Command for FreePadAdd {
     fn run(&self, cx: &mut Context<'_>, p: FreePadAddParams) -> Result<Created, CommandError> {
         let width = positive("/width", p.width)?;
         let height = p.height.map_or(Ok(width), |h| positive("/height", h))?;
-        let corner_radius = p
-            .corner_radius
-            .map(|r| non_negative("/corner_radius", r))
-            .transpose()?;
-        let hole = p
-            .hole
-            .map(|h| -> Result<Hole, CommandError> {
-                let width = positive("/hole/width", h.width)?;
-                let height = h
-                    .height
-                    .map_or(Ok(width), |l| positive("/hole/height", l))?;
-                Ok(Hole { width, height })
-            })
-            .transpose()?;
-        let smd = p.kind == PadKind::Smd;
-        match hole {
-            Some(_) if smd => {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "an SMD Pad has no hole",
-                ));
-            }
-            None if !smd => {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "a plated through-hole or non-plated Pad needs a hole",
-                ));
-            }
-            Some(h) if h.width > width || h.height > height => {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "the hole is larger than the Pad",
-                ));
-            }
-            _ => {}
-        }
-        if !smd && p.side.is_some() {
-            return Err(CommandError::invalid_params(
-                "/side",
-                "a Pad with a hole is on both sides",
-            ));
-        }
+        let shape = p.shape.unwrap_or(PadShape::Circle);
+        let corner_ratio = p
+            .corner_ratio
+            .map(RatioParam::ratio)
+            .or((shape == PadShape::RoundedRect).then_some(DEFAULT_CORNER_RATIO));
         let pcb = pcb(cx)?;
         if let Some(net) = p.net {
             check_net(pcb, p.kind, net, "/net")?;
@@ -143,20 +115,27 @@ impl Command for FreePadAdd {
         let pad = FreePad {
             uuid,
             kind: p.kind,
-            shape: p.shape.unwrap_or(PadShape::Circle),
+            shape,
             at: p.at.point(),
             rotation: p
                 .rotation
                 .map_or(Millideg::ZERO, |r| r.millideg().normalized()),
             width,
             height,
-            corner_radius,
-            hole,
-            side: smd.then(|| p.side.unwrap_or(Side::Top)),
+            corner_ratio,
+            chamfer_ratio: p.chamfer_ratio.map(RatioParam::ratio),
+            corners: p.corners.filter(|c| *c != Corners::ALL),
+            offset: p
+                .offset
+                .map(PointParam::point)
+                .filter(|o| *o != Point::default()),
+            hole: p.hole.map(HoleParam::hole),
+            side: p.side.filter(|s| *s != Side::Top || p.kind != PadKind::Smd),
             net: p.net,
+            zone_connection: zone_connection(p.zone_connection),
         };
-        if let Some(problem) = pad.problem() {
-            return Err(CommandError::invalid_params("", problem));
+        if let Some((pointer, problem)) = pad.problem() {
+            return Err(CommandError::invalid_params(&pointer, problem));
         }
         cx.tx()?
             .insert(Object::FreePad(InDocument::new(document, pad)))?;

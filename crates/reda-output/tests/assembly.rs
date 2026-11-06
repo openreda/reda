@@ -220,12 +220,15 @@ fn a_different_footprint_or_field_makes_its_own_row() {
 }
 
 #[test]
-fn mechanical_and_not_fitted_components_are_left_out() {
+fn the_bom_and_cpl_follow_in_bom_in_cpl_and_not_fitted() {
     let dir = TempDir::new("assembly-left-out");
     let mut engine = engine(&dir);
-    place(&mut engine, RESISTOR, Some(RESC1608), 3);
+    place(&mut engine, RESISTOR, Some(RESC1608), 4);
     set(&mut engine, &["R2"], json!({"not_fitted": true}));
+    set(&mut engine, &["R3"], json!({"in_cpl": false}));
+    set(&mut engine, &["R4"], json!({"in_bom": false}));
     sync(&mut engine);
+    // The starter mounting hole is Mechanical with both flags off.
     engine.run_ok(
         "pcb.mechanical.place",
         json!({"part": MOUNTING_HOLE_M3, "at": {"x": "3mm", "y": "3mm"}}),
@@ -237,17 +240,39 @@ fn mechanical_and_not_fitted_components_are_left_out() {
             "\"R1, R3\",2,10k,RESC1608X55N,,",
         ]
     );
-    let cpl = cpl(&engine);
-    let designators: Vec<&str> = lines(&cpl)[1..]
-        .iter()
-        .map(|l| l.split(',').next().unwrap())
-        .collect();
-    assert_eq!(designators, ["R1", "R3"]);
+    assert_eq!(designators(&cpl(&engine)), ["R1", "R4"]);
 }
 
-/// A copy of the starter Library whose Resistor is a Mechanical Part, so a Mechanical
-/// Component can sit on the schematic.
-fn mechanical_resistor_library(dir: &TempDir) -> PathBuf {
+#[test]
+fn a_mechanical_part_on_the_board_is_listed_by_its_flags_not_its_type() {
+    let dir = TempDir::new("assembly-mechanical-flags");
+    let mut engine = engine(&dir);
+    let placed = engine.run_ok(
+        "pcb.mechanical.place",
+        json!({"part": MOUNTING_HOLE_M3, "at": {"x": "3mm", "y": "3mm"}}),
+    );
+    engine.run_ok(
+        "pcb.mechanical.set",
+        json!({"footprints": [placed["result"]["footprint"]], "in_bom": true, "in_cpl": true}),
+    );
+    assert_eq!(designators(&bom(&engine)), ["H1"]);
+    assert_eq!(designators(&cpl(&engine)), ["H1"]);
+}
+
+/// The Designators a BOM or CPL lists, one per row (the first of a BOM row's).
+fn designators(text: &str) -> Vec<&str> {
+    lines(text)[1..]
+        .iter()
+        .map(|l| l.trim_start_matches('"').split([',', '"']).next().unwrap())
+        .collect()
+}
+
+/// A Mechanical Part with a Symbol and no Footprint, such as a screw.
+const SCREW: &str = "5c4e3a10-0000-4000-8000-000000000001";
+
+/// A copy of the starter Library whose Resistor is a Mechanical Part (In BOM, not In
+/// CPL), with a footprintless Mechanical [`SCREW`] beside it.
+fn mechanical_library(dir: &TempDir) -> PathBuf {
     fn copy(from: &Path, to: &Path) {
         std::fs::create_dir_all(to).unwrap();
         for entry in std::fs::read_dir(from).unwrap() {
@@ -263,31 +288,46 @@ fn mechanical_resistor_library(dir: &TempDir) -> PathBuf {
     let library = dir.path().join("library");
     copy(&starter_library(), &library);
     let part = library.join("parts/Resistor.redapart");
-    let text = std::fs::read_to_string(&part).unwrap();
-    std::fs::write(
-        &part,
-        text.replace(
-            "\"component_type\":\"standard\"",
-            "\"component_type\":\"mechanical\"",
-        ),
+    let text = std::fs::read_to_string(&part).unwrap().replace(
+        "\"component_type\":\"standard\",\"in_bom\":true,\"in_cpl\":true",
+        "\"component_type\":\"mechanical\",\"in_bom\":true,\"in_cpl\":false",
+    );
+    std::fs::write(&part, &text).unwrap();
+    let footprints = text.find("\"footprints\"").unwrap();
+    let fields = text.find("  \"fields\"").unwrap();
+    let screw = format!(
+        "{}\"footprints\": [],\n{}",
+        &text[..footprints],
+        &text[fields..]
     )
-    .unwrap();
+    .replace(RESISTOR, SCREW)
+    .replace("\"name\":\"Resistor\"", "\"name\":\"Screw\"")
+    .replace("\"value\":\"10k\"", "\"value\":\"M3 screw\"");
+    std::fs::write(library.join("parts/Screw.redapart"), screw).unwrap();
     library
 }
 
 #[test]
-fn mechanical_components_from_the_schematic_are_left_out_too() {
+fn a_mechanical_component_on_a_sheet_reaches_the_bom_with_or_without_a_footprint() {
     let dir = TempDir::new("assembly-mechanical-sheet");
-    let library = mechanical_resistor_library(&dir);
+    let library = mechanical_library(&dir);
     let mut engine = engine_on(&dir, &library);
     place(&mut engine, RESISTOR, Some(RESC1608), 1);
     place(&mut engine, HEADER_1X02, None, 1);
+    // The screw has no Footprint, so it stays on the schematic.
+    place(&mut engine, SCREW, None, 2);
+    set(&mut engine, &["R3"], json!({"not_fitted": true}));
     sync(&mut engine);
-    let bom = bom(&engine);
-    assert_eq!(lines(&bom).len(), 2, "{bom}");
-    assert!(bom.contains("J1") && !bom.contains("R1"), "{bom}");
-    let cpl = cpl(&engine);
-    assert!(cpl.contains("J1") && !cpl.contains("R1"), "{cpl}");
+    assert_eq!(
+        lines(&bom(&engine)),
+        [
+            "Designator,Quantity,Value,Footprint,Manufacturer,MPN",
+            "J1,1,Header 1x2,HDR254P1X2,,",
+            "R1,1,10k,RESC1608X55N,,",
+            "R2,1,M3 screw,,,",
+        ]
+    );
+    assert_eq!(designators(&cpl(&engine)), ["J1"]);
 }
 
 #[test]

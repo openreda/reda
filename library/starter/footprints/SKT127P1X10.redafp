@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"4635584b-379c-4e85-a5ba-b15841765d98","name":"SKT127P1X10","description":"Socket, 1 × 10, 1.27 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":7300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":630000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":10,"pitch":"1.27","rows":1,"socket":true}},
   "pads": [
     {"uuid":"0d70dff0-e4ce-4183-93d7-4cb4f3343913","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
     {"uuid":"0fc590b1-fe06-4f90-bd9f-c5614bbef4e2","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":4445000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
@@ -21,5 +21,9 @@
     {"uuid":"3c782e59-351c-4253-827e-11d6165bc8d8","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-6600000},"end":{"x":900000,"y":6600000}},"width":50000},
     {"uuid":"884464dc-49af-4b0c-8d5f-bf2bf0d82134","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":760000,"y":-6475000},"end":{"x":760000,"y":6475000}},"width":120000},
     {"uuid":"98abef85-2815-47df-a0a9-74aa2f97593c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-6475000},"end":{"x":-760000,"y":6475000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"4eb7bd79-2c32-4aa8-b313-6be7f244b12f","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500},"layer":"assembly_top"},
+    {"uuid":"a32beda2-9fe7-48bc-8a96-bd4e9f556906","field":"Designator","at":{"x":0,"y":7300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

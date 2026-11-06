@@ -32,6 +32,8 @@ pub struct Quad {
     pub lead_width: Tol,
     /// The length of the lead's foot or terminal (L).
     pub lead_length: Tol,
+    /// The greatest height (A).
+    pub height: Nm,
 }
 
 /// Centres of `n` leads at `pitch`, symmetric about zero, in increasing order.
@@ -106,5 +108,6 @@ pub fn plan(
         },
         silkscreen,
         courtyard_excess: goals.courtyard,
+        height: Some(q.height),
     })
 }

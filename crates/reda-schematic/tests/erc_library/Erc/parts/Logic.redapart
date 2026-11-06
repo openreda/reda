@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"a0000000-0000-4000-8000-000000000210","name":"Logic","component_type":"standard","symbol":"a0000000-0000-4000-8000-000000000200"},
+  "part": {"uuid":"a0000000-0000-4000-8000-000000000210","name":"Logic","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000200"},
   "footprints": [],
   "fields": {"value":"Logic"},
   "pin_map": {}

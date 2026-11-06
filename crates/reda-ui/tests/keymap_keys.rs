@@ -178,7 +178,7 @@ fn menus_show_the_shortcut_of_each_item() {
     // Labelled as on the platform egui reports.
     let label = Chord::parse("Mod+S").unwrap().label(h.ctx.os().is_mac());
     assert!(
-        h.query_by_label_contains(&label).is_some(),
+        h.query_by_label(&format!("Save All {label}")).is_some(),
         "the File menu shows {label} beside Save All"
     );
 }

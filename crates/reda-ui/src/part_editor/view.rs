@@ -100,20 +100,27 @@ fn properties(ui: &mut Ui, id: Id, part: &Part, locked: bool, out: &mut Vec<Invo
                 let label = tr!("library-filter-type");
                 ui.label(&label);
                 let mut kind = part.component_type;
-                let name = |t: ComponentType| match t {
-                    ComponentType::Standard => tr!("library-type-standard"),
-                    ComponentType::Mechanical => tr!("library-type-mechanical"),
-                };
+                let name = crate::panels::library::type_name;
                 ComboBox::from_id_salt(id.with("type"))
                     .selected_text(name(kind))
                     .show_ui(ui, |ui| {
-                        for t in [ComponentType::Standard, ComponentType::Mechanical] {
+                        for t in ComponentType::ALL {
                             ui.selectable_value(&mut kind, t, name(t));
                         }
                     })
                     .response
                     .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
                 out.extend(super::set_component_type(part, kind));
+                ui.end_row();
+                ui.label("");
+                let mut in_bom = part.in_bom;
+                ui.checkbox(&mut in_bom, tr!("part-in-bom"));
+                out.extend(super::set_in_bom(part, in_bom));
+                ui.end_row();
+                ui.label("");
+                let mut in_cpl = part.in_cpl;
+                ui.checkbox(&mut in_cpl, tr!("part-in-cpl"));
+                out.extend(super::set_in_cpl(part, in_cpl));
                 ui.end_row();
             });
     });
@@ -215,7 +222,7 @@ fn symbol(
                 tr!("part-not-found", uuid = uuid.to_string()),
             );
         }
-        (None, None) if part.component_type == ComponentType::Standard => {
+        (None, None) if part.component_type.needs_symbol_and_footprint() => {
             ui.colored_label(ui.visuals().warn_fg_color, tr!("part-needs-symbol"));
         }
         (None, None) => {}

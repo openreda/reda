@@ -303,6 +303,7 @@ pub(super) fn title(shell: &Shell, binding: &Binding) -> String {
         id: String::new(),
         binding: binding.clone(),
         title: None,
+        icon: None,
     };
     bars::resolve(shell, &action).title
 }

@@ -6,7 +6,7 @@ use reda_command::{CommandError, Kind, Length, Meta};
 use reda_model::Uuid;
 use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Goals, Tol};
 use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
@@ -14,7 +14,7 @@ use crate::generate::pattern::{Body, PadSpec};
 
 pub struct Chip;
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ChipParams {
     /// The registered Library to write the Footprint into.
@@ -34,7 +34,7 @@ pub struct ChipParams {
 }
 
 /// A chip's body dimensions.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ChipDimensions {
     /// The body length, terminal end to terminal end.
@@ -47,7 +47,7 @@ pub struct ChipDimensions {
     pub height: Length,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ChipClass {
     #[default]
@@ -75,7 +75,7 @@ impl ChipClass {
 }
 
 /// A standard chip size by its imperial (EIA) code.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub enum ChipSize {
     #[serde(rename = "0201")]
     S0201,
@@ -299,6 +299,7 @@ impl FootprintFamily for Chip {
             },
             silkscreen: vec![],
             courtyard_excess: goals.courtyard,
+            height: Some(height),
         })
     }
 }
