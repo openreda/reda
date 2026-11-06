@@ -4,6 +4,7 @@
 
 use reda_import_kicad::{ImportError, ImportOptions, Imported, Service, SourceFile, import};
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::text;
 use reda_model::{
     ComponentType, ConnectionStyle, Corner, Corners, FootprintLayer, Hole, PadKind, PadShape,
     PinType, Provenance, Ratio, Shape, Side, Uuid,
@@ -506,4 +507,48 @@ fn chamfers_corner_flags_the_drill_offset_side_and_zone_connections_carry_over()
         "{:?}",
         out.warnings
     );
+}
+
+/// `${` is reserved in REDA text, so imported text comes in escaped and displays as it was
+/// written: field values and the text in Symbol and Footprint drawings.
+#[test]
+fn imported_text_is_escaped_so_it_displays_as_written() {
+    let symbol = fixture("divider.kicad_sym")
+        .replace("\"resistor example\"", "\"resistor ${KEY}\"")
+        .replace(
+            "      (rectangle (start -1.016 2.54)",
+            "      (text \"${REF}x\" (at 0 0 0) (effects (font (size 1 1))))\n      \
+             (rectangle (start -1.016 2.54)",
+        );
+    let footprint = fixture("divider.kicad_mod").replace(
+        "  (fp_line ",
+        "  (fp_text user \"${REFERENCE}\" (at 0 0) (layer \"F.Fab\") \
+         (effects (font (size 1 1) (thickness 0.15))))\n  (fp_line ",
+    );
+    let out = import(&symbol, &footprint, &ImportOptions::default(), &mut ids()).unwrap();
+
+    assert_eq!(out.part.fields.keywords, "resistor $${KEY}");
+    assert_eq!(text::display(&out.part.fields.keywords), "resistor ${KEY}");
+    let texts = |shapes: Vec<&Shape>| -> Vec<String> {
+        shapes
+            .into_iter()
+            .filter_map(|s| match s {
+                Shape::Text { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(
+        texts(out.symbol.graphics.iter().map(|g| &g.shape).collect()),
+        ["$${REF}x"]
+    );
+    assert_eq!(
+        texts(out.footprint.graphics.iter().map(|g| &g.shape).collect()),
+        ["$${REFERENCE}"]
+    );
+    let mut stored = vec![];
+    text::part_texts(&out.part, &mut stored);
+    text::symbol_texts(&out.symbol, &mut stored);
+    text::footprint_texts(&out.footprint, &mut stored);
+    assert_eq!(text::check_texts("imported", &stored), Ok(()));
 }

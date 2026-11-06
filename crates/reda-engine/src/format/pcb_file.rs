@@ -346,5 +346,9 @@ pub(crate) fn read_pcb_file(
             .into_iter()
             .map(|w| Object::Waiver(InDocument::new(doc, w))),
     );
+    for object in &objects {
+        reda_model::text::check_object(object)
+            .map_err(|why| LoadError::Invalid(path.to_owned(), why))?;
+    }
     Ok(objects)
 }

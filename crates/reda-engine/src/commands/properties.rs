@@ -43,6 +43,17 @@ impl Command for ProjectPropertiesSet {
         cx: &mut Context<'_>,
         p: PropertiesSetParams,
     ) -> Result<ProjectProperties, CommandError> {
+        for (pointer, value) in [
+            ("/title", &p.title),
+            ("/revision", &p.revision),
+            ("/date", &p.date),
+            ("/author", &p.author),
+            ("/company", &p.company),
+        ] {
+            if let Some(value) = value {
+                CommandError::check_text(pointer, value)?;
+            }
+        }
         let tx = cx.tx()?;
         let mut props = tx.project().props().clone();
         let fields = &mut props.properties;

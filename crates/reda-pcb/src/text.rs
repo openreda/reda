@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::text::display;
 use reda_model::{HERSHEY_FONT, NOTO_SANS_FONT, PcbDocument, PcbText, Uuid};
 use reda_text::{Font, OutlineFont, StrokeFont, layout};
 use schemars::JsonSchema;
@@ -122,7 +123,7 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
     let pitch = text.height.0 * LINE_PITCH.0 / LINE_PITCH.1;
     let mut strokes = Vec::new();
     let mut fill = Fill::default();
-    for (i, line) in text.text.split('\n').enumerate() {
+    for (i, line) in display(&text.text).split('\n').enumerate() {
         let drop = pitch * i as i64;
         let at = |p: Point| place.apply(Point::new(p.x, p.y - Nm(drop)));
         let geometry = layout(line, font, text.height, noto_sans());

@@ -2,6 +2,9 @@
 //! visible Component fields.
 
 use reda_model::geom::{Millideg, Nm, Point};
+use std::borrow::Cow;
+
+use reda_model::text::display;
 use reda_model::{
     PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance, Uuid,
 };
@@ -155,7 +158,7 @@ fn draw_graphic(b: &mut Builder, object: Uuid, place: &Placement, g: &SymbolGrap
         } => b.text(
             object,
             C::Body,
-            text,
+            &display(text),
             place.apply(*at),
             TextStyle {
                 height: *size,
@@ -268,17 +271,21 @@ fn draw_fields(
     (lo, hi): (Point, Point),
 ) {
     let designator = format!("{}{suffix}", unit.designator);
-    let mut lines: Vec<(&str, C, &str)> = Vec::new();
+    let mut lines: Vec<(&str, C, Cow<'_, str>)> = Vec::new();
     let shown = |name: &str| unit.visible_fields.contains(name);
     if shown(UnitInstance::DESIGNATOR) {
-        lines.push((UnitInstance::DESIGNATOR, C::Designator, &designator));
+        lines.push((
+            UnitInstance::DESIGNATOR,
+            C::Designator,
+            designator.as_str().into(),
+        ));
     }
     if shown("value") {
-        lines.push(("value", C::Value, unit.fields.get("value")));
+        lines.push(("value", C::Value, display(unit.fields.get("value"))));
     }
     for name in &unit.visible_fields {
         if name != UnitInstance::DESIGNATOR && name != "value" {
-            lines.push((name, C::Field, unit.fields.get(name)));
+            lines.push((name, C::Field, display(unit.fields.get(name))));
         }
     }
     lines.retain(|(_, _, text)| !text.is_empty());
@@ -297,7 +304,7 @@ fn draw_fields(
         b.text(
             unit.uuid,
             color,
-            text,
+            &text,
             place.apply(entry.offset),
             style(height, HAlign::Left),
         );
@@ -321,6 +328,6 @@ fn draw_fields(
                 HAlign::Left,
             )
         };
-        b.text(unit.uuid, color, text, at, style(FIELD_TEXT, h));
+        b.text(unit.uuid, color, &text, at, style(FIELD_TEXT, h));
     }
 }

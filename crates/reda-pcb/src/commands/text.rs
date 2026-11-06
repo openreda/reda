@@ -27,7 +27,7 @@ fn check_text(text: &str) -> Result<(), CommandError> {
     if text.trim().is_empty() {
         return Err(CommandError::invalid_params("/text", "the text is empty"));
     }
-    Ok(())
+    CommandError::check_text("/text", text)
 }
 
 fn check_font(font: &str) -> Result<(), CommandError> {

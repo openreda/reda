@@ -138,6 +138,7 @@ impl Command for ComponentPlace {
             None => content.symbol.units[0].uuid,
         };
         check_field_names("/fields", p.fields.keys(), false)?;
+        CommandError::check_field_texts("/fields", &p.fields)?;
         let mut fields = content.part.fields.clone();
         for (name, value) in &p.fields {
             fields.set(name, value.as_deref().unwrap_or(""));

@@ -2,6 +2,7 @@
 //! free drawing (text, lines and rectangles).
 
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::text::display;
 use reda_model::{JustifyAxis, SchematicSheet, SheetShape};
 
 use super::Builder;
@@ -147,7 +148,7 @@ pub(super) fn texts(b: &mut Builder, sheet: &SchematicSheet) {
         b.text(
             text.uuid,
             C::Text,
-            &text.text,
+            &display(&text.text),
             Point::new(text.at.x + Nm(dx), text.at.y + Nm(dy)),
             TextStyle {
                 height: text.height,
