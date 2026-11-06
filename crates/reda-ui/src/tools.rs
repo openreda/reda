@@ -161,6 +161,11 @@ const BOARD_TOOLS: [(Tool, &str, &str); 13] = [
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ActiveTool(pub Tool);
 
+/// The Net name the Power Port Tool starts with, from a Power Port Preset, in the
+/// engine's view state. None starts it on GND.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PowerPortName(pub Option<String>);
+
 /// Adds `tool.activate` and the in-flight Commands (`tool.rotate`, `tool.mirror`,
 /// `tool.flip`, `tool.cycle_corner`, `tool.undo_segment`, `tool.finish`)
 /// to `registry`. The Shell does this for its engine.
@@ -179,6 +184,9 @@ pub fn register_all(registry: &mut Registry) {
 pub struct ToolActivateParams {
     /// The Tool to make active.
     tool: Tool,
+    /// For the Power Port Tool: the Net name it places, such as `3V3` (a Power Port
+    /// Preset). GND when left out.
+    name: Option<String>,
 }
 
 /// The Tool now active.
@@ -246,6 +254,14 @@ impl Command for ToolActivate {
                 json!({"tool": "polygon"}),
             ),
         ];
+        for (name, _) in reda_engine::schematic::POWER_PORT_PRESETS {
+            presets.push(Preset::new(
+                format!("power_port_{}", name.to_lowercase()),
+                format!("{name} Power Port"),
+                "power_port",
+                json!({"tool": "power_port", "name": name}),
+            ));
+        }
         for (tool, title, icon) in BOARD_TOOLS {
             let id = tool.id();
             presets.push(Preset::new(id, title, icon, json!({ "tool": id })));
@@ -269,6 +285,10 @@ impl Command for ToolActivate {
             ));
         }
         cx.view::<ActiveTool>()?.0 = p.tool;
+        cx.view::<PowerPortName>()?.0 = match p.tool {
+            Tool::PowerPort => p.name,
+            _ => None,
+        };
         // Another Tool ends a placement.
         cx.view::<Placement>()?.placing = None;
         Ok(ToolActivateResult { tool: p.tool })

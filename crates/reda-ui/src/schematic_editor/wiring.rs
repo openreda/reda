@@ -9,8 +9,8 @@
 use reda_engine::model::geom::Nm;
 use reda_engine::model::geom::{Millideg, Point};
 use reda_engine::model::{
-    InDocument, NetLabel, NoConnect, Object, Port, PortDirection, PowerPort, Project, SheetText,
-    Uuid,
+    InDocument, Justify, NetLabel, NoConnect, Object, Port, PortDirection, PowerPort, Project,
+    SheetText, Uuid,
 };
 use reda_engine::schematic::connectivity::placed_pins;
 use reda_engine::schematic::default_power_port_style;
@@ -18,7 +18,7 @@ use serde_json::{Value, json};
 
 use super::{Cx, Interaction, P, snap_targets};
 use crate::canvas::interact::SnapTargets;
-use crate::tools::Tool;
+use crate::tools::{PowerPortName, Tool};
 
 /// Which way a Wire run turns its corner on the way to the pointer.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -130,6 +130,7 @@ impl Placing {
                     direction: PortDirection::default(),
                     at,
                     rotation,
+                    hide_cross_reference: false,
                 },
             )),
             Tool::PowerPort => Object::PowerPort(InDocument::new(
@@ -140,6 +141,7 @@ impl Placing {
                     name,
                     at,
                     rotation,
+                    hide_name: false,
                 },
             )),
             Tool::NoConnect => Object::NoConnect(InDocument::new(document, NoConnect { uuid, at })),
@@ -151,6 +153,7 @@ impl Placing {
                     at,
                     height: Nm::from_mil(50),
                     rotation,
+                    justify: Justify::default(),
                 },
             )),
             _ => return None,
@@ -226,7 +229,14 @@ impl Cx<'_> {
                     tool,
                     at: self.snap(at),
                     rotation: Millideg(0),
-                    name: next_name(self.shell.engine().project(), tool, None),
+                    name: {
+                        let engine = self.shell.engine();
+                        let preset = engine
+                            .view()
+                            .get::<PowerPortName>()
+                            .and_then(|n| n.0.clone());
+                        next_name(engine.project(), tool, preset.as_deref())
+                    },
                     shown: None,
                 }))
             }
