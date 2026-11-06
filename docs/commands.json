@@ -765,6 +765,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -785,9 +846,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -796,6 +903,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -1084,7 +1221,7 @@
     },
     {
       "category": "pcb",
-      "description": "Waives one current DRC Violation, named by its check and exactly its objects, with an optional comment. The Waiver is stored in the PCB Document and stops matching once those objects no longer break the check.",
+      "description": "Waives the selected current DRC Violations with one reason, author and creation time, as one undo step. Each Waiver is stored in the Document holding its objects and stops matching once those objects no longer break the check.",
       "icon": "waive",
       "id": "drc.waive",
       "kind": "edit",
@@ -1169,32 +1306,46 @@
                 "type": "string"
               }
             ]
+          },
+          "DrcWaiverTarget": {
+            "additionalProperties": false,
+            "properties": {
+              "check": {
+                "$ref": "#/$defs/DrcCheck"
+              },
+              "objects": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "check",
+              "objects"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "check": {
-            "$ref": "#/$defs/DrcCheck",
-            "description": "The check id of the Violation, such as `clearance`."
-          },
-          "comment": {
+          "reason": {
             "default": "",
-            "description": "Why it is waived.",
+            "description": "One reason for every selected Violation.",
             "type": "string"
           },
-          "objects": {
-            "description": "Exactly the objects of the Violation, in any order.",
+          "violations": {
+            "description": "The current Violations to waive together, each with exactly its objects.",
             "items": {
-              "format": "uuid",
-              "type": "string"
+              "$ref": "#/$defs/DrcWaiverTarget"
             },
             "type": "array"
           }
         },
         "required": [
-          "check",
-          "objects"
+          "violations"
         ],
         "title": "DrcWaiveParams",
         "type": "object"
@@ -1203,25 +1354,22 @@
       "result": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
-          "document": {
-            "description": "The PCB Document that holds it.",
-            "format": "uuid",
-            "type": "string"
-          },
-          "waiver": {
-            "description": "The new Waiver.",
-            "format": "uuid",
-            "type": "string"
+          "waivers": {
+            "description": "The new Waivers, in the order of the selected Violations.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "waiver",
-          "document"
+          "waivers"
         ],
         "title": "DrcWaiveResult",
         "type": "object"
       },
-      "title": "Waive DRC Violation"
+      "title": "Waive DRC Violations"
     },
     {
       "category": "edit",
@@ -1351,6 +1499,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -1371,9 +1580,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -1382,6 +1637,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -1670,7 +1955,7 @@
     },
     {
       "category": "schematic",
-      "description": "Waives one current ERC Violation, named by its check and exactly its objects, with an optional comment. The Waiver is stored in the sheet holding the Violation's first object and stops matching once those objects no longer break the check.",
+      "description": "Waives the selected current ERC Violations with one reason, author and creation time, as one undo step. Each Waiver is stored in the Document holding its objects and stops matching once those objects no longer break the check.",
       "icon": "waive",
       "id": "erc.waive",
       "kind": "edit",
@@ -1760,32 +2045,46 @@
                 "type": "string"
               }
             ]
+          },
+          "ErcWaiverTarget": {
+            "additionalProperties": false,
+            "properties": {
+              "check": {
+                "$ref": "#/$defs/ErcCheck"
+              },
+              "objects": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "check",
+              "objects"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "check": {
-            "$ref": "#/$defs/ErcCheck",
-            "description": "The check id of the Violation, such as `unconnected_pin`."
-          },
-          "comment": {
+          "reason": {
             "default": "",
-            "description": "Why it is waived.",
+            "description": "One reason for every selected Violation.",
             "type": "string"
           },
-          "objects": {
-            "description": "Exactly the objects of the Violation, in any order.",
+          "violations": {
+            "description": "The current Violations to waive together, each with exactly its objects.",
             "items": {
-              "format": "uuid",
-              "type": "string"
+              "$ref": "#/$defs/ErcWaiverTarget"
             },
             "type": "array"
           }
         },
         "required": [
-          "check",
-          "objects"
+          "violations"
         ],
         "title": "ErcWaiveParams",
         "type": "object"
@@ -1794,25 +2093,22 @@
       "result": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
-          "document": {
-            "description": "The sheet that holds it: the one holding the Violation's first object.",
-            "format": "uuid",
-            "type": "string"
-          },
-          "waiver": {
-            "description": "The new Waiver.",
-            "format": "uuid",
-            "type": "string"
+          "waivers": {
+            "description": "The new Waivers, in the order of the selected Violations.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "waiver",
-          "document"
+          "waivers"
         ],
         "title": "ErcWaiveResult",
         "type": "object"
       },
-      "title": "Waive ERC Violation"
+      "title": "Waive ERC Violations"
     },
     {
       "category": "output",
@@ -2581,6 +2877,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "ScanProblem": {
             "description": "A file or folder a scan could not use, and why.",
             "properties": {
@@ -2617,9 +2974,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -2628,6 +3031,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -3306,6 +3739,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -3326,9 +3820,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -3337,6 +3877,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -3566,6 +4136,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -3586,9 +4217,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -3597,6 +4274,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -3716,6 +4423,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -3736,9 +4504,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -3747,6 +4561,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -3893,6 +4737,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -3913,9 +4818,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -3924,6 +4875,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -4153,6 +5134,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -4173,9 +5215,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -4184,6 +5272,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -4392,6 +5510,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -4412,9 +5591,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -4423,6 +5648,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -4631,6 +5886,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -4651,9 +5967,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -4662,6 +6024,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -4799,6 +6191,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -4819,9 +6272,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -4830,6 +6329,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -5033,6 +6562,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -5053,9 +6643,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -5064,6 +6700,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -5267,6 +6933,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -5287,9 +7014,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -5298,6 +7071,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -7505,6 +9308,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Provenance": {
             "additionalProperties": false,
             "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
@@ -7550,9 +9414,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -7561,6 +9471,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",
@@ -11121,13 +13061,18 @@
           "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "author": {
+                "description": "Preference `user.name` at the instant this Waiver was created.",
+                "type": "string"
+              },
               "check": {
                 "description": "The check id of the waived Violation, such as `unconnected_pin` or `clearance`.",
                 "type": "string"
               },
-              "comment": {
-                "description": "Why it is waived. Left out when empty.",
-                "type": "string"
+              "created": {
+                "description": "Milliseconds since the Unix epoch, UTC, from the injected Clock.",
+                "format": "int64",
+                "type": "integer"
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, sorted.",
@@ -11137,6 +13082,10 @@
                 },
                 "type": "array"
               },
+              "reason": {
+                "description": "Why it is waived. Left out when empty.",
+                "type": "string"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -11145,7 +13094,9 @@
             "required": [
               "uuid",
               "check",
-              "objects"
+              "objects",
+              "author",
+              "created"
             ],
             "type": "object"
           },
@@ -15942,13 +17893,18 @@
           "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "author": {
+                "description": "Preference `user.name` at the instant this Waiver was created.",
+                "type": "string"
+              },
               "check": {
                 "description": "The check id of the waived Violation, such as `unconnected_pin` or `clearance`.",
                 "type": "string"
               },
-              "comment": {
-                "description": "Why it is waived. Left out when empty.",
-                "type": "string"
+              "created": {
+                "description": "Milliseconds since the Unix epoch, UTC, from the injected Clock.",
+                "format": "int64",
+                "type": "integer"
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, sorted.",
@@ -15958,6 +17914,10 @@
                 },
                 "type": "array"
               },
+              "reason": {
+                "description": "Why it is waived. Left out when empty.",
+                "type": "string"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -15966,7 +17926,9 @@
             "required": [
               "uuid",
               "check",
-              "objects"
+              "objects",
+              "author",
+              "created"
             ],
             "type": "object"
           },
@@ -19256,6 +21218,67 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -19276,9 +21299,55 @@
                 "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
                 "type": "object"
               },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
               "check": {
                 "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
                 "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
               },
               "objects": {
                 "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
@@ -19287,6 +21356,36 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "severity": {
                 "$ref": "#/$defs/Severity",

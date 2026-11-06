@@ -22,7 +22,8 @@ pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board, seed_rules};
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     MechanicalSet, MechanicalSetParams, Placed, PlacementOp, SyncCheck, SyncState, TrackDragPlan,
-    placement_anchor, placement_preview, rect_outline, register_all, track_drag_plan,
+    placement_anchor, placement_preview, rect_outline, register_all, register_all_with_user,
+    track_drag_plan,
 };
 pub use copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility};
 pub use text::{

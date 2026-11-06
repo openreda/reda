@@ -12,6 +12,7 @@
 
 mod connections;
 mod copper;
+mod details;
 mod edge;
 mod holes;
 mod placement;
@@ -45,7 +46,13 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
     connections::check(&board, &mut report);
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
-    found.into_iter().map(|(_, v)| v).collect()
+    found
+        .into_iter()
+        .map(|(_, mut v)| {
+            details::complete(&board, &mut v);
+            v
+        })
+        .collect()
 }
 
 /// The fingerprint of everything DRC reads: the PCB Document, its rules, severities and

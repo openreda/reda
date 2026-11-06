@@ -120,7 +120,9 @@ pub(crate) fn warnings(
         .documents()
         .filter_map(|d| project.schematic_sheet(d.uuid))
         .flat_map(|s| s.waivers());
-    let erc = apply_waivers(reda_schematic::erc::check(project), waivers, false);
+    let erc = apply_waivers(reda_schematic::erc::check(project), waivers, false, |_| {
+        false
+    });
     let errors = erc
         .violations
         .iter()
@@ -137,6 +139,7 @@ pub(crate) fn warnings(
         reda_pcb::drc::check(pcb, &fills, fonts),
         pcb.waivers(),
         false,
+        |_| false,
     );
     let errors = drc
         .violations

@@ -329,7 +329,7 @@ A Net Tie needs no Waiver. DRC and the Track Tool share one rule, based on the N
 
 ## Waivers
 
-- **Waiving:** `drc.waive` and `erc.waive` take a list of Violations with one reason, as one undo step. In Messages, Waive opens a small window for the reason, covering everything selected. An unconnected test Pin is a typical case, and one connector whose silk crosses the edge is a typical batch.
+- **Waiving:** `drc.waive` and `erc.waive` take a list of Violations with one reason, as one atomic Command and one undo step per affected Document, following the [per-Document undo stacks](architecture.md#commands). In Messages, Waive opens a small window for the reason, covering everything selected. An unconnected test Pin is a typical case, and one connector whose silk crosses the edge is a typical batch.
 - **Unwaiving:** `drc.unwaive` and `erc.unwaive`, from Messages or Violation Details.
 - **Storage:**
   - A Waiver is stored in the Document that holds the objects.

@@ -307,15 +307,17 @@ impl Messages {
     }
 }
 
-/// The Document holding a Violation: the home of its first object that still exists.
+/// The check's Document, retained for stale results even when every object is deleted.
 pub fn violation_document(project: &Project, violation: &Violation) -> Option<Uuid> {
-    violation
-        .objects
-        .iter()
-        .find_map(|o| match project.object(*o)?.scope() {
-            Scope::Document(d) => Some(d),
-            _ => None,
-        })
+    violation.document.or_else(|| {
+        violation
+            .objects
+            .iter()
+            .find_map(|o| match project.object(*o)?.scope() {
+                Scope::Document(d) => Some(d),
+                _ => None,
+            })
+    })
 }
 
 /// The text of a Violation, from its check id and arguments; the check id itself when
