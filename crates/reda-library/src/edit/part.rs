@@ -1,5 +1,5 @@
-//! The Part editor's Commands: the Part's name and Component Type, its Symbol, its
-//! alternate Footprints, its pin-map overrides and its default fields.
+//! The Part editor's Commands: the Part's name, Component Type, In BOM and In CPL, its
+//! Symbol, its alternate Footprints, its pin-map overrides and its default fields.
 
 use std::collections::BTreeSet;
 
@@ -39,14 +39,24 @@ pub struct PartEditParams {
     /// The open Part.
     pub part: Uuid,
     pub name: Option<String>,
+    /// A new Component Type. Changing it resets In BOM and In CPL to the new type's
+    /// defaults, unless this edit also sets them.
     pub component_type: Option<ComponentType>,
+    /// Whether the Part's Components go into the BOM, by default.
+    #[serde(default)]
+    pub in_bom: Option<bool>,
+    /// Whether the Part's Components go into the CPL, by default.
+    #[serde(default)]
+    pub in_cpl: Option<bool>,
 }
 
 impl Command for PartEdit {
     const META: Meta = meta(
         "library.part.edit",
         "Edit Part",
-        "Changes an open Part's name or Component Type. Omitted fields keep their value.",
+        "Changes an open Part's name, Component Type, In BOM or In CPL. Omitted fields keep \
+         their value. A new Component Type resets In BOM and In CPL to its defaults \
+         (Standard: both; Mechanical: In BOM; Net Tie: neither), unless they are given too.",
     );
     type Params = PartEditParams;
     type Output = ();
@@ -63,8 +73,18 @@ impl Command for PartEdit {
             if let Some(name) = p.name {
                 part.name = name;
             }
-            if let Some(component_type) = p.component_type {
+            if let Some(component_type) = p.component_type
+                && component_type != part.component_type
+            {
                 part.component_type = component_type;
+                part.in_bom = component_type.default_in_bom();
+                part.in_cpl = component_type.default_in_cpl();
+            }
+            if let Some(in_bom) = p.in_bom {
+                part.in_bom = in_bom;
+            }
+            if let Some(in_cpl) = p.in_cpl {
+                part.in_cpl = in_cpl;
             }
             Ok(())
         })

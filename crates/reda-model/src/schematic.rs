@@ -94,6 +94,10 @@ pub struct UnitInstance {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub footprint: Option<Uuid>,
     pub component_type: ComponentType,
+    /// Whether the Component goes into the BOM; copied from the Part, then editable.
+    pub in_bom: bool,
+    /// Whether the Component goes into the CPL; copied from the Part, then editable.
+    pub in_cpl: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub not_fitted: bool,
     /// The fields drawn on the sheet, by name: `designator`, a built-in field's stored name

@@ -3,9 +3,9 @@
 use reda_engine::command::{Angle, Command, CommandError, Context, Kind, Length, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Point};
 use reda_engine::model::{
-    Fields, Footprint, FootprintCopy, FootprintGraphic, FootprintInstance, FootprintLayer,
-    FootprintText, Hole, InDocument, Net, Object, Pad, PadKind, PadNet, PadShape, Shape, Side,
-    Uuid,
+    ComponentType, Corners, Fields, Footprint, FootprintCopy, FootprintGraphic, FootprintInstance,
+    FootprintLayer, FootprintText, Hole, InDocument, Net, Object, Pad, PadKind, PadNet, PadShape,
+    Ratio, Shape, Side, Uuid, ZoneConnection,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -16,8 +16,9 @@ pub(crate) fn register_all(registry: &mut Registry) {
 }
 
 /// `test.footprint.add {at, rotation?, side?, designator?, graphics?: [{layer, shape, width,
-/// fill?}], pads: [{at, width, height, shape?, kind?, rotation?, corner_radius?, net?, hole?,
-/// mask_margin?, paste_margin?}]}`: places a Footprint instance with its own one-off
+/// fill?}], pads: [{at, width, height, shape?, kind?, rotation?, corner_ratio?,
+/// chamfer_ratio?, corners?, offset?, side?, net?, hole?, mask_margin?, paste_margin?,
+/// zone_connection?}]}`: places a Footprint instance with its own one-off
 /// Footprint copy (Pads numbered 1, 2, … in param order), as Sync will, so copper tests
 /// need no Library. Pads default to rectangular SMD Pads.
 struct FootprintAdd;
@@ -48,7 +49,17 @@ struct PadParams {
     #[serde(default)]
     rotation: Option<Angle>,
     #[serde(default)]
-    corner_radius: Option<Length>,
+    corner_ratio: Option<Ratio>,
+    #[serde(default)]
+    chamfer_ratio: Option<Ratio>,
+    #[serde(default)]
+    corners: Option<Corners>,
+    #[serde(default)]
+    offset: Option<Xy>,
+    #[serde(default)]
+    side: Option<Side>,
+    #[serde(default)]
+    zone_connection: Option<ZoneConnection>,
     #[serde(default)]
     net: Option<Uuid>,
     /// `{width, height}` in nm.
@@ -129,10 +140,15 @@ impl Command for FootprintAdd {
                 rotation: pad.rotation.map_or(Millideg::ZERO, |r| r.millideg()),
                 width: pad.width.nm(),
                 height: pad.height.nm(),
-                corner_radius: pad.corner_radius.map(|r| r.nm()),
+                corner_ratio: pad.corner_ratio,
+                chamfer_ratio: pad.chamfer_ratio,
+                corners: pad.corners,
+                offset: pad.offset.as_ref().map(Xy::point),
                 hole: pad.hole,
+                side: pad.side,
                 mask_margin: pad.mask_margin.map(|m| m.nm()),
                 paste_margin: pad.paste_margin.map(|m| m.nm()),
+                zone_connection: pad.zone_connection,
             });
             nets.push(PadNet {
                 pad: uuid,
@@ -154,23 +170,32 @@ impl Command for FootprintAdd {
             })
             .collect();
         graphics.sort_by_key(|g| g.uuid);
+        let (uuid, copy_uuid) = (cx.new_id(), cx.new_id());
+        let instance_uuid = cx.new_id();
+        // The texts' UUIDs come last, so the others keep theirs.
+        let mut texts = vec![
+            FootprintText::designator(cx.new_id()),
+            FootprintText::value(cx.new_id()),
+        ];
+        texts.sort_by_key(|t| t.uuid);
         let footprint = Footprint {
-            uuid: cx.new_id(),
+            uuid,
             name: "Test".into(),
             description: String::new(),
+            height: None,
             pads,
             graphics,
-            designator: FootprintText::DESIGNATOR,
-            value: FootprintText::VALUE,
+            texts,
+            generator: None,
             provenance: None,
         };
         let copy = FootprintCopy {
-            uuid: cx.new_id(),
+            uuid: copy_uuid,
             hash: footprint.uuid.to_string(),
             footprint,
         };
         let instance = FootprintInstance {
-            uuid: cx.new_id(),
+            uuid: instance_uuid,
             component: None,
             footprint: copy.uuid,
             at: p.at.point(),
@@ -179,6 +204,9 @@ impl Command for FootprintAdd {
             locked: false,
             designator: p.designator.unwrap_or_else(|| "TP".into()),
             fields: Fields::default(),
+            component_type: ComponentType::Mechanical,
+            in_bom: ComponentType::Mechanical.default_in_bom(),
+            in_cpl: ComponentType::Mechanical.default_in_cpl(),
             not_fitted: false,
             designator_text: None,
             pads: nets,

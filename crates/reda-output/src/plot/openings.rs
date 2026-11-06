@@ -71,18 +71,8 @@ fn pads<'a>(plot: &'a Plot<'_>) -> impl Iterator<Item = PlacedPad> + 'a {
 /// The Pad grown by `margin` on every side (shrunk when negative); `None` when nothing is
 /// left of it. Rounded corners grow with it; square corners stay square.
 fn grown(pad: &PlacedPad, margin: Nm) -> Option<PlacedPad> {
-    let (width, height) = (pad.width + margin + margin, pad.height + margin + margin);
-    if width <= Nm::ZERO || height <= Nm::ZERO {
-        return None;
-    }
-    let most = Nm(width.0.min(height.0) / 2);
-    let corner_radius = pad
-        .corner_radius
-        .map(|r| Nm((r + margin).0.clamp(0, most.0)));
     Some(PlacedPad {
-        width,
-        height,
-        corner_radius,
+        outline: pad.outline.grown(margin)?,
         ..pad.clone()
     })
 }

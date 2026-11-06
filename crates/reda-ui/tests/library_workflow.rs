@@ -202,7 +202,7 @@ fn a_new_part_gets_its_symbol_footprint_and_fields_from_its_form() {
         .unwrap();
     let uuid: Uuid = out["element"].as_str().unwrap().parse().unwrap();
     h.run();
-    h.get_by_label("A Standard Part needs a Symbol.");
+    h.get_by_label("A Standard or Net Tie Part needs a Symbol.");
 
     h.get_by_role_and_label(Role::ComboBox, "Symbol").click();
     h.run();

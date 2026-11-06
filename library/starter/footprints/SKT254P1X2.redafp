@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"34805675-75a8-4a17-8bb8-62b1961d1d43","name":"SKT254P1X2","description":"Socket, 1 × 2, 2.54 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":3500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":2,"pitch":"2.54","rows":1,"socket":true}},
   "pads": [
     {"uuid":"835b23e7-f27e-4b55-afd3-6a6e3df1dc92","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
     {"uuid":"a372e9de-7b89-4c28-bbdf-387685fee1ef","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
@@ -13,5 +13,9 @@
     {"uuid":"73e46529-b858-4f5b-9b72-32b69ed99392","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-2600000},"end":{"x":1330000,"y":-2600000}},"width":120000},
     {"uuid":"a743812f-c7b1-4401-8399-8d6bd068f07e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-2600000},"end":{"x":1330000,"y":2600000}},"width":120000},
     {"uuid":"d94b0165-6d2d-4f57-bda6-ad9984ea020a","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":2540000},{"x":1270000,"y":2540000},{"x":1270000,"y":-2540000},{"x":-1270000,"y":-2540000},{"x":-1270000,"y":1905000}]},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"16c60357-d051-40c9-9d48-a90de2d470dd","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"bac52621-e4de-435a-a22b-5e316f2af21b","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

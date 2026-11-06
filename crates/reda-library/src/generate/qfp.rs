@@ -4,7 +4,7 @@ use reda_command::{CommandError, Kind, Length, Meta};
 use reda_model::Uuid;
 use reda_model::geom::Nm;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Termination, Tol};
 use super::quad::{self, Quad};
@@ -12,7 +12,7 @@ use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 
 pub struct Qfp;
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct QfpParams {
     /// The registered Library to write the Footprint into.
@@ -31,7 +31,7 @@ pub struct QfpParams {
 }
 
 /// A QFP's dimensions from a datasheet, with the JEDEC letters in brackets.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct QfpDimensions {
     /// The lead pitch (e).
@@ -208,6 +208,7 @@ impl FootprintFamily for Qfp {
             body_y: dims.body_y,
             lead_width: dims.lead_width,
             lead_length: dims.lead_length,
+            height: dims.height,
         };
         let name = format!(
             "QFP{}P{}X{}X{}-{}N",

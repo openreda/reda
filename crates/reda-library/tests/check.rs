@@ -5,8 +5,8 @@ mod support;
 use reda_library::{LibraryIndex, LibraryRoot, Origin, check, scan};
 use reda_model::geom::{Nm, Point};
 use reda_model::{
-    ComponentType, Footprint, FootprintGraphic, FootprintLayer, PadKind, PinPads, Severity, Shape,
-    Violation, ViolationArg,
+    ComponentType, Footprint, FootprintGraphic, FootprintLayer, Hole, PadKind, PadShape, PinPads,
+    Severity, Shape, Violation, ViolationArg,
 };
 use support::*;
 
@@ -96,6 +96,30 @@ fn a_footprint_without_courtyard_is_reported() {
     assert_eq!(checks(&found), ["missing_courtyard"]);
     assert_eq!(found[0].severity, Severity::Warning);
     assert_eq!(found[0].objects, [uuid(20)]);
+}
+
+#[test]
+fn a_plated_pad_whose_offset_leaves_its_hole_outside_the_copper_is_reported() {
+    let mut files = MemFiles::default();
+    let mut f = footprint(20, "R0603");
+    for pad in &mut f.pads {
+        pad.kind = PadKind::PlatedThroughHole;
+        pad.shape = PadShape::Rect;
+        pad.corner_ratio = None;
+        pad.hole = Some(Hole::new(Nm::from_um(400), Nm::from_um(400)));
+    }
+    // Pad 1's copper sits 0.6 mm to the right of its 0.4 mm hole: the hole pokes out.
+    f.pads[0].offset = Some(Point::new(Nm::from_um(600), Nm(0)));
+    // Pad 2's copper moves 0.1 mm, which keeps the hole inside.
+    f.pads[1].offset = Some(Point::new(Nm::from_um(100), Nm(0)));
+    files.footprint(&format!("{ROOT}/footprints/R0603.redafp"), f);
+    let index = scanned(&mut files);
+
+    let found = check_of(&index, 20);
+    assert_eq!(checks(&found), ["hole_outside_copper"]);
+    assert_eq!(found[0].severity, Severity::Error);
+    assert_eq!(found[0].objects, [uuid(20), uuid(20_001)]);
+    assert_eq!(found[0].args["pad"], text("1"));
 }
 
 #[test]

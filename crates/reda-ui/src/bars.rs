@@ -26,7 +26,7 @@ use crate::{i18n, tr};
 
 pub(crate) use commands::request;
 pub use commands::{Request, install, register_all, take_requests};
-pub use data::parse;
+pub use data::{MENU_ORDER, parse};
 
 /// What a bar item binds to.
 #[derive(Clone, Debug, PartialEq)]
@@ -76,6 +76,8 @@ pub struct Action {
     pub binding: Binding,
     /// A catalogue key to show instead of the Command's title.
     pub title: Option<String>,
+    /// An icon key to show instead of the Command's icon.
+    pub icon: Option<String>,
 }
 
 /// A menu bar entry or a submenu.
@@ -268,6 +270,9 @@ pub fn resolve_in(
     }
     if let Some(key) = &action.title {
         title = i18n::translate(key, &[]);
+    }
+    if let Some(key) = &action.icon {
+        icon = key.clone();
     }
     let active = document.map(|d| d.to_string());
     let undo = shell.undo_scope(dialog).map(|scope| match scope {

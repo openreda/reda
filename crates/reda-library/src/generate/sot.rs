@@ -4,7 +4,7 @@ use reda_command::{CommandError, Kind, Meta};
 use reda_model::Uuid;
 use reda_model::geom::Nm;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, Lead, Side};
 use super::ipc::{Termination, Tol};
@@ -12,7 +12,7 @@ use super::{FootprintFamily, FootprintPlan, Target};
 
 pub struct Sot;
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SotParams {
     /// The registered Library to write the Footprint into.
@@ -24,7 +24,7 @@ pub struct SotParams {
     pub package: SotPackage,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub enum SotPackage {
     /// SOT-23 with 3 leads (JEDEC TO-236): pins 1 and 2 on the left, 3 on the right.
     #[serde(rename = "sot23_3")]

@@ -100,15 +100,11 @@
       "title": "menu-design",
       "items": [
         { "id": "design.erc", "command": "erc.run" },
-        { "id": "design.sync", "command": "app.dialog.open:change_list" },
         "separator",
         { "id": "design.reannotate", "command": "schematic.dialog.open:reannotate" },
         { "id": "design.update_from_library", "command": "schematic.dialog.open:update_from_library" }
       ]
     }
-  ],
-  "toolbar": [
-    { "id": "toolbar.erc", "command": "erc.run" }
   ],
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },

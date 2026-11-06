@@ -265,6 +265,7 @@ pub struct PartSpec<'a> {
     pub fields: Value,
     /// `library.part.pin_map.set` params, without `part`; `None` keeps the implicit map.
     pub pin_map: Option<Value>,
+    /// A Mechanical Part out of the BOM and CPL: a mounting hole or a fiducial.
     pub mechanical: bool,
 }
 
@@ -491,9 +492,17 @@ impl Script {
 
     /// Puts the Designator above the courtyard, whose top edge is at `top`.
     pub fn finish_footprint(&mut self, footprint: &str, top: i64) -> String {
+        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let designator = object["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == "Designator")
+            .unwrap()["uuid"]
+            .clone();
         self.edit(
-            "library.footprint.text.set",
-            json!({"footprint": footprint, "text": "designator", "at": pt(0, top + mm(0.8))}),
+            "library.footprint.text.edit",
+            json!({"footprint": footprint, "text": designator, "at": pt(0, top + mm(0.8))}),
         );
         self.save(footprint);
         footprint.to_owned()
@@ -506,7 +515,8 @@ impl Script {
         if spec.mechanical {
             self.edit(
                 "library.part.edit",
-                json!({"part": uuid, "component_type": "mechanical"}),
+                json!({"part": uuid, "component_type": "mechanical",
+                       "in_bom": false, "in_cpl": false}),
             );
         }
         if let Some(symbol) = spec.symbol {

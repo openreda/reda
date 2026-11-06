@@ -396,7 +396,7 @@ fn headers_sockets_and_screw_terminals_come_in_both_pitches() {
 }
 
 #[test]
-fn mounting_holes_and_fiducials_are_mechanical_with_no_symbol() {
+fn mounting_holes_and_fiducials_are_mechanical_with_no_symbol_out_of_the_bom_and_cpl() {
     let parts = parts();
     for name in [
         "MountingHole_M2",
@@ -407,6 +407,8 @@ fn mounting_holes_and_fiducials_are_mechanical_with_no_symbol() {
     ] {
         let part = &parts[name];
         assert_eq!(part["component_type"], "mechanical", "{name}");
+        assert_eq!(part["in_bom"], false, "{name}");
+        assert_eq!(part["in_cpl"], false, "{name}");
         assert!(part["symbol"].is_null(), "{name}");
         assert_eq!(part["footprints"].as_array().unwrap().len(), 1, "{name}");
     }

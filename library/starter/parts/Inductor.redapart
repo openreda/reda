@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"bdf557b9-f6ce-4e26-bf3f-02c6ea50a3bb","name":"Inductor","component_type":"standard","symbol":"3eea3d89-869e-405f-9c3c-c3d1bfa16348"},
+  "part": {"uuid":"bdf557b9-f6ce-4e26-bf3f-02c6ea50a3bb","name":"Inductor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"3eea3d89-869e-405f-9c3c-c3d1bfa16348"},
   "footprints": [
     "c90f8f6c-1afb-46d0-8e31-138f5d581c2e",
     "878e4faa-0f70-4f21-a036-7a90b752c5ee",

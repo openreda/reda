@@ -5,7 +5,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
     Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
-    Shape, Uuid,
+    Ratio, Shape, TextStyle, Uuid,
 };
 
 use super::ipc::courtyard_round;
@@ -68,11 +68,15 @@ impl PadSpec {
     }
 
     fn pad(&self, uuid: Uuid) -> Pad {
-        let (kind, shape, corner_radius, hole) = match self.kind {
+        let (kind, shape, corner_ratio, hole) = match self.kind {
             LandKind::Smd => (
                 PadKind::Smd,
                 PadShape::RoundedRect,
-                Some(corner_radius(self)),
+                Some(Ratio::from_length(
+                    corner_radius(self),
+                    self.width,
+                    self.height,
+                )),
                 None,
             ),
             LandKind::ThroughHole { drill, square } => {
@@ -83,10 +87,7 @@ impl PadSpec {
                 } else {
                     PadShape::Oval
                 };
-                let hole = Hole {
-                    width: drill,
-                    height: drill,
-                };
+                let hole = Hole::new(drill, drill);
                 (PadKind::PlatedThroughHole, shape, None, Some(hole))
             }
         };
@@ -99,10 +100,15 @@ impl PadSpec {
             rotation: Millideg(0),
             width: self.width,
             height: self.height,
-            corner_radius,
+            corner_ratio,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
             hole,
+            side: None,
             mask_margin: None,
             paste_margin: None,
+            zone_connection: None,
         }
     }
 }
@@ -197,6 +203,8 @@ pub struct FootprintPlan {
     pub silkscreen: Vec<(Point, Point)>,
     /// The courtyard excess around the Pads and body.
     pub courtyard_excess: Nm,
+    /// The package's greatest height, when the family knows it.
+    pub height: Option<Nm>,
 }
 
 impl FootprintPlan {
@@ -252,29 +260,28 @@ impl FootprintPlan {
                 fill: false,
             });
         }
-        let designator = FootprintText {
-            at: Point::new(
-                Nm(0),
-                Nm(corner.y.0 + SILKSCREEN_CLEARANCE.0 + FootprintText::DESIGNATOR.size.0 / 2),
-            ),
-            ..FootprintText::DESIGNATOR
-        };
-        let value = FootprintText {
-            size: value_size(self.body),
-            ..FootprintText::VALUE
-        };
+        // The texts take their UUIDs last, after the Pads and graphics.
+        let mut designator = FootprintText::designator(new_id());
+        designator.at = Point::new(
+            Nm(0),
+            Nm(corner.y.0 + SILKSCREEN_CLEARANCE.0 + designator.style.height.0 / 2),
+        );
+        let mut value = FootprintText::value(new_id());
+        value.style = TextStyle::of_height(value_size(self.body, value.style.height));
         let mut footprint = Footprint {
             uuid,
             name,
             description: self.description,
+            height: self.height,
             pads,
             graphics,
-            designator,
-            value,
+            texts: vec![designator, value],
+            generator: None,
             provenance: None,
         };
         footprint.pads.sort_by_key(|p| p.uuid);
         footprint.graphics.sort_by_key(|g| g.uuid);
+        footprint.texts.sort_by_key(|t| t.uuid);
         footprint
     }
 }
@@ -307,8 +314,9 @@ fn assembly_outline(body: Body) -> Shape {
     }
 }
 
-/// The value text fits the body: half its shorter side, at most 1 mm, on a 0.01 mm grid.
-fn value_size(body: Body) -> Nm {
-    let size = (body.nominal.0.0.min(body.nominal.1.0) / 2).min(FootprintText::VALUE.size.0);
+/// The value text fits the body: half its shorter side, at most `largest`, on a 0.01 mm
+/// grid.
+fn value_size(body: Body, largest: Nm) -> Nm {
+    let size = (body.nominal.0.0.min(body.nominal.1.0) / 2).min(largest.0);
     Nm(size / 10_000 * 10_000)
 }

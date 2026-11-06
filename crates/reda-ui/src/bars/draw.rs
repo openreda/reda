@@ -1,4 +1,5 @@
-//! Draws bars from their data: the menu bar, the toolbar and the Active Bar. Drawing never
+//! Draws bars from their data: the top row (quick strip, menus, command field and the
+//! Preferences gear) and the Active Bar. Drawing never
 //! runs anything; each function returns the `(id, params)` of a clicked item, which the
 //! window runs through the Shell.
 
@@ -44,15 +45,120 @@ impl Cx<'_> {
     }
 }
 
-/// The menu bar of `bars`.
-pub fn menu_bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> Option<Invocation> {
+/// The top row: from the left the quick strip (`bars.toolbar`), the menus, the command
+/// field and, at the far right, the Preferences gear. One row, so the canvas keeps the
+/// height a second one would take.
+pub fn top_row(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> Option<Invocation> {
+    ui.horizontal(|ui| {
+        let row = ui.max_rect();
+        let quick = icon_row_sized(
+            ui,
+            cx,
+            &bars.toolbar,
+            chrome::QUICK_BUTTON,
+            chrome::QUICK_ICON,
+        );
+        if !bars.toolbar.is_empty() {
+            chrome::bar_separator(ui, chrome::QUICK_ICON);
+        }
+        // The menus centre on the quick strip's row.
+        let strip = ui.min_rect();
+        let y = strip.center().y;
+        let menus = Rect::from_x_y_ranges(ui.cursor().left()..=row.right(), strip.y_range());
+        let (menu, menus_end) = ui
+            .scope_builder(
+                egui::UiBuilder::new()
+                    .max_rect(menus)
+                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                |ui| {
+                    // The menu bar's row is as tall as the strip, its titles centred in it.
+                    ui.spacing_mut().interact_size.y = strip.height();
+                    menu_bar(ui, cx, bars)
+                },
+            )
+            .inner;
+        let gear_at = Rect::from_center_size(
+            egui::pos2(row.right() - chrome::QUICK_BUTTON / 2.0, y),
+            Vec2::splat(chrome::QUICK_BUTTON),
+        );
+        let field = command_field(ui, cx, menus_end..=gear_at.left(), row.center().x, y);
+        let gear = gear(ui, cx, gear_at);
+        quick.or(menu).or(field).or(gear)
+    })
+    .inner
+}
+
+/// Menu titles and items a size up from the rest of the UI.
+fn larger(ui: &mut Ui) {
+    ui.style_mut().override_font_id = Some(egui::FontId::proportional(chrome::MENU_TEXT));
+    ui.spacing_mut().button_padding = chrome::MENU_PADDING;
+}
+
+/// The menu bar of `bars`; returns the item clicked and where the last menu title ends.
+pub fn menu_bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> (Option<Invocation>, f32) {
     let mut clicked = None;
+    let mut end = ui.cursor().left();
     egui::MenuBar::new().ui(ui, |ui| {
+        larger(ui);
         for menu in &bars.menus {
-            ui.menu_button(i18n::translate(&menu.title, &[]), |ui| {
+            let response = ui.menu_button(i18n::translate(&menu.title, &[]), |ui| {
+                larger(ui);
                 menu_items(ui, cx, &menu.items, &mut clicked);
             });
+            end = response.response.rect.right();
         }
+    });
+    (clicked, end)
+}
+
+/// The command field's place: a field reading what the Palette searches, with its key.
+/// It is left out while the row has no room for it between the menus and the gear.
+fn command_field(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    room: std::ops::RangeInclusive<f32>,
+    centre: f32,
+    y: f32,
+) -> Option<Invocation> {
+    const WIDTH: f32 = 360.0;
+    const NARROWEST: f32 = 160.0;
+    const GAP: f32 = 12.0;
+    let (left, right) = (room.start() + GAP, room.end() - GAP);
+    let width = WIDTH.min(right - left);
+    if width < NARROWEST {
+        return None;
+    }
+    let centre = centre.clamp(left + width / 2.0, right - width / 2.0);
+    let action = Action {
+        id: "top_row.command_field".to_owned(),
+        binding: super::Binding::Preset("app.dialog.open:command_palette".to_owned()),
+        title: None,
+        icon: None,
+    };
+    let item = resolve_for(cx.shell, &action, cx.document);
+    let mut button =
+        Button::new(egui::RichText::new(crate::tr!("command-field-placeholder")).weak())
+            .fill(ui.visuals().extreme_bg_color)
+            .truncate();
+    if let Some(shortcut) = cx.shortcut(ui, &action) {
+        button = button.right_text(egui::RichText::new(shortcut).weak());
+    }
+    let at = Rect::from_center_size(egui::pos2(centre, y), Vec2::new(width, chrome::QUICK_ICON));
+    let response = ui.put(at, button).on_hover_text(&item.title);
+    response.clicked().then_some(item.run.ok()).flatten()
+}
+
+/// The Preferences gear at the far right of the top row, at `at`.
+fn gear(ui: &mut Ui, cx: &Cx<'_>, at: Rect) -> Option<Invocation> {
+    let action = Action {
+        id: "top_row.preferences".to_owned(),
+        binding: super::Binding::Preset("app.dialog.open:preferences".to_owned()),
+        title: None,
+        icon: None,
+    };
+    let mut clicked = None;
+    ui.scope_builder(egui::UiBuilder::new().max_rect(at), |ui| {
+        clicked = icon_button_for(ui, cx, &action, chrome::QUICK_BUTTON, chrome::QUICK_ICON);
     });
     clicked
 }
@@ -102,15 +208,25 @@ fn menu_items(ui: &mut Ui, cx: &Cx<'_>, items: &[Item], clicked: &mut Option<Inv
     }
 }
 
-/// A row of square icon buttons, as on the toolbar and the Active Bar.
+/// A row of square icon buttons, as on the Active Bar.
 pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> {
-    let theme = ui.ctx().theme();
+    icon_row_sized(ui, cx, items, chrome::BAR_BUTTON, icons::TOOLBAR)
+}
+
+/// A row of square icon buttons `side` points wide holding `icon`-point icons.
+fn icon_row_sized(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    items: &[Item],
+    side: f32,
+    icon: f32,
+) -> Option<Invocation> {
     let mut clicked = None;
     ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
     for item in items {
         let action = match item {
             Item::Separator => {
-                chrome::bar_separator(ui, chrome::BAR_BUTTON);
+                chrome::bar_separator(ui, side);
                 continue;
             }
             // A submenu on a bar opens as a menu under its button: its icon, or else its
@@ -121,7 +237,7 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
                 let image = menu
                     .icon
                     .as_deref()
-                    .and_then(|icon| icons::image(icon, icons::TOOLBAR, theme, true));
+                    .and_then(|key| icons::image(key, icon, ui.ctx().theme(), true));
                 match image {
                     Some(image) => {
                         // Shown as active while any of its items is.
@@ -131,15 +247,8 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
                             }
                             _ => false,
                         });
-                        let response = chrome::icon_button(
-                            ui,
-                            image,
-                            icons::TOOLBAR,
-                            chrome::BAR_BUTTON,
-                            checked,
-                            true,
-                        )
-                        .on_hover_text(&title);
+                        let response = chrome::icon_button(ui, image, icon, side, checked, true)
+                            .on_hover_text(&title);
                         a11y::name(&response, Role::Button, true, &title, None, None);
                         egui::Popup::menu(&response).show(|ui| {
                             menu_items(ui, cx, &menu.items, &mut inner);
@@ -156,73 +265,74 @@ pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> 
             }
             Item::Action(action) => action,
         };
-        let item = resolve_for(cx.shell, action, cx.document);
-        let enabled = item.run.is_ok();
-        // The tooltip names the shortcut: "Undo (Ctrl+Z)".
-        let shortcut = cx.shortcut(ui, action);
-        let heading = match &shortcut {
-            Some(shortcut) => format!("{} ({shortcut})", item.title),
-            None => item.title.clone(),
-        };
-        let checked = cx.is_checked(&item);
-        // A disabled button still senses the pointer, for the tooltip saying why.
-        let response = match icons::image(&item.icon, icons::TOOLBAR, theme, enabled) {
-            Some(image) => chrome::icon_button(
-                ui,
-                image,
-                icons::TOOLBAR,
-                chrome::BAR_BUTTON,
-                checked,
-                enabled,
-            ),
-            None => ui.add_enabled(
-                enabled,
-                Button::new(item.title.clone())
-                    .selected(checked)
-                    .min_size(Vec2::splat(chrome::BAR_BUTTON)),
-            ),
-        };
-        let response = match &item.run {
-            Ok(run) => {
-                let response = response.on_hover_ui(|ui| {
-                    ui.strong(&heading);
-                    ui.label(&item.description);
-                });
-                if response.clicked() {
-                    clicked = Some(run.clone());
-                }
-                response
-            }
-            Err(reason) => {
-                let tooltip = |ui: &mut Ui| {
-                    ui.strong(&heading);
-                    ui.label(reason);
-                };
-                if response.enabled() {
-                    response.on_hover_ui(tooltip)
-                } else {
-                    response.on_disabled_hover_ui(tooltip)
-                }
-            }
-        };
-        // A choice among several (the active Tool) reads as on or off.
-        let selected =
-            (cx.checked.contains_key(item.command.as_str())).then(|| cx.is_checked(&item));
-        a11y::name(
-            &response,
-            Role::Button,
-            enabled,
-            &item.title,
-            selected,
-            shortcut.as_deref(),
-        );
+        clicked = clicked.or(icon_button_for(ui, cx, action, side, icon));
     }
     clicked
 }
 
-/// The toolbar under the menu bar.
-pub fn toolbar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> Option<Invocation> {
-    ui.horizontal(|ui| icon_row(ui, cx, &bars.toolbar)).inner
+/// One square icon button for `action`, with its tooltip and AccessKit name.
+fn icon_button_for(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    action: &Action,
+    side: f32,
+    icon: f32,
+) -> Option<Invocation> {
+    let theme = ui.ctx().theme();
+    let mut clicked = None;
+    let item = resolve_for(cx.shell, action, cx.document);
+    let enabled = item.run.is_ok();
+    // The tooltip names the shortcut: "Undo (Ctrl+Z)".
+    let shortcut = cx.shortcut(ui, action);
+    let heading = match &shortcut {
+        Some(shortcut) => format!("{} ({shortcut})", item.title),
+        None => item.title.clone(),
+    };
+    let checked = cx.is_checked(&item);
+    // A disabled button still senses the pointer, for the tooltip saying why.
+    let response = match icons::image(&item.icon, icons::TOOLBAR, theme, enabled) {
+        Some(image) => chrome::icon_button(ui, image, icon, side, checked, enabled),
+        None => ui.add_enabled(
+            enabled,
+            Button::new(item.title.clone())
+                .selected(checked)
+                .min_size(Vec2::splat(side)),
+        ),
+    };
+    let response = match &item.run {
+        Ok(run) => {
+            let response = response.on_hover_ui(|ui| {
+                ui.strong(&heading);
+                ui.label(&item.description);
+            });
+            if response.clicked() {
+                clicked = Some(run.clone());
+            }
+            response
+        }
+        Err(reason) => {
+            let tooltip = |ui: &mut Ui| {
+                ui.strong(&heading);
+                ui.label(reason);
+            };
+            if response.enabled() {
+                response.on_hover_ui(tooltip)
+            } else {
+                response.on_disabled_hover_ui(tooltip)
+            }
+        }
+    };
+    // A choice among several (the active Tool) reads as on or off.
+    let selected = (cx.checked.contains_key(item.command.as_str())).then(|| cx.is_checked(&item));
+    a11y::name(
+        &response,
+        Role::Button,
+        enabled,
+        &item.title,
+        selected,
+        shortcut.as_deref(),
+    );
+    clicked
 }
 
 /// How far below the canvas top the Active Bar floats.

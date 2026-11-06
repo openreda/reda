@@ -9,7 +9,7 @@ use reda_command::{CommandError, Kind, Length, Meta};
 use reda_model::Uuid;
 use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing};
 use super::ipc::{self, Termination, Tol};
@@ -100,7 +100,7 @@ impl NoLead {
 }
 
 /// A no-lead package's dimensions from a datasheet.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NoLeadDimensions {
     /// The terminal pitch (e).
@@ -121,7 +121,7 @@ pub struct NoLeadDimensions {
 }
 
 /// An exposed pad's size.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExposedPadDimensions {
     /// Along the body length (D2).
@@ -162,7 +162,7 @@ impl NoLeadDimensions {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NoLeadParams {
     /// The registered Library to write the Footprint into.
@@ -439,6 +439,7 @@ impl FootprintFamily for Qfn {
             body_y: dims.body_length,
             lead_width: dims.lead_width,
             lead_length: dims.lead_length,
+            height: dims.height,
         };
         let mut pattern = quad::plan(
             &quad,
