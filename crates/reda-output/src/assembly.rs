@@ -1,16 +1,18 @@
 //! The assembly files: the CSV BOM and CPL (pick and place) of a PCB Document.
 //!
-//! Both read only the PCB Document's Footprint instances, which carry their Component's
-//! Designator, fields and Not Fitted. Not Fitted Footprints and Mechanical Parts are left
-//! out. The columns are a Fab Preset's mapping; a column with nothing to say for a file
-//! (a position in the BOM) is left blank.
+//! Both read the PCB Document's Footprint instances, which carry their Component's
+//! Designator, fields, In BOM, In CPL and Not Fitted: the BOM lists those In BOM, the CPL
+//! those In CPL, whatever their Component Type, and neither lists a Not Fitted one. The
+//! one exception is a Mechanical Component on a sheet with no Footprint (a screw), which
+//! the BOM reads from the sheet. The columns are a Fab Preset's mapping; a column with
+//! nothing to say for a file (a position in the BOM) is left blank.
 
 use std::collections::BTreeSet;
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Column, ColumnSource, ComponentRef, ComponentType, Fields, FootprintCopy, FootprintInstance,
-    PadKind, PcbDocument, Project, Side,
+    Column, ColumnSource, ComponentType, Fields, FootprintCopy, FootprintInstance, PadKind,
+    PcbDocument, Project, Side,
 };
 use reda_pcb::natural_cmp;
 
@@ -21,7 +23,7 @@ use crate::plot::OutputFile;
 /// natural order, the rows in the order of their first Designator.
 pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> OutputFile {
     let mut groups: Vec<Vec<Fitted<'_>>> = Vec::new();
-    for part in fitted(project, pcb) {
+    for part in bom_parts(project, pcb) {
         match groups.iter_mut().find(|g| g[0].same_line(&part)) {
             Some(group) => group.push(part),
             None => groups.push(vec![part]),
@@ -36,7 +38,7 @@ pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> Out
                 ColumnSource::Quantity => group.len().to_string(),
                 ColumnSource::Designator => group
                     .iter()
-                    .map(|p| p.instance.designator.as_str())
+                    .map(|p| p.designator)
                     .collect::<Vec<_>>()
                     .join(", "),
                 ColumnSource::MidX
@@ -59,24 +61,24 @@ pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> Out
 /// from its IPC-7351 zero orientation, and the side it sits on.
 pub fn cpl_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> OutputFile {
     let origin = cpl_origin(pcb);
-    let rows = fitted(project, pcb)
+    let rows = cpl_parts(pcb)
         .into_iter()
         .enumerate()
-        .map(|(i, part)| {
-            let at = part.instance.at;
+        .map(|(i, (instance, part))| {
+            let at = instance.at;
             columns
                 .iter()
                 .map(|c| match &c.source {
                     ColumnSource::Line => (i + 1).to_string(),
                     ColumnSource::Quantity => "1".into(),
-                    ColumnSource::Designator => part.instance.designator.clone(),
+                    ColumnSource::Designator => instance.designator.clone(),
                     ColumnSource::MidX => mm(at.x - origin.x),
                     ColumnSource::MidY => mm(at.y - origin.y),
-                    ColumnSource::Layer => match part.instance.side {
+                    ColumnSource::Layer => match instance.side {
                         Side::Top => "Top".into(),
                         Side::Bottom => "Bottom".into(),
                     },
-                    ColumnSource::Rotation => degrees(part.instance.rotation),
+                    ColumnSource::Rotation => degrees(instance.rotation),
                     source => part.describe(source),
                 })
                 .collect()
@@ -141,35 +143,46 @@ fn arc_extremes(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
     .collect()
 }
 
-/// A Footprint instance that goes into the BOM and CPL, with its Footprint copy.
+/// A part that goes into the BOM or CPL: a Footprint instance with its Footprint copy, or
+/// for the BOM a footprintless Mechanical Component on a sheet.
 struct Fitted<'a> {
-    instance: &'a FootprintInstance,
-    copy: &'a FootprintCopy,
+    designator: &'a str,
+    fields: &'a Fields,
+    /// Left out for a Component with no Footprint.
+    copy: Option<&'a FootprintCopy>,
 }
 
-impl Fitted<'_> {
-    /// Whether `other` shares this one's BOM line: the same Footprint and fields (which
-    /// hold the Part's own).
-    fn same_line(&self, other: &Fitted<'_>) -> bool {
-        self.copy.footprint.uuid == other.copy.footprint.uuid
-            && self.instance.fields == other.instance.fields
+impl<'a> Fitted<'a> {
+    fn instance(pcb: &'a PcbDocument, instance: &'a FootprintInstance) -> Option<Fitted<'a>> {
+        Some(Fitted {
+            designator: &instance.designator,
+            fields: &instance.fields,
+            copy: Some(pcb.footprint_copy(instance.footprint)?),
+        })
     }
 
-    /// The value of a column the BOM and CPL fill the same way.
+    /// Whether `other` shares this one's BOM line: the same Footprint (or none) and
+    /// fields (which hold the Part's own).
+    fn same_line(&self, other: &Fitted<'_>) -> bool {
+        self.copy.map(|c| c.footprint.uuid) == other.copy.map(|c| c.footprint.uuid)
+            && self.fields == other.fields
+    }
+
+    /// The value of a column the BOM and CPL fill the same way. A part with no Footprint
+    /// leaves the Footprint and mount type blank.
     fn describe(&self, source: &ColumnSource) -> String {
-        match source {
-            ColumnSource::Value => self.instance.fields.value.clone(),
-            ColumnSource::Footprint => self.copy.footprint.name.clone(),
-            ColumnSource::Mount => {
-                let tht = self
-                    .copy
+        match (source, self.copy) {
+            (ColumnSource::Value, _) => self.fields.value.clone(),
+            (ColumnSource::Footprint, Some(copy)) => copy.footprint.name.clone(),
+            (ColumnSource::Mount, Some(copy)) => {
+                let tht = copy
                     .footprint
                     .pads
                     .iter()
                     .any(|p| p.kind == PadKind::PlatedThroughHole);
                 if tht { "THT" } else { "SMT" }.into()
             }
-            ColumnSource::Field(name) => field(&self.instance.fields, name).into(),
+            (ColumnSource::Field(name), _) => field(self.fields, name).into(),
             _ => String::new(),
         }
     }
@@ -195,40 +208,47 @@ fn field<'a>(fields: &'a Fields, name: &str) -> &'a str {
         .map_or("", |f| f.value.as_str())
 }
 
-/// The Footprint instances to assemble, in natural Designator order: not Not Fitted, not
-/// a Mechanical Part (placed on the PCB alone, or a Mechanical Component on a sheet).
-fn fitted<'a>(project: &Project, pcb: &'a PcbDocument) -> Vec<Fitted<'a>> {
-    let mechanical = mechanical_components(project);
-    let mut parts: Vec<Fitted<'a>> = pcb
+/// What the BOM lists, in natural Designator order: every Footprint instance In BOM, and
+/// every Mechanical Component on a sheet In BOM with no Footprint choice; none Not Fitted.
+fn bom_parts<'a>(project: &'a Project, pcb: &'a PcbDocument) -> Vec<Fitted<'a>> {
+    let on_board = pcb
         .footprints()
-        .filter(|i| !i.not_fitted)
-        .filter(|i| {
-            i.component
-                .as_ref()
-                .is_some_and(|c| !mechanical.contains(c))
-        })
-        .filter_map(|instance| {
-            let copy = pcb.footprint_copy(instance.footprint)?;
-            Some(Fitted { instance, copy })
-        })
-        .collect();
-    parts.sort_by(|a, b| {
-        natural_cmp(&a.instance.designator, &b.instance.designator)
-            .then(a.instance.uuid.cmp(&b.instance.uuid))
-    });
-    parts
-}
-
-/// The Components placed on a sheet from a Mechanical Part. The Footprint instance does
-/// not carry the Component Type, so it is read from the Component's Units.
-fn mechanical_components(project: &Project) -> BTreeSet<ComponentRef> {
-    project
+        .filter(|i| i.in_bom && !i.not_fitted)
+        .filter_map(|i| Fitted::instance(pcb, i));
+    let mut seen = BTreeSet::new();
+    let on_sheets = project
         .documents()
         .filter_map(|d| project.schematic_sheet(d.uuid))
         .flat_map(|sheet| sheet.units())
-        .filter(|u| u.component_type == ComponentType::Mechanical)
-        .map(|u| u.component.clone())
-        .collect()
+        .filter(|u| {
+            u.component_type == ComponentType::Mechanical
+                && u.footprint.is_none()
+                && u.in_bom
+                && !u.not_fitted
+        })
+        .filter(|u| seen.insert(&u.component))
+        .map(|u| Fitted {
+            designator: &u.designator,
+            fields: &u.fields,
+            copy: None,
+        });
+    let mut parts: Vec<Fitted<'a>> = on_board.chain(on_sheets).collect();
+    parts.sort_by(|a, b| natural_cmp(a.designator, b.designator));
+    parts
+}
+
+/// What the CPL lists, in natural Designator order: every Footprint instance In CPL and
+/// not Not Fitted.
+fn cpl_parts(pcb: &PcbDocument) -> Vec<(&FootprintInstance, Fitted<'_>)> {
+    let mut parts: Vec<_> = pcb
+        .footprints()
+        .filter(|i| i.in_cpl && !i.not_fitted)
+        .filter_map(|i| Some((i, Fitted::instance(pcb, i)?)))
+        .collect();
+    parts.sort_by(|a, b| {
+        natural_cmp(&a.0.designator, &b.0.designator).then(a.0.uuid.cmp(&b.0.uuid))
+    });
+    parts
 }
 
 /// A CSV file: the header row, then `rows`, each line ending in `\n`.

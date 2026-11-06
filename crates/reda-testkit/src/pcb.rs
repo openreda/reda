@@ -3,9 +3,9 @@
 use reda_engine::command::{Angle, Command, CommandError, Context, Kind, Length, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Point};
 use reda_engine::model::{
-    Fields, Footprint, FootprintCopy, FootprintGraphic, FootprintInstance, FootprintLayer,
-    FootprintText, Hole, InDocument, Net, Object, Pad, PadKind, PadNet, PadShape, Shape, Side,
-    Uuid,
+    ComponentType, Fields, Footprint, FootprintCopy, FootprintGraphic, FootprintInstance,
+    FootprintLayer, FootprintText, Hole, InDocument, Net, Object, Pad, PadKind, PadNet, PadShape,
+    Shape, Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -179,6 +179,9 @@ impl Command for FootprintAdd {
             locked: false,
             designator: p.designator.unwrap_or_else(|| "TP".into()),
             fields: Fields::default(),
+            component_type: ComponentType::Mechanical,
+            in_bom: ComponentType::Mechanical.default_in_bom(),
+            in_cpl: ComponentType::Mechanical.default_in_cpl(),
             not_fitted: false,
             designator_text: None,
             pads: nets,

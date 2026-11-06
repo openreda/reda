@@ -210,6 +210,8 @@ fn lm358() -> Part {
         uuid: id(0x50),
         name: "LM358".into(),
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some(id(0x10)),
         footprints: vec![id(0x30), id(0x60)],
         fields: Fields {
@@ -246,6 +248,8 @@ fn mounting_hole() -> Part {
         uuid: id(0x70),
         name: "MountingHole_M3".into(),
         component_type: ComponentType::Mechanical,
+        in_bom: ComponentType::Mechanical.default_in_bom(),
+        in_cpl: ComponentType::Mechanical.default_in_cpl(),
         symbol: None,
         footprints: vec![id(0x40)],
         fields: Fields::default(),

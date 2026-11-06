@@ -165,6 +165,10 @@ pub(crate) struct PartRow {
     uuid: Uuid,
     name: String,
     component_type: ComponentType,
+    /// Whether its Components go into the BOM, by default.
+    in_bom: bool,
+    /// Whether its Components go into the CPL, by default.
+    in_cpl: bool,
     /// The Symbol by UUID. Mechanical Parts may have none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     symbol: Option<Uuid>,
@@ -311,6 +315,8 @@ impl PartRow {
             uuid: part.uuid,
             name: part.name.clone(),
             component_type: part.component_type,
+            in_bom: part.in_bom,
+            in_cpl: part.in_cpl,
             symbol: part.symbol,
         }
     }
@@ -327,6 +333,8 @@ impl PartRow {
             uuid: self.uuid,
             name: self.name,
             component_type: self.component_type,
+            in_bom: self.in_bom,
+            in_cpl: self.in_cpl,
             symbol: self.symbol,
             footprints,
             fields,

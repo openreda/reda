@@ -28,7 +28,14 @@ pub struct ComponentSetParams {
     pub fields: BTreeMap<String, Option<String>>,
     /// The Footprint, by UUID: one of each Component's Part's alternates.
     pub footprint: Option<Uuid>,
-    /// Whether the Components are left off the board and out of the BOM.
+    /// Whether the Components go into the BOM.
+    #[serde(default)]
+    pub in_bom: Option<bool>,
+    /// Whether the Components go into the CPL.
+    #[serde(default)]
+    pub in_cpl: Option<bool>,
+    /// Whether this build leaves the Components off the board and out of the BOM and
+    /// CPL. A Net Tie refuses it.
     pub not_fitted: Option<bool>,
     /// Which fields to show (`true`) or hide (`false`) on the sheet, by name:
     /// `designator`, `value`, another built-in field or a free-form field's name.
@@ -89,7 +96,20 @@ impl Command for ComponentSet {
                     check_alternate(cx.project()?, sheet, &unit, footprint)?;
                     unit.footprint = Some(footprint);
                 }
+                if let Some(in_bom) = p.in_bom {
+                    unit.in_bom = in_bom;
+                }
+                if let Some(in_cpl) = p.in_cpl {
+                    unit.in_cpl = in_cpl;
+                }
                 if let Some(not_fitted) = p.not_fitted {
+                    if not_fitted && !unit.component_type.allows_not_fitted() {
+                        return Err(CommandError::rejected(format!(
+                            "{} is a Net Tie: its copper is on the board in every build, so \
+                             it cannot be Not Fitted",
+                            unit.designator
+                        )));
+                    }
                     unit.not_fitted = not_fitted;
                 }
                 for (name, &shown) in &p.visible {

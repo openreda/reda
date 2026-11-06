@@ -148,7 +148,10 @@ pub fn import(
     let part = Part {
         uuid: new_id(),
         name,
+        // An imported Net Tie stays Standard until the user retypes it.
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some(symbol.uuid),
         footprints: vec![footprint.uuid],
         fields: mapped.fields,

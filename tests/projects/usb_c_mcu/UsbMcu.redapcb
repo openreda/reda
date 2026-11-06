@@ -165,27 +165,27 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-0000000000b7","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"footprint":"00000000-0000-4000-8000-0000000000b6","at":{"x":18000000,"y":4000000},"rotation":0,"side":"bottom","designator":"C1","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000b7","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"footprint":"00000000-0000-4000-8000-0000000000b6","at":{"x":18000000,"y":4000000},"rotation":0,"side":"bottom","designator":"C1","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","net":"00000000-0000-4000-8000-0000000000ad"},
       {"pad":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","net":"00000000-0000-4000-8000-0000000000b5"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000b8","component":{"uuid":"00000000-0000-4000-8000-00000000003e"},"footprint":"00000000-0000-4000-8000-0000000000b6","at":{"x":28000000,"y":18000000},"rotation":270000,"side":"bottom","designator":"C2","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"designator_text":{"at":{"x":0,"y":-2200000},"rotation":270000,"size":1000000,"layer":"silkscreen_top"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000b8","component":{"uuid":"00000000-0000-4000-8000-00000000003e"},"footprint":"00000000-0000-4000-8000-0000000000b6","at":{"x":28000000,"y":18000000},"rotation":270000,"side":"bottom","designator":"C2","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"designator_text":{"at":{"x":0,"y":-2200000},"rotation":270000,"size":1000000,"layer":"silkscreen_top"},"pads":[
       {"pad":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","net":"00000000-0000-4000-8000-0000000000ad"},
       {"pad":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","net":"00000000-0000-4000-8000-0000000000aa"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000ba","component":{"uuid":"00000000-0000-4000-8000-000000000040"},"footprint":"00000000-0000-4000-8000-0000000000b9","at":{"x":19300000,"y":10800000},"rotation":90000,"side":"bottom","designator":"C3","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000ba","component":{"uuid":"00000000-0000-4000-8000-000000000040"},"footprint":"00000000-0000-4000-8000-0000000000b9","at":{"x":19300000,"y":10800000},"rotation":90000,"side":"bottom","designator":"C3","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","net":"00000000-0000-4000-8000-0000000000ad"},
       {"pad":"bd932504-1656-47c8-a605-c381e71de73c","net":"00000000-0000-4000-8000-0000000000aa"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000bb","component":{"uuid":"00000000-0000-4000-8000-000000000042"},"footprint":"00000000-0000-4000-8000-0000000000b9","at":{"x":9500000,"y":17325000},"rotation":0,"side":"bottom","designator":"C4","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000bb","component":{"uuid":"00000000-0000-4000-8000-000000000042"},"footprint":"00000000-0000-4000-8000-0000000000b9","at":{"x":9500000,"y":17325000},"rotation":0,"side":"bottom","designator":"C4","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","net":"00000000-0000-4000-8000-0000000000ad"},
       {"pad":"bd932504-1656-47c8-a605-c381e71de73c","net":"00000000-0000-4000-8000-0000000000aa"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000bd","component":{"uuid":"00000000-0000-4000-8000-00000000004a"},"footprint":"00000000-0000-4000-8000-0000000000bc","at":{"x":25900000,"y":14725000},"rotation":180000,"side":"top","designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000bd","component":{"uuid":"00000000-0000-4000-8000-00000000004a"},"footprint":"00000000-0000-4000-8000-0000000000bc","at":{"x":25900000,"y":14725000},"rotation":180000,"side":"top","designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","net":"00000000-0000-4000-8000-0000000000af"},
       {"pad":"b034cab0-2c1e-489e-9521-1346c8e2152b","net":"00000000-0000-4000-8000-0000000000ad"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000bf","component":{"uuid":"00000000-0000-4000-8000-00000000001b"},"footprint":"00000000-0000-4000-8000-0000000000be","at":{"x":11000000,"y":4377500},"rotation":0,"side":"top","designator":"J1","fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"designator_text":{"at":{"x":-7500000,"y":4622500},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000bf","component":{"uuid":"00000000-0000-4000-8000-00000000001b"},"footprint":"00000000-0000-4000-8000-0000000000be","at":{"x":11000000,"y":4377500},"rotation":0,"side":"top","designator":"J1","fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"component_type":"standard","in_bom":true,"in_cpl":true,"designator_text":{"at":{"x":-7500000,"y":4622500},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"pads":[
       {"pad":"0f8b3078-57ca-4e48-b465-770d7f72d774","net":"00000000-0000-4000-8000-0000000000ad"},
       {"pad":"12ef56d9-c47e-41ae-8e4f-7dddcba6fe4c"},
       {"pad":"2b134d11-46f1-461b-bf65-95eab8e16666"},
@@ -205,26 +205,26 @@
       {"pad":"f97fe198-d740-4221-b408-2607a27853cd","net":"00000000-0000-4000-8000-0000000000ab"},
       {"pad":"faf92679-ae8c-4004-895d-9d762f37bca1"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c1","component":{"uuid":"00000000-0000-4000-8000-000000000020"},"footprint":"00000000-0000-4000-8000-0000000000c0","at":{"x":16000000,"y":24500000},"rotation":90000,"side":"top","designator":"J2","fields":{"value":"Header 1x5","description":"1 × 5 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c1","component":{"uuid":"00000000-0000-4000-8000-000000000020"},"footprint":"00000000-0000-4000-8000-0000000000c0","at":{"x":16000000,"y":24500000},"rotation":90000,"side":"top","designator":"J2","fields":{"value":"Header 1x5","description":"1 × 5 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"1761c40f-5c73-4ff9-81b4-02095f5348d4","net":"00000000-0000-4000-8000-0000000000b0"},
       {"pad":"1d6d5460-6bdd-436b-9bf0-2718d739e788","net":"00000000-0000-4000-8000-0000000000b1"},
       {"pad":"6dd5cda9-a82f-4b07-a6c5-1abe3f22b385","net":"00000000-0000-4000-8000-0000000000ad"},
       {"pad":"c56d0bd2-d710-4e32-8633-a79df61904cd","net":"00000000-0000-4000-8000-0000000000b2"},
       {"pad":"d525949b-5efd-4cc6-b2fa-942efa347533","net":"00000000-0000-4000-8000-0000000000aa"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c3","component":{"uuid":"00000000-0000-4000-8000-000000000030"},"footprint":"00000000-0000-4000-8000-0000000000c2","at":{"x":7000000,"y":12000000},"rotation":90000,"side":"top","designator":"R1","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c3","component":{"uuid":"00000000-0000-4000-8000-000000000030"},"footprint":"00000000-0000-4000-8000-0000000000c2","at":{"x":7000000,"y":12000000},"rotation":90000,"side":"top","designator":"R1","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-0000000000ab"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-0000000000ad"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c4","component":{"uuid":"00000000-0000-4000-8000-000000000032"},"footprint":"00000000-0000-4000-8000-0000000000c2","at":{"x":12750000,"y":11600000},"rotation":90000,"side":"top","designator":"R2","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"designator_text":{"at":{"x":-200000,"y":-1850000},"rotation":270000,"size":1000000,"layer":"silkscreen_top"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c4","component":{"uuid":"00000000-0000-4000-8000-000000000032"},"footprint":"00000000-0000-4000-8000-0000000000c2","at":{"x":12750000,"y":11600000},"rotation":90000,"side":"top","designator":"R2","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"designator_text":{"at":{"x":-200000,"y":-1850000},"rotation":270000,"size":1000000,"layer":"silkscreen_top"},"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-0000000000ac"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-0000000000ad"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c5","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"footprint":"00000000-0000-4000-8000-0000000000c2","at":{"x":22600000,"y":14725000},"rotation":0,"side":"top","designator":"R3","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c5","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"footprint":"00000000-0000-4000-8000-0000000000c2","at":{"x":22600000,"y":14725000},"rotation":0,"side":"top","designator":"R3","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-0000000000ae"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-0000000000af"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c7","component":{"uuid":"00000000-0000-4000-8000-000000000024"},"footprint":"00000000-0000-4000-8000-0000000000c6","at":{"x":16000000,"y":17000000},"rotation":0,"side":"top","designator":"U1","fields":{"value":"STM32F042F6P6","description":"Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)","datasheet":"STM32F042x4/x6 datasheet, DocID025832","manufacturer":"STMicroelectronics","mpn":"STM32F042F6P6","keywords":"U microcontroller MCU USB STM32 Cortex-M0"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c7","component":{"uuid":"00000000-0000-4000-8000-000000000024"},"footprint":"00000000-0000-4000-8000-0000000000c6","at":{"x":16000000,"y":17000000},"rotation":0,"side":"top","designator":"U1","fields":{"value":"STM32F042F6P6","description":"Cortex-M0 MCU, 32 KB Flash, crystal-less USB FS, TSSOP-20. Pins 17 and 18 are PA9/PA10 or, remapped, USB DM/DP (PA11/PA12)","datasheet":"STM32F042x4/x6 datasheet, DocID025832","manufacturer":"STMicroelectronics","mpn":"STM32F042F6P6","keywords":"U microcontroller MCU USB STM32 Cortex-M0"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"1b1f9d7c-8089-4874-84c0-e0388295769f"},
       {"pad":"203e19b1-649a-49b9-b3e6-17682ff34b7f"},
       {"pad":"27fa8621-6d46-4dbc-a360-dffa41521580"},
@@ -246,7 +246,7 @@
       {"pad":"eefbf8eb-0eef-4beb-849c-52050e1b2951"},
       {"pad":"f379f266-12e4-4162-9d8c-eb1e0616ce06","net":"00000000-0000-4000-8000-0000000000ae"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c9","component":{"uuid":"00000000-0000-4000-8000-000000000028"},"footprint":"00000000-0000-4000-8000-0000000000c8","at":{"x":24000000,"y":8000000},"rotation":0,"side":"top","designator":"U2","fields":{"value":"3.3V","description":"Fixed-output LDO regulator, SOT-223, GND-VOUT-VIN with VOUT on the tab","keywords":"U regulator LDO linear voltage"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c9","component":{"uuid":"00000000-0000-4000-8000-000000000028"},"footprint":"00000000-0000-4000-8000-0000000000c8","at":{"x":24000000,"y":8000000},"rotation":0,"side":"top","designator":"U2","fields":{"value":"3.3V","description":"Fixed-output LDO regulator, SOT-223, GND-VOUT-VIN with VOUT on the tab","keywords":"U regulator LDO linear voltage"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"24407872-9d48-4769-8484-9ab168833218","net":"00000000-0000-4000-8000-0000000000aa"},
       {"pad":"3dd64c1f-65bb-48cb-bb85-cdfe931447f7","net":"00000000-0000-4000-8000-0000000000b5"},
       {"pad":"a98e58a3-2ebd-4d76-a1cd-1caa5e709bf2","net":"00000000-0000-4000-8000-0000000000aa"},

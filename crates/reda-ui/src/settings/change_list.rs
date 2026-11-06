@@ -242,6 +242,31 @@ pub fn describe(change: &Change, pcb_nets: &[(Uuid, String)]) -> String {
             designator = designator.as_str(),
             fields = changed_fields(from, to).join(", ")
         ),
+        ChangeKind::ComponentType {
+            designator,
+            from,
+            to,
+            ..
+        } => tr!(
+            "change-component-type",
+            designator = designator.as_str(),
+            from = crate::panels::library::type_name(*from),
+            to = crate::panels::library::type_name(*to)
+        ),
+        ChangeKind::InBom { designator, to, .. } => {
+            if *to {
+                tr!("change-in-bom-on", designator = designator.as_str())
+            } else {
+                tr!("change-in-bom-off", designator = designator.as_str())
+            }
+        }
+        ChangeKind::InCpl { designator, to, .. } => {
+            if *to {
+                tr!("change-in-cpl-on", designator = designator.as_str())
+            } else {
+                tr!("change-in-cpl-off", designator = designator.as_str())
+            }
+        }
         ChangeKind::NotFitted { designator, to, .. } => {
             if *to {
                 tr!("change-not-fitted-on", designator = designator.as_str())

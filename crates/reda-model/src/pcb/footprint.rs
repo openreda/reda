@@ -6,13 +6,14 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::Side;
-use crate::{ComponentRef, Fields, FootprintText, Uuid};
+use crate::{ComponentRef, ComponentType, Fields, FootprintText, Uuid};
 
 /// One Footprint placed on the board.
 ///
 /// A Footprint instance synced from the schematic is linked to its Component by
 /// [`FootprintInstance::component`] and carries its own copy of the Component's
-/// Designator, fields and Not Fitted, so outputs read only the PCB Document. A Mechanical
+/// Designator, fields, Component Type, In BOM, In CPL and Not Fitted, so outputs read only
+/// the PCB Document. A Mechanical
 /// Part placed directly on the PCB has no Component link.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -35,6 +36,11 @@ pub struct FootprintInstance {
     pub designator: String,
     /// The value is `fields.value`.
     pub fields: Fields,
+    pub component_type: ComponentType,
+    /// Whether it goes into the BOM.
+    pub in_bom: bool,
+    /// Whether it goes into the CPL.
+    pub in_cpl: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub not_fitted: bool,
     /// Where this instance draws its Designator text, when moved from the Footprint's own

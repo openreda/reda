@@ -176,6 +176,8 @@ fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> Libra
             uuid,
             name,
             component_type: ComponentType::Standard,
+            in_bom: ComponentType::Standard.default_in_bom(),
+            in_cpl: ComponentType::Standard.default_in_cpl(),
             symbol: None,
             footprints: vec![],
             fields: Fields::default(),
