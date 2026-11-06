@@ -2043,8 +2043,11 @@ impl Shell {
     /// The Scene of `document` in `project`, filtered and composited as the board view
     /// asks for a PCB. Its generation is left for the caller to set.
     fn build_scene(&self, project: &Project, document: Uuid) -> SceneHandle {
-        let mut scene =
-            reda_engine::document_scene(project, document, self.engine.fonts()).unwrap_or_default();
+        let style = reda_engine::render::SchematicStyle {
+            unit_suffix: self.preferences.values().schematic.unit_suffix,
+        };
+        let mut scene = reda_engine::document_scene(project, document, self.engine.fonts(), &style)
+            .unwrap_or_default();
         let board = self.board_view();
         let layers = project.pcb_document(document).map(|pcb| {
             board.filter_scene(project, &mut scene);
