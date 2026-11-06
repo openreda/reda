@@ -13,6 +13,8 @@ const R_10K: &str = "a0000000-0000-4000-8000-000000000100";
 const R_0603: &str = "a0000000-0000-4000-8000-000000000040";
 const R_SHUNT: &str = "a0000000-0000-4000-8000-000000000150";
 const R_KELVIN: &str = "a0000000-0000-4000-8000-000000000070";
+/// A Net Tie Part (In BOM and In CPL both off) on the resistor's Symbol and 0603.
+const NET_TIE: &str = "a0000000-0000-4000-8000-000000000170";
 
 fn library() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../reda-schematic/tests/library/Test")
@@ -325,7 +327,9 @@ fn a_split_net_keeps_its_uuid_on_the_larger_part() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|w| w["object"]["to"]["x"] == 20_000_000 || w["object"]["from"]["x"] == 20_000_000)
+        .find(|w| {
+            (w["object"]["vertices"].as_array().unwrap().iter()).any(|v| v["x"] == 20_000_000)
+        })
         .unwrap()["object"]["uuid"]
         .clone();
     engine.run_ok("schematic.delete", json!({"objects": [right]}));
@@ -450,6 +454,81 @@ fn field_and_not_fitted_changes_propagate() {
     assert_eq!(instance["fields"]["value"], "4k7");
     assert_eq!(instance["fields"]["custom"][0]["value"], "C23162");
     assert_eq!(instance["not_fitted"], true);
+}
+
+#[test]
+fn component_type_in_bom_and_in_cpl_are_carried_to_the_board() {
+    let dir = TempDir::new("sync-flags");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    place(&mut engine, NET_TIE, 20, 0);
+    sync(&mut engine);
+    let by_designator = |instances: &[Value], d: &str| {
+        instances
+            .iter()
+            .find(|i| i["designator"] == d)
+            .unwrap()
+            .clone()
+    };
+    let all = instances(&mut engine);
+    let (r, nt) = (by_designator(&all, "R1"), by_designator(&all, "R2"));
+    assert_eq!(
+        (&r["component_type"], &r["in_bom"], &r["in_cpl"]),
+        (&json!("standard"), &json!(true), &json!(true))
+    );
+    assert_eq!(
+        (&nt["component_type"], &nt["in_bom"], &nt["in_cpl"]),
+        (&json!("net_tie"), &json!(false), &json!(false))
+    );
+
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [r1], "in_bom": false, "in_cpl": false}),
+    );
+    let list = preview(&mut engine);
+    assert_eq!(list["count"], 2, "the board is out of sync: {list}");
+    let in_bom = &of_kind(&list, "in_bom")[0];
+    assert_eq!(
+        (&in_bom["from"], &in_bom["to"]),
+        (&json!(true), &json!(false))
+    );
+    assert_eq!(of_kind(&list, "in_cpl")[0]["to"], false);
+
+    sync(&mut engine);
+    let r = by_designator(&instances(&mut engine), "R1");
+    assert_eq!((&r["in_bom"], &r["in_cpl"]), (&json!(false), &json!(false)));
+    assert_eq!(preview(&mut engine)["count"], 0);
+}
+
+#[test]
+fn only_a_mechanical_part_is_placed_straight_onto_the_board() {
+    let dir = TempDir::new("sync-net-tie-board");
+    let mut engine = demo(&dir);
+    for part in [NET_TIE, R_10K] {
+        let err = engine.run_err(
+            "pcb.mechanical.place",
+            json!({"part": part, "at": {"x": "0mm", "y": "0mm"}}),
+        );
+        assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+        assert!(err.message.contains("through Sync"), "{}", err.message);
+    }
+}
+
+#[test]
+fn a_net_tie_refuses_not_fitted() {
+    let dir = TempDir::new("sync-net-tie-not-fitted");
+    let mut engine = demo(&dir);
+    let tie = place(&mut engine, NET_TIE, 0, 0);
+    let err = engine.run_err(
+        "schematic.component.set",
+        json!({"components": [tie], "not_fitted": true}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+    assert!(err.message.contains("Net Tie"), "{}", err.message);
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [tie], "not_fitted": false}),
+    );
 }
 
 #[test]
@@ -979,7 +1058,7 @@ fn copper_on_a_removed_net_with_no_merge_target_becomes_unassigned() {
         .unwrap()
         .clone()
     {
-        if object["object"]["from"]["x"].as_i64().unwrap() >= 30_000_000 {
+        if object["object"]["vertices"][0]["x"].as_i64().unwrap() >= 30_000_000 {
             engine.run_ok(
                 "schematic.delete",
                 json!({"objects": [object["object"]["uuid"]]}),

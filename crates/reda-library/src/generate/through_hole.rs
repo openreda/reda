@@ -12,7 +12,7 @@ use reda_command::{CommandError, Kind, Meta};
 use reda_model::Uuid;
 use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, Side};
 use super::ipc::{self, Tol};
@@ -92,7 +92,7 @@ const DIP_HEIGHT: Nm = ipc::mm(5.33);
 
 pub struct Dip;
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DipParams {
     /// The registered Library to write the Footprint into.
@@ -181,13 +181,14 @@ impl FootprintFamily for Dip {
             },
             silkscreen,
             courtyard_excess: COURTYARD_EXCESS,
+            height: Some(DIP_HEIGHT),
         })
     }
 }
 
 pub struct Header;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub enum HeaderPitch {
     /// 2.54 mm (0.1 in), with 0.64 mm square posts.
     #[serde(rename = "2.54")]
@@ -213,7 +214,7 @@ impl HeaderPitch {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HeaderParams {
     /// The registered Library to write the Footprint into.
@@ -310,6 +311,8 @@ impl FootprintFamily for Header {
             },
             silkscreen,
             courtyard_excess: COURTYARD_EXCESS,
+            // Headers take no height param yet.
+            height: None,
         })
     }
 }

@@ -11,9 +11,9 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::normalise::{Wiring, normalise};
 use crate::properties::{check_designator, check_field_names};
 use crate::sheet;
-use crate::wiring::split_wires_at_pins;
 
 /// A point on the sheet.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
@@ -57,6 +57,8 @@ pub struct ComponentPlaceParams {
     /// built-in field and leaves out a free-form one.
     #[serde(default)]
     pub fields: BTreeMap<String, Option<String>>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -77,6 +79,8 @@ pub struct UnitPlaceParams {
     pub unit: Option<String>,
     /// The new Unit's UUID; a fresh one by default.
     pub uuid: Option<Uuid>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 /// What placing a Unit made.
@@ -113,7 +117,7 @@ impl Command for ComponentPlace {
         cx: &mut Context<'_>,
         p: ComponentPlaceParams,
     ) -> Result<PlacedResult, CommandError> {
-        sheet(cx.project()?, p.document)?;
+        let before = sheet(cx.project()?, p.document)?.clone();
         let copy = cx.library_part(p.part)?;
         let content = EntryContent::from_copy(copy)?;
         let footprint = match p.footprint {
@@ -139,7 +143,11 @@ impl Command for ComponentPlace {
             fields.set(name, value.as_deref().unwrap_or(""));
         }
         let prefix = content.symbol.designator_prefix.clone();
-        let component_type = content.part.component_type;
+        let (component_type, in_bom, in_cpl) = (
+            content.part.component_type,
+            content.part.in_bom,
+            content.part.in_cpl,
+        );
         let entry = ensure_entry(cx, p.document, content)?;
         let component = ComponentRef::new(cx.new_id());
         let designator = match p.designator {
@@ -163,12 +171,14 @@ impl Command for ComponentPlace {
             fields,
             footprint,
             component_type,
+            in_bom,
+            in_cpl,
             not_fitted: false,
             visible_fields: UnitInstance::default_visible_fields(),
         };
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
-        split_wires_at_pins(cx, p.document, uuid)?;
+        normalise(cx, p.document, &before, &p.wiring.unwrap_or_default())?;
         Ok(PlacedResult {
             unit: uuid,
             component,
@@ -197,7 +207,7 @@ impl Command for UnitPlace {
 
     fn run(&self, cx: &mut Context<'_>, p: UnitPlaceParams) -> Result<PlacedResult, CommandError> {
         let project = cx.project()?;
-        sheet(project, p.document)?;
+        let before = sheet(project, p.document)?.clone();
         let placed = crate::properties::units_of(project, p.component);
         let Some(&(home, template)) = placed.first() else {
             return Err(CommandError::not_found(format!(
@@ -259,7 +269,7 @@ impl Command for UnitPlace {
         let component = instance.component.clone();
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
-        split_wires_at_pins(cx, p.document, uuid)?;
+        normalise(cx, p.document, &before, &p.wiring.unwrap_or_default())?;
         Ok(PlacedResult {
             unit: uuid,
             component,

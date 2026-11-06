@@ -128,18 +128,11 @@ fn a_drag_commits_exactly_one_move_command() {
         .at;
     // Snapped: the grabbed Pin lands on the 50 mil grid.
     assert!(moved.x.0 > 0 && moved.x.0 % 1_270_000 == 0 && moved.y.0 % 1_270_000 == 0);
-    // Rubber-banded: the Wire now turns a corner to the moved Pin.
-    let wires = h
-        .state()
-        .shell()
-        .engine()
-        .project()
-        .unwrap()
-        .schematic_sheet(sheet())
-        .unwrap()
-        .wires()
-        .count();
-    assert_eq!(wires, 2);
+    // Rubber-banded: the Wire now turns a corner to the moved Pin, a vertex of its own.
+    let project = h.state().shell().engine().project().unwrap();
+    let wires: Vec<_> = project.schematic_sheet(sheet()).unwrap().wires().collect();
+    assert_eq!(wires.len(), 1);
+    assert_eq!(wires[0].vertices.len(), 3);
     let tab = h.state().shell().document_tab(sheet()).unwrap();
     assert!(tab.live.moving.is_empty());
 }

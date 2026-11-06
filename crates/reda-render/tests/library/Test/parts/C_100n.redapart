@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"a0000000-0000-4000-8000-000000000110","name":"C_100n","component_type":"standard","symbol":"a0000000-0000-4000-8000-000000000020"},
+  "part": {"uuid":"a0000000-0000-4000-8000-000000000110","name":"C_100n","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000020"},
   "footprints": [
     "a0000000-0000-4000-8000-000000000040"
   ],

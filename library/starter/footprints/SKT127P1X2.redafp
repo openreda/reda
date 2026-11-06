@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"bcc4f5e1-715a-43ab-ba4d-6e313f9a3268","name":"SKT127P1X2","description":"Socket, 1 × 2, 1.27 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":2250000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":630000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":2,"pitch":"1.27","rows":1,"socket":true}},
   "pads": [
     {"uuid":"9ae047ca-e523-4cbe-9eda-212628af6a1e","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
     {"uuid":"a44a53e2-f441-411e-b944-38cf191e85e9","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
@@ -13,5 +13,9 @@
     {"uuid":"9d1be19f-723b-4050-8a52-715c7112363d","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":1395000},"end":{"x":760000,"y":1395000}},"width":120000},
     {"uuid":"9f112114-737b-4832-b4c7-3b8451848807","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-1395000},"end":{"x":760000,"y":-1395000}},"width":120000},
     {"uuid":"d5cf5b7d-3297-4e72-9e14-0a10c9e282b4","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":1270000},{"x":635000,"y":1270000},{"x":635000,"y":-1270000},{"x":-635000,"y":-1270000},{"x":-635000,"y":952500}]},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"8a26b83b-f1d2-4b89-b6ad-08039ca33898","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500},"layer":"assembly_top"},
+    {"uuid":"dc552e2f-8715-4438-9873-e37545bb6b35","field":"Designator","at":{"x":0,"y":2250000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

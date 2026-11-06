@@ -8,12 +8,11 @@ mod openings;
 use reda_command::{Fonts, Timestamp};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    GerberSettings, LayerKind, PadKind, PadShape, PcbDocument, Project, Side, TrackGeometry, Uuid,
-    ZoneFills,
+    GerberSettings, LayerKind, PadKind, PcbDocument, Project, Side, TrackGeometry, Uuid, ZoneFills,
 };
 use reda_pcb::placed::{self, PlacedPad};
 
-use crate::gerber::{Gerber, NO_FUNCTION, Template, escape};
+use crate::gerber::{Gerber, MacroShape, NO_FUNCTION, Template, escape};
 
 /// The pen the Profile is drawn with.
 const PROFILE_PEN: Nm = Nm(100_000);
@@ -243,30 +242,39 @@ fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
     g.finish(&file_attributes(plot, function))
 }
 
-/// The aperture of a Pad: a standard one when the turn allows, otherwise a macro.
-fn pad_template(pad: &PlacedPad) -> Template {
+/// The aperture of a Pad and where it is flashed: a standard aperture at the copper's
+/// centre when the turn allows, a fixed macro when the corners are all alike, and
+/// otherwise one generated macro flashed at the anchor.
+fn pad_template(pad: &PlacedPad) -> (Template, Point) {
+    let o = &pad.outline;
     let rot = Millideg(pad.rotation.0.rem_euclid(360_000));
     let quarter = rot.0 % 90_000 == 0;
-    let (w, h) = if rot.0 % 180_000 == 0 {
-        (pad.width, pad.height)
-    } else {
-        (pad.height, pad.width)
+    let (w, h) = (o.width, o.height);
+    let (tw, th) = if rot.0 % 180_000 == 0 { (w, h) } else { (h, w) };
+    let centre = pad.copper_center();
+    let Some(radius) = o.uniform_radius() else {
+        let shape = MacroShape {
+            outline: o.contour().iter().map(|v| v.point()).collect(),
+            discs: o
+                .round_corners()
+                .into_iter()
+                .map(|(c, r)| (c, Nm(2 * r.0)))
+                .collect(),
+            rotation: rot,
+        };
+        return (Template::Shape(shape), pad.at);
     };
-    let radius = pad.corner_radius.unwrap_or(Nm::ZERO);
-    match pad.shape {
-        PadShape::Circle => Template::Circle(pad.width),
-        PadShape::Oval if pad.width == pad.height => Template::Circle(pad.width),
-        PadShape::Rect if quarter => Template::Rect(w, h),
-        PadShape::RoundedRect if quarter && radius == Nm::ZERO => Template::Rect(w, h),
-        PadShape::Oval if quarter => Template::Oval(w, h),
-        PadShape::Rect => Template::RotRect(pad.width, pad.height, rot),
-        PadShape::RoundedRect if radius == Nm::ZERO => {
-            Template::RotRect(pad.width, pad.height, rot)
-        }
-        PadShape::RoundedRect => Template::RoundRect(pad.width, pad.height, radius, rot),
-        PadShape::Oval if pad.width > pad.height => Template::RotOval(pad.width, pad.height, rot),
-        PadShape::Oval => Template::RotOval(pad.height, pad.width, Millideg(rot.0 + 90_000)),
-    }
+    let oval = radius == Nm(w.0.min(h.0) / 2);
+    let template = match () {
+        _ if o.is_circle() => Template::Circle(w),
+        _ if radius == Nm::ZERO && quarter => Template::Rect(tw, th),
+        _ if radius == Nm::ZERO => Template::RotRect(w, h, rot),
+        _ if oval && quarter => Template::Oval(tw, th),
+        _ if oval && w > h => Template::RotOval(w, h, rot),
+        _ if oval => Template::RotOval(h, w, Millideg(rot.0 + 90_000)),
+        _ => Template::RoundRect(w, h, radius, rot),
+    };
+    (template, centre)
 }
 
 fn flash_pad(g: &mut Gerber, pad: &PlacedPad, attrs: &[(&str, &str)]) {
@@ -276,7 +284,8 @@ fn flash_pad(g: &mut Gerber, pad: &PlacedPad, attrs: &[(&str, &str)]) {
         // Only the Solder Mask opens over a non-plated hole; no pad function fits it.
         PadKind::NonPlated => NO_FUNCTION,
     };
-    g.flash(pad_template(pad), function, pad.at, attrs);
+    let (template, at) = pad_template(pad);
+    g.flash(template, function, at, attrs);
 }
 
 /// The Board Outline and the Board Cutouts drawn with a thin pen.

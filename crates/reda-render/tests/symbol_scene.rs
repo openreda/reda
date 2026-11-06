@@ -21,6 +21,9 @@ fn pin(n: u128, unit: Uuid, number: &str, number_visible: bool) -> Pin {
         length: Nm(2_540_000),
         name_visible: true,
         number_visible,
+        description: String::new(),
+        inside_edge: None,
+        outside_edge: None,
     }
 }
 

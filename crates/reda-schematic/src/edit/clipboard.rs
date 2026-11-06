@@ -21,7 +21,7 @@ use super::bounds::union;
 use super::delete::delete_objects;
 use super::selection::{one_sheet, resolve};
 use crate::component::{At, next_free_designator};
-use crate::wiring::split_wires_at_pins;
+use crate::normalise::{Wiring, normalise};
 
 /// Copied sheet objects, as `schematic.copy` and `schematic.cut` return them and
 /// `schematic.paste` takes them. Treat it as opaque.
@@ -84,6 +84,15 @@ impl Command for Copy {
     }
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CutParams {
+    /// The objects to cut, by UUID, all on one sheet.
+    pub objects: Vec<Uuid>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
+}
+
 pub struct Cut;
 
 impl Command for Cut {
@@ -96,14 +105,14 @@ impl Command for Cut {
         icon: "cut",
         kind: Kind::Edit,
     };
-    type Params = CopyParams;
+    type Params = CutParams;
     type Output = Clipboard;
 
-    fn run(&self, cx: &mut Context<'_>, p: CopyParams) -> Result<Clipboard, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, p: CutParams) -> Result<Clipboard, CommandError> {
         let project = cx.project()?;
         let objects = resolve(project, &p.objects, "/objects")?;
         let clipboard = copy(project, &objects)?;
-        delete_objects(cx, &objects)?;
+        delete_objects(cx, &objects, &p.wiring.unwrap_or_default())?;
         Ok(clipboard)
     }
 }
@@ -118,6 +127,8 @@ pub struct PasteParams {
     /// Where the clipboard's origin (the lower-left corner of what was copied) goes; where
     /// it was copied from by default.
     pub at: Option<At>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 /// The objects a paste made.
@@ -149,7 +160,8 @@ impl Command for Paste {
         crate::sheet(cx.project()?, p.document)?;
         let offset =
             p.at.map_or(Point::default(), |at| at.point() - p.clipboard.origin);
-        let objects = paste(cx, p.document, p.clipboard, offset)?;
+        let wiring = p.wiring.unwrap_or_default();
+        let objects = paste(cx, p.document, p.clipboard, offset, &wiring)?;
         Ok(PasteResult { objects })
     }
 }
@@ -162,6 +174,8 @@ pub struct DuplicateParams {
     /// How far from the originals the copies go; 100 mil right and 100 mil down by
     /// default.
     pub offset: Option<At>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 pub struct Duplicate;
@@ -186,7 +200,13 @@ impl Command for Duplicate {
         let clipboard = copy(project, &objects)?;
         let step = Nm::from_mil(100);
         let offset = p.offset.map_or(Point::new(step, -step), At::point);
-        let objects = paste(cx, document, clipboard, offset)?;
+        let objects = paste(
+            cx,
+            document,
+            clipboard,
+            offset,
+            &p.wiring.unwrap_or_default(),
+        )?;
         Ok(PasteResult { objects })
     }
 }
@@ -244,6 +264,7 @@ fn paste(
     document: Uuid,
     clip: Clipboard,
     offset: Point,
+    wiring: &Wiring,
 ) -> Result<Vec<Uuid>, CommandError> {
     let bad = |why: String| CommandError::invalid_params("/clipboard", why);
     let body = crate::sheet(cx.project()?, document)?.clone();
@@ -293,7 +314,6 @@ fn paste(
     let mut pasted = vec![];
     // Each copied Component becomes a new one; its copied Units stay together.
     let mut components: BTreeMap<Uuid, (Uuid, String)> = BTreeMap::new();
-    let mut units = vec![];
     for mut unit in clip.units {
         let Some((entry, prefix)) = entry_ids.get(&unit.part) else {
             return Err(bad(format!(
@@ -314,15 +334,15 @@ fn paste(
         unit.component = ComponentRef::new(component);
         unit.designator = designator;
         unit.at = unit.at + offset;
-        units.push(unit.uuid);
         pasted.push(unit.uuid);
         cx.tx()?
             .insert(Object::Unit(InDocument::new(document, unit)))?;
     }
     for mut wire in clip.wires {
         wire.uuid = cx.new_id();
-        wire.from = wire.from + offset;
-        wire.to = wire.to + offset;
+        for v in &mut wire.vertices {
+            *v = *v + offset;
+        }
         pasted.push(wire.uuid);
         cx.tx()?
             .insert(Object::Wire(InDocument::new(document, wire)))?;
@@ -370,8 +390,6 @@ fn paste(
         cx.tx()?
             .insert(Object::SheetGraphic(InDocument::new(document, graphic)))?;
     }
-    for unit in units {
-        split_wires_at_pins(cx, document, unit)?;
-    }
-    Ok(pasted)
+    let lineage = normalise(cx, document, &body, wiring)?;
+    Ok(lineage.trace_all(&pasted))
 }

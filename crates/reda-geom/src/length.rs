@@ -105,6 +105,19 @@ impl Point {
         let (x, y) = crate::rotate((self.x - about.x).0, (self.y - about.y).0, angle);
         Point::new(about.x + Nm(x), about.y + Nm(y))
     }
+
+    /// Whether this point lies exactly on the segment from `a` to `b`, ends included, at
+    /// any angle. Exact in integers: a point a nanometre off the line is not on it.
+    pub fn on_segment(self, a: Point, b: Point) -> bool {
+        let (ax, ay) = (i128::from(a.x.0), i128::from(a.y.0));
+        let (bx, by) = (i128::from(b.x.0), i128::from(b.y.0));
+        let (px, py) = (i128::from(self.x.0), i128::from(self.y.0));
+        (bx - ax) * (py - ay) == (by - ay) * (px - ax)
+            && ax.min(bx) <= px
+            && px <= ax.max(bx)
+            && ay.min(by) <= py
+            && py <= ay.max(by)
+    }
 }
 
 impl Add for Point {

@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::component::{EntryContent, ensure_entry};
 use crate::natural_cmp;
+use crate::normalise::{Wiring, normalise};
 
 pub use diff::{FootprintChange, PartChange};
 
@@ -137,6 +138,16 @@ pub struct UpdateParams {
     pub components: Option<Vec<Uuid>>,
 }
 
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateFromLibraryParams {
+    /// The Components to update, by UUID; every outdated Component by default. Listed
+    /// Components that are up to date are left out.
+    pub components: Option<Vec<Uuid>>,
+    /// How the Wires on Pins that move are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
+}
+
 /// What an update changes on one Component.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ComponentUpdate {
@@ -254,17 +265,35 @@ impl Command for UpdateFromLibrary {
         icon: "library_update",
         kind: Kind::Edit,
     };
-    type Params = UpdateParams;
+    type Params = UpdateFromLibraryParams;
     type Output = UpdateResult;
 
-    fn run(&self, cx: &mut Context<'_>, p: UpdateParams) -> Result<UpdateResult, CommandError> {
-        let plans = plan(cx, &p)?;
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: UpdateFromLibraryParams,
+    ) -> Result<UpdateResult, CommandError> {
+        let wiring = p.wiring.unwrap_or_default();
+        let plans = plan(
+            cx,
+            &UpdateParams {
+                components: p.components,
+            },
+        )?;
         if let Some(blocked) = plans.iter().find(|p| p.report.blocked) {
             return Err(CommandError::rejected(format!(
                 "{} cannot be updated: a placed Unit is no longer in the Library Symbol; \
                  delete that Unit first",
                 blocked.report.designator
             )));
+        }
+        let mut before = BTreeMap::new();
+        for plan in &plans {
+            for (sheet, _) in &plan.units {
+                if !before.contains_key(sheet) {
+                    before.insert(*sheet, crate::sheet(cx.project()?, *sheet)?.clone());
+                }
+            }
         }
         let mut vacated = BTreeSet::new();
         let mut components = Vec::with_capacity(plans.len());
@@ -282,6 +311,9 @@ impl Command for UpdateFromLibrary {
         }
         for (sheet, entry) in vacated {
             remove_if_unused(cx, sheet, entry)?;
+        }
+        for (sheet, body) in &before {
+            normalise(cx, *sheet, body, &wiring)?;
         }
         Ok(UpdateResult { components })
     }

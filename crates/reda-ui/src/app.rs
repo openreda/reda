@@ -699,8 +699,8 @@ impl App {
         }
     }
 
-    /// The menu bar and toolbar for the active Document's type, drawn from the bar data
-    /// files. Returns the item clicked, if any.
+    /// The top row for the active Document's type, drawn from the bar data files. Returns
+    /// the item clicked, if any.
     fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
         let mut checked =
@@ -725,13 +725,9 @@ impl App {
             checked: &checked,
             document: self.shell.active_document().map(|d| d.document),
         };
-        let menu = Panel::top("menu-bar")
-            .show(ui, |ui| draw::menu_bar(ui, &cx, bars))
-            .inner;
-        let tool = Panel::top("toolbar")
-            .show(ui, |ui| draw::toolbar(ui, &cx, bars))
-            .inner;
-        menu.or(tool)
+        Panel::top("top-row")
+            .show(ui, |ui| draw::top_row(ui, &cx, bars))
+            .inner
     }
 
     /// Carries out what the view Commands asked of the window.
@@ -765,6 +761,11 @@ impl App {
                     self.schematic_dialog = SchematicDialog::open(kind, &mut self.shell);
                 }
                 Request::ChangeList => self.open_change_list(),
+                Request::ProjectSettings => self.open_project_settings(),
+                Request::BoardSetup => self.open_board_setup(),
+                Request::KeyboardShortcuts => {
+                    self.open_preferences(Some(PageId::KeyboardShortcuts))
+                }
             }
         }
     }

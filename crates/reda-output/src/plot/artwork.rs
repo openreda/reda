@@ -21,7 +21,8 @@ pub(super) fn silkscreen(plot: &Plot<'_>, layer: Uuid, side: Side) -> Vec<u8> {
     let mut g = Gerber::new(plot.gerber.x2_attributes);
     draw_layer(&mut g, plot, layer, NO_FUNCTION);
     for opening in mask_openings(plot, side) {
-        g.flash_clear(pad_template(&opening), opening.at);
+        let (template, at) = pad_template(&opening);
+        g.flash_clear(template, at);
     }
     g.finish(&file_attributes(
         plot,

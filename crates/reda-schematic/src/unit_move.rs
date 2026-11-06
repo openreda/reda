@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::component::At;
-use crate::wiring::split_wires_at_pins;
+use crate::normalise::{Wiring, normalise};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -19,6 +19,8 @@ pub struct UnitMoveParams {
     pub rotation: Option<Angle>,
     /// Mirror left to right before rotating; unchanged by default.
     pub mirror: Option<bool>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 /// What `schematic.unit.move` moved.
@@ -57,6 +59,7 @@ impl Command for UnitMove {
                 p.unit
             )));
         };
+        let before = crate::sheet(project, document)?.clone();
         unit.at = p.at.point();
         if let Some(rotation) = p.rotation {
             unit.rotation = rotation.millideg();
@@ -66,7 +69,7 @@ impl Command for UnitMove {
         }
         cx.tx()?
             .replace(Object::Unit(InDocument::new(document, unit)))?;
-        split_wires_at_pins(cx, document, p.unit)?;
+        normalise(cx, document, &before, &p.wiring.unwrap_or_default())?;
         Ok(UnitMoveResult {
             unit: p.unit,
             document,

@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"09708c06-dce5-40b8-8035-6db932661565","name":"Fiducial","component_type":"mechanical"},
+  "part": {"uuid":"09708c06-dce5-40b8-8035-6db932661565","name":"Fiducial","component_type":"mechanical","in_bom":false,"in_cpl":false},
   "footprints": [
     "4147e6dc-4826-4af3-8aaf-99a7accd9bbd"
   ],

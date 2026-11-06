@@ -1,6 +1,6 @@
 //! The editing Commands the schematic Tools commit, one per user gesture: delete, the
 //! clipboard, duplicate, move and drag, rotate and mirror, align, distribute, snap to grid,
-//! and free text and graphics.
+//! breaking Wires and converting cross-junctions, and free text and graphics.
 
 mod arrange;
 mod bounds;
@@ -11,12 +11,14 @@ mod moving;
 mod selection;
 mod transform;
 mod turn;
+mod wires;
 
 pub use arrange::{
     Align, AlignParams, AlignTo, Direction, Distribute, DistributeParams, SnapParams, SnapToGrid,
 };
 pub use clipboard::{
-    Clipboard, Copy, CopyParams, Cut, Duplicate, DuplicateParams, Paste, PasteParams, PasteResult,
+    Clipboard, Copy, CopyParams, Cut, CutParams, Duplicate, DuplicateParams, Paste, PasteParams,
+    PasteResult,
 };
 pub use delete::{Delete, DeleteParams, DeleteResult};
 pub use graphics::{
@@ -29,3 +31,7 @@ pub use moving::{
 pub use selection::selectable;
 pub use transform::Axis;
 pub use turn::{Mirror, MirrorParams, Rotate, RotateParams};
+pub use wires::{
+    ConvertCross, ConvertCrossParams, ConvertCrossResult, ConvertedJunction, WireBreak,
+    WireBreakParams, WireBreakResult,
+};

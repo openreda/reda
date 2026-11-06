@@ -11,6 +11,7 @@ mod document;
 mod library;
 pub mod net_name;
 mod output;
+mod pad;
 mod pcb;
 #[cfg(feature = "test-objects")]
 mod probe;
@@ -26,13 +27,18 @@ pub use check::{
 };
 pub use document::{DocumentEntry, DocumentKind};
 pub use library::{
-    ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
-    FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
-    PinPads, PinType, Provenance, Shape, Symbol, SymbolGraphic, Unit,
+    ComponentType, DESIGNATOR_FIELD, ElementSource, Field, Fields, Footprint, FootprintGenerator,
+    FootprintGraphic, FootprintLayer, FootprintText, InsideEdge, LibraryElement, LibraryInfo,
+    OutsideEdge, Part, Pin, PinMap, PinPads, PinType, Provenance, Shape, Symbol, SymbolGraphic,
+    TextStyle, Unit, VALUE_FIELD, field_text,
 };
 pub use output::{
     Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,
     ProjectFabPreset,
+};
+pub use pad::{
+    ConnectionStyle, Corner, Corners, Hole, HoleTolerance, Pad, PadForm, PadKind, PadShape, Ratio,
+    ZoneConnection,
 };
 pub use pcb::{
     BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, FillShape, FootprintInstance,

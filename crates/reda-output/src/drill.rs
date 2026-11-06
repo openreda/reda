@@ -9,9 +9,9 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
+use reda_model::PadKind;
 use reda_model::geom::{Nm, Point};
-use reda_model::{Hole, PadKind};
-use reda_pcb::placed::{self, PlacedPad, rotate};
+use reda_pcb::placed::{self, PlacedPad};
 
 use crate::plot::{OutputFile, Plot, file_attributes};
 
@@ -81,7 +81,7 @@ fn holes(plot: &Plot<'_>) -> Vec<DrillHole> {
 /// The hole of a placed Pad, if it has one. A plated hole takes `plated_function`; a
 /// non-plated hole is a mechanical one.
 fn pad_hole(pad: &PlacedPad, plated_function: &'static str) -> Option<DrillHole> {
-    let Hole { width, height } = pad.hole?;
+    let hole = pad.hole?;
     let plated = match pad.kind {
         PadKind::Smd => return None,
         PadKind::PlatedThroughHole => true,
@@ -91,21 +91,13 @@ fn pad_hole(pad: &PlacedPad, plated_function: &'static str) -> Option<DrillHole>
         true => plated_function,
         false => "NonPlated,NPTH,MechanicalDrill",
     };
-    let diameter = width.min(height);
-    // A slot runs along its longer side, in the Pad's frame, turned with the Pad.
-    let half = Nm((width.0 - height.0).abs() / 2);
-    let (at, to) = if half == Nm::ZERO {
+    let diameter = hole.diameter();
+    // A slot runs along its longer side, turned by its own rotation and the Pad's.
+    let (from, to) = pad.hole_ends()?;
+    let (at, to) = if from == to {
         (pad.at, None)
     } else {
-        let along = match width > height {
-            true => Point::new(half, Nm::ZERO),
-            false => Point::new(Nm::ZERO, half),
-        };
-        let d = rotate(along, Point::new(Nm::ZERO, Nm::ZERO), pad.rotation);
-        (
-            Point::new(pad.at.x - d.x, pad.at.y - d.y),
-            Some(Point::new(pad.at.x + d.x, pad.at.y + d.y)),
-        )
+        (from, Some(to))
     };
     Some(DrillHole {
         plated,
