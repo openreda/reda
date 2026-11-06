@@ -11,27 +11,27 @@ use reda_model::{GraphicShape, PcbText, Shape, Side, Uuid};
 use reda_pcb::placed::{self, Bounds};
 use reda_pcb::{PlacedText, board_layer, footprint_texts, text_geometry};
 
-use super::openings::{mask_openings, side_name};
-use super::{Plot, file_attributes, pad_template};
+use super::openings::mask_openings;
+use super::{BoardPlot, pad_template};
 use crate::gerber::{Gerber, NO_FUNCTION, Template};
 
 /// The Silkscreen file of the Silkscreen Layer `layer` on `side`, cleared over the Solder
 /// Mask openings on that side: ink cannot go on bare copper.
-pub(super) fn silkscreen(plot: &Plot<'_>, layer: Uuid, side: Side) -> Vec<u8> {
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
-    draw_layer(&mut g, plot, layer, NO_FUNCTION);
+pub(super) fn silkscreen(plot: &BoardPlot<'_>, layer: Uuid, side: Side, g: &mut Gerber) {
+    draw_layer(g, plot, layer, NO_FUNCTION);
     for opening in mask_openings(plot, side) {
         let (template, at) = pad_template(&opening);
         g.flash_clear(template, at);
     }
-    g.finish(&file_attributes(
-        plot,
-        format!("Legend,{}", side_name(side)),
-    ))
 }
 
 /// Draws every text and drawing on `layer` with aperture function `function`.
-pub(super) fn draw_layer(g: &mut Gerber, plot: &Plot<'_>, layer: Uuid, function: &'static str) {
+pub(super) fn draw_layer(
+    g: &mut Gerber,
+    plot: &BoardPlot<'_>,
+    layer: Uuid,
+    function: &'static str,
+) {
     let pcb = plot.pcb;
     for instance in pcb.footprints() {
         for graphic in placed::placed_graphics(pcb, instance) {
@@ -64,7 +64,7 @@ pub(super) fn draw_layer(g: &mut Gerber, plot: &Plot<'_>, layer: Uuid, function:
     }
 }
 
-fn draw_text(g: &mut Gerber, plot: &Plot<'_>, text: &PcbText, function: &'static str) {
+fn draw_text(g: &mut Gerber, plot: &BoardPlot<'_>, text: &PcbText, function: &'static str) {
     let PlacedText {
         strokes,
         stroke_width,

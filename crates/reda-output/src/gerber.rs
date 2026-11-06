@@ -82,6 +82,25 @@ const MACROS: [(&str, &str); 3] = [
 ];
 
 impl Template {
+    fn rotated(self, angle: Millideg) -> Self {
+        if angle == Millideg::ZERO {
+            return self;
+        }
+        match self {
+            Self::Circle(d) => Self::Circle(d),
+            Self::Rect(w, h) => Self::RotRect(w, h, angle),
+            Self::Oval(w, h) if w >= h => Self::RotOval(w, h, angle),
+            Self::Oval(w, h) => Self::RotOval(h, w, Millideg(angle.0 + 90_000)),
+            Self::RotRect(w, h, rot) => Self::RotRect(w, h, Millideg(rot.0 + angle.0)),
+            Self::RotOval(w, h, rot) => Self::RotOval(w, h, Millideg(rot.0 + angle.0)),
+            Self::RoundRect(w, h, r, rot) => Self::RoundRect(w, h, r, Millideg(rot.0 + angle.0)),
+            Self::Shape(mut shape) => {
+                shape.rotation = Millideg(shape.rotation.0 + angle.0);
+                Self::Shape(shape)
+            }
+        }
+    }
+
     fn macro_name(&self) -> Option<&'static str> {
         match self {
             Template::RotRect(..) => Some("RotRect"),
@@ -205,6 +224,7 @@ pub(crate) fn arc_centre(from: Point, to: Point, sweep: Millideg) -> Point {
 /// One file being written.
 pub(crate) struct Gerber {
     x2: bool,
+    transform: crate::InstanceTransform,
     /// `(template, aperture function)` → D-code, in the order of first use.
     apertures: BTreeMap<(Template, &'static str), u32>,
     order: Vec<(Template, &'static str)>,
@@ -220,6 +240,7 @@ impl Gerber {
     pub(crate) fn new(x2: bool) -> Gerber {
         Gerber {
             x2,
+            transform: Default::default(),
             apertures: BTreeMap::new(),
             order: Vec::new(),
             body: String::new(),
@@ -228,6 +249,10 @@ impl Gerber {
             mode: 1,
             dark: true,
         }
+    }
+
+    pub(crate) fn set_transform(&mut self, transform: crate::InstanceTransform) {
+        self.transform = transform;
     }
 
     /// The D-code of `template` with aperture function `function` (such as `SMDPad,CuDef`),
@@ -300,17 +325,17 @@ impl Gerber {
         attributes: &[(&str, &str)],
     ) {
         self.polarity(true);
-        self.select(template, function);
+        self.select(template.rotated(self.transform.rotation), function);
         self.attributes(attributes);
-        self.at(at, 3);
+        self.at(self.transform.point(at), 3);
         self.clear_attributes(attributes);
     }
 
     /// Flashes `template` at `at` in clear polarity, removing what is under it.
     pub(crate) fn flash_clear(&mut self, template: Template, at: Point) {
         self.polarity(false);
-        self.select(template, NO_FUNCTION);
-        self.at(at, 3);
+        self.select(template.rotated(self.transform.rotation), NO_FUNCTION);
+        self.at(self.transform.point(at), 3);
     }
 
     /// Draws a straight line (`sweep` zero) or an arc with a round pen of `width`.
@@ -323,6 +348,8 @@ impl Gerber {
         sweep: Millideg,
         attributes: &[(&str, &str)],
     ) {
+        let from = self.transform.point(from);
+        let to = self.transform.point(to);
         self.polarity(true);
         self.select(Template::Circle(width), function);
         self.attributes(attributes);
@@ -342,10 +369,12 @@ impl Gerber {
         centre: Point,
         ccw: bool,
     ) {
+        let from = self.transform.point(from);
+        let to = self.transform.point(to);
         self.polarity(true);
         self.select(Template::Circle(width), function);
         self.move_to(from);
-        self.arc_to(from, to, centre, ccw);
+        self.arc_to(from, to, self.transform.point(centre), ccw);
     }
 
     /// The plot operation from the current point `from` to `to`.
@@ -381,6 +410,7 @@ impl Gerber {
         function: &'static str,
         attributes: &[(&str, &str)],
     ) {
+        let points: Vec<_> = points.iter().map(|p| self.transform.point(*p)).collect();
         let Some(&first) = points.first() else {
             return;
         };

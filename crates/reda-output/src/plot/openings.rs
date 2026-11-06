@@ -9,7 +9,7 @@ use reda_model::geom::Nm;
 use reda_model::{PadKind, Side};
 use reda_pcb::placed::{self, PlacedPad};
 
-use super::{Plot, file_attributes, file_attributes_with, flash_pad};
+use super::{BoardPlot, flash_pad};
 use crate::gerber::Gerber;
 
 /// The solder-mask margin of a Pad without its own. The board has no setting yet, so the
@@ -20,17 +20,14 @@ const MASK_MARGIN: Nm = Nm::ZERO;
 const PASTE_MARGIN: Nm = Nm::ZERO;
 
 /// The Solder Mask file of `side`.
-pub(super) fn mask(plot: &Plot<'_>, side: Side) -> Vec<u8> {
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
+pub(super) fn mask(plot: &BoardPlot<'_>, side: Side, g: &mut Gerber) {
     for opening in mask_openings(plot, side) {
-        flash_pad(&mut g, &opening, &[]);
+        flash_pad(g, &opening, &[]);
     }
-    let function = format!("Soldermask,{}", side_name(side));
-    g.finish(&file_attributes_with(plot, function, "Negative"))
 }
 
 /// The Solder Mask openings on `side`: each Pad there grown by its mask margin.
-pub(super) fn mask_openings(plot: &Plot<'_>, side: Side) -> Vec<PlacedPad> {
+pub(super) fn mask_openings(plot: &BoardPlot<'_>, side: Side) -> Vec<PlacedPad> {
     pads(plot)
         .filter(|pad| match pad.kind {
             PadKind::Smd => pad.side.unwrap_or(Side::Top) == side,
@@ -41,15 +38,13 @@ pub(super) fn mask_openings(plot: &Plot<'_>, side: Side) -> Vec<PlacedPad> {
 }
 
 /// The Paste file of `side`.
-pub(super) fn paste(plot: &Plot<'_>, side: Side) -> Vec<u8> {
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
+pub(super) fn paste(plot: &BoardPlot<'_>, side: Side, g: &mut Gerber) {
     for pad in pads(plot) {
         let on_side = pad.kind == PadKind::Smd && pad.side.unwrap_or(Side::Top) == side;
         if on_side && let Some(grown) = grown(&pad, pad.paste_margin.unwrap_or(PASTE_MARGIN)) {
-            flash_pad(&mut g, &grown, &[]);
+            flash_pad(g, &grown, &[]);
         }
     }
-    g.finish(&file_attributes(plot, format!("Paste,{}", side_name(side))))
 }
 
 /// `Top` or `Bot`, as `.FileFunction` names a side.
@@ -61,7 +56,7 @@ pub(super) fn side_name(side: Side) -> &'static str {
 }
 
 /// Every Pad of the board: the Footprints' in order, then the Free Pads.
-fn pads<'a>(plot: &'a Plot<'_>) -> impl Iterator<Item = PlacedPad> + 'a {
+fn pads<'a>(plot: &'a BoardPlot<'_>) -> impl Iterator<Item = PlacedPad> + 'a {
     let pcb = plot.pcb;
     pcb.footprints()
         .flat_map(move |f| placed::placed_pads(pcb, f))

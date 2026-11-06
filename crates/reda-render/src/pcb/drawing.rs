@@ -136,14 +136,14 @@ pub(super) fn outline(b: &mut Builder) {
         let points = arc::contour(vertices);
         b.polyline(object, layer, &points, OUTLINE_WIDTH, true);
     }
-    if let Some(origin) = pcb.placement_origin() {
-        placement_origin(b, layer, origin.uuid, origin.at);
+    if let Some(origin) = pcb.output_origin() {
+        output_origin(b, layer, origin.uuid, origin.at);
     }
 }
 
-/// The Placement Origin's mark, on the Board Outline Layer: a ring with a cross through
+/// The Output Origin's mark, on the Board Outline Layer: a ring with a cross through
 /// it, 2 mm across.
-fn placement_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
+fn output_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
     let r = Nm(1_000_000);
     b.on_layer(
         object,

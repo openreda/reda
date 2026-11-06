@@ -19,9 +19,26 @@ use crate::plot::{OutputFile, Plot, file_attributes};
 /// always written, even when one has no holes, so a run's file list does not depend on
 /// the board.
 pub fn drill_files(plot: &Plot<'_>) -> Vec<OutputFile> {
+    if plot.instances.is_empty() {
+        return Vec::new();
+    }
     let name = &plot.project.props().name;
-    let layers = plot.pcb.copper_layers().count();
-    let holes = holes(plot);
+    let layers = plot
+        .instances
+        .first()
+        .map_or(0, |i| i.pcb.copper_layers().count());
+    let holes: Vec<_> = plot
+        .instances
+        .iter()
+        .flat_map(|instance| {
+            let mut holes = holes(instance.pcb);
+            for hole in &mut holes {
+                hole.at = instance.transform.point(hole.at);
+                hole.to = hole.to.map(|p| instance.transform.point(p));
+            }
+            holes
+        })
+        .collect();
     let (plated, non_plated): (Vec<DrillHole>, Vec<DrillHole>) =
         holes.into_iter().partition(|h| h.plated);
     vec![
@@ -51,8 +68,7 @@ struct DrillHole {
 }
 
 /// Every hole: Vias, then Footprint Pads, then Free Pads, each in UUID order.
-fn holes(plot: &Plot<'_>) -> Vec<DrillHole> {
-    let pcb = plot.pcb;
+fn holes(pcb: &reda_model::PcbDocument) -> Vec<DrillHole> {
     let mut holes: Vec<DrillHole> = pcb
         .vias()
         .map(|via| DrillHole {

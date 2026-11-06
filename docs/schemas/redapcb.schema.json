@@ -1078,6 +1078,24 @@
       ],
       "type": "object"
     },
+    "OutputOrigin": {
+      "additionalProperties": false,
+      "description": "The point the editor measures coordinates and grid from, and manufacturing files use\nwhen a Fab Preset requests a relative origin. A PCB Document has at most one.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "at"
+      ],
+      "type": "object"
+    },
     "Pad": {
       "additionalProperties": false,
       "description": "A copper area, with or without a hole, of a Footprint.",
@@ -1381,24 +1399,6 @@
         "position",
         "height",
         "thickness"
-      ],
-      "type": "object"
-    },
-    "PlacementOrigin": {
-      "additionalProperties": false,
-      "description": "The point from which Footprint positions are measured in the manufacturing outputs\n(CPL). A PCB Document has at most one; without it the outputs measure from the\nlower-left corner of the Board Outline's bounding box.",
-      "properties": {
-        "at": {
-          "$ref": "#/$defs/Point"
-        },
-        "uuid": {
-          "format": "uuid",
-          "type": "string"
-        }
-      },
-      "required": [
-        "uuid",
-        "at"
       ],
       "type": "object"
     },
@@ -2242,14 +2242,10 @@
       },
       "type": "array"
     },
-    "pcb": {
-      "$ref": "#/$defs/PcbRow",
-      "description": "The PCB Document's identity; it matches its entry in the Project file."
-    },
-    "placement_origin": {
+    "output_origin": {
       "anyOf": [
         {
-          "$ref": "#/$defs/PlacementOrigin"
+          "$ref": "#/$defs/OutputOrigin"
         },
         {
           "type": "null"
@@ -2257,6 +2253,10 @@
       ],
       "default": null,
       "description": "The point the CPL measures from; left out while it is not set."
+    },
+    "pcb": {
+      "$ref": "#/$defs/PcbRow",
+      "description": "The PCB Document's identity; it matches its entry in the Project file."
     },
     "rules": {
       "description": "The design rule records: one board-wide record per kind, and Net Class records.",

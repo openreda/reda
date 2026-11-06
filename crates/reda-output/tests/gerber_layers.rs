@@ -36,9 +36,12 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
     let preset = project.fab_presets().next().unwrap().preset();
     gerber_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber: preset.gerber,
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &preset.gerber,
         fonts: &Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })

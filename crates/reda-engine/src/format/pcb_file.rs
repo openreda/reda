@@ -58,7 +58,7 @@
 //!   "free_pads": [
 //!     {"uuid":"…","kind":"plated_through_hole","shape":"circle","at":{…},"rotation":0,"width":6000000,"height":6000000,"hole":{…},"net":"…"}
 //!   ],
-//!   "placement_origin": {"uuid":"…","at":{"x":0,"y":0}},
+//!   "output_origin": {"uuid":"…","at":{"x":0,"y":0}},
 //!   "zones": [
 //!     {"uuid":"…","layer":"…","net":"…","vertices":[
 //!       {"x":0,"y":0},
@@ -87,15 +87,15 @@
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
 //! Footprints. `tracks`, `vias`, `free_pads`, `zones`, `keepouts` and `waivers` (of DRC
-//! Violations) are left out while the board has none, `placement_origin` while it is not
+//! Violations) are left out while the board has none, `output_origin` while it is not
 //! set. Zone fills are never stored here: they live in the `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DesignRule, DrcSeverities, FootprintInstance, FreePad,
-    InDocument, Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText,
-    PlacementOrigin, Stackup, Track, Uuid, Via, Waiver, Zone,
+    InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin, PcbDocument, PcbGraphic,
+    PcbText, Stackup, Track, Uuid, Via, Waiver, Zone,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -156,7 +156,7 @@ pub(crate) struct PcbFile {
     free_pads: Vec<FreePad>,
     /// The point the CPL measures from; left out while it is not set.
     #[serde(default)]
-    placement_origin: Option<PlacementOrigin>,
+    output_origin: Option<OutputOrigin>,
     /// The copper Zones (outlines and settings, never fills); left out while the board
     /// has none.
     #[serde(default)]
@@ -219,8 +219,8 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     if pcb.free_pads().next().is_some() {
         w.table("free_pads", pcb.free_pads(), |p| p.uuid)?;
     }
-    if let Some(origin) = pcb.placement_origin() {
-        w.field("placement_origin", origin)?;
+    if let Some(origin) = pcb.output_origin() {
+        w.field("output_origin", origin)?;
     }
     if pcb.zones().next().is_some() {
         w.containers("zones", pcb.zones(), |z| z.uuid, "vertices")?;
@@ -328,8 +328,8 @@ pub(crate) fn read_pcb_file(
             .map(|p| Object::FreePad(InDocument::new(doc, p))),
     );
     objects.extend(
-        file.placement_origin
-            .map(|o| Object::PlacementOrigin(InDocument::new(doc, o))),
+        file.output_origin
+            .map(|o| Object::OutputOrigin(InDocument::new(doc, o))),
     );
     objects.extend(
         file.zones

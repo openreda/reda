@@ -70,7 +70,7 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
     let preset = only_preset(&engine);
     assert_eq!(preset.name, "JLCPCB");
     assert!(
-        preset.bom.iter().any(|c| c.header == "LCSC Part #"),
+        preset.bom.columns.iter().any(|c| c.header == "LCSC Part #"),
         "{:?}",
         preset.bom
     );
@@ -419,19 +419,15 @@ fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
     let dir = TempDir::new("fab-stackup");
     let mut engine = with_user_preset(&home, &dir);
     let generic = engine.project().unwrap().pcb().unwrap().stackup().clone();
-    // The shipped presets seed nothing, so the board is 1.6 mm with 1 oz copper.
+    // JLCPCB seeds 1.6 mm with 1 oz copper; finish and colours stay unset.
     assert_eq!(generic.thickness, Nm::from_um(1_600));
     assert!(generic.copper().all(|c| c.thickness == Nm::from_um(35)));
 
     let path = home.path().join("config/fab-presets/My JLC.redafab");
     let text = std::fs::read_to_string(&path).unwrap();
-    assert!(
-        !text.contains("stackup"),
-        "empty seeds are left out: {text}"
-    );
     let text = text.replace(
-        "  \"gerber\":",
-        "  \"stackup\": {\"thickness\":800000,\"copper\":70000},\n  \"gerber\":",
+        "\"stackup\": {\"thickness\":1600000,\"copper\":35000}",
+        "\"stackup\": {\"thickness\":800000,\"copper\":70000}",
     );
     std::fs::write(&path, text).unwrap();
 
@@ -454,4 +450,266 @@ fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
     );
     let board = reopened.project().unwrap().pcb().unwrap().stackup().clone();
     assert_eq!(board, stackup);
+}
+
+#[test]
+fn shipped_presets_describe_the_fabs_complete_output_conventions() {
+    let mut engine = test_engine();
+    let list = engine.run_ok("fab_preset.list", json!({}));
+    for (name, origin, required, mount, unplaced, rotation, suffix, tht) in [
+        (
+            "Generic",
+            "absolute",
+            json!([]),
+            "SMT",
+            true,
+            "plus_180",
+            false,
+            false,
+        ),
+        (
+            "JLCPCB",
+            "absolute",
+            json!(["LCSC"]),
+            "SMT",
+            false,
+            "negate",
+            false,
+            false,
+        ),
+        (
+            "PCBWay",
+            "relative",
+            json!(["MPN"]),
+            "SMD",
+            false,
+            "plus_180",
+            true,
+            true,
+        ),
+    ] {
+        let preset = &list["presets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["preset"]["name"] == name)
+            .unwrap()["preset"];
+        assert_eq!(preset["gerber"]["file_origin"], origin, "{name}");
+        assert_eq!(preset["gerber"]["naming"], "classic");
+        assert_eq!(preset["gerber"]["slot_command"], "route");
+        assert_eq!(preset["gerber"]["merge_drill"], false);
+        assert_eq!(preset["gerber"]["outline_on_every_plot"], false);
+        assert_eq!(preset["gerber"]["file_names"], json!([]));
+        assert_eq!(preset["bom"]["required_fields"], required);
+        assert_eq!(
+            preset["bom"]["mount_values"],
+            json!({"smt": mount, "tht": "THT"})
+        );
+        assert_eq!(preset["bom"]["list_unplaced"], unplaced);
+        assert_eq!(preset["bom"]["layout"], "grouped");
+        assert_eq!(
+            preset["bom"]["group_by"],
+            json!(["part", "footprint", "fields"])
+        );
+        assert_eq!(preset["bom"]["sort"], json!(["designator"]));
+        assert_eq!(preset["bom"]["designator_separator"], ",");
+        assert_eq!(preset["bom"]["not_fitted"], "omit");
+        assert_eq!(
+            preset["bom"]["line_numbers"],
+            json!({"enabled": name == "PCBWay", "start": 1, "step": 1})
+        );
+        assert_eq!(preset["cpl"]["bottom_rotation"], rotation);
+        assert_eq!(preset["cpl"]["unit_suffix"], suffix);
+        assert_eq!(preset["cpl"]["exclude_through_hole"], tht);
+        assert_eq!(preset["cpl"]["units"], "mm");
+        assert_eq!(preset["cpl"]["bottom_position"], "top_view");
+        assert_eq!(
+            preset["cpl"]["side_values"],
+            json!({"top": "Top", "bottom": "Bottom"})
+        );
+        assert_eq!(preset["zip_assembly"], false);
+        let headers: Vec<_> = preset["bom"]["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["header"].as_str().unwrap())
+            .collect();
+        let expected = match name {
+            "Generic" => vec![
+                "Designator",
+                "Quantity",
+                "Value",
+                "Footprint",
+                "Manufacturer",
+                "MPN",
+            ],
+            "JLCPCB" => vec!["Comment", "Designator", "Footprint", "LCSC Part #"],
+            _ => vec![
+                "Item #",
+                "Designator",
+                "Qty",
+                "Manufacturer",
+                "Mfg Part #",
+                "Description / Value",
+                "Package/Footprint",
+                "Type",
+            ],
+        };
+        assert_eq!(headers, expected);
+        let cpl_headers: Vec<_> = preset["cpl"]["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["header"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            cpl_headers,
+            if name == "PCBWay" {
+                vec![
+                    "Designator",
+                    "Footprint",
+                    "Mid X",
+                    "Mid Y",
+                    "Ref X",
+                    "Ref Y",
+                    "Pad X",
+                    "Pad Y",
+                    "TB",
+                    "Rotation",
+                    "Comment",
+                ]
+            } else {
+                vec!["Designator", "Mid X", "Mid Y", "Layer", "Rotation"]
+            }
+        );
+        let suggestions = &preset["stackup_suggestions"];
+        assert_eq!(
+            suggestions["thickness"],
+            if name == "PCBWay" {
+                json!([
+                    200000, 400000, 600000, 800000, 1000000, 1200000, 1600000, 2000000, 2400000,
+                    2600000, 2800000, 3000000, 3200000
+                ])
+            } else {
+                json!([400000, 600000, 800000, 1000000, 1200000, 1600000, 2000000])
+            }
+        );
+        assert_eq!(
+            suggestions["copper"],
+            match name {
+                "JLCPCB" => json!([35000, 70000, 87500, 122500, 157500]),
+                "PCBWay" => json!([35000, 70000, 105000, 140000, 175000, 210000, 245000, 280000]),
+                _ => json!([35000, 70000]),
+            }
+        );
+        assert_eq!(
+            suggestions["finish"],
+            if name == "PCBWay" {
+                json!([
+                    "HASL with lead",
+                    "HASL lead free",
+                    "Immersion Gold",
+                    "OSP",
+                    "Hard Gold",
+                    "Immersion Silver",
+                    "Immersion Tin",
+                    "ENEPIG"
+                ])
+            } else {
+                json!(["HASL (leaded)", "HASL (lead-free)", "ENIG", "OSP"])
+            }
+        );
+        assert_eq!(
+            suggestions["mask_color"],
+            if name == "PCBWay" {
+                json!([
+                    "Green",
+                    "Red",
+                    "Yellow",
+                    "Blue",
+                    "White",
+                    "Black",
+                    "Matt green",
+                    "Matte black",
+                    "Purple",
+                    "none"
+                ])
+            } else {
+                json!(["Green", "Purple", "Red", "Yellow", "Blue", "White", "Black"])
+            }
+        );
+        assert_eq!(
+            suggestions["silk_color"],
+            if name == "PCBWay" {
+                json!(["White", "Black", "Yellow", "None"])
+            } else {
+                json!([])
+            }
+        );
+        if name == "Generic" {
+            assert!(preset.get("stackup").is_none());
+        } else {
+            assert_eq!(
+                preset["stackup"],
+                json!({"thickness":1600000,"copper":35000})
+            );
+        }
+    }
+}
+
+#[test]
+fn custom_output_conventions_survive_user_and_project_file_roundtrips() {
+    let (home, dir) = (
+        TempDir::new("fab-conventions-home"),
+        TempDir::new("fab-conventions"),
+    );
+    let mut engine = with_user_preset(&home, &dir);
+    let source = home.path().join("config/fab-presets/My JLC.redafab");
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&source).unwrap()).unwrap();
+    file["gerber"] = json!({"x2_attributes":false,"naming":"descriptive","file_origin":"relative",
+        "slot_command":"g85","merge_drill":true,"outline_on_every_plot":true,
+        "file_names":[{"layer":"Top Copper","name":"top.gbr"}]});
+    file["bom"]["layout"] = json!("flat");
+    file["bom"]["group_by"] = json!(["part","footprint","fields","value",{"field":"MPN"}]);
+    file["bom"]["sort"] = json!(["quantity", "designator"]);
+    file["bom"]["line_numbers"] = json!({"enabled":true,"start":5,"step":10});
+    file["bom"]["not_fitted"] = json!("list");
+    file["bom"]["designator_separator"] = json!("; ");
+    file["bom"]["columns"] = json!([{"header":"Fitted","source":"fitted"}]);
+    file["cpl"]["columns"] = json!([
+        {"header":"CX","source":"centre_x"},{"header":"CY","source":"centre_y"},
+        {"header":"OX","source":"origin_x"},{"header":"OY","source":"origin_y"},
+        {"header":"P1X","source":"pad1_x"},{"header":"P1Y","source":"pad1_y"},
+        {"header":"Side","source":"side"}]);
+    file["cpl"]["side_values"] = json!({"top":"T","bottom":"B"});
+    file["cpl"]["units"] = json!("in");
+    file["cpl"]["unit_suffix"] = json!(true);
+    file["cpl"]["bottom_rotation"] = json!("stored");
+    file["cpl"]["bottom_position"] = json!("negate_x");
+    file["cpl"]["exclude_through_hole"] = json!(true);
+    file["zip_assembly"] = json!(true);
+    std::fs::write(&source, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
+    let destination = TempDir::new("fab-conventions-project");
+    new_project(&mut engine, &destination, json!({"fab_preset":"My JLC"}));
+    let copy = only_preset(&engine);
+    let mut expected = file.clone();
+    expected.as_object_mut().unwrap().remove("format");
+    assert_eq!(serde_json::to_value(copy.preset()).unwrap(), expected);
+    engine.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":copy.uuid,"name":"Roundtrip"}),
+    );
+    let saved: Value = serde_json::from_slice(
+        &std::fs::read(home.path().join("config/fab-presets/Roundtrip.redafab")).unwrap(),
+    )
+    .unwrap();
+    file["name"] = json!("Roundtrip");
+    assert_eq!(saved, file);
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = test_engine();
+    reopened.run_ok(
+        "project.open",
+        json!({"path": destination.path().join("work/Demo")}),
+    );
+    assert_eq!(only_preset(&reopened), copy);
 }
