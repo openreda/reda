@@ -132,7 +132,7 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         title: String::new(),
     };
     add_document(&mut tx, entry).expect("a blank Project takes a board");
-    for object in new_board(document, &rules, &mut new_id) {
+    for object in new_board(document, &rules, Default::default(), &mut new_id) {
         tx.insert(object).expect("a new board's objects fit");
     }
     tx.commit().expect("a new board commits");

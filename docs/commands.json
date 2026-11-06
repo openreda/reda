@@ -2076,6 +2076,10 @@
               "rules": {
                 "$ref": "#/$defs/FabRules",
                 "description": "The limits a job checks the board against, and the seeds of a new board's rules."
+              },
+              "stackup": {
+                "$ref": "#/$defs/StackupSeeds",
+                "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither."
               }
             },
             "required": [
@@ -2224,6 +2228,29 @@
               "via_diameter",
               "via_hole"
             ],
+            "type": "object"
+          },
+          "StackupSeeds": {
+            "additionalProperties": false,
+            "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
+            "properties": {
+              "copper": {
+                "description": "The copper thickness of every copper Layer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished board thickness.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           }
         },
@@ -9912,6 +9939,27 @@
               }
             ]
           },
+          "CopperEntry": {
+            "additionalProperties": false,
+            "description": "The copper of one copper Layer.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "The copper thickness; 1 oz is exactly 35 µm.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "layer",
+              "thickness"
+            ],
+            "type": "object"
+          },
           "Corner": {
             "description": "A corner of a Pad, in its own frame (+y up).",
             "enum": [
@@ -9940,6 +9988,28 @@
             "required": [
               "sheet",
               "location"
+            ],
+            "type": "object"
+          },
+          "DielectricEntry": {
+            "additionalProperties": false,
+            "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
+            "properties": {
+              "thickness": {
+                "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
             ],
             "type": "object"
           },
@@ -10678,6 +10748,42 @@
           "InDocument10": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "footprints": {
+                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "hash": {
+                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
+                "type": "string"
+              },
+              "part": {
+                "$ref": "#/$defs/Part"
+              },
+              "symbol": {
+                "$ref": "#/$defs/Symbol"
+              },
+              "uuid": {
+                "description": "The entry's own UUID, which Units point at.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "part",
+              "symbol",
+              "footprints"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "footprint": {
                 "$ref": "#/$defs/Footprint"
               },
@@ -10697,7 +10803,7 @@
             ],
             "type": "object"
           },
-          "InDocument11": {
+          "InDocument12": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -10802,7 +10908,7 @@
             ],
             "type": "object"
           },
-          "InDocument12": {
+          "InDocument13": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -10822,7 +10928,7 @@
             ],
             "type": "object"
           },
-          "InDocument13": {
+          "InDocument14": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -10850,7 +10956,7 @@
             ],
             "type": "object"
           },
-          "InDocument14": {
+          "InDocument15": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -10867,7 +10973,7 @@
             ],
             "type": "object"
           },
-          "InDocument15": {
+          "InDocument16": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -10903,7 +11009,7 @@
             ],
             "type": "object"
           },
-          "InDocument16": {
+          "InDocument17": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -10939,7 +11045,7 @@
             ],
             "type": "object"
           },
-          "InDocument17": {
+          "InDocument18": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -10978,7 +11084,7 @@
             ],
             "type": "object"
           },
-          "InDocument18": {
+          "InDocument19": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "shape": {
@@ -10995,7 +11101,24 @@
             ],
             "type": "object"
           },
-          "InDocument19": {
+          "InDocument2": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "severities": {
+                "$ref": "#/$defs/DrcSeverities"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "severities"
+            ],
+            "type": "object"
+          },
+          "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "check": {
@@ -11026,24 +11149,7 @@
             ],
             "type": "object"
           },
-          "InDocument2": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "severities": {
-                "$ref": "#/$defs/DrcSeverities"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "severities"
-            ],
-            "type": "object"
-          },
-          "InDocument20": {
+          "InDocument21": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
@@ -11098,7 +11204,7 @@
             ],
             "type": "object"
           },
-          "InDocument21": {
+          "InDocument22": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -11127,7 +11233,7 @@
             ],
             "type": "object"
           },
-          "InDocument22": {
+          "InDocument23": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -11221,7 +11327,7 @@
             ],
             "type": "object"
           },
-          "InDocument23": {
+          "InDocument24": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "geometry": {
@@ -11258,7 +11364,7 @@
             ],
             "type": "object"
           },
-          "InDocument24": {
+          "InDocument25": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -11301,7 +11407,7 @@
             ],
             "type": "object"
           },
-          "InDocument25": {
+          "InDocument26": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "clearance": {
@@ -11376,7 +11482,7 @@
             ],
             "type": "object"
           },
-          "InDocument26": {
+          "InDocument27": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "copper": {
@@ -11416,7 +11522,7 @@
             ],
             "type": "object"
           },
-          "InDocument27": {
+          "InDocument28": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -11542,7 +11648,7 @@
             ],
             "type": "object"
           },
-          "InDocument28": {
+          "InDocument29": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -11560,6 +11666,54 @@
             "type": "object"
           },
           "InDocument3": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "entries": {
+                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "items": {
+                  "$ref": "#/$defs/StackupEntry"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "description": "The surface finish, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mask_color": {
+                "description": "The solder mask colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "silk_color": {
+                "description": "The silkscreen colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished thickness you order.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "comment": {
@@ -11595,7 +11749,7 @@
             ],
             "type": "object"
           },
-          "InDocument4": {
+          "InDocument5": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -11616,7 +11770,7 @@
             ],
             "type": "object"
           },
-          "InDocument5": {
+          "InDocument6": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -11637,7 +11791,7 @@
             ],
             "type": "object"
           },
-          "InDocument6": {
+          "InDocument7": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "name": {
@@ -11661,7 +11815,7 @@
             ],
             "type": "object"
           },
-          "InDocument7": {
+          "InDocument8": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "classes": {
@@ -11686,7 +11840,7 @@
             ],
             "type": "object"
           },
-          "InDocument8": {
+          "InDocument9": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "border_zones": {
@@ -11720,42 +11874,6 @@
             "required": [
               "uuid",
               "size"
-            ],
-            "type": "object"
-          },
-          "InDocument9": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "footprints": {
-                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
-                "items": {
-                  "format": "uuid",
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "hash": {
-                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
-                "type": "string"
-              },
-              "part": {
-                "$ref": "#/$defs/Part"
-              },
-              "symbol": {
-                "$ref": "#/$defs/Symbol"
-              },
-              "uuid": {
-                "description": "The entry's own UUID, which Units point at.",
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "hash",
-              "part",
-              "symbol",
-              "footprints"
             ],
             "type": "object"
           },
@@ -11830,7 +11948,7 @@
           },
           "LayerSpan": {
             "additionalProperties": false,
-            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\nA through Via spans the outermost copper Layers.",
+            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\n`from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the\nside it is drilled from, which matters only once blind Vias come.",
             "properties": {
               "from": {
                 "format": "uuid",
@@ -12018,6 +12136,9 @@
                   },
                   "rules": {
                     "$ref": "#/$defs/FabRules"
+                  },
+                  "stackup": {
+                    "$ref": "#/$defs/StackupSeeds"
                   },
                   "type": {
                     "const": "fab_preset",
@@ -12337,7 +12458,7 @@
                 "$ref": "#/$defs/InDocument3",
                 "properties": {
                   "type": {
-                    "const": "design_rule",
+                    "const": "stackup",
                     "type": "string"
                   }
                 },
@@ -12350,7 +12471,7 @@
                 "$ref": "#/$defs/InDocument4",
                 "properties": {
                   "type": {
-                    "const": "board_outline",
+                    "const": "design_rule",
                     "type": "string"
                   }
                 },
@@ -12363,7 +12484,7 @@
                 "$ref": "#/$defs/InDocument5",
                 "properties": {
                   "type": {
-                    "const": "board_cutout",
+                    "const": "board_outline",
                     "type": "string"
                   }
                 },
@@ -12376,7 +12497,7 @@
                 "$ref": "#/$defs/InDocument6",
                 "properties": {
                   "type": {
-                    "const": "net_class",
+                    "const": "board_cutout",
                     "type": "string"
                   }
                 },
@@ -12389,7 +12510,7 @@
                 "$ref": "#/$defs/InDocument7",
                 "properties": {
                   "type": {
-                    "const": "net",
+                    "const": "net_class",
                     "type": "string"
                   }
                 },
@@ -12402,7 +12523,7 @@
                 "$ref": "#/$defs/InDocument8",
                 "properties": {
                   "type": {
-                    "const": "sheet_frame",
+                    "const": "net",
                     "type": "string"
                   }
                 },
@@ -12415,7 +12536,7 @@
                 "$ref": "#/$defs/InDocument9",
                 "properties": {
                   "type": {
-                    "const": "part_entry",
+                    "const": "sheet_frame",
                     "type": "string"
                   }
                 },
@@ -12428,7 +12549,7 @@
                 "$ref": "#/$defs/InDocument10",
                 "properties": {
                   "type": {
-                    "const": "footprint_copy",
+                    "const": "part_entry",
                     "type": "string"
                   }
                 },
@@ -12441,7 +12562,7 @@
                 "$ref": "#/$defs/InDocument11",
                 "properties": {
                   "type": {
-                    "const": "unit",
+                    "const": "footprint_copy",
                     "type": "string"
                   }
                 },
@@ -12454,7 +12575,7 @@
                 "$ref": "#/$defs/InDocument12",
                 "properties": {
                   "type": {
-                    "const": "wire",
+                    "const": "unit",
                     "type": "string"
                   }
                 },
@@ -12467,7 +12588,7 @@
                 "$ref": "#/$defs/InDocument13",
                 "properties": {
                   "type": {
-                    "const": "net_label",
+                    "const": "wire",
                     "type": "string"
                   }
                 },
@@ -12480,7 +12601,7 @@
                 "$ref": "#/$defs/InDocument14",
                 "properties": {
                   "type": {
-                    "const": "no_connect",
+                    "const": "net_label",
                     "type": "string"
                   }
                 },
@@ -12493,7 +12614,7 @@
                 "$ref": "#/$defs/InDocument15",
                 "properties": {
                   "type": {
-                    "const": "port",
+                    "const": "no_connect",
                     "type": "string"
                   }
                 },
@@ -12506,7 +12627,7 @@
                 "$ref": "#/$defs/InDocument16",
                 "properties": {
                   "type": {
-                    "const": "power_port",
+                    "const": "port",
                     "type": "string"
                   }
                 },
@@ -12519,7 +12640,7 @@
                 "$ref": "#/$defs/InDocument17",
                 "properties": {
                   "type": {
-                    "const": "sheet_text",
+                    "const": "power_port",
                     "type": "string"
                   }
                 },
@@ -12532,7 +12653,7 @@
                 "$ref": "#/$defs/InDocument18",
                 "properties": {
                   "type": {
-                    "const": "sheet_graphic",
+                    "const": "sheet_text",
                     "type": "string"
                   }
                 },
@@ -12545,7 +12666,7 @@
                 "$ref": "#/$defs/InDocument19",
                 "properties": {
                   "type": {
-                    "const": "waiver",
+                    "const": "sheet_graphic",
                     "type": "string"
                   }
                 },
@@ -12558,7 +12679,7 @@
                 "$ref": "#/$defs/InDocument20",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "waiver",
                     "type": "string"
                   }
                 },
@@ -12571,7 +12692,7 @@
                 "$ref": "#/$defs/InDocument21",
                 "properties": {
                   "type": {
-                    "const": "pcb_graphic",
+                    "const": "pcb_text",
                     "type": "string"
                   }
                 },
@@ -12584,7 +12705,7 @@
                 "$ref": "#/$defs/InDocument22",
                 "properties": {
                   "type": {
-                    "const": "footprint_instance",
+                    "const": "pcb_graphic",
                     "type": "string"
                   }
                 },
@@ -12597,7 +12718,7 @@
                 "$ref": "#/$defs/InDocument23",
                 "properties": {
                   "type": {
-                    "const": "track",
+                    "const": "footprint_instance",
                     "type": "string"
                   }
                 },
@@ -12610,7 +12731,7 @@
                 "$ref": "#/$defs/InDocument24",
                 "properties": {
                   "type": {
-                    "const": "via",
+                    "const": "track",
                     "type": "string"
                   }
                 },
@@ -12623,7 +12744,7 @@
                 "$ref": "#/$defs/InDocument25",
                 "properties": {
                   "type": {
-                    "const": "zone",
+                    "const": "via",
                     "type": "string"
                   }
                 },
@@ -12636,7 +12757,7 @@
                 "$ref": "#/$defs/InDocument26",
                 "properties": {
                   "type": {
-                    "const": "keepout",
+                    "const": "zone",
                     "type": "string"
                   }
                 },
@@ -12649,7 +12770,7 @@
                 "$ref": "#/$defs/InDocument27",
                 "properties": {
                   "type": {
-                    "const": "free_pad",
+                    "const": "keepout",
                     "type": "string"
                   }
                 },
@@ -12660,6 +12781,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument28",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument29",
                 "properties": {
                   "type": {
                     "const": "placement_origin",
@@ -13245,26 +13379,14 @@
           },
           "ProjectProperties": {
             "additionalProperties": false,
-            "description": "The Project properties: fixed free-text fields that fill each sheet's title block, and\nthe board thickness and copper weight that go into fab notes.",
+            "description": "The Project properties: fixed free-text fields that fill each sheet's title block. The\nboard thickness and copper are the PCB Document's [`crate::Stackup`].",
             "properties": {
               "author": {
                 "default": "",
                 "type": "string"
               },
-              "board_thickness": {
-                "description": "The finished board thickness, for fab notes; left out when not set.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
               "company": {
                 "default": "",
-                "type": "string"
-              },
-              "copper_weight": {
-                "description": "The copper weight, for fab notes, as free text such as `1 oz`; left out when empty.",
                 "type": "string"
               },
               "date": {
@@ -13742,6 +13864,42 @@
               "bottom"
             ],
             "type": "string"
+          },
+          "StackupEntry": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CopperEntry",
+                "description": "A copper Layer's thickness."
+              },
+              {
+                "$ref": "#/$defs/DielectricEntry",
+                "description": "Board material between two copper Layers."
+              }
+            ],
+            "description": "One entry of a [`Stackup`]. Solder mask, silkscreen and paste are not entries."
+          },
+          "StackupSeeds": {
+            "additionalProperties": false,
+            "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
+            "properties": {
+              "copper": {
+                "description": "The copper thickness of every copper Layer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished board thickness.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Symbol": {
             "additionalProperties": false,
@@ -14247,6 +14405,11 @@
                 "type": "string"
               },
               {
+                "const": "stackup",
+                "description": "The board's copper and dielectric build, finish and colours.",
+                "type": "string"
+              },
+              {
                 "const": "design_rule",
                 "description": "One design rule record: a kind, a scope and the values it sets.",
                 "type": "string"
@@ -14597,6 +14760,27 @@
               }
             ]
           },
+          "CopperEntry": {
+            "additionalProperties": false,
+            "description": "The copper of one copper Layer.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "The copper thickness; 1 oz is exactly 35 µm.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "layer",
+              "thickness"
+            ],
+            "type": "object"
+          },
           "Corner": {
             "description": "A corner of a Pad, in its own frame (+y up).",
             "enum": [
@@ -14625,6 +14809,28 @@
             "required": [
               "sheet",
               "location"
+            ],
+            "type": "object"
+          },
+          "DielectricEntry": {
+            "additionalProperties": false,
+            "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
+            "properties": {
+              "thickness": {
+                "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
             ],
             "type": "object"
           },
@@ -15363,6 +15569,42 @@
           "InDocument10": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "footprints": {
+                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "hash": {
+                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
+                "type": "string"
+              },
+              "part": {
+                "$ref": "#/$defs/Part"
+              },
+              "symbol": {
+                "$ref": "#/$defs/Symbol"
+              },
+              "uuid": {
+                "description": "The entry's own UUID, which Units point at.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash",
+              "part",
+              "symbol",
+              "footprints"
+            ],
+            "type": "object"
+          },
+          "InDocument11": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
               "footprint": {
                 "$ref": "#/$defs/Footprint"
               },
@@ -15382,7 +15624,7 @@
             ],
             "type": "object"
           },
-          "InDocument11": {
+          "InDocument12": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15487,7 +15729,7 @@
             ],
             "type": "object"
           },
-          "InDocument12": {
+          "InDocument13": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -15507,7 +15749,7 @@
             ],
             "type": "object"
           },
-          "InDocument13": {
+          "InDocument14": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15535,7 +15777,7 @@
             ],
             "type": "object"
           },
-          "InDocument14": {
+          "InDocument15": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15552,7 +15794,7 @@
             ],
             "type": "object"
           },
-          "InDocument15": {
+          "InDocument16": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15588,7 +15830,7 @@
             ],
             "type": "object"
           },
-          "InDocument16": {
+          "InDocument17": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15624,7 +15866,7 @@
             ],
             "type": "object"
           },
-          "InDocument17": {
+          "InDocument18": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15663,7 +15905,7 @@
             ],
             "type": "object"
           },
-          "InDocument18": {
+          "InDocument19": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "shape": {
@@ -15680,7 +15922,24 @@
             ],
             "type": "object"
           },
-          "InDocument19": {
+          "InDocument2": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "severities": {
+                "$ref": "#/$defs/DrcSeverities"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "severities"
+            ],
+            "type": "object"
+          },
+          "InDocument20": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "check": {
@@ -15711,24 +15970,7 @@
             ],
             "type": "object"
           },
-          "InDocument2": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "severities": {
-                "$ref": "#/$defs/DrcSeverities"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "severities"
-            ],
-            "type": "object"
-          },
-          "InDocument20": {
+          "InDocument21": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
@@ -15783,7 +16025,7 @@
             ],
             "type": "object"
           },
-          "InDocument21": {
+          "InDocument22": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "layer": {
@@ -15812,7 +16054,7 @@
             ],
             "type": "object"
           },
-          "InDocument22": {
+          "InDocument23": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15906,7 +16148,7 @@
             ],
             "type": "object"
           },
-          "InDocument23": {
+          "InDocument24": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "geometry": {
@@ -15943,7 +16185,7 @@
             ],
             "type": "object"
           },
-          "InDocument24": {
+          "InDocument25": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -15986,7 +16228,7 @@
             ],
             "type": "object"
           },
-          "InDocument25": {
+          "InDocument26": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "clearance": {
@@ -16061,7 +16303,7 @@
             ],
             "type": "object"
           },
-          "InDocument26": {
+          "InDocument27": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "copper": {
@@ -16101,7 +16343,7 @@
             ],
             "type": "object"
           },
-          "InDocument27": {
+          "InDocument28": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -16227,7 +16469,7 @@
             ],
             "type": "object"
           },
-          "InDocument28": {
+          "InDocument29": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -16245,6 +16487,54 @@
             "type": "object"
           },
           "InDocument3": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "entries": {
+                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "items": {
+                  "$ref": "#/$defs/StackupEntry"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "description": "The surface finish, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mask_color": {
+                "description": "The solder mask colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "silk_color": {
+                "description": "The silkscreen colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished thickness you order.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "comment": {
@@ -16280,7 +16570,7 @@
             ],
             "type": "object"
           },
-          "InDocument4": {
+          "InDocument5": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -16301,7 +16591,7 @@
             ],
             "type": "object"
           },
-          "InDocument5": {
+          "InDocument6": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "uuid": {
@@ -16322,7 +16612,7 @@
             ],
             "type": "object"
           },
-          "InDocument6": {
+          "InDocument7": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "name": {
@@ -16346,7 +16636,7 @@
             ],
             "type": "object"
           },
-          "InDocument7": {
+          "InDocument8": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "classes": {
@@ -16371,7 +16661,7 @@
             ],
             "type": "object"
           },
-          "InDocument8": {
+          "InDocument9": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "border_zones": {
@@ -16405,42 +16695,6 @@
             "required": [
               "uuid",
               "size"
-            ],
-            "type": "object"
-          },
-          "InDocument9": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "footprints": {
-                "description": "The sheet's [`FootprintCopy`] of each alternate, in the order of `part.footprints`.",
-                "items": {
-                  "format": "uuid",
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "hash": {
-                "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
-                "type": "string"
-              },
-              "part": {
-                "$ref": "#/$defs/Part"
-              },
-              "symbol": {
-                "$ref": "#/$defs/Symbol"
-              },
-              "uuid": {
-                "description": "The entry's own UUID, which Units point at.",
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "hash",
-              "part",
-              "symbol",
-              "footprints"
             ],
             "type": "object"
           },
@@ -16515,7 +16769,7 @@
           },
           "LayerSpan": {
             "additionalProperties": false,
-            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\nA through Via spans the outermost copper Layers.",
+            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\n`from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the\nside it is drilled from, which matters only once blind Vias come.",
             "properties": {
               "from": {
                 "format": "uuid",
@@ -16703,6 +16957,9 @@
                   },
                   "rules": {
                     "$ref": "#/$defs/FabRules"
+                  },
+                  "stackup": {
+                    "$ref": "#/$defs/StackupSeeds"
                   },
                   "type": {
                     "const": "fab_preset",
@@ -17022,7 +17279,7 @@
                 "$ref": "#/$defs/InDocument3",
                 "properties": {
                   "type": {
-                    "const": "design_rule",
+                    "const": "stackup",
                     "type": "string"
                   }
                 },
@@ -17035,7 +17292,7 @@
                 "$ref": "#/$defs/InDocument4",
                 "properties": {
                   "type": {
-                    "const": "board_outline",
+                    "const": "design_rule",
                     "type": "string"
                   }
                 },
@@ -17048,7 +17305,7 @@
                 "$ref": "#/$defs/InDocument5",
                 "properties": {
                   "type": {
-                    "const": "board_cutout",
+                    "const": "board_outline",
                     "type": "string"
                   }
                 },
@@ -17061,7 +17318,7 @@
                 "$ref": "#/$defs/InDocument6",
                 "properties": {
                   "type": {
-                    "const": "net_class",
+                    "const": "board_cutout",
                     "type": "string"
                   }
                 },
@@ -17074,7 +17331,7 @@
                 "$ref": "#/$defs/InDocument7",
                 "properties": {
                   "type": {
-                    "const": "net",
+                    "const": "net_class",
                     "type": "string"
                   }
                 },
@@ -17087,7 +17344,7 @@
                 "$ref": "#/$defs/InDocument8",
                 "properties": {
                   "type": {
-                    "const": "sheet_frame",
+                    "const": "net",
                     "type": "string"
                   }
                 },
@@ -17100,7 +17357,7 @@
                 "$ref": "#/$defs/InDocument9",
                 "properties": {
                   "type": {
-                    "const": "part_entry",
+                    "const": "sheet_frame",
                     "type": "string"
                   }
                 },
@@ -17113,7 +17370,7 @@
                 "$ref": "#/$defs/InDocument10",
                 "properties": {
                   "type": {
-                    "const": "footprint_copy",
+                    "const": "part_entry",
                     "type": "string"
                   }
                 },
@@ -17126,7 +17383,7 @@
                 "$ref": "#/$defs/InDocument11",
                 "properties": {
                   "type": {
-                    "const": "unit",
+                    "const": "footprint_copy",
                     "type": "string"
                   }
                 },
@@ -17139,7 +17396,7 @@
                 "$ref": "#/$defs/InDocument12",
                 "properties": {
                   "type": {
-                    "const": "wire",
+                    "const": "unit",
                     "type": "string"
                   }
                 },
@@ -17152,7 +17409,7 @@
                 "$ref": "#/$defs/InDocument13",
                 "properties": {
                   "type": {
-                    "const": "net_label",
+                    "const": "wire",
                     "type": "string"
                   }
                 },
@@ -17165,7 +17422,7 @@
                 "$ref": "#/$defs/InDocument14",
                 "properties": {
                   "type": {
-                    "const": "no_connect",
+                    "const": "net_label",
                     "type": "string"
                   }
                 },
@@ -17178,7 +17435,7 @@
                 "$ref": "#/$defs/InDocument15",
                 "properties": {
                   "type": {
-                    "const": "port",
+                    "const": "no_connect",
                     "type": "string"
                   }
                 },
@@ -17191,7 +17448,7 @@
                 "$ref": "#/$defs/InDocument16",
                 "properties": {
                   "type": {
-                    "const": "power_port",
+                    "const": "port",
                     "type": "string"
                   }
                 },
@@ -17204,7 +17461,7 @@
                 "$ref": "#/$defs/InDocument17",
                 "properties": {
                   "type": {
-                    "const": "sheet_text",
+                    "const": "power_port",
                     "type": "string"
                   }
                 },
@@ -17217,7 +17474,7 @@
                 "$ref": "#/$defs/InDocument18",
                 "properties": {
                   "type": {
-                    "const": "sheet_graphic",
+                    "const": "sheet_text",
                     "type": "string"
                   }
                 },
@@ -17230,7 +17487,7 @@
                 "$ref": "#/$defs/InDocument19",
                 "properties": {
                   "type": {
-                    "const": "waiver",
+                    "const": "sheet_graphic",
                     "type": "string"
                   }
                 },
@@ -17243,7 +17500,7 @@
                 "$ref": "#/$defs/InDocument20",
                 "properties": {
                   "type": {
-                    "const": "pcb_text",
+                    "const": "waiver",
                     "type": "string"
                   }
                 },
@@ -17256,7 +17513,7 @@
                 "$ref": "#/$defs/InDocument21",
                 "properties": {
                   "type": {
-                    "const": "pcb_graphic",
+                    "const": "pcb_text",
                     "type": "string"
                   }
                 },
@@ -17269,7 +17526,7 @@
                 "$ref": "#/$defs/InDocument22",
                 "properties": {
                   "type": {
-                    "const": "footprint_instance",
+                    "const": "pcb_graphic",
                     "type": "string"
                   }
                 },
@@ -17282,7 +17539,7 @@
                 "$ref": "#/$defs/InDocument23",
                 "properties": {
                   "type": {
-                    "const": "track",
+                    "const": "footprint_instance",
                     "type": "string"
                   }
                 },
@@ -17295,7 +17552,7 @@
                 "$ref": "#/$defs/InDocument24",
                 "properties": {
                   "type": {
-                    "const": "via",
+                    "const": "track",
                     "type": "string"
                   }
                 },
@@ -17308,7 +17565,7 @@
                 "$ref": "#/$defs/InDocument25",
                 "properties": {
                   "type": {
-                    "const": "zone",
+                    "const": "via",
                     "type": "string"
                   }
                 },
@@ -17321,7 +17578,7 @@
                 "$ref": "#/$defs/InDocument26",
                 "properties": {
                   "type": {
-                    "const": "keepout",
+                    "const": "zone",
                     "type": "string"
                   }
                 },
@@ -17334,7 +17591,7 @@
                 "$ref": "#/$defs/InDocument27",
                 "properties": {
                   "type": {
-                    "const": "free_pad",
+                    "const": "keepout",
                     "type": "string"
                   }
                 },
@@ -17345,6 +17602,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument28",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument29",
                 "properties": {
                   "type": {
                     "const": "placement_origin",
@@ -17951,26 +18221,14 @@
           },
           "ProjectProperties": {
             "additionalProperties": false,
-            "description": "The Project properties: fixed free-text fields that fill each sheet's title block, and\nthe board thickness and copper weight that go into fab notes.",
+            "description": "The Project properties: fixed free-text fields that fill each sheet's title block. The\nboard thickness and copper are the PCB Document's [`crate::Stackup`].",
             "properties": {
               "author": {
                 "default": "",
                 "type": "string"
               },
-              "board_thickness": {
-                "description": "The finished board thickness, for fab notes; left out when not set.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
               "company": {
                 "default": "",
-                "type": "string"
-              },
-              "copper_weight": {
-                "description": "The copper weight, for fab notes, as free text such as `1 oz`; left out when empty.",
                 "type": "string"
               },
               "date": {
@@ -18448,6 +18706,42 @@
               "bottom"
             ],
             "type": "string"
+          },
+          "StackupEntry": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CopperEntry",
+                "description": "A copper Layer's thickness."
+              },
+              {
+                "$ref": "#/$defs/DielectricEntry",
+                "description": "Board material between two copper Layers."
+              }
+            ],
+            "description": "One entry of a [`Stackup`]. Solder mask, silkscreen and paste are not entries."
+          },
+          "StackupSeeds": {
+            "additionalProperties": false,
+            "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
+            "properties": {
+              "copper": {
+                "description": "The copper thickness of every copper Layer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished board thickness.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Symbol": {
             "additionalProperties": false,
@@ -19030,7 +19324,7 @@
             "description": "One file the run wrote, also in the zip.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_bottom`, `solder_mask_top`, `solder_mask_bottom`,\n`paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `bom` or `cpl`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `bom` or `cpl`.",
                 "type": "string"
               },
               "name": {
@@ -22268,7 +22562,7 @@
           "layers": {
             "description": "The copper Layers it applies to. Default: every copper Layer.",
             "items": {
-              "description": "A Layer: its UUID, or its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\".",
+              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
               "type": "string"
             },
             "type": [
@@ -22447,7 +22741,7 @@
           },
           "layers": {
             "items": {
-              "description": "A Layer: its UUID, or its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\".",
+              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
               "type": "string"
             },
             "type": [
@@ -24525,6 +24819,319 @@
         "type": "object"
       },
       "title": "Set Design Rule"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets the board's Stackup: the finished `thickness`, the `copper` of each copper Layer (in nm, a length, or oz at exactly 35 µm per oz), the `dielectrics` (`null` leaves one blank, to take the remainder of the thickness), and the free-text `finish`, `mask_color` and `silk_color`. Values left out keep theirs. Refuses a thickness the copper and typed dielectrics already exceed while a dielectric is blank; warns when every dielectric is typed in and they do not add up to the thickness. Returns the Stackup, its totals and the warnings.",
+      "icon": "layers",
+      "id": "pcb.stackup.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "CopperParam": {
+            "additionalProperties": false,
+            "description": "One copper Layer's new thickness.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer's UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "thickness": {
+                "$ref": "#/$defs/CopperThickness",
+                "description": "Its copper, such as `\"1oz\"` or `\"35um\"`; 1 oz is exactly 35 µm."
+              }
+            },
+            "required": [
+              "layer",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "CopperThickness": {
+            "description": "A copper thickness: integer nanometres, a length such as \"35um\", or a copper weight in ounces such as \"1oz\", where 1 oz is exactly 35 µm.",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, µm, mm, mil, in or oz.",
+                "format": "copper_thickness",
+                "type": "string"
+              }
+            ]
+          },
+          "DielectricParam": {
+            "additionalProperties": false,
+            "description": "One dielectric's new thickness.",
+            "properties": {
+              "thickness": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Its thickness, or `null` to leave it blank so it takes the remainder."
+              },
+              "uuid": {
+                "description": "The dielectric entry's UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The Stackup values to change; those left out keep their value.",
+        "properties": {
+          "copper": {
+            "description": "New copper thicknesses, by copper Layer.",
+            "items": {
+              "$ref": "#/$defs/CopperParam"
+            },
+            "type": "array"
+          },
+          "dielectrics": {
+            "description": "New dielectric thicknesses, by dielectric UUID.",
+            "items": {
+              "$ref": "#/$defs/DielectricParam"
+            },
+            "type": "array"
+          },
+          "finish": {
+            "default": null,
+            "description": "The surface finish, as free text such as `\"ENIG\"`; `null` or empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mask_color": {
+            "default": null,
+            "description": "The solder mask colour, as free text; `null` or empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "silk_color": {
+            "default": null,
+            "description": "The silkscreen colour, as free text; `null` or empty clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thickness": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The finished thickness you order, such as `\"1.6mm\"`."
+          }
+        },
+        "title": "StackupSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "CopperEntry": {
+            "additionalProperties": false,
+            "description": "The copper of one copper Layer.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "The copper thickness; 1 oz is exactly 35 µm.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "layer",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "DielectricEntry": {
+            "additionalProperties": false,
+            "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
+            "properties": {
+              "thickness": {
+                "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
+          "Stackup": {
+            "additionalProperties": false,
+            "description": "The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room\nfor more stacks later, such as rigid-flex substacks.",
+            "properties": {
+              "entries": {
+                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "items": {
+                  "$ref": "#/$defs/StackupEntry"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "description": "The surface finish, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mask_color": {
+                "description": "The solder mask colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "silk_color": {
+                "description": "The silkscreen colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished thickness you order.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "StackupEntry": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CopperEntry",
+                "description": "A copper Layer's thickness."
+              },
+              {
+                "$ref": "#/$defs/DielectricEntry",
+                "description": "Board material between two copper Layers."
+              }
+            ],
+            "description": "One entry of a [`Stackup`]. Solder mask, silkscreen and paste are not entries."
+          },
+          "StackupTotals": {
+            "description": "A Stackup's thicknesses, added up.",
+            "properties": {
+              "copper": {
+                "description": "All copper entries.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "dielectric": {
+                "description": "The dielectrics typed in.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "remainder": {
+                "description": "What each dielectric left blank takes: the thickness left over, shared evenly. `None`\nwhen every dielectric is typed in.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "total": {
+                "description": "Copper and dielectric together, the blank ones at their share of the remainder.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "copper",
+              "dielectric",
+              "remainder",
+              "total"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "stackup": {
+            "$ref": "#/$defs/Stackup",
+            "description": "The Stackup as set."
+          },
+          "totals": {
+            "$ref": "#/$defs/StackupTotals",
+            "description": "Its thicknesses added up."
+          },
+          "warnings": {
+            "description": "Problems that do not stop the edit, such as dielectrics that do not add up to the\nthickness.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "stackup",
+          "totals",
+          "warnings"
+        ],
+        "title": "StackupSetOutput",
+        "type": "object"
+      },
+      "title": "Set Stackup"
     },
     {
       "category": "pcb",
@@ -26681,27 +27288,11 @@
     },
     {
       "category": "project",
-      "description": "Sets the Project properties: the title, revision, date, author and company that fill every sheet's title block, and the board thickness and copper weight that go into fab notes. Properties left out keep their value. Returns all of them.",
+      "description": "Sets the Project properties: the title, revision, date, author and company that fill every sheet's title block. Properties left out keep their value. Returns all of them.",
       "icon": "properties",
       "id": "project.properties.set",
       "kind": "edit",
       "params": {
-        "$defs": {
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          }
-        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "The properties to change; those left out keep their value. An empty string clears one.",
@@ -26712,25 +27303,7 @@
               "null"
             ]
           },
-          "board_thickness": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The finished board thickness, for fab notes, such as `1.6mm`. Zero clears it; a\nnegative thickness is refused."
-          },
           "company": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "copper_weight": {
-            "description": "The copper weight, for fab notes, as free text such as `1 oz`.",
             "type": [
               "string",
               "null"
@@ -26763,26 +27336,14 @@
       "result": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "The Project properties: fixed free-text fields that fill each sheet's title block, and\nthe board thickness and copper weight that go into fab notes.",
+        "description": "The Project properties: fixed free-text fields that fill each sheet's title block. The\nboard thickness and copper are the PCB Document's [`crate::Stackup`].",
         "properties": {
           "author": {
             "default": "",
             "type": "string"
           },
-          "board_thickness": {
-            "description": "The finished board thickness, for fab notes; left out when not set.",
-            "format": "int64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
           "company": {
             "default": "",
-            "type": "string"
-          },
-          "copper_weight": {
-            "description": "The copper weight, for fab notes, as free text such as `1 oz`; left out when empty.",
             "type": "string"
           },
           "date": {

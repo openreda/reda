@@ -6,9 +6,9 @@
     {"uuid":"00000000-0000-4000-8000-000000000003","path":"Demo.redapcb","title":"Demo"}
   ],
   "fab_presets": [
-    {"uuid":"00000000-0000-4000-8000-00000000001c","name":"Generic","rules":{"clearance":160000,"track_width":200000,"via_diameter":700000,"via_hole":300000,"hole_min":500000,"hole_max":6300000,"annular_ring":200000,"hole_to_hole":500000,"edge_clearance":400000,"preferred":{"track_width":250000,"via_diameter":700000,"via_hole":300000}},"gerber":{"x2_attributes":true,"naming":"protel"},"bom":[{"header":"Designator","source":"designator"},{"header":"Quantity","source":"quantity"},{"header":"Value","source":"value"},{"header":"Footprint","source":"footprint"},{"header":"Manufacturer","source":{"field":"Manufacturer"}},{"header":"MPN","source":{"field":"MPN"}}],"cpl":[{"header":"Designator","source":"designator"},{"header":"Mid X","source":"mid_x"},{"header":"Mid Y","source":"mid_y"},{"header":"Layer","source":"layer"},{"header":"Rotation","source":"rotation"}]}
+    {"uuid":"00000000-0000-4000-8000-00000000001e","name":"Generic","rules":{"clearance":160000,"track_width":200000,"via_diameter":700000,"via_hole":300000,"hole_min":500000,"hole_max":6300000,"annular_ring":200000,"hole_to_hole":500000,"edge_clearance":400000,"preferred":{"track_width":250000,"via_diameter":700000,"via_hole":300000}},"gerber":{"x2_attributes":true,"naming":"protel"},"bom":[{"header":"Designator","source":"designator"},{"header":"Quantity","source":"quantity"},{"header":"Value","source":"value"},{"header":"Footprint","source":"footprint"},{"header":"Manufacturer","source":{"field":"Manufacturer"}},{"header":"MPN","source":{"field":"MPN"}}],"cpl":[{"header":"Designator","source":"designator"},{"header":"Mid X","source":"mid_x"},{"header":"Mid Y","source":"mid_y"},{"header":"Layer","source":"layer"},{"header":"Rotation","source":"rotation"}]}
   ],
   "output_jobs": [
-    {"uuid":"00000000-0000-4000-8000-00000000001d","name":"Generic","pcb":"00000000-0000-4000-8000-000000000003","fab_preset":"00000000-0000-4000-8000-00000000001c","outputs":{"gerber":true,"drill":true,"bom":true,"cpl":true}}
+    {"uuid":"00000000-0000-4000-8000-00000000001f","name":"Generic","pcb":"00000000-0000-4000-8000-000000000003","fab_preset":"00000000-0000-4000-8000-00000000001e","outputs":{"gerber":true,"drill":true,"bom":true,"cpl":true}}
   ]
 }

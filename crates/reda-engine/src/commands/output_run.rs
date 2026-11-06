@@ -40,8 +40,8 @@ pub struct JobRunParams {
 pub struct WrittenFile {
     /// The file name, such as `Demo.GTL`.
     pub name: String,
-    /// What it holds: `copper_top`, `copper_bottom`, `solder_mask_top`, `solder_mask_bottom`,
-    /// `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
+    /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
+    /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
     /// `drill_plated`, `drill_non_plated`, `bom` or `cpl`.
     pub function: &'static str,
 }

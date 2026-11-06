@@ -77,7 +77,8 @@ impl Command for DocumentAdd {
         let contents = match p.kind {
             DocumentKind::Schematic => vec![],
             DocumentKind::Pcb => {
-                reda_pcb::new_board(uuid, &reda_output::generic().rules, || cx.new_id())
+                let preset = reda_output::generic();
+                reda_pcb::new_board(uuid, &preset.rules, preset.stackup, || cx.new_id())
             }
         };
         let entry = DocumentEntry {

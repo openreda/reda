@@ -540,3 +540,64 @@ fn distance(p: (i64, i64), a: (i64, i64), b: (i64, i64)) -> f64 {
     };
     (px - ax - t * dx).hypot(py - ay - t * dy)
 }
+
+#[test]
+fn every_copper_layer_gets_a_file_with_inner_copper_between_top_and_bottom() {
+    let dir = TempDir::new("gerber-inner");
+    let mut engine = board(&dir);
+    engine.run_ok("project.save", json!({}));
+    let path = dir.path().join("Demo/Demo.redapcb");
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let layers = file["layers"]["layers"].as_array_mut().unwrap();
+    let bottom = layers
+        .iter()
+        .position(|l| l["kind"] == "copper" && l["side"] == "bottom")
+        .unwrap();
+    let inner = [
+        "00000000-0000-4000-8000-0000000000a1",
+        "00000000-0000-4000-8000-0000000000a2",
+    ];
+    for (i, uuid) in inner.iter().enumerate() {
+        layers.insert(bottom + i, json!({"uuid": uuid, "kind": "copper"}));
+    }
+    let entries = file["stackups"][0]["entries"].as_array_mut().unwrap();
+    for (i, uuid) in inner.iter().enumerate() {
+        entries.insert(2 + 2 * i, json!({"layer": uuid, "thickness": 17_500}));
+        entries.insert(
+            3 + 2 * i,
+            json!({"uuid": format!("00000000-0000-4000-8000-0000000000b{i}")}),
+        );
+    }
+    std::fs::write(&path, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
+    let mut engine = probe_engine();
+    engine.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+
+    let files = plot(&engine);
+    let copper: Vec<(&str, &str)> = files
+        .iter()
+        .filter(|f| f.function.starts_with("copper"))
+        .map(|f| (f.name.as_str(), f.function))
+        .collect();
+    assert_eq!(
+        copper,
+        [
+            ("Demo.GTL", "copper_top"),
+            ("Demo.G1", "copper_inner"),
+            ("Demo.G2", "copper_inner"),
+            ("Demo.GBL", "copper_bottom"),
+        ]
+    );
+    for (name, function) in [
+        ("Demo.GTL", "Copper,L1,Top"),
+        ("Demo.G1", "Copper,L2,Inr"),
+        ("Demo.G2", "Copper,L3,Inr"),
+        ("Demo.GBL", "Copper,L4,Bot"),
+    ] {
+        let file = files.iter().find(|f| f.name == name).unwrap();
+        let text = String::from_utf8_lossy(&file.bytes);
+        assert!(
+            text.contains(&format!("%TF.FileFunction,{function}*%")),
+            "{name}: {text}"
+        );
+    }
+}

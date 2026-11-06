@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, DesignRule, FootprintInstance, FreePad, InDocument,
-    Keepout, LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Track, Via, Zone,
+    Keepout, LayerSet, Net, NetClass, PcbGraphic, PcbText, PlacementOrigin, Stackup, Track, Via,
+    Zone,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -35,6 +36,7 @@ pub enum Object {
     Part(Part),
     LayerSet(InDocument<LayerSet>),
     BoardSetup(InDocument<BoardSetup>),
+    Stackup(InDocument<Stackup>),
     DesignRule(InDocument<DesignRule>),
     BoardOutline(InDocument<BoardOutline>),
     BoardCutout(InDocument<BoardCutout>),
@@ -92,6 +94,8 @@ pub enum ObjectType {
     LayerSet,
     /// The PCB Document's DRC severities.
     BoardSetup,
+    /// The board's copper and dielectric build, finish and colours.
+    Stackup,
     /// One design rule record: a kind, a scope and the values it sets.
     DesignRule,
     /// The board's physical edge.
@@ -162,6 +166,7 @@ impl Object {
             Object::Part(p) => p.uuid,
             Object::LayerSet(o) => o.uuid,
             Object::BoardSetup(o) => o.uuid,
+            Object::Stackup(o) => o.uuid,
             Object::DesignRule(o) => o.uuid,
             Object::BoardOutline(o) => o.uuid,
             Object::BoardCutout(o) => o.uuid,
@@ -204,6 +209,7 @@ impl Object {
             Object::Part(_) => ObjectType::Part,
             Object::LayerSet(_) => ObjectType::LayerSet,
             Object::BoardSetup(_) => ObjectType::BoardSetup,
+            Object::Stackup(_) => ObjectType::Stackup,
             Object::DesignRule(_) => ObjectType::DesignRule,
             Object::BoardOutline(_) => ObjectType::BoardOutline,
             Object::BoardCutout(_) => ObjectType::BoardCutout,
@@ -247,6 +253,7 @@ impl Object {
             }
             Object::LayerSet(o) => Scope::Document(o.document),
             Object::BoardSetup(o) => Scope::Document(o.document),
+            Object::Stackup(o) => Scope::Document(o.document),
             Object::DesignRule(o) => Scope::Document(o.document),
             Object::BoardOutline(o) => Scope::Document(o.document),
             Object::BoardCutout(o) => Scope::Document(o.document),

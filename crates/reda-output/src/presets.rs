@@ -10,6 +10,7 @@
 use reda_model::geom::Nm;
 use reda_model::{
     Column, ColumnSource, FabPreset, FabRules, FileNaming, GerberSettings, PreferredSeeds,
+    StackupSeeds,
 };
 
 /// The name of the preset a Project gets when none is asked for.
@@ -62,6 +63,7 @@ pub fn generic() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
+        stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
         bom: columns(&[
             ("Designator", Designator),
@@ -106,6 +108,7 @@ fn jlcpcb() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
+        stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
         bom: columns(&[
             ("Comment", Value),
@@ -146,6 +149,7 @@ fn pcbway() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
+        stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
         bom: columns(&[
             ("Line #", Line),

@@ -11,7 +11,6 @@ use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{PcbDocument, ZoneFills};
 use crate::schematic::SchematicSheet;
 use crate::{ElementSource, ErcSeverities, LibraryElement, Scope, TxError, Uuid};
-use reda_geom::Nm;
 
 /// Project-wide properties, stored in `<name>.reda`.
 ///
@@ -147,8 +146,8 @@ impl Default for SchematicOptions {
     }
 }
 
-/// The Project properties: fixed free-text fields that fill each sheet's title block, and
-/// the board thickness and copper weight that go into fab notes.
+/// The Project properties: fixed free-text fields that fill each sheet's title block. The
+/// board thickness and copper are the PCB Document's [`crate::Stackup`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct ProjectProperties {
@@ -158,12 +157,6 @@ pub struct ProjectProperties {
     pub date: String,
     pub author: String,
     pub company: String,
-    /// The finished board thickness, for fab notes; left out when not set.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub board_thickness: Option<Nm>,
-    /// The copper weight, for fab notes, as free text such as `1 oz`; left out when empty.
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub copper_weight: String,
 }
 
 impl ProjectProperties {
@@ -363,6 +356,7 @@ impl Project {
         let pcb = match object {
             Object::LayerSet(o) => o.document,
             Object::BoardSetup(o) => o.document,
+            Object::Stackup(o) => o.document,
             Object::DesignRule(o) => o.document,
             Object::BoardOutline(o) => o.document,
             Object::BoardCutout(o) => o.document,
@@ -493,6 +487,9 @@ impl Project {
             }
             Some(Object::BoardSetup(o)) => {
                 self.pcb_mut(o.document).setups.insert(uuid, o.object);
+            }
+            Some(Object::Stackup(o)) => {
+                self.pcb_mut(o.document).stackups.insert(uuid, o.object);
             }
             Some(Object::DesignRule(o)) => {
                 self.pcb_mut(o.document).rules.insert(uuid, o.object);

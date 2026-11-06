@@ -636,8 +636,7 @@ fn snapshot_of_a_tab_drag_the_layout_would_refuse() {
     drag_snapshot("Start", "Drop Below", "drag_refused_dark");
 }
 
-/// Project Settings on `page`, with a Project whose board thickness is typed wrong so the
-/// flag shows.
+/// Project Settings on `page`, with a blank Library folder added so the flag shows.
 fn project_settings_snapshot(page: &str, name: &str) {
     let home = TempDir::new("app-home");
     let folder = snapshot_folder(name);
@@ -650,13 +649,11 @@ fn project_settings_snapshot(page: &str, name: &str) {
     h.state_mut().shell_mut().open_project(&file).unwrap();
     h.state_mut().open_project_settings();
     h.run();
-    let field = h.get_by_role_and_label(Role::TextInput, "Board thickness (mm)");
-    field.click();
+    h.get_by_role_and_label(Role::TreeItem, "Libraries").click();
     h.run();
-    h.get_by_role_and_label(Role::TextInput, "Board thickness (mm)")
-        .type_text("1.6x");
+    h.get_by_label("Add Path").click();
     h.run();
-    if page != "Properties" {
+    if page != "Libraries" {
         h.get_by_role_and_label(Role::TreeItem, page).click();
     }
     h.run();

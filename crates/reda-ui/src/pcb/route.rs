@@ -694,13 +694,19 @@ fn widths(pcb: &PcbDocument) -> Vec<Nm> {
     out
 }
 
-/// The outer copper Layer on the other side from `layer`.
+/// The copper Layer a Via switches to from `layer`: the other outer copper from an outer
+/// Layer, and the next copper Layer down from inner copper. It walks the copper Layers, so
+/// inner copper is never skipped as a route's next Layer.
 fn other_side(pcb: &PcbDocument, layer: Uuid) -> Uuid {
     let copper: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
-    match copper.first() {
-        Some(first) if *first == layer => *copper.last().expect("a first"),
-        Some(first) => *first,
-        None => layer,
+    let (Some(&first), Some(&last)) = (copper.first(), copper.last()) else {
+        return layer;
+    };
+    match copper.iter().position(|l| *l == layer) {
+        Some(0) => last,
+        Some(i) if i + 1 == copper.len() => first,
+        Some(i) => copper[i + 1],
+        None => first,
     }
 }
 
