@@ -6,10 +6,10 @@
     {"uuid":"00000000-0000-4000-8000-000000000003","path":"Blinky.redapcb","title":"Blinky"}
   ],
   "fab_presets": [
-    {"uuid":"00000000-0000-4000-8000-00000000001c","name":"JLCPCB","rules":{"clearance":100000,"track_width":100000,"via_diameter":510000,"via_hole":150000,"hole_min":200000,"hole_max":6300000,"annular_ring":180000,"hole_to_hole":450000,"edge_clearance":200000,"preferred":{"track_width":250000,"via_diameter":600000,"via_hole":300000}},"gerber":{"x2_attributes":true,"naming":"protel"},"bom":[{"header":"Comment","source":"value"},{"header":"Designator","source":"designator"},{"header":"Footprint","source":"footprint"},{"header":"LCSC Part #","source":{"field":"LCSC"}}],"cpl":[{"header":"Designator","source":"designator"},{"header":"Mid X","source":"mid_x"},{"header":"Mid Y","source":"mid_y"},{"header":"Layer","source":"layer"},{"header":"Rotation","source":"rotation"}]}
+    {"uuid":"00000000-0000-4000-8000-00000000001e","name":"JLCPCB","rules":{"clearance":100000,"track_width":100000,"via_diameter":510000,"via_hole":150000,"hole_min":200000,"hole_max":6300000,"annular_ring":180000,"hole_to_hole":450000,"edge_clearance":200000,"preferred":{"track_width":250000,"via_diameter":600000,"via_hole":300000}},"gerber":{"x2_attributes":true,"naming":"protel"},"bom":[{"header":"Comment","source":"value"},{"header":"Designator","source":"designator"},{"header":"Footprint","source":"footprint"},{"header":"LCSC Part #","source":{"field":"LCSC"}}],"cpl":[{"header":"Designator","source":"designator"},{"header":"Mid X","source":"mid_x"},{"header":"Mid Y","source":"mid_y"},{"header":"Layer","source":"layer"},{"header":"Rotation","source":"rotation"}]}
   ],
   "output_jobs": [
-    {"uuid":"00000000-0000-4000-8000-00000000001d","name":"JLCPCB","pcb":"00000000-0000-4000-8000-000000000003","fab_preset":"00000000-0000-4000-8000-00000000001c","outputs":{"gerber":true,"drill":true,"bom":true,"cpl":true}}
+    {"uuid":"00000000-0000-4000-8000-00000000001f","name":"JLCPCB","pcb":"00000000-0000-4000-8000-000000000003","fab_preset":"00000000-0000-4000-8000-00000000001e","outputs":{"gerber":true,"drill":true,"bom":true,"cpl":true}}
   ],
   "properties": {"title":"555 blinky","revision":"A","date":"","author":"","company":"REDA reference Projects"}
 }

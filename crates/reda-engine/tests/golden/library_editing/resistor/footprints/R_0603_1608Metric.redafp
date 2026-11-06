@@ -1,18 +1,18 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000023","name":"R_0603_1608Metric","description":"Resistor 0603 (1608 metric), IPC-7351 nominal"},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000025","name":"R_0603_1608Metric","description":"Resistor 0603 (1608 metric), IPC-7351 nominal"},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000026","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000},
-    {"uuid":"00000000-0000-4000-8000-000000000027","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000028","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000029","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000}
   ],
   "graphics": [
-    {"uuid":"00000000-0000-4000-8000-000000000028","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1480000,"y":-730000},"end":{"x":1480000,"y":730000}},"width":50000},
-    {"uuid":"00000000-0000-4000-8000-000000000029","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-237000,"y":-522500},"end":{"x":237000,"y":-522500}},"width":120000},
-    {"uuid":"00000000-0000-4000-8000-00000000002a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-237000,"y":522500},"end":{"x":237000,"y":522500}},"width":120000},
-    {"uuid":"00000000-0000-4000-8000-00000000002b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000}
+    {"uuid":"00000000-0000-4000-8000-00000000002a","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1480000,"y":-730000},"end":{"x":1480000,"y":730000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-00000000002b","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-237000,"y":-522500},"end":{"x":237000,"y":-522500}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-00000000002c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-237000,"y":522500},"end":{"x":237000,"y":522500}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-00000000002d","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000}
   ],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-000000000024","field":"Designator","at":{"x":0,"y":-1430000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
-    {"uuid":"00000000-0000-4000-8000-000000000025","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
+    {"uuid":"00000000-0000-4000-8000-000000000026","field":"Designator","at":{"x":0,"y":-1430000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000027","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

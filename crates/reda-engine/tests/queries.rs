@@ -34,7 +34,7 @@ fn overview_lists_the_project_and_its_documents_in_order() {
                 "kind": "pcb",
                 "name": "Demo",
                 "title": "Demo",
-                "objects": {"layer_set": 1, "board_setup": 1, "design_rule": 7}
+                "objects": {"layer_set": 1, "stackup": 1, "board_setup": 1, "design_rule": 7}
             }]
         })
     );
@@ -90,8 +90,8 @@ fn objects_query_filters_by_type_and_document() {
         .map(|o| o["object"]["uuid"].as_str().unwrap())
         .collect();
     // The Project, its two Documents, the Layer set, the board setup, seven board-wide
-    // rule records, the Fab Preset copy and the Output Job.
-    assert_eq!(uuids.len(), 14, "{uuids:?}");
+    // rule records, the Stackup, the Fab Preset copy and the Output Job.
+    assert_eq!(uuids.len(), 15, "{uuids:?}");
     assert_eq!(&uuids[..3], [PROJECT, SHEET, PCB]);
     let mut sorted = uuids.clone();
     sorted.sort();

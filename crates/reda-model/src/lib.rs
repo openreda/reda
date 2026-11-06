@@ -43,11 +43,13 @@ pub use pad::{
     ZoneConnection,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, Bounds, DesignRule, DrcCheck, DrcSeverities, FillShape,
+    BoardCutout, BoardOutline, BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS,
+    DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities, FillShape,
     FootprintInstance, FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind,
     LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PadRef, PcbDocument,
     PcbGraphic, PcbText, PlacementOrigin, RuleField, RuleKind, RuleScope, RuleValue, RuleValues,
-    Side, Track, TrackGeometry, Via, Zone, ZoneFills,
+    Side, Stackup, StackupEntry, StackupSeeds, StackupTotals, Track, TrackGeometry, Via, Zone,
+    ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

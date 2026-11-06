@@ -195,7 +195,7 @@ fn the_settings_dialog_is_a_project_dialog() {
         .shell_mut()
         .run(
             "project.properties.set",
-            serde_json::json!({"copper_weight": "2 oz"}),
+            serde_json::json!({"company": "Acme"}),
         )
         .unwrap();
     h.run();

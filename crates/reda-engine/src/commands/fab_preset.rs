@@ -306,30 +306,51 @@ fn diff(project: &FabPreset, source: &FabPreset) -> Vec<FieldChange> {
     let (Value::Object(a), Value::Object(b)) = (to_value(project), to_value(source)) else {
         unreachable!("a preset serialises as an object");
     };
+    // A field left out (such as empty `stackup` seeds) compares as `null`, and as an
+    // empty object against one that is set.
+    let empty = Value::Object(Default::default());
     let mut changes = vec![];
-    for (key, a) in &a {
-        let b = &b[key];
+    for key in union(&a, &b) {
+        let (a, b) = (a.get(key), b.get(key));
+        let is_object = |v: Option<&Value>| v.is_none_or(Value::is_object);
         match (a, b) {
-            (Value::Object(inner_a), Value::Object(inner_b)) => {
-                for (inner, value) in inner_a {
-                    if &inner_b[inner] != value {
+            (a, b) if is_object(a) && is_object(b) => {
+                let (Value::Object(inner_a), Value::Object(inner_b)) =
+                    (a.unwrap_or(&empty), b.unwrap_or(&empty))
+                else {
+                    unreachable!("both are objects");
+                };
+                for inner in union(inner_a, inner_b) {
+                    let (va, vb) = (
+                        inner_a.get(inner).cloned().unwrap_or(Value::Null),
+                        inner_b.get(inner).cloned().unwrap_or(Value::Null),
+                    );
+                    if va != vb {
                         changes.push(FieldChange {
                             field: format!("{key}.{inner}"),
-                            project: value.clone(),
-                            source: inner_b[inner].clone(),
+                            project: va,
+                            source: vb,
                         });
                     }
                 }
             }
-            _ if a != b => changes.push(FieldChange {
+            (a, b) if a != b => changes.push(FieldChange {
                 field: key.clone(),
-                project: a.clone(),
-                source: b.clone(),
+                project: a.cloned().unwrap_or(Value::Null),
+                source: b.cloned().unwrap_or(Value::Null),
             }),
             _ => {}
         }
     }
     changes
+}
+
+/// The keys of `a` in order, then those only `b` has.
+fn union<'v>(
+    a: &'v serde_json::Map<String, Value>,
+    b: &'v serde_json::Map<String, Value>,
+) -> impl Iterator<Item = &'v String> {
+    a.keys().chain(b.keys().filter(|k| !a.contains_key(*k)))
 }
 
 /// The copy and the preset it came from.

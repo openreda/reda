@@ -27,6 +27,17 @@ impl From<Nm> for Length {
     }
 }
 
+/// A copper thickness param: integer nanometres, a length string such as `"35um"`, or a
+/// copper weight such as `"1oz"`, where 1 oz is exactly 35 µm.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CopperThickness(pub Nm);
+
+impl CopperThickness {
+    pub const fn nm(self) -> Nm {
+        self.0
+    }
+}
+
 /// An angle param: integer millidegrees, or a string such as `"45deg"`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Angle(pub Millideg);
@@ -81,6 +92,17 @@ impl<'de> Deserialize<'de> for Length {
     }
 }
 
+impl<'de> Deserialize<'de> for CopperThickness {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<CopperThickness, D::Error> {
+        deserializer.deserialize_any(UnitVisitor {
+            expecting: "integer nanometres, a length string such as \"35um\" or a copper \
+                        weight such as \"1oz\"",
+            parse: |s| Nm::parse_copper(s).map(CopperThickness),
+            from_int: |v| CopperThickness(Nm(v)),
+        })
+    }
+}
+
 impl<'de> Deserialize<'de> for Angle {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Angle, D::Error> {
         deserializer.deserialize_any(UnitVisitor {
@@ -98,6 +120,12 @@ impl Serialize for Length {
     }
 }
 
+impl Serialize for CopperThickness {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
 impl Serialize for Angle {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.0.serialize(serializer)
@@ -106,6 +134,8 @@ impl Serialize for Angle {
 
 /// The JSON Schema `format` the registry checks with [`Nm::parse`].
 pub(crate) const LENGTH_FORMAT: &str = "length";
+/// The JSON Schema `format` the registry checks with [`Nm::parse_copper`].
+pub(crate) const COPPER_FORMAT: &str = "copper_thickness";
 /// The JSON Schema `format` the registry checks with [`Millideg::parse`].
 pub(crate) const ANGLE_FORMAT: &str = "angle";
 
@@ -120,6 +150,22 @@ impl JsonSchema for Length {
             "oneOf": [
                 { "type": "integer", "description": "Nanometres." },
                 { "type": "string", "format": LENGTH_FORMAT, "description": "A number and a unit: nm, um, mm, mil or in." }
+            ]
+        })
+    }
+}
+
+impl JsonSchema for CopperThickness {
+    fn schema_name() -> Cow<'static, str> {
+        "CopperThickness".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        json_schema!({
+            "description": "A copper thickness: integer nanometres, a length such as \"35um\", or a copper weight in ounces such as \"1oz\", where 1 oz is exactly 35 µm.",
+            "oneOf": [
+                { "type": "integer", "description": "Nanometres." },
+                { "type": "string", "format": COPPER_FORMAT, "description": "A number and a unit: nm, um, µm, mm, mil, in or oz." }
             ]
         })
     }

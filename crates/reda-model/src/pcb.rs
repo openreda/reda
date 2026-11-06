@@ -1,4 +1,4 @@
-//! The PCB Document: its Layers, board setup (rules and DRC severities), Board Outline,
+//! The PCB Document: its Layers, Stackup ([`stackup`]), board setup (rules and DRC severities), Board Outline,
 //! Board Cutouts, Net Classes, Nets, free text and graphics ([`graphics`]), and the
 //! placed Footprints: a table of Footprint copies and the Footprint instances
 //! ([`footprint`]) placed from them.
@@ -20,6 +20,7 @@ mod footprint;
 mod graphics;
 mod placement;
 mod rules;
+mod stackup;
 mod zone;
 
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
@@ -27,6 +28,10 @@ pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 pub use footprint::{FootprintInstance, PadNet, PadRef};
 pub use placement::{FreePad, PlacementOrigin};
 pub use rules::{Bounds, DesignRule, RuleField, RuleKind, RuleScope, RuleValue, RuleValues};
+pub use stackup::{
+    CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
+    StackupSeeds, StackupTotals,
+};
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
@@ -205,13 +210,14 @@ impl<T> std::ops::Deref for InDocument<T> {
 
 /// The body of a PCB Document: one UUID-keyed table per object kind.
 ///
-/// A committed Project has exactly one [`LayerSet`] and one [`BoardSetup`] here and at most
+/// A committed Project has exactly one [`LayerSet`], one [`Stackup`] and one [`BoardSetup`] here and at most
 /// one [`BoardOutline`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PcbDocument {
     pub uuid: Uuid,
     pub(crate) layer_sets: BTreeMap<Uuid, LayerSet>,
     pub(crate) setups: BTreeMap<Uuid, BoardSetup>,
+    pub(crate) stackups: BTreeMap<Uuid, Stackup>,
     pub(crate) rules: BTreeMap<Uuid, DesignRule>,
     pub(crate) outlines: BTreeMap<Uuid, BoardOutline>,
     pub(crate) cutouts: BTreeMap<Uuid, BoardCutout>,
@@ -236,6 +242,7 @@ impl PcbDocument {
             uuid,
             layer_sets: BTreeMap::new(),
             setups: BTreeMap::new(),
+            stackups: BTreeMap::new(),
             rules: BTreeMap::new(),
             outlines: BTreeMap::new(),
             cutouts: BTreeMap::new(),
@@ -269,6 +276,19 @@ impl PcbDocument {
             .values()
             .next()
             .expect("a PCB Document has its board setup")
+    }
+
+    /// The Stackups: one in v0.1.
+    pub fn stackups(&self) -> impl Iterator<Item = &Stackup> {
+        self.stackups.values()
+    }
+
+    /// The Stackup. Every committed PCB Document has one.
+    pub fn stackup(&self) -> &Stackup {
+        self.stackups
+            .values()
+            .next()
+            .expect("a PCB Document has its Stackup")
     }
 
     /// The design rule records, sorted by UUID.
@@ -423,6 +443,15 @@ impl PcbDocument {
             .filter(|l| l.kind == LayerKind::Copper)
     }
 
+    /// The copper number of Layer `layer`: 1 for the top copper, counting down. Copper
+    /// numbers (`L1`, `L2`, …) come from position and are never stored. `None` for a
+    /// Layer that is not copper.
+    pub fn copper_number(&self, layer: Uuid) -> Option<usize> {
+        self.copper_layers()
+            .position(|l| l.uuid == layer)
+            .map(|i| i + 1)
+    }
+
     /// The copper Layers a Via's span joins, top to bottom; empty when the span names a
     /// Layer that is not copper.
     pub fn span_layers(&self, span: LayerSpan) -> Vec<Uuid> {
@@ -473,6 +502,7 @@ impl PcbDocument {
         find!(
             layer_sets => LayerSet,
             setups => BoardSetup,
+            stackups => Stackup,
             rules => DesignRule,
             outlines => BoardOutline,
             cutouts => BoardCutout,
@@ -508,6 +538,7 @@ impl PcbDocument {
         all!(
             layer_sets => LayerSet,
             setups => BoardSetup,
+            stackups => Stackup,
             rules => DesignRule,
             outlines => BoardOutline,
             cutouts => BoardCutout,
@@ -532,6 +563,7 @@ impl PcbDocument {
     pub(crate) fn remove(&mut self, uuid: Uuid) {
         self.layer_sets.remove(&uuid);
         self.setups.remove(&uuid);
+        self.stackups.remove(&uuid);
         self.rules.remove(&uuid);
         self.outlines.remove(&uuid);
         self.cutouts.remove(&uuid);
@@ -553,6 +585,7 @@ impl PcbDocument {
     pub(crate) fn is_empty(&self) -> bool {
         self.layer_sets.is_empty()
             && self.setups.is_empty()
+            && self.stackups.is_empty()
             && self.rules.is_empty()
             && self.outlines.is_empty()
             && self.cutouts.is_empty()
@@ -594,9 +627,13 @@ impl PcbDocument {
                 "PCB Document {doc} has more than one Placement Origin"
             ));
         }
-        let mut layers = std::collections::BTreeSet::new();
-        if let Some(dup) = self.layers().layers.iter().find(|l| !layers.insert(l.uuid)) {
-            return Err(format!("Layer {} appears twice", dup.uuid));
+        if self.stackups.len() != 1 {
+            return Err(format!("PCB Document {doc} must have exactly one Stackup"));
+        }
+        self.check_layers()?;
+        let copper: Vec<Uuid> = self.copper_layers().map(|l| l.uuid).collect();
+        if let Some(problem) = self.stackup().problem(&copper) {
+            return Err(problem);
         }
         let mut names = std::collections::BTreeSet::new();
         let mut ranks = std::collections::BTreeSet::new();
@@ -646,6 +683,64 @@ impl PcbDocument {
         self.check_footprints()?;
         self.check_copper()?;
         self.check_free_pads()
+    }
+
+    /// Checks the Layer list: no Layer twice, and every side where it belongs. Copper runs
+    /// from the top copper (`side: top`) to the bottom copper (`side: bottom`), and copper
+    /// in between is inner copper, with no side. The other sided Layers lie outside the
+    /// copper on their own face, and the rest have no side.
+    fn check_layers(&self) -> Result<(), String> {
+        let layers = &self.layers().layers;
+        let mut seen = std::collections::BTreeSet::new();
+        if let Some(dup) = layers.iter().find(|l| !seen.insert(l.uuid)) {
+            return Err(format!("Layer {} appears twice", dup.uuid));
+        }
+        let copper: Vec<usize> = layers
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.kind == LayerKind::Copper)
+            .map(|(i, _)| i)
+            .collect();
+        let (Some(&first), Some(&last)) = (copper.first(), copper.last()) else {
+            return Err("the board has no copper Layers".into());
+        };
+        if first == last {
+            return Err("the board needs a top and a bottom copper Layer".into());
+        }
+        for (i, layer) in layers.iter().enumerate() {
+            let uuid = layer.uuid;
+            let expected = match layer.kind {
+                LayerKind::Copper if i == first => Some(Some(Side::Top)),
+                LayerKind::Copper if i == last => Some(Some(Side::Bottom)),
+                LayerKind::Copper => Some(None),
+                LayerKind::BoardOutline | LayerKind::Mechanical | LayerKind::Documentation => {
+                    Some(None)
+                }
+                _ => match layer.side {
+                    Some(Side::Top) if i < first => None,
+                    Some(Side::Bottom) if i > last => None,
+                    Some(side) => {
+                        return Err(format!(
+                            "Layer {uuid} is on the {side:?} side but lies on the other side \
+                             of the copper"
+                        ));
+                    }
+                    None => return Err(format!("Layer {uuid} needs a side")),
+                },
+            };
+            if let Some(side) = expected
+                && layer.side != side
+            {
+                let want = match side {
+                    Some(Side::Top) => "the top copper must have side top",
+                    Some(Side::Bottom) => "the bottom copper must have side bottom",
+                    None if layer.kind == LayerKind::Copper => "inner copper has no side",
+                    None => "this kind of Layer has no side",
+                };
+                return Err(format!("Layer {uuid}: {want}"));
+            }
+        }
+        Ok(())
     }
 
     /// Exactly one board-wide record per kind, at most one record per class and kind,
@@ -709,6 +804,12 @@ impl PcbDocument {
             let uuid = via.uuid;
             if !is_copper(via.span.from) || !is_copper(via.span.to) {
                 return Err(format!("Via {uuid} spans a Layer that is not copper"));
+            }
+            let number = |l| self.copper_number(l).unwrap_or(0);
+            if number(via.span.from) >= number(via.span.to) {
+                return Err(format!(
+                    "Via {uuid} must span from an upper copper Layer to a lower one"
+                ));
             }
             if !net_exists(via.net) {
                 return Err(format!("Via {uuid} is on a Net that does not exist"));

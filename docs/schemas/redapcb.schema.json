@@ -151,6 +151,27 @@
         }
       ]
     },
+    "CopperEntry": {
+      "additionalProperties": false,
+      "description": "The copper of one copper Layer.",
+      "properties": {
+        "layer": {
+          "description": "The copper Layer.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "thickness": {
+          "description": "The copper thickness; 1 oz is exactly 35 µm.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "layer",
+        "thickness"
+      ],
+      "type": "object"
+    },
     "Corner": {
       "description": "A corner of a Pad, in its own frame (+y up).",
       "enum": [
@@ -195,6 +216,28 @@
         "kind",
         "scope",
         "values"
+      ],
+      "type": "object"
+    },
+    "DielectricEntry": {
+      "additionalProperties": false,
+      "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
+      "properties": {
+        "thickness": {
+          "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid"
       ],
       "type": "object"
     },
@@ -967,7 +1010,7 @@
     },
     "LayerSpan": {
       "additionalProperties": false,
-      "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\nA through Via spans the outermost copper Layers.",
+      "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\n`from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the\nside it is drilled from, which matters only once blind Vias come.",
       "properties": {
         "from": {
           "format": "uuid",
@@ -1699,6 +1742,68 @@
       ],
       "type": "string"
     },
+    "Stackup": {
+      "additionalProperties": false,
+      "description": "The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room\nfor more stacks later, such as rigid-flex substacks.",
+      "properties": {
+        "entries": {
+          "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+          "items": {
+            "$ref": "#/$defs/StackupEntry"
+          },
+          "type": "array"
+        },
+        "finish": {
+          "description": "The surface finish, as typed; left out when unset.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mask_color": {
+          "description": "The solder mask colour, as typed; left out when unset.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "silk_color": {
+          "description": "The silkscreen colour, as typed; left out when unset.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thickness": {
+          "description": "The finished thickness you order.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "thickness",
+        "entries"
+      ],
+      "type": "object"
+    },
+    "StackupEntry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CopperEntry",
+          "description": "A copper Layer's thickness."
+        },
+        {
+          "$ref": "#/$defs/DielectricEntry",
+          "description": "Board material between two copper Layers."
+        }
+      ],
+      "description": "One entry of a [`Stackup`]. Solder mask, silkscreen and paste are not entries."
+    },
     "TextStyle": {
       "additionalProperties": false,
       "description": "How a Footprint text is drawn.",
@@ -2164,6 +2269,13 @@
       "$ref": "#/$defs/DrcSeverities",
       "description": "The severity of each DRC check."
     },
+    "stackups": {
+      "description": "The board's physical build: one Stackup in v0.1.",
+      "items": {
+        "$ref": "#/$defs/Stackup"
+      },
+      "type": "array"
+    },
     "texts": {
       "description": "Free text on copper, silkscreen, mechanical and documentation Layers.",
       "items": {
@@ -2208,6 +2320,7 @@
     "format",
     "pcb",
     "layers",
+    "stackups",
     "board",
     "rules",
     "severities",

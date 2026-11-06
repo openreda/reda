@@ -42,7 +42,7 @@ pub struct OutputFile {
     pub bytes: Vec<u8>,
 }
 
-/// The Gerber files of `plot`: top and bottom copper, Solder Mask, Paste and Silkscreen,
+/// The Gerber files of `plot`: every copper Layer top to bottom, Solder Mask, Paste and Silkscreen,
 /// then the Profile.
 pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
     let name = &plot.project.props().name;
@@ -53,17 +53,17 @@ pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
     };
     let copper: Vec<Uuid> = plot.pcb.copper_layers().map(|l| l.uuid).collect();
     let mut files = Vec::new();
-    if let (Some(&top), Some(&bottom)) = (copper.first(), copper.last()) {
-        files.push(file(
-            "GTL",
-            "copper_top",
-            copper_layer(plot, top, "Copper,L1,Top".into()),
-        ));
-        files.push(file(
-            "GBL",
-            "copper_bottom",
-            copper_layer(plot, bottom, format!("Copper,L{},Bot", copper.len())),
-        ));
+    // Top, then any inner copper as `G1`, `G2`, … in Layer order, then bottom.
+    let last = copper.len().saturating_sub(1);
+    for (i, &layer) in copper.iter().enumerate() {
+        let number = i + 1;
+        let (extension, function, attribute) = match i {
+            0 => ("GTL".to_owned(), "copper_top", "Top".to_owned()),
+            i if i == last => ("GBL".to_owned(), "copper_bottom", "Bot".to_owned()),
+            i => (format!("G{i}"), "copper_inner", "Inr".to_owned()),
+        };
+        let bytes = copper_layer(plot, layer, format!("Copper,L{number},{attribute}"));
+        files.push(file(&extension, function, bytes));
     }
     for (extension, function, side) in [
         ("GTS", "solder_mask_top", Side::Top),

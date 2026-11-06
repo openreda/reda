@@ -1,9 +1,10 @@
-//! What a new PCB Document holds: the fixed v0.1 Layer set, the board setup and the
-//! board-wide rule records, seeded from a Fab Preset.
+//! What a new PCB Document holds: the fixed v0.1 Layer set, the board setup, the
+//! board-wide rule records and the Stackup, seeded from a Fab Preset.
 
 use reda_model::{
-    BoardSetup, Bounds, DesignRule, DrcSeverities, FabRules, InDocument, Layer, LayerKind,
-    LayerSet, Object, RuleKind, RuleScope, RuleValues, Side, Uuid,
+    BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
+    DielectricEntry, DrcSeverities, FabRules, InDocument, Layer, LayerKind, LayerSet, Object,
+    RuleKind, RuleScope, RuleValues, Side, Stackup, StackupEntry, StackupSeeds, Uuid,
 };
 
 /// The v0.1 Layers, top to bottom.
@@ -85,10 +86,12 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
 
 /// The objects of a new, empty board in PCB Document `document`: its Layers, its board
 /// setup with the default DRC severities, and one board-wide record per rule kind seeded
-/// from `rules` (a Fab Preset's). `new_id` supplies every UUID.
+/// from `rules` (a Fab Preset's), and its Stackup from `stackup` (the preset's seeds, or
+/// 1.6 mm and 1 oz where it seeds nothing). `new_id` supplies every UUID.
 pub fn new_board(
     document: Uuid,
     rules: &FabRules,
+    stackup: StackupSeeds,
     mut new_id: impl FnMut() -> Uuid,
 ) -> Vec<Object> {
     let layers = LayerSet {
@@ -107,7 +110,7 @@ pub fn new_board(
         severities: DrcSeverities::DEFAULT,
     };
     let mut objects = vec![
-        Object::LayerSet(InDocument::new(document, layers)),
+        Object::LayerSet(InDocument::new(document, layers.clone())),
         Object::BoardSetup(InDocument::new(document, setup)),
     ];
     for (kind, values) in seed_rules(rules) {
@@ -121,5 +124,39 @@ pub fn new_board(
         };
         objects.push(Object::DesignRule(InDocument::new(document, rule)));
     }
+    let stackup = seeded_stackup(&layers, stackup, &mut new_id);
+    objects.push(Object::Stackup(InDocument::new(document, stackup)));
     objects
+}
+
+/// A Stackup for `layers`: every copper Layer at the seeded copper, with one dielectric left
+/// blank between each pair, so the dielectric takes what the copper leaves of the seeded
+/// thickness.
+fn seeded_stackup(
+    layers: &LayerSet,
+    seeds: StackupSeeds,
+    new_id: &mut impl FnMut() -> Uuid,
+) -> Stackup {
+    let copper = seeds.copper.unwrap_or(DEFAULT_COPPER);
+    let mut entries = Vec::new();
+    for layer in layers.layers.iter().filter(|l| l.kind == LayerKind::Copper) {
+        if !entries.is_empty() {
+            entries.push(StackupEntry::Dielectric(DielectricEntry {
+                uuid: new_id(),
+                thickness: None,
+            }));
+        }
+        entries.push(StackupEntry::Copper(CopperEntry {
+            layer: layer.uuid,
+            thickness: copper,
+        }));
+    }
+    Stackup {
+        uuid: new_id(),
+        thickness: seeds.thickness.unwrap_or(DEFAULT_BOARD_THICKNESS),
+        entries,
+        finish: None,
+        mask_color: None,
+        silk_color: None,
+    }
 }

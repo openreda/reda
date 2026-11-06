@@ -3,7 +3,7 @@
 //! The check covers the subset of JSON Schema 2020-12 that schemars generates for params:
 //! `$ref` into `$defs`, `type`, `enum`, `const`, `properties`, `required`,
 //! `additionalProperties`, `items`, `prefixItems`, `minItems`, `maxItems`, `oneOf`, `anyOf`,
-//! `allOf`, `minimum`, `maximum` and the formats `uuid`, `length`, `angle` and the integer
+//! `allOf`, `minimum`, `maximum` and the formats `uuid`, `length`, `copper_thickness`, `angle` and the integer
 //! widths. It runs before serde so that a bad field is reported with a JSON pointer to it;
 //! serde still has the last word on anything the subset does not express.
 
@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use schemars::generate::SchemaSettings;
 use serde_json::{Map, Value};
 
-use crate::units::{ANGLE_FORMAT, LENGTH_FORMAT};
+use crate::units::{ANGLE_FORMAT, COPPER_FORMAT, LENGTH_FORMAT};
 
 /// The schema params of type `T` are checked against.
 pub(crate) fn params_schema<T: JsonSchema>() -> Value {
@@ -213,6 +213,7 @@ impl<'r> Checker<'r> {
             let refused = match format {
                 "uuid" => text.parse::<Uuid>().err().map(|e| e.to_string()),
                 LENGTH_FORMAT => Nm::parse(text).err().map(|e| e.to_string()),
+                COPPER_FORMAT => Nm::parse_copper(text).err().map(|e| e.to_string()),
                 ANGLE_FORMAT => Millideg::parse(text).err().map(|e| e.to_string()),
                 _ => None,
             };

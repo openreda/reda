@@ -59,3 +59,25 @@ fn angle_strings_convert_exactly_to_millidegrees() {
     assert!(Millideg::parse("45rad").is_err());
     assert!(Millideg::parse("45mm").is_err());
 }
+
+#[test]
+fn micrometres_may_be_written_with_the_micro_sign() {
+    assert_eq!(Nm::parse("35µm"), Ok(Nm(35_000)));
+    assert_eq!(Nm::parse("35μm"), Ok(Nm(35_000)));
+}
+
+#[test]
+fn copper_thickness_is_entered_in_ounces_at_exactly_35_um_each() {
+    for (text, nm) in [
+        ("1oz", 35_000),
+        ("0.5 oz", 17_500),
+        ("2oz", 70_000),
+        ("18um", 18_000),
+        ("0.035mm", 35_000),
+        ("1.4mil", 35_560),
+        ("35000", 35_000),
+    ] {
+        assert_eq!(Nm::parse_copper(text), Ok(Nm(nm)), "{text}");
+    }
+    assert!(Nm::parse("1oz").is_err(), "oz is a copper unit only");
+}

@@ -8,7 +8,7 @@ use reda_geom::Nm;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::Uuid;
+use crate::{StackupSeeds, Uuid};
 
 /// A Fab Preset's design rules: flat limits with no scope, which a job compares the board
 /// with, and the preferred values a new board's routing starts from.
@@ -121,6 +121,10 @@ pub struct FabPreset {
     pub name: String,
     /// The limits a job checks the board against, and the seeds of a new board's rules.
     pub rules: FabRules,
+    /// The thickness and copper a new board's Stackup starts with; left out when the
+    /// preset seeds neither.
+    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
+    pub stackup: StackupSeeds,
     pub gerber: GerberSettings,
     /// The BOM columns, in order.
     pub bom: Vec<Column>,
@@ -137,6 +141,8 @@ pub struct ProjectFabPreset {
     /// The name of the preset it was copied from.
     pub name: String,
     pub rules: FabRules,
+    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
+    pub stackup: StackupSeeds,
     pub gerber: GerberSettings,
     pub bom: Vec<Column>,
     pub cpl: Vec<Column>,
@@ -148,6 +154,7 @@ impl ProjectFabPreset {
         let FabPreset {
             name,
             rules,
+            stackup,
             gerber,
             bom,
             cpl,
@@ -156,6 +163,7 @@ impl ProjectFabPreset {
             uuid,
             name,
             rules,
+            stackup,
             gerber,
             bom,
             cpl,
@@ -167,6 +175,7 @@ impl ProjectFabPreset {
         FabPreset {
             name: self.name.clone(),
             rules: self.rules,
+            stackup: self.stackup,
             gerber: self.gerber,
             bom: self.bom.clone(),
             cpl: self.cpl.clone(),

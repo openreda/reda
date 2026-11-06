@@ -213,7 +213,6 @@ pub fn object_texts(object: &Object) -> Vec<(String, &str)> {
                 ("date", &props.date),
                 ("author", &props.author),
                 ("company", &props.company),
-                ("copper_weight", &props.copper_weight),
             ] {
                 out.push((name.to_owned(), value.as_str()));
             }

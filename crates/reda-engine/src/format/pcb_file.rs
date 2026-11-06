@@ -8,6 +8,13 @@
 //!     {"uuid":"…","kind":"courtyard","side":"top"},
 //!     …
 //!   ]},
+//!   "stackups": [
+//!     {"uuid":"…","thickness":1600000,"entries":[
+//!       {"layer":"…","thickness":35000},
+//!       {"uuid":"…"},
+//!       {"layer":"…","thickness":35000}
+//!     ],"finish":"ENIG"}
+//!   ],
 //!   "board": {"uuid":"…"},
 //!   "rules": [
 //!     {"uuid":"…","kind":"clearance","scope":{},"values":{"value":160000}},
@@ -70,6 +77,9 @@
 //! }
 //! ```
 //!
+//! `stackups` holds one Stackup in v0.1: copper `{layer, thickness}` and dielectric
+//! `{uuid, thickness?}` entries top to bottom, with `finish`, `mask_color` and `silk_color`
+//! left out while unset.
 //! `rules` holds the design rule records, one per line: exactly one board-wide record per
 //! kind, and the Net Class records. The Default Net Class is not stored: its values are
 //! the board-wide records, and a Net lists only its other classes.
@@ -85,7 +95,7 @@ use std::path::Path;
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DesignRule, DrcSeverities, FootprintInstance, FreePad,
     InDocument, Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText,
-    PlacementOrigin, Track, Uuid, Via, Waiver, Zone,
+    PlacementOrigin, Stackup, Track, Uuid, Via, Waiver, Zone,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -107,6 +117,8 @@ pub(crate) struct PcbFile {
     pcb: PcbRow,
     /// The Layers, top to bottom. Objects name a Layer by its UUID.
     layers: LayerSet,
+    /// The board's physical build: one Stackup in v0.1.
+    stackups: Vec<Stackup>,
     /// The board setup's identity.
     board: BoardRow,
     /// The design rule records: one board-wide record per kind, and Net Class records.
@@ -176,6 +188,7 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("pcb", &PcbRow { uuid: pcb.uuid })?;
     w.container("layers", pcb.layers(), "layers")?;
+    w.containers("stackups", pcb.stackups(), |s| s.uuid, "entries")?;
     w.field("board", &BoardRow { uuid: setup.uuid })?;
     w.table("rules", pcb.rules(), |r| r.uuid)?;
     w.field("severities", &setup.severities)?;
@@ -249,6 +262,11 @@ pub(crate) fn read_pcb_file(
             },
         )),
     ];
+    objects.extend(
+        file.stackups
+            .into_iter()
+            .map(|s| Object::Stackup(InDocument::new(doc, s))),
+    );
     objects.extend(
         file.rules
             .into_iter()
