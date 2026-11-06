@@ -25542,7 +25542,7 @@
                 "type": "integer"
               }
             ],
-            "description": "One value held by a rule record."
+            "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -25711,7 +25711,7 @@
                 "type": "integer"
               }
             ],
-            "description": "One value held by a rule record."
+            "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
