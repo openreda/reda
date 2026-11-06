@@ -65,8 +65,8 @@
     {"uuid":"00000000-0000-4000-8000-0000000000b5","name":"VBUS"}
   ],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-000000000114","layer":"00000000-0000-4000-8000-000000000007","text":"USB-C MCU","font":"Hershey Roman Simplex","position":{"x":2000000,"y":21000000},"height":1000000,"thickness":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000115","layer":"00000000-0000-4000-8000-00000000000e","text":"REV A","font":"Hershey Roman Simplex","position":{"x":26000000,"y":23000000},"height":1000000,"thickness":150000,"mirrored":true}
+    {"uuid":"00000000-0000-4000-8000-000000000114","layer":"00000000-0000-4000-8000-000000000007","text":"USB-C MCU","position":{"x":2000000,"y":21000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"}},
+    {"uuid":"00000000-0000-4000-8000-000000000115","layer":"00000000-0000-4000-8000-00000000000e","text":"REV A","position":{"x":26000000,"y":23000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"},"mirrored":true}
   ],
   "graphics": [],
   "footprint_copies": [
@@ -131,7 +131,7 @@
       {"uuid":"210590f8-c0cc-4dfb-b429-4245f9d06fa3","field":"Designator","at":{"x":0,"y":5350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c0","hash":"4cc641b927797520d70875bda44e9f29","footprint":{"uuid":"52217535-29ec-4cda-bd22-4076c17fb28c","name":"HDR254P1X5","description":"Pin header, 1 × 5, 2.54 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c0","hash":"9c84f3643c3e2c65c2e1d6d2860f2fbe","footprint":{"uuid":"52217535-29ec-4cda-bd22-4076c17fb28c","name":"HDR254P1X5","description":"Pin header, 1 × 5, 2.54 mm pitch"},"pads":[
       {"uuid":"1761c40f-5c73-4ff9-81b4-02095f5348d4","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"1d6d5460-6bdd-436b-9bf0-2718d739e788","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"6dd5cda9-a82f-4b07-a6c5-1abe3f22b385","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},

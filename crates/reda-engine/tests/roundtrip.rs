@@ -11,14 +11,13 @@ use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck,
-    ErcSeverities, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FootprintText,
-    FrameSize, FreePad, GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer,
-    LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation,
-    OutputJob, OutputOrigin, Outputs, PadConnection, PadKind, PadNet, PadShape, PartEntry,
-    PcbGraphic, PcbText, Port, PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset,
-    ProjectProperties, ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize,
-    SheetText, Side, Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver,
-    Wire, Zone,
+    ErcSeverities, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
+    GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer, LayerKind, LayerSet,
+    LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation, OutputJob, OutputOrigin,
+    Outputs, PadConnection, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, Port,
+    PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
+    ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side,
+    Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
 };
 use reda_engine::model::{DesignRule, FabRules, PreferredSeeds, RuleKind, RuleScope, RuleValues};
 use reda_engine::store::{encode, load_from};

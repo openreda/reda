@@ -16,7 +16,7 @@
     {"uuid":"00000000-0000-4000-8000-00000000000a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-850000,"y":-1560000},"end":{"x":850000,"y":-1560000}},"width":120000}
   ],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-00000000000b","field":"Designator","at":{"x":0,"y":2450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
-    {"uuid":"00000000-0000-4000-8000-00000000000c","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000},"layer":"assembly_top"}
+    {"uuid":"00000000-0000-4000-8000-00000000000b","field":"Designator","at":{"x":0,"y":2450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000c","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

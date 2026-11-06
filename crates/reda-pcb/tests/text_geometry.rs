@@ -254,3 +254,57 @@ fn knockout_is_a_flattened_box_with_stroke_and_outline_glyphs_removed() {
         assert!(!filled_at(&drawn, x, y), "glyph cutout, {font}");
     }
 }
+
+#[test]
+fn all_nine_justifications_align_the_text_block_to_its_anchor_and_round_trip() {
+    let dir = TempDir::new("text-nine-justify");
+    let mut engine = with_pcb(probe_engine(), &dir);
+    let uuid = add_text(
+        &mut engine,
+        json!({"layer":"silkscreen_top","text":"A","x":0,"y":0,"height":"2.1mm"}),
+    );
+    for (h, x) in [("left", 900_000), ("center", 0), ("right", -900_000)] {
+        for (v, y) in [("bottom", 2_100_000), ("center", 1_050_000), ("top", 0)] {
+            engine.run_ok("pcb.text.set", json!({"uuid":uuid,"justify":{"h":h,"v":v}}));
+            assert_eq!(
+                geometry(&mut engine, &uuid)["strokes"][0]["a"],
+                json!({"x":x,"y":y}),
+                "{h}/{v}"
+            );
+        }
+    }
+    engine.run_ok(
+        "pcb.text.set",
+        json!({"uuid":uuid,"knockout":{"margin":"0.2mm"},"frame":{"width":"5mm","height":"3mm"}}),
+    );
+    let before = geometry(&mut engine, &uuid);
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = probe_engine();
+    reopened.run_ok("project.open", json!({"path":dir.path().join("Demo")}));
+    assert_eq!(geometry(&mut reopened, &uuid), before);
+    reopened.run_ok(
+        "pcb.text.set",
+        json!({"uuid":uuid,"clear_knockout":true,"clear_frame":true}),
+    );
+    assert_eq!(
+        geometry(&mut reopened, &uuid)["strokes"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+}
+
+#[test]
+fn knockout_uses_the_frame_box_even_when_no_complete_line_fits() {
+    let dir = TempDir::new("text-frame-knockout");
+    let mut engine = with_pcb(probe_engine(), &dir);
+    let uuid = add_text(
+        &mut engine,
+        json!({"layer":"silkscreen_top","text":"A","x":0,"y":0,"height":"2mm","frame":{"width":"4mm","height":"1mm"},"knockout":{"margin":0}}),
+    );
+    let drawn = geometry(&mut engine, &uuid);
+    assert_eq!(drawn["dropped_lines"], 1);
+    assert!(filled_at(&drawn, 3_900_000, 900_000));
+    assert!(!filled_at(&drawn, 4_100_000, 900_000));
+}

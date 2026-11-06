@@ -108,6 +108,11 @@ pub fn missing_fonts(pcb: &PcbDocument, fonts: &Fonts) -> Vec<String> {
     let mut missing: Vec<String> = pcb
         .texts()
         .map(|t| t.font.clone())
+        .chain(
+            pcb.footprints()
+                .flat_map(|instance| footprint_texts(pcb, instance, fonts))
+                .map(|t| t.font.clone()),
+        )
         .filter(|f| font_is_missing(f, fonts))
         .collect();
     missing.sort();

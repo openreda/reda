@@ -60,8 +60,8 @@
     {"uuid":"00000000-0000-4000-8000-00000000007e","name":"VCC"}
   ],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-0000000000b1","layer":"00000000-0000-4000-8000-000000000007","text":"555 BLINKY","font":"Hershey Roman Simplex","position":{"x":24000000,"y":25000000},"height":1000000,"thickness":150000},
-    {"uuid":"00000000-0000-4000-8000-0000000000b2","layer":"00000000-0000-4000-8000-00000000000e","text":"REV A","font":"Hershey Roman Simplex","position":{"x":34000000,"y":3000000},"height":1000000,"thickness":150000,"mirrored":true}
+    {"uuid":"00000000-0000-4000-8000-0000000000b1","layer":"00000000-0000-4000-8000-000000000007","text":"555 BLINKY","position":{"x":24000000,"y":25000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b2","layer":"00000000-0000-4000-8000-00000000000e","text":"REV A","position":{"x":34000000,"y":3000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"},"mirrored":true}
   ],
   "graphics": [],
   "footprint_copies": [
@@ -97,7 +97,7 @@
       {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000086","hash":"534b66034596997f1531bfbac7b4018a","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000086","hash":"aff37f12ad3ea2503f0cf0d5afde2908","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
       {"uuid":"51072fb9-94c3-4b5d-80bf-636681ace084","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"75bf775f-bdf6-476e-a21c-ac73893d1705","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
     ],"graphics":[

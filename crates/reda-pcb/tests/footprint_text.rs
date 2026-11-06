@@ -179,3 +179,92 @@ fn changing_a_footprint_remaps_overrides_to_the_same_field_and_layer() {
         instance.text_overrides
     );
 }
+
+#[test]
+fn a_placed_text_font_override_is_reported_when_the_font_is_missing() {
+    let dir = TempDir::new("footprint-font-missing");
+    let mut engine = engine(&dir);
+    let [id, _] = synced_resistors(&mut engine);
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[id],"field":"Designator","style":{"font":"Unavailable Test Family"}}),
+    );
+    assert_eq!(
+        reda_pcb::missing_fonts(pcb(&engine), &reda_command::Fonts::default()),
+        ["Unavailable Test Family"]
+    );
+}
+
+#[test]
+fn an_explicit_text_uuid_moves_only_that_entry_of_that_instance() {
+    let dir = TempDir::new("footprint-text-uuid");
+    let mut engine = engine(&dir);
+    let [first, second] = synced_resistors(&mut engine);
+    let text = pcb(&engine)
+        .footprint_copy(pcb(&engine).footprint(first).unwrap().footprint)
+        .unwrap()
+        .footprint
+        .texts
+        .iter()
+        .find(|t| t.field == "Value")
+        .unwrap()
+        .uuid;
+    engine.run_ok("pcb.flip", json!({"objects":[first]}));
+    engine.run_ok("pcb.rotate", json!({"objects":[first],"angle":"90deg"}));
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[first],"texts":[text],"at":{"x":"3mm","y":"4mm"},"rotation":"45deg"}),
+    );
+    assert!(
+        pcb(&engine)
+            .footprint(second)
+            .unwrap()
+            .text_overrides
+            .is_empty()
+    );
+    let changed = pcb(&engine)
+        .footprint(first)
+        .unwrap()
+        .text_overrides
+        .clone();
+    assert_eq!(changed.len(), 1);
+    assert_eq!(changed[0].text, text);
+    let error = engine.run_err(
+        "pcb.footprint.text.set",
+        json!({"instances":[first,second],"texts":[pcb(&engine).uuid],"visible":false}),
+    );
+    assert_eq!(error.code, reda_command::ErrorCode::Rejected);
+    assert_eq!(
+        pcb(&engine).footprint(first).unwrap().text_overrides,
+        changed
+    );
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[first],"texts":[text],"reset":true}),
+    );
+    assert!(
+        pcb(&engine)
+            .footprint(first)
+            .unwrap()
+            .text_overrides
+            .is_empty()
+    );
+}
+
+#[test]
+fn autoposition_uses_the_pad_box_when_the_footprint_has_no_courtyard() {
+    let dir = TempDir::new("footprint-text-fallback");
+    let mut engine = reda_testkit::probe_engine();
+    engine.run_ok("project.new", json!({"path":dir.path(),"name":"Demo"}));
+    let footprint=engine.run_ok("test.footprint.add",json!({"at":{"x":0,"y":0},"designator":"A","pads":[{"at":{"x":0,"y":0},"width":"2mm","height":"1mm"}]}))["result"]["footprint"].clone();
+    let id: reda_model::Uuid = footprint.as_str().unwrap().parse().unwrap();
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[id],"field":"Designator","autoposition":"center_above"}),
+    );
+    let placed =
+        reda_pcb::placed::placed_designator(pcb(&engine), pcb(&engine).footprint(id).unwrap())
+            .unwrap();
+    assert_eq!(placed.at.x, reda_model::geom::Nm::ZERO);
+    assert!(placed.at.y > reda_model::geom::Nm::from_um(500));
+}
