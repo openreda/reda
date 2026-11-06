@@ -13,7 +13,7 @@ use reda_text::{Font, OutlineFont, StrokeFont, layout};
 use schemars::JsonSchema;
 use serde::Serialize;
 
-pub use footprint::{ElementText, FOOTPRINT_TEXT_PEN, board_layer, element_texts, footprint_texts};
+pub use footprint::{FOOTPRINT_TEXT_PEN, board_layer, element_texts, footprint_texts};
 
 /// The distance from one baseline to the next, as a multiple of the capital height
 /// (`LINE_PITCH.0 / LINE_PITCH.1`).

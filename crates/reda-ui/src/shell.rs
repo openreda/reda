@@ -1098,6 +1098,15 @@ impl Shell {
                 self.show_project();
                 self.recorder.opened(&self.engine);
             }
+            "project.close" => {
+                self.engine.view_mut().set(Selection::default());
+                self.closed_views.clear();
+                self.refresh();
+                self.layout_mut().open_start();
+                // The closed Project's recovery folder goes; open Library elements
+                // snapshot into the per-user one from now on.
+                self.recorder.opened(&self.engine);
+            }
             _ => match self.engine.registry().get(base).map(|meta| meta.kind) {
                 Some(Kind::Query) => {}
                 Some(Kind::View) => self.sync_document_tabs(),

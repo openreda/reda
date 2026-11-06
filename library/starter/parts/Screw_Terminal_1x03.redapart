@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"3f556775-18c0-4a19-b8e4-645d62d8c79a","name":"Screw_Terminal_1x03","component_type":"standard","symbol":"f279c41e-4b34-470e-b1e4-acbc63d7d0f1"},
+  "part": {"uuid":"3f556775-18c0-4a19-b8e4-645d62d8c79a","name":"Screw_Terminal_1x03","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"f279c41e-4b34-470e-b1e4-acbc63d7d0f1"},
   "footprints": [
     "fa427f08-4c9a-40c3-a75b-86a822ec3481",
     "3385ab36-ede1-4ac6-b2fd-440a58b50baa"

@@ -786,3 +786,57 @@ fn headers_number_across_the_rows_and_sockets_share_the_land_pattern() {
         ]
     );
 }
+
+/// A generated Footprint records the Command and its params, with every default filled
+/// in, so it can be regenerated; and it carries its height and field texts.
+#[test]
+fn a_generated_footprint_records_its_generator_height_and_texts() {
+    let dir = TempDir::new("gen-record");
+    let mut e = engine_with_library(&dir);
+    e.run_ok(
+        "library.footprint.generate.chip",
+        json!({"library": LIBRARY, "size": "0603"}),
+    );
+    let file = read_json(&footprint_file(&dir, "RESC1608X55N"));
+    let generator = &file["generator"];
+    assert_eq!(generator["command"], "library.footprint.generate.chip");
+    assert_eq!(generator["params"]["library"], LIBRARY);
+    assert_eq!(generator["params"]["size"], "0603");
+    assert_eq!(
+        generator["params"]["class"], "resistor",
+        "the default class is written out"
+    );
+    assert_eq!(file["footprint"]["height"], 550_000, "the 0603's 0.55 mm");
+    let texts = file["texts"].as_array().unwrap();
+    let mut fields: Vec<(&str, &str)> = texts
+        .iter()
+        .map(|t| (t["field"].as_str().unwrap(), t["layer"].as_str().unwrap()))
+        .collect();
+    fields.sort();
+    assert_eq!(
+        fields,
+        [("Designator", "silkscreen_top"), ("Value", "assembly_top")]
+    );
+
+    // Running the recorded params again gives the same Footprint.
+    let dir2 = TempDir::new("gen-record-again");
+    let mut again = engine_with_library(&dir2);
+    let mut params = generator["params"].clone();
+    params["name"] = json!("Again");
+    again.run_ok("library.footprint.generate.chip", params);
+    let rerun = read_json(&footprint_file(&dir2, "Again"));
+    assert_eq!(rerun["pads"].as_array().unwrap().len(), 2);
+    let geometry = |f: &Value| {
+        f["pads"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| (p["at"].clone(), p["width"].clone(), p["height"].clone()))
+            .collect::<Vec<_>>()
+    };
+    let mut a = geometry(&file);
+    let mut b = geometry(&rerun);
+    a.sort_by_key(|p| p.0.to_string());
+    b.sort_by_key(|p| p.0.to_string());
+    assert_eq!(a, b);
+}

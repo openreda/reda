@@ -1,20 +1,20 @@
-//! The text a placed Footprint draws: text in its drawing, its Designator and its value,
-//! as PCB text objects on board Layers. The canvas, the Gerber silkscreen and DRC's
+//! The text a placed Footprint draws: text in its drawing and its field texts (such as its
+//! Designator and value), as PCB text objects on board Layers. The canvas, the Gerber silkscreen and DRC's
 //! silkscreen check all lay these out with [`text_geometry`](super::text_geometry), so they
 //! agree glyph for glyph.
 
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Footprint, FootprintInstance, FootprintLayer, FootprintText, HERSHEY_FONT, LayerKind,
-    PcbDocument, PcbText, Shape, Side, Uuid,
+    DESIGNATOR_FIELD, Footprint, FootprintInstance, FootprintLayer, FootprintText, HERSHEY_FONT,
+    LayerKind, PcbDocument, PcbText, Shape, Side, TextStyle, Uuid, VALUE_FIELD, field_text,
 };
 
 use crate::placed::{self, Bounds, Frame};
 
-/// The pen width of Footprint text (Designators, values and text in a Footprint's
-/// drawing), as a fraction of its height (`.0 / .1`).
-pub const FOOTPRINT_TEXT_PEN: (i64, i64) = (3, 20);
+/// The pen width of text in a Footprint's drawing, as a fraction of its height (`.0 /
+/// .1`). Field texts carry their own pen width, which starts at the same fraction.
+pub const FOOTPRINT_TEXT_PEN: (i64, i64) = TextStyle::PEN;
 
 /// The board Layer a Footprint drawing Layer is, if the board has it.
 pub fn board_layer(pcb: &PcbDocument, layer: FootprintLayer) -> Option<Uuid> {
@@ -30,10 +30,10 @@ pub fn board_layer(pcb: &PcbDocument, layer: FootprintLayer) -> Option<Uuid> {
     pcb.layers().find(kind, Some(side)).map(|l| l.uuid)
 }
 
-/// Every text a placed Footprint draws, as Hershey PCB text whose `uuid` is the instance:
-/// the text shapes of its drawing (anchored at the start of the baseline), then its
-/// Designator and its value (centred on their placements) when visible and not empty.
-/// Text on a Layer the board lacks is left out.
+/// Every text a placed Footprint draws, as PCB text whose `uuid` is the instance: the
+/// text shapes of its drawing (Hershey, anchored at the start of the baseline), then each
+/// of its field texts (centred on its placement) when visible and the instance has that
+/// field. Text on a Layer the board lacks is left out.
 pub fn footprint_texts(
     pcb: &PcbDocument,
     instance: &FootprintInstance,
@@ -64,41 +64,27 @@ pub fn footprint_texts(
             ));
         }
     }
-    let copy = pcb.footprint_copy(instance.footprint);
-    let designator = placed::placed_designator(pcb, instance);
-    let value = copy.map(|c| frame.text(&c.footprint.value));
-    let texts = [
-        (designator, instance.designator.as_str()),
-        (value, instance.fields.value.as_str()),
-    ];
-    for (placement, text) in texts {
-        let Some(placement) = placement.filter(|p| p.visible && !text.is_empty()) else {
+    for entry in placed::instance_texts(pcb, instance) {
+        let text = field_text(&entry.field, &instance.designator, &instance.fields);
+        if !entry.visible || text.is_empty() {
             continue;
-        };
-        out.extend(centred_text(pcb, object, text, &placement, fonts));
+        }
+        out.extend(centred_text(pcb, object, text, &frame.text(&entry), fonts));
     }
     out
 }
 
-/// Which of a Footprint's texts an [`element_texts`] entry is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ElementText {
-    /// A text shape of its drawing.
-    Graphic(Uuid),
-    Designator,
-    Value,
-}
-
 /// Every text a Footprint draws as the Footprint editor shows it, unplaced (at its own
-/// origin, top side), on the board Layers of `pcb`: its drawing's text shapes, then its
-/// Designator and value as `designator` and `value`, laid out exactly as on a board.
-/// Each PCB text's `uuid` is the Footprint's.
+/// origin, top side), on the board Layers of `pcb`, each with the UUID of its graphic or
+/// field text: its drawing's text shapes, then its field texts, laid out exactly as on a
+/// board. The Designator shows as `designator`, the value as `value` and any other field
+/// as its name. Each PCB text's `uuid` is the Footprint's.
 pub fn element_texts(
     pcb: &PcbDocument,
     footprint: &Footprint,
     (designator, value): (&str, &str),
     fonts: &Fonts,
-) -> Vec<(ElementText, PcbText)> {
+) -> Vec<(Uuid, PcbText)> {
     let object = footprint.uuid;
     let mut out = Vec::new();
     for g in &footprint.graphics {
@@ -112,36 +98,28 @@ pub fn element_texts(
             continue;
         };
         if let Some(layer) = board_layer(pcb, g.layer) {
-            let mirrored = is_bottom(g.layer);
+            let mirrored = g.layer.is_bottom();
             let t = pcb_text(object, layer, text, *at, *size, *rotation, mirrored);
-            out.push((ElementText::Graphic(g.uuid), t));
+            out.push((g.uuid, t));
         }
     }
-    let texts = [
-        (ElementText::Designator, &footprint.designator, designator),
-        (ElementText::Value, &footprint.value, value),
-    ];
-    for (which, placement, text) in texts {
-        if !placement.visible || text.is_empty() {
+    for entry in &footprint.texts {
+        let text = match entry.field.as_str() {
+            DESIGNATOR_FIELD => designator,
+            VALUE_FIELD => value,
+            field => field,
+        };
+        if !entry.visible || text.is_empty() {
             continue;
         }
-        if let Some(t) = centred_text(pcb, object, text, placement, fonts) {
-            out.push((which, t));
+        if let Some(t) = centred_text(pcb, object, text, entry, fonts) {
+            out.push((entry.uuid, t));
         }
     }
     out
 }
 
-fn is_bottom(layer: FootprintLayer) -> bool {
-    matches!(
-        layer,
-        FootprintLayer::SilkscreenBottom
-            | FootprintLayer::CourtyardBottom
-            | FootprintLayer::AssemblyBottom
-    )
-}
-
-/// Hershey text of a Footprint, pen [`FOOTPRINT_TEXT_PEN`] of its height.
+/// Hershey text of a Footprint's drawing, pen [`FOOTPRINT_TEXT_PEN`] of its height.
 fn pcb_text(
     object: Uuid,
     layer: Uuid,
@@ -164,9 +142,9 @@ fn pcb_text(
     }
 }
 
-/// A Designator or value text centred on its placement, mirrored on a bottom Layer: the
-/// centre of the glyphs' box (strokes and fill) lands on `at`. This is the one place the
-/// canvas, the Gerber silkscreen and DRC centre Footprint text.
+/// A field text centred on its placement, mirrored on a bottom Layer: the centre of the
+/// glyphs' box (strokes and fill) lands on `at`. This is the one place the canvas, the
+/// Gerber silkscreen and DRC centre Footprint text.
 fn centred_text(
     pcb: &PcbDocument,
     object: Uuid,
@@ -175,18 +153,20 @@ fn centred_text(
     fonts: &Fonts,
 ) -> Option<PcbText> {
     let layer = board_layer(pcb, placement.layer)?;
-    let mirrored = is_bottom(placement.layer);
-    let size = placement.size;
-    // Lay it out upright at the origin to find its centre, then move that onto `at`.
-    let probe = pcb_text(
-        object,
+    let mirrored = placement.layer.is_bottom();
+    let styled = |position: Point, rotation: Millideg, mirrored: bool| PcbText {
+        uuid: object,
         layer,
-        text,
-        Point::default(),
-        size,
-        Millideg::ZERO,
-        false,
-    );
+        text: text.to_owned(),
+        font: placement.style.font.clone(),
+        position,
+        height: placement.style.height,
+        thickness: placement.style.thickness,
+        rotation,
+        mirrored,
+    };
+    // Lay it out upright at the origin to find its centre, then move that onto `at`.
+    let probe = styled(Point::default(), Millideg::ZERO, false);
     let laid = super::text_geometry(&probe, fonts);
     let points = laid.strokes.iter().flat_map(|s| [s.a, s.b]);
     let points = points.chain(laid.fill.points.iter().copied());
@@ -198,13 +178,5 @@ fn centred_text(
     };
     let d = placed::rotate(centre, Point::default(), placement.rotation);
     let position = Point::new(placement.at.x - d.x, placement.at.y - d.y);
-    Some(pcb_text(
-        object,
-        layer,
-        text,
-        position,
-        size,
-        placement.rotation,
-        mirrored,
-    ))
+    Some(styled(position, placement.rotation, mirrored))
 }

@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"5e0d63ca-6ae0-4dc8-8fa2-bfcb1f13fdbb","name":"SKT127P1X4","description":"Socket, 1 × 4, 1.27 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":3500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":630000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":4,"pitch":"1.27","rows":1,"socket":true}},
   "pads": [
     {"uuid":"3f953861-5da1-4d4c-b48e-f1b2a58b4f99","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
     {"uuid":"450de97a-7071-40c2-b5f5-cdc005c07231","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
@@ -15,5 +15,9 @@
     {"uuid":"91b890ca-52a9-4cee-bd97-da3989260506","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-2665000},"end":{"x":760000,"y":-2665000}},"width":120000},
     {"uuid":"ab9586e2-d6fd-4086-b022-f035ffd1dd99","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":2540000},{"x":635000,"y":2540000},{"x":635000,"y":-2540000},{"x":-635000,"y":-2540000},{"x":-635000,"y":2222500}]},"width":100000},
     {"uuid":"d3f1e36d-cd3f-4ce9-8f32-81a2427e610b","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-2665000},"end":{"x":-760000,"y":2665000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"152336b1-879e-4c51-8cb4-f99e3c3cd4b8","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500},"layer":"assembly_top"},
+    {"uuid":"4f06f1a4-9d42-40e3-b0ea-0d45b49af050","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

@@ -1,7 +1,7 @@
 //! The drill checks: hole size, annular ring and hole-to-hole spacing, over Vias, the Pads
 //! of placed Footprints and Free Pads.
 
-use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{Nm, Point};
 use reda_model::{DrcCheck, Hole, PadKind, Uuid};
 
 use super::{Board, Report};
@@ -56,29 +56,24 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
     let rules = pcb.setup().rules;
     let mut out = Vec::new();
     for via in pcb.vias() {
-        let size = Hole {
-            width: via.hole,
-            height: via.hole,
-        };
+        let size = Hole::new(via.hole, via.hole);
         out.push(DrillHole {
             objects: vec![via.uuid],
             size,
             minimum: net_rules(pcb, via.net).via_hole,
             ring: Some(Nm((via.diameter.0 - via.hole.0) / 2)),
-            shape: hole_shape(via.at, Millideg::ZERO, size),
+            shape: hole_shape((via.at, via.at), size),
         });
     }
     let pad_hole = |objects: Vec<Uuid>, pad: &PlacedPad| {
         let size = pad.hole?;
-        let ring = (pad.kind == PadKind::PlatedThroughHole).then(|| {
-            Nm(((pad.width.0 - size.width.0) / 2).min((pad.height.0 - size.height.0) / 2))
-        });
+        let ring = (pad.kind == PadKind::PlatedThroughHole).then(|| annular_ring(pad, size));
         Some(DrillHole {
             objects,
             size,
             minimum: rules.via_hole,
             ring,
-            shape: hole_shape(pad.at, pad.rotation, size),
+            shape: hole_shape(pad.hole_ends()?, size),
         })
     };
     for instance in pcb.footprints() {
@@ -92,21 +87,25 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
     out
 }
 
-/// A hole's outline: a disc, or a slot along its longer side turned by `rotation`.
-fn hole_shape(at: Point, rotation: Millideg, size: Hole) -> Shape {
-    let (w, h) = (size.width.0, size.height.0);
-    let radius = w.min(h) / 2;
-    let half = (w.max(h) - w.min(h)) / 2;
-    let (dx, dy) = if w >= h { (half, 0) } else { (0, half) };
-    let end = |sign: i64| {
-        let p = Point::new(at.x + Nm(sign * dx), at.y + Nm(sign * dy));
-        let p = placed::rotate(p, at, rotation);
-        [p.x.0, p.y.0]
-    };
+/// The narrowest copper between a Pad's hole and the edge of its copper, negative when
+/// the hole reaches outside it. The copper is convex, so the narrowest point is at an end
+/// of the slot's centre line.
+pub(crate) fn annular_ring(pad: &PlacedPad, hole: Hole) -> Nm {
+    let (a, b) = hole.ends();
+    let inside = pad
+        .outline
+        .edge_distance(a)
+        .min(pad.outline.edge_distance(b));
+    Nm((inside - hole.diameter().0 as f64 / 2.0).floor() as i64)
+}
+
+/// A hole's outline: a disc, or a slot between the `ends` of its centre line.
+fn hole_shape(ends: (Point, Point), size: Hole) -> Shape {
+    let end = |p: Point| [p.x.0, p.y.0];
     Shape {
         prims: vec![Prim {
-            core: Core::Seg(end(-1), end(1)),
-            radius,
+            core: Core::Seg(end(ends.0), end(ends.1)),
+            radius: size.diameter().0 / 2,
         }],
     }
 }

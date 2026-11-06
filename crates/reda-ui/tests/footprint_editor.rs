@@ -12,7 +12,6 @@ use reda_ui::canvas::interact::Pointer;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::command::{FixedClock, SeededIds};
-use reda_ui::engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_ui::engine::model::{
     Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Shape, Uuid,
 };
@@ -249,27 +248,35 @@ fn dragging_moves_pads_and_the_designator_text_by_the_grid() {
     assert_eq!((pad.at.x.0, pad.at.y.0), (1_000_000, 3_500_000));
     assert_eq!(shell.selection().objects, vec![pad.uuid]);
 
+    let text = |shell: &Shell, field: &str| {
+        footprint(shell, fp)
+            .texts
+            .iter()
+            .find(|t| t.field == field)
+            .unwrap()
+            .clone()
+    };
+    let value = text(&shell, "Value").uuid;
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "value", "at": {"x": 0, "y": "-3mm"}}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": value, "at": {"x": 0, "y": "-3mm"}}),
         )
         .unwrap();
-    let f = footprint(&shell, fp);
-    let d = f.designator.at;
+    let designator = text(&shell, "Designator");
+    let d = designator.at;
     drag(
         &mut shell,
         fp,
         (d.x.0 as f64, d.y.0 as f64),
         (d.x.0 as f64, d.y.0 as f64 + 2.0 * MM),
     );
-    let f = footprint(&shell, fp);
-    assert_eq!(f.designator.at.y.0, d.y.0 + 2_000_000);
-    assert_eq!(shell.selection().objects, vec![DESIGNATOR_TEXT]);
+    assert_eq!(text(&shell, "Designator").at.y.0, d.y.0 + 2_000_000);
+    assert_eq!(shell.selection().objects, vec![designator.uuid]);
 
-    // Delete hides texts and removes Pads, through the Keymap binding.
+    // Delete removes texts and Pads, through the Keymap binding.
     shell
-        .run("selection.set", json!({"objects": [pad.uuid, VALUE_TEXT]}))
+        .run("selection.set", json!({"objects": [pad.uuid, value]}))
         .unwrap();
     let keymap = shell.keymap().clone();
     let action = keymap
@@ -281,7 +288,7 @@ fn dragging_moves_pads_and_the_designator_text_by_the_grid() {
     shell.run(&id, params).unwrap();
     let f = footprint(&shell, fp);
     assert!(f.pads.is_empty());
-    assert!(!f.value.visible);
+    assert!(f.texts.iter().all(|t| t.uuid != value));
 }
 
 #[test]

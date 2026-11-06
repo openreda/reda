@@ -1,8 +1,8 @@
 //! Mechanical Parts placed straight onto the PCB from a Library: `pcb.mechanical.place`,
 //! `pcb.mechanical.set` and `pcb.mechanical.delete`.
 //!
-//! They carry no Component link, so Sync ignores them, and their Designator, fields and
-//! Not Fitted are edited here on the PCB.
+//! They carry no Component link, so Sync ignores them, and their Designator, fields, In
+//! BOM, In CPL and Not Fitted are edited here on the PCB.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -95,9 +95,10 @@ impl Command for MechanicalPlace {
         let copy = cx.library_part(p.part)?;
         if copy.part.component_type != ComponentType::Mechanical {
             return Err(CommandError::rejected(format!(
-                "{} is a Standard Part: its Footprints reach the board through Sync from \
-                 the schematic",
-                copy.part.name
+                "{} is a {} Part: it needs a Symbol and a Footprint, and reaches the board \
+                 through Sync from the schematic",
+                copy.part.name,
+                copy.part.component_type.name()
             )));
         }
         let chosen = match p.footprint {
@@ -186,6 +187,9 @@ impl Command for MechanicalPlace {
             locked: false,
             designator: designator.clone(),
             fields,
+            component_type: copy.part.component_type,
+            in_bom: copy.part.in_bom,
+            in_cpl: copy.part.in_cpl,
             not_fitted: false,
             designator_text: None,
             pads,
@@ -216,6 +220,12 @@ pub struct MechanicalSetParams {
     /// clears a field.
     #[serde(default)]
     pub fields: BTreeMap<String, Option<String>>,
+    /// Whether they go into the BOM.
+    #[serde(default)]
+    pub in_bom: Option<bool>,
+    /// Whether they go into the CPL.
+    #[serde(default)]
+    pub in_cpl: Option<bool>,
     #[serde(default)]
     pub not_fitted: Option<bool>,
 }
@@ -226,8 +236,8 @@ impl Command for MechanicalSet {
     const META: Meta = Meta {
         id: "pcb.mechanical.set",
         title: "Edit Mechanical Part",
-        description: "Edits the Designator, value, fields or Not Fitted of Mechanical Parts \
-                      placed on the PCB. Footprints synced from the schematic are edited \
+        description: "Edits the Designator, value, fields, In BOM, In CPL or Not Fitted of \
+                      Mechanical Parts placed on the PCB. Footprints synced from the schematic are edited \
                       with `pcb.footprint.set`, which writes through to the schematic.",
         category: "pcb",
         icon: "properties",
@@ -279,6 +289,12 @@ impl Command for MechanicalSet {
             }
             for (name, value) in &p.fields {
                 f.fields.set(name, value.as_deref().unwrap_or(""));
+            }
+            if let Some(in_bom) = p.in_bom {
+                f.in_bom = in_bom;
+            }
+            if let Some(in_cpl) = p.in_cpl {
+                f.in_cpl = in_cpl;
             }
             if let Some(nf) = p.not_fitted {
                 f.not_fitted = nf;

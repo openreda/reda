@@ -97,6 +97,39 @@ fn touched(done: &Value) -> Vec<String> {
 }
 
 #[test]
+fn in_bom_and_in_cpl_edited_on_the_pcb_reach_every_unit_and_the_footprint() {
+    let dir = TempDir::new("write-through-flags");
+    let mut engine = demo(&dir);
+    let u1 = place(&mut engine, LM358, 0, 0);
+    engine.run_ok(
+        "schematic.unit.place",
+        json!({"document": SHEET, "component": u1, "at": {"x": "30mm", "y": "0mm"}}),
+    );
+    sync(&mut engine);
+    let footprint = instance_of(&mut engine, &u1)["uuid"].clone();
+
+    engine.run_ok(
+        "pcb.footprint.set",
+        json!({"footprints": [footprint], "in_bom": false, "in_cpl": false}),
+    );
+
+    let units = units_of(&mut engine, &u1);
+    assert_eq!(units.len(), 2);
+    for unit in &units {
+        assert_eq!(
+            (&unit["in_bom"], &unit["in_cpl"]),
+            (&json!(false), &json!(false))
+        );
+    }
+    let instance = instance_of(&mut engine, &u1);
+    assert_eq!(
+        (&instance["in_bom"], &instance["in_cpl"]),
+        (&json!(false), &json!(false))
+    );
+    assert_eq!(pending(&mut engine), 0);
+}
+
+#[test]
 fn a_value_edited_on_the_pcb_updates_the_units_and_the_footprint_with_an_undo_entry_each() {
     let dir = TempDir::new("write-through-value");
     let mut engine = demo(&dir);

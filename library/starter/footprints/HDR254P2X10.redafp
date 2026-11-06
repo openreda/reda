@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"08a282f1-411d-48b2-9e13-18e770a43164","name":"HDR254P2X10","description":"Pin header, 2 × 10, 2.54 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":13650000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":10,"pitch":"2.54","rows":2,"socket":false}},
   "pads": [
     {"uuid":"061f95a1-894f-4d88-b577-dbb3d0910f40","number":"11","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
     {"uuid":"084406f1-4947-49d1-a218-f15520b20352","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -31,5 +31,9 @@
     {"uuid":"85b0539f-e238-4c70-9ddb-01457dece6ae","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":-12760000},"end":{"x":2600000,"y":-12760000}},"width":120000},
     {"uuid":"9a77d4b1-a401-418b-822e-885940d2ec5b","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1540000,"y":12700000},{"x":2540000,"y":12700000},{"x":2540000,"y":-12700000},{"x":-2540000,"y":-12700000},{"x":-2540000,"y":11700000}]},"width":100000},
     {"uuid":"a865fb96-a1b6-4408-bba2-f8b9849cd146","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2600000,"y":-12760000},"end":{"x":2600000,"y":12760000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"4122d967-527b-4eda-9d3a-2f34e9cbf562","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+    {"uuid":"4d34cdb0-e329-4961-a823-ac260616a626","field":"Designator","at":{"x":0,"y":13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

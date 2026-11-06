@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"86097406-e09d-421b-bcec-85b562fcab20","name":"Diode","component_type":"standard","symbol":"4b324015-989b-4479-95fe-83588e1620c6"},
+  "part": {"uuid":"86097406-e09d-421b-bcec-85b562fcab20","name":"Diode","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"4b324015-989b-4479-95fe-83588e1620c6"},
   "footprints": [
     "994846c1-6dfb-48a2-babf-ae60f86398b2",
     "d7207e2b-b137-4fb4-a47b-9c233f186cc7",

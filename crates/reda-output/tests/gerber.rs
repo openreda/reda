@@ -129,8 +129,8 @@ fn tracks_read_back_as_draws_with_their_width_and_net() {
 /// Probe points in a Pad's own frame (x along its width) and whether each lies on the Pad:
 /// just inside and just outside each side, and near a corner.
 fn probes(pad: &reda_pcb::placed::PlacedPad) -> Vec<((f64, f64), bool)> {
-    use reda_model::PadShape;
-    let (w, h) = (pad.width.0 as f64 / 2.0, pad.height.0 as f64 / 2.0);
+    let o = pad.outline;
+    let (w, h) = (o.width.0 as f64 / 2.0, o.height.0 as f64 / 2.0);
     let d = 2_000.0;
     let mut out = vec![
         ((0.0, 0.0), true),
@@ -144,11 +144,7 @@ fn probes(pad: &reda_pcb::placed::PlacedPad) -> Vec<((f64, f64), bool)> {
         ((0.0, -(h + d)), false),
     ];
     let corner = (w - d, h - d);
-    let r = match pad.shape {
-        PadShape::Rect => 0.0,
-        PadShape::RoundedRect => pad.corner_radius.map_or(0.0, |r| r.0 as f64),
-        PadShape::Circle | PadShape::Oval => w.min(h),
-    };
+    let r = o.uniform_radius().expect("uniform corners").0 as f64;
     // The corner is on the Pad only when the rounding leaves it.
     let (cx, cy) = (w - r, h - r);
     let in_corner = r == 0.0 || (corner.0 - cx).max(0.0).hypot((corner.1 - cy).max(0.0)) <= r;
@@ -185,7 +181,7 @@ fn pads_read_back_with_their_shape_turn_and_side() {
             "test.footprint.add",
             json!({"at": at, "rotation": rotation, "side": side, "pads": [
                 pad(0.0, "rect", 1.2, 0.6, json!({"net": gnd})),
-                pad(2.0, "rounded_rect", 1.0, 1.6, json!({"corner_radius": "0.25mm"})),
+                pad(2.0, "rounded_rect", 1.0, 1.6, json!({"corner_ratio": 50_000})),
                 pad(4.0, "oval", 1.8, 0.9, json!({"rotation": "15deg"})),
                 pad(6.0, "oval", 0.7, 1.5, json!({})),
                 pad(8.0, "circle", 0.8, 0.8, json!({})),
@@ -255,6 +251,98 @@ fn pads_read_back_with_their_shape_turn_and_side() {
     }
     assert_eq!(top.flashes().count(), expected.0);
     assert_eq!(bottom.flashes().count(), expected.1);
+}
+
+#[test]
+fn a_pad_with_mixed_corners_and_an_offset_is_one_flash_of_its_own_macro() {
+    let dir = TempDir::new("gerber-chamfer");
+    let mut engine = board(&dir);
+    // 2 × 1 mm, its copper 0.5 mm right of its anchor; the top-right corner chamfered by
+    // 0.25 mm (50% of half the shorter side), the others rounded by 0.1 mm (20%).
+    let pad = json!({"at": pt(0.0, 0.0), "width": "2mm", "height": "1mm",
+                     "shape": "chamfered_rect", "chamfer_ratio": 50_000, "corner_ratio": 20_000,
+                     "corners": ["top_right"], "offset": pt(0.5, 0.0)});
+    let mut bottom_pad = pad.clone();
+    bottom_pad["side"] = json!("bottom");
+    for (at, rotation, side) in [
+        (pt(5.0, 5.0), "0deg", "top"),
+        (pt(15.0, 5.0), "90deg", "top"),
+        // Flipped: the chamfer lands top-left as seen from the top.
+        (pt(25.0, 5.0), "0deg", "bottom"),
+    ] {
+        engine.run_ok(
+            "test.footprint.add",
+            json!({"at": at, "rotation": rotation, "side": side, "pads": [pad]}),
+        );
+    }
+    // An SMD Pad on the Footprint's bottom: on the bottom copper of an unflipped Footprint.
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(35.0, 5.0), "pads": [bottom_pad]}),
+    );
+    let files = plot(&engine);
+    let top = read(&file(&files, "Demo.GTL").bytes);
+    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let um = |v: f64| v * 1_000.0;
+    // (layer, anchor, probes seen from the top relative to the anchor: inside or not)
+    type Probes = Vec<((f64, f64), bool)>;
+    let cases: [(&gerber_reader::Layer, (i64, i64), Probes); 4] = [
+        (
+            &top,
+            (mm(5.0), mm(5.0)),
+            vec![
+                ((um(500.0), 0.0), true),
+                ((um(1440.0), um(440.0)), false), // the chamfered top-right corner
+                ((um(1300.0), um(400.0)), true),
+                ((um(-440.0), um(-440.0)), true), // a rounded corner, inside its arc
+                ((um(-495.0), um(-495.0)), false), // beyond its arc
+                ((um(-495.0), um(0.0)), true),
+                ((um(-505.0), um(0.0)), false),
+            ],
+        ),
+        (
+            &top,
+            (mm(15.0), mm(5.0)),
+            vec![
+                ((0.0, um(500.0)), true),
+                ((um(-440.0), um(1440.0)), false),
+                ((um(440.0), um(1440.0)), true),
+            ],
+        ),
+        (
+            &bottom,
+            (mm(25.0), mm(5.0)),
+            vec![
+                ((um(-500.0), 0.0), true),
+                ((um(-1440.0), um(440.0)), false),
+                ((um(1440.0), um(440.0)), false),
+                ((um(-1300.0), um(-440.0)), true),
+            ],
+        ),
+        (
+            &bottom,
+            (mm(35.0), mm(5.0)),
+            vec![((um(500.0), 0.0), true), ((um(1440.0), um(440.0)), false)],
+        ),
+    ];
+    for (layer, anchor, probes) in cases {
+        let Object::Flash { aperture, .. } = flash_at(layer, anchor) else {
+            unreachable!()
+        };
+        assert!(
+            matches!(aperture, gerber_reader::Aperture::Macro(_)),
+            "{aperture:?}"
+        );
+        for ((x, y), inside) in probes {
+            assert_eq!(
+                aperture.contains(x, y),
+                inside,
+                "{anchor:?} probe ({x}, {y})"
+            );
+        }
+    }
+    assert_eq!(top.flashes().count(), 2);
+    assert_eq!(bottom.flashes().count(), 2);
 }
 
 #[test]
@@ -424,7 +512,7 @@ fn demo(dir: &TempDir) -> TestEngine {
         "test.footprint.add",
         json!({"at": pt(8.0, 10.0), "rotation": "45deg", "designator": "C1", "pads": [
             {"at": pt(-1.0, 0.0), "width": "1mm", "height": "0.6mm", "net": sig,
-             "shape": "rounded_rect", "corner_radius": "0.1mm", "mask_margin": "0.05mm",
+             "shape": "rounded_rect", "corner_ratio": 50_000, "mask_margin": "0.05mm",
              "paste_margin": "-0.025mm"},
             {"at": pt(1.0, 0.0), "width": "1mm", "height": "0.6mm", "net": gnd}],
             "graphics": [

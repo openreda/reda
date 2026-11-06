@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"b4351766-9551-4986-9f92-46fd72d7e385","name":"Capacitor","component_type":"standard","symbol":"e2a20189-4b01-467b-a2c0-1e5ddd811319"},
+  "part": {"uuid":"b4351766-9551-4986-9f92-46fd72d7e385","name":"Capacitor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"e2a20189-4b01-467b-a2c0-1e5ddd811319"},
   "footprints": [
     "4cbeeb47-93a7-4a38-9bfa-49862757d1ea",
     "2f30e497-fa3d-473c-89eb-c952d32ae866",

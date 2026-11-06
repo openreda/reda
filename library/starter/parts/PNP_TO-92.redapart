@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"293f5af2-521c-42c9-b80e-228264c25e9f","name":"PNP_TO-92","component_type":"standard","symbol":"fdb702da-85e5-4425-9155-369e83063697"},
+  "part": {"uuid":"293f5af2-521c-42c9-b80e-228264c25e9f","name":"PNP_TO-92","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"fdb702da-85e5-4425-9155-369e83063697"},
   "footprints": [
     "163fae4f-3930-40a9-96ae-7630ccb29298"
   ],

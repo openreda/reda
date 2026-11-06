@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"71438ee5-73f1-4018-bb56-b367ce93e9ba","name":"MountingHole_M2.5","component_type":"mechanical"},
+  "part": {"uuid":"71438ee5-73f1-4018-bb56-b367ce93e9ba","name":"MountingHole_M2.5","component_type":"mechanical","in_bom":false,"in_cpl":false},
   "footprints": [
     "e5327c47-451f-4774-8c20-2fb374d28712"
   ],

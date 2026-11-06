@@ -136,18 +136,16 @@ fn a_right_click_tab_menu_splits_and_moves_to_a_new_window() {
 }
 
 #[test]
-fn the_view_menu_collapses_each_dock() {
+fn the_window_menu_collapses_each_dock() {
     let mut h = harness();
     h.run();
-    // The Docks have no header: collapsing is in the View menu and the tab menu.
+    // The Docks have no header: collapsing is in the Window menu and the tab menu.
     assert!(h.query_by_label("Collapse Left Dock").is_none());
     for (side, label) in [
         (DockSide::Left, "Collapse Left Dock"),
         (DockSide::Bottom, "Collapse Bottom Dock"),
     ] {
-        h.get_by_role_and_label(Role::Button, "View").click();
-        h.run();
-        h.get_by_label("Docks").hover();
+        h.get_by_role_and_label(Role::Button, "Window").click();
         h.run();
         h.get_by_label(label).click();
         h.run();
@@ -314,8 +312,8 @@ fn menus_follow_the_document_last_pressed_on_in_any_window() {
         .with_size([1000.0, 640.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     h.run();
-    // The sheet is active: the menus and toolbar are the schematic ones.
-    assert!(h.query_all_by_label("Run ERC").next().is_some());
+    // The sheet is active: the menus are the schematic ones, with no Route menu.
+    assert!(h.query_by_role_and_label(Role::Button, "Route").is_none());
     assert_eq!(
         reda_ui::bars::active_type(h.state().shell()),
         Some(reda_ui::bars::DocumentType::Schematic)
@@ -333,6 +331,8 @@ fn menus_follow_the_document_last_pressed_on_in_any_window() {
         reda_ui::bars::active_type(h.state().shell()),
         Some(reda_ui::bars::DocumentType::Pcb)
     );
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Route");
 }
 
 /// Moves the held drag onto the drop-target button `label`, then releases it there.
@@ -456,4 +456,117 @@ fn releasing_a_tab_where_it_already_is_runs_nothing() {
     drag_tab(&mut h, "Start", start);
     drop_on_button(&mut h, "Drop into Group");
     assert!(journal(&h).is_empty());
+}
+
+/// Shows immediate viewports as if they were OS windows of their own, as eframe does: each
+/// runs its own pass with the events queued in `keys`. Every AccessKit label a viewport
+/// showed goes into `labels`.
+fn native_viewports(
+    ctx: &egui::Context,
+    keys: std::rc::Rc<std::cell::RefCell<Vec<egui::Event>>>,
+    labels: std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+) {
+    ctx.set_embed_viewports(false);
+    egui::Context::set_immediate_viewport_renderer(move |ctx, mut viewport| {
+        let id = viewport.ids.this;
+        let input = egui::RawInput {
+            viewport_id: id,
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(480.0, 320.0),
+            )),
+            events: keys.borrow_mut().drain(..).collect(),
+            viewports: [(
+                id,
+                egui::ViewportInfo {
+                    focused: Some(true),
+                    ..Default::default()
+                },
+            )]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+        let output = ctx.run_ui(input, |ui| (viewport.viewport_ui_cb)(ui));
+        if let Some(update) = output.platform_output.accesskit_update {
+            for (_, node) in update.nodes {
+                labels.borrow_mut().extend(node.label().map(str::to_owned));
+            }
+        }
+    });
+}
+
+#[test]
+fn a_floating_window_has_no_menus_or_toolbar_and_its_keys_go_through_the_keymap() {
+    let work = reda_testkit::TempDir::new("floating-keys");
+    let mut engine = Engine::builder()
+        .user_dirs(None)
+        .starter_library(None)
+        .headless(false)
+        .build();
+    engine
+        .run("project.new", json!({"path": work.path(), "name": "Float"}))
+        .unwrap();
+    let file = work.path().join("Float").join("Float.reda");
+    let mut shell = Shell::new(engine);
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().unwrap().document;
+    shell
+        .run(
+            "schematic.wire.add",
+            json!({"document": sheet, "points": [{"x": 0, "y": 0}, {"x": 2_540_000, "y": 0}]}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "layout.tab.move_to_new_window",
+            json!({"tab": sheet.to_string()}),
+        )
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1000.0, 640.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    let keys = std::rc::Rc::default();
+    let labels = std::rc::Rc::default();
+    native_viewports(
+        &h.ctx,
+        std::rc::Rc::clone(&keys),
+        std::rc::Rc::clone(&labels),
+    );
+    h.run();
+    // The floating window shows its tab and nothing of the top row; the main window has
+    // the menus and the quick strip.
+    let shown: Vec<String> = labels.borrow().clone();
+    let title = h
+        .state()
+        .shell()
+        .document_title(&TabKey::Document(sheet))
+        .unwrap()
+        .to_owned();
+    assert!(shown.contains(&title), "{shown:?}");
+    for top_row in ["File", "Edit", "Help", "Save All", "Undo", "Preferences…"] {
+        assert!(
+            !shown.iter().any(|l| l == top_row),
+            "{top_row} in {shown:?}"
+        );
+        h.get_by_role_and_label(Role::Button, top_row);
+    }
+    // Mod+Z pressed in the floating window undoes the sheet's edit, through the Keymap.
+    keys.borrow_mut().push(egui::Event::Key {
+        key: Key::Z,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: Modifiers::COMMAND,
+    });
+    h.run();
+    assert!(keys.borrow().is_empty(), "the window saw the key");
+    assert!(
+        journal(&h).contains(&(
+            "edit.undo".to_owned(),
+            json!({"document": sheet.to_string()})
+        )),
+        "{:?}",
+        journal(&h)
+    );
 }

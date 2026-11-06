@@ -4,10 +4,10 @@
 //! state and change at once.
 
 use egui::{ComboBox, Grid, Id, Role, Ui, WidgetInfo};
-use reda_engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
-    Footprint, FootprintLayer, FootprintText, LibraryElement, Pad, PadKind, PadShape, Uuid,
+    DESIGNATOR_FIELD, Footprint, FootprintLayer, FootprintText, LibraryElement, Pad, PadKind,
+    PadShape, Uuid, VALUE_FIELD,
 };
 use serde_json::{Value, json};
 
@@ -20,12 +20,21 @@ use crate::tr;
 pub const WIDTH: f32 = 240.0;
 
 pub const KINDS: [PadKind; 3] = [PadKind::Smd, PadKind::PlatedThroughHole, PadKind::NonPlated];
-pub const SHAPES: [PadShape; 4] = [
+pub const SHAPES: [PadShape; 5] = [
     PadShape::Circle,
     PadShape::Rect,
     PadShape::RoundedRect,
+    PadShape::ChamferedRect,
     PadShape::Oval,
 ];
+/// The Layers a field text can go on.
+const TEXT_LAYERS: [FootprintLayer; 4] = [
+    FootprintLayer::SilkscreenTop,
+    FootprintLayer::SilkscreenBottom,
+    FootprintLayer::AssemblyTop,
+    FootprintLayer::AssemblyBottom,
+];
+
 pub const LAYERS: [FootprintLayer; 6] = [
     FootprintLayer::SilkscreenTop,
     FootprintLayer::SilkscreenBottom,
@@ -48,6 +57,7 @@ pub fn shape_name(shape: PadShape) -> String {
         PadShape::Circle => tr!("footprint-shape-circle"),
         PadShape::Rect => tr!("footprint-shape-rect"),
         PadShape::RoundedRect => tr!("footprint-shape-rounded-rect"),
+        PadShape::ChamferedRect => tr!("footprint-shape-chamfered-rect"),
         PadShape::Oval => tr!("footprint-shape-oval"),
     }
 }
@@ -238,20 +248,16 @@ fn selection(
             .show(ui, |ui| {
                 pad_properties(ui, id.with(selected), fp, pad, out);
             });
-    } else if selected == DESIGNATOR_TEXT || selected == VALUE_TEXT {
-        let (which, text) = if selected == DESIGNATOR_TEXT {
-            ("designator", &footprint.designator)
-        } else {
-            ("value", &footprint.value)
-        };
-        ui.strong(match which {
-            "designator" => tr!("footprint-designator-text"),
-            _ => tr!("footprint-value-text"),
+    } else if let Some(text) = footprint.texts.iter().find(|t| t.uuid == selected) {
+        ui.strong(match text.field.as_str() {
+            DESIGNATOR_FIELD => tr!("footprint-designator-text"),
+            VALUE_FIELD => tr!("footprint-value-text"),
+            field => tr!("footprint-field-text", field = field.to_owned()),
         });
-        Grid::new(id.with(("text", which)))
+        Grid::new(id.with(("text", selected)))
             .num_columns(2)
             .show(ui, |ui| {
-                text_properties(ui, id.with(which), fp, which, text, out);
+                text_properties(ui, id.with(selected), fp, text, out);
             });
     } else if let Some(g) = footprint.graphics.iter().find(|g| g.uuid == selected) {
         ui.strong(tr!("footprint-selected-graphic"));
@@ -340,7 +346,11 @@ fn pad_properties(ui: &mut Ui, id: Id, fp: Uuid, pad: &Pad, out: &mut Vec<Invoca
         shape_name,
     );
     if shape != pad.shape {
-        out.push(edit("shape", json!(shape)));
+        let mut p = json!({"footprint": fp, "pad": pad.uuid, "shape": shape});
+        if shape == PadShape::ChamferedRect && pad.chamfer_ratio.is_none() {
+            p["chamfer_ratio"] = json!(super::DEFAULT_CHAMFER_RATIO.0);
+        }
+        out.push(cmd("library.footprint.pad.edit", p));
     }
     ui.end_row();
     for (key, label, value) in [
@@ -392,27 +402,20 @@ fn pad_properties(ui: &mut Ui, id: Id, fp: Uuid, pad: &Pad, out: &mut Vec<Invoca
     }
 }
 
-fn text_properties(
-    ui: &mut Ui,
-    id: Id,
-    fp: Uuid,
-    which: &str,
-    text: &FootprintText,
-    out: &mut Vec<Invocation>,
-) {
+fn text_properties(ui: &mut Ui, id: Id, fp: Uuid, text: &FootprintText, out: &mut Vec<Invocation>) {
     let set = |field: &str, value: Value| {
-        let mut p = json!({"footprint": fp, "text": which});
+        let mut p = json!({"footprint": fp, "text": text.uuid});
         p[field] = value;
-        cmd("library.footprint.text.set", p)
+        cmd("library.footprint.text.edit", p)
     };
     if let Some(Some(v)) = length(
         ui,
         id.with("size"),
         &tr!("footprint-text-size"),
-        Some(text.size),
+        Some(text.style.height),
         false,
     ) {
-        out.push(set("size", json!(v.0)));
+        out.push(set("height", json!(v.0)));
     }
     ui.end_row();
     if let Some(r) = angle(
@@ -430,7 +433,7 @@ fn text_properties(
         id.with("layer"),
         &tr!("footprint-layer"),
         &mut layer,
-        &LAYERS,
+        &TEXT_LAYERS,
         layer_name,
     );
     if layer != text.layer {

@@ -61,7 +61,7 @@ pub struct Row {
 /// What runs once the prompt is answered with Save or Don't Save.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Then {
-    /// A Command held back (a tab close, `project.open`, `project.new`…).
+    /// A Command held back (a tab close, `project.open`, `project.new`, `project.close`…).
     Run(String, Value),
     /// [`Shell::open_project`] on this path.
     OpenProject(PathBuf),
@@ -100,8 +100,7 @@ pub struct Closing {
     quit_approved: bool,
 }
 
-/// The Commands that replace or close the open Project. `project.close` is listed for
-/// when it exists: its GUI path then asks like the others.
+/// The Commands that replace or close the open Project.
 const REPLACES_PROJECT: &[&str] = &["project.open", "project.new", "project.close"];
 
 impl Closing {

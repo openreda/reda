@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"eb22406f-fa7c-4f7b-982f-59fe2958e8ed","name":"SKT254P1X5","description":"Socket, 1 × 5, 2.54 mm pitch"},
-  "text": {"designator":{"at":{"x":0,"y":7300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":5,"pitch":"2.54","rows":1,"socket":true}},
   "pads": [
     {"uuid":"34917f1a-a27c-4f31-a49b-dd9122506fdc","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
     {"uuid":"433723a8-5e64-4919-8f29-284c844ef440","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -16,5 +16,9 @@
     {"uuid":"b683ee19-677f-43f5-90da-31beafbeebdc","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-6410000},"end":{"x":-1330000,"y":6410000}},"width":120000},
     {"uuid":"c9b2f372-98cc-484d-87ea-7645d665159e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-6410000},"end":{"x":1330000,"y":-6410000}},"width":120000},
     {"uuid":"e1bd2133-129a-4658-8339-c2ebeb374713","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":6410000},"end":{"x":1330000,"y":6410000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"6495df5f-7dab-4e8b-ad9b-0b4d9953be62","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+    {"uuid":"77b310fa-861d-4b1f-8276-017c45bb3d09","field":"Designator","at":{"x":0,"y":7300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

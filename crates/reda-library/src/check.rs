@@ -82,6 +82,20 @@ fn check_footprint(footprint: &Footprint) -> Vec<Violation> {
     {
         out.push(Violation::new("missing_courtyard", Severity::Warning).object(footprint.uuid));
     }
+    for pad in &footprint.pads {
+        let outside = pad.kind == PadKind::PlatedThroughHole
+            && pad
+                .form()
+                .annular_ring()
+                .is_some_and(|ring| ring < Nm::ZERO);
+        if outside {
+            out.push(
+                Violation::new("hole_outside_copper", Severity::Error)
+                    .arg("pad", pad.number.as_str())
+                    .objects([footprint.uuid, pad.uuid]),
+            );
+        }
+    }
     out
 }
 

@@ -143,7 +143,11 @@ impl Command for ComponentPlace {
             fields.set(name, value.as_deref().unwrap_or(""));
         }
         let prefix = content.symbol.designator_prefix.clone();
-        let component_type = content.part.component_type;
+        let (component_type, in_bom, in_cpl) = (
+            content.part.component_type,
+            content.part.in_bom,
+            content.part.in_cpl,
+        );
         let entry = ensure_entry(cx, p.document, content)?;
         let component = ComponentRef::new(cx.new_id());
         let designator = match p.designator {
@@ -167,6 +171,8 @@ impl Command for ComponentPlace {
             fields,
             footprint,
             component_type,
+            in_bom,
+            in_cpl,
             not_fitted: false,
             visible_fields: UnitInstance::default_visible_fields(),
         };
