@@ -13,6 +13,8 @@ pub mod bars;
 pub mod bridge;
 pub mod canvas;
 mod chrome;
+pub mod closing;
+mod closing_dialog;
 pub mod command_dialog;
 pub mod crash;
 pub mod cross_probe;

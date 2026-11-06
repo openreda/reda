@@ -18,6 +18,7 @@ use crate::bars::draw::{self, Invocation};
 use crate::bars::{self, Request};
 use crate::bridge::Bridge;
 use crate::canvas::{CanvasResources, canvas_id};
+use crate::closing::{Closing, Then};
 use crate::command_dialog::{self, Call, Dialogs, ParamsDialog};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
@@ -82,6 +83,8 @@ pub struct App {
     notice: Option<String>,
     /// The open schematic dialog (Find, Re-annotate…), if any.
     schematic_dialog: Option<SchematicDialog>,
+    /// The closing and quitting prompts.
+    closing: Closing,
 }
 
 impl App {
@@ -117,6 +120,7 @@ impl App {
             bridge: Bridge::off(),
             bridge_waker_set: false,
             notice: None,
+            closing: Closing::default(),
         }
     }
 
@@ -184,6 +188,11 @@ impl App {
         &mut self.shell
     }
 
+    /// The closing and quitting prompts' state.
+    pub fn closing(&self) -> &Closing {
+        &self.closing
+    }
+
     /// Draws one frame into `ui`, which fills the window.
     pub fn ui(&mut self, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
@@ -196,6 +205,9 @@ impl App {
         self.pump_bridge(&ctx);
         self.collect_picked_files();
         self.update_title(&ctx);
+        if ctx.input(|i| i.viewport().close_requested()) && !self.closing.hold_quit(&self.shell) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        }
         self.keys(&ctx);
         tab_switcher::release(&ctx, &mut self.shell);
 
@@ -225,12 +237,12 @@ impl App {
             self.call(&id, params);
         }
         for (id, params) in frame.commands {
-            let _ = self.shell.run_reporting(&id, params);
+            self.run_held(&id, params);
         }
         // Keys pressed in a window of its own, unless a dialog here has the keys.
         if !self.dialog_has_keys() && self.settings.is_none() {
             for (id, params) in frame.keys {
-                let _ = self.shell.run_reporting(&id, params);
+                self.run_held(&id, params);
             }
         }
         for (id, params) in frame.calls {
@@ -288,16 +300,63 @@ impl App {
                 FormAction::Browse => self.files.start(&ctx, Pick::NewProjectLocation),
                 FormAction::Cancel => self.new_project = None,
                 FormAction::Create => {
-                    if let Some(params) = form.params()
-                        && self.shell.run_reporting("project.new", params).is_ok()
-                    {
-                        self.new_project = None;
-                        self.drop_closed_canvases();
+                    if let Some(params) = form.params() {
+                        if !self.closing.hold(&self.shell, "project.new", &params) {
+                            // It is created once the closing prompt is answered.
+                            self.new_project = None;
+                        } else if self.shell.run_reporting("project.new", params).is_ok() {
+                            self.new_project = None;
+                            self.drop_closed_canvases();
+                        }
                     }
                 }
             }
         }
+        self.show_closing(&ctx);
         a11y::focus_ring(&ctx);
+    }
+
+    /// Runs a Command the GUI asked for, unless it would close a dirty Document's tab or
+    /// replace a Project with unsaved changes: then the closing prompt asks first.
+    fn run_held(&mut self, id: &str, params: serde_json::Value) {
+        if self.closing.hold(&self.shell, id, &params) {
+            let _ = self.shell.run_reporting(id, params);
+        }
+    }
+
+    /// Opens the Project at `path` from the GUI (the Open dialog, a recent Project),
+    /// asking first when the open one has unsaved changes.
+    pub fn open_project(&mut self, path: &Path) {
+        if self.closing.hold_open(&self.shell, path.to_path_buf()) {
+            let _ = self.shell.open_project(path);
+            self.drop_closed_canvases();
+        }
+    }
+
+    /// Asks to close the window, as Quit does: it closes at once when nothing is unsaved,
+    /// else once the closing prompt lets it.
+    pub fn quit(&mut self, ctx: &egui::Context) {
+        if self.closing.hold_quit(&self.shell) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }
+
+    /// Draws the closing prompt and carries out its answer.
+    fn show_closing(&mut self, ctx: &egui::Context) {
+        let Some(answer) = crate::closing_dialog::show(ctx, &mut self.closing) else {
+            return;
+        };
+        match self.closing.answer(&mut self.shell, answer) {
+            Some(Then::Run(id, params)) => {
+                let _ = self.shell.run_reporting(&id, params);
+            }
+            Some(Then::OpenProject(path)) => {
+                let _ = self.shell.open_project(&path);
+            }
+            Some(Then::Quit) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            None => {}
+        }
+        self.drop_closed_canvases();
     }
 
     /// Takes due Recovery Snapshots, and shows the recovery prompt and the Crash Report
@@ -344,7 +403,8 @@ impl App {
     /// Whether an open dialog takes every key. The Preferences dialog does: its Keyboard
     /// Shortcuts page records them.
     fn dialog_has_keys(&self) -> bool {
-        self.new_project.is_some()
+        self.closing.ask().is_some()
+            || self.new_project.is_some()
             || self.preferences.is_some()
             || self.palette.is_some()
             || self.params_dialog.is_some()
@@ -371,7 +431,7 @@ impl App {
         // Escape and Enter go to the tab switcher while it is open.
         tab_switcher::keys(ctx, &mut self.shell);
         for (id, params) in keymap::resolve_keys(ctx, &self.shell, dialog) {
-            let _ = self.shell.run_reporting(&id, params);
+            self.run_held(&id, params);
         }
     }
 
@@ -498,6 +558,9 @@ impl App {
     /// Calls a Command from the GUI: it runs when its params are complete, else its
     /// params dialog opens.
     fn call(&mut self, id: &str, params: serde_json::Value) {
+        if !self.closing.hold(&self.shell, id, &params) {
+            return;
+        }
         if let Call::Dialog(dialog) = self.dialogs.call(&mut self.shell, id, params) {
             self.params_dialog = Some(dialog);
         }
@@ -512,6 +575,11 @@ impl App {
             command_dialog::Outcome::Cancel => self.params_dialog = None,
             command_dialog::Outcome::Run(params) => {
                 let id = dialog.command().to_owned();
+                if !self.closing.hold(&self.shell, &id, &params) {
+                    // It runs once the closing prompt is answered.
+                    self.params_dialog = None;
+                    return;
+                }
                 match self.shell.run_reporting(&id, params) {
                     Ok(out) => {
                         if let Some((next, params)) = dialog.then(&out) {
@@ -556,10 +624,7 @@ impl App {
 
     fn collect_picked_files(&mut self) {
         match self.files.poll() {
-            Some((Pick::OpenProject, path)) => {
-                let _ = self.shell.open_project(&path);
-                self.drop_closed_canvases();
-            }
+            Some((Pick::OpenProject, path)) => self.open_project(&path),
             Some((Pick::ExportJournal, path)) => {
                 let _ = self.shell.export_journal(&path);
             }
@@ -650,7 +715,7 @@ impl App {
                 Request::NewProject => self.open_new_project(),
                 Request::CommandPalette => self.open_palette(),
                 Request::OpenProject => self.files.start(ctx, Pick::OpenProject),
-                Request::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                Request::Quit => self.quit(ctx),
                 Request::ZoomFit(document) => {
                     if let Some(tab) = self.shell.document_tab_mut(document) {
                         tab.camera = None;
@@ -777,9 +842,7 @@ impl App {
         match action {
             StartAction::NewProject => self.open_new_project(),
             StartAction::OpenProject => self.files.start(ctx, Pick::OpenProject),
-            StartAction::OpenRecent(path) => {
-                let _ = self.shell.open_project(&path);
-            }
+            StartAction::OpenRecent(path) => self.open_project(&path),
             StartAction::RemoveRecent(path) => self.shell.remove_recent(&path),
         }
     }
@@ -806,11 +869,16 @@ impl eframe::App for App {
         App::ui(self, ui);
     }
 
-    /// The window closes cleanly: the view state is saved and the open Project's
-    /// Recovery Snapshots go.
+    /// The window closes: the view state is saved, and the open Project's Recovery
+    /// Snapshots go only when the close got past the closing prompt (or nothing was
+    /// unsaved). A close that skipped the prompt keeps them for the next start to offer.
     fn on_exit(&mut self) {
         self.shell.save_view();
-        self.shell.close_cleanly();
+        if self.closing.may_clear_snapshots(&self.shell) {
+            self.shell.close_cleanly();
+        } else {
+            self.shell.flush_recovery();
+        }
     }
 }
 
