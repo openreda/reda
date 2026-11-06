@@ -34,18 +34,19 @@ pub use library::{
     TextStyle, Unit, VALUE_FIELD, field_text,
 };
 pub use output::{
-    Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,
-    ProjectFabPreset,
+    Column, ColumnSource, FabPreset, FabRules, FileNaming, GerberSettings, OutputJob, Outputs,
+    PreferredSeeds, ProjectFabPreset,
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, Pad, PadForm, PadKind, PadShape, Ratio,
     ZoneConnection,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER,
-    DielectricEntry, DrcCheck, DrcSeverities, FillShape, FootprintInstance, FreePad, GraphicShape,
-    HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net,
-    NetClass, PadConnection, PadNet, PcbDocument, PcbGraphic, PcbText, PlacementOrigin, Rules,
+    BoardCutout, BoardOutline, BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS,
+    DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities, FillShape,
+    FootprintInstance, FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind,
+    LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PcbDocument,
+    PcbGraphic, PcbText, PlacementOrigin, RuleField, RuleKind, RuleScope, RuleValue, RuleValues,
     Side, Stackup, StackupEntry, StackupSeeds, StackupTotals, Track, TrackGeometry, Via, Zone,
     ZoneFills,
 };

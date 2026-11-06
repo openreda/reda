@@ -714,6 +714,34 @@ fn cut_removes_the_selection_and_returns_what_paste_needs() {
 }
 
 #[test]
+fn a_pasted_component_keeps_its_designator_while_it_is_free() {
+    let dir = TempDir::new("paste-keeps-designator");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    place(&mut engine, R_10K, 1000, 0);
+    let r3 = place(&mut engine, R_10K, 2000, 0);
+    let out = engine.run_ok("schematic.cut", json!({"objects": [r3]}));
+    engine.run_ok("schematic.delete", json!({"objects": [r1]}));
+    assert_eq!(designators(&mut engine, SHEET), ["R2"]);
+    // R3 is free, so the pasted resistor keeps it rather than taking R1, the lowest free.
+    let clipboard = out["result"].clone();
+    let pasted = engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(0, 2000)}),
+    );
+    assert_eq!(designators(&mut engine, SHEET), ["R2", "R3"]);
+    // Every paste gives new UUIDs, even after a cut.
+    assert_ne!(pasted["result"]["objects"][0], r3);
+    // Pasted again, R3 is taken, so the copy takes the next free one; none is ever left
+    // unannotated.
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(0, 4000)}),
+    );
+    assert_eq!(designators(&mut engine, SHEET), ["R1", "R2", "R3"]);
+}
+
+#[test]
 fn duplicate_pastes_a_copy_offset_on_the_same_sheet() {
     let dir = TempDir::new("duplicate");
     let mut engine = demo(&dir);

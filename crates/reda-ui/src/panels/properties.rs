@@ -244,13 +244,17 @@ fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec
 }
 
 fn net_class_row(ui: &mut Ui, class: &NetClassProperty, edits: &mut Vec<Edit>) {
-    let selected = match &class.class {
-        Shared::Mixed => MIXED.to_owned(),
-        Shared::Same(uuid) => class
+    let name_of = |uuid: &Uuid| {
+        class
             .classes
             .iter()
             .find(|(u, _)| u == uuid)
-            .map_or_else(|| uuid.to_string(), |(_, name)| name.clone()),
+            .map_or_else(|| uuid.to_string(), |(_, name)| name.clone())
+    };
+    let selected = match &class.class {
+        Shared::Mixed => MIXED.to_owned(),
+        Shared::Same(list) if list.is_empty() => tr!("properties-default-net-class"),
+        Shared::Same(list) => list.iter().map(name_of).collect::<Vec<_>>().join(", "),
     };
     Grid::new("properties-net-class")
         .num_columns(2)
@@ -260,8 +264,8 @@ fn net_class_row(ui: &mut Ui, class: &NetClassProperty, edits: &mut Vec<Edit>) {
                 .selected_text(selected)
                 .show_ui(ui, |ui| {
                     for (uuid, name) in &class.classes {
-                        let current = class.class.same() == Some(uuid);
-                        if ui.selectable_label(current, name).clicked() && !current {
+                        let member = class.class.same().is_some_and(|c| c.contains(uuid));
+                        if ui.selectable_label(member, name).clicked() {
                             edits.push(Edit::NetClass(*uuid));
                         }
                     }

@@ -179,6 +179,6 @@ fn the_net_class_is_set_for_the_selected_copper() {
     h.get_by_label("Power").click();
     h.run();
     let (id, params) = last_entry(&h);
-    assert_eq!(id, "pcb.net.set_class");
+    assert_eq!(id, "pcb.net.add_to_class");
     assert_eq!(params["nets"], json!([gnd]));
 }

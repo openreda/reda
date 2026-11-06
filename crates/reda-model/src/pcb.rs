@@ -19,6 +19,7 @@ mod copper;
 mod footprint;
 mod graphics;
 mod placement;
+mod rules;
 mod stackup;
 mod zone;
 
@@ -26,6 +27,7 @@ pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 
 pub use footprint::{FootprintInstance, PadNet};
 pub use placement::{FreePad, PlacementOrigin};
+pub use rules::{Bounds, DesignRule, RuleField, RuleKind, RuleScope, RuleValue, RuleValues};
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
     StackupSeeds, StackupTotals,
@@ -95,30 +97,6 @@ impl LayerSet {
     }
 }
 
-/// The board-wide minimum values that DRC checks against.
-///
-/// Net Classes override some of them per Net. Later per-Layer or per-area rules (and a rule
-/// query language) are meant to be new object kinds that override these values in a
-/// scope, so this set stays the board-wide fallback.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Rules {
-    /// Minimum clearance between copper of different Nets.
-    pub clearance: Nm,
-    /// Minimum Track width.
-    pub track_width: Nm,
-    /// Minimum Via diameter.
-    pub via_diameter: Nm,
-    /// Minimum Via hole.
-    pub via_hole: Nm,
-    /// Minimum annular ring of Vias and plated Pads.
-    pub annular_ring: Nm,
-    /// Minimum spacing between hole edges.
-    pub hole_to_hole: Nm,
-    /// Minimum clearance from copper to the Board Outline and Board Cutouts.
-    pub edge_clearance: Nm,
-}
-
 crate::check::severities! {
     /// One DRC check, named as in [`DrcSeverities`].
     enum DrcCheck;
@@ -156,14 +134,12 @@ crate::check::severities! {
     out_of_sync => OutOfSync = Warning,
 }
 
-/// The board's own settings: its design rules, DRC severities and Default Net Class.
+/// The board's own settings: its DRC severities. The design rules are records of their
+/// own ([`DesignRule`]).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BoardSetup {
     pub uuid: Uuid,
-    /// The Net Class that new Nets get, and that Nets of a deleted class fall back to.
-    pub default_net_class: Uuid,
-    pub rules: Rules,
     pub severities: DrcSeverities,
 }
 
@@ -185,25 +161,16 @@ pub struct BoardCutout {
     pub vertices: Vec<Vertex>,
 }
 
-/// A named group of Nets that share design rules. A value left out uses the board-wide
-/// rule.
+/// A named, ranked group of Nets that share design rules. Its values are the rule records
+/// scoped to it. The Default Net Class is not stored: it is the board-wide records.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NetClass {
     pub uuid: Uuid,
     pub name: String,
-    /// Clearance to copper of other Nets; where two classes meet, the larger applies.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub clearance: Option<Nm>,
-    /// Track width for routing this class.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_width: Option<Nm>,
-    /// Via diameter for this class.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub via_diameter: Option<Nm>,
-    /// Via hole for this class.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub via_hole: Option<Nm>,
+    /// Its rank, unique on the board: 1 ranks highest. Where a Net's classes set the same
+    /// value, the highest-ranked class wins; the Default Net Class ranks below them all.
+    pub rank: u32,
 }
 
 /// A PCB Net: Pads, Tracks, Vias and Zones name it by UUID.
@@ -212,8 +179,10 @@ pub struct NetClass {
 pub struct Net {
     pub uuid: Uuid,
     pub name: String,
-    /// Its Net Class.
-    pub class: Uuid,
+    /// The Net Classes it is in besides the Default Net Class, which every Net is in;
+    /// left out when there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub classes: Vec<Uuid>,
 }
 
 /// An object stored in a Document, with the Document it lives in. The Document is not
@@ -249,6 +218,7 @@ pub struct PcbDocument {
     pub(crate) layer_sets: BTreeMap<Uuid, LayerSet>,
     pub(crate) setups: BTreeMap<Uuid, BoardSetup>,
     pub(crate) stackups: BTreeMap<Uuid, Stackup>,
+    pub(crate) rules: BTreeMap<Uuid, DesignRule>,
     pub(crate) outlines: BTreeMap<Uuid, BoardOutline>,
     pub(crate) cutouts: BTreeMap<Uuid, BoardCutout>,
     pub(crate) net_classes: BTreeMap<Uuid, NetClass>,
@@ -273,6 +243,7 @@ impl PcbDocument {
             layer_sets: BTreeMap::new(),
             setups: BTreeMap::new(),
             stackups: BTreeMap::new(),
+            rules: BTreeMap::new(),
             outlines: BTreeMap::new(),
             cutouts: BTreeMap::new(),
             net_classes: BTreeMap::new(),
@@ -299,8 +270,7 @@ impl PcbDocument {
             .expect("a PCB Document has its Layers")
     }
 
-    /// The rules, DRC severities and Default Net Class. Every committed PCB Document has
-    /// them.
+    /// The DRC severities. Every committed PCB Document has them.
     pub fn setup(&self) -> &BoardSetup {
         self.setups
             .values()
@@ -319,6 +289,37 @@ impl PcbDocument {
             .values()
             .next()
             .expect("a PCB Document has its Stackup")
+    }
+
+    /// The design rule records, sorted by UUID.
+    pub fn rules(&self) -> impl Iterator<Item = &DesignRule> {
+        self.rules.values()
+    }
+
+    pub fn rule(&self, uuid: Uuid) -> Option<&DesignRule> {
+        self.rules.get(&uuid)
+    }
+
+    /// The board-wide record of `kind`. Every committed PCB Document has one per kind.
+    pub fn board_rule(&self, kind: RuleKind) -> &DesignRule {
+        self.rules
+            .values()
+            .find(|r| r.kind == kind && r.scope.is_board_wide())
+            .expect("a PCB Document has a board-wide record of every rule kind")
+    }
+
+    /// Net Class `class`'s record of `kind`, if it has one.
+    pub fn class_rule(&self, kind: RuleKind, class: Uuid) -> Option<&DesignRule> {
+        self.rules
+            .values()
+            .find(|r| r.kind == kind && r.scope.net_class == Some(class))
+    }
+
+    /// The record of `kind` in `scope`, if there is one.
+    pub fn scoped_rule(&self, kind: RuleKind, scope: RuleScope) -> Option<&DesignRule> {
+        self.rules
+            .values()
+            .find(|r| r.kind == kind && r.scope == scope)
     }
 
     pub fn outline(&self) -> Option<&BoardOutline> {
@@ -502,6 +503,7 @@ impl PcbDocument {
             layer_sets => LayerSet,
             setups => BoardSetup,
             stackups => Stackup,
+            rules => DesignRule,
             outlines => BoardOutline,
             cutouts => BoardCutout,
             net_classes => NetClass,
@@ -537,6 +539,7 @@ impl PcbDocument {
             layer_sets => LayerSet,
             setups => BoardSetup,
             stackups => Stackup,
+            rules => DesignRule,
             outlines => BoardOutline,
             cutouts => BoardCutout,
             net_classes => NetClass,
@@ -561,6 +564,7 @@ impl PcbDocument {
         self.layer_sets.remove(&uuid);
         self.setups.remove(&uuid);
         self.stackups.remove(&uuid);
+        self.rules.remove(&uuid);
         self.outlines.remove(&uuid);
         self.cutouts.remove(&uuid);
         self.net_classes.remove(&uuid);
@@ -582,6 +586,7 @@ impl PcbDocument {
         self.layer_sets.is_empty()
             && self.setups.is_empty()
             && self.stackups.is_empty()
+            && self.rules.is_empty()
             && self.outlines.is_empty()
             && self.cutouts.is_empty()
             && self.net_classes.is_empty()
@@ -630,11 +635,8 @@ impl PcbDocument {
         if let Some(problem) = self.stackup().problem(&copper) {
             return Err(problem);
         }
-        let default = self.setup().default_net_class;
-        if !self.net_classes.contains_key(&default) {
-            return Err(format!("the Default Net Class {default} does not exist"));
-        }
         let mut names = std::collections::BTreeSet::new();
+        let mut ranks = std::collections::BTreeSet::new();
         for class in self.net_classes.values() {
             if class.name.trim().is_empty() {
                 return Err(format!("Net Class {} has no name", class.uuid));
@@ -642,17 +644,30 @@ impl PcbDocument {
             if !names.insert(class.name.to_lowercase()) {
                 return Err(format!("two Net Classes are named {:?}", class.name));
             }
+            if class.rank == 0 || !ranks.insert(class.rank) {
+                return Err(format!(
+                    "Net Class {:?} needs a rank of 1 or more that no other class has",
+                    class.name
+                ));
+            }
         }
-        if let Some(net) = self
-            .nets
-            .values()
-            .find(|n| !self.net_classes.contains_key(&n.class))
-        {
-            return Err(format!(
-                "Net {:?} names Net Class {}, which does not exist",
-                net.name, net.class
-            ));
+        for net in self.nets.values() {
+            if let Some(class) = net
+                .classes
+                .iter()
+                .find(|c| !self.net_classes.contains_key(c))
+            {
+                return Err(format!(
+                    "Net {:?} names Net Class {class}, which does not exist",
+                    net.name
+                ));
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            if !net.classes.iter().all(|c| seen.insert(*c)) {
+                return Err(format!("Net {:?} lists a Net Class twice", net.name));
+            }
         }
+        self.check_rules()?;
         let drawn = self
             .texts
             .values()
@@ -724,6 +739,40 @@ impl PcbDocument {
                 };
                 return Err(format!("Layer {uuid}: {want}"));
             }
+        }
+        Ok(())
+    }
+
+    /// Exactly one board-wide record per kind, at most one record per class and kind,
+    /// scopes naming classes that exist, and values that fit their kind.
+    fn check_rules(&self) -> Result<(), String> {
+        let mut scopes = std::collections::BTreeSet::new();
+        for rule in self.rules.values() {
+            if let Some(class) = rule.scope.net_class
+                && !self.net_classes.contains_key(&class)
+            {
+                return Err(format!(
+                    "rule {} is scoped to Net Class {class}, which does not exist",
+                    rule.uuid
+                ));
+            }
+            if !scopes.insert((rule.kind, rule.scope)) {
+                return Err(match rule.scope.net_class {
+                    None => format!("two board-wide `{}` rules", rule.kind.id()),
+                    Some(class) => {
+                        format!("two `{}` rules for Net Class {class}", rule.kind.id())
+                    }
+                });
+            }
+            if let Some(problem) = rule.problem() {
+                return Err(format!("rule {}: {problem}", rule.uuid));
+            }
+        }
+        if let Some(kind) = RuleKind::ALL
+            .iter()
+            .find(|k| !scopes.contains(&(**k, RuleScope::BOARD)))
+        {
+            return Err(format!("no board-wide `{}` rule", kind.id()));
         }
         Ok(())
     }

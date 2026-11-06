@@ -43,7 +43,7 @@ impl Command for DocumentAdd {
         title: "Add Document",
         description: "Adds a Document of `kind` at the end of the Project. A Schematic Sheet \
                       is empty; the PCB Document starts with its Layers, the Generic design \
-                      rules and DRC severities and a Default Net Class, and is available only \
+                      rule records and DRC severities, and is available only \
                       while the Project has none. Its file is written on save.",
         category: "project",
         icon: "document_add",
@@ -78,7 +78,7 @@ impl Command for DocumentAdd {
             DocumentKind::Schematic => vec![],
             DocumentKind::Pcb => {
                 let preset = reda_output::generic();
-                reda_pcb::new_board(uuid, preset.rules, preset.stackup, || cx.new_id())
+                reda_pcb::new_board(uuid, &preset.rules, preset.stackup, || cx.new_id())
             }
         };
         let entry = DocumentEntry {

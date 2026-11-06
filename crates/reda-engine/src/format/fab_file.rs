@@ -22,7 +22,7 @@
 
 use std::path::Path;
 
-use reda_model::{Column, FabPreset, GerberSettings, Rules, StackupSeeds};
+use reda_model::{Column, FabPreset, FabRules, GerberSettings, StackupSeeds};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -40,8 +40,9 @@ pub(crate) struct FabPresetFile {
     format: u32,
     /// The preset's name, as the New Project dialog lists it.
     name: String,
-    /// The design rules a new board is seeded with.
-    rules: Rules,
+    /// The flat limits a job checks the board against, and the preferred seeds of a new
+    /// board's rules.
+    rules: FabRules,
     /// The thickness and copper a new board's Stackup starts with; left out when the
     /// preset seeds neither, and then a new board gets 1.6 mm and 1 oz.
     #[serde(default)]

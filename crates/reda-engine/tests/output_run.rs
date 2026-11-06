@@ -9,7 +9,7 @@ use reda_testkit::{TempDir, TestEngine, probe_engine, test_engine_with_library};
 use serde_json::{Value, json};
 
 /// The Output Job `project.new` makes, on seed 0.
-const JOB: &str = "00000000-0000-4000-8000-000000000019";
+const JOB: &str = "00000000-0000-4000-8000-00000000001f";
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
 
 fn pt(x: f64, y: f64) -> Value {
@@ -430,7 +430,10 @@ fn drc_errors_only_warn() {
 fn rules_looser_than_the_preset_and_missing_fonts_only_warn() {
     let dir = TempDir::new("output-warnings");
     let mut engine = board(&dir);
-    engine.run_ok("pcb.rules.set", json!({"clearance": "0.1mm"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"value": "0.1mm"}}),
+    );
     engine.run_ok(
         "pcb.text.add",
         json!({"layer": "silkscreen_top", "text": "REDA", "x": "5mm", "y": "5mm",
@@ -445,6 +448,7 @@ fn rules_looser_than_the_preset_and_missing_fonts_only_warn() {
         .find(|w| w["check"] == "rule_below_preset")
         .unwrap_or_else(|| panic!("{warnings}"));
     assert_eq!(rule["args"]["rule"], "clearance");
+    assert_eq!(rule["args"]["value"], "value");
     assert_eq!(rule["args"]["board"], 100_000);
     assert_eq!(rule["args"]["preset"], "Generic");
     assert!(rule["args"]["minimum"].as_i64().unwrap() > 100_000);

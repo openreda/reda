@@ -66,8 +66,9 @@ pub fn fill(pcb: &PcbDocument, step: &mut dyn FnMut(usize, usize) -> bool) -> Op
 /// edge, Net Classes and Nets, Footprints, Free Pads, Tracks, Vias, Zones and Keepouts. Text and
 /// graphics are left out.
 pub fn inputs_hash(pcb: &PcbDocument) -> String {
-    let nets: Vec<_> = pcb.nets().map(|n| (n.uuid, n.class)).collect();
-    let classes: Vec<_> = pcb.net_classes().map(|c| (c.uuid, c.clearance)).collect();
+    let nets: Vec<_> = pcb.nets().map(|n| (n.uuid, &n.classes)).collect();
+    let classes: Vec<_> = pcb.net_classes().map(|c| (c.uuid, c.rank)).collect();
+    let rules: Vec<_> = pcb.rules().collect();
     let copies: Vec<_> = pcb
         .footprint_copies()
         .map(|c| (c.uuid, &c.footprint.pads))
@@ -82,12 +83,10 @@ pub fn inputs_hash(pcb: &PcbDocument) -> String {
     let zones: Vec<_> = pcb.zones().collect();
     let keepouts: Vec<_> = pcb.keepouts().collect();
     let cutouts: Vec<_> = pcb.cutouts().collect();
-    let setup = pcb.setup();
     let mut f = reda_command::Fingerprint::new();
     f.add(&FILL_VERSION);
     f.add(pcb.layers());
-    f.add(&setup.rules);
-    f.add(&setup.default_net_class);
+    f.add(&rules);
     f.add(&pcb.outline());
     f.add(&cutouts);
     f.add(&classes);

@@ -146,9 +146,11 @@ impl Command for Paste {
         id: "schematic.paste",
         title: "Paste",
         description: "Pastes a clipboard onto a Schematic Sheet. Everything gets a fresh \
-                      UUID; each copied Component becomes a new Component with the next \
-                      free Designator, its copied Units staying together. Part-table entries \
-                      the sheet lacks are added.",
+                      UUID, even after a cut; each copied Component becomes a new Component, \
+                      its copied Units staying together, and keeps its Designator if no \
+                      Component uses it, else takes the next free one. Part-table entries \
+                      the sheet lacks are added. schematic.selection.move_to_sheet keeps \
+                      UUIDs instead.",
         category: "schematic",
         icon: "paste",
         kind: Kind::Edit,
@@ -185,7 +187,7 @@ impl Command for Duplicate {
         id: "schematic.duplicate",
         title: "Duplicate",
         description: "Copies the selected objects and pastes them on the same sheet at an \
-                      offset, with fresh Designators.",
+                      offset, with Designators following schematic.paste's rule.",
         category: "schematic",
         icon: "duplicate",
         kind: Kind::Edit,
@@ -258,6 +260,17 @@ fn copy(project: &Project, objects: &[Object]) -> Result<Clipboard, CommandError
     Ok(clip)
 }
 
+/// Whether no Unit in the Project, the ones pasted so far included, carries `designator`.
+/// A blank Designator is never free, so a paste always ends annotated.
+fn designator_is_free(project: &Project, designator: &str) -> bool {
+    !designator.trim().is_empty()
+        && !project
+            .documents()
+            .filter_map(|d| project.schematic_sheet(d.uuid))
+            .flat_map(|s| s.units())
+            .any(|u| u.designator == designator)
+}
+
 /// Pastes `clip` onto `document`, moved by `offset`, and returns the new objects.
 fn paste(
     cx: &mut Context<'_>,
@@ -324,7 +337,12 @@ fn paste(
         let (component, designator) = match components.get(&unit.component.uuid) {
             Some(known) => known.clone(),
             None => {
-                let fresh = (cx.new_id(), next_free_designator(cx.project()?, prefix));
+                let project = cx.project()?;
+                let designator = match designator_is_free(project, &unit.designator) {
+                    true => unit.designator.clone(),
+                    false => next_free_designator(project, prefix),
+                };
+                let fresh = (cx.new_id(), designator);
                 components.insert(unit.component.uuid, fresh.clone());
                 fresh
             }

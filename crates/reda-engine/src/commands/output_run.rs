@@ -58,7 +58,7 @@ pub struct JobRunResult {
     /// What the run noticed but did not stop for, as Violations with severity `warning`:
     /// `out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet
     /// with no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,
-    /// `rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`.
+    /// `rule_below_preset {rule, value, board, minimum, preset, net_class?}`, `missing_font {font}`.
     pub warnings: Vec<Violation>,
 }
 

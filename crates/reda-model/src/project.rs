@@ -357,6 +357,7 @@ impl Project {
             Object::LayerSet(o) => o.document,
             Object::BoardSetup(o) => o.document,
             Object::Stackup(o) => o.document,
+            Object::DesignRule(o) => o.document,
             Object::BoardOutline(o) => o.document,
             Object::BoardCutout(o) => o.document,
             Object::NetClass(o) => o.document,
@@ -489,6 +490,9 @@ impl Project {
             }
             Some(Object::Stackup(o)) => {
                 self.pcb_mut(o.document).stackups.insert(uuid, o.object);
+            }
+            Some(Object::DesignRule(o)) => {
+                self.pcb_mut(o.document).rules.insert(uuid, o.object);
             }
             Some(Object::BoardOutline(o)) => {
                 self.pcb_mut(o.document).outlines.insert(uuid, o.object);

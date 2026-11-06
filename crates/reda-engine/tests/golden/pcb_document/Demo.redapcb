@@ -19,16 +19,26 @@
     {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-000000000017","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-00000000001d","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000016"},
+      {"uuid":"00000000-0000-4000-8000-00000000001c"},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000}
     ]}
   ],
-  "board": {"uuid":"00000000-0000-4000-8000-000000000015","default_net_class":"00000000-0000-4000-8000-000000000014"},
-  "rules": {"clearance":160000,"track_width":200000,"via_diameter":700000,"via_hole":300000,"annular_ring":200000,"hole_to_hole":500000,"edge_clearance":400000},
+  "board": {"uuid":"00000000-0000-4000-8000-000000000014"},
+  "rules": [
+    {"uuid":"00000000-0000-4000-8000-000000000015","kind":"clearance","scope":{},"values":{"value":160000}},
+    {"uuid":"00000000-0000-4000-8000-000000000016","kind":"track_width","scope":{},"values":{"min":200000,"preferred":250000}},
+    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"via_size","scope":{},"values":{"diameter":{"min":700000,"preferred":700000},"hole":{"min":300000,"preferred":300000}}},
+    {"uuid":"00000000-0000-4000-8000-000000000018","kind":"hole_size","scope":{},"values":{"min":500000,"max":6300000}},
+    {"uuid":"00000000-0000-4000-8000-000000000019","kind":"annular_ring","scope":{},"values":{"min":200000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001a","kind":"hole_to_hole","scope":{},"values":{"min":500000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001b","kind":"edge_clearance","scope":{},"values":{"value":400000}},
+    {"uuid":"00000000-0000-4000-8000-000000000023","kind":"track_width","scope":{"net_class":"00000000-0000-4000-8000-000000000022"},"values":{"preferred":500000}},
+    {"uuid":"00000000-0000-4000-8000-000000000024","kind":"clearance","scope":{"net_class":"00000000-0000-4000-8000-000000000022"},"values":{"value":300000}}
+  ],
   "severities": {"clearance":"error","short_circuit":"error","track_width":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","courtyard_overlap":"warning","silkscreen_over_pads":"warning","out_of_sync":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-00000000001a","vertices":[
+  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000020","vertices":[
     {"x":2000000,"y":0},
     {"x":98000000,"y":0,"sweep":90000},
     {"x":100000000,"y":2000000},
@@ -39,24 +49,23 @@
     {"x":0,"y":2000000,"sweep":90000}
   ]},
   "board_cutouts": [
-    {"uuid":"00000000-0000-4000-8000-00000000001b","vertices":[
+    {"uuid":"00000000-0000-4000-8000-000000000021","vertices":[
       {"x":10000000,"y":10000000},
       {"x":20000000,"y":10000000},
       {"x":20000000,"y":20000000}
     ]}
   ],
   "net_classes": [
-    {"uuid":"00000000-0000-4000-8000-000000000014","name":"Default"},
-    {"uuid":"00000000-0000-4000-8000-00000000001c","name":"Power","clearance":300000,"track_width":500000}
+    {"uuid":"00000000-0000-4000-8000-000000000022","name":"Power","rank":1}
   ],
   "nets": [],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-00000000001d","layer":"00000000-0000-4000-8000-000000000007","text":"Demo\nrev A","font":"Hershey Roman Simplex","position":{"x":5000000,"y":70000000},"height":2000000,"thickness":150000,"rotation":90000},
-    {"uuid":"00000000-0000-4000-8000-00000000001e","layer":"00000000-0000-4000-8000-00000000000e","text":"Bottom","font":"Noto Sans","position":{"x":5000000,"y":5000000},"height":1000000,"thickness":150000,"mirrored":true}
+    {"uuid":"00000000-0000-4000-8000-000000000025","layer":"00000000-0000-4000-8000-000000000007","text":"Demo\nrev A","font":"Hershey Roman Simplex","position":{"x":5000000,"y":70000000},"height":2000000,"thickness":150000,"rotation":90000},
+    {"uuid":"00000000-0000-4000-8000-000000000026","layer":"00000000-0000-4000-8000-00000000000e","text":"Bottom","font":"Noto Sans","position":{"x":5000000,"y":5000000},"height":1000000,"thickness":150000,"mirrored":true}
   ],
   "graphics": [
-    {"uuid":"00000000-0000-4000-8000-00000000001f","layer":"00000000-0000-4000-8000-000000000007","width":150000,"shape":{"kind":"line","from":{"x":1000000,"y":1000000},"to":{"x":9000000,"y":1000000}}},
-    {"uuid":"00000000-0000-4000-8000-000000000020","layer":"00000000-0000-4000-8000-000000000012","width":100000,"shape":{"kind":"arc","from":{"x":60000000,"y":40000000},"to":{"x":50000000,"y":50000000},"sweep":90000}},
-    {"uuid":"00000000-0000-4000-8000-000000000021","layer":"00000000-0000-4000-8000-00000000000a","width":0,"shape":{"kind":"rect","from":{"x":70000000,"y":10000000},"to":{"x":80000000,"y":20000000},"filled":true}}
+    {"uuid":"00000000-0000-4000-8000-000000000027","layer":"00000000-0000-4000-8000-000000000007","width":150000,"shape":{"kind":"line","from":{"x":1000000,"y":1000000},"to":{"x":9000000,"y":1000000}}},
+    {"uuid":"00000000-0000-4000-8000-000000000028","layer":"00000000-0000-4000-8000-000000000012","width":100000,"shape":{"kind":"arc","from":{"x":60000000,"y":40000000},"to":{"x":50000000,"y":50000000},"sweep":90000}},
+    {"uuid":"00000000-0000-4000-8000-000000000029","layer":"00000000-0000-4000-8000-00000000000a","width":0,"shape":{"kind":"rect","from":{"x":70000000,"y":10000000},"to":{"x":80000000,"y":20000000},"filled":true}}
   ]
 }

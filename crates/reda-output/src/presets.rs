@@ -1,13 +1,16 @@
 //! The Fab Presets REDA ships: Generic, JLCPCB and PCBWay.
 //!
-//! The values come from the fab requirements research (openreda/reda#4), which read each
+//! The limits come from the fab requirements research (openreda/reda#4), which read each
 //! fab's capability and assembly pages in October 2026. Where a fab publishes two minimums
 //! for one REDA rule, the preset takes the one that holds for every case the rule covers
 //! (JLCPCB's hole spacing is 0.20 mm between vias but 0.45 mm between pad holes, so 0.45).
+//! The preferred Track and Via sizes and the hole range are the seeds `checks.md` gives:
+//! a 0.25 mm Track everywhere, and a looser 0.60/0.30 mm Via on the per-fab presets.
 
 use reda_model::geom::Nm;
 use reda_model::{
-    Column, ColumnSource, FabPreset, FileNaming, GerberSettings, Rules, StackupSeeds,
+    Column, ColumnSource, FabPreset, FabRules, FileNaming, GerberSettings, PreferredSeeds,
+    StackupSeeds,
 };
 
 /// The name of the preset a Project gets when none is asked for.
@@ -43,7 +46,7 @@ pub fn generic() -> FabPreset {
     use ColumnSource::*;
     FabPreset {
         name: GENERIC_NAME.into(),
-        rules: Rules {
+        rules: FabRules {
             clearance: Nm::from_um(160),
             track_width: Nm::from_um(200),
             // A 0.30 mm drill with a 0.20 mm ring.
@@ -52,6 +55,13 @@ pub fn generic() -> FabPreset {
             annular_ring: Nm::from_um(200),
             hole_to_hole: Nm::from_um(500),
             edge_clearance: Nm::from_um(400),
+            hole_min: Nm::from_um(500),
+            hole_max: Nm::from_um(6300),
+            preferred: PreferredSeeds {
+                track_width: Nm::from_um(250),
+                via_diameter: Nm::from_um(700),
+                via_hole: Nm::from_um(300),
+            },
         },
         stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
@@ -78,7 +88,7 @@ fn jlcpcb() -> FabPreset {
     use ColumnSource::*;
     FabPreset {
         name: "JLCPCB".into(),
-        rules: Rules {
+        rules: FabRules {
             clearance: Nm::from_um(100),
             track_width: Nm::from_um(100),
             // A 0.15 mm drill with the 0.18 mm ring the rule asks of every hole. JLCPCB's
@@ -90,6 +100,13 @@ fn jlcpcb() -> FabPreset {
             hole_to_hole: Nm::from_um(450),
             // Routed edges; V-cut edges need 0.40 mm.
             edge_clearance: Nm::from_um(200),
+            hole_min: Nm::from_um(200),
+            hole_max: Nm::from_um(6300),
+            preferred: PreferredSeeds {
+                track_width: Nm::from_um(250),
+                via_diameter: Nm::from_um(600),
+                via_hole: Nm::from_um(300),
+            },
         },
         stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,
@@ -115,7 +132,7 @@ fn pcbway() -> FabPreset {
     use ColumnSource::*;
     FabPreset {
         name: "PCBWay".into(),
-        rules: Rules {
+        rules: FabRules {
             clearance: Nm::from_um(100),
             track_width: Nm::from_um(100),
             // A 0.15 mm drill with a 0.15 mm ring.
@@ -124,6 +141,13 @@ fn pcbway() -> FabPreset {
             annular_ring: Nm::from_um(150),
             hole_to_hole: Nm::from_um(500),
             edge_clearance: Nm::from_um(400),
+            hole_min: Nm::from_um(200),
+            hole_max: Nm::from_um(6300),
+            preferred: PreferredSeeds {
+                track_width: Nm::from_um(250),
+                via_diameter: Nm::from_um(600),
+                via_hole: Nm::from_um(300),
+            },
         },
         stackup: StackupSeeds::default(),
         gerber: X2_PROTEL,

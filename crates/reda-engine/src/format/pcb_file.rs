@@ -15,8 +15,12 @@
 //!       {"layer":"…","thickness":35000}
 //!     ],"finish":"ENIG"}
 //!   ],
-//!   "board": {"uuid":"…","default_net_class":"…"},
-//!   "rules": {"clearance":160000,"track_width":200000,…},
+//!   "board": {"uuid":"…"},
+//!   "rules": [
+//!     {"uuid":"…","kind":"clearance","scope":{},"values":{"value":160000}},
+//!     {"uuid":"…","kind":"track_width","scope":{"net_class":"…"},"values":{"preferred":500000}},
+//!     …
+//!   ],
 //!   "severities": {"clearance":"error",…},
 //!   "board_outline": {"uuid":"…","vertices":[
 //!     {"x":0,"y":0},
@@ -24,9 +28,11 @@
 //!   ]},
 //!   "board_cutouts": [],
 //!   "net_classes": [
-//!     {"uuid":"…","name":"Default"}
+//!     {"uuid":"…","name":"Power","rank":1}
 //!   ],
-//!   "nets": [],
+//!   "nets": [
+//!     {"uuid":"…","name":"GND","classes":["…"]}
+//!   ],
 //!   "texts": [
 //!     {"uuid":"…","layer":"…","text":"Demo","font":"Hershey Roman Simplex","position":{"x":0,"y":0},"height":1000000,"thickness":150000}
 //!   ],
@@ -73,8 +79,10 @@
 //!
 //! `stackups` holds one Stackup in v0.1: copper `{layer, thickness}` and dielectric
 //! `{uuid, thickness?}` entries top to bottom, with `finish`, `mask_color` and `silk_color`
-//! left out while unset. The board setup is one object in the model; the file splits it over the `board`, `rules`
-//! and `severities` lines so a rule change and a severity change touch different lines.
+//! left out while unset.
+//! `rules` holds the design rule records, one per line: exactly one board-wide record per
+//! kind, and the Net Class records. The Default Net Class is not stored: its values are
+//! the board-wide records, and a Net lists only its other classes.
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
@@ -85,9 +93,9 @@
 use std::path::Path;
 
 use reda_model::{
-    BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, FreePad, InDocument,
-    Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, PlacementOrigin,
-    Rules, Stackup, Track, Uuid, Via, Waiver, Zone,
+    BoardCutout, BoardOutline, BoardSetup, DesignRule, DrcSeverities, FootprintInstance, FreePad,
+    InDocument, Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText,
+    PlacementOrigin, Stackup, Track, Uuid, Via, Waiver, Zone,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -111,10 +119,10 @@ pub(crate) struct PcbFile {
     layers: LayerSet,
     /// The board's physical build: one Stackup in v0.1.
     stackups: Vec<Stackup>,
-    /// The board setup's identity and its Default Net Class.
+    /// The board setup's identity.
     board: BoardRow,
-    /// The board-wide design rules.
-    rules: Rules,
+    /// The design rule records: one board-wide record per kind, and Net Class records.
+    rules: Vec<DesignRule>,
     /// The severity of each DRC check.
     severities: DrcSeverities,
     /// The board's edge; left out while the board has none.
@@ -122,7 +130,7 @@ pub(crate) struct PcbFile {
     board_outline: Option<BoardOutline>,
     /// Holes in the board material.
     board_cutouts: Vec<BoardCutout>,
-    /// The Net Classes, the Default Net Class among them.
+    /// The Net Classes besides the Default Net Class, which is not stored.
     net_classes: Vec<NetClass>,
     /// The PCB Nets.
     nets: Vec<Net>,
@@ -173,9 +181,6 @@ struct PcbRow {
 struct BoardRow {
     #[schemars(schema_with = "super::schema::uuid")]
     uuid: Uuid,
-    /// The Net Class new Nets get.
-    #[schemars(schema_with = "super::schema::uuid")]
-    default_net_class: Uuid,
 }
 
 pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalError> {
@@ -184,14 +189,8 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     w.field("pcb", &PcbRow { uuid: pcb.uuid })?;
     w.container("layers", pcb.layers(), "layers")?;
     w.containers("stackups", pcb.stackups(), |s| s.uuid, "entries")?;
-    w.field(
-        "board",
-        &BoardRow {
-            uuid: setup.uuid,
-            default_net_class: setup.default_net_class,
-        },
-    )?;
-    w.field("rules", &setup.rules)?;
+    w.field("board", &BoardRow { uuid: setup.uuid })?;
+    w.table("rules", pcb.rules(), |r| r.uuid)?;
     w.field("severities", &setup.severities)?;
     if let Some(outline) = pcb.outline() {
         w.container("board_outline", outline, "vertices")?;
@@ -259,8 +258,6 @@ pub(crate) fn read_pcb_file(
             doc,
             BoardSetup {
                 uuid: file.board.uuid,
-                default_net_class: file.board.default_net_class,
-                rules: file.rules,
                 severities: file.severities,
             },
         )),
@@ -269,6 +266,11 @@ pub(crate) fn read_pcb_file(
         file.stackups
             .into_iter()
             .map(|s| Object::Stackup(InDocument::new(doc, s))),
+    );
+    objects.extend(
+        file.rules
+            .into_iter()
+            .map(|r| Object::DesignRule(InDocument::new(doc, r))),
     );
     objects.extend(
         file.board_outline

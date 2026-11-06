@@ -7,6 +7,7 @@ use reda_model::{DrcCheck, Uuid};
 use super::{Board, Report, item_objects};
 use crate::copper::Item;
 use crate::copper::shape::{Core, P, Prim, Shape, arc_points};
+use crate::rules::net_rules;
 
 /// One edge of the board: the outline or a cutout, as a closed chain of corners (arcs as
 /// chords within 1 µm).
@@ -70,7 +71,6 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         return;
     }
     let pcb = board.pcb;
-    let required = pcb.setup().rules.edge_clearance;
     let edges: Vec<Edge> = (pcb.outline().map(|o| Edge::new(o.uuid, &o.vertices, true)))
         .into_iter()
         .chain(pcb.cutouts().map(|c| Edge::new(c.uuid, &c.vertices, false)))
@@ -84,6 +84,9 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         if matches!(item, Item::Zone { .. }) {
             continue;
         }
+        let Some(required) = net_rules(pcb, board.copper.net(item)).edge_clearance else {
+            continue;
+        };
         let pieces = board.copper.item_pieces(item);
         let Some((_, shape)) = pieces.first() else {
             continue;

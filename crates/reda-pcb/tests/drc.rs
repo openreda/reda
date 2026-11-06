@@ -1,8 +1,8 @@
 //! DRC over the board's copper: each check, its severities and its Waivers, through
 //! `drc.run` and the other `drc.*` Commands.
 //!
-//! The board is the Generic preset's: clearance 0.16 mm, Track width 0.2 mm, Via 0.7 mm
-//! with a 0.3 mm hole, annular ring 0.2 mm, hole-to-hole 0.5 mm, edge clearance 0.4 mm.
+//! The board is the Generic preset's: clearance 0.16 mm, Track width 0.2 mm (0.25 mm
+//! preferred), Via 0.7 mm with a 0.3 mm hole, annular ring 0.2 mm, hole-to-hole 0.5 mm, edge clearance 0.4 mm.
 
 use reda_model::Uuid;
 use reda_testkit::{TempDir, TestEngine, probe_engine};
@@ -22,9 +22,9 @@ fn net(engine: &mut TestEngine, name: &str) -> Uuid {
     uuid(&engine.run_ok("test.net.add", json!({"name": name}))["result"]["uuid"])
 }
 
-/// A straight Track on the top copper from `(x0, y)` to `(x1, y)`, in mm.
+/// A straight 0.2 mm Track on the top copper from `(x0, y)` to `(x1, y)`, in mm.
 fn track(engine: &mut TestEngine, net: Option<Uuid>, y: &str, x0: &str, x1: &str) -> Uuid {
-    let mut params = json!({"layer": "copper_top",
+    let mut params = json!({"layer": "copper_top", "width": "0.2mm",
         "points": [{"x": x0, "y": y}, {"x": x1, "y": y}]});
     if let Some(net) = net {
         params["net"] = json!(net);
@@ -93,7 +93,10 @@ fn square(x0: &str, y0: &str, x1: &str, y1: &str) -> Value {
 
 fn class(engine: &mut TestEngine, params: Value, nets: &[Uuid]) -> Uuid {
     let class = uuid(&engine.run_ok("pcb.net_class.add", params)["result"]["uuid"]);
-    engine.run_ok("pcb.net.set_class", json!({"nets": nets, "class": class}));
+    engine.run_ok(
+        "pcb.net.add_to_class",
+        json!({"nets": nets, "class": class}),
+    );
     class
 }
 
@@ -105,7 +108,7 @@ fn the_larger_net_class_clearance_applies() {
     let hv = net(&mut engine, "HV");
     class(
         &mut engine,
-        json!({"name": "HV", "clearance": "0.5mm"}),
+        json!({"name": "HV", "rules": [{"kind": "clearance", "values": {"value": "0.5mm"}}]}),
         &[hv],
     );
     // A 0.3 mm gap: clear for the board rule, too close for the HV class.
@@ -146,7 +149,8 @@ fn a_track_narrower_than_its_net_class_allows_is_reported() {
     let power = net(&mut engine, "PWR");
     class(
         &mut engine,
-        json!({"name": "Power", "track_width": "0.5mm"}),
+        json!({"name": "Power", "rules": [{"kind": "track_width",
+            "values": {"min": "0.5mm", "preferred": "0.5mm"}}]}),
         &[power],
     );
     let narrow = uuid(
