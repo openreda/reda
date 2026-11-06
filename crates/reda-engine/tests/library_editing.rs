@@ -273,9 +273,9 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
     let pads = obj["pads"].as_array().unwrap();
     let by_number = |n: &str| pads.iter().find(|p| p["number"] == n).unwrap().clone();
     assert_eq!(
-        by_number("1")["corner_radius"],
-        200_000,
-        "a quarter of 0.8 mm"
+        by_number("1")["corner_ratio"],
+        50_000,
+        "a radius of a quarter of the shorter side"
     );
     assert_eq!(by_number("1")["paste_margin"], -50_000);
     assert_eq!(
@@ -307,9 +307,9 @@ fn footprint_pads_cover_every_kind_shape_and_hole() {
         "null clears the override"
     );
     assert_eq!(
-        edited["corner_radius"],
+        edited["corner_ratio"],
         Value::Null,
-        "a rect has no corner radius"
+        "a rect has no corner ratio"
     );
     assert!(
         pads.iter()
@@ -350,8 +350,27 @@ fn pads_that_cannot_be_made_are_refused() {
         ),
         (with(json!({"kind": "smd", "width": 0})), "/width"),
         (
-            with(json!({"kind": "smd", "corner_radius": "0.1mm"})),
-            "/corner_radius",
+            with(json!({"kind": "smd", "corner_ratio": "10%"})),
+            "/corner_ratio",
+        ),
+        (
+            with(json!({"kind": "smd", "shape": "chamfered_rect"})),
+            "/chamfer_ratio",
+        ),
+        (
+            with(json!({"kind": "smd", "shape": "rounded_rect", "corner_ratio": "120%"})),
+            "/corner_ratio",
+        ),
+        (
+            with(
+                json!({"kind": "plated_through_hole", "hole": {"width": "0.5mm"},
+                        "side": "bottom"}),
+            ),
+            "/side",
+        ),
+        (
+            with(json!({"kind": "smd", "zone_connection": {"angle": "30deg"}})),
+            "/zone_connection/angle",
         ),
     ] {
         let err = e.run_err("library.footprint.pad.add", params.clone());

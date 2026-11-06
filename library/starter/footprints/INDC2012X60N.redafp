@@ -3,8 +3,8 @@
   "footprint": {"uuid":"878e4faa-0f70-4f21-a036-7a90b752c5ee","name":"INDC2012X60N","description":"Chip inductor, 0805 (2012 metric), IPC-7351 Nominal"},
   "text": {"designator":{"at":{"x":0,"y":1700000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":620000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"17d7483b-894f-4c76-8115-e9e15225494f","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000},
-    {"uuid":"f57af33e-8d62-4fe5-982e-890a75b35b71","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000}
+    {"uuid":"17d7483b-894f-4c76-8115-e9e15225494f","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
+    {"uuid":"f57af33e-8d62-4fe5-982e-890a75b35b71","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
   ],
   "graphics": [
     {"uuid":"2f9a5566-9599-4cfe-965e-0afe786e1504","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000},

@@ -20,10 +20,11 @@ use crate::tr;
 pub const WIDTH: f32 = 240.0;
 
 pub const KINDS: [PadKind; 3] = [PadKind::Smd, PadKind::PlatedThroughHole, PadKind::NonPlated];
-pub const SHAPES: [PadShape; 4] = [
+pub const SHAPES: [PadShape; 5] = [
     PadShape::Circle,
     PadShape::Rect,
     PadShape::RoundedRect,
+    PadShape::ChamferedRect,
     PadShape::Oval,
 ];
 pub const LAYERS: [FootprintLayer; 6] = [
@@ -48,6 +49,7 @@ pub fn shape_name(shape: PadShape) -> String {
         PadShape::Circle => tr!("footprint-shape-circle"),
         PadShape::Rect => tr!("footprint-shape-rect"),
         PadShape::RoundedRect => tr!("footprint-shape-rounded-rect"),
+        PadShape::ChamferedRect => tr!("footprint-shape-chamfered-rect"),
         PadShape::Oval => tr!("footprint-shape-oval"),
     }
 }
@@ -340,7 +342,11 @@ fn pad_properties(ui: &mut Ui, id: Id, fp: Uuid, pad: &Pad, out: &mut Vec<Invoca
         shape_name,
     );
     if shape != pad.shape {
-        out.push(edit("shape", json!(shape)));
+        let mut p = json!({"footprint": fp, "pad": pad.uuid, "shape": shape});
+        if shape == PadShape::ChamferedRect && pad.chamfer_ratio.is_none() {
+            p["chamfer_ratio"] = json!(super::DEFAULT_CHAMFER_RATIO.0);
+        }
+        out.push(cmd("library.footprint.pad.edit", p));
     }
     ui.end_row();
     for (key, label, value) in [

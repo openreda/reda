@@ -3,8 +3,8 @@
   "footprint": {"uuid":"00000030-0000-4000-8000-000000000000","name":"SOIC-8"},
   "text": {"designator":{"at":{"x":0,"y":-3500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top","visible":false}},
   "pads": [
-    {"uuid":"00000031-0000-4000-8000-000000000000","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000},
-    {"uuid":"00000032-0000-4000-8000-000000000000","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000},
+    {"uuid":"00000031-0000-4000-8000-000000000000","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000,"corner_ratio":50000},
+    {"uuid":"00000032-0000-4000-8000-000000000000","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":1905000,"y":-1905000},"rotation":0,"width":600000,"height":1550000,"corner_ratio":50000},
     {"uuid":"00000033-0000-4000-8000-000000000000","number":"4","kind":"smd","shape":"rect","at":{"x":0,"y":-1905000},"rotation":0,"width":600000,"height":1550000,"paste_margin":-100000}
   ],
   "graphics": [

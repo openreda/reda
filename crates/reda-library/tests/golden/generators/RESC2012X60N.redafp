@@ -3,8 +3,8 @@
   "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal"},
   "text": {"designator":{"at":{"x":0,"y":1700000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":620000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000},

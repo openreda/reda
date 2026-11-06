@@ -3,8 +3,8 @@
   "footprint": {"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal"},
   "text": {"designator":{"at":{"x":0,"y":1450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":400000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
-    {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
+    {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
+    {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"c40aeae4-dd1b-4c6b-bca1-573bf549d9e9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},

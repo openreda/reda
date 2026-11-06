@@ -5,7 +5,8 @@
 use reda_import_kicad::{ImportError, ImportOptions, Imported, Service, SourceFile, import};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    ComponentType, FootprintLayer, Hole, PadKind, PadShape, PinType, Provenance, Shape, Uuid,
+    ComponentType, ConnectionStyle, Corner, Corners, FootprintLayer, Hole, PadKind, PadShape,
+    PinType, Provenance, Ratio, Shape, Side, Uuid,
 };
 
 fn fixture(name: &str) -> String {
@@ -74,7 +75,8 @@ fn a_symbol_and_footprint_become_a_symbol_footprint_and_part() {
     assert_eq!(pads[0].shape, PadShape::RoundedRect);
     assert_eq!(pads[0].at, pt("-0.9125", "0"));
     assert_eq!((pads[0].width, pads[0].height), (mm("1.025"), mm("1.4")));
-    assert_eq!(pads[0].corner_radius, Some(mm("0.25625")));
+    assert_eq!(pads[0].corner_ratio, Some(Ratio::percent(50)));
+    assert_eq!(pads[0].outline().uniform_radius(), Some(mm("0.25625")));
     assert_eq!(pads[0].hole, None);
     assert_eq!(pads[1].rotation, Millideg(180_000));
 
@@ -238,22 +240,10 @@ fn a_legacy_module_footprint_is_read_with_y_pointing_up() {
     assert_eq!(pad("1").kind, PadKind::PlatedThroughHole);
     assert_eq!(pad("1").shape, PadShape::Rect);
     assert_eq!(pad("1").at, pt("-3.81", "3.81"), "KiCad's y points down");
-    assert_eq!(
-        pad("1").hole,
-        Some(Hole {
-            width: mm("0.8"),
-            height: mm("0.8")
-        })
-    );
+    assert_eq!(pad("1").hole, Some(Hole::new(mm("0.8"), mm("0.8"))));
     assert_eq!(pad("2").shape, PadShape::Oval);
     assert_eq!((pad("2").width, pad("2").height), (mm("1.6"), mm("1.2")));
-    assert_eq!(
-        pad("8").hole,
-        Some(Hole {
-            width: mm("0.8"),
-            height: mm("1.2")
-        })
-    );
+    assert_eq!(pad("8").hole, Some(Hole::new(mm("0.8"), mm("1.2"))));
     assert_eq!(pad("8").mask_margin, Some(mm("0.05")));
     assert_eq!(pad("").kind, PadKind::NonPlated);
 
@@ -462,4 +452,56 @@ fn broken_files_are_refused_with_the_place_of_the_problem() {
     let bad_number = fp.replace("(size 1.025 1.4)", "(size 1.025 1e3)");
     let e = import_err(&sym, &bad_number, &ImportOptions::default());
     assert!(e.message.contains("\"1e3\" is not a number"), "{e}");
+}
+
+#[test]
+fn chamfers_corner_flags_the_drill_offset_side_and_zone_connections_carry_over() {
+    let out = import_pair("divider.kicad_sym", "shaped_pads.kicad_mod");
+    let pad = |n: &str| out.footprint.pads.iter().find(|p| p.number == n).unwrap();
+
+    // KiCad's shares of the shorter side double into shares of half of it.
+    let one = pad("1");
+    assert_eq!(one.shape, PadShape::ChamferedRect);
+    assert_eq!(one.chamfer_ratio, Some(Ratio::percent(50)));
+    assert_eq!(one.corner_ratio, Some(Ratio::percent(20)));
+    let corners: Corners = [Corner::TopLeft, Corner::BottomRight].into_iter().collect();
+    assert_eq!(one.corners, Some(corners));
+    // The y flip keeps the chamfer where it is seen: KiCad's top-left corner (negative y)
+    // is REDA's top-left (positive y), cut off; the top-right corner is not.
+    let outline = one.outline();
+    assert!(!outline.contains(pt("-0.98", "0.48")));
+    assert!(outline.contains(pt("0.98", "0.4")));
+    assert!(!outline.contains(pt("0.98", "-0.48")));
+    assert_eq!(
+        one.zone_connection.and_then(|z| z.style),
+        Some(ConnectionStyle::Solid)
+    );
+
+    // The drill offset moves the copper away from the hole, y flipped too.
+    let two = pad("2");
+    assert_eq!(two.at, pt("2", "0"));
+    assert_eq!(two.offset, Some(pt("0.3", "0.2")));
+    let z = two.zone_connection.unwrap();
+    assert_eq!(z.style, Some(ConnectionStyle::Relief));
+    assert_eq!((z.spoke_width, z.gap), (Some(mm("0.3")), Some(mm("0.4"))));
+
+    let three = pad("3");
+    assert_eq!(three.side, Some(Side::Bottom));
+    assert_eq!(
+        three.zone_connection.and_then(|z| z.style),
+        Some(ConnectionStyle::None)
+    );
+
+    // A chamfered rectangle with every corner cut keeps `corners` left out.
+    let four = pad("4");
+    assert_eq!(four.shape, PadShape::ChamferedRect);
+    assert_eq!(
+        (four.chamfer_ratio, four.corners),
+        (Some(Ratio::FULL), None)
+    );
+    assert!(
+        out.warnings.iter().all(|w| !w.contains("offset")),
+        "{:?}",
+        out.warnings
+    );
 }

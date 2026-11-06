@@ -3,10 +3,10 @@
   "footprint": {"uuid":"2cd4d46f-5827-4e37-a0e9-6b64a24b342d","name":"SW_Push_6x6mm_SMD","description":"Tactile switch, 6 × 6 mm, SMD. Lands per Omron B3FS datasheet, PCB Pad"},
   "text": {"designator":{"at":{"x":0,"y":4050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"c1685048-9bba-426c-97d7-d4d80f1c9fd1","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":4000000,"y":-2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000},
-    {"uuid":"c2a6d95f-913b-481a-911e-88d44f88ed34","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":4000000,"y":2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000},
-    {"uuid":"d1b0fd80-f55b-40cc-9679-00c5ea7aa46f","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-4000000,"y":2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000},
-    {"uuid":"fb2c9cfe-5911-4c4c-b6fe-5d989b2db656","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-4000000,"y":-2250000},"rotation":0,"width":1600000,"height":1400000,"corner_radius":350000}
+    {"uuid":"c1685048-9bba-426c-97d7-d4d80f1c9fd1","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":4000000,"y":-2250000},"rotation":0,"width":1600000,"height":1400000,"corner_ratio":50000},
+    {"uuid":"c2a6d95f-913b-481a-911e-88d44f88ed34","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":4000000,"y":2250000},"rotation":0,"width":1600000,"height":1400000,"corner_ratio":50000},
+    {"uuid":"d1b0fd80-f55b-40cc-9679-00c5ea7aa46f","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-4000000,"y":2250000},"rotation":0,"width":1600000,"height":1400000,"corner_ratio":50000},
+    {"uuid":"fb2c9cfe-5911-4c4c-b6fe-5d989b2db656","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-4000000,"y":-2250000},"rotation":0,"width":1600000,"height":1400000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"21bfbee2-5102-43dc-b235-3a6f54c9593a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":3060000},"end":{"x":2000000,"y":3060000}},"width":120000},

@@ -155,10 +155,15 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         rotation: Millideg(0),
         width: Nm::from_um(800),
         height: Nm::from_um(900),
-        corner_radius: None,
+        corner_ratio: Some(reda_model::Ratio::percent(50)),
+        chamfer_ratio: None,
+        corners: None,
+        offset: None,
         hole: None,
+        side: None,
         mask_margin: None,
         paste_margin: None,
+        zone_connection: None,
     };
     Footprint {
         uuid: uuid(n),

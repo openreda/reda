@@ -3,15 +3,15 @@
   "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SON65P300X300X80-9N","description":"DFN-8, 3 × 3 mm body, 0.65 mm pitch, IPC-7351 Nominal"},
   "text": {"designator":{"at":{"x":0,"y":2500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_radius":75000},
-    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":0,"y":0},"rotation":0,"width":1500000,"height":2400000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":325000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":975000},"rotation":0,"width":875000,"height":300000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":0,"y":0},"rotation":0,"width":1500000,"height":2400000,"corner_ratio":33333}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-00000000000b","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2150000,"y":-1800000},"end":{"x":2150000,"y":1800000}},"width":50000},

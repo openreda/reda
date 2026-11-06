@@ -3,11 +3,11 @@
   "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOT95P280X145-5N","description":"SOT-23-5, IPC-7351 Nominal"},
   "text": {"designator":{"at":{"x":0,"y":2450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":800000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1162500,"y":950000},"rotation":0,"width":1425000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1162500,"y":0},"rotation":0,"width":1425000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1162500,"y":-950000},"rotation":0,"width":1425000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":1162500,"y":-950000},"rotation":0,"width":1425000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":1162500,"y":950000},"rotation":0,"width":1425000,"height":600000,"corner_radius":150000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1162500,"y":950000},"rotation":0,"width":1425000,"height":600000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1162500,"y":0},"rotation":0,"width":1425000,"height":600000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1162500,"y":-950000},"rotation":0,"width":1425000,"height":600000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":1162500,"y":-950000},"rotation":0,"width":1425000,"height":600000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":1162500,"y":950000},"rotation":0,"width":1425000,"height":600000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000007","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2150000,"y":-1750000},"end":{"x":2150000,"y":1750000}},"width":50000},

@@ -57,7 +57,7 @@ pub fn sample_board(engine: &mut TestEngine) -> Board {
         json!({"at": xy(8.0, 10.0), "pads": [
             {"at": xy(-1.0, 0.0), "width": mm(1.0), "height": mm(1.4), "net": sig.to_string()},
             {"at": xy(1.0, 0.0), "width": mm(1.0), "height": mm(1.4), "net": gnd.to_string(),
-             "shape": "rounded_rect", "corner_radius": mm(0.2)}]}),
+             "shape": "rounded_rect", "corner_ratio": 40_000}]}),
     );
     let fp1 = uuid(&fp1["result"]["footprint"]);
     engine.run_ok(

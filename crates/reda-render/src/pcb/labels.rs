@@ -35,8 +35,10 @@ pub(super) fn drilled_pads(b: &mut Builder, pads: &[BoardPad]) {
 /// it when the Pad is on a Net.
 fn pad_labels(b: &mut Builder, pad: &BoardPad, layer: SceneLayer) {
     let net = pad.net.and_then(|n| b.pcb.net(n)).map(|n| n.name.clone());
-    let (long, short) = (pad.width.max(pad.height), pad.width.min(pad.height));
-    let rotation = if upright(pad.width, pad.height, pad.rotation) {
+    let (width, height) = (pad.outline.width, pad.outline.height);
+    let (long, short) = (width.max(height), width.min(height));
+    let centre = pad.copper_center();
+    let rotation = if upright(width, height, pad.rotation) {
         Millideg(90_000)
     } else {
         Millideg(0)
@@ -44,7 +46,7 @@ fn pad_labels(b: &mut Builder, pad: &BoardPad, layer: SceneLayer) {
     // Up the label's own y axis, on the board.
     let offset = |d: i64| {
         let (x, y) = rotate(0, d, rotation);
-        Point::new(pad.at.x + Nm(x), pad.at.y + Nm(y))
+        Point::new(centre.x + Nm(x), centre.y + Nm(y))
     };
     let lines: Vec<(String, BoardColor, i64, i64)> = match (&net, pad.number.is_empty()) {
         (None, true) => Vec::new(),
