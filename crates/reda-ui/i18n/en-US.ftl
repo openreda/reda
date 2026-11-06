@@ -505,6 +505,17 @@ crash-report-github = Report on GitHub…
 crash-report-github-hint = Opens a pre-filled issue in your browser for you to review before sending.
 crash-dismiss = Close
 
+## Closing and quitting
+
+closing-title = Unsaved Changes
+closing-tab-intro = Save the changes to { $document } before closing it?
+closing-list-intro = These files have unsaved changes. Save the ticked ones?
+closing-save = Save
+closing-save-selected = Save Selected
+closing-dont-save = Don't Save
+closing-cancel = Cancel
+closing-save-failed = { $file } could not be saved: { $error }
+
 ## Settings dialogs
 
 settings-ok = OK

@@ -625,6 +625,71 @@
       "title": "Reorder Documents"
     },
     {
+      "category": "project",
+      "description": "Drops a Document's unsaved changes: its contents are read again from its file, and its undo stack is forgotten, leaving it clean. The Project file and other Documents keep their changes. A Document whose file was never written is refused.",
+      "icon": "undo",
+      "id": "document.revert",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The Document's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "DocumentRevertParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic",
+              "pcb"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/DocumentKind"
+          },
+          "name": {
+            "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+            "type": "string"
+          },
+          "title": {
+            "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "kind",
+          "name",
+          "title"
+        ],
+        "title": "DocumentEntry",
+        "type": "object"
+      },
+      "title": "Revert Document"
+    },
+    {
       "category": "pcb",
       "description": "Checks the PCB with the DRC checks that are not Off, after refilling stale Zones, and returns the Violations: each with its check id, severity, message arguments and the UUIDs of the objects involved (a Pad as its Footprint then the Pad). Waived Violations are left out unless `include_waived`.",
       "icon": "drc",
