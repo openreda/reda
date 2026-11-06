@@ -1,12 +1,15 @@
 //! The Footprint editor's Commands: the Footprint's own properties, its Pads, graphics,
-//! Designator and value text, and its origin.
+//! field texts, and its origin.
 
 use reda_command::{
-    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
-    Unavailable,
+    Angle, AvailabilityContext, Command, CommandError, Context, HoleParam, Kind, Length, Meta,
+    RatioParam, Registry, Unavailable, ZoneConnectionParam, zone_connection,
 };
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{Footprint, FootprintGraphic, FootprintLayer, Hole, Pad, PadKind, PadShape, Uuid};
+use reda_model::{
+    Corners, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Pad, PadKind, PadShape,
+    Ratio, Shape, Side, TextStyle, Uuid, ZoneConnection,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -23,17 +26,13 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FootprintGraphicAdd);
     registry.add(FootprintGraphicEdit);
     registry.add(FootprintGraphicRemove);
-    registry.add(FootprintTextSet);
+    registry.add(FootprintTextAdd);
+    registry.add(FootprintTextEdit);
+    registry.add(FootprintTextRemove);
     registry.add(FootprintOriginSet);
     registry.add(FootprintMove);
     registry.add(FootprintDelete);
 }
-
-/// What the Footprint editor (and [`FootprintMove`] / [`FootprintDelete`]) calls the
-/// Designator text of a Footprint, which has no UUID of its own.
-pub const DESIGNATOR_TEXT: Uuid = Uuid::from_u128(0xfd00_0000_0000_4000_8000_0000_0000_0001);
-/// What the Footprint editor calls the value text of a Footprint.
-pub const VALUE_TEXT: Uuid = Uuid::from_u128(0xfd00_0000_0000_4000_8000_0000_0000_0002);
 
 const fn meta(id: &'static str, title: &'static str, description: &'static str) -> Meta {
     Meta {
@@ -65,13 +64,17 @@ pub struct FootprintEditParams {
     pub footprint: Uuid,
     pub name: Option<String>,
     pub description: Option<String>,
+    /// The part's greatest height above the board; `null` clears it.
+    #[serde(default, deserialize_with = "present")]
+    pub height: Option<Option<Length>>,
 }
 
 impl Command for FootprintEdit {
     const META: Meta = meta(
         "library.footprint.edit",
         "Edit Footprint",
-        "Changes an open Footprint's name or description. Omitted fields keep their value.",
+        "Changes an open Footprint's name, description or height. Omitted fields keep \
+         their value; a `null` height clears it.",
     );
     type Params = FootprintEditParams;
     type Output = ();
@@ -84,6 +87,9 @@ impl Command for FootprintEdit {
         if let Some(name) = &p.name {
             check_element_name(name).map_err(invalid("/name"))?;
         }
+        if let Some(Some(height)) = p.height {
+            positive(height.nm(), "the height").map_err(invalid("/height"))?;
+        }
         edit_footprint(cx, p.footprint, |f| {
             if let Some(name) = p.name {
                 f.name = name;
@@ -91,26 +97,11 @@ impl Command for FootprintEdit {
             if let Some(description) = p.description {
                 f.description = description;
             }
+            if let Some(height) = p.height {
+                f.height = height.map(Length::nm);
+            }
             Ok(())
         })
-    }
-}
-
-/// A drilled hole.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct HoleParam {
-    pub width: Length,
-    /// Omitted, the same as `width`: a round hole. Otherwise a slot along the longer side.
-    pub height: Option<Length>,
-}
-
-impl HoleParam {
-    fn hole(self) -> Hole {
-        Hole {
-            width: self.width.nm(),
-            height: self.height.unwrap_or(self.width).nm(),
-        }
     }
 }
 
@@ -132,19 +123,32 @@ pub struct PadAddParams {
     pub number: String,
     pub kind: PadKind,
     pub shape: PadShape,
-    /// The Pad centre, relative to the Footprint origin.
+    /// The Pad's anchor, relative to the Footprint origin: the hole sits there and Tracks
+    /// connect there.
     pub at: PointParam,
     pub rotation: Option<Angle>,
     pub width: Length,
     pub height: Length,
-    /// Only for `rounded_rect`. Omitted, a quarter of the shorter side.
-    pub corner_radius: Option<Length>,
+    /// For a `rounded_rect` (50% when left out) and the uncut corners of a
+    /// `chamfered_rect`.
+    pub corner_ratio: Option<RatioParam>,
+    /// For a `chamfered_rect`, which needs it.
+    pub chamfer_ratio: Option<RatioParam>,
+    /// The corners a `rounded_rect` rounds or a `chamfered_rect` chamfers. All four when
+    /// left out.
+    pub corners: Option<Corners>,
+    /// Moves the copper away from `at`, in the Pad's frame.
+    pub offset: Option<PointParam>,
     /// Required for plated and non-plated through-hole Pads; SMD Pads have none.
     pub hole: Option<HoleParam>,
+    /// An SMD Pad's side in the Footprint's frame; top when left out.
+    pub side: Option<Side>,
     /// Overrides the board's solder-mask margin for this Pad.
     pub mask_margin: Option<Length>,
     /// Overrides the board's solder-paste margin for this Pad.
     pub paste_margin: Option<Length>,
+    /// How Zone fills of its Net join it; each value left out inherits.
+    pub zone_connection: Option<ZoneConnectionParam>,
 }
 
 impl Command for PadAdd {
@@ -152,8 +156,9 @@ impl Command for PadAdd {
         "library.footprint.pad.add",
         "Add Pad",
         "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, \
-         rectangle, rounded rectangle or oval, with an optional round hole or slot and \
-         per-Pad mask and paste margins.",
+         rectangle, rounded or chamfered rectangle or oval, with its copper optionally \
+         offset from its anchor, an optional round hole or slot, its side, per-Pad mask and \
+         paste margins and its Zone connection.",
     );
     type Params = PadAddParams;
     type Output = PadResult;
@@ -164,6 +169,11 @@ impl Command for PadAdd {
 
     fn run(&self, cx: &mut Context<'_>, p: PadAddParams) -> Result<PadResult, CommandError> {
         let uuid = cx.new_id();
+        let explicit = Explicit {
+            corner_ratio: p.corner_ratio.is_some(),
+            chamfer_ratio: p.chamfer_ratio.is_some(),
+            corners: p.corners.is_some(),
+        };
         let pad = Pad {
             uuid,
             number: p.number,
@@ -173,12 +183,17 @@ impl Command for PadAdd {
             rotation: p.rotation.map_or(Millideg(0), Angle::millideg),
             width: p.width.nm(),
             height: p.height.nm(),
-            corner_radius: p.corner_radius.map(Length::nm),
+            corner_ratio: p.corner_ratio.map(RatioParam::ratio),
+            chamfer_ratio: p.chamfer_ratio.map(RatioParam::ratio),
+            corners: p.corners,
+            offset: p.offset.map(PointParam::point),
             hole: p.hole.map(HoleParam::hole),
+            side: p.side,
             mask_margin: p.mask_margin.map(Length::nm),
             paste_margin: p.paste_margin.map(Length::nm),
+            zone_connection: zone_connection(p.zone_connection),
         };
-        let pad = finish_pad(pad, p.corner_radius.is_some())?;
+        let pad = finish_pad(pad, explicit)?;
         edit_footprint(cx, p.footprint, |f| {
             f.pads.push(pad);
             f.pads.sort_by_key(|pad| pad.uuid);
@@ -187,56 +202,50 @@ impl Command for PadAdd {
     }
 }
 
+/// The corner ratio a `rounded_rect` gets when none is given: a radius of a quarter of the
+/// shorter side.
+pub const DEFAULT_CORNER_RATIO: Ratio = Ratio::percent(50);
+
+/// Which shape fields a Command gave explicitly.
+#[derive(Clone, Copy, Default)]
+struct Explicit {
+    corner_ratio: bool,
+    chamfer_ratio: bool,
+    corners: bool,
+}
+
 /// Checks a Pad and fills in what follows from its shape: a rounded rectangle without a
-/// radius gets a quarter of its shorter side, and other shapes drop a radius not given
-/// explicitly (`explicit_radius`), which they cannot use.
-fn finish_pad(mut pad: Pad, explicit_radius: bool) -> Result<Pad, CommandError> {
-    positive(pad.width, "the Pad width").map_err(invalid("/width"))?;
-    positive(pad.height, "the Pad height").map_err(invalid("/height"))?;
-    let shorter = Nm(pad.width.0.min(pad.height.0));
-    match (pad.shape, pad.corner_radius) {
-        (PadShape::RoundedRect, None) => pad.corner_radius = Some(Nm(shorter.0 / 4)),
-        (PadShape::RoundedRect, Some(r)) if r.0 < 0 || r.0 * 2 > shorter.0 => {
-            return Err(CommandError::invalid_params(
-                "/corner_radius",
-                "the corner radius must be between zero and half the shorter side",
-            ));
-        }
-        (PadShape::RoundedRect, Some(_)) => {}
-        (_, Some(_)) if explicit_radius => {
-            return Err(CommandError::invalid_params(
-                "/corner_radius",
-                "only a rounded_rect Pad has a corner radius",
-            ));
-        }
-        (_, _) => pad.corner_radius = None,
+/// ratio gets [`DEFAULT_CORNER_RATIO`], shape fields the shape can't use are dropped unless
+/// given explicitly, and stored defaults are left out (all four corners, no offset, the
+/// top side).
+fn finish_pad(mut pad: Pad, explicit: Explicit) -> Result<Pad, CommandError> {
+    let cornered = matches!(pad.shape, PadShape::RoundedRect | PadShape::ChamferedRect);
+    if !cornered && !explicit.corner_ratio {
+        pad.corner_ratio = None;
     }
-    match (pad.kind, pad.hole) {
-        (PadKind::Smd, Some(_)) => {
-            return Err(CommandError::invalid_params(
-                "/hole",
-                "an SMD Pad has no hole",
-            ));
-        }
-        (PadKind::Smd, None) => {}
-        (_, None) => {
-            return Err(CommandError::invalid_params(
-                "/hole",
-                "a through-hole Pad needs a hole",
-            ));
-        }
-        (kind, Some(hole)) => {
-            positive(hole.width, "the hole width").map_err(invalid("/hole/width"))?;
-            positive(hole.height, "the hole height").map_err(invalid("/hole/height"))?;
-            if kind == PadKind::PlatedThroughHole
-                && (hole.width > pad.width || hole.height > pad.height)
-            {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "a plated hole must fit inside its Pad",
-                ));
-            }
-        }
+    if pad.shape != PadShape::ChamferedRect && !explicit.chamfer_ratio {
+        pad.chamfer_ratio = None;
+    }
+    if !cornered && !explicit.corners {
+        pad.corners = None;
+    }
+    if pad.shape == PadShape::RoundedRect && pad.corner_ratio.is_none() {
+        pad.corner_ratio = Some(DEFAULT_CORNER_RATIO);
+    }
+    if pad.corners == Some(Corners::ALL) {
+        pad.corners = None;
+    }
+    if pad.offset == Some(Point::default()) {
+        pad.offset = None;
+    }
+    if pad.kind == PadKind::Smd && pad.side == Some(Side::Top) {
+        pad.side = None;
+    }
+    if pad.zone_connection == Some(ZoneConnection::default()) {
+        pad.zone_connection = None;
+    }
+    if let Some((pointer, message)) = pad.form().problem() {
+        return Err(CommandError::invalid_params(&pointer, message));
     }
     Ok(pad)
 }
@@ -256,27 +265,43 @@ pub struct PadEditParams {
     pub rotation: Option<Angle>,
     pub width: Option<Length>,
     pub height: Option<Length>,
-    /// `null` returns a rounded rectangle to the default radius.
+    /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
-    pub corner_radius: Option<Option<Length>>,
+    pub corner_ratio: Option<Option<RatioParam>>,
+    /// `null` removes it.
+    #[serde(default, deserialize_with = "present")]
+    pub chamfer_ratio: Option<Option<RatioParam>>,
+    /// `null` returns to all four corners.
+    #[serde(default, deserialize_with = "present")]
+    pub corners: Option<Option<Corners>>,
+    /// `null` puts the copper back on the anchor.
+    #[serde(default, deserialize_with = "present")]
+    pub offset: Option<Option<PointParam>>,
     /// `null` removes the hole.
     #[serde(default, deserialize_with = "present")]
     pub hole: Option<Option<HoleParam>>,
+    /// `null` returns an SMD Pad to the top.
+    #[serde(default, deserialize_with = "present")]
+    pub side: Option<Option<Side>>,
     /// `null` returns to the board's margin.
     #[serde(default, deserialize_with = "present")]
     pub mask_margin: Option<Option<Length>>,
     /// `null` returns to the board's margin.
     #[serde(default, deserialize_with = "present")]
     pub paste_margin: Option<Option<Length>>,
+    /// Replaces the whole Zone connection; `null` inherits every value.
+    #[serde(default, deserialize_with = "present")]
+    pub zone_connection: Option<Option<ZoneConnectionParam>>,
 }
 
 impl Command for PadEdit {
     const META: Meta = meta(
         "library.footprint.pad.edit",
         "Edit Pad",
-        "Changes any of a Pad's number, kind, shape, position, rotation, size, corner \
-         radius, hole and mask and paste margins. Omitted fields keep their value; `null` \
-         clears an optional one.",
+        "Changes any of a Pad's number, kind, shape, position, rotation, size, corner and \
+         chamfer ratios and corners, offset, hole, side, mask and paste margins and Zone \
+         connection. Omitted fields keep their value; `null` clears an optional one. A \
+         resized Pad keeps its ratios, and so its look.",
     );
     type Params = PadEditParams;
     type Output = ();
@@ -309,15 +334,28 @@ impl Command for PadEdit {
             if let Some(height) = p.height {
                 pad.height = height.nm();
             }
-            let explicit_radius = matches!(p.corner_radius, Some(Some(_)));
-            if let Some(radius) = p.corner_radius {
-                pad.corner_radius = radius.map(Length::nm);
-            } else if p.width.is_some() || p.height.is_some() {
-                // A resized rounded rectangle keeps its proportions.
-                pad.corner_radius = None;
+            let explicit = Explicit {
+                corner_ratio: matches!(p.corner_ratio, Some(Some(_))),
+                chamfer_ratio: matches!(p.chamfer_ratio, Some(Some(_))),
+                corners: matches!(p.corners, Some(Some(_))),
+            };
+            if let Some(ratio) = p.corner_ratio {
+                pad.corner_ratio = ratio.map(RatioParam::ratio);
+            }
+            if let Some(ratio) = p.chamfer_ratio {
+                pad.chamfer_ratio = ratio.map(RatioParam::ratio);
+            }
+            if let Some(corners) = p.corners {
+                pad.corners = corners;
+            }
+            if let Some(offset) = p.offset {
+                pad.offset = offset.map(PointParam::point);
             }
             if let Some(hole) = p.hole {
                 pad.hole = hole.map(HoleParam::hole);
+            }
+            if let Some(side) = p.side {
+                pad.side = side;
             }
             if let Some(margin) = p.mask_margin {
                 pad.mask_margin = margin.map(Length::nm);
@@ -325,7 +363,10 @@ impl Command for PadEdit {
             if let Some(margin) = p.paste_margin {
                 pad.paste_margin = margin.map(Length::nm);
             }
-            let pad = finish_pad(pad, explicit_radius)?;
+            if let Some(connection) = p.zone_connection {
+                pad.zone_connection = zone_connection(connection);
+            }
+            let pad = finish_pad(pad, explicit)?;
             *find_mut(&mut f.pads, p.pad, |pad| pad.uuid, "Pad")? = pad;
             Ok(())
         })
@@ -383,7 +424,8 @@ impl Command for FootprintGraphicAdd {
         "library.footprint.graphic.add",
         "Add Footprint Graphic",
         "Draws a line, rectangle, arc, circle, polygon or text on the Silkscreen, \
-         Courtyard or Assembly Layer, top or bottom, of an open Footprint.",
+         Courtyard or Assembly Layer, top or bottom, of an open Footprint. A Courtyard \
+         Layer takes only closed shapes: rectangles, circles and polygons.",
     );
     type Params = FootprintGraphicAddParams;
     type Output = GraphicResult;
@@ -406,12 +448,29 @@ impl Command for FootprintGraphicAdd {
             fill: p.fill.unwrap_or(false),
         };
         check_width(graphic.width)?;
+        check_closed(graphic.layer, &graphic.shape)?;
         edit_footprint(cx, p.footprint, |f| {
             f.graphics.push(graphic);
             f.graphics.sort_by_key(|g| g.uuid);
             Ok(GraphicResult { graphic: uuid })
         })
     }
+}
+
+/// Refuses an open shape (a line, arc or text) on a Courtyard Layer, which takes only
+/// closed outlines so a courtyard can never be left open.
+fn check_closed(layer: FootprintLayer, shape: &Shape) -> Result<(), CommandError> {
+    let closed = matches!(
+        shape,
+        Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon { .. }
+    );
+    if layer.is_courtyard() && !closed {
+        return Err(CommandError::invalid_params(
+            "/shape",
+            "a Courtyard Layer takes only closed shapes: a rectangle, circle or polygon",
+        ));
+    }
+    Ok(())
 }
 
 fn check_width(width: Nm) -> Result<(), CommandError> {
@@ -444,7 +503,7 @@ impl Command for FootprintGraphicEdit {
         "library.footprint.graphic.edit",
         "Edit Footprint Graphic",
         "Changes a Footprint graphic's Layer, shape, stroke width or fill. Omitted fields \
-         keep their value.",
+         keep their value. A Courtyard Layer takes only closed shapes.",
     );
     type Params = FootprintGraphicEditParams;
     type Output = ();
@@ -476,7 +535,7 @@ impl Command for FootprintGraphicEdit {
             if let Some(fill) = p.fill {
                 graphic.fill = fill;
             }
-            Ok(())
+            check_closed(graphic.layer, &graphic.shape)
         })
     }
 }
@@ -511,70 +570,234 @@ impl Command for FootprintGraphicRemove {
     }
 }
 
-/// Which of a Footprint's two texts.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum TextWhich {
-    Designator,
-    Value,
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct FootprintTextResult {
+    /// The new text's UUID.
+    pub text: Uuid,
 }
 
-pub struct FootprintTextSet;
+pub struct FootprintTextAdd;
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct FootprintTextSetParams {
+pub struct FootprintTextAddParams {
     /// The open Footprint.
     pub footprint: Uuid,
-    pub text: TextWhich,
+    /// The field it shows: `Designator`, `Value` or any field name.
+    pub field: String,
     /// The text centre, relative to the Footprint origin.
-    pub at: Option<PointParam>,
+    pub at: PointParam,
     pub rotation: Option<Angle>,
-    /// The text height.
-    pub size: Option<Length>,
+    /// A Silkscreen or Assembly Layer. Omitted, the top Silkscreen.
     pub layer: Option<FootprintLayer>,
+    /// The capital height. Omitted, 1 mm.
+    pub height: Option<Length>,
+    /// The pen width. Omitted, 15% of the height.
+    pub thickness: Option<Length>,
+    /// The font family. Omitted, Hershey Roman Simplex.
+    pub font: Option<String>,
+    /// Omitted, shown.
     pub visible: Option<bool>,
 }
 
-impl Command for FootprintTextSet {
+impl Command for FootprintTextAdd {
     const META: Meta = meta(
-        "library.footprint.text.set",
-        "Place Footprint Text",
-        "Places the Designator or value text of an open Footprint: its position, rotation, \
-         size, Layer and visibility. Omitted fields keep their value.",
+        "library.footprint.text.add",
+        "Add Footprint Text",
+        "Adds a text showing a field (`Designator`, `Value` or any field name) to an open \
+         Footprint, on a Silkscreen or Assembly Layer. A Component without that field draws \
+         nothing there.",
     );
-    type Params = FootprintTextSetParams;
+    type Params = FootprintTextAddParams;
+    type Output = FootprintTextResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: FootprintTextAddParams,
+    ) -> Result<FootprintTextResult, CommandError> {
+        let uuid = cx.new_id();
+        let mut text = FootprintText::designator(uuid);
+        text.field = p.field;
+        text.at = p.at.point();
+        if let Some(height) = p.height {
+            text.style = TextStyle::of_height(height.nm());
+        }
+        let change = TextChange {
+            field: None,
+            at: None,
+            rotation: p.rotation,
+            layer: p.layer,
+            height: None,
+            thickness: p.thickness,
+            font: p.font,
+            visible: p.visible,
+        };
+        change.apply(&mut text)?;
+        edit_footprint(cx, p.footprint, |f| {
+            f.texts.push(text);
+            f.texts.sort_by_key(|t| t.uuid);
+            Ok(FootprintTextResult { text: uuid })
+        })
+    }
+}
+
+pub struct FootprintTextEdit;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintTextEditParams {
+    /// The open Footprint.
+    pub footprint: Uuid,
+    pub text: Uuid,
+    /// The field it shows: `Designator`, `Value` or any field name.
+    pub field: Option<String>,
+    /// The text centre, relative to the Footprint origin.
+    pub at: Option<PointParam>,
+    pub rotation: Option<Angle>,
+    /// A Silkscreen or Assembly Layer.
+    pub layer: Option<FootprintLayer>,
+    /// The capital height. Without a new `thickness`, the pen width keeps its proportion
+    /// to the height.
+    pub height: Option<Length>,
+    /// The pen width.
+    pub thickness: Option<Length>,
+    /// The font family.
+    pub font: Option<String>,
+    pub visible: Option<bool>,
+}
+
+/// The parts of a Footprint text to change; `None` keeps the value.
+struct TextChange {
+    field: Option<String>,
+    at: Option<PointParam>,
+    rotation: Option<Angle>,
+    layer: Option<FootprintLayer>,
+    height: Option<Length>,
+    thickness: Option<Length>,
+    font: Option<String>,
+    visible: Option<bool>,
+}
+
+impl TextChange {
+    /// Applies the change to `text` and checks the result.
+    fn apply(self, text: &mut FootprintText) -> Result<(), CommandError> {
+        if let Some(field) = self.field {
+            text.field = field;
+        }
+        if let Some(at) = self.at {
+            text.at = at.point();
+        }
+        if let Some(rotation) = self.rotation {
+            text.rotation = rotation.millideg();
+        }
+        if let Some(layer) = self.layer {
+            text.layer = layer;
+        }
+        if let Some(height) = self.height {
+            // Without a new pen width, the pen keeps its proportion to the height.
+            let (old, new) = (text.style.height.0, height.nm().0);
+            if self.thickness.is_none() && old > 0 {
+                let scaled = i128::from(text.style.thickness.0) * i128::from(new) / i128::from(old);
+                text.style.thickness = Nm(scaled as i64);
+            }
+            text.style.height = height.nm();
+        }
+        if let Some(thickness) = self.thickness {
+            text.style.thickness = thickness.nm();
+        }
+        if let Some(font) = self.font {
+            text.style.font = font;
+        }
+        if let Some(visible) = self.visible {
+            text.visible = visible;
+        }
+        if text.field.trim().is_empty() {
+            return Err(CommandError::invalid_params(
+                "/field",
+                "the field name is empty",
+            ));
+        }
+        if !text.layer.is_silkscreen() && !text.layer.is_assembly() {
+            return Err(CommandError::invalid_params(
+                "/layer",
+                "Footprint text goes on a Silkscreen or Assembly Layer",
+            ));
+        }
+        positive(text.style.height, "the text height").map_err(invalid("/height"))?;
+        positive(text.style.thickness, "the pen width").map_err(invalid("/thickness"))?;
+        if text.style.font.trim().is_empty() {
+            return Err(CommandError::invalid_params(
+                "/font",
+                "the font family is empty",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Command for FootprintTextEdit {
+    const META: Meta = meta(
+        "library.footprint.text.edit",
+        "Edit Footprint Text",
+        "Changes a Footprint text's field, position, rotation, Layer, height, pen width, \
+         font or visibility. Omitted fields keep their value.",
+    );
+    type Params = FootprintTextEditParams;
     type Output = ();
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         cx.elements()
     }
 
-    fn run(&self, cx: &mut Context<'_>, p: FootprintTextSetParams) -> Result<(), CommandError> {
-        if let Some(size) = p.size {
-            positive(size.nm(), "the text size").map_err(invalid("/size"))?;
-        }
+    fn run(&self, cx: &mut Context<'_>, p: FootprintTextEditParams) -> Result<(), CommandError> {
         edit_footprint(cx, p.footprint, |f| {
-            let text = match p.text {
-                TextWhich::Designator => &mut f.designator,
-                TextWhich::Value => &mut f.value,
-            };
-            if let Some(at) = p.at {
-                text.at = at.point();
+            let text = find_mut(&mut f.texts, p.text, |t| t.uuid, "text")?;
+            TextChange {
+                field: p.field,
+                at: p.at,
+                rotation: p.rotation,
+                layer: p.layer,
+                height: p.height,
+                thickness: p.thickness,
+                font: p.font,
+                visible: p.visible,
             }
-            if let Some(rotation) = p.rotation {
-                text.rotation = rotation.millideg();
-            }
-            if let Some(size) = p.size {
-                text.size = size.nm();
-            }
-            if let Some(layer) = p.layer {
-                text.layer = layer;
-            }
-            if let Some(visible) = p.visible {
-                text.visible = visible;
-            }
-            Ok(())
+            .apply(text)
+        })
+    }
+}
+
+pub struct FootprintTextRemove;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintTextParams {
+    /// The open Footprint.
+    pub footprint: Uuid,
+    pub text: Uuid,
+}
+
+impl Command for FootprintTextRemove {
+    const META: Meta = meta(
+        "library.footprint.text.remove",
+        "Remove Footprint Text",
+        "Removes a field text from an open Footprint.",
+    );
+    type Params = FootprintTextParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: FootprintTextParams) -> Result<(), CommandError> {
+        edit_footprint(cx, p.footprint, |f| {
+            remove(&mut f.texts, p.text, |t| t.uuid, "text").map(drop)
         })
     }
 }
@@ -620,8 +843,9 @@ fn shift(f: &mut Footprint, by: Point) {
     for graphic in &mut f.graphics {
         graphic.shape = graphic.shape.translated(by);
     }
-    f.designator.at = f.designator.at + by;
-    f.value.at = f.value.at + by;
+    for text in &mut f.texts {
+        text.at = text.at + by;
+    }
 }
 
 pub struct FootprintMove;
@@ -631,8 +855,7 @@ pub struct FootprintMove;
 pub struct FootprintMoveParams {
     /// The open Footprint.
     pub footprint: Uuid,
-    /// Pads and graphics by UUID, and the Designator and value text as
-    /// `fd000000-0000-4000-8000-000000000001` and `…0002`.
+    /// Pads, graphics and texts by UUID.
     pub objects: Vec<Uuid>,
     pub by: PointParam,
 }
@@ -641,8 +864,7 @@ impl Command for FootprintMove {
     const META: Meta = meta(
         "library.footprint.move",
         "Move in Footprint",
-        "Moves any mix of an open Footprint's Pads, graphics and Designator and value text \
-         by `by`, in one step.",
+        "Moves any mix of an open Footprint's Pads, graphics and texts by `by`, in one step.",
     );
     type Params = FootprintMoveParams;
     type Output = ();
@@ -655,10 +877,8 @@ impl Command for FootprintMove {
         let by = p.by.point();
         edit_footprint(cx, p.footprint, |f| {
             for (i, uuid) in p.objects.iter().enumerate() {
-                if *uuid == DESIGNATOR_TEXT {
-                    f.designator.at = f.designator.at + by;
-                } else if *uuid == VALUE_TEXT {
-                    f.value.at = f.value.at + by;
+                if let Some(text) = f.texts.iter_mut().find(|t| t.uuid == *uuid) {
+                    text.at = text.at + by;
                 } else if let Some(pad) = f.pads.iter_mut().find(|pad| pad.uuid == *uuid) {
                     pad.at = pad.at + by;
                 } else if let Some(g) = f.graphics.iter_mut().find(|g| g.uuid == *uuid) {
@@ -674,7 +894,7 @@ impl Command for FootprintMove {
 
 fn not_in_footprint(index: usize, uuid: Uuid) -> CommandError {
     CommandError::not_found(format!(
-        "objects/{index}: the Footprint has no Pad or graphic {uuid}"
+        "objects/{index}: the Footprint has no Pad, graphic or text {uuid}"
     ))
 }
 
@@ -685,8 +905,7 @@ pub struct FootprintDelete;
 pub struct FootprintDeleteParams {
     /// The open Footprint.
     pub footprint: Uuid,
-    /// Pads and graphics by UUID, and the Designator and value text (as for
-    /// `library.footprint.move`), which are hidden rather than removed.
+    /// Pads, graphics and texts by UUID.
     pub objects: Vec<Uuid>,
 }
 
@@ -694,8 +913,7 @@ impl Command for FootprintDelete {
     const META: Meta = meta(
         "library.footprint.delete",
         "Delete in Footprint",
-        "Removes any mix of an open Footprint's Pads and graphics in one step. The \
-         Designator and value text cannot be removed, so they are hidden.",
+        "Removes any mix of an open Footprint's Pads, graphics and texts in one step.",
     );
     type Params = FootprintDeleteParams;
     type Output = ();
@@ -707,10 +925,8 @@ impl Command for FootprintDelete {
     fn run(&self, cx: &mut Context<'_>, p: FootprintDeleteParams) -> Result<(), CommandError> {
         edit_footprint(cx, p.footprint, |f| {
             for (i, uuid) in p.objects.iter().enumerate() {
-                if *uuid == DESIGNATOR_TEXT {
-                    f.designator.visible = false;
-                } else if *uuid == VALUE_TEXT {
-                    f.value.visible = false;
+                if f.texts.iter().any(|t| t.uuid == *uuid) {
+                    f.texts.retain(|t| t.uuid != *uuid);
                 } else if f.pads.iter().any(|pad| pad.uuid == *uuid) {
                     f.pads.retain(|pad| pad.uuid != *uuid);
                 } else if f.graphics.iter().any(|g| g.uuid == *uuid) {

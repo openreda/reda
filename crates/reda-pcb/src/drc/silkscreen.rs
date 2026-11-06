@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use reda_command::Fonts;
 use reda_model::geom::Point;
 use reda_model::{
-    DrcCheck, FootprintLayer, GraphicShape, LayerKind, PadKind, PcbDocument, Shape, Side, Uuid,
+    DrcCheck, FootprintLayer, GraphicShape, LayerKind, PcbDocument, Shape, Side, Uuid,
 };
 
 use super::placement::{corners, polyline};
@@ -83,9 +83,9 @@ fn openings(pcb: &PcbDocument) -> Vec<Opening> {
         };
         let frame = Frame::of(instance);
         for pad in &copy.footprint.pads {
-            let sides = match pad.kind {
-                PadKind::Smd => vec![frame.side(Side::Top)],
-                _ => both(),
+            let sides = match pad.copper_side() {
+                Some(side) => vec![frame.side(side)],
+                None => both(),
             };
             let margin = pad.mask_margin.map_or(0, |m| m.0.max(0));
             out.push(Opening {
@@ -96,9 +96,9 @@ fn openings(pcb: &PcbDocument) -> Vec<Opening> {
         }
     }
     for pad in pcb.free_pads() {
-        let sides = match (pad.kind, pad.side) {
-            (PadKind::Smd, Some(side)) => vec![side],
-            _ => both(),
+        let sides = match pad.form().copper_side() {
+            Some(side) => vec![side],
+            None => both(),
         };
         out.push(Opening {
             objects: vec![pad.uuid],

@@ -11,6 +11,13 @@ use crate::theme::DISABLED_ALPHA;
 
 /// The side of a toolbar or Active Bar button: a 24 px icon with 4 px around it.
 pub const BAR_BUTTON: f32 = 32.0;
+/// The side of a quick strip button in the top row, and the icon it holds: larger than
+/// the rest of the UI, as they are hit often and from a distance.
+pub const QUICK_BUTTON: f32 = 30.0;
+pub const QUICK_ICON: f32 = 22.0;
+/// The menu titles' and items' text size, and their button padding.
+pub const MENU_TEXT: f32 = 14.5;
+pub const MENU_PADDING: Vec2 = Vec2::new(8.0, 4.0);
 /// The gap between bar buttons.
 pub const BAR_SPACING: f32 = 2.0;
 /// The width a bar separator takes.

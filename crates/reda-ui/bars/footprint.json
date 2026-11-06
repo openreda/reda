@@ -1,14 +1,19 @@
 {
   "menus": [
     {
-      "id": "library",
-      "title": "menu-library",
+      "id": "file",
+      "title": "menu-file",
       "items": [
-        { "id": "library.save", "command": "library.element.save", "params": { "element": "$active_document" } },
-        { "id": "library.save_all", "command": "library.element.save" },
-        { "id": "library.check", "command": "library.check", "params": { "element": "$active_document" } },
-        "separator",
-        { "id": "library.close", "command": "library.element.close", "params": { "element": "$active_document" } }
+        { "id": "file.element_save", "command": "library.element.save", "params": { "element": "$active_document" } },
+        { "id": "file.element_save_all", "command": "library.element.save" },
+        { "id": "file.element_close", "command": "library.element.close", "params": { "element": "$active_document" } }
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "menu-tools",
+      "items": [
+        { "id": "tools.library_check", "command": "library.check", "params": { "element": "$active_document" } }
       ]
     },
     {
@@ -30,6 +35,9 @@
         { "id": "view.grid_cycle", "command": "view.grid.cycle", "params": { "document": "$active_document" } }
       ]
     }
+  ],
+  "toolbar": [
+    { "id": "toolbar.save", "command": "library.element.save", "params": { "element": "$active_document" }, "title": "toolbar-save", "icon": "save" }
   ],
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },

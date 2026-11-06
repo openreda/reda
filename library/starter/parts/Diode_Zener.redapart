@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"c65105d3-cc95-4903-b46f-e31225b3cb00","name":"Diode_Zener","component_type":"standard","symbol":"57ad0048-7b1b-4c99-a6ce-589f131c080d"},
+  "part": {"uuid":"c65105d3-cc95-4903-b46f-e31225b3cb00","name":"Diode_Zener","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"57ad0048-7b1b-4c99-a6ce-589f131c080d"},
   "footprints": [
     "994846c1-6dfb-48a2-babf-ae60f86398b2",
     "3bd53cfd-bcbc-4628-a910-226fbcc07db4"

@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "part": {"uuid":"a785152e-43cd-446a-b4db-4044e91e3761","name":"Button","component_type":"standard","symbol":"213962d8-cdc6-43ba-ad5f-738eeaed19f6"},
+  "part": {"uuid":"a785152e-43cd-446a-b4db-4044e91e3761","name":"Button","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"213962d8-cdc6-43ba-ad5f-738eeaed19f6"},
   "footprints": [
     "a2875459-87a5-4f15-97e9-6fef455c929e",
     "2cd4d46f-5827-4e37-a0e9-6b64a24b342d"

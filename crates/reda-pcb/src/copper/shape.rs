@@ -3,14 +3,15 @@
 //! Every piece of copper is a union of primitives, each a core (a segment, possibly of zero
 //! length, or a convex polygon) grown by a radius: a Track is a segment grown by half its
 //! width, a round Pad a point grown by its radius, a rectangular Pad a polygon grown by
-//! nothing, a rounded one a smaller polygon grown by its corner radius. The distance
+//! nothing, a rounded one a smaller polygon grown by its corner radius, and one with mixed corners
+//! the polygon through its corners with a disc in each rounded one. The distance
 //! between two primitives is the distance between their cores less both radii, so it is
 //! negative where they overlap and 0 where they touch.
 //!
 //! Orientation and intersection tests are exact in `i128`; distances are `f64`.
 
-use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{FootprintInstance, FreePad, Pad, PadShape, Side, TrackGeometry};
+use reda_model::geom::{CornerRect, Millideg, Nm, Point};
+use reda_model::{FootprintInstance, FreePad, Pad, Side, TrackGeometry};
 use rstar::AABB;
 
 pub(crate) type P = [i64; 2];
@@ -68,13 +69,7 @@ impl Shape {
 
     /// A Pad's copper as placed on the board by `instance`.
     pub fn pad(instance: &FootprintInstance, pad: &Pad) -> Shape {
-        let outline = PadOutline {
-            shape: pad.shape,
-            width: pad.width,
-            height: pad.height,
-            corner_radius: pad.corner_radius,
-        };
-        outline.placed(|p| {
+        outline_shape(&pad.outline(), |p| {
             let p = rotate(p, pad.rotation);
             board_point(instance, [p[0] + pad.at.x.0, p[1] + pad.at.y.0])
         })
@@ -82,13 +77,7 @@ impl Shape {
 
     /// A Free Pad's copper: it is drawn in board coordinates.
     pub fn free_pad(pad: &FreePad) -> Shape {
-        let outline = PadOutline {
-            shape: pad.shape,
-            width: pad.width,
-            height: pad.height,
-            corner_radius: pad.corner_radius,
-        };
-        outline.placed(|p| {
+        outline_shape(&pad.outline(), |p| {
             let p = rotate(p, pad.rotation);
             [p[0] + pad.at.x.0, p[1] + pad.at.y.0]
         })
@@ -130,38 +119,47 @@ impl Shape {
     }
 }
 
-/// The outline of a Pad in its own frame, centred on the origin.
-struct PadOutline {
-    shape: PadShape,
-    width: Nm,
-    height: Nm,
-    corner_radius: Option<Nm>,
-}
-
-impl PadOutline {
-    /// The Pad's copper with each core point moved onto the board by `place`.
-    fn placed(&self, place: impl Fn(P) -> P) -> Shape {
-        let (hw, hh) = (self.width.0 / 2, self.height.0 / 2);
-        let (core, radius) = match self.shape {
-            PadShape::Circle => (rect_core(0, 0), hw),
-            PadShape::Rect => (rect_core(hw, hh), 0),
-            PadShape::RoundedRect => {
-                let r = self.corner_radius.map_or(0, |r| r.0).clamp(0, hw.min(hh));
-                (rect_core(hw - r, hh - r), r)
-            }
-            PadShape::Oval => {
-                let r = hw.min(hh);
-                (rect_core(hw - r, hh - r), r)
-            }
+/// A Pad outline (in the Pad's frame) with each core point moved onto the board by
+/// `place`. Uniform corners make one rectangle grown by their radius; otherwise the
+/// outline is the polygon through its corners with a disc in each rounded one.
+fn outline_shape(outline: &CornerRect, place: impl Fn(P) -> P) -> Shape {
+    let (cx, cy) = (outline.center.x.0, outline.center.y.0);
+    let moved = |core: Core| match core {
+        Core::Seg(a, b) => Core::Seg(place([a[0] + cx, a[1] + cy]), place([b[0] + cx, b[1] + cy])),
+        Core::Poly(points) => Core::Poly(
+            points
+                .into_iter()
+                .map(|p| place([p[0] + cx, p[1] + cy]))
+                .collect(),
+        ),
+    };
+    let (hw, hh) = (outline.width.0 / 2, outline.height.0 / 2);
+    if let Some(r) = outline.uniform_radius() {
+        let r = r.0.clamp(0, hw.min(hh));
+        return Shape {
+            prims: vec![Prim {
+                core: moved(rect_core(hw - r, hh - r)),
+                radius: r,
+            }],
         };
-        let core = match core {
-            Core::Seg(a, b) => Core::Seg(place(a), place(b)),
-            Core::Poly(points) => Core::Poly(points.into_iter().map(place).collect()),
-        };
-        Shape {
-            prims: vec![Prim { core, radius }],
-        }
     }
+    let corners: Vec<P> = outline
+        .contour()
+        .iter()
+        .map(|v| place([v.x.0, v.y.0]))
+        .collect();
+    let mut prims = vec![Prim {
+        core: Core::Poly(corners),
+        radius: 0,
+    }];
+    prims.extend(outline.round_corners().into_iter().map(|(c, r)| {
+        let c = place([c.x.0, c.y.0]);
+        Prim {
+            core: Core::Seg(c, c),
+            radius: r.0,
+        }
+    }));
+    Shape { prims }
 }
 
 /// Copper closer than half a nanometre touches: coordinates are whole nanometres.

@@ -16,7 +16,7 @@ pub(crate) const NO_FUNCTION: &str = "";
 
 /// An aperture shape. Rotations are CCW and taken whole by the macros, so the writer needs
 /// no trigonometry.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Template {
     /// A disc of this diameter.
     Circle(Nm),
@@ -30,6 +30,37 @@ pub(crate) enum Template {
     RotOval(Nm, Nm, Millideg),
     /// A rounded rectangle (width, height, corner radius), turned by an angle.
     RoundRect(Nm, Nm, Nm, Millideg),
+    /// A shape of its own, written as a macro generated for it: a polygon with discs,
+    /// about the flash point, turned by an angle.
+    Shape(MacroShape),
+}
+
+/// The primitives of a generated macro: a filled polygon through `outline` (at least three
+/// points, counter-clockwise) and filled discs `(centre, diameter)`, all turned by
+/// `rotation` about the flash point.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct MacroShape {
+    pub outline: Vec<Point>,
+    pub discs: Vec<(Point, Nm)>,
+    pub rotation: Millideg,
+}
+
+impl MacroShape {
+    /// The macro body: an outline primitive, then a circle primitive per disc.
+    fn body(&self) -> String {
+        let rot = degrees(self.rotation);
+        let mut parts = Vec::new();
+        let mut outline = format!("4,1,{}", self.outline.len());
+        for p in self.outline.iter().chain(self.outline.first()) {
+            let _ = write!(outline, ",{},{}", mm(p.x), mm(p.y));
+        }
+        let _ = write!(outline, ",{rot}");
+        parts.push(outline);
+        for (c, d) in &self.discs {
+            parts.push(format!("1,1,{},{},{},{rot}", mm(*d), mm(c.x), mm(c.y)));
+        }
+        parts.join("*\n")
+    }
 }
 
 /// The aperture macros, written only when a file uses them.
@@ -51,7 +82,7 @@ const MACROS: [(&str, &str); 3] = [
 ];
 
 impl Template {
-    fn macro_name(self) -> Option<&'static str> {
+    fn macro_name(&self) -> Option<&'static str> {
         match self {
             Template::RotRect(..) => Some("RotRect"),
             Template::RotOval(..) => Some("RotOval"),
@@ -60,10 +91,12 @@ impl Template {
         }
     }
 
-    /// The `%AD` body after the D-code, such as `C,0.250000`.
-    fn definition(self) -> String {
+    /// The `%AD` body after the D-code, such as `C,0.250000`. A [`Template::Shape`] is
+    /// the name of its generated macro, `shape`.
+    fn definition(&self, shape: &str) -> String {
         let join = |name: &str, values: &[String]| format!("{name},{}", values.join("X"));
-        match self {
+        match *self {
+            Template::Shape(_) => shape.to_string(),
             Template::Circle(d) => join("C", &[mm(d)]),
             Template::Rect(w, h) => join("R", &[mm(w), mm(h)]),
             Template::Oval(w, h) => join("O", &[mm(w), mm(h)]),
@@ -201,7 +234,10 @@ impl Gerber {
     /// defining it on first use, and selects it.
     fn select(&mut self, template: Template, function: &'static str) {
         let next = 10 + self.order.len() as u32;
-        let code = *self.apertures.entry((template, function)).or_insert(next);
+        let code = *self
+            .apertures
+            .entry((template.clone(), function))
+            .or_insert(next);
         if code == next {
             self.order.push((template, function));
         }
@@ -383,12 +419,20 @@ impl Gerber {
                 let _ = writeln!(out, "%AM{name}*\n{body}*%");
             }
         }
+        // Generated macros are numbered in the order their apertures were first used.
+        let mut shapes = 0;
         for (i, (template, function)) in self.order.iter().enumerate() {
+            let mut name = String::new();
+            if let Template::Shape(shape) = template {
+                name = format!("Shape{shapes}");
+                shapes += 1;
+                let _ = writeln!(out, "%AM{name}*\n{}*%", shape.body());
+            }
             let tagged = self.x2 && *function != NO_FUNCTION;
             if tagged {
                 let _ = writeln!(out, "%TA.AperFunction,{function}*%");
             }
-            let _ = writeln!(out, "%ADD{}{}*%", 10 + i, template.definition());
+            let _ = writeln!(out, "%ADD{}{}*%", 10 + i, template.definition(&name));
             if tagged {
                 out.push_str("%TD*%\n");
             }

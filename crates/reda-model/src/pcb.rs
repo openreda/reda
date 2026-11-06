@@ -755,7 +755,7 @@ impl PcbDocument {
 
     fn check_free_pads(&self) -> Result<(), String> {
         for pad in self.free_pads.values() {
-            if let Some(problem) = pad.problem() {
+            if let Some((_, problem)) = pad.problem() {
                 return Err(format!("Free Pad {}: {problem}", pad.uuid));
             }
             if let Some(net) = pad.net

@@ -74,6 +74,8 @@ pub enum Edit {
     Visible(String, bool),
     /// Chooses the Footprint among the Part's alternates.
     Footprint(Uuid),
+    InBom(bool),
+    InCpl(bool),
     NotFitted(bool),
     /// Adds the selection's Nets to a Net Class, or takes them out when all are in it.
     NetClass(Uuid),
@@ -110,6 +112,8 @@ pub struct ComponentProperties {
     pub footprint: Shared<Option<Uuid>>,
     /// The alternates to choose from; empty unless every Component is the same Part.
     pub alternates: Vec<Alternate>,
+    pub in_bom: Shared<bool>,
+    pub in_cpl: Shared<bool>,
     pub not_fitted: Shared<bool>,
 }
 
@@ -220,6 +224,12 @@ impl Properties {
                 }
                 set.insert("footprint".into(), json!(footprint));
             }
+            Edit::InBom(in_bom) => {
+                set.insert("in_bom".into(), json!(in_bom));
+            }
+            Edit::InCpl(in_cpl) => {
+                set.insert("in_cpl".into(), json!(in_cpl));
+            }
             Edit::NotFitted(not_fitted) => {
                 set.insert("not_fitted".into(), json!(not_fitted));
             }
@@ -301,6 +311,8 @@ fn component_properties(project: &Project, objects: &[Object]) -> Option<Compone
         fields,
         footprint: Shared::of(units.iter().map(|(_, u)| u.footprint)).expect("not empty"),
         alternates: alternates(project, &units),
+        in_bom: Shared::of(units.iter().map(|(_, u)| u.in_bom)).expect("not empty"),
+        in_cpl: Shared::of(units.iter().map(|(_, u)| u.in_cpl)).expect("not empty"),
         not_fitted: Shared::of(units.iter().map(|(_, u)| u.not_fitted)).expect("not empty"),
     })
 }
@@ -335,6 +347,12 @@ fn footprint_command(
                 return None;
             }
             set.insert("footprint".into(), json!(footprint));
+        }
+        Edit::InBom(in_bom) => {
+            set.insert("in_bom".into(), json!(in_bom));
+        }
+        Edit::InCpl(in_cpl) => {
+            set.insert("in_cpl".into(), json!(in_cpl));
         }
         Edit::NotFitted(not_fitted) => {
             set.insert("not_fitted".into(), json!(not_fitted));
@@ -411,6 +429,8 @@ fn footprint_properties(project: &Project, objects: &[Object]) -> Option<Compone
         fields,
         footprint: Shared::of(chosen).expect("not empty"),
         alternates: synced.map_or_else(Vec::new, |units| alternates(project, &units)),
+        in_bom: Shared::of(footprints.iter().map(|f| f.in_bom)).expect("not empty"),
+        in_cpl: Shared::of(footprints.iter().map(|f| f.in_cpl)).expect("not empty"),
         not_fitted: Shared::of(footprints.iter().map(|f| f.not_fitted)).expect("not empty"),
     })
 }

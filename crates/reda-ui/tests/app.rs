@@ -95,7 +95,7 @@ fn the_new_project_form_creates_and_opens_a_project() {
     let mut h = harness(home.path());
     h.run();
 
-    // The toolbar's New Project button comes first; the Start page's last.
+    // The Start page's New Project button.
     h.get_all_by_label("New Project…").last().unwrap().click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "Name")
@@ -774,17 +774,26 @@ fn snapshot_of_the_footprint_editor() {
                              "end": {"x": "4mm", "y": "2mm"}}}),
         )
         .unwrap();
+    let uuid = fp.as_str().unwrap().parse().unwrap();
+    let text = |shell: &Shell, field: &str| match shell.engine().element(uuid) {
+        Some(reda_ui::engine::model::LibraryElement::Footprint(f)) => {
+            f.texts.iter().find(|t| t.field == field).unwrap().uuid
+        }
+        _ => panic!("the Footprint is open"),
+    };
+    let designator = text(shell, "Designator");
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "designator", "at": {"x": 0, "y": "3mm"}}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": designator, "at": {"x": 0, "y": "3mm"}}),
         )
         .unwrap();
+    let value = text(shell, "Value");
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "value", "at": {"x": 0, "y": "-3mm"},
-                   "size": "0.6mm"}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": value, "at": {"x": 0, "y": "-3mm"},
+                   "height": "0.6mm"}),
         )
         .unwrap();
     shell

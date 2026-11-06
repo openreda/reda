@@ -1,13 +1,16 @@
 {
   "format": 1,
   "footprint": {"uuid":"8cef86d0-5480-4597-8542-ac0c2cbd9774","name":"MountingHole_M3_Pad","description":"Mounting hole for M3, 3.2 mm plated, 5.5 mm copper ring. Hole per ISO 273 fine, head per ISO 4762"},
-  "text": {"designator":{"at":{"x":0,"y":4050000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"53d1a70a-887f-4505-b6b5-1a1f06a1dd0d","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3200000,"height":3200000}}
+    {"uuid":"2006a74a-2b8a-4eb2-bf0f-eb2847ea7dfd","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3200000,"height":3200000}}
   ],
   "graphics": [
-    {"uuid":"2006a74a-2b8a-4eb2-bf0f-eb2847ea7dfd","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
-    {"uuid":"75707370-d04e-4984-add4-0395b0cb1b80","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000},
-    {"uuid":"9eb235d7-3abc-4cb0-b640-f67448fcb6e0","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":120000}
+    {"uuid":"75707370-d04e-4984-add4-0395b0cb1b80","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":120000},
+    {"uuid":"9eb235d7-3abc-4cb0-b640-f67448fcb6e0","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
+    {"uuid":"d764bb9b-b9e4-42e6-ba3c-22db19dfbbc4","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"53d1a70a-887f-4505-b6b5-1a1f06a1dd0d","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
+    {"uuid":"b959b391-ba71-4253-8244-8bf4c90a5061","field":"Designator","at":{"x":0,"y":4050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

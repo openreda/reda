@@ -4,8 +4,8 @@
 use std::collections::BTreeMap;
 
 use reda_model::{
-    ComponentRef, DocumentKind, Fields, FootprintCopy, FootprintInstance, PcbDocument, PinMap,
-    Project, Uuid,
+    ComponentRef, ComponentType, DocumentKind, Fields, FootprintCopy, FootprintInstance,
+    PcbDocument, PinMap, Project, Uuid,
 };
 use reda_schematic::natural_cmp;
 
@@ -21,6 +21,9 @@ pub(crate) struct SchComponent {
     pub(crate) sheet_index: usize,
     pub(crate) designator: String,
     pub(crate) fields: Fields,
+    pub(crate) component_type: ComponentType,
+    pub(crate) in_bom: bool,
+    pub(crate) in_cpl: bool,
     pub(crate) not_fitted: bool,
     /// The chosen Footprint, as its sheet copied it.
     pub(crate) copy: FootprintCopy,
@@ -89,6 +92,9 @@ impl Components {
                     sheet_index,
                     designator: unit.designator.clone(),
                     fields: unit.fields.clone(),
+                    component_type: unit.component_type,
+                    in_bom: unit.in_bom,
+                    in_cpl: unit.in_cpl,
                     not_fitted: unit.not_fitted,
                     copy: copy.clone(),
                     pin_map: entry.part.pin_map.clone(),
@@ -179,6 +185,45 @@ impl Components {
                         designator: c.designator.clone(),
                         from: instance.fields.clone(),
                         to: c.fields.clone(),
+                    },
+                });
+            }
+            if instance.component_type != c.component_type {
+                data.push(Change {
+                    id: change_id("component_type", &[&key]),
+                    requires: vec![],
+                    change: ChangeKind::ComponentType {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.component_type,
+                        to: c.component_type,
+                    },
+                });
+            }
+            if instance.in_bom != c.in_bom {
+                data.push(Change {
+                    id: change_id("in_bom", &[&key]),
+                    requires: vec![],
+                    change: ChangeKind::InBom {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.in_bom,
+                        to: c.in_bom,
+                    },
+                });
+            }
+            if instance.in_cpl != c.in_cpl {
+                data.push(Change {
+                    id: change_id("in_cpl", &[&key]),
+                    requires: vec![],
+                    change: ChangeKind::InCpl {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.in_cpl,
+                        to: c.in_cpl,
                     },
                 });
             }

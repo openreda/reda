@@ -109,8 +109,9 @@ impl Command for ToolPlace {
             Target::Board => {
                 if copy.part.component_type != ComponentType::Mechanical {
                     return Err(CommandError::rejected(format!(
-                        "{} is a Standard Part: it reaches the board through Sync",
-                        copy.part.name
+                        "{} is a {} Part: it reaches the board through Sync",
+                        copy.part.name,
+                        copy.part.component_type.name()
                     )));
                 }
             }

@@ -51,6 +51,10 @@ pub struct PartHit {
     pub uuid: Uuid,
     pub name: String,
     pub component_type: ComponentType,
+    /// Whether its Components go into the BOM, by default.
+    pub in_bom: bool,
+    /// Whether its Components go into the CPL, by default.
+    pub in_cpl: bool,
     pub symbol: Option<Uuid>,
     /// The alternate Footprints, the default first.
     pub footprints: Vec<Uuid>,
@@ -106,6 +110,8 @@ impl Command for LibrarySearch {
                 uuid: hit.part.uuid,
                 name: hit.part.name.clone(),
                 component_type: hit.part.component_type,
+                in_bom: hit.part.in_bom,
+                in_cpl: hit.part.in_cpl,
                 symbol: hit.part.symbol,
                 footprints: hit.part.footprints.clone(),
                 fields: hit.part.fields.clone(),

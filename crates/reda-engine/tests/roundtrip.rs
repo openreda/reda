@@ -337,11 +337,18 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             locked: flag,
             designator,
             fields: Default::default(),
+            component_type: if flag {
+                ComponentType::NetTie
+            } else {
+                ComponentType::Mechanical
+            },
+            in_bom: flag,
+            in_cpl: !flag,
             not_fitted: !flag,
             designator_text: flag.then_some(FootprintText {
                 rotation: Millideg(270_000),
                 visible: false,
-                ..FootprintText::DESIGNATOR
+                ..FootprintText::designator(Uuid::v4_from_bits(seed.base ^ 11))
             }),
             pads,
         };
@@ -360,13 +367,14 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             rotation: Millideg(if flag { 45_000 } else { 0 }),
             width: Nm(3_000_000),
             height: Nm(3_000_000),
-            corner_radius: None,
-            hole: flag.then_some(Hole {
-                width: Nm(1_000_000),
-                height: Nm(1_000_000),
-            }),
+            corner_ratio: None,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
+            hole: flag.then_some(Hole::new(Nm(1_000_000), Nm(1_000_000))),
             side: (!flag).then_some(Side::Bottom),
             net: if flag { nets.first().copied() } else { None },
+            zone_connection: None,
         };
         objects.push(Object::FreePad(InDocument::new(doc, free_pad)));
         objects.push(Object::PlacementOrigin(InDocument::new(
@@ -551,7 +559,7 @@ prop_compose! {
 
 const SYMBOL: &str = r#"{"format":1,"symbol":{"uuid":"a0000000-0000-4000-8000-000000000010","name":"R","designator_prefix":"R"},"units":[{"uuid":"a0000000-0000-4000-8000-000000000011","name":"A"}],"pins":[{"uuid":"a0000000-0000-4000-8000-000000000012","unit":"a0000000-0000-4000-8000-000000000011","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000}]}"#;
 const FOOTPRINT: &str = r#"{"format":1,"footprint":{"uuid":"a0000000-0000-4000-8000-000000000040","name":"R_0603"},"pads":[{"uuid":"a0000000-0000-4000-8000-000000000041","number":"1","kind":"smd","shape":"rect","at":{"x":-800000,"y":0},"rotation":0,"width":800000,"height":950000}]}"#;
-const PART: &str = r#"{"format":1,"part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040"],"fields":{"value":"10k"},"pin_map":{"unconnected":["2"]}}"#;
+const PART: &str = r#"{"format":1,"part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040"],"fields":{"value":"10k"},"pin_map":{"unconnected":["2"]}}"#;
 
 /// What a Schematic Sheet holds besides its entry: an optional frame and an optional
 /// placed Component. Its UUIDs are `base`, `base + 1`, …
@@ -617,6 +625,8 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             fields: entry.part.fields.clone(),
             footprint: entry.part.footprints.first().copied(),
             component_type: ComponentType::Standard,
+            in_bom: !mirror,
+            in_cpl: mirror,
             not_fitted: mirror,
             visible_fields: if mirror {
                 ["designator".to_owned(), "LCSC".to_owned()].into()

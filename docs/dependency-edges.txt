@@ -57,7 +57,7 @@ reda-library -> serde_json
 reda-model -> reda-geom
 reda-model -> schemars
 reda-model -> serde
-reda-model -> serde_json [dev]
+reda-model -> serde_json
 reda-output -> reda-command
 reda-output -> reda-model
 reda-output -> reda-pcb

@@ -359,6 +359,50 @@ fn a_component_without_a_footprint_only_warns_even_when_the_job_writes_a_bom_and
     assert!(erc["args"]["count"].as_i64().unwrap() >= 1);
 }
 
+/// [`footprintless`] with its Logic Part retyped `component_type`, from a copy of the
+/// Library.
+fn footprintless_of_type(dir: &TempDir, component_type: &str) -> TestEngine {
+    let library = dir.path().join("Erc");
+    for (rel, bytes) in reda_testkit::read_tree(&erc_library()) {
+        let path = library.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    }
+    let part = library.join("parts/Logic.redapart");
+    let text = std::fs::read_to_string(&part).unwrap().replace(
+        "\"component_type\":\"standard\"",
+        &format!("\"component_type\":\"{component_type}\""),
+    );
+    std::fs::write(&part, text).unwrap();
+    let mut engine = test_engine_with_library(&library);
+    new_project(&mut engine, dir);
+    engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": "a0000000-0000-4000-8000-000000000210",
+               "at": {"x": 0, "y": 0}}),
+    );
+    engine
+}
+
+#[test]
+fn a_net_tie_without_a_footprint_warns_and_a_mechanical_part_does_not() {
+    let unassigned = |engine: &mut TestEngine| {
+        run(engine)["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|w| w["check"] == "unassigned_footprint")
+            .count()
+    };
+    let dir = TempDir::new("output-net-tie-no-footprint");
+    assert_eq!(unassigned(&mut footprintless_of_type(&dir, "net_tie")), 1);
+    let dir = TempDir::new("output-mechanical-no-footprint");
+    assert_eq!(
+        unassigned(&mut footprintless_of_type(&dir, "mechanical")),
+        0
+    );
+}
+
 #[test]
 fn drc_errors_only_warn() {
     let dir = TempDir::new("output-drc");

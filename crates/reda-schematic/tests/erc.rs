@@ -417,6 +417,16 @@ fn units_of_one_component_with_differing_data_are_a_mismatch() {
     assert_eq!(found[0]["severity"], "error");
     assert_eq!(found[0]["args"]["differs"], "value");
     assert_eq!(sorted(strings(&found[0]["objects"])), sorted(vec![a, b]));
+
+    // In BOM and In CPL are Component data too.
+    let mut reopened = hand_edit(&mut engine, &dir, |text| {
+        let on = "\"in_bom\":true,\"in_cpl\":true";
+        let at = text.rfind(on).unwrap();
+        let off = "\"in_bom\":false,\"in_cpl\":false";
+        format!("{}{off}{}", &text[..at], &text[at + on.len()..])
+    });
+    let found = of(&erc(&mut reopened), "unit_data_mismatch");
+    assert_eq!(found[0]["args"]["differs"], "in_bom, in_cpl");
 }
 
 #[test]

@@ -39,26 +39,38 @@
         { "id": "place.placement_origin", "command": "tool.activate:placement_origin" },
         "separator",
         { "id": "place.user_origin", "command": "tool.activate:user_origin" },
-        { "id": "place.user_origin_reset", "command": "pcb.view.origin.set", "title": "pcb-user-origin-reset" },
-        { "id": "place.measure", "command": "tool.activate:measure" }
+        { "id": "place.user_origin_reset", "command": "pcb.view.origin.set", "title": "pcb-user-origin-reset" }
       ]
     },
     {
       "id": "design",
       "title": "menu-design",
       "items": [
-        { "id": "design.sync", "command": "app.dialog.open:change_list" },
+        { "id": "design.drc", "command": "drc.run" }
+      ]
+    },
+    {
+      "id": "route",
+      "title": "menu-route",
+      "items": [
+        { "id": "route.track", "command": "tool.activate:route" },
+        { "id": "route.via", "command": "tool.activate:via" },
         "separator",
-        { "id": "design.zone_fill", "command": "pcb.zone.fill" },
-        { "id": "design.ratsnest", "command": "pcb.ratsnest" }
+        { "id": "route.zone_fill", "command": "pcb.zone.fill" },
+        { "id": "route.ratsnest", "command": "pcb.ratsnest" }
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "menu-tools",
+      "items": [
+        { "id": "tools.measure", "command": "tool.activate:measure" }
       ]
     }
   ],
   "toolbar": [
-    { "id": "toolbar.zone_fill", "command": "pcb.zone.fill" },
-    "separator",
-    { "id": "toolbar.from_bottom", "command": "pcb.view.from_bottom" },
-    { "id": "toolbar.units", "command": "view.units.toggle" }
+    { "id": "toolbar.units", "command": "view.units.toggle" },
+    { "id": "toolbar.from_bottom", "command": "pcb.view.from_bottom" }
   ],
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },

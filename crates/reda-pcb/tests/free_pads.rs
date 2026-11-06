@@ -5,7 +5,7 @@ mod common;
 use common::{PCB, SHEET, created, engine, pcb, synced};
 use reda_command::ErrorCode;
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{Hole, PadKind, PadShape, Side, Uuid};
+use reda_model::{ConnectionStyle, Corner, Hole, PadKind, PadShape, Ratio, Side, Uuid};
 use reda_testkit::{TempDir, TestEngine};
 use serde_json::json;
 
@@ -46,10 +46,7 @@ fn a_plated_free_pad_goes_on_a_net() {
     assert_eq!((pad.width, pad.height), (Nm::from_mm(6), Nm::from_mm(6)));
     assert_eq!(
         pad.hole,
-        Some(Hole {
-            width: Nm::from_um(3200),
-            height: Nm::from_um(3200)
-        })
+        Some(Hole::new(Nm::from_um(3200), Nm::from_um(3200)))
     );
     assert_eq!(pad.side, None);
     assert_eq!(pad.net, Some(sig));
@@ -74,7 +71,8 @@ fn smd_and_non_plated_free_pads() {
                "height": "1mm", "rotation": "45deg"}),
     );
     let smd_top = pcb(&engine).free_pad(created(&smd_top)).unwrap();
-    assert_eq!(smd_top.side, Some(Side::Top), "SMD Pads default to the top");
+    assert_eq!(smd_top.side, None, "SMD Pads default to the top, left out");
+    assert_eq!(smd_top.form().copper_side(), Some(Side::Top));
     assert_eq!(smd_top.rotation, Millideg::from_deg(45));
 
     let hole = engine.run_ok(
@@ -198,6 +196,62 @@ fn free_pads_move_turn_flip_and_delete() {
 }
 
 #[test]
+fn a_free_pad_has_the_whole_pad_model_and_flipping_mirrors_it() {
+    let dir = TempDir::new("free-pad-model");
+    let mut engine = engine(&dir);
+    let pad = created(&engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "plated_through_hole", "shape": "chamfered_rect",
+               "at": {"x": "10mm", "y": "0mm"}, "width": "3mm", "height": "2mm",
+               "chamfer_ratio": "50%", "corner_ratio": 20_000, "corners": ["top_right"],
+               "offset": {"x": "0.5mm", "y": 0},
+               "hole": {"width": "1.2mm", "height": "0.6mm", "rotation": "30deg",
+                        "tolerance": {"plus": "0.05mm", "minus": "0.05mm"}},
+               "zone_connection": {"style": "solid"}}),
+    ));
+    let stored = pcb(&engine).free_pad(pad).unwrap().clone();
+    assert_eq!(stored.chamfer_ratio, Some(Ratio::percent(50)));
+    assert_eq!(stored.corner_ratio, Some(Ratio::percent(20)));
+    assert_eq!(
+        stored.corners,
+        Some([Corner::TopRight].into_iter().collect())
+    );
+    assert_eq!(stored.offset, Some(Point::new(Nm::from_um(500), Nm(0))));
+    let hole = stored.hole.unwrap();
+    assert_eq!(hole.rotation, Millideg::from_deg(30));
+    assert_eq!(hole.tolerance.unwrap().plus, Nm::from_um(50));
+    assert_eq!(
+        stored.zone_connection.unwrap().style,
+        Some(ConnectionStyle::Solid)
+    );
+
+    engine.run_ok("pcb.flip", json!({"objects": [pad]}));
+    let flipped = pcb(&engine).free_pad(pad).unwrap();
+    assert_eq!(
+        flipped.corners,
+        Some([Corner::TopLeft].into_iter().collect())
+    );
+    assert_eq!(flipped.offset, Some(Point::new(Nm::from_um(-500), Nm(0))));
+    assert_eq!(flipped.hole.unwrap().rotation, Millideg::from_deg(150));
+
+    let smd = created(&engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "at": {"x": 0, "y": 0}, "width": "1mm"}),
+    ));
+    engine.run_ok("pcb.flip", json!({"objects": [smd]}));
+    assert_eq!(pcb(&engine).free_pad(smd).unwrap().side, Some(Side::Bottom));
+    engine.run_ok("pcb.flip", json!({"objects": [smd]}));
+    assert_eq!(pcb(&engine).free_pad(smd).unwrap().side, None);
+
+    let err = engine.run_err(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "shape": "chamfered_rect", "at": {"x": 0, "y": 0},
+               "width": "1mm"}),
+    );
+    assert_eq!(err.details.unwrap()["pointer"], "/chamfer_ratio");
+}
+
+#[test]
 fn the_placement_origin_is_optional_and_single() {
     let dir = TempDir::new("placement-origin");
     let mut engine = engine(&dir);
@@ -237,7 +291,7 @@ fn free_pads_and_the_placement_origin_survive_save_and_open() {
         "pcb.free_pad.add",
         json!({"kind": "plated_through_hole", "shape": "rounded_rect",
                "at": {"x": "3mm", "y": "4mm"}, "width": "3mm", "height": "2mm",
-               "corner_radius": "0.5mm", "hole": {"width": "1mm", "height": "1.5mm"},
+               "corner_ratio": "50%", "hole": {"width": "1mm", "height": "1.5mm"},
                "rotation": "90deg", "net": sig}),
     ));
     engine.run_ok(

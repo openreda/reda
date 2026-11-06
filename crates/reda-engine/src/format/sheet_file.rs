@@ -61,14 +61,14 @@
 use std::path::Path;
 
 use reda_model::{
-    Fields, FootprintCopy, FootprintGraphic, InDocument, NetLabel, NoConnect, Object, Pad,
-    PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet, SheetFrame, SheetGraphic,
-    SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Waiver, Wire,
+    Fields, FootprintCopy, FootprintGraphic, FootprintText, InDocument, NetLabel, NoConnect,
+    Object, Pad, PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet, SheetFrame,
+    SheetGraphic, SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Waiver, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::library::{FootprintRow, FootprintTexts, PartRow, SymbolRow, sorted};
+use super::library::{FootprintRow, PartRow, SymbolRow, sorted};
 use super::{FORMAT, FileKind, LoadError, parse};
 use crate::canonical::{CanonicalError, CanonicalWriter};
 
@@ -167,9 +167,9 @@ pub(crate) struct FootprintCopyRow {
     /// Where the Footprint was imported from, as in a `.redafp` file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     provenance: Option<Box<Provenance>>,
-    text: FootprintTexts,
     pads: Vec<Pad>,
     graphics: Vec<FootprintGraphic>,
+    texts: Vec<FootprintText>,
 }
 
 impl FootprintCopyRow {
@@ -179,9 +179,9 @@ impl FootprintCopyRow {
             hash: c.hash.clone(),
             footprint: FootprintRow::of(&c.footprint),
             provenance: c.footprint.provenance.clone(),
-            text: FootprintTexts::of(&c.footprint),
             pads: c.footprint.pads.clone(),
             graphics: c.footprint.graphics.clone(),
+            texts: c.footprint.texts.clone(),
         }
     }
 
@@ -194,7 +194,7 @@ impl FootprintCopyRow {
         let uuid = self.uuid;
         let footprint = self
             .footprint
-            .into_footprint(self.text, self.pads, self.graphics, self.provenance)
+            .into_footprint(self.pads, self.graphics, self.texts, self.provenance)
             .map_err(|e| format!("Footprint copy {uuid}: {e}"))?;
         Ok(FootprintCopy {
             uuid,
@@ -229,7 +229,12 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
     // A sheet with no Components keeps the short form of an empty sheet.
     if sheet.parts().next().is_some() || sheet.units().next().is_some() {
         w.containers_spread("parts", parts, |r| r.uuid, &["units", "pins", "graphics"])?;
-        w.containers_spread("footprints", footprints, |r| r.uuid, &["pads", "graphics"])?;
+        w.containers_spread(
+            "footprints",
+            footprints,
+            |r| r.uuid,
+            &["pads", "graphics", "texts"],
+        )?;
         w.table("units", sheet.units(), |u| u.uuid)?;
     }
     if sheet.wires().next().is_some() {

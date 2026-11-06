@@ -173,6 +173,15 @@ impl<'c, 'e> Applier<'c, 'e> {
                 ChangeKind::Fields { instance, to, .. } => {
                     self.instance(*instance).fields = to.clone();
                 }
+                ChangeKind::ComponentType { instance, to, .. } => {
+                    self.instance(*instance).component_type = *to;
+                }
+                ChangeKind::InBom { instance, to, .. } => {
+                    self.instance(*instance).in_bom = *to;
+                }
+                ChangeKind::InCpl { instance, to, .. } => {
+                    self.instance(*instance).in_cpl = *to;
+                }
                 ChangeKind::NotFitted { instance, to, .. } => {
                     self.instance(*instance).not_fitted = *to;
                 }
@@ -330,6 +339,9 @@ impl<'c, 'e> Applier<'c, 'e> {
             locked: false,
             designator: c.designator.clone(),
             fields: c.fields.clone(),
+            component_type: c.component_type,
+            in_bom: c.in_bom,
+            in_cpl: c.in_cpl,
             not_fitted: c.not_fitted,
             designator_text: None,
             pads: blank_pads(&copy),

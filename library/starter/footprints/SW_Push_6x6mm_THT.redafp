@@ -1,20 +1,23 @@
 {
   "format": 1,
   "footprint": {"uuid":"a2875459-87a5-4f15-97e9-6fef455c929e","name":"SW_Push_6x6mm_THT","description":"Tactile switch, 6 × 6 mm, through-hole. Per Omron B3F datasheet, PCB Processing Dimensions"},
-  "text": {"designator":{"at":{"x":0,"y":4200000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"3cc41757-3443-4d73-95d8-e897615aafeb","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":-3250000,"y":-2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
-    {"uuid":"585692db-8da7-4183-8998-b05df0a9f6d4","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":3250000,"y":-2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
-    {"uuid":"a39b7ab3-b7e1-46e2-8a10-0f68fb1f2b27","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":-3250000,"y":2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
-    {"uuid":"ee96e5ab-045b-458f-a940-7ae51dc5573c","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":3250000,"y":2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}}
+    {"uuid":"3cc41757-3443-4d73-95d8-e897615aafeb","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":3250000,"y":2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
+    {"uuid":"585692db-8da7-4183-8998-b05df0a9f6d4","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":-3250000,"y":-2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
+    {"uuid":"ee96e5ab-045b-458f-a940-7ae51dc5573c","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":-3250000,"y":2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
+    {"uuid":"ef218b7b-9252-41e4-b88d-efcf82a202ee","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":3250000,"y":-2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}}
   ],
   "graphics": [
-    {"uuid":"727470ef-519b-4682-9bfa-fd5f67693bff","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":3060000,"y":-1000000},"end":{"x":3060000,"y":1000000}},"width":120000},
-    {"uuid":"733b826a-d2a7-45f0-9fca-068d29dea436","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4400000,"y":-3400000},"end":{"x":4400000,"y":3400000}},"width":50000},
-    {"uuid":"cceb58cf-8499-44a3-abd8-622a1a9c5323","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1750000},"width":100000},
-    {"uuid":"d30f9c56-ab2a-4caf-910e-3a8611a77149","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":-3060000},"end":{"x":2000000,"y":-3060000}},"width":120000},
-    {"uuid":"ef218b7b-9252-41e4-b88d-efcf82a202ee","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3000000,"y":-3000000},"end":{"x":3000000,"y":3000000}},"width":100000},
-    {"uuid":"ef6e32dd-62be-42b1-a809-f812fb156174","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":3060000},"end":{"x":2000000,"y":3060000}},"width":120000},
-    {"uuid":"fd71fd78-c7d2-49af-813a-f5a53aa6322f","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3060000,"y":-1000000},"end":{"x":-3060000,"y":1000000}},"width":120000}
+    {"uuid":"727470ef-519b-4682-9bfa-fd5f67693bff","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3060000,"y":-1000000},"end":{"x":-3060000,"y":1000000}},"width":120000},
+    {"uuid":"733b826a-d2a7-45f0-9fca-068d29dea436","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":3060000},"end":{"x":2000000,"y":3060000}},"width":120000},
+    {"uuid":"cceb58cf-8499-44a3-abd8-622a1a9c5323","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3000000,"y":-3000000},"end":{"x":3000000,"y":3000000}},"width":100000},
+    {"uuid":"d30f9c56-ab2a-4caf-910e-3a8611a77149","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":3060000,"y":-1000000},"end":{"x":3060000,"y":1000000}},"width":120000},
+    {"uuid":"e6039dae-bcfe-4ca9-9168-70395d983392","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4400000,"y":-3400000},"end":{"x":4400000,"y":3400000}},"width":50000},
+    {"uuid":"ef6e32dd-62be-42b1-a809-f812fb156174","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":-3060000},"end":{"x":2000000,"y":-3060000}},"width":120000},
+    {"uuid":"fd71fd78-c7d2-49af-813a-f5a53aa6322f","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1750000},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"4cd83cc3-e2f7-467e-aedb-8efbdc51a4cb","field":"Designator","at":{"x":0,"y":4200000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"a39b7ab3-b7e1-46e2-8a10-0f68fb1f2b27","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

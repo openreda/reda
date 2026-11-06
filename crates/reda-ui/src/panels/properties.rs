@@ -166,15 +166,47 @@ fn component_section(ui: &mut Ui, component: &ComponentProperties, edits: &mut V
             ui.end_row();
         });
 
-    let mixed = component.not_fitted == Shared::Mixed;
-    let mut not_fitted = component.not_fitted.same().copied().unwrap_or(false);
-    let response =
-        ui.add(Checkbox::new(&mut not_fitted, tr!("properties-not-fitted")).indeterminate(mixed));
-    if response.clicked() {
-        edits.push(Edit::NotFitted(not_fitted));
-    }
+    flag(
+        ui,
+        &component.in_bom,
+        tr!("properties-in-bom"),
+        Edit::InBom,
+        edits,
+    );
+    flag(
+        ui,
+        &component.in_cpl,
+        tr!("properties-in-cpl"),
+        Edit::InCpl,
+        edits,
+    );
+    flag(
+        ui,
+        &component.not_fitted,
+        tr!("properties-not-fitted"),
+        Edit::NotFitted,
+        edits,
+    );
 
     new_field(ui, edits);
+}
+
+/// A Component flag's tick box, indeterminate while the selection is mixed.
+fn flag(
+    ui: &mut Ui,
+    value: &Shared<bool>,
+    label: String,
+    edit: fn(bool) -> Edit,
+    edits: &mut Vec<Edit>,
+) {
+    let mixed = *value == Shared::Mixed;
+    let mut on = value.same().copied().unwrap_or(false);
+    if ui
+        .add(Checkbox::new(&mut on, label).indeterminate(mixed))
+        .clicked()
+    {
+        edits.push(edit(on));
+    }
 }
 
 fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec<Edit>) {

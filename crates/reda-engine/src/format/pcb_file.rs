@@ -193,7 +193,7 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
             "footprint_copies",
             copies,
             FootprintCopyRow::uuid,
-            &["pads", "graphics"],
+            &["pads", "graphics", "texts"],
         )?;
         w.containers("footprints", pcb.footprints(), |f| f.uuid, "pads")?;
     }

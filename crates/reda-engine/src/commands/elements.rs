@@ -111,7 +111,10 @@ impl Command for ElementNew {
         p: ElementNewParams,
     ) -> Result<ElementSummary, CommandError> {
         check_element_name(&p.name).map_err(|why| CommandError::invalid_params("/name", why))?;
-        let (uuid, unit) = (cx.new_id(), cx.new_id());
+        // A Symbol's second UUID is its Unit's; a Footprint's second and third are its
+        // Designator and value texts'.
+        let (uuid, second) = (cx.new_id(), cx.new_id());
+        let third = (p.kind == ElementKind::Footprint).then(|| cx.new_id());
         let session = cx.session()?;
         let index = scan_registered(session);
         let library = index.library(p.library).ok_or_else(|| {
@@ -133,7 +136,7 @@ impl Command for ElementNew {
                 path.display()
             )));
         }
-        let element = new_element(p.kind, uuid, unit, p.name);
+        let element = new_element(p.kind, uuid, (second, third), p.name);
         let source = ElementSource {
             library: p.library,
             read_only: false,
@@ -148,7 +151,14 @@ impl Command for ElementNew {
     }
 }
 
-fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> LibraryElement {
+/// A new, empty element of `kind`: a Symbol with one Unit (UUID `ids.0`), or a Footprint
+/// with a Designator and a value text (UUIDs `ids.0` and `ids.1`).
+fn new_element(
+    kind: ElementKind,
+    uuid: Uuid,
+    ids: (Uuid, Option<Uuid>),
+    name: String,
+) -> LibraryElement {
     match kind {
         ElementKind::Symbol => LibraryElement::Symbol(Symbol {
             uuid,
@@ -156,27 +166,37 @@ fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> Libra
             description: String::new(),
             designator_prefix: "U".into(),
             units: vec![Unit {
-                uuid: unit,
+                uuid: ids.0,
                 name: "A".into(),
             }],
             pins: vec![],
             graphics: vec![],
             provenance: None,
         }),
-        ElementKind::Footprint => LibraryElement::Footprint(Footprint {
-            uuid,
-            name,
-            description: String::new(),
-            pads: vec![],
-            graphics: vec![],
-            designator: FootprintText::DESIGNATOR,
-            value: FootprintText::VALUE,
-            provenance: None,
-        }),
+        ElementKind::Footprint => {
+            let mut texts = vec![
+                FootprintText::designator(ids.0),
+                FootprintText::value(ids.1.unwrap_or(Uuid::NIL)),
+            ];
+            texts.sort_by_key(|t| t.uuid);
+            LibraryElement::Footprint(Footprint {
+                uuid,
+                name,
+                description: String::new(),
+                height: None,
+                pads: vec![],
+                graphics: vec![],
+                texts,
+                generator: None,
+                provenance: None,
+            })
+        }
         ElementKind::Part => LibraryElement::Part(Part {
             uuid,
             name,
             component_type: ComponentType::Standard,
+            in_bom: ComponentType::Standard.default_in_bom(),
+            in_cpl: ComponentType::Standard.default_in_cpl(),
             symbol: None,
             footprints: vec![],
             fields: Fields::default(),

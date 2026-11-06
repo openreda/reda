@@ -1,14 +1,17 @@
 {
   "format": 1,
   "footprint": {"uuid":"a98b17f8-5ccd-4961-80a0-035239726052","name":"LED_THT_D5.0mm_P2.54mm","description":"LED, 5 mm round, leads 2.54 mm apart"},
-  "text": {"designator":{"at":{"x":0,"y":4070000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}},
-    {"uuid":"d1525900-8215-470d-90a8-caf671d62058","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}}
+    {"uuid":"74141d46-6319-4f05-9e44-f274e2e07c2f","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}},
+    {"uuid":"d1525900-8215-470d-90a8-caf671d62058","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}}
   ],
   "graphics": [
-    {"uuid":"1364b159-c76e-47f8-b56f-577f1a2f81d5","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2960000},"width":120000},
-    {"uuid":"4be44faa-f0e0-4de9-8817-e4d5dea6a581","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3270000,"y":-3270000},"end":{"x":3270000,"y":3270000}},"width":50000},
-    {"uuid":"74141d46-6319-4f05-9e44-f274e2e07c2f","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":100000}
+    {"uuid":"1364b159-c76e-47f8-b56f-577f1a2f81d5","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":100000},
+    {"uuid":"4be44faa-f0e0-4de9-8817-e4d5dea6a581","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2960000},"width":120000},
+    {"uuid":"bdc21574-3d46-486e-bf88-31dfd8d4b582","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3270000,"y":-3270000},"end":{"x":3270000,"y":3270000}},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"032141cd-ebdf-4466-b6fe-393be90bd26f","field":"Designator","at":{"x":0,"y":4070000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

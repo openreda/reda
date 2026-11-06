@@ -1,11 +1,13 @@
 {
   "format": 1,
   "footprint": {"uuid":"00000040-0000-4000-8000-000000000000","name":"MountingHole_M3","description":"3.2 mm non-plated hole"},
-  "text": {"designator":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
     {"uuid":"00000041-0000-4000-8000-000000000000","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000},"mask_margin":50000}
   ],
   "graphics": [
     {"uuid":"00000042-0000-4000-8000-000000000000","layer":"assembly_bottom","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1600000},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"00000043-0000-4000-8000-000000000000","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }
