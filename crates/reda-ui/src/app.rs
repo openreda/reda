@@ -24,15 +24,15 @@ use crate::dialogs::{FileDialogs, Pick};
 use crate::docking::{self, panel_title};
 use crate::job_run::JobRuns;
 use crate::journal_panel::JournalAction;
-use crate::layout::PanelId;
+use crate::layout::{PanelId, SettingsWindow, TabKey};
 use crate::new_project::{FormAction, NewProjectForm};
 use crate::os;
 use crate::palette::{self, Palette, PaletteOutcome};
-use crate::preferences_dialog::{Outcome as PreferencesOutcome, PageId, PreferencesDialog};
+use crate::preferences_dialog::{PageId, PreferencesDialog};
 use crate::projects_panel::{self, ProjectsAction};
 use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
 use crate::schematic_dialogs::{self, DialogKind, SchematicDialog};
-use crate::settings::{self, Outcome, SettingsDialog};
+use crate::settings::windows::{Request as SettingsRequest, SettingsWindows};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
 use crate::user_preferences::Watcher;
@@ -48,12 +48,12 @@ pub struct App {
     shell: Shell,
     files: FileDialogs,
     new_project: Option<NewProjectForm>,
-    /// The open settings dialog (Project Settings, Board Setup or an Output Job), if any.
-    settings: Option<SettingsDialog>,
+    /// The open settings windows.
+    settings: SettingsWindows,
+    /// A settings window opened again, to raise once its OS window is known.
+    raise: Option<SettingsWindow>,
     /// The running Output Job, or the report of the last run.
     jobs: JobRuns,
-    /// The open Preferences dialog, if any.
-    preferences: Option<PreferencesDialog>,
     /// The Preferences generation the window last applied (theme, UI scale).
     applied_preferences: Option<u64>,
     /// Wakes the window when `preferences.toml` changes on disk.
@@ -98,9 +98,9 @@ impl App {
             shell,
             files: FileDialogs::default(),
             new_project: None,
-            settings: None,
+            settings: SettingsWindows::default(),
+            raise: None,
             jobs: JobRuns::default(),
-            preferences: None,
             applied_preferences: None,
             preferences_watcher: None,
             watch_preferences: false,
@@ -205,7 +205,9 @@ impl App {
         self.pump_bridge(&ctx);
         self.collect_picked_files();
         self.update_title(&ctx);
-        if ctx.input(|i| i.viewport().close_requested()) && !self.closing.hold_quit(&self.shell) {
+        if ctx.input(|i| i.viewport().close_requested())
+            && !self.closing.hold_quit(&self.shell, &self.settings)
+        {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
         self.keys(&ctx);
@@ -224,7 +226,11 @@ impl App {
                 rect
             })
             .inner;
-        let frame = docking::show(ui, &mut self.shell);
+        let (windows, bridge) = (&mut self.settings, &mut self.bridge);
+        let mut settings = |ui: &mut Ui, shell: &mut Shell, window: SettingsWindow| {
+            windows.show(ui, shell, bridge, window);
+        };
+        let frame = docking::show(ui, &mut self.shell, &mut settings);
         let builder = UiBuilder::new()
             .max_rect(status)
             .id_salt("status-bar-content");
@@ -240,7 +246,7 @@ impl App {
             self.run_held(&id, params);
         }
         // Keys pressed in a window of its own, unless a dialog here has the keys.
-        if !self.dialog_has_keys() && self.settings.is_none() {
+        if !self.dialog_has_keys() {
             for (id, params) in frame.keys {
                 self.run_held(&id, params);
             }
@@ -272,12 +278,11 @@ impl App {
             Some(ProjectsAction::RunJob(job)) => self.jobs.start(&ctx, &mut self.shell, job),
             None => {}
         }
-        self.show_settings(&ctx);
-        if let Some(dialog) = &mut self.settings {
+        self.settings_requests(&ctx);
+        if let Some(dialog) = self.settings.dialog_mut(SettingsWindow::OutputJob) {
             self.jobs.run_from_dialog(&ctx, &mut self.shell, dialog);
         }
         self.jobs.show(&ctx, &mut self.shell);
-        self.show_preferences(&ctx);
         if let Some(JournalAction::Export) = frame.journal {
             self.files.start(&ctx, Pick::ExportJournal);
         }
@@ -301,7 +306,10 @@ impl App {
                 FormAction::Cancel => self.new_project = None,
                 FormAction::Create => {
                     if let Some(params) = form.params() {
-                        if !self.closing.hold(&self.shell, "project.new", &params) {
+                        if !self
+                            .closing
+                            .hold(&self.shell, &self.settings, "project.new", &params)
+                        {
                             // It is created once the closing prompt is answered.
                             self.new_project = None;
                         } else if self.shell.run_reporting("project.new", params).is_ok() {
@@ -319,7 +327,7 @@ impl App {
     /// Runs a Command the GUI asked for, unless it would close a dirty Document's tab or
     /// replace a Project with unsaved changes: then the closing prompt asks first.
     fn run_held(&mut self, id: &str, params: serde_json::Value) {
-        if self.closing.hold(&self.shell, id, &params) {
+        if self.closing.hold(&self.shell, &self.settings, id, &params) {
             let _ = self.shell.run_reporting(id, params);
         }
     }
@@ -327,7 +335,7 @@ impl App {
     /// Opens the Project at `path` from the GUI (the Open dialog, a recent Project),
     /// asking first when the open one has unsaved changes.
     pub fn open_project(&mut self, path: &Path) {
-        if self.closing.hold_open(&self.shell, path.to_path_buf()) {
+        if (self.closing).hold_open(&self.shell, &self.settings, path.to_path_buf()) {
             let _ = self.shell.open_project(path);
             self.drop_closed_canvases();
         }
@@ -336,7 +344,7 @@ impl App {
     /// Asks to close the window, as Quit does: it closes at once when nothing is unsaved,
     /// else once the closing prompt lets it.
     pub fn quit(&mut self, ctx: &egui::Context) {
-        if self.closing.hold_quit(&self.shell) {
+        if self.closing.hold_quit(&self.shell, &self.settings) {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }
@@ -346,7 +354,7 @@ impl App {
         let Some(answer) = crate::closing_dialog::show(ctx, &mut self.closing) else {
             return;
         };
-        match self.closing.answer(&mut self.shell, answer) {
+        match (self.closing).answer(&mut self.shell, &mut self.settings, answer) {
             Some(Then::Run(id, params)) => {
                 let _ = self.shell.run_reporting(&id, params);
             }
@@ -354,6 +362,9 @@ impl App {
                 let _ = self.shell.open_project(&path);
             }
             Some(Then::Quit) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            Some(Then::OpenOutputJob(job)) => {
+                self.settings.open_job(&mut self.shell, job);
+            }
             None => {}
         }
         self.drop_closed_canvases();
@@ -405,7 +416,7 @@ impl App {
     fn dialog_has_keys(&self) -> bool {
         self.closing.ask().is_some()
             || self.new_project.is_some()
-            || self.preferences.is_some()
+            || self.settings.has_keys()
             || self.palette.is_some()
             || self.params_dialog.is_some()
             || matches!(
@@ -416,18 +427,16 @@ impl App {
 
     /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs
     /// take keys first: nothing runs while a text field has the keyboard or the New Project
-    /// dialog is open, and while a Project dialog is open only global keys apply, with
-    /// undo on the Project stack. A focused button keeps the plain keys (Space presses
-    /// it), but chords with a modifier and the function keys (F6, Ctrl+Tab) still apply.
+    /// dialog is open, and while a Project dialog is open (or a Panel or settings window has
+    /// the focus) only global keys apply. A focused button keeps the plain keys (Space
+    /// presses it), but chords with a modifier and the function keys (F6, Ctrl+Tab) still
+    /// apply.
     fn keys(&mut self, ctx: &egui::Context) {
         if ctx.text_edit_focused() || self.dialog_has_keys() {
             return;
         }
-        // The Project dialogs: the Projects panel's and the settings dialog.
-        let dialog = match &self.settings {
-            Some(settings) => Some(settings.undo_scope()),
-            None => projects_panel::dialog_open(ctx).then_some(Scope::Project),
-        };
+        // The Projects panel's dialogs. A settings window picks its stack by its focus.
+        let dialog = projects_panel::dialog_open(ctx).then_some(Scope::Project);
         // Escape and Enter go to the tab switcher while it is open.
         tab_switcher::keys(ctx, &mut self.shell);
         for (id, params) in keymap::resolve_keys(ctx, &self.shell, dialog) {
@@ -435,76 +444,101 @@ impl App {
         }
     }
 
-    /// Opens the Project Settings dialog on the open Project, if there is one.
+    /// The open settings windows.
+    pub fn settings_windows(&self) -> &SettingsWindows {
+        &self.settings
+    }
+
+    /// Shows the settings window `window` once [`SettingsWindows`] opened it: a window
+    /// that was open already is raised.
+    fn opened(&mut self, was_open: Option<bool>, window: SettingsWindow) {
+        if was_open == Some(true) {
+            self.raise = Some(window);
+        }
+    }
+
+    /// Opens the Project Settings window on the open Project, if there is one.
     pub fn open_project_settings(&mut self) {
-        if let Some(project) = self.shell.engine().project() {
-            self.settings = Some(settings::project::dialog(project));
-        }
+        let window = SettingsWindow::ProjectSettings;
+        let was_open = self.settings.open(&mut self.shell, window);
+        self.opened(was_open, window);
     }
 
-    /// Opens the Board Setup dialog on the open Project's PCB Document, if there is one.
+    /// Opens the Board Setup window on the open Project's PCB Document, if there is one.
     pub fn open_board_setup(&mut self) {
-        if let Some(project) = self.shell.engine().project()
-            && project.pcb().is_some()
-        {
-            self.settings = Some(settings::board_setup::dialog(project));
-        }
+        let window = SettingsWindow::BoardSetup;
+        let was_open = self.settings.open(&mut self.shell, window);
+        self.opened(was_open, window);
     }
 
-    /// Opens the Change List dialog (Update PCB from Schematic) on the open Project; with
+    /// Opens the Change List window (Update PCB from Schematic) on the open Project; with
     /// no PCB Document, the status bar says why not.
     pub fn open_change_list(&mut self) {
         match self.shell.engine().project() {
             Some(project) if project.pcb().is_some() => {
-                self.settings = Some(settings::change_list::dialog(project));
+                let window = SettingsWindow::ChangeList;
+                let was_open = self.settings.open(&mut self.shell, window);
+                self.opened(was_open, window);
             }
             Some(_) => self.shell.report(reda_engine::sync::NO_PCB.to_owned()),
             None => {}
         }
     }
 
-    /// Opens the Output Job dialog on `job`, if the open Project has it.
+    /// Opens the Output Job window on `job`, if the open Project has it. Showing another
+    /// job asks first when the window has unapplied changes.
     pub fn open_output_job(&mut self, job: reda_engine::model::Uuid) {
-        if let Some(project) = self.shell.engine().project() {
-            self.settings = settings::output_job::dialog(project, job);
-        }
-    }
-
-    /// Draws the open settings dialog, and closes it or opens its folder picker as it asks.
-    fn show_settings(&mut self, ctx: &egui::Context) {
-        let Some(dialog) = &mut self.settings else {
+        let window = SettingsWindow::OutputJob;
+        if self.settings.job().is_some_and(|open| open != job)
+            && self.settings.has_unapplied(window)
+        {
+            self.closing
+                .hold_settings(&self.shell, window, Then::OpenOutputJob(job));
             return;
-        };
-        match dialog.show(ctx, &mut self.shell) {
-            Outcome::Open => {}
-            Outcome::Closed => self.settings = None,
-            Outcome::PickFolder => self.files.start(ctx, Pick::SettingsFolder),
+        }
+        let was_open = self.settings.open_job(&mut self.shell, job);
+        self.opened(was_open, window);
+    }
+
+    /// Carries out what the settings windows asked for, closes the state of those whose
+    /// tabs closed, and raises one opened again.
+    fn settings_requests(&mut self, ctx: &egui::Context) {
+        for request in self.settings.take_requests() {
+            match request {
+                SettingsRequest::Close(window) => self.shell.close_settings(window),
+                SettingsRequest::PickFolder(window) => {
+                    self.files.start(ctx, Pick::SettingsFolder(window));
+                }
+                SettingsRequest::ShowFolder(folder) => {
+                    let _ = std::fs::create_dir_all(&folder);
+                    self.show_in_folder(&folder);
+                }
+            }
+        }
+        let now = ctx.input(|i| i.time);
+        self.settings.follow_layout(&self.shell, now);
+        if let Some(window) = self.raise.take()
+            && let Some(id) = self.shell.layout().window_of(&TabKey::Settings(window))
+        {
+            let viewport = docking::viewport_of(id);
+            ctx.send_viewport_cmd_to(viewport, egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd_to(viewport, egui::ViewportCommand::Focus);
+        }
+        // A window's place waits a moment before it is written.
+        if self.settings.places_pending() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(250));
         }
     }
 
-    /// Opens the Preferences dialog on `page` (its General page with `None`).
+    /// Opens the Preferences window on `page` (where it is, when open; its General page
+    /// when it opens with `None`).
     pub fn open_preferences(&mut self, page: Option<PageId>) {
-        self.preferences = Some(PreferencesDialog::on(page.unwrap_or(PageId::General)));
+        let was_open = self.settings.open_preferences(&mut self.shell, page);
+        self.opened(Some(was_open), SettingsWindow::Preferences);
     }
 
     pub fn preferences_dialog(&self) -> Option<&PreferencesDialog> {
-        self.preferences.as_ref()
-    }
-
-    /// Draws the open Preferences dialog and does what it asks of the window.
-    fn show_preferences(&mut self, ctx: &egui::Context) {
-        let Some(dialog) = &mut self.preferences else {
-            return;
-        };
-        match dialog.show(ctx, &mut self.shell, &mut self.bridge) {
-            PreferencesOutcome::Open => {}
-            PreferencesOutcome::Closed => self.preferences = None,
-            PreferencesOutcome::PickFolder => self.files.start(ctx, Pick::PreferencesFolder),
-            PreferencesOutcome::ShowFolder(folder) => {
-                let _ = std::fs::create_dir_all(&folder);
-                self.show_in_folder(&folder);
-            }
-        }
+        self.settings.preferences()
     }
 
     fn open_palette(&mut self) {
@@ -558,7 +592,7 @@ impl App {
     /// Calls a Command from the GUI: it runs when its params are complete, else its
     /// params dialog opens.
     fn call(&mut self, id: &str, params: serde_json::Value) {
-        if !self.closing.hold(&self.shell, id, &params) {
+        if !self.closing.hold(&self.shell, &self.settings, id, &params) {
             return;
         }
         if let Call::Dialog(dialog) = self.dialogs.call(&mut self.shell, id, params) {
@@ -575,7 +609,7 @@ impl App {
             command_dialog::Outcome::Cancel => self.params_dialog = None,
             command_dialog::Outcome::Run(params) => {
                 let id = dialog.command().to_owned();
-                if !self.closing.hold(&self.shell, &id, &params) {
+                if !self.closing.hold(&self.shell, &self.settings, &id, &params) {
                     // It runs once the closing prompt is answered.
                     self.params_dialog = None;
                     return;
@@ -605,13 +639,14 @@ impl App {
             return;
         };
         let mut close = false;
-        let modal = egui::Modal::new(egui::Id::NULL.with("notice")).show(ctx, |ui| {
-            ui.set_width(420.0);
-            ui.heading(tr!("import-notice-title"));
-            ui.label(notice);
-            ui.add_space(8.0);
-            close = ui.button(tr!("notice-ok")).clicked();
-        });
+        let modal =
+            crate::modal::Dialog::new(egui::Id::NULL.with("notice"), tr!("import-notice-title"))
+                .width(420.0)
+                .show(ctx, |ui| {
+                    ui.label(notice);
+                    ui.add_space(8.0);
+                    close = ui.button(tr!("notice-ok")).clicked();
+                });
         if close || modal.should_close() {
             self.notice = None;
         }
@@ -645,17 +680,8 @@ impl App {
                         .run_reporting("project.library.add", json!({ "path": path }));
                 }
             }
-            Some((Pick::PreferencesFolder, path)) => {
-                if let Some(dialog) = &mut self.preferences {
-                    dialog.picked_folder(&mut self.shell, &path);
-                }
-            }
-            Some((Pick::SettingsFolder, path)) => {
-                if let (Some(folder), Some(dialog)) =
-                    (self.shell.engine().location(), &mut self.settings)
-                {
-                    dialog.picked_folder(&os::relative_path(folder, &path));
-                }
+            Some((Pick::SettingsFolder(window), path)) => {
+                self.settings.picked_folder(&mut self.shell, window, &path);
             }
             // The Import part dialog runs its own pickers.
             Some((Pick::ImportSymbol | Pick::ImportFootprint, _)) | None => {}

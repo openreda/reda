@@ -7,6 +7,7 @@ pub mod connectivity;
 pub mod cross_ref;
 mod edit;
 pub mod erc;
+mod fields;
 mod find;
 mod library_element;
 mod natural;
@@ -18,6 +19,7 @@ mod properties;
 mod route;
 mod sheet;
 mod similar;
+mod unit_cycle;
 mod unit_move;
 mod update;
 mod wiring;
@@ -34,11 +36,13 @@ pub use edit::{
     ConvertCrossResult, ConvertedJunction, Copy, CopyParams, Cut, CutParams, Delete, DeleteParams,
     DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
     EditResult, FlightStep, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams,
-    Mirror, MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
-    RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams,
-    TextResult, TextSet, TextSetParams, WireBreak, WireBreakParams, WireBreakResult,
-    flight_preview, selectable, shift_preview,
+    Mirror, MirrorParams, Move, MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange,
+    Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate, RotateParams, ShiftParams,
+    ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
+    TextSetParams, WireBreak, WireBreakParams, WireBreakResult, flight_preview, selectable,
+    shift_preview,
 };
+pub use fields::{FieldMove, FieldMoveParams, FieldResetParams, FieldResetPosition, FieldResult};
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{
     ElementFile, LibraryElement, LibraryElementParams, LibraryElementResult,
@@ -65,6 +69,7 @@ pub use similar::{
     SelectSimilar, SelectSimilarParams, SelectSimilarResult, SimilarField, SimilarScope,
     select_similar,
 };
+pub use unit_cycle::{UnitCycle, UnitCycleParams, UnitCycleResult};
 pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
 pub use update::{
     ComponentUpdate, FootprintChange, Outdated, OutdatedComponent, OutdatedResult, PartChange,
@@ -95,6 +100,9 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ConvertCross);
     registry.add(NetLabelAdd);
     registry.add(UnitMove);
+    registry.add(UnitCycle);
+    registry.add(FieldMove);
+    registry.add(FieldResetPosition);
     registry.add(NoConnectAdd);
     registry.add(SchematicNets);
     registry.add(PortAdd);
@@ -109,6 +117,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Paste);
     registry.add(Duplicate);
     registry.add(Move);
+    registry.add(MoveToSheet);
     registry.add(Drag);
     registry.add(Rotate);
     registry.add(Mirror);

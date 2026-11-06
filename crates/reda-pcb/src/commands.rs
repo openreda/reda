@@ -94,6 +94,13 @@ pub struct Created {
     pub uuid: Uuid,
 }
 
+/// Reads a field that may be given as `null`: missing is `None`, `null` is `Some(None)`.
+fn nullable<'de, D: serde::Deserializer<'de>, T: serde::Deserialize<'de>>(
+    d: D,
+) -> Result<Option<Option<T>>, D::Error> {
+    <Option<T> as serde::Deserialize>::deserialize(d).map(Some)
+}
+
 /// A length param that must not be negative; `pointer` names it in the error.
 fn non_negative(pointer: &str, length: Length) -> Result<Nm, CommandError> {
     let nm = length.nm();
@@ -104,14 +111,6 @@ fn non_negative(pointer: &str, length: Length) -> Result<Nm, CommandError> {
         ));
     }
     Ok(nm)
-}
-
-/// An optional length param that must not be negative.
-fn optional_non_negative(
-    pointer: &str,
-    length: Option<Length>,
-) -> Result<Option<Nm>, CommandError> {
-    length.map(|l| non_negative(pointer, l)).transpose()
 }
 
 /// A length param that must be positive; `pointer` names it in the error.

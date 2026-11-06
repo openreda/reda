@@ -43,13 +43,14 @@ fn junctions(sheet: &reda_model::SchematicSheet) -> Vec<reda_model::geom::Point>
 
 /// The Scene the canvas draws for `document`, with the sheet's derived Junctions or the
 /// board's placed geometry (text in `fonts`): `not_found` for an unknown Document,
-/// `rejected` for a kind with no Scene yet.
+/// `rejected` for a kind with no Scene yet. A sheet is drawn in `style`.
 pub fn document_scene(
     project: &Project,
     document: reda_model::Uuid,
     fonts: &Fonts,
+    style: &reda_render::SchematicStyle,
 ) -> Result<reda_render::Scene, CommandError> {
-    reda_render::document_scene(project, document, &DERIVE, fonts)
+    reda_render::document_scene(project, document, &DERIVE, fonts, style)
 }
 
 /// One session: at most one open Project, changed only by running Commands.
@@ -249,7 +250,7 @@ impl Engine {
             .project
             .as_ref()
             .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
-        document_scene(project, document, &self.fonts)
+        document_scene(project, document, &self.fonts, &Default::default())
     }
 
     /// Scans the registered Libraries (the starter Library, the user's and the open

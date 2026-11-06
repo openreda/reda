@@ -4,6 +4,7 @@
 //! [`Transaction`], which records a [`ChangeSet`] of before/after states per object. The
 //! file format is not defined here: the engine maps these types to canonical JSON.
 
+pub mod auto_increment;
 mod change;
 mod check;
 mod derived;
@@ -33,18 +34,19 @@ pub use library::{
     TextStyle, Unit, VALUE_FIELD, field_text,
 };
 pub use output::{
-    Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,
-    ProjectFabPreset,
+    Column, ColumnSource, FabPreset, FabRules, FileNaming, GerberSettings, OutputJob, Outputs,
+    PreferredSeeds, ProjectFabPreset,
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, Pad, PadForm, PadKind, PadShape, Ratio,
     ZoneConnection,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, DrcCheck, DrcSeverities, FillShape, FootprintInstance,
-    FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind, LayerSet,
-    LayerSpan, NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PadRef, PcbDocument,
-    PcbGraphic, PcbText, PlacementOrigin, Rules, Side, Track, TrackGeometry, Via, Zone, ZoneFills,
+    BoardCutout, BoardOutline, BoardSetup, Bounds, DesignRule, DrcCheck, DrcSeverities, FillShape,
+    FootprintInstance, FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout, Layer, LayerKind,
+    LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, PadConnection, PadNet, PadRef, PcbDocument,
+    PcbGraphic, PcbText, PlacementOrigin, RuleField, RuleKind, RuleScope, RuleValue, RuleValues,
+    Side, Track, TrackGeometry, Via, Zone, ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
@@ -53,9 +55,10 @@ pub use project::{
     SchematicOptions, SheetStyle,
 };
 pub use schematic::{
-    BorderZones, ComponentRef, FootprintCopy, FrameSize, Justify, JustifyAxis, NetLabel, NoConnect,
-    Orientation, PartEntry, Port, PortDirection, PowerPort, PowerPortStyle, SchematicSheet,
-    SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, UnitInstance, Wire,
+    BorderZones, ComponentRef, FieldText, FootprintCopy, FrameSize, Justify, JustifyAxis, NetLabel,
+    NoConnect, Orientation, PartEntry, Port, PortDirection, PowerPort, PowerPortStyle,
+    SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, UnitInstance,
+    UnitSuffix, Wire,
 };
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};

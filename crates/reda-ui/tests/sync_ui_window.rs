@@ -1,6 +1,7 @@
 //! Sync in the window, driven through AccessKit with `egui_kittest`: the "out of sync"
 //! badge in the status bar and on the PCB tab, and the Change List dialog it opens
-//! (also from F8), whose OK runs one `sync.apply` without the unticked changes.
+//! (also from F8), whose Apply runs one `sync.apply` without the unticked changes and
+//! whose Close closes it.
 
 use std::path::{Path, PathBuf};
 
@@ -84,7 +85,7 @@ fn the_status_bar_and_the_pcb_tab_show_the_out_of_sync_count() {
 }
 
 #[test]
-fn the_badge_opens_the_change_list_and_ok_applies_the_ticked_changes() {
+fn the_badge_opens_the_change_list_and_apply_applies_the_ticked_changes() {
     let work = TempDir::new("sync-win-apply");
     let mut h = harness(work.path());
     h.get_by_role_and_label(Role::Button, "out of sync: 5 changes")
@@ -103,12 +104,18 @@ fn the_badge_opens_the_change_list_and_ok_applies_the_ticked_changes() {
     assert!(!ticked(&h, "R2.2: (no Net) to SIG"));
     h.get_by_label("2 of 5 changes ticked. Unticked changes show up again next time.");
 
-    h.get_by_role_and_label(Role::Button, "OK").click();
+    // Apply and Close, not OK and Cancel.
+    assert!(h.query_by_role_and_label(Role::Button, "OK").is_none());
+    h.get_by_role_and_label(Role::Button, "Apply").click();
     h.run();
-    assert!(h.query_by_label("Update PCB from Schematic").is_none());
     let journal = h.state().shell().engine().journal();
     assert_eq!(journal.last().unwrap().id, "batch");
     h.get_by_role_and_label(Role::Button, "out of sync: 3 changes");
+    // The list follows the design: what is left is shown, and Close asks nothing.
+    h.get_by_role_and_label(Role::Button, "Close").click();
+    h.run();
+    assert!(h.query_by_label("Update PCB from Schematic").is_none());
+    assert!(h.query_by_label("Unsaved Changes").is_none());
 }
 
 #[test]
@@ -118,7 +125,7 @@ fn f8_opens_the_change_list() {
     h.key_press(Key::F8);
     h.run();
     h.get_by_label("Update PCB from Schematic");
-    h.key_press(Key::Escape);
+    h.get_by_role_and_label(Role::Button, "Close").click();
     h.run();
     assert!(h.query_by_label("Update PCB from Schematic").is_none());
 }

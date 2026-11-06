@@ -16,9 +16,10 @@ use reda_engine::model::{
     LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation, OutputJob, Outputs,
     PadConnection, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, PlacementOrigin,
     Port, PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
-    ProjectProps, Rules, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText,
-    Side, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
+    ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side,
+    Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
 };
+use reda_engine::model::{DesignRule, FabRules, PreferredSeeds, RuleKind, RuleScope, RuleValues};
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
 
@@ -194,41 +195,52 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         })
         .collect(),
     };
-    let default = NetClass {
-        uuid: id(),
-        name: "Default".into(),
-        clearance: None,
-        track_width: None,
-        via_diameter: None,
-        via_hole: None,
-    };
-    let mut classes = vec![default.clone()];
+    let mut classes: Vec<NetClass> = Vec::new();
+    let mut rules: Vec<DesignRule> = Vec::new();
     for (name, clearance, track_width) in seed.classes {
         if classes
             .iter()
             .any(|c| c.name.to_lowercase() == name.to_lowercase())
             || name.trim().is_empty()
+            || name.trim().eq_ignore_ascii_case("default")
         {
             continue;
         }
-        classes.push(NetClass {
+        let class = NetClass {
             uuid: id(),
             name,
-            clearance,
-            track_width,
-            via_diameter: None,
-            via_hole: None,
-        });
+            rank: classes.len() as u32 + 1,
+        };
+        let records = [
+            (
+                RuleKind::Clearance,
+                clearance.map(|value| RuleValues {
+                    value: Some(value),
+                    ..RuleValues::default()
+                }),
+            ),
+            (
+                RuleKind::TrackWidth,
+                track_width.map(|preferred| RuleValues {
+                    preferred: Some(preferred),
+                    ..RuleValues::default()
+                }),
+            ),
+        ];
+        for (kind, values) in records {
+            if let Some(values) = values {
+                rules.push(DesignRule {
+                    uuid: id(),
+                    kind,
+                    scope: RuleScope::class(class.uuid),
+                    values,
+                    enabled: track_width.is_some(),
+                    comment: clearance.map(|c| format!("{c:?}")),
+                });
+            }
+        }
+        classes.push(class);
     }
-    let [
-        clearance,
-        track_width,
-        via_diameter,
-        via_hole,
-        annular_ring,
-        hole_to_hole,
-        edge_clearance,
-    ] = seed.rules;
     let mut severities = DrcSeverities::DEFAULT;
     for (check, s) in DrcCheck::ALL.iter().zip(seed.severities) {
         severities.set(
@@ -238,18 +250,18 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     }
     let setup = BoardSetup {
         uuid: id(),
-        default_net_class: default.uuid,
-        rules: Rules {
-            clearance,
-            track_width,
-            via_diameter,
-            via_hole,
-            annular_ring,
-            hole_to_hole,
-            edge_clearance,
-        },
         severities,
     };
+    for (kind, values) in reda_engine::pcb::seed_rules(&fab_rules(seed.rules)) {
+        rules.push(DesignRule {
+            uuid: id(),
+            kind,
+            scope: RuleScope::BOARD,
+            values,
+            enabled: true,
+            comment: None,
+        });
+    }
     let mut objects = vec![
         Object::LayerSet(InDocument::new(doc, layers)),
         Object::BoardSetup(InDocument::new(doc, setup)),
@@ -272,12 +284,28 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             },
         )));
     }
+    objects.extend(
+        rules
+            .into_iter()
+            .map(|r| Object::DesignRule(InDocument::new(doc, r))),
+    );
     let mut nets = vec![];
     for (name, class) in seed.nets {
-        let class = classes[class % classes.len()].uuid;
+        // 0 is the Default Net Class only.
+        let classes = match class % (classes.len() + 1) {
+            0 => vec![],
+            n => vec![classes[n - 1].uuid],
+        };
         let uuid = id();
         nets.push(uuid);
-        objects.push(Object::Net(InDocument::new(doc, Net { uuid, name, class })));
+        objects.push(Object::Net(InDocument::new(
+            doc,
+            Net {
+                uuid,
+                name,
+                classes,
+            },
+        )));
     }
     if let Some((designator, at, flag, net)) = seed.footprint {
         let footprint = read_footprint(Path::new("x"), FOOTPRINT.as_bytes()).unwrap();
@@ -513,8 +541,7 @@ prop_compose! {
         outputs in prop::array::uniform4(any::<bool>()),
         destination in prop::option::of(stem("d")),
     ) -> (ProjectFabPreset, OutputJob) {
-        let [clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance] = lengths;
-        let rules = Rules { clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance };
+        let rules = fab_rules(lengths);
         let gerber = GerberSettings { x2_attributes, naming: FileNaming::Protel };
         let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, gerber, bom, cpl });
         let [gerber, drill, bom, cpl] = outputs;
@@ -620,6 +647,20 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 ["designator".to_owned(), "LCSC".to_owned()].into()
             } else {
                 UnitInstance::default_visible_fields()
+            },
+            field_text: if mirror {
+                vec![reda_engine::model::FieldText {
+                    field: "value".to_owned(),
+                    offset: Point::new(y, x),
+                    size: Some(Nm(1_524_000)),
+                }]
+            } else {
+                Default::default()
+            },
+            locked_fields: if mirror {
+                ["LCSC".to_owned()].into()
+            } else {
+                Default::default()
             },
         };
         objects.push(Object::FootprintCopy(InDocument::new(sheet, copy)));
@@ -883,4 +924,34 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         schematic: Default::default(),
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
+}
+
+/// Fab Preset rules from seven lengths: the flat limits, reused for the hole range and the
+/// preferred seeds.
+fn fab_rules(lengths: [Nm; 7]) -> FabRules {
+    let [
+        clearance,
+        track_width,
+        via_diameter,
+        via_hole,
+        annular_ring,
+        hole_to_hole,
+        edge_clearance,
+    ] = lengths;
+    FabRules {
+        clearance,
+        track_width,
+        via_diameter,
+        via_hole,
+        hole_min: annular_ring,
+        hole_max: hole_to_hole,
+        annular_ring,
+        hole_to_hole,
+        edge_clearance,
+        preferred: PreferredSeeds {
+            track_width,
+            via_diameter,
+            via_hole,
+        },
+    }
 }

@@ -41,6 +41,11 @@ pub struct ComponentSetParams {
     /// `designator`, `value`, another built-in field or a free-form field's name.
     #[serde(default)]
     pub visible: BTreeMap<String, bool>,
+    /// Which fields to lock (`true`) or unlock (`false`), by the same names as
+    /// `visible`. Update from Library leaves a Locked Field as it is; it can still be
+    /// edited by hand.
+    #[serde(default)]
+    pub locked: BTreeMap<String, bool>,
 }
 
 /// What an edit changed.
@@ -76,6 +81,7 @@ impl Command for ComponentSet {
         }
         check_field_names("/fields", p.fields.keys(), true)?;
         check_field_names("/visible", p.visible.keys(), false)?;
+        check_field_names("/locked", p.locked.keys(), false)?;
         let mut edited = Vec::new();
         for component in &p.components {
             let units = placed_component(cx.project()?, *component)?;
@@ -117,6 +123,13 @@ impl Command for ComponentSet {
                         unit.visible_fields.insert(name.clone());
                     } else {
                         unit.visible_fields.remove(name);
+                    }
+                }
+                for (name, &locked) in &p.locked {
+                    if locked {
+                        unit.locked_fields.insert(name.clone());
+                    } else {
+                        unit.locked_fields.remove(name);
                     }
                 }
                 edited.push(unit.uuid);

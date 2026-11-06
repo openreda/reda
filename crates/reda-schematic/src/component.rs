@@ -175,6 +175,8 @@ impl Command for ComponentPlace {
             in_cpl,
             not_fitted: false,
             visible_fields: UnitInstance::default_visible_fields(),
+            field_text: Default::default(),
+            locked_fields: Default::default(),
         };
         cx.tx()?
             .insert(Object::Unit(InDocument::new(p.document, instance)))?;
@@ -264,6 +266,8 @@ impl Command for UnitPlace {
             at: p.at.point(),
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
             mirror: p.mirror,
+            // Field positions belong to each Unit; the new one starts autopositioned.
+            field_text: Default::default(),
             ..template
         };
         let component = instance.component.clone();

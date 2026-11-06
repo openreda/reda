@@ -7,6 +7,7 @@ pub(crate) mod bounds;
 mod clipboard;
 mod delete;
 mod graphics;
+mod move_to_sheet;
 mod moving;
 mod selection;
 mod transform;
@@ -25,6 +26,7 @@ pub use graphics::{
     GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, RectAdd, RectAddParams,
     TextAdd, TextAddParams, TextResult, TextSet, TextSetParams,
 };
+pub use move_to_sheet::{MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange};
 pub use moving::{
     Drag, EditResult, FlightStep, Move, ShiftParams, ShiftPreview, flight_preview, shift_preview,
 };

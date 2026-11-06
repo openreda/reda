@@ -33,6 +33,7 @@ pub mod keymap;
 pub mod layout;
 pub mod library_dialogs;
 pub mod messages;
+pub mod modal;
 pub mod navigation;
 mod new_project;
 mod os;

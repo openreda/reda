@@ -19,8 +19,8 @@
 //! `pcb.via.add` there (taking the Net of the copper under it).
 
 use reda_engine::model::geom::{Nm, Point};
-use reda_engine::model::{LayerKind, PcbDocument, Project, Side, TrackGeometry, Uuid};
-use reda_engine::pcb::net_rules::net_rules;
+use reda_engine::model::{LayerKind, PcbDocument, Project, RuleKind, Side, TrackGeometry, Uuid};
+use reda_engine::pcb::rules::net_rules;
 use reda_engine::pcb::{ClearanceHit, Copper, Proposal, zone};
 use serde_json::{Value, json};
 
@@ -286,7 +286,7 @@ impl Router {
             return;
         };
         let pcb = project.pcb().expect("a board");
-        let diameter = net_rules(pcb, net).via_diameter;
+        let diameter = net_rules(pcb, net).via_diameter.default_size();
         let proposal = Proposal::Via { at, diameter, net };
         if let Some(why) = self.blocked_by(shell, &proposal) {
             shell.report(why);
@@ -505,7 +505,7 @@ impl Router {
             let net = self
                 .copper(shell)
                 .and_then(|c| pcb.copper_layers().find_map(|l| c.net_at(l.uuid, at)));
-            let diameter = net_rules(pcb, net).via_diameter;
+            let diameter = net_rules(pcb, net).via_diameter.default_size();
             let proposal = Proposal::Via { at, diameter, net };
             let (hits, keepouts) = self.query(shell, &proposal, &[]);
             self.via = Some(ViaCursor {
@@ -609,7 +609,9 @@ impl Router {
         let net = copper.net_at(layer, at);
         let start_objects: Vec<Uuid> = items.iter().map(|i| i.object()).collect();
         let project = shell.engine().project().expect("a Project");
-        let width = net_rules(project.pcb().expect("a board"), net).track_width;
+        let width = net_rules(project.pcb().expect("a board"), net)
+            .track_width
+            .default_size();
         self.route = Some(Route {
             net,
             steps: Vec::new(),
@@ -679,10 +681,13 @@ impl Router {
     }
 }
 
-/// The board's Track widths to step through: its rule and every Net Class's, sorted.
+/// The board's Track widths to step through: the preferred width of every `track_width`
+/// record, the board-wide one's and every enabled Net Class's, sorted.
 fn widths(pcb: &PcbDocument) -> Vec<Nm> {
-    let mut out: Vec<Nm> = std::iter::once(pcb.setup().rules.track_width)
-        .chain(pcb.net_classes().filter_map(|c| c.track_width))
+    let mut out: Vec<Nm> = pcb
+        .rules()
+        .filter(|r| r.kind == RuleKind::TrackWidth && (r.enabled || r.scope.is_board_wide()))
+        .filter_map(|r| r.values.preferred)
         .collect();
     out.sort();
     out.dedup();
@@ -742,7 +747,9 @@ pub fn draw(ui: &egui::Ui, shell: &Shell, input: &crate::canvas::CanvasInputs) {
         path(&p.ahead, p.width, ahead.gamma_multiply(0.6));
         let diameter = board(shell)
             .and_then(|(project, _)| project.pcb())
-            .map_or(Nm::from_um(600), |pcb| net_rules(pcb, p.net).via_diameter);
+            .map_or(Nm::from_um(600), |pcb| {
+                net_rules(pcb, p.net).via_diameter.default_size()
+            });
         for at in p.vias {
             via(at, diameter, placed);
         }
