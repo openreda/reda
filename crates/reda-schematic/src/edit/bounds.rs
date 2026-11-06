@@ -56,21 +56,47 @@ fn unit_points(body: &SchematicSheet, unit: &UnitInstance) -> Vec<Point> {
     let symbol = &entry.symbol;
     let mut local = vec![Point::new(Nm(0), Nm(0))];
     local.extend(symbol.unit_pins(unit.unit).map(|p| p.at));
-    for graphic in symbol.graphics.iter().filter(|g| g.unit == unit.unit) {
-        match &graphic.shape {
-            Shape::Line { start, end } | Shape::Rect { start, end } => {
-                local.extend([*start, *end]);
-            }
-            Shape::Arc { center, start, .. } => {
-                let r = Nm((start.x - center.x).0.abs() + (start.y - center.y).0.abs());
-                local.extend(around(*center, r));
-            }
-            Shape::Circle { center, radius } => local.extend(around(*center, *radius)),
-            Shape::Polygon { points } => local.extend(points.iter().copied()),
-            Shape::Text { at, .. } => local.push(*at),
-        }
-    }
+    local.extend(drawing_points(symbol, unit, true));
     local.into_iter().map(|p| on_sheet(unit, p)).collect()
+}
+
+/// The box a placed Unit's body covers on the sheet: its drawing other than text, and each
+/// Pin from its connection end to its root at the body. `None` for a Unit with neither.
+pub(crate) fn unit_body(body: &SchematicSheet, unit: &UnitInstance) -> Option<Bounds> {
+    let entry = body.part(unit.part).expect("a Unit's part entry exists");
+    let symbol = &entry.symbol;
+    let mut local: Vec<Point> = drawing_points(symbol, unit, false).collect();
+    for pin in symbol.unit_pins(unit.unit) {
+        let (dx, dy) = rotate(pin.length.0, 0, pin.rotation);
+        local.extend([pin.at, Point::new(pin.at.x + Nm(dx), pin.at.y + Nm(dy))]);
+    }
+    Bounds::of_points(local.into_iter().map(|p| on_sheet(unit, p)))
+}
+
+/// Points spanning the Unit's own Symbol drawing, in Symbol coordinates; text anchors only
+/// `with_text`.
+fn drawing_points<'a>(
+    symbol: &'a reda_model::Symbol,
+    unit: &'a UnitInstance,
+    with_text: bool,
+) -> impl Iterator<Item = Point> + 'a {
+    symbol
+        .graphics
+        .iter()
+        .filter(move |g| g.unit == unit.unit)
+        .flat_map(move |graphic| -> Vec<Point> {
+            match &graphic.shape {
+                Shape::Line { start, end } | Shape::Rect { start, end } => vec![*start, *end],
+                Shape::Arc { center, start, .. } => {
+                    let r = Nm((start.x - center.x).0.abs() + (start.y - center.y).0.abs());
+                    around(*center, r).to_vec()
+                }
+                Shape::Circle { center, radius } => around(*center, *radius).to_vec(),
+                Shape::Polygon { points } => points.clone(),
+                Shape::Text { at, .. } if with_text => vec![*at],
+                Shape::Text { .. } => vec![],
+            }
+        })
 }
 
 /// Two corners of the box of radius `r` about `center`.
