@@ -1021,7 +1021,7 @@ fn snapshot_of_the_preferences_general_page() {
 #[test]
 fn snapshot_of_the_keyboard_shortcuts_page() {
     preferences_snapshot(
-        Some(reda_ui::preferences_dialog::PageId::KeyboardShortcuts),
+        Some(reda_ui::preferences_dialog::PageId::KEYBOARD_SHORTCUTS),
         "preferences_keyboard_shortcuts_dark",
     );
 }

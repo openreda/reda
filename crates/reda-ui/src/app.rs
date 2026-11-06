@@ -764,7 +764,7 @@ impl App {
                 Request::ProjectSettings => self.open_project_settings(),
                 Request::BoardSetup => self.open_board_setup(),
                 Request::KeyboardShortcuts => {
-                    self.open_preferences(Some(PageId::KeyboardShortcuts))
+                    self.open_preferences(Some(PageId::KEYBOARD_SHORTCUTS))
                 }
             }
         }
@@ -776,7 +776,7 @@ impl App {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 self.panels_button(ui);
                 if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
-                    self.open_preferences(Some(PageId::Agents));
+                    self.open_preferences(Some(PageId::AGENTS));
                 }
                 let pending = self.shell.out_of_sync();
                 if pending > 0 {

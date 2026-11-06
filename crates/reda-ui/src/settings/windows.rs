@@ -108,7 +108,7 @@ impl SettingsWindows {
         if !open {
             match window {
                 SettingsWindow::Preferences => {
-                    self.preferences = Some(PreferencesDialog::on(PageId::General));
+                    self.preferences = Some(PreferencesDialog::on(PageId::GENERAL));
                 }
                 SettingsWindow::OutputJob => return None,
                 _ => {
