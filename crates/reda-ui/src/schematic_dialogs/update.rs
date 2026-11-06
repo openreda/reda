@@ -2,7 +2,7 @@
 //! Part would change (`schematic.component.update_preview`), then updates the ticked ones
 //! (`schematic.component.update_from_library`). Nothing updates without the preview.
 
-use egui::{Id, Modal};
+use egui::Id;
 use reda_engine::command::CommandError;
 use reda_engine::model::Uuid;
 use serde_json::{Value, json};
@@ -98,9 +98,12 @@ impl UpdateDialog {
     /// Draws the dialog. Returns whether it is still open.
     pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> bool {
         let mut result = (false, false);
-        let modal = Modal::new(Id::NULL.with("schematic-update-from-library")).show(ctx, |ui| {
-            ui.set_width(520.0);
-            ui.heading(tr!("library-update-title"));
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("schematic-update-from-library"),
+            tr!("library-update-title"),
+        )
+        .width(520.0)
+        .show(ctx, |ui| {
             if self.rows.is_empty() && self.error.is_none() {
                 ui.label(tr!("library-update-none"));
             }

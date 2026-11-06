@@ -32,7 +32,7 @@ use crate::cross_probe::{self, CrossProbe};
 use crate::grid::{self, Grids};
 use crate::highlight::Highlight;
 use crate::keymap::{self, Keymap};
-use crate::layout::{self, Layout, TabKey, saved};
+use crate::layout::{self, Layout, SettingsWindow, TabKey, WindowRect, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
@@ -186,6 +186,8 @@ pub struct Shell {
     library_index: Option<(u64, Arc<LibraryIndex>)>,
     /// A notice for the window to show once, such as Import part's vendor-terms notice.
     notice: Option<String>,
+    /// The titles of the open settings windows' tabs, as the window sets them.
+    settings_titles: BTreeMap<SettingsWindow, String>,
 }
 
 impl Shell {
@@ -279,6 +281,7 @@ impl Shell {
             library_panel: Default::default(),
             library_index: None,
             notice: None,
+            settings_titles: BTreeMap::new(),
         };
         shell.load_preference_warnings();
         shell.reload_keymap();
@@ -724,6 +727,28 @@ impl Shell {
         self.document_tab_mut(document)
     }
 
+    /// Shows the settings window `window`: raises it where it is, or opens it in a window
+    /// of its own at `rect`. Returns whether it opened just now.
+    pub fn open_settings(&mut self, window: SettingsWindow, rect: Option<WindowRect>) -> bool {
+        self.layout_mut().open_settings(window, rect)
+    }
+
+    /// Closes the settings window `window`'s tab, as its own buttons do: a view change
+    /// with nothing to journal.
+    pub fn close_settings(&mut self, window: SettingsWindow) {
+        let _ = self.layout_mut().close(&TabKey::Settings(window));
+    }
+
+    /// Names the settings window `window`'s tab.
+    pub fn set_settings_title(&mut self, window: SettingsWindow, title: String) {
+        self.settings_titles.insert(window, title);
+    }
+
+    /// The title of the settings window `window`'s tab, once the window named it.
+    pub fn settings_title(&self, window: SettingsWindow) -> Option<&str> {
+        self.settings_titles.get(&window).map(String::as_str)
+    }
+
     /// The title of `tab`'s Document, if it is an open Document.
     pub fn document_title(&self, tab: &TabKey) -> Option<&str> {
         match tab {
@@ -933,7 +958,10 @@ impl Shell {
             view.layers = self.board_view().layers.clone();
             view.user_origin = self.board_view().origin;
         }
-        let file = ViewFile::new(self.layout().clone(), documents);
+        // The settings windows are not kept: their edits do not outlive the window.
+        let mut layout = self.layout().clone();
+        layout.retain_tabs(|t| !matches!(t, TabKey::Settings(_)));
+        let file = ViewFile::new(layout, documents);
         Some((folder, file.encode()))
     }
 
@@ -1128,6 +1156,11 @@ impl Shell {
         }
         match &self.layout().focus {
             Some(TabKey::Document(uuid)) => Some(Scope::Document(*uuid)),
+            // Board Setup's changes go on the PCB Document's stack.
+            Some(TabKey::Settings(SettingsWindow::BoardSetup)) => {
+                let pcb = self.engine.project().and_then(|p| p.pcb());
+                Some(pcb.map_or(Scope::Project, |pcb| Scope::Document(pcb.uuid)))
+            }
             _ => Some(Scope::Project),
         }
     }
@@ -1545,7 +1578,7 @@ impl Shell {
                 let mut layout = file.layout;
                 layout.retain_tabs(|t| match t {
                     TabKey::Document(uuid) => titles.contains_key(uuid),
-                    TabKey::Start => false,
+                    TabKey::Start | TabKey::Settings(_) => false,
                     TabKey::Panel(_) => true,
                 });
                 (layout, file.documents)
@@ -1584,7 +1617,7 @@ impl Shell {
             self.documents.push(tab);
         }
         self.closed_views = views;
-        *self.layout_mut() = layout;
+        self.replace_layout(layout);
         // Library elements opened before the Project stay open in their tabs.
         for element in crate::element_editor::open_elements(&self.engine) {
             if self.layout().place(&TabKey::Document(element)).is_none() {
@@ -1625,6 +1658,24 @@ impl Shell {
         saved.unwrap_or(layout)
     }
 
+    /// Replaces the layout with `layout`. Preferences is per-user, so an open Preferences
+    /// window stays open, where it was.
+    fn replace_layout(&mut self, mut layout: Layout) {
+        let preferences = TabKey::Settings(SettingsWindow::Preferences);
+        let keep = self.layout().place(&preferences).map(|_| {
+            let window = self.layout().window_of(&preferences);
+            (self.layout().windows.iter())
+                .find(|w| Some(w.id) == window)
+                .and_then(|w| w.rect)
+        });
+        if let Some(rect) = keep
+            && layout.place(&preferences).is_none()
+        {
+            layout.open_settings(SettingsWindow::Preferences, rect);
+        }
+        *self.layout_mut() = layout;
+    }
+
     /// Rebuilds every tab's Scene and closes tabs whose Document is gone. With no
     /// Project open, the centre shows the Start page again.
     fn refresh(&mut self) {
@@ -1635,7 +1686,7 @@ impl Shell {
         let project = self.engine.project();
         if project.is_none() && elements.is_empty() {
             self.documents.clear();
-            *self.layout_mut() = Layout::default();
+            self.replace_layout(Layout::default());
             self.change_list = None;
             self.messages.clear_runs();
             self.messages.set_notes(FONTS, Vec::new());
@@ -1653,6 +1704,8 @@ impl Shell {
             TabKey::Start => no_project,
             TabKey::Document(uuid) => open.iter().any(|(u, _)| u == uuid),
             TabKey::Panel(_) => true,
+            // The Project's settings windows close with it.
+            TabKey::Settings(window) => !(window.of_project() && no_project),
         });
         self.forget_closed_documents();
         let mut documents = std::mem::take(&mut self.documents);

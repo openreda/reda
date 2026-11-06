@@ -111,6 +111,7 @@ fn the_theme_switches_live() {
         h.ctx.options(|o| o.theme_preference),
         egui::ThemePreference::Light
     );
+    assert!(h.state().preferences_dialog().is_some(), "it stays open");
 
     h.get_by_role_and_label(Role::Button, "Reset Theme to default")
         .click();

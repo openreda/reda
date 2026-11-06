@@ -21,6 +21,7 @@ pub fn dialog(project: &Project) -> SettingsDialog {
         vec![Box::new(ChangeListPage::default())],
         project,
     )
+    .apply_and_close()
 }
 
 /// The dialog's one page: the Change List and which changes the user unticked.

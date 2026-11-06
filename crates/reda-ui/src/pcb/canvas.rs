@@ -4,7 +4,7 @@
 //! canvas: the snap marker, the cursor position, the context menu and the "No Board
 //! Outline" hint. Its keys are Keymap bindings in the `pcb` context (`keymap/reda.toml`).
 
-use egui::{Align2, Color32, FontId, Id, Modal, Rect, Role, Stroke, Ui, WidgetInfo, pos2, vec2};
+use egui::{Align2, Color32, FontId, Id, Rect, Role, Stroke, Ui, WidgetInfo, pos2, vec2};
 use reda_engine::model::Uuid;
 use reda_engine::model::geom::{Nm, Point};
 use serde_json::{Value, json};
@@ -159,23 +159,23 @@ fn text_form(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     let id = Id::NULL.with(("pcb-text-form", shown.response.id));
     let mut words = ui.data(|d| d.get_temp::<String>(id)).unwrap_or_default();
     let (mut place, mut cancel) = (false, false);
-    let modal = Modal::new(id.with("modal")).show(ui.ctx(), |ui| {
-        ui.heading(tr!("pcb-text-title"));
-        let field = ui.text_edit_singleline(&mut words);
-        field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-text-words")));
-        field.request_focus();
-        if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            place = true;
-        }
-        ui.horizontal(|ui| {
-            if ui.button(tr!("pcb-text-place")).clicked() {
+    let modal =
+        crate::modal::Dialog::new(id.with("modal"), tr!("pcb-text-title")).show(ui.ctx(), |ui| {
+            let field = ui.text_edit_singleline(&mut words);
+            field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-text-words")));
+            field.request_focus();
+            if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 place = true;
             }
-            if ui.button(tr!("pcb-text-cancel")).clicked() {
-                cancel = true;
-            }
+            ui.horizontal(|ui| {
+                if ui.button(tr!("pcb-text-place")).clicked() {
+                    place = true;
+                }
+                if ui.button(tr!("pcb-text-cancel")).clicked() {
+                    cancel = true;
+                }
+            });
         });
-    });
     if modal.should_close() {
         cancel = true;
     }
@@ -403,37 +403,39 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     };
     let mut close = false;
     let mut create: Option<Value> = None;
-    let modal = Modal::new(form_id.with("modal")).show(ui.ctx(), |ui| {
-        ui.heading(tr!("pcb-outline-title"));
-        egui::Grid::new(form_id.with("grid"))
-            .num_columns(2)
-            .show(ui, |ui| {
-                ui.label(tr!("pcb-outline-width"));
-                let w = ui.text_edit_singleline(&mut form.width);
-                w.widget_info(|| {
-                    WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-width"))
+    let modal = crate::modal::Dialog::new(form_id.with("modal"), tr!("pcb-outline-title")).show(
+        ui.ctx(),
+        |ui| {
+            egui::Grid::new(form_id.with("grid"))
+                .num_columns(2)
+                .show(ui, |ui| {
+                    ui.label(tr!("pcb-outline-width"));
+                    let w = ui.text_edit_singleline(&mut form.width);
+                    w.widget_info(|| {
+                        WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-width"))
+                    });
+                    ui.end_row();
+                    ui.label(tr!("pcb-outline-height"));
+                    let h = ui.text_edit_singleline(&mut form.height);
+                    h.widget_info(|| {
+                        WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-height"))
+                    });
+                    ui.end_row();
                 });
-                ui.end_row();
-                ui.label(tr!("pcb-outline-height"));
-                let h = ui.text_edit_singleline(&mut form.height);
-                h.widget_info(|| {
-                    WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-height"))
-                });
-                ui.end_row();
+            ui.horizontal(|ui| {
+                if ui.button(tr!("pcb-outline-create")).clicked() {
+                    let units = shell.board_view().units;
+                    create = Some(json!({
+                        "width": with_unit(&form.width, units),
+                        "height": with_unit(&form.height, units),
+                    }));
+                }
+                if ui.button(tr!("pcb-outline-cancel")).clicked() {
+                    close = true;
+                }
             });
-        ui.horizontal(|ui| {
-            if ui.button(tr!("pcb-outline-create")).clicked() {
-                let units = shell.board_view().units;
-                create = Some(json!({
-                    "width": with_unit(&form.width, units),
-                    "height": with_unit(&form.height, units),
-                }));
-            }
-            if ui.button(tr!("pcb-outline-cancel")).clicked() {
-                close = true;
-            }
-        });
-    });
+        },
+    );
     if modal.should_close() {
         close = true;
     }

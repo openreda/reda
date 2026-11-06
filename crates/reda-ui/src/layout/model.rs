@@ -56,14 +56,55 @@ impl PanelId {
     }
 }
 
+/// A settings window: a non-modal window of its own from the docking layer, not a Panel.
+/// There is at most one of each.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum SettingsWindow {
+    Preferences,
+    ProjectSettings,
+    BoardSetup,
+    OutputJob,
+    ChangeList,
+}
+
+impl SettingsWindow {
+    pub const ALL: [SettingsWindow; 5] = [
+        SettingsWindow::Preferences,
+        SettingsWindow::ProjectSettings,
+        SettingsWindow::BoardSetup,
+        SettingsWindow::OutputJob,
+        SettingsWindow::ChangeList,
+    ];
+
+    /// The id in Commands and in `state.json`, such as `board_setup`.
+    pub fn id(self) -> &'static str {
+        match self {
+            SettingsWindow::Preferences => "preferences",
+            SettingsWindow::ProjectSettings => "project_settings",
+            SettingsWindow::BoardSetup => "board_setup",
+            SettingsWindow::OutputJob => "output_job",
+            SettingsWindow::ChangeList => "change_list",
+        }
+    }
+
+    /// Whether it edits the open Project, and so closes with it. Preferences is per-user.
+    pub fn of_project(self) -> bool {
+        self != SettingsWindow::Preferences
+    }
+}
+
 /// What a tab shows. Written in Commands as a string: `start`, a Panel id such as
-/// `properties`, or a Document UUID.
+/// `properties`, a settings window id such as `board_setup`, or a Document UUID.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum TabKey {
     /// The Start page, shown while no Project is open.
     Start,
     Document(Uuid),
     Panel(PanelId),
+    Settings(SettingsWindow),
 }
 
 impl fmt::Display for TabKey {
@@ -72,6 +113,7 @@ impl fmt::Display for TabKey {
             TabKey::Start => f.write_str("start"),
             TabKey::Document(uuid) => write!(f, "{uuid}"),
             TabKey::Panel(panel) => f.write_str(panel.id()),
+            TabKey::Settings(window) => f.write_str(window.id()),
         }
     }
 }
@@ -99,8 +141,14 @@ impl FromStr for TabKey {
         if let Some(panel) = PanelId::ALL.into_iter().find(|p| p.id() == s) {
             return Ok(TabKey::Panel(panel));
         }
+        if let Some(window) = SettingsWindow::ALL.into_iter().find(|w| w.id() == s) {
+            return Ok(TabKey::Settings(window));
+        }
         s.parse::<Uuid>().map(TabKey::Document).map_err(|_| {
-            format!("{s:?} is not a tab: give \"start\", a Panel id or a Document UUID")
+            format!(
+                "{s:?} is not a tab: give \"start\", a Panel id, a settings window id or a \
+                 Document UUID"
+            )
         })
     }
 }
@@ -712,6 +760,42 @@ impl Layout {
             });
             Ok(l.activate_in_place(tab))
         })
+    }
+
+    /// Shows the settings window `window` and focuses it: where it is when it is open,
+    /// else in a new window of its own placed at `rect` (where the OS puts it, when
+    /// `None`). Returns whether it was opened just now.
+    pub fn open_settings(&mut self, window: SettingsWindow, rect: Option<WindowRect>) -> bool {
+        let tab = TabKey::Settings(window);
+        let opened = self.place(&tab).is_none();
+        if opened {
+            let id = WindowId(self.fresh_id());
+            let group = GroupId(self.fresh_id());
+            self.windows.push(FloatingWindow {
+                id,
+                root: Node::Group(Group::new(group, vec![tab.clone()])),
+                rect,
+            });
+        }
+        self.activate_in_place(&tab);
+        opened
+    }
+
+    /// The floating window `tab` is in, if it is in one.
+    pub fn window_of(&self, tab: &TabKey) -> Option<WindowId> {
+        match self.place(tab)?.area {
+            Area::Window(window) => Some(window),
+            _ => None,
+        }
+    }
+
+    /// The tabs in the floating window `window`.
+    pub fn tabs_in_window(&self, window: WindowId) -> Vec<&TabKey> {
+        self.groups()
+            .into_iter()
+            .filter(|(area, _)| *area == Area::Window(window))
+            .flat_map(|(_, g)| g.tabs.iter())
+            .collect()
     }
 
     /// Moves `tab` out of its group into a new group to the right of it or below it.

@@ -1,7 +1,7 @@
 //! Select Similar: selects the Units that match the selected one on the chosen fields,
 //! on its sheet or across the Project (`schematic.select_similar`, then `selection.set`).
 
-use egui::{Id, Modal};
+use egui::Id;
 use reda_engine::command::CommandError;
 use reda_engine::model::{Project, UnitInstance, Uuid};
 use serde_json::{Value, json};
@@ -124,9 +124,12 @@ impl SimilarDialog {
     /// Draws the dialog. Returns whether it is still open.
     pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> bool {
         let mut result = (false, false);
-        let modal = Modal::new(Id::NULL.with("schematic-select-similar")).show(ctx, |ui| {
-            ui.set_width(380.0);
-            ui.heading(tr!("similar-title", designator = self.designator.clone()));
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("schematic-select-similar"),
+            tr!("similar-title", designator = self.designator.clone()),
+        )
+        .width(380.0)
+        .show(ctx, |ui| {
             ui.label(tr!("similar-match"));
             for c in &mut self.criteria {
                 ui.checkbox(&mut c.checked, &c.label);
