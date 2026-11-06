@@ -1,7 +1,7 @@
 //! The closing and quitting prompts in the window, driven through AccessKit with
-//! `egui_kittest`: closing a dirty Document's tab, quitting, and opening another Project,
-//! each with Save, Don't Save, Cancel and a failed Save, and what each leaves of the
-//! Recovery Snapshots.
+//! `egui_kittest`: closing a dirty Document's tab, quitting, closing the Project and
+//! opening another, each with Save, Don't Save, Cancel and a failed Save, and what each
+//! leaves of the Recovery Snapshots.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -151,6 +151,21 @@ impl Fixture {
         self.h.run();
         self.h.get_by_label("Quit").click();
         self.h.run();
+    }
+
+    fn close_project_from_menu(&mut self) {
+        self.h.get_by_label("File").click();
+        self.h.run();
+        self.h.get_by_label("Close Project").click();
+        self.h.run();
+    }
+
+    fn project_open(&self) -> bool {
+        self.shell().engine().project().is_some()
+    }
+
+    fn start_page_shown(&self) -> bool {
+        self.shell().layout().place(&TabKey::Start).is_some()
     }
 
     /// The OS asks the window to close (its title bar's close button).
@@ -413,6 +428,107 @@ fn opening_another_project_with_nothing_unsaved_does_not_ask() {
     assert_eq!(project.props().name, "Other");
 }
 
+#[test]
+fn closing_the_project_with_nothing_unsaved_shows_the_start_page_at_once() {
+    let mut f = Fixture::new("closeproj-clean");
+    let sheet = f.sheet();
+    f.snapshot();
+    f.close_project_from_menu();
+    assert!(!f.prompt_open());
+    assert!(!f.project_open());
+    assert!(!f.has_tab(sheet));
+    assert!(f.start_page_shown());
+    assert!(!f.h.state().closing().quit_approved());
+}
+
+#[test]
+fn closing_the_project_lists_the_unsaved_files_and_cancel_keeps_it_open() {
+    let mut f = Fixture::new("closeproj-cancel");
+    let sheet = f.sheet();
+    f.wire();
+    f.retitle();
+    f.snapshot();
+    f.close_project_from_menu();
+    assert!(f.prompt_open());
+    for row in ["Demo.reda", "Sheet 1"] {
+        let node = f.h.get_by_role_and_label(Role::CheckBox, row);
+        assert_eq!(
+            node.accesskit_node().toggled(),
+            Some(Toggled::True),
+            "{row}"
+        );
+    }
+    f.click("Cancel");
+    assert!(!f.prompt_open());
+    assert!(f.project_open());
+    assert!(f.has_tab(sheet));
+    assert_eq!(f.dirty().len(), 2);
+    f.snapshot();
+    assert_eq!(f.snapshot_files(), 2, "the snapshots stay");
+}
+
+#[test]
+fn save_selected_saves_the_ticked_files_then_closes_the_project_and_its_snapshots() {
+    let mut f = Fixture::new("closeproj-save");
+    let before = f.sheet_on_disk();
+    let project_file = f.folder().join("Demo.reda");
+    let project_before = std::fs::read_to_string(&project_file).unwrap();
+    f.wire();
+    f.retitle();
+    f.snapshot();
+    assert_eq!(f.snapshot_files(), 2);
+    f.close_project_from_menu();
+    // Untick the Project file: its change is dropped with the Project.
+    f.h.get_by_role_and_label(Role::CheckBox, "Demo.reda")
+        .click();
+    f.h.run();
+    f.click("Save Selected");
+    assert!(!f.prompt_open());
+    assert!(!f.project_open());
+    assert!(f.start_page_shown());
+    assert!(!f.h.state().closing().quit_approved(), "the window stays");
+    assert_ne!(f.sheet_on_disk(), before);
+    assert_eq!(
+        std::fs::read_to_string(&project_file).unwrap(),
+        project_before
+    );
+    assert_eq!(f.snapshot_files(), 0);
+    assert!(!f.snapshot_dir().join(snapshots::MANIFEST).exists());
+}
+
+#[test]
+fn dont_save_closes_the_project_without_saving_and_drops_its_snapshots() {
+    let mut f = Fixture::new("closeproj-dont");
+    let before = f.sheet_on_disk();
+    f.wire();
+    f.snapshot();
+    assert_eq!(f.snapshot_files(), 1);
+    f.close_project_from_menu();
+    f.click("Don't Save");
+    assert!(!f.prompt_open());
+    assert!(!f.project_open());
+    assert!(f.start_page_shown());
+    assert_eq!(f.sheet_on_disk(), before);
+    assert_eq!(f.snapshot_files(), 0);
+}
+
+#[test]
+fn a_failed_save_selected_keeps_the_project_open_and_the_snapshots() {
+    let mut f = Fixture::new("closeproj-fail");
+    f.wire();
+    f.snapshot();
+    f.break_sheet_file();
+    f.close_project_from_menu();
+    f.click("Save Selected");
+    assert!(f.prompt_open());
+    f.h.get_by_label_contains("could not be saved");
+    assert!(f.project_open());
+    f.click("Cancel");
+    assert!(f.project_open());
+    f.snapshot();
+    assert_eq!(f.snapshot_files(), 1);
+}
+
 /// Registers an empty user Library `Mine` under `home`, for Library editor tabs.
 fn user_library(home: &Path, at: &Path) {
     std::fs::create_dir_all(at).unwrap();
@@ -471,4 +587,27 @@ fn library_editor_tabs_ask_on_close_and_join_the_quit_list() {
     let engine = h.state().shell().engine();
     assert!(engine.element(symbol).is_none());
     assert!(engine.dirty_scopes().is_empty());
+}
+
+#[test]
+fn library_editor_tabs_stay_open_beside_the_start_page_when_the_project_closes() {
+    let mut f = Fixture::new("closeproj-element");
+    user_library(f._home.path(), &f._home.path().join("mine"));
+    let out = f
+        .shell_mut()
+        .run(
+            "library.element.new",
+            json!({"library": LIBRARY, "kind": "symbol", "name": "Opamp"}),
+        )
+        .unwrap();
+    let symbol: Uuid = out["element"].as_str().unwrap().parse().unwrap();
+    f.h.run();
+    f.close_project_from_menu();
+    // The unsaved element is listed; Don't Save closes only the Project.
+    f.h.get_by_role_and_label(Role::CheckBox, "Opamp");
+    f.click("Don't Save");
+    assert!(!f.project_open());
+    assert!(f.start_page_shown());
+    assert!(f.has_tab(symbol));
+    assert_eq!(f.dirty(), [Scope::Element(symbol)]);
 }
