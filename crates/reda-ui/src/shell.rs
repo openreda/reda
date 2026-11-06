@@ -46,6 +46,7 @@ use crate::tools::{self, ActiveTool, PowerPortName, Tool};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
+use crate::working_state::{self, SelectionFilter, SnapOptions, WorkingState};
 
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
 
@@ -79,6 +80,9 @@ pub struct DocumentTab {
     pub scene: SceneHandle,
     /// A box to zoom the camera to when the canvas next lays out, in Document nm.
     pub zoom_to: Option<(Point, Point)>,
+    /// A point to centre the camera on when the canvas next lays out, keeping the zoom
+    /// (`view.jump_to` before the canvas has a camera).
+    pub center_on: Option<Point>,
     /// The selected objects the canvas marks.
     pub selection: SelectionHandle,
     /// The Violation markers the canvas draws over the Document.
@@ -108,6 +112,7 @@ impl DocumentTab {
             layers: LayerView::default(),
             scene,
             zoom_to: None,
+            center_on: None,
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
             grid: grid::SCHEMATIC_DEFAULT,
@@ -219,6 +224,9 @@ impl Shell {
         if engine.registry().get("view.grid.set").is_none() {
             engine.register(grid::register_all);
         }
+        if engine.registry().get("selection.filter.set").is_none() {
+            engine.register(working_state::register_all);
+        }
         if engine.registry().get("pcb.layer.show").is_none() {
             engine.register(pcb::register_all);
         }
@@ -241,6 +249,7 @@ impl Shell {
             .view_mut()
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
+        engine.view_mut().set(WorkingState::default());
         engine.view_mut().set(CrossProbe::default());
         engine.view_mut().set(messages::ShowWaived::default());
         engine
@@ -409,6 +418,47 @@ impl Shell {
             .get::<Grids>()
             .map(|g| g.of(self.engine.elements(), document))
             .unwrap_or(grid::SCHEMATIC_DEFAULT)
+    }
+
+    /// `document`'s Selection Filter; it changes through `selection.filter.set`.
+    pub fn selection_filter(&self, document: Uuid) -> SelectionFilter {
+        self.engine
+            .view()
+            .get::<WorkingState>()
+            .map(|w| w.filter(document))
+            .unwrap_or_default()
+    }
+
+    /// Moves `document`'s canvas as `view.jump_to` asked, keeping the zoom.
+    pub fn jump(&mut self, document: Uuid, jump: crate::navigation::Jump) {
+        use crate::navigation::Jump;
+        let Some(tab) = self.document_tab_mut(document) else {
+            return;
+        };
+        let pending = tab.center_on.take();
+        let center = match (tab.camera.as_ref(), pending) {
+            (_, Some(p)) => (p.x.0 as f64, p.y.0 as f64),
+            (Some(camera), None) => camera.center,
+            (None, None) => {
+                // No camera yet: the fitted canvas centres on the Document's bounds.
+                let zero = Point::new(Nm(0), Nm(0));
+                let (lo, hi) = tab.scene.scene.bounds().unwrap_or((zero, zero));
+                (
+                    (lo.x.0 + hi.x.0) as f64 / 2.0,
+                    (lo.y.0 + hi.y.0) as f64 / 2.0,
+                )
+            }
+        };
+        let target = match jump {
+            Jump::To(p) => (p.x.0 as f64, p.y.0 as f64),
+            Jump::By(d) => (center.0 + d.x.0 as f64, center.1 + d.y.0 as f64),
+        };
+        match tab.camera.as_mut() {
+            Some(camera) => camera.center = target,
+            None => {
+                tab.center_on = Some(Point::new(Nm(target.0 as i64), Nm(target.1 as i64)));
+            }
+        }
     }
 
     /// What the last copy or cut put on the clipboard, for `schematic.paste`.
@@ -950,14 +1000,33 @@ impl Shell {
                 DocumentView {
                     camera: tab.camera,
                     layers: tab.layers.clone(),
-                    user_origin: None,
+                    ..DocumentView::default()
                 },
             );
+        }
+        let grids = self.engine.view().get::<Grids>();
+        let working = self.engine.view().get::<WorkingState>();
+        for entry in project.documents() {
+            let grid = grids.and_then(|g| g.picked.get(&entry.uuid).copied());
+            let snap = working.and_then(|w| w.snap.get(&entry.uuid).copied());
+            let filter = working.map(|w| w.filter(entry.uuid)).unwrap_or_default();
+            let view = documents.get_mut(&entry.uuid);
+            let unchanged = grid.is_none() && snap.is_none() && filter.off.is_empty();
+            let view = match view {
+                Some(view) => view,
+                None if unchanged => continue,
+                None => documents.entry(entry.uuid).or_default(),
+            };
+            view.grid = grid;
+            view.snap_mode = snap.map(|s| s.mode);
+            view.gridless = snap.is_some_and(|s| s.gridless);
+            view.selection_filter_off = filter.off;
         }
         if let Some(pcb) = project.pcb() {
             let view = documents.entry(pcb.uuid).or_default();
             view.layers = self.board_view().layers.clone();
             view.user_origin = self.board_view().origin;
+            view.units = Some(self.board_view().units);
         }
         // The settings windows are not kept: their edits do not outlive the window.
         let mut layout = self.layout().clone();
@@ -1629,12 +1698,48 @@ impl Shell {
         if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
             board.layers = view.layers.clone();
             board.origin = view.user_origin;
+            board.units = view.units.unwrap_or(units);
         }
         *self.board_view_mut() = board;
-        // Views start on the grids the Preferences pick.
+        // Views start on the grids the Preferences pick, unless view.json has their own.
+        let kinds: BTreeMap<Uuid, DocumentKind> = self
+            .engine
+            .project()
+            .map(|p| p.documents().map(|d| (d.uuid, d.kind)).collect())
+            .unwrap_or_default();
+        let mut working = WorkingState::default();
+        let mut picked = BTreeMap::new();
+        for (document, view) in &views {
+            let Some(kind) = kinds.get(document).copied() else {
+                continue;
+            };
+            if let Some(g) = view.grid.filter(|g| grid::presets(kind).contains(g)) {
+                picked.insert(*document, g);
+            }
+            let ty = kind.into();
+            let mode = view
+                .snap_mode
+                .filter(|m| working_state::SnapMode::offered(ty).contains(m));
+            if mode.is_some() || view.gridless {
+                let mut snap = SnapOptions::default_for(ty);
+                snap.mode = mode.unwrap_or(snap.mode);
+                snap.gridless = view.gridless;
+                working.snap.insert(*document, snap);
+            }
+            let list = working_state::filter_kinds(ty);
+            let off: BTreeSet<String> = (view.selection_filter_off.iter())
+                .filter(|k| list.contains(&k.as_str()))
+                .cloned()
+                .collect();
+            if !off.is_empty() {
+                working.filters.insert(*document, SelectionFilter { off });
+            }
+        }
         if let Some(grids) = self.engine.view_mut().get_mut::<Grids>() {
             grids.follow(&prefs);
+            grids.picked = picked;
         }
+        self.engine.view_mut().set(working);
         self.documents.clear();
         let open: Vec<Uuid> = layout
             .groups()
@@ -2054,7 +2159,7 @@ impl Shell {
             let view = DocumentView {
                 camera: tab.camera,
                 layers: tab.layers,
-                user_origin: None,
+                ..DocumentView::default()
             };
             self.closed_views.insert(tab.document, view);
         }
