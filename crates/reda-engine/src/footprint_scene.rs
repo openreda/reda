@@ -8,8 +8,7 @@
 use reda_command::Fonts;
 use reda_model::geom::Nm;
 use reda_model::{
-    DocumentEntry, DocumentKind, Footprint, Layer, PadKind, Project, ProjectProps, Rules, Shape,
-    Side, Uuid,
+    DocumentEntry, DocumentKind, Footprint, Layer, Project, ProjectProps, Rules, Shape, Uuid,
 };
 use reda_pcb::{board_layer, element_texts, new_board, text_geometry};
 use reda_render::{BoardGeometry, BoardGraphic, BoardPad, BoardText, Mesh, Scene, Segment};
@@ -39,14 +38,11 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
             object: pad.uuid,
             number: pad.number.clone(),
             kind: pad.kind,
-            shape: pad.shape,
             at: pad.at,
             rotation: pad.rotation,
-            width: pad.width,
-            height: pad.height,
-            corner_radius: pad.corner_radius,
+            outline: pad.outline(),
             hole: pad.hole,
-            side: (pad.kind == PadKind::Smd).then_some(Side::Top),
+            side: pad.copper_side(),
             net: None,
         });
     }

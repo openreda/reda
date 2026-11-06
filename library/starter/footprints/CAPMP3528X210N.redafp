@@ -3,8 +3,8 @@
   "footprint": {"uuid":"2adccc08-5d68-4c21-a620-92fb92ec9033","name":"CAPMP3528X210N","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal","height":2100000},
   "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":{"height":2100000,"length":{"max":3700000,"min":3300000},"terminal":{"max":1100000,"min":500000},"width":{"max":3000000,"min":2600000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"CAPMP3528X210N","size":null}},
   "pads": [
-    {"uuid":"665a48cc-84f5-414e-801d-cb3234894240","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_radius":250000},
-    {"uuid":"cfc412fd-6626-416e-a589-e25a52cbe4b6","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_radius":250000}
+    {"uuid":"665a48cc-84f5-414e-801d-cb3234894240","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_ratio":32787},
+    {"uuid":"cfc412fd-6626-416e-a589-e25a52cbe4b6","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_ratio":32787}
   ],
   "graphics": [
     {"uuid":"09a74e66-b1e4-4243-b587-463c557d6df7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2500000,"y":-1800000},"end":{"x":2500000,"y":1800000}},"width":50000},

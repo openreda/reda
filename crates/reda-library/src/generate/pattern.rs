@@ -5,7 +5,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
     Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
-    Shape, TextStyle, Uuid,
+    Ratio, Shape, TextStyle, Uuid,
 };
 
 use super::ipc::courtyard_round;
@@ -68,11 +68,15 @@ impl PadSpec {
     }
 
     fn pad(&self, uuid: Uuid) -> Pad {
-        let (kind, shape, corner_radius, hole) = match self.kind {
+        let (kind, shape, corner_ratio, hole) = match self.kind {
             LandKind::Smd => (
                 PadKind::Smd,
                 PadShape::RoundedRect,
-                Some(corner_radius(self)),
+                Some(Ratio::from_length(
+                    corner_radius(self),
+                    self.width,
+                    self.height,
+                )),
                 None,
             ),
             LandKind::ThroughHole { drill, square } => {
@@ -83,10 +87,7 @@ impl PadSpec {
                 } else {
                     PadShape::Oval
                 };
-                let hole = Hole {
-                    width: drill,
-                    height: drill,
-                };
+                let hole = Hole::new(drill, drill);
                 (PadKind::PlatedThroughHole, shape, None, Some(hole))
             }
         };
@@ -99,10 +100,15 @@ impl PadSpec {
             rotation: Millideg(0),
             width: self.width,
             height: self.height,
-            corner_radius,
+            corner_ratio,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
             hole,
+            side: None,
             mask_margin: None,
             paste_margin: None,
+            zone_connection: None,
         }
     }
 }

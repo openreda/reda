@@ -3,8 +3,8 @@
   "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"RESC0603X26N","description":"Chip resistor, 0201 (0603 metric), IPC-7351 Nominal","height":260000},
   "generator": {"command":"library.footprint.generate.chip","params":{"class":"resistor","dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"0201"}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-350000,"y":0},"rotation":0,"width":400000,"height":400000,"corner_radius":100000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":350000,"y":0},"rotation":0,"width":400000,"height":400000,"corner_radius":100000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-350000,"y":0},"rotation":0,"width":400000,"height":400000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":350000,"y":0},"rotation":0,"width":400000,"height":400000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-700000,"y":-350000},"end":{"x":700000,"y":350000}},"width":50000},

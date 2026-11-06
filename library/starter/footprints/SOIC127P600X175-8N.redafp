@@ -3,14 +3,14 @@
   "footprint": {"uuid":"7afee21e-6914-4820-8f71-a396e8dd3ac1","name":"SOIC127P600X175-8N","description":"SOIC-8, 1.27 mm pitch, IPC-7351 Nominal","height":1750000},
   "generator": {"command":"library.footprint.generate.soic","params":{"dimensions":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins":8,"wide":false}},
   "pads": [
-    {"uuid":"0bce11ec-346f-4972-ab9f-4f8ba97a7b51","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":635000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000},
-    {"uuid":"1e438b59-6d5a-47a8-bac7-1a60cbb01b18","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-635000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000},
-    {"uuid":"20777590-eae8-4eba-9d3b-44255933e7e6","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":1905000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000},
-    {"uuid":"3a831966-e50e-4317-ac7a-e5cb1d78df2d","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-635000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000},
-    {"uuid":"42a3f917-58b7-482f-b69b-32fbfefbb2e8","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-1905000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000},
-    {"uuid":"8649cfc2-5efc-416c-8313-5016450c45bc","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-1905000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000},
-    {"uuid":"880f64de-ae75-40bf-b748-f23d621d70eb","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":635000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000},
-    {"uuid":"fc33a32b-56f3-4ac1-a9a3-17b55df9e749","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":1905000},"rotation":0,"width":2000000,"height":600000,"corner_radius":150000}
+    {"uuid":"0bce11ec-346f-4972-ab9f-4f8ba97a7b51","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
+    {"uuid":"1e438b59-6d5a-47a8-bac7-1a60cbb01b18","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
+    {"uuid":"20777590-eae8-4eba-9d3b-44255933e7e6","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
+    {"uuid":"3a831966-e50e-4317-ac7a-e5cb1d78df2d","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
+    {"uuid":"42a3f917-58b7-482f-b69b-32fbfefbb2e8","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
+    {"uuid":"8649cfc2-5efc-416c-8313-5016450c45bc","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
+    {"uuid":"880f64de-ae75-40bf-b748-f23d621d70eb","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
+    {"uuid":"fc33a32b-56f3-4ac1-a9a3-17b55df9e749","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"1ff06916-cc84-4fe2-8be8-dc7d766cc06e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3750000,"y":-2750000},"end":{"x":3750000,"y":2750000}},"width":50000},

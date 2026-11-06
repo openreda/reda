@@ -78,8 +78,8 @@ fn flash_at(layer: &Layer, at: (i64, i64)) -> Option<(&Aperture, Option<&str>)> 
 /// inside and just outside each side, in the Pad's own frame.
 fn assert_grown(pad: &PlacedPad, aperture: &Aperture, margin: i64) {
     let (w, h) = (
-        (pad.width.0 + 2 * margin) as f64 / 2.0,
-        (pad.height.0 + 2 * margin) as f64 / 2.0,
+        (pad.outline.width.0 + 2 * margin) as f64 / 2.0,
+        (pad.outline.height.0 + 2 * margin) as f64 / 2.0,
     );
     let d = 2_000.0;
     let angle = (pad.rotation.0 as f64 / 1000.0).to_radians();
@@ -119,7 +119,7 @@ fn the_solder_mask_opens_over_every_pad_by_its_margin_and_tents_vias() {
         json!({"at": pt(5.0, 5.0), "rotation": "30deg", "pads": [
             {"at": pt(0.0, 0.0), "width": "1.2mm", "height": "0.6mm", "mask_margin": "0.1mm"},
             {"at": pt(2.0, 0.0), "width": "1mm", "height": "1.6mm", "shape": "rounded_rect",
-             "corner_radius": "0.25mm", "mask_margin": "-0.05mm"},
+             "corner_ratio": 50_000, "mask_margin": "-0.05mm"},
             {"at": pt(4.0, 0.0), "width": "1.6mm", "height": "1.6mm", "shape": "circle",
              "kind": "plated_through_hole", "hole": {"width": 800000, "height": 800000}}]}),
     );
@@ -199,7 +199,7 @@ fn the_paste_opens_over_smd_pads_by_their_margin_only() {
             _ => &top,
         };
         let margin = pad.paste_margin.unwrap_or(Nm::ZERO).0;
-        if pad.width.0 + 2 * margin <= 0 {
+        if pad.outline.width.0 + 2 * margin <= 0 {
             assert!(flash_at(layer, at(pad)).is_none());
             continue;
         }

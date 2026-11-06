@@ -7,8 +7,8 @@
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
-    Provenance, Shape, TextStyle, Uuid,
+    ConnectionStyle, Corner, Corners, Footprint, FootprintGraphic, FootprintLayer, FootprintText,
+    Hole, Pad, PadKind, PadShape, Provenance, Ratio, Shape, Side, TextStyle, Uuid, ZoneConnection,
 };
 
 use crate::node::{self, Read, fail};
@@ -25,10 +25,15 @@ pub struct PadSource {
     pub rotation: Millideg,
     pub width: Nm,
     pub height: Nm,
-    pub corner_radius: Option<Nm>,
+    pub corner_ratio: Option<Ratio>,
+    pub chamfer_ratio: Option<Ratio>,
+    pub corners: Option<Corners>,
+    pub offset: Option<Point>,
     pub hole: Option<Hole>,
+    pub side: Option<Side>,
     pub mask_margin: Option<Nm>,
     pub paste_margin: Option<Nm>,
+    pub zone_connection: Option<ZoneConnection>,
 }
 
 #[derive(Clone, Debug)]
@@ -308,25 +313,47 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
     if width.0 <= 0 || height.0 <= 0 {
         return fail(size, format!("pad {number:?} has no size"));
     }
-    let corner_radius = match (shape, pad.child("roundrect_rratio")) {
-        (PadShape::RoundedRect, Some(r)) => {
-            let ratio =
-                crate::number::fixed(node::text(r, 0)?, 6).filter(|r| (0..=500_000).contains(r));
-            let Some(ratio) = ratio else {
-                return fail(r, "the corner ratio must be between 0 and 0.5");
-            };
-            let short = i128::from(width.0.min(height.0));
-            Some(Nm((short * i128::from(ratio) / 1_000_000) as i64))
+    // KiCad's ratios are shares of the shorter side, at most 0.5; REDA's are shares of
+    // half of it.
+    let ratio = |name: &str| -> Read<Option<Ratio>> {
+        let Some(r) = pad.child(name) else {
+            return Ok(None);
+        };
+        let value =
+            crate::number::fixed(node::text(r, 0)?, 6).filter(|r| (0..=500_000).contains(r));
+        match value {
+            Some(v) => Ok(Some(Ratio((v / 5) as u32))),
+            None => fail(r, format!("the {name} must be between 0 and 0.5")),
         }
-        (PadShape::RoundedRect, None) => Some(Nm(width.0.min(height.0) / 4)),
-        _ => None,
     };
-    let hole = match pad.child("drill") {
-        None => None,
+    let rounding = ratio("roundrect_rratio")?;
+    let chamfers = chamfer_corners(pad)?;
+    let chamfer = ratio("chamfer_ratio")?.filter(|r| r.0 > 0);
+    let (shape, corner_ratio, chamfer_ratio, corners) = match (shape, chamfers, chamfer) {
+        (PadShape::RoundedRect | PadShape::Rect, Some(corners), Some(chamfer)) => {
+            let rounding = if shape == PadShape::RoundedRect {
+                rounding.filter(|r| r.0 > 0)
+            } else {
+                None
+            };
+            let corners = (corners != Corners::ALL).then_some(corners);
+            (PadShape::ChamferedRect, rounding, Some(chamfer), corners)
+        }
+        (PadShape::RoundedRect, _, _) => (
+            shape,
+            Some(rounding.unwrap_or(Ratio::percent(50))),
+            None,
+            None,
+        ),
+        _ => (shape, None, None, None),
+    };
+    let (hole, offset) = match pad.child("drill") {
+        None => (None, None),
         Some(drill) => {
-            if drill.child("offset").is_some() {
-                warnings.push(format!("pad {number:?}: the drill offset was dropped"));
-            }
+            let offset = match drill.child("offset") {
+                Some(o) => Some(flip(node::point(o)?)).filter(|o| *o != Point::default()),
+                None => None,
+            };
             let (w, h) = if drill.arg(0) == Some("oval") {
                 let w = node::mm(drill, 1)?;
                 let h = match drill.arg(2).and_then(crate::number::mm) {
@@ -338,10 +365,7 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
                 let d = node::mm(drill, 0)?;
                 (d, d)
             };
-            (w.0 > 0 && h.0 > 0).then_some(Hole {
-                width: w,
-                height: h,
-            })
+            ((w.0 > 0 && h.0 > 0).then_some(Hole::new(w, h)), offset)
         }
     };
     if kind != PadKind::Smd && hole.is_none() {
@@ -351,12 +375,14 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
         .child("layers")
         .map(|l| l.args().iter().filter_map(Sexp::text).collect())
         .unwrap_or_default();
-    if kind == PadKind::Smd && layers.contains(&"B.Cu") && !layers.contains(&"F.Cu") {
-        warnings.push(format!(
-            "pad {number:?}: a bottom-side SMD pad was imported on the top"
-        ));
-    }
+    let side = (kind == PadKind::Smd && layers.contains(&"B.Cu") && !layers.contains(&"F.Cu"))
+        .then_some(Side::Bottom);
     let margin = |name: &str| pad.child(name).map(|m| node::mm(m, 0)).transpose();
+    let zone_connection = if kind == PadKind::NonPlated {
+        None
+    } else {
+        zone_connection(pad, kind, &number, warnings)?
+    };
     Ok(PadSource {
         number,
         kind,
@@ -365,11 +391,91 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
         rotation: node::degrees_or_zero(at, 2)?,
         width,
         height,
-        corner_radius,
+        corner_ratio,
+        chamfer_ratio,
+        corners,
+        offset,
         hole: if kind == PadKind::Smd { None } else { hole },
+        side,
         mask_margin: margin("solder_mask_margin")?,
         paste_margin: margin("solder_paste_margin")?,
+        zone_connection,
     })
+}
+
+/// The corners a `(chamfer …)` list names, or `None` without one.
+///
+/// KiCad's pad frame has y down, and the import negates y, which mirrors the frame
+/// top-bottom. A corner keeps the place it is seen in: KiCad's `top_left` is its corner
+/// of negative y, which the flip moves to positive y, REDA's top. So the flip of the flags
+/// undoes KiCad's own y-down naming, and each name maps to the REDA corner of that name.
+fn chamfer_corners(pad: &Sexp) -> Read<Option<Corners>> {
+    let Some(list) = pad.child("chamfer") else {
+        return Ok(None);
+    };
+    let mut corners = Corners::NONE;
+    for word in list.args().iter().filter_map(Sexp::text) {
+        // The corner in KiCad's y-down frame, by the signs of its coordinates.
+        let kicad = match word {
+            "top_left" => Corner::BottomLeft,
+            "top_right" => Corner::BottomRight,
+            "bottom_left" => Corner::TopLeft,
+            "bottom_right" => Corner::TopRight,
+            other => return fail(list, format!("unknown chamfer corner {other:?}")),
+        };
+        // Negating y mirrors it top-bottom.
+        corners = corners.with(kicad.flipped());
+    }
+    Ok((corners != Corners::NONE).then_some(corners))
+}
+
+/// `(zone_connect n)` with `(thermal_bridge_width)`, `(thermal_gap)` and
+/// `(thermal_bridge_angle)`, as a Zone connection; `None` when it inherits everything.
+fn zone_connection(
+    pad: &Sexp,
+    kind: PadKind,
+    number: &str,
+    warnings: &mut Vec<String>,
+) -> Read<Option<ZoneConnection>> {
+    let style = match pad.child("zone_connect") {
+        None => None,
+        Some(z) => match node::text(z, 0)? {
+            "0" => Some(ConnectionStyle::None),
+            "1" => Some(ConnectionStyle::Relief),
+            "2" => Some(ConnectionStyle::Solid),
+            "3" if kind == PadKind::Smd => Some(ConnectionStyle::Solid),
+            "3" => Some(ConnectionStyle::Relief),
+            other => return fail(z, format!("unknown zone connection {other:?}")),
+        },
+    };
+    let length = |name: &str| pad.child(name).map(|m| node::mm(m, 0)).transpose();
+    let spoke_width = length("thermal_bridge_width")?
+        .or(length("thermal_width")?)
+        .filter(|w| w.0 > 0);
+    let gap = length("thermal_gap")?.filter(|g| g.0 > 0);
+    let angle = match pad.child("thermal_bridge_angle") {
+        None => None,
+        Some(a) => {
+            let angle = node::degrees_or_zero(a, 0)?.normalized();
+            match angle.0 {
+                0 | 45_000 | 90_000 => Some(angle),
+                _ => {
+                    warnings.push(format!(
+                        "pad {number:?}: a spoke angle other than 0, 45 or 90 degrees was dropped"
+                    ));
+                    None
+                }
+            }
+        }
+    };
+    let connection = ZoneConnection {
+        style,
+        spokes: None,
+        spoke_width,
+        gap,
+        angle,
+    };
+    Ok((connection != ZoneConnection::default()).then_some(connection))
 }
 
 pub fn build(
@@ -391,10 +497,15 @@ pub fn build(
             rotation: p.rotation,
             width: p.width,
             height: p.height,
-            corner_radius: p.corner_radius,
+            corner_ratio: p.corner_ratio,
+            chamfer_ratio: p.chamfer_ratio,
+            corners: p.corners,
+            offset: p.offset,
             hole: p.hole,
+            side: p.side,
             mask_margin: p.mask_margin,
             paste_margin: p.paste_margin,
+            zone_connection: p.zone_connection,
         })
         .collect();
     pads.sort_by_key(|p| p.uuid);

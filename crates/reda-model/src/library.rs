@@ -9,7 +9,7 @@ use reda_geom::{Millideg, Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::Uuid;
+use crate::{Pad, Uuid};
 
 /// A Library's own description, stored in `<name>.redalib` at the root of its folder.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -432,58 +432,6 @@ pub struct FootprintGraphic {
     /// Whether a closed shape is filled.
     #[serde(default, skip_serializing_if = "is_false")]
     pub fill: bool,
-}
-
-/// A copper area, with or without a hole, of a Footprint.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Pad {
-    pub uuid: Uuid,
-    pub number: String,
-    pub kind: PadKind,
-    pub shape: PadShape,
-    /// The Pad centre, relative to the Footprint origin.
-    pub at: Point,
-    pub rotation: Millideg,
-    pub width: Nm,
-    pub height: Nm,
-    /// The corner radius of a rounded-rectangle Pad.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub corner_radius: Option<Nm>,
-    /// A round hole when width equals height, otherwise a slot. SMD Pads have none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hole: Option<Hole>,
-    /// Overrides the board's solder-mask margin for this Pad.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mask_margin: Option<Nm>,
-    /// Overrides the board's solder-paste margin for this Pad.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub paste_margin: Option<Nm>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum PadKind {
-    Smd,
-    PlatedThroughHole,
-    NonPlated,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum PadShape {
-    Circle,
-    Rect,
-    RoundedRect,
-    Oval,
-}
-
-/// A drilled hole: round when `width == height`, otherwise a slot along the longer side.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Hole {
-    pub width: Nm,
-    pub height: Nm,
 }
 
 /// A Library definition that binds a Symbol to its alternate Footprints, with default

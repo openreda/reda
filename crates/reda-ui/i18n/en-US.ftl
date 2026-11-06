@@ -732,6 +732,7 @@ violation-duplicate-pin-number = Pin number { $number } is used more than once
 violation-pin-without-pad = Pin { $pin } has no Pad in { $footprint }
 violation-unmapped-pad = Pad { $pad } of { $footprint } is mapped to no Pin
 violation-missing-courtyard = The Footprint has no courtyard
+violation-hole-outside-copper = The hole of Pad { $pad } reaches outside its copper
 violation-broken-reference = Broken { $kind } reference { $reference }
 
 # Import part and the Footprint generators.
@@ -856,6 +857,7 @@ footprint-pad-npth = Non-plated hole
 footprint-shape-circle = Circle
 footprint-shape-rect = Rectangle
 footprint-shape-rounded-rect = Rounded rectangle
+footprint-shape-chamfered-rect = Chamfered rectangle
 footprint-shape-oval = Oval
 footprint-layer-silkscreen-top = Silkscreen top
 footprint-layer-silkscreen-bottom = Silkscreen bottom

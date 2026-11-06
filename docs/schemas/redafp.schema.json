@@ -1,5 +1,35 @@
 {
   "$defs": {
+    "ConnectionStyle": {
+      "description": "How a fill meets a Pad or Via.",
+      "oneOf": [
+        {
+          "const": "relief",
+          "description": "Through spokes across a clear ring, so the Pad solders easily.",
+          "type": "string"
+        },
+        {
+          "const": "solid",
+          "description": "The fill runs straight into it.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "The fill keeps the gap clear and doesn't connect.",
+          "type": "string"
+        }
+      ]
+    },
+    "Corner": {
+      "description": "A corner of a Pad, in its own frame (+y up).",
+      "enum": [
+        "top_left",
+        "top_right",
+        "bottom_left",
+        "bottom_right"
+      ],
+      "type": "string"
+    },
     "FootprintGenerator": {
       "additionalProperties": false,
       "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
@@ -131,12 +161,28 @@
     },
     "Hole": {
       "additionalProperties": false,
-      "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
+      "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
       "properties": {
         "height": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
+        },
+        "rotation": {
+          "description": "Turns a slot in the Pad's frame, counter-clockwise.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HoleTolerance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The allowed deviation from the finished size. Stored and shown; it changes no\ngeometry."
         },
         "width": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -150,21 +196,63 @@
       ],
       "type": "object"
     },
+    "HoleTolerance": {
+      "additionalProperties": false,
+      "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
+      "properties": {
+        "minus": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "plus": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plus",
+        "minus"
+      ],
+      "type": "object"
+    },
     "Pad": {
       "additionalProperties": false,
       "description": "A copper area, with or without a hole, of a Footprint.",
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
-          "description": "The Pad centre, relative to the Footprint origin."
+          "description": "The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks\nconnect there and the Pad turns about it."
         },
-        "corner_radius": {
-          "description": "The corner radius of a rounded-rectangle Pad.",
-          "format": "int64",
+        "chamfer_ratio": {
+          "description": "How deep the chamfers of a `chamfered_rect` are.",
+          "maximum": 100000,
+          "minimum": 0,
           "type": [
             "integer",
             "null"
           ]
+        },
+        "corner_ratio": {
+          "description": "How round the corners of a `rounded_rect`, or the uncut corners of a\n`chamfered_rect`, are.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corners": {
+          "description": "Which corners are rounded (`rounded_rect`) or chamfered (`chamfered_rect`), in the\nPad's frame. Left out, all four.",
+          "items": {
+            "$ref": "#/$defs/Corner"
+          },
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true
         },
         "height": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -196,6 +284,17 @@
         "number": {
           "type": "string"
         },
+        "offset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+        },
         "paste_margin": {
           "description": "Overrides the board's solder-paste margin for this Pad.",
           "format": "int64",
@@ -212,6 +311,17 @@
         "shape": {
           "$ref": "#/$defs/PadShape"
         },
+        "side": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
@@ -220,6 +330,17 @@
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How Zone fills of its Net join it. Each value left out inherits."
         }
       },
       "required": [
@@ -243,13 +364,26 @@
       "type": "string"
     },
     "PadShape": {
-      "enum": [
-        "circle",
-        "rect",
-        "rounded_rect",
-        "oval"
-      ],
-      "type": "string"
+      "oneOf": [
+        {
+          "enum": [
+            "circle",
+            "rect",
+            "oval"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "rounded_rect",
+          "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+          "type": "string"
+        },
+        {
+          "const": "chamfered_rect",
+          "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+          "type": "string"
+        }
+      ]
     },
     "Point": {
       "additionalProperties": false,
@@ -451,6 +585,14 @@
         }
       ]
     },
+    "Side": {
+      "description": "Which face of the board a sided Layer is on.",
+      "enum": [
+        "top",
+        "bottom"
+      ],
+      "type": "string"
+    },
     "TextStyle": {
       "additionalProperties": false,
       "description": "How a Footprint text is drawn.",
@@ -475,6 +617,57 @@
         "height",
         "thickness"
       ],
+      "type": "object"
+    },
+    "ZoneConnection": {
+      "additionalProperties": false,
+      "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+      "properties": {
+        "angle": {
+          "description": "0, 45 or 90 degrees in the Pad's frame.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "gap": {
+          "description": "The clear ring around a relieved or unconnected Pad.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spoke_width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spokes": {
+          "description": "2 or 4.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConnectionStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
       "type": "object"
     }
   },

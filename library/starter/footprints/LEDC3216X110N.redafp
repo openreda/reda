@@ -3,8 +3,8 @@
   "footprint": {"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},
   "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":{"height":1100000,"length":{"max":3400000,"min":3000000},"terminal":{"max":600000,"min":400000},"width":{"max":1800000,"min":1400000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"LEDC3216X110N","size":null}},
   "pads": [
-    {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000},
-    {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000}
+    {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455},
+    {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455}
   ],
   "graphics": [
     {"uuid":"87b32797-9ffe-4e67-a9f1-19b476028f28","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2335000,"y":-925000},"end":{"x":-2335000,"y":925000}},"width":120000},

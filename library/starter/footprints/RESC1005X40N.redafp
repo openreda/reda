@@ -3,8 +3,8 @@
   "footprint": {"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},
   "generator": {"command":"library.footprint.generate.chip","params":{"class":"resistor","dimensions":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"size":"0402"}},
   "pads": [
-    {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500},
-    {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500}
+    {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000},
+    {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"76d3f486-feab-4215-99a9-4ea1d56c579c","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},

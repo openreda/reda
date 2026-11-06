@@ -10,7 +10,7 @@
     ],"graphics":[
       {"uuid":"93bd7004-ea72-466f-b3dc-d56f21592d70","unit":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","shape":{"kind":"rect","start":{"x":-2540000,"y":-2540000},"end":{"x":0,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"7be94b88b6fed6bf50364a07ecce7ce4","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-00000000001e","00000000-0000-4000-8000-00000000001f","00000000-0000-4000-8000-000000000020","00000000-0000-4000-8000-000000000021","00000000-0000-4000-8000-000000000022"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"c5d4fc7090e1a0ba8a1728aad2468e9e","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-00000000001e","00000000-0000-4000-8000-00000000001f","00000000-0000-4000-8000-000000000020","00000000-0000-4000-8000-000000000021","00000000-0000-4000-8000-000000000022"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
       {"uuid":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"A"}
     ],"pins":[
       {"uuid":"4d8013c9-7801-4d73-93ac-a5c047a300b5","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000,"name_visible":false,"number_visible":false},
@@ -18,7 +18,7 @@
     ],"graphics":[
       {"uuid":"0e65c72b-7ee9-49c4-94cc-ef11deea34c0","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","shape":{"kind":"rect","start":{"x":-1016000,"y":-2540000},"end":{"x":1016000,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"11c97e2375b819ed2be4f72f240f2420","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000026","00000000-0000-4000-8000-000000000027","00000000-0000-4000-8000-000000000028","00000000-0000-4000-8000-000000000029","00000000-0000-4000-8000-00000000002a"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"379aae70f35bb0228175f26845fce5fe","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000026","00000000-0000-4000-8000-000000000027","00000000-0000-4000-8000-000000000028","00000000-0000-4000-8000-000000000029","00000000-0000-4000-8000-00000000002a"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
       {"uuid":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A"}
     ],"pins":[
       {"uuid":"4c45e5ee-3d76-48d7-9fbf-f1aac5cb4e5c","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
@@ -61,9 +61,9 @@
       {"uuid":"c1c0b23e-884d-48ce-a0a7-40cbdbd004b2","field":"Designator","at":{"x":0,"y":2250000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
       {"uuid":"cceb5d14-9dc6-4197-b144-4e11e0fb8703","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000001e","hash":"a088ed32ba37c873e6afd6d269d82072","footprint":{"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},"pads":[
-      {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500},
-      {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_radius":137500}
+    {"uuid":"00000000-0000-4000-8000-00000000001e","hash":"9c6f2de4fa28c88da2a76ec9706551a2","footprint":{"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},"pads":[
+      {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000},
+      {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"76d3f486-feab-4215-99a9-4ea1d56c579c","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
       {"uuid":"832a282d-a408-4a5e-ad34-ce518f62238b","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000}
@@ -71,9 +71,9 @@
       {"uuid":"b7de30cc-6911-42ef-af7b-7178beafa8ad","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500},"layer":"assembly_top"},
       {"uuid":"de5dcc6d-625e-48ed-af87-d03436b3784d","field":"Designator","at":{"x":0,"y":1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000001f","hash":"6575075b204aae3f5a27f50f33c9d017","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
-      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
-      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
+    {"uuid":"00000000-0000-4000-8000-00000000001f","hash":"5721a5ad2916786270514afdb3a825eb","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
+      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"c40aeae4-dd1b-4c6b-bca1-573bf549d9e9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"e47f7153-007a-4925-bff2-7afa18cc14f7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
@@ -81,9 +81,9 @@
       {"uuid":"c857cef7-4c11-4e1a-a3f0-cc25b527e5db","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"},
       {"uuid":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000020","hash":"3a2554eea9c0d3f537df9709d586f741","footprint":{"uuid":"71936419-d9da-4a2b-8429-13c6a21ecace","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},"pads":[
-      {"uuid":"69d36719-97ac-43be-a0c6-d39c2b2ee7f5","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000},
-      {"uuid":"d8f3a9df-6725-4db0-9d8c-221acd8d66ae","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000020","hash":"bee6451baa160e55431b2757aa76ab57","footprint":{"uuid":"71936419-d9da-4a2b-8429-13c6a21ecace","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},"pads":[
+      {"uuid":"69d36719-97ac-43be-a0c6-d39c2b2ee7f5","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
+      {"uuid":"d8f3a9df-6725-4db0-9d8c-221acd8d66ae","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
     ],"graphics":[
       {"uuid":"1b556a87-5cdf-45c1-a13f-a5b14bd76ae1","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000},
       {"uuid":"5797dfa9-0d27-4c46-98f9-8d101e340f22","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000}
@@ -91,9 +91,9 @@
       {"uuid":"3741e149-09f6-4b5e-a1be-b23c21c48161","field":"Designator","at":{"x":0,"y":1700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
       {"uuid":"ef217695-e8b4-4f9c-ae28-018ae8e6ef32","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000021","hash":"ae2b74142b57108e588b1915e4418d81","footprint":{"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},"pads":[
-      {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000},
-      {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000021","hash":"7cf6892a34362a2aaa0afa6a4d294311","footprint":{"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},"pads":[
+      {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667},
+      {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667}
     ],"graphics":[
       {"uuid":"44297572-5b1e-47bb-9e7a-f3198c88aa8b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000},
       {"uuid":"6702b208-3d83-4920-a07a-7ff576d7b69d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000}
@@ -114,9 +114,9 @@
       {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"},
       {"uuid":"93505dbc-3734-4000-9025-215dbd4b74cb","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000026","hash":"9e37e992140a02b06f41bbb3399cc76e","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
-      {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250},
-      {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250}
+    {"uuid":"00000000-0000-4000-8000-000000000026","hash":"fcf5871763ca7a2d6a440a424d13db2e","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
+      {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000},
+      {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"21fd2982-c15f-4ec3-ad3c-af15a6130fb9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"2ab07252-ab3d-4a95-9ee7-87caa212790c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000},
@@ -125,9 +125,9 @@
       {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"},
       {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000027","hash":"83d5ae1a174e5e7b4a5a81d9046677d5","footprint":{"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal","height":1000000},"pads":[
-      {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_radius":231250},
-      {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_radius":231250}
+    {"uuid":"00000000-0000-4000-8000-000000000027","hash":"9bb3b45ed68ded926e46f173d807f37d","footprint":{"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal","height":1000000},"pads":[
+      {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000},
+      {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"3400cc70-58f1-40c1-bef5-8ccf9cf34469","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-950000},"end":{"x":1700000,"y":950000}},"width":50000},
       {"uuid":"639faa5c-e0b5-48df-a74e-fdbce618d495","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1685000,"y":-700000},"end":{"x":-1685000,"y":700000}},"width":120000},
@@ -136,9 +136,9 @@
       {"uuid":"7834d3ac-71d5-4c71-b361-fdd7bd61b8e0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000},"layer":"assembly_top"},
       {"uuid":"ae4e5903-f838-48a2-8847-c94a2b7f12b2","field":"Designator","at":{"x":0,"y":1650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000028","hash":"f0a8707c2a1183e1edfee7eff32da982","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},"pads":[
-      {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000},
-      {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000028","hash":"0e423d7fe93bb5590b60d22452c2d51a","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},"pads":[
+      {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455},
+      {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455}
     ],"graphics":[
       {"uuid":"87b32797-9ffe-4e67-a9f1-19b476028f28","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2335000,"y":-925000},"end":{"x":-2335000,"y":925000}},"width":120000},
       {"uuid":"acbe1e68-5d92-4a59-84a6-d4ec3a923002","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000},

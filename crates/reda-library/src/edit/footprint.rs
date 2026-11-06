@@ -2,13 +2,13 @@
 //! field texts, and its origin.
 
 use reda_command::{
-    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
-    Unavailable,
+    Angle, AvailabilityContext, Command, CommandError, Context, HoleParam, Kind, Length, Meta,
+    RatioParam, Registry, Unavailable, ZoneConnectionParam, zone_connection,
 };
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
-    Shape, TextStyle, Uuid,
+    Corners, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Pad, PadKind, PadShape,
+    Ratio, Shape, Side, TextStyle, Uuid, ZoneConnection,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -105,24 +105,6 @@ impl Command for FootprintEdit {
     }
 }
 
-/// A drilled hole.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct HoleParam {
-    pub width: Length,
-    /// Omitted, the same as `width`: a round hole. Otherwise a slot along the longer side.
-    pub height: Option<Length>,
-}
-
-impl HoleParam {
-    fn hole(self) -> Hole {
-        Hole {
-            width: self.width.nm(),
-            height: self.height.unwrap_or(self.width).nm(),
-        }
-    }
-}
-
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct PadResult {
     /// The new Pad's UUID.
@@ -141,19 +123,32 @@ pub struct PadAddParams {
     pub number: String,
     pub kind: PadKind,
     pub shape: PadShape,
-    /// The Pad centre, relative to the Footprint origin.
+    /// The Pad's anchor, relative to the Footprint origin: the hole sits there and Tracks
+    /// connect there.
     pub at: PointParam,
     pub rotation: Option<Angle>,
     pub width: Length,
     pub height: Length,
-    /// Only for `rounded_rect`. Omitted, a quarter of the shorter side.
-    pub corner_radius: Option<Length>,
+    /// For a `rounded_rect` (50% when left out) and the uncut corners of a
+    /// `chamfered_rect`.
+    pub corner_ratio: Option<RatioParam>,
+    /// For a `chamfered_rect`, which needs it.
+    pub chamfer_ratio: Option<RatioParam>,
+    /// The corners a `rounded_rect` rounds or a `chamfered_rect` chamfers. All four when
+    /// left out.
+    pub corners: Option<Corners>,
+    /// Moves the copper away from `at`, in the Pad's frame.
+    pub offset: Option<PointParam>,
     /// Required for plated and non-plated through-hole Pads; SMD Pads have none.
     pub hole: Option<HoleParam>,
+    /// An SMD Pad's side in the Footprint's frame; top when left out.
+    pub side: Option<Side>,
     /// Overrides the board's solder-mask margin for this Pad.
     pub mask_margin: Option<Length>,
     /// Overrides the board's solder-paste margin for this Pad.
     pub paste_margin: Option<Length>,
+    /// How Zone fills of its Net join it; each value left out inherits.
+    pub zone_connection: Option<ZoneConnectionParam>,
 }
 
 impl Command for PadAdd {
@@ -161,8 +156,9 @@ impl Command for PadAdd {
         "library.footprint.pad.add",
         "Add Pad",
         "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, \
-         rectangle, rounded rectangle or oval, with an optional round hole or slot and \
-         per-Pad mask and paste margins.",
+         rectangle, rounded or chamfered rectangle or oval, with its copper optionally \
+         offset from its anchor, an optional round hole or slot, its side, per-Pad mask and \
+         paste margins and its Zone connection.",
     );
     type Params = PadAddParams;
     type Output = PadResult;
@@ -173,6 +169,11 @@ impl Command for PadAdd {
 
     fn run(&self, cx: &mut Context<'_>, p: PadAddParams) -> Result<PadResult, CommandError> {
         let uuid = cx.new_id();
+        let explicit = Explicit {
+            corner_ratio: p.corner_ratio.is_some(),
+            chamfer_ratio: p.chamfer_ratio.is_some(),
+            corners: p.corners.is_some(),
+        };
         let pad = Pad {
             uuid,
             number: p.number,
@@ -182,12 +183,17 @@ impl Command for PadAdd {
             rotation: p.rotation.map_or(Millideg(0), Angle::millideg),
             width: p.width.nm(),
             height: p.height.nm(),
-            corner_radius: p.corner_radius.map(Length::nm),
+            corner_ratio: p.corner_ratio.map(RatioParam::ratio),
+            chamfer_ratio: p.chamfer_ratio.map(RatioParam::ratio),
+            corners: p.corners,
+            offset: p.offset.map(PointParam::point),
             hole: p.hole.map(HoleParam::hole),
+            side: p.side,
             mask_margin: p.mask_margin.map(Length::nm),
             paste_margin: p.paste_margin.map(Length::nm),
+            zone_connection: zone_connection(p.zone_connection),
         };
-        let pad = finish_pad(pad, p.corner_radius.is_some())?;
+        let pad = finish_pad(pad, explicit)?;
         edit_footprint(cx, p.footprint, |f| {
             f.pads.push(pad);
             f.pads.sort_by_key(|pad| pad.uuid);
@@ -196,56 +202,50 @@ impl Command for PadAdd {
     }
 }
 
+/// The corner ratio a `rounded_rect` gets when none is given: a radius of a quarter of the
+/// shorter side.
+pub const DEFAULT_CORNER_RATIO: Ratio = Ratio::percent(50);
+
+/// Which shape fields a Command gave explicitly.
+#[derive(Clone, Copy, Default)]
+struct Explicit {
+    corner_ratio: bool,
+    chamfer_ratio: bool,
+    corners: bool,
+}
+
 /// Checks a Pad and fills in what follows from its shape: a rounded rectangle without a
-/// radius gets a quarter of its shorter side, and other shapes drop a radius not given
-/// explicitly (`explicit_radius`), which they cannot use.
-fn finish_pad(mut pad: Pad, explicit_radius: bool) -> Result<Pad, CommandError> {
-    positive(pad.width, "the Pad width").map_err(invalid("/width"))?;
-    positive(pad.height, "the Pad height").map_err(invalid("/height"))?;
-    let shorter = Nm(pad.width.0.min(pad.height.0));
-    match (pad.shape, pad.corner_radius) {
-        (PadShape::RoundedRect, None) => pad.corner_radius = Some(Nm(shorter.0 / 4)),
-        (PadShape::RoundedRect, Some(r)) if r.0 < 0 || r.0 * 2 > shorter.0 => {
-            return Err(CommandError::invalid_params(
-                "/corner_radius",
-                "the corner radius must be between zero and half the shorter side",
-            ));
-        }
-        (PadShape::RoundedRect, Some(_)) => {}
-        (_, Some(_)) if explicit_radius => {
-            return Err(CommandError::invalid_params(
-                "/corner_radius",
-                "only a rounded_rect Pad has a corner radius",
-            ));
-        }
-        (_, _) => pad.corner_radius = None,
+/// ratio gets [`DEFAULT_CORNER_RATIO`], shape fields the shape can't use are dropped unless
+/// given explicitly, and stored defaults are left out (all four corners, no offset, the
+/// top side).
+fn finish_pad(mut pad: Pad, explicit: Explicit) -> Result<Pad, CommandError> {
+    let cornered = matches!(pad.shape, PadShape::RoundedRect | PadShape::ChamferedRect);
+    if !cornered && !explicit.corner_ratio {
+        pad.corner_ratio = None;
     }
-    match (pad.kind, pad.hole) {
-        (PadKind::Smd, Some(_)) => {
-            return Err(CommandError::invalid_params(
-                "/hole",
-                "an SMD Pad has no hole",
-            ));
-        }
-        (PadKind::Smd, None) => {}
-        (_, None) => {
-            return Err(CommandError::invalid_params(
-                "/hole",
-                "a through-hole Pad needs a hole",
-            ));
-        }
-        (kind, Some(hole)) => {
-            positive(hole.width, "the hole width").map_err(invalid("/hole/width"))?;
-            positive(hole.height, "the hole height").map_err(invalid("/hole/height"))?;
-            if kind == PadKind::PlatedThroughHole
-                && (hole.width > pad.width || hole.height > pad.height)
-            {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "a plated hole must fit inside its Pad",
-                ));
-            }
-        }
+    if pad.shape != PadShape::ChamferedRect && !explicit.chamfer_ratio {
+        pad.chamfer_ratio = None;
+    }
+    if !cornered && !explicit.corners {
+        pad.corners = None;
+    }
+    if pad.shape == PadShape::RoundedRect && pad.corner_ratio.is_none() {
+        pad.corner_ratio = Some(DEFAULT_CORNER_RATIO);
+    }
+    if pad.corners == Some(Corners::ALL) {
+        pad.corners = None;
+    }
+    if pad.offset == Some(Point::default()) {
+        pad.offset = None;
+    }
+    if pad.kind == PadKind::Smd && pad.side == Some(Side::Top) {
+        pad.side = None;
+    }
+    if pad.zone_connection == Some(ZoneConnection::default()) {
+        pad.zone_connection = None;
+    }
+    if let Some((pointer, message)) = pad.form().problem() {
+        return Err(CommandError::invalid_params(&pointer, message));
     }
     Ok(pad)
 }
@@ -265,27 +265,43 @@ pub struct PadEditParams {
     pub rotation: Option<Angle>,
     pub width: Option<Length>,
     pub height: Option<Length>,
-    /// `null` returns a rounded rectangle to the default radius.
+    /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
-    pub corner_radius: Option<Option<Length>>,
+    pub corner_ratio: Option<Option<RatioParam>>,
+    /// `null` removes it.
+    #[serde(default, deserialize_with = "present")]
+    pub chamfer_ratio: Option<Option<RatioParam>>,
+    /// `null` returns to all four corners.
+    #[serde(default, deserialize_with = "present")]
+    pub corners: Option<Option<Corners>>,
+    /// `null` puts the copper back on the anchor.
+    #[serde(default, deserialize_with = "present")]
+    pub offset: Option<Option<PointParam>>,
     /// `null` removes the hole.
     #[serde(default, deserialize_with = "present")]
     pub hole: Option<Option<HoleParam>>,
+    /// `null` returns an SMD Pad to the top.
+    #[serde(default, deserialize_with = "present")]
+    pub side: Option<Option<Side>>,
     /// `null` returns to the board's margin.
     #[serde(default, deserialize_with = "present")]
     pub mask_margin: Option<Option<Length>>,
     /// `null` returns to the board's margin.
     #[serde(default, deserialize_with = "present")]
     pub paste_margin: Option<Option<Length>>,
+    /// Replaces the whole Zone connection; `null` inherits every value.
+    #[serde(default, deserialize_with = "present")]
+    pub zone_connection: Option<Option<ZoneConnectionParam>>,
 }
 
 impl Command for PadEdit {
     const META: Meta = meta(
         "library.footprint.pad.edit",
         "Edit Pad",
-        "Changes any of a Pad's number, kind, shape, position, rotation, size, corner \
-         radius, hole and mask and paste margins. Omitted fields keep their value; `null` \
-         clears an optional one.",
+        "Changes any of a Pad's number, kind, shape, position, rotation, size, corner and \
+         chamfer ratios and corners, offset, hole, side, mask and paste margins and Zone \
+         connection. Omitted fields keep their value; `null` clears an optional one. A \
+         resized Pad keeps its ratios, and so its look.",
     );
     type Params = PadEditParams;
     type Output = ();
@@ -318,15 +334,28 @@ impl Command for PadEdit {
             if let Some(height) = p.height {
                 pad.height = height.nm();
             }
-            let explicit_radius = matches!(p.corner_radius, Some(Some(_)));
-            if let Some(radius) = p.corner_radius {
-                pad.corner_radius = radius.map(Length::nm);
-            } else if p.width.is_some() || p.height.is_some() {
-                // A resized rounded rectangle keeps its proportions.
-                pad.corner_radius = None;
+            let explicit = Explicit {
+                corner_ratio: matches!(p.corner_ratio, Some(Some(_))),
+                chamfer_ratio: matches!(p.chamfer_ratio, Some(Some(_))),
+                corners: matches!(p.corners, Some(Some(_))),
+            };
+            if let Some(ratio) = p.corner_ratio {
+                pad.corner_ratio = ratio.map(RatioParam::ratio);
+            }
+            if let Some(ratio) = p.chamfer_ratio {
+                pad.chamfer_ratio = ratio.map(RatioParam::ratio);
+            }
+            if let Some(corners) = p.corners {
+                pad.corners = corners;
+            }
+            if let Some(offset) = p.offset {
+                pad.offset = offset.map(PointParam::point);
             }
             if let Some(hole) = p.hole {
                 pad.hole = hole.map(HoleParam::hole);
+            }
+            if let Some(side) = p.side {
+                pad.side = side;
             }
             if let Some(margin) = p.mask_margin {
                 pad.mask_margin = margin.map(Length::nm);
@@ -334,7 +363,10 @@ impl Command for PadEdit {
             if let Some(margin) = p.paste_margin {
                 pad.paste_margin = margin.map(Length::nm);
             }
-            let pad = finish_pad(pad, explicit_radius)?;
+            if let Some(connection) = p.zone_connection {
+                pad.zone_connection = zone_connection(connection);
+            }
+            let pad = finish_pad(pad, explicit)?;
             *find_mut(&mut f.pads, p.pad, |pad| pad.uuid, "Pad")? = pad;
             Ok(())
         })

@@ -128,13 +128,19 @@ fn soic() -> Footprint {
         rotation: Millideg(0),
         width: Nm::from_um(600),
         height: Nm::from_um(1550),
-        corner_radius: None,
+        corner_ratio: Some(reda_engine::model::Ratio::percent(50)),
+        chamfer_ratio: None,
+        corners: None,
+        offset: None,
         hole: None,
         mask_margin: None,
         paste_margin: None,
+        side: None,
+        zone_connection: None,
     };
     let mut exposed = pad(0x33, "4", 0);
     exposed.shape = PadShape::Rect;
+    exposed.corner_ratio = None;
     exposed.paste_margin = Some(Nm::from_um(-100));
     Footprint {
         uuid: id(0x30),
@@ -207,13 +213,15 @@ fn hole() -> Footprint {
             rotation: Millideg(0),
             width: Nm::from_um(3200),
             height: Nm::from_um(3200),
-            corner_radius: None,
-            hole: Some(Hole {
-                width: Nm::from_um(3200),
-                height: Nm::from_um(3200),
-            }),
+            corner_ratio: None,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
+            hole: Some(Hole::new(Nm::from_um(3200), Nm::from_um(3200))),
             mask_margin: Some(Nm::from_um(50)),
             paste_margin: None,
+            side: None,
+            zone_connection: None,
         }],
         graphics: vec![FootprintGraphic {
             uuid: id(0x42),

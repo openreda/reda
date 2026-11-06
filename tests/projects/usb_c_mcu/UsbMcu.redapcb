@@ -56,8 +56,8 @@
   "graphics": [],
   "footprint_copies": [
     {"uuid":"00000000-0000-4000-8000-0000000000b6","hash":"5fe5e02816331ab3c31f093d9a8fb113","footprint":{"uuid":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","name":"CAPC2012X60N","description":"Chip capacitor, 0805 (2012 metric), IPC-7351 Nominal"},"pads":[
-      {"uuid":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000},
-      {"uuid":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_radius":250000}
+      {"uuid":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
+      {"uuid":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
     ],"graphics":[
       {"uuid":"5b33eed9-1982-475a-ad63-257d16634887","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000},
       {"uuid":"7c799cd7-6425-477d-80a2-28efbec8f762","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
@@ -66,8 +66,8 @@
       {"uuid":"d34cad27-7d92-4c97-bb86-d12508678534","field":"Designator","at":{"x":0,"y":1700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-0000000000b9","hash":"714346e77c61beaf7ddfb4348f5ba985","footprint":{"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal"},"pads":[
-      {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
-      {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
+      {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
+      {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"17938c85-55ca-4562-acab-13c590e07881","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"507e76c1-9511-4c85-a79e-ade8abe04cea","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
@@ -76,8 +76,8 @@
       {"uuid":"9dd1b274-9c71-4195-8c2e-dd89d3a15ce3","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-0000000000bc","hash":"7ad7a77fce622e212b2960b59d4a9c72","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal"},"pads":[
-      {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250},
-      {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250}
+      {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000},
+      {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"21fd2982-c15f-4ec3-ad3c-af15a6130fb9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"2ab07252-ab3d-4a95-9ee7-87caa212790c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000},
@@ -134,8 +134,8 @@
       {"uuid":"82d580fe-f0f2-433e-b575-0baabc34cbbc","field":"Designator","at":{"x":0,"y":7300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-0000000000c2","hash":"c427bc924315cc6a206a2862774d714c","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal"},"pads":[
-      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
-      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
+      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
+      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"c40aeae4-dd1b-4c6b-bca1-573bf549d9e9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"e47f7153-007a-4925-bff2-7afa18cc14f7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
@@ -144,26 +144,26 @@
       {"uuid":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-0000000000c6","hash":"2c09c2e22203493ae810f9e53741ffec","footprint":{"uuid":"5082bf81-7326-4bbd-8274-54c43985cd53","name":"SOP65P640X120-20N","description":"TSSOP-20, 0.65 mm pitch, IPC-7351 Nominal"},"pads":[
-      {"uuid":"1b1f9d7c-8089-4874-84c0-e0388295769f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"203e19b1-649a-49b9-b3e6-17682ff34b7f","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"27fa8621-6d46-4dbc-a360-dffa41521580","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"3062d483-3f08-464e-8785-ee5aff3aa69c","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"3ae3dcbd-205f-4f1f-8f03-72f94fbebf40","number":"18","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"3c9a9c73-5ace-4fb5-9d86-855d528b7fe3","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"45a1517c-fcff-4376-8f27-1f384bf0107d","number":"17","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"673341ae-3ff6-4d4a-8f4b-a0ca81d71b0c","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"73d149e2-f367-4e91-bfb8-5f92fef32e08","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"779e438a-4509-4a1c-8bb6-38bf851eb1c7","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"8e863eb0-6b25-4315-b731-d8645a32b1d9","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"93b07cfc-dc98-4168-9a41-4a96cd3cd580","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"a530f5d0-a8a5-4ea3-bb3e-c4c6a662679b","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"a9d90e22-da14-465d-bdae-4a395b4b2924","number":"20","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"bc53a129-ea55-4768-8d2d-1b72d016bf0e","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"bd7874c8-0bd1-43d9-ad67-f41885b9dfa9","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"cce9cf87-0bc9-4a86-a3d3-cb043e3df56b","number":"19","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"d1dd8eba-d7a4-4040-a8ec-89239b6bdb35","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"eefbf8eb-0eef-4beb-849c-52050e1b2951","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
-      {"uuid":"f379f266-12e4-4162-9d8c-eb1e0616ce06","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000}
+      {"uuid":"1b1f9d7c-8089-4874-84c0-e0388295769f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"203e19b1-649a-49b9-b3e6-17682ff34b7f","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"27fa8621-6d46-4dbc-a360-dffa41521580","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"3062d483-3f08-464e-8785-ee5aff3aa69c","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"3ae3dcbd-205f-4f1f-8f03-72f94fbebf40","number":"18","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"3c9a9c73-5ace-4fb5-9d86-855d528b7fe3","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"45a1517c-fcff-4376-8f27-1f384bf0107d","number":"17","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"673341ae-3ff6-4d4a-8f4b-a0ca81d71b0c","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"73d149e2-f367-4e91-bfb8-5f92fef32e08","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"779e438a-4509-4a1c-8bb6-38bf851eb1c7","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"8e863eb0-6b25-4315-b731-d8645a32b1d9","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"93b07cfc-dc98-4168-9a41-4a96cd3cd580","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"a530f5d0-a8a5-4ea3-bb3e-c4c6a662679b","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-1625000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"a9d90e22-da14-465d-bdae-4a395b4b2924","number":"20","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2925000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"bc53a129-ea55-4768-8d2d-1b72d016bf0e","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"bd7874c8-0bd1-43d9-ad67-f41885b9dfa9","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"cce9cf87-0bc9-4a86-a3d3-cb043e3df56b","number":"19","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"d1dd8eba-d7a4-4040-a8ec-89239b6bdb35","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":-325000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"eefbf8eb-0eef-4beb-849c-52050e1b2951","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-975000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000},
+      {"uuid":"f379f266-12e4-4162-9d8c-eb1e0616ce06","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":2887500,"y":-2275000},"rotation":0,"width":1575000,"height":400000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"04a3cb47-87a3-490d-8b70-814dd43cbf15","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3950000,"y":-3550000},"end":{"x":3950000,"y":3550000}},"width":50000},
       {"uuid":"54946491-c568-4e44-bbad-1ce63f23faef","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1200000,"y":3250000},{"x":2200000,"y":3250000},{"x":2200000,"y":-3250000},{"x":-2200000,"y":-3250000},{"x":-2200000,"y":2250000}]},"width":100000},
@@ -174,10 +174,10 @@
       {"uuid":"d98a7ce5-2de4-4a80-95e1-24bd528380a8","field":"Designator","at":{"x":0,"y":4250000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-0000000000c8","hash":"05a488325d7686005e67697c3601df71","footprint":{"uuid":"29bd1760-af17-4842-97db-7d25d557604a","name":"SOT230P700X180-4N","description":"SOT-223, IPC-7351 Nominal"},"pads":[
-      {"uuid":"24407872-9d48-4769-8484-9ab168833218","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":0},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000},
-      {"uuid":"3dd64c1f-65bb-48cb-bb85-cdfe931447f7","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":-2300000},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000},
-      {"uuid":"a98e58a3-2ebd-4d76-a1cd-1caa5e709bf2","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":3025000,"y":0},"rotation":0,"width":2000000,"height":3200000,"corner_radius":250000},
-      {"uuid":"d58ceb36-767d-40d8-9f0a-159801db3049","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":2300000},"rotation":0,"width":2000000,"height":900000,"corner_radius":225000}
+      {"uuid":"24407872-9d48-4769-8484-9ab168833218","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":0},"rotation":0,"width":2000000,"height":900000,"corner_ratio":50000},
+      {"uuid":"3dd64c1f-65bb-48cb-bb85-cdfe931447f7","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":-2300000},"rotation":0,"width":2000000,"height":900000,"corner_ratio":50000},
+      {"uuid":"a98e58a3-2ebd-4d76-a1cd-1caa5e709bf2","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":3025000,"y":0},"rotation":0,"width":2000000,"height":3200000,"corner_ratio":25000},
+      {"uuid":"d58ceb36-767d-40d8-9f0a-159801db3049","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3025000,"y":2300000},"rotation":0,"width":2000000,"height":900000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"26ebd8a0-a320-4313-8d20-386e9fbd90be","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4025000,"y":3410000},"end":{"x":1850000,"y":3410000}},"width":120000},
       {"uuid":"72c214e6-9c97-47bf-9a7c-0e4ed41f2525","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-4300000,"y":-3600000},"end":{"x":4300000,"y":3600000}},"width":50000},

@@ -2,8 +2,8 @@
   "format": 1,
   "footprint": {"uuid":"994846c1-6dfb-48a2-babf-ae60f86398b2","name":"DIO_SOD-123","description":"Diode, SOD-123, 2.69 × 1.60 mm body. Lands per onsemi SOD-123 case 425, Recommended Mounting Footprint"},
   "pads": [
-    {"uuid":"df287dd6-4cf8-4ba7-ada7-565c469515a0","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1635000,"y":0},"rotation":0,"width":910000,"height":1220000,"corner_radius":227500},
-    {"uuid":"fb70f03b-f8f6-4a85-a0c0-d27dce85e8e2","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1635000,"y":0},"rotation":0,"width":910000,"height":1220000,"corner_radius":227500}
+    {"uuid":"df287dd6-4cf8-4ba7-ada7-565c469515a0","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1635000,"y":0},"rotation":0,"width":910000,"height":1220000,"corner_ratio":50000},
+    {"uuid":"fb70f03b-f8f6-4a85-a0c0-d27dce85e8e2","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1635000,"y":0},"rotation":0,"width":910000,"height":1220000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"a3950371-cf48-4b24-8785-4f656e358b7d","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2350000,"y":-930000},"end":{"x":1345000,"y":-930000}},"width":120000},

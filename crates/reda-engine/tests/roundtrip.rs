@@ -339,13 +339,14 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             rotation: Millideg(if flag { 45_000 } else { 0 }),
             width: Nm(3_000_000),
             height: Nm(3_000_000),
-            corner_radius: None,
-            hole: flag.then_some(Hole {
-                width: Nm(1_000_000),
-                height: Nm(1_000_000),
-            }),
+            corner_ratio: None,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
+            hole: flag.then_some(Hole::new(Nm(1_000_000), Nm(1_000_000))),
             side: (!flag).then_some(Side::Bottom),
             net: if flag { nets.first().copied() } else { None },
+            zone_connection: None,
         };
         objects.push(Object::FreePad(InDocument::new(doc, free_pad)));
         objects.push(Object::PlacementOrigin(InDocument::new(

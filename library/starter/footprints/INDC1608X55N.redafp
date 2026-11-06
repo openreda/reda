@@ -3,8 +3,8 @@
   "footprint": {"uuid":"c90f8f6c-1afb-46d0-8e31-138f5d581c2e","name":"INDC1608X55N","description":"Chip inductor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},
   "generator": {"command":"library.footprint.generate.chip","params":{"class":"inductor","dimensions":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"size":"0603"}},
   "pads": [
-    {"uuid":"bc792b4d-ae15-471e-9a10-7a8685998e68","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250},
-    {"uuid":"ccfa8b29-ef1f-4690-88de-c8e47a18e5d4","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_radius":231250}
+    {"uuid":"bc792b4d-ae15-471e-9a10-7a8685998e68","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
+    {"uuid":"ccfa8b29-ef1f-4690-88de-c8e47a18e5d4","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"4fb01c5b-e085-4768-b150-f88575dc0e69","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000},

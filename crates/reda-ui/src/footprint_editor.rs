@@ -23,7 +23,9 @@ use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Uuid};
+use reda_engine::model::{
+    Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Ratio, Uuid,
+};
 use serde_json::{Value, json};
 
 use crate::canvas::interact::{
@@ -50,8 +52,12 @@ pub struct PadTemplate {
     pub shape: PadShape,
     pub width: Nm,
     pub height: Nm,
-    /// Only for a rounded rectangle; `None` is a quarter of the shorter side.
-    pub corner_radius: Option<Nm>,
+    /// For a rounded rectangle and the uncut corners of a chamfered one; `None` takes the
+    /// Command's default.
+    pub corner_ratio: Option<Ratio>,
+    /// For a chamfered rectangle; `None` is [`DEFAULT_CHAMFER_RATIO`].
+    #[serde(default)]
+    pub chamfer_ratio: Option<Ratio>,
     pub rotation: Millideg,
     /// The hole of a through-hole Pad, as (width, height): equal is round, else a slot.
     /// SMD Pads ignore it.
@@ -69,7 +75,8 @@ impl Default for PadTemplate {
             shape: PadShape::Rect,
             width: Nm(1_000_000),
             height: Nm(1_500_000),
-            corner_radius: None,
+            corner_ratio: None,
+            chamfer_ratio: None,
             rotation: Millideg(0),
             hole: None,
             mask_margin: None,
@@ -77,6 +84,9 @@ impl Default for PadTemplate {
         }
     }
 }
+
+/// The chamfer a chamfered Pad gets when its settings name none.
+pub const DEFAULT_CHAMFER_RATIO: Ratio = Ratio::percent(50);
 
 /// The hole a through-hole Pad gets when its settings name none: 0.8 mm round.
 const DEFAULT_HOLE: Nm = Nm(800_000);
@@ -94,10 +104,12 @@ impl PadTemplate {
             "width": self.width.0,
             "height": self.height.0,
         });
-        if self.shape == PadShape::RoundedRect
-            && let Some(r) = self.corner_radius
-        {
-            p["corner_radius"] = json!(r.0);
+        let cornered = matches!(self.shape, PadShape::RoundedRect | PadShape::ChamferedRect);
+        if cornered && let Some(r) = self.corner_ratio {
+            p["corner_ratio"] = json!(r.0);
+        }
+        if self.shape == PadShape::ChamferedRect {
+            p["chamfer_ratio"] = json!(self.chamfer_ratio.unwrap_or(DEFAULT_CHAMFER_RATIO).0);
         }
         if self.kind != PadKind::Smd {
             let (w, h) = self.hole.unwrap_or((DEFAULT_HOLE, DEFAULT_HOLE));
