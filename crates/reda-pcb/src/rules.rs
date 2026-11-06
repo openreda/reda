@@ -9,7 +9,9 @@
 //! - Between two objects, each one's value is resolved and the larger applies.
 
 use reda_model::geom::Nm;
-use reda_model::{DesignRule, PcbDocument, RuleField, RuleKind, RuleValue, RuleValues, Uuid};
+use reda_model::{
+    DesignRule, PasteExpansion, PcbDocument, RuleField, RuleKind, RuleValue, RuleValues, Uuid,
+};
 
 /// A resolved value and the rule record it came from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,6 +65,31 @@ pub fn resolve(
 /// The length limit of `kind`'s `field` for copper on `net`; `None` where it is absent.
 pub fn limit(pcb: &PcbDocument, net: Option<Uuid>, kind: RuleKind, field: RuleField) -> Option<Nm> {
     resolve(pcb, net, kind, field).and_then(|s| s.value.length())
+}
+
+/// The paste expansion for SMD copper on `net`. `expansion` and `percent` are one
+/// exclusive pair, so they resolve together rather than value by value: the
+/// highest-ranked Net Class with an enabled record that sets either wins, otherwise the
+/// board-wide record; a disabled board-wide record means no expansion.
+pub fn paste_expansion(pcb: &PcbDocument, net: Option<Uuid>) -> PasteExpansion {
+    let sets = |r: &&DesignRule| r.values.expansion.is_some() || r.values.percent.is_some();
+    let record = ranked_classes(pcb, net)
+        .into_iter()
+        .find_map(|c| {
+            pcb.class_rule(RuleKind::PasteExpansion, c)
+                .filter(|r| r.enabled)
+                .filter(sets)
+        })
+        .or_else(|| Some(pcb.board_rule(RuleKind::PasteExpansion)).filter(|r| r.enabled));
+    match record.map(|r| (r.values.expansion, r.values.percent)) {
+        Some((_, Some(percent))) => PasteExpansion::Percent { percent },
+        Some((expansion, None)) => PasteExpansion::Expansion {
+            expansion: expansion.unwrap_or(Nm::ZERO),
+        },
+        None => PasteExpansion::Expansion {
+            expansion: Nm::ZERO,
+        },
+    }
 }
 
 /// A size range: limits that may be absent, and the preferred size Tools start with.

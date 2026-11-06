@@ -641,15 +641,30 @@ fn the_zip_holds_every_file_stamped_with_the_clock() {
 
 #[test]
 fn pcbway_mask_files_record_the_specified_fifty_micrometre_expansion() {
+    // PCBWay's seed equals Generic's, so start from JLCPCB's zero expansion: the golden then
+    // only matches if applying PCBWay really replaces the board's mask rule.
     let dir = TempDir::new("gerber-pcbway-mask");
     let mut engine = demo(&dir);
-    let preset =
-        engine.run_ok("fab_preset.add", json!({"name":"PCBWay"}))["result"]["uuid"].clone();
-    engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
-    for file in plot(&engine)
-        .into_iter()
-        .filter(|f| f.name.ends_with(".GTS") || f.name.ends_with(".GBS"))
-    {
+    let apply = |engine: &mut TestEngine, name: &str| {
+        let preset =
+            engine.run_ok("fab_preset.add", json!({"name":name}))["result"]["uuid"].clone();
+        engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    };
+    let mask_files = |engine: &TestEngine| {
+        plot(engine)
+            .into_iter()
+            .filter(|f| f.name.ends_with(".GTS") || f.name.ends_with(".GBS"))
+            .collect::<Vec<_>>()
+    };
+    apply(&mut engine, "JLCPCB");
+    let zero: Vec<_> = mask_files(&engine).into_iter().map(|f| f.bytes).collect();
+    apply(&mut engine, "PCBWay");
+    let files = mask_files(&engine);
+    assert!(
+        files.iter().zip(&zero).all(|(f, z)| f.bytes != *z),
+        "applying PCBWay after JLCPCB must change every mask file"
+    );
+    for file in files {
         reda_testkit::assert_golden(
             format!(
                 "{}/tests/golden/gerber-pcbway/{}",
