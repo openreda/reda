@@ -128,6 +128,9 @@ pub fn symbol(n: u128, name: &str) -> Symbol {
         length: Nm::from_mil(100),
         name_visible: true,
         number_visible: true,
+        description: String::new(),
+        inside_edge: None,
+        outside_edge: None,
     };
     Symbol {
         uuid: uuid(n),
@@ -175,8 +178,12 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
             width: Nm::from_um(50),
             fill: false,
         }],
-        designator: FootprintText::DESIGNATOR,
-        value: FootprintText::VALUE,
+        height: None,
+        texts: vec![
+            FootprintText::designator(uuid(n * 1000 + 997)),
+            FootprintText::value(uuid(n * 1000 + 998)),
+        ],
+        generator: None,
         provenance: None,
     }
 }

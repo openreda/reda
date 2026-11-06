@@ -1,7 +1,6 @@
 //! The Footprint editor's Scene: an open Footprint drawn on the board Layers, each item
 //! tagged with the Pad, graphic or text the editor selects.
 
-use reda_engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_engine::model::LibraryElement;
 use reda_engine::render::{BoardColor, ColorKey, SceneLayer};
 use reda_engine::{Engine, footprint_scene};
@@ -51,14 +50,15 @@ fn pads_drawing_and_texts_are_tagged_with_what_the_editor_selects() {
             "graphic drawn"
         );
     }
-    assert!(
-        scene.items_of(DESIGNATOR_TEXT).next().is_some(),
-        "the Designator shows as REF**"
-    );
-    assert_eq!(
-        scene.items_of(VALUE_TEXT).next().is_some(),
-        footprint.value.visible
-    );
+    assert!(!footprint.texts.is_empty());
+    for text in &footprint.texts {
+        assert_eq!(
+            scene.items_of(text.uuid).next().is_some(),
+            text.visible,
+            "the {} text is drawn when visible (the Designator as REF**)",
+            text.field
+        );
+    }
     assert!(
         scene
             .items

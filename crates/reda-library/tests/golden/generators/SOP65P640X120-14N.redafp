@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOP65P640X120-14N","description":"TSSOP-14, 0.65 mm pitch, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":3500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOP65P640X120-14N","description":"TSSOP-14, 0.65 mm pitch, IPC-7351 Nominal","height":1200000},
+  "generator": {"command":"library.footprint.generate.tssop","params":{"dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"pins":14}},
   "pads": [
     {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":1950000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
     {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2887500,"y":1300000},"rotation":0,"width":1575000,"height":400000,"corner_radius":100000},
@@ -23,5 +23,9 @@
     {"uuid":"00000000-0000-4000-8000-000000000011","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1200000,"y":2500000},{"x":2200000,"y":2500000},{"x":2200000,"y":-2500000},{"x":-2200000,"y":-2500000},{"x":-2200000,"y":1500000}]},"width":100000},
     {"uuid":"00000000-0000-4000-8000-000000000012","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3675000,"y":2610000},"end":{"x":2250000,"y":2610000}},"width":120000},
     {"uuid":"00000000-0000-4000-8000-000000000013","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2250000,"y":-2610000},"end":{"x":2250000,"y":-2610000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-000000000014","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000015","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

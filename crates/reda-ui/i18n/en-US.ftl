@@ -844,6 +844,7 @@ footprint-selected-pad = Pad
 footprint-selected-graphic = Graphic
 footprint-designator-text = Designator text
 footprint-value-text = Value text
+footprint-field-text = { $field } text
 footprint-pad-smd = SMD
 footprint-pad-pth = Plated through-hole
 footprint-pad-npth = Non-plated hole

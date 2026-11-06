@@ -2,8 +2,8 @@
 //! Layers, through the same PCB Scene builder as a board, so Pads, mask, paste, holes,
 //! drawing and text look exactly as they will once placed.
 //!
-//! Every item is tagged with what the editor selects: a Pad or graphic with its own UUID,
-//! the Designator and value text with [`DESIGNATOR_TEXT`] and [`VALUE_TEXT`].
+//! Every item is tagged with what the editor selects: a Pad, graphic or field text with its
+//! own UUID.
 
 use reda_command::Fonts;
 use reda_model::geom::Nm;
@@ -11,12 +11,10 @@ use reda_model::{
     DocumentEntry, DocumentKind, Footprint, Layer, PadKind, Project, ProjectProps, Rules, Shape,
     Side, Uuid,
 };
-use reda_pcb::{ElementText, board_layer, element_texts, new_board, text_geometry};
+use reda_pcb::{board_layer, element_texts, new_board, text_geometry};
 use reda_render::{BoardGeometry, BoardGraphic, BoardPad, BoardText, Mesh, Scene, Segment};
 
 use crate::builders::add_document;
-
-pub use reda_library::edit::{DESIGNATOR_TEXT, VALUE_TEXT};
 
 /// What the Designator shows in the Footprint editor.
 pub const DESIGNATOR_PLACEHOLDER: &str = "REF**";
@@ -67,12 +65,7 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
         }
     }
     let shown = (DESIGNATOR_PLACEHOLDER, footprint.name.as_str());
-    for (which, text) in element_texts(pcb, footprint, shown, fonts) {
-        let object = match which {
-            ElementText::Graphic(uuid) => uuid,
-            ElementText::Designator => DESIGNATOR_TEXT,
-            ElementText::Value => VALUE_TEXT,
-        };
+    for (object, text) in element_texts(pcb, footprint, shown, fonts) {
         let laid = text_geometry(&text, fonts);
         geometry.texts.push(BoardText {
             object,

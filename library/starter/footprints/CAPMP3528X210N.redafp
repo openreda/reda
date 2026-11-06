@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"2adccc08-5d68-4c21-a620-92fb92ec9033","name":"CAPMP3528X210N","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":2500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"2adccc08-5d68-4c21-a620-92fb92ec9033","name":"CAPMP3528X210N","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal","height":2100000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":{"height":2100000,"length":{"max":3700000,"min":3300000},"terminal":{"max":1100000,"min":500000},"width":{"max":3000000,"min":2600000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"CAPMP3528X210N","size":null}},
   "pads": [
     {"uuid":"665a48cc-84f5-414e-801d-cb3234894240","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_radius":250000},
     {"uuid":"cfc412fd-6626-416e-a589-e25a52cbe4b6","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_radius":250000}
@@ -10,5 +10,9 @@
     {"uuid":"09a74e66-b1e4-4243-b587-463c557d6df7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2500000,"y":-1800000},"end":{"x":2500000,"y":1800000}},"width":50000},
     {"uuid":"8ba39dc9-1835-4595-9cf1-f8482bab5d24","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1400000},"end":{"x":1750000,"y":1400000}},"width":100000},
     {"uuid":"8eb2d06a-58d1-45d8-85cb-f5b3c1ac2448","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2485000,"y":-1525000},"end":{"x":-2485000,"y":1525000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"75113202-f31d-4ad5-856a-0f5f9f808f69","field":"Designator","at":{"x":0,"y":2500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"d4c9e7d3-81d5-43a7-a412-6ecfdd138873","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"assembly_top"}
   ]
 }

@@ -24,6 +24,6 @@ pub use commands::{
 };
 pub use copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility};
 pub use text::{
-    ElementText, FOOTPRINT_TEXT_PEN, Fill, LINE_PITCH, PlacedText, Stroke, board_layer,
-    element_texts, font_is_missing, footprint_texts, missing_fonts, text_geometry,
+    FOOTPRINT_TEXT_PEN, Fill, LINE_PITCH, PlacedText, Stroke, board_layer, element_texts,
+    font_is_missing, footprint_texts, missing_fonts, text_geometry,
 };

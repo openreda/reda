@@ -257,12 +257,14 @@ fn a_legacy_module_footprint_is_read_with_y_pointing_up() {
     assert_eq!(pad("8").mask_margin, Some(mm("0.05")));
     assert_eq!(pad("").kind, PadKind::NonPlated);
 
-    assert_eq!(footprint.designator.at, pt("0", "6.5"));
-    assert_eq!(footprint.designator.rotation, Millideg(90_000));
-    assert_eq!(footprint.designator.size, mm("1.2"));
-    assert_eq!(footprint.designator.layer, FootprintLayer::SilkscreenTop);
-    assert!(!footprint.value.visible);
-    assert_eq!(footprint.value.layer, FootprintLayer::AssemblyTop);
+    let field = |name: &str| footprint.texts.iter().find(|t| t.field == name).unwrap();
+    let (designator, value) = (field("Designator"), field("Value"));
+    assert_eq!(designator.at, pt("0", "6.5"));
+    assert_eq!(designator.rotation, Millideg(90_000));
+    assert_eq!(designator.style.height, mm("1.2"));
+    assert_eq!(designator.layer, FootprintLayer::SilkscreenTop);
+    assert!(!value.visible);
+    assert_eq!(value.layer, FootprintLayer::AssemblyTop);
 
     let on = |layer| footprint.graphics.iter().filter(move |g| g.layer == layer);
     assert_eq!(on(FootprintLayer::CourtyardTop).count(), 1);

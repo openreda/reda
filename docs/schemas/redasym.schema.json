@@ -1,5 +1,35 @@
 {
   "$defs": {
+    "InsideEdge": {
+      "description": "A Pin decoration just inside the body edge.",
+      "oneOf": [
+        {
+          "const": "clock",
+          "description": "A clock input's wedge.",
+          "type": "string"
+        }
+      ]
+    },
+    "OutsideEdge": {
+      "description": "A Pin decoration just outside the body edge.",
+      "oneOf": [
+        {
+          "const": "dot",
+          "description": "An inversion circle.",
+          "type": "string"
+        },
+        {
+          "const": "active_low_input",
+          "description": "The active-low input flag.",
+          "type": "string"
+        },
+        {
+          "const": "active_low_output",
+          "description": "The active-low output flag.",
+          "type": "string"
+        }
+      ]
+    },
     "Pin": {
       "additionalProperties": false,
       "description": "A connection point of a Symbol.",
@@ -8,8 +38,23 @@
           "$ref": "#/$defs/Point",
           "description": "The connection end of the Pin, relative to the Symbol origin."
         },
+        "description": {
+          "description": "What the Pin is for, shown on hover. Left out when empty.",
+          "type": "string"
+        },
         "electrical_type": {
           "$ref": "#/$defs/PinType"
+        },
+        "inside_edge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InsideEdge"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The glyph drawn just inside the body edge, such as a clock wedge."
         },
         "length": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -30,6 +75,17 @@
         "number_visible": {
           "description": "Whether the Pin's number is drawn.",
           "type": "boolean"
+        },
+        "outside_edge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutsideEdge"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The glyph drawn just outside the body edge, such as an inversion dot."
         },
         "rotation": {
           "description": "The direction from the connection end towards the body, counter-clockwise from +x.",

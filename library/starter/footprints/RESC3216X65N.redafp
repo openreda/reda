@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":1900000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":800000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"resistor","dimensions":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"size":"1206"}},
   "pads": [
     {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000},
     {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_radius":250000}
@@ -9,5 +9,9 @@
   "graphics": [
     {"uuid":"44297572-5b1e-47bb-9e7a-f3198c88aa8b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000},
     {"uuid":"6702b208-3d83-4920-a07a-7ff576d7b69d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"44f25427-334b-4b3d-a058-5711924b22fc","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"},
+    {"uuid":"531eb07c-ec51-40a0-9a33-ad9123eca689","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000},"layer":"assembly_top"}
   ]
 }

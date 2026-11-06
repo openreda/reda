@@ -220,8 +220,8 @@ impl PartSource for DiskParts {
 }
 
 /// The Part `uuid` of the scanned Libraries, copied with its Symbol and Footprints and
-/// hashed: each Footprint over its canonical file bytes, the Part over its own file, its
-/// Symbol's file and its Footprints' hashes.
+/// hashed: each Footprint over its canonical file bytes without its `generator`, the Part
+/// over its own file, its Symbol's file and its Footprints' hashes.
 pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandError> {
     let internal = |e: crate::canonical::CanonicalError| CommandError::internal(e.to_string());
     let part = index.part(uuid).ok_or_else(|| {
@@ -251,14 +251,13 @@ pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandEr
         let footprint = index
             .footprint(footprint)
             .ok_or_else(|| missing("Footprint", footprint))?;
+        // A Document's copy, and so its hash, leaves out how the Footprint was generated.
+        let footprint = footprint.without_generator();
         let mut fp_hasher = ContentHash::new();
-        fp_hasher.write(&write_footprint(footprint).map_err(internal)?);
+        fp_hasher.write(&write_footprint(&footprint).map_err(internal)?);
         let hash = fp_hasher.finish();
         hasher.write(hash.as_bytes());
-        footprints.push(FootprintCopyData {
-            hash,
-            footprint: footprint.clone(),
-        });
+        footprints.push(FootprintCopyData { hash, footprint });
     }
     Ok(PartCopy {
         hash: hasher.finish(),

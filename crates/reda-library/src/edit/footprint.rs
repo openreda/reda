@@ -1,12 +1,15 @@
 //! The Footprint editor's Commands: the Footprint's own properties, its Pads, graphics,
-//! Designator and value text, and its origin.
+//! field texts, and its origin.
 
 use reda_command::{
     Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
     Unavailable,
 };
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{Footprint, FootprintGraphic, FootprintLayer, Hole, Pad, PadKind, PadShape, Uuid};
+use reda_model::{
+    Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
+    Shape, TextStyle, Uuid,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -23,17 +26,13 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FootprintGraphicAdd);
     registry.add(FootprintGraphicEdit);
     registry.add(FootprintGraphicRemove);
-    registry.add(FootprintTextSet);
+    registry.add(FootprintTextAdd);
+    registry.add(FootprintTextEdit);
+    registry.add(FootprintTextRemove);
     registry.add(FootprintOriginSet);
     registry.add(FootprintMove);
     registry.add(FootprintDelete);
 }
-
-/// What the Footprint editor (and [`FootprintMove`] / [`FootprintDelete`]) calls the
-/// Designator text of a Footprint, which has no UUID of its own.
-pub const DESIGNATOR_TEXT: Uuid = Uuid::from_u128(0xfd00_0000_0000_4000_8000_0000_0000_0001);
-/// What the Footprint editor calls the value text of a Footprint.
-pub const VALUE_TEXT: Uuid = Uuid::from_u128(0xfd00_0000_0000_4000_8000_0000_0000_0002);
 
 const fn meta(id: &'static str, title: &'static str, description: &'static str) -> Meta {
     Meta {
@@ -65,13 +64,17 @@ pub struct FootprintEditParams {
     pub footprint: Uuid,
     pub name: Option<String>,
     pub description: Option<String>,
+    /// The part's greatest height above the board; `null` clears it.
+    #[serde(default, deserialize_with = "present")]
+    pub height: Option<Option<Length>>,
 }
 
 impl Command for FootprintEdit {
     const META: Meta = meta(
         "library.footprint.edit",
         "Edit Footprint",
-        "Changes an open Footprint's name or description. Omitted fields keep their value.",
+        "Changes an open Footprint's name, description or height. Omitted fields keep \
+         their value; a `null` height clears it.",
     );
     type Params = FootprintEditParams;
     type Output = ();
@@ -84,12 +87,18 @@ impl Command for FootprintEdit {
         if let Some(name) = &p.name {
             check_element_name(name).map_err(invalid("/name"))?;
         }
+        if let Some(Some(height)) = p.height {
+            positive(height.nm(), "the height").map_err(invalid("/height"))?;
+        }
         edit_footprint(cx, p.footprint, |f| {
             if let Some(name) = p.name {
                 f.name = name;
             }
             if let Some(description) = p.description {
                 f.description = description;
+            }
+            if let Some(height) = p.height {
+                f.height = height.map(Length::nm);
             }
             Ok(())
         })
@@ -383,7 +392,8 @@ impl Command for FootprintGraphicAdd {
         "library.footprint.graphic.add",
         "Add Footprint Graphic",
         "Draws a line, rectangle, arc, circle, polygon or text on the Silkscreen, \
-         Courtyard or Assembly Layer, top or bottom, of an open Footprint.",
+         Courtyard or Assembly Layer, top or bottom, of an open Footprint. A Courtyard \
+         Layer takes only closed shapes: rectangles, circles and polygons.",
     );
     type Params = FootprintGraphicAddParams;
     type Output = GraphicResult;
@@ -406,12 +416,29 @@ impl Command for FootprintGraphicAdd {
             fill: p.fill.unwrap_or(false),
         };
         check_width(graphic.width)?;
+        check_closed(graphic.layer, &graphic.shape)?;
         edit_footprint(cx, p.footprint, |f| {
             f.graphics.push(graphic);
             f.graphics.sort_by_key(|g| g.uuid);
             Ok(GraphicResult { graphic: uuid })
         })
     }
+}
+
+/// Refuses an open shape (a line, arc or text) on a Courtyard Layer, which takes only
+/// closed outlines so a courtyard can never be left open.
+fn check_closed(layer: FootprintLayer, shape: &Shape) -> Result<(), CommandError> {
+    let closed = matches!(
+        shape,
+        Shape::Rect { .. } | Shape::Circle { .. } | Shape::Polygon { .. }
+    );
+    if layer.is_courtyard() && !closed {
+        return Err(CommandError::invalid_params(
+            "/shape",
+            "a Courtyard Layer takes only closed shapes: a rectangle, circle or polygon",
+        ));
+    }
+    Ok(())
 }
 
 fn check_width(width: Nm) -> Result<(), CommandError> {
@@ -444,7 +471,7 @@ impl Command for FootprintGraphicEdit {
         "library.footprint.graphic.edit",
         "Edit Footprint Graphic",
         "Changes a Footprint graphic's Layer, shape, stroke width or fill. Omitted fields \
-         keep their value.",
+         keep their value. A Courtyard Layer takes only closed shapes.",
     );
     type Params = FootprintGraphicEditParams;
     type Output = ();
@@ -476,7 +503,7 @@ impl Command for FootprintGraphicEdit {
             if let Some(fill) = p.fill {
                 graphic.fill = fill;
             }
-            Ok(())
+            check_closed(graphic.layer, &graphic.shape)
         })
     }
 }
@@ -511,70 +538,234 @@ impl Command for FootprintGraphicRemove {
     }
 }
 
-/// Which of a Footprint's two texts.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum TextWhich {
-    Designator,
-    Value,
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct FootprintTextResult {
+    /// The new text's UUID.
+    pub text: Uuid,
 }
 
-pub struct FootprintTextSet;
+pub struct FootprintTextAdd;
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct FootprintTextSetParams {
+pub struct FootprintTextAddParams {
     /// The open Footprint.
     pub footprint: Uuid,
-    pub text: TextWhich,
+    /// The field it shows: `Designator`, `Value` or any field name.
+    pub field: String,
     /// The text centre, relative to the Footprint origin.
-    pub at: Option<PointParam>,
+    pub at: PointParam,
     pub rotation: Option<Angle>,
-    /// The text height.
-    pub size: Option<Length>,
+    /// A Silkscreen or Assembly Layer. Omitted, the top Silkscreen.
     pub layer: Option<FootprintLayer>,
+    /// The capital height. Omitted, 1 mm.
+    pub height: Option<Length>,
+    /// The pen width. Omitted, 15% of the height.
+    pub thickness: Option<Length>,
+    /// The font family. Omitted, Hershey Roman Simplex.
+    pub font: Option<String>,
+    /// Omitted, shown.
     pub visible: Option<bool>,
 }
 
-impl Command for FootprintTextSet {
+impl Command for FootprintTextAdd {
     const META: Meta = meta(
-        "library.footprint.text.set",
-        "Place Footprint Text",
-        "Places the Designator or value text of an open Footprint: its position, rotation, \
-         size, Layer and visibility. Omitted fields keep their value.",
+        "library.footprint.text.add",
+        "Add Footprint Text",
+        "Adds a text showing a field (`Designator`, `Value` or any field name) to an open \
+         Footprint, on a Silkscreen or Assembly Layer. A Component without that field draws \
+         nothing there.",
     );
-    type Params = FootprintTextSetParams;
+    type Params = FootprintTextAddParams;
+    type Output = FootprintTextResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: FootprintTextAddParams,
+    ) -> Result<FootprintTextResult, CommandError> {
+        let uuid = cx.new_id();
+        let mut text = FootprintText::designator(uuid);
+        text.field = p.field;
+        text.at = p.at.point();
+        if let Some(height) = p.height {
+            text.style = TextStyle::of_height(height.nm());
+        }
+        let change = TextChange {
+            field: None,
+            at: None,
+            rotation: p.rotation,
+            layer: p.layer,
+            height: None,
+            thickness: p.thickness,
+            font: p.font,
+            visible: p.visible,
+        };
+        change.apply(&mut text)?;
+        edit_footprint(cx, p.footprint, |f| {
+            f.texts.push(text);
+            f.texts.sort_by_key(|t| t.uuid);
+            Ok(FootprintTextResult { text: uuid })
+        })
+    }
+}
+
+pub struct FootprintTextEdit;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintTextEditParams {
+    /// The open Footprint.
+    pub footprint: Uuid,
+    pub text: Uuid,
+    /// The field it shows: `Designator`, `Value` or any field name.
+    pub field: Option<String>,
+    /// The text centre, relative to the Footprint origin.
+    pub at: Option<PointParam>,
+    pub rotation: Option<Angle>,
+    /// A Silkscreen or Assembly Layer.
+    pub layer: Option<FootprintLayer>,
+    /// The capital height. Without a new `thickness`, the pen width keeps its proportion
+    /// to the height.
+    pub height: Option<Length>,
+    /// The pen width.
+    pub thickness: Option<Length>,
+    /// The font family.
+    pub font: Option<String>,
+    pub visible: Option<bool>,
+}
+
+/// The parts of a Footprint text to change; `None` keeps the value.
+struct TextChange {
+    field: Option<String>,
+    at: Option<PointParam>,
+    rotation: Option<Angle>,
+    layer: Option<FootprintLayer>,
+    height: Option<Length>,
+    thickness: Option<Length>,
+    font: Option<String>,
+    visible: Option<bool>,
+}
+
+impl TextChange {
+    /// Applies the change to `text` and checks the result.
+    fn apply(self, text: &mut FootprintText) -> Result<(), CommandError> {
+        if let Some(field) = self.field {
+            text.field = field;
+        }
+        if let Some(at) = self.at {
+            text.at = at.point();
+        }
+        if let Some(rotation) = self.rotation {
+            text.rotation = rotation.millideg();
+        }
+        if let Some(layer) = self.layer {
+            text.layer = layer;
+        }
+        if let Some(height) = self.height {
+            // Without a new pen width, the pen keeps its proportion to the height.
+            let (old, new) = (text.style.height.0, height.nm().0);
+            if self.thickness.is_none() && old > 0 {
+                let scaled = i128::from(text.style.thickness.0) * i128::from(new) / i128::from(old);
+                text.style.thickness = Nm(scaled as i64);
+            }
+            text.style.height = height.nm();
+        }
+        if let Some(thickness) = self.thickness {
+            text.style.thickness = thickness.nm();
+        }
+        if let Some(font) = self.font {
+            text.style.font = font;
+        }
+        if let Some(visible) = self.visible {
+            text.visible = visible;
+        }
+        if text.field.trim().is_empty() {
+            return Err(CommandError::invalid_params(
+                "/field",
+                "the field name is empty",
+            ));
+        }
+        if !text.layer.is_silkscreen() && !text.layer.is_assembly() {
+            return Err(CommandError::invalid_params(
+                "/layer",
+                "Footprint text goes on a Silkscreen or Assembly Layer",
+            ));
+        }
+        positive(text.style.height, "the text height").map_err(invalid("/height"))?;
+        positive(text.style.thickness, "the pen width").map_err(invalid("/thickness"))?;
+        if text.style.font.trim().is_empty() {
+            return Err(CommandError::invalid_params(
+                "/font",
+                "the font family is empty",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Command for FootprintTextEdit {
+    const META: Meta = meta(
+        "library.footprint.text.edit",
+        "Edit Footprint Text",
+        "Changes a Footprint text's field, position, rotation, Layer, height, pen width, \
+         font or visibility. Omitted fields keep their value.",
+    );
+    type Params = FootprintTextEditParams;
     type Output = ();
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         cx.elements()
     }
 
-    fn run(&self, cx: &mut Context<'_>, p: FootprintTextSetParams) -> Result<(), CommandError> {
-        if let Some(size) = p.size {
-            positive(size.nm(), "the text size").map_err(invalid("/size"))?;
-        }
+    fn run(&self, cx: &mut Context<'_>, p: FootprintTextEditParams) -> Result<(), CommandError> {
         edit_footprint(cx, p.footprint, |f| {
-            let text = match p.text {
-                TextWhich::Designator => &mut f.designator,
-                TextWhich::Value => &mut f.value,
-            };
-            if let Some(at) = p.at {
-                text.at = at.point();
+            let text = find_mut(&mut f.texts, p.text, |t| t.uuid, "text")?;
+            TextChange {
+                field: p.field,
+                at: p.at,
+                rotation: p.rotation,
+                layer: p.layer,
+                height: p.height,
+                thickness: p.thickness,
+                font: p.font,
+                visible: p.visible,
             }
-            if let Some(rotation) = p.rotation {
-                text.rotation = rotation.millideg();
-            }
-            if let Some(size) = p.size {
-                text.size = size.nm();
-            }
-            if let Some(layer) = p.layer {
-                text.layer = layer;
-            }
-            if let Some(visible) = p.visible {
-                text.visible = visible;
-            }
-            Ok(())
+            .apply(text)
+        })
+    }
+}
+
+pub struct FootprintTextRemove;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintTextParams {
+    /// The open Footprint.
+    pub footprint: Uuid,
+    pub text: Uuid,
+}
+
+impl Command for FootprintTextRemove {
+    const META: Meta = meta(
+        "library.footprint.text.remove",
+        "Remove Footprint Text",
+        "Removes a field text from an open Footprint.",
+    );
+    type Params = FootprintTextParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        cx.elements()
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: FootprintTextParams) -> Result<(), CommandError> {
+        edit_footprint(cx, p.footprint, |f| {
+            remove(&mut f.texts, p.text, |t| t.uuid, "text").map(drop)
         })
     }
 }
@@ -620,8 +811,9 @@ fn shift(f: &mut Footprint, by: Point) {
     for graphic in &mut f.graphics {
         graphic.shape = graphic.shape.translated(by);
     }
-    f.designator.at = f.designator.at + by;
-    f.value.at = f.value.at + by;
+    for text in &mut f.texts {
+        text.at = text.at + by;
+    }
 }
 
 pub struct FootprintMove;
@@ -631,8 +823,7 @@ pub struct FootprintMove;
 pub struct FootprintMoveParams {
     /// The open Footprint.
     pub footprint: Uuid,
-    /// Pads and graphics by UUID, and the Designator and value text as
-    /// `fd000000-0000-4000-8000-000000000001` and `…0002`.
+    /// Pads, graphics and texts by UUID.
     pub objects: Vec<Uuid>,
     pub by: PointParam,
 }
@@ -641,8 +832,7 @@ impl Command for FootprintMove {
     const META: Meta = meta(
         "library.footprint.move",
         "Move in Footprint",
-        "Moves any mix of an open Footprint's Pads, graphics and Designator and value text \
-         by `by`, in one step.",
+        "Moves any mix of an open Footprint's Pads, graphics and texts by `by`, in one step.",
     );
     type Params = FootprintMoveParams;
     type Output = ();
@@ -655,10 +845,8 @@ impl Command for FootprintMove {
         let by = p.by.point();
         edit_footprint(cx, p.footprint, |f| {
             for (i, uuid) in p.objects.iter().enumerate() {
-                if *uuid == DESIGNATOR_TEXT {
-                    f.designator.at = f.designator.at + by;
-                } else if *uuid == VALUE_TEXT {
-                    f.value.at = f.value.at + by;
+                if let Some(text) = f.texts.iter_mut().find(|t| t.uuid == *uuid) {
+                    text.at = text.at + by;
                 } else if let Some(pad) = f.pads.iter_mut().find(|pad| pad.uuid == *uuid) {
                     pad.at = pad.at + by;
                 } else if let Some(g) = f.graphics.iter_mut().find(|g| g.uuid == *uuid) {
@@ -674,7 +862,7 @@ impl Command for FootprintMove {
 
 fn not_in_footprint(index: usize, uuid: Uuid) -> CommandError {
     CommandError::not_found(format!(
-        "objects/{index}: the Footprint has no Pad or graphic {uuid}"
+        "objects/{index}: the Footprint has no Pad, graphic or text {uuid}"
     ))
 }
 
@@ -685,8 +873,7 @@ pub struct FootprintDelete;
 pub struct FootprintDeleteParams {
     /// The open Footprint.
     pub footprint: Uuid,
-    /// Pads and graphics by UUID, and the Designator and value text (as for
-    /// `library.footprint.move`), which are hidden rather than removed.
+    /// Pads, graphics and texts by UUID.
     pub objects: Vec<Uuid>,
 }
 
@@ -694,8 +881,7 @@ impl Command for FootprintDelete {
     const META: Meta = meta(
         "library.footprint.delete",
         "Delete in Footprint",
-        "Removes any mix of an open Footprint's Pads and graphics in one step. The \
-         Designator and value text cannot be removed, so they are hidden.",
+        "Removes any mix of an open Footprint's Pads, graphics and texts in one step.",
     );
     type Params = FootprintDeleteParams;
     type Output = ();
@@ -707,10 +893,8 @@ impl Command for FootprintDelete {
     fn run(&self, cx: &mut Context<'_>, p: FootprintDeleteParams) -> Result<(), CommandError> {
         edit_footprint(cx, p.footprint, |f| {
             for (i, uuid) in p.objects.iter().enumerate() {
-                if *uuid == DESIGNATOR_TEXT {
-                    f.designator.visible = false;
-                } else if *uuid == VALUE_TEXT {
-                    f.value.visible = false;
+                if f.texts.iter().any(|t| t.uuid == *uuid) {
+                    f.texts.retain(|t| t.uuid != *uuid);
                 } else if f.pads.iter().any(|pad| pad.uuid == *uuid) {
                     f.pads.retain(|pad| pad.uuid != *uuid);
                 } else if f.graphics.iter().any(|g| g.uuid == *uuid) {

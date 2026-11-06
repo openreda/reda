@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "footprint": {"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":1450000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":400000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":{"height":800000,"length":{"max":1700000,"min":1500000},"terminal":{"max":400000,"min":200000},"width":{"max":900000,"min":700000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"LEDC1608X80N","size":null}},
   "pads": [
     {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250},
     {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_radius":206250}
@@ -10,5 +10,9 @@
     {"uuid":"21fd2982-c15f-4ec3-ad3c-af15a6130fb9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
     {"uuid":"2ab07252-ab3d-4a95-9ee7-87caa212790c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000},
     {"uuid":"c70db547-1153-49e5-858c-eaccb665d0f9","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1485000,"y":-475000},"end":{"x":-1485000,"y":475000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000},"layer":"assembly_top"},
+    {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000},"layer":"silkscreen_top"}
   ]
 }

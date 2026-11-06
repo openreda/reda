@@ -383,6 +383,9 @@ pub fn build(
             length: p.length,
             name_visible: p.name_visible,
             number_visible: p.number_visible,
+            description: String::new(),
+            inside_edge: None,
+            outside_edge: None,
         })
         .collect();
     pins.sort_by_key(|p| p.uuid);

@@ -26,9 +26,10 @@ pub use check::{
 };
 pub use document::{DocumentEntry, DocumentKind};
 pub use library::{
-    ComponentType, ElementSource, Field, Fields, Footprint, FootprintGraphic, FootprintLayer,
-    FootprintText, Hole, LibraryElement, LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap,
-    PinPads, PinType, Provenance, Shape, Symbol, SymbolGraphic, Unit,
+    ComponentType, DESIGNATOR_FIELD, ElementSource, Field, Fields, Footprint, FootprintGenerator,
+    FootprintGraphic, FootprintLayer, FootprintText, Hole, InsideEdge, LibraryElement, LibraryInfo,
+    OutsideEdge, Pad, PadKind, PadShape, Part, Pin, PinMap, PinPads, PinType, Provenance, Shape,
+    Symbol, SymbolGraphic, TextStyle, Unit, VALUE_FIELD, field_text,
 };
 pub use output::{
     Column, ColumnSource, FabPreset, FileNaming, GerberSettings, OutputJob, Outputs,

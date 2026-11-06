@@ -154,23 +154,32 @@ impl Command for FootprintAdd {
             })
             .collect();
         graphics.sort_by_key(|g| g.uuid);
+        let (uuid, copy_uuid) = (cx.new_id(), cx.new_id());
+        let instance_uuid = cx.new_id();
+        // The texts' UUIDs come last, so the others keep theirs.
+        let mut texts = vec![
+            FootprintText::designator(cx.new_id()),
+            FootprintText::value(cx.new_id()),
+        ];
+        texts.sort_by_key(|t| t.uuid);
         let footprint = Footprint {
-            uuid: cx.new_id(),
+            uuid,
             name: "Test".into(),
             description: String::new(),
+            height: None,
             pads,
             graphics,
-            designator: FootprintText::DESIGNATOR,
-            value: FootprintText::VALUE,
+            texts,
+            generator: None,
             provenance: None,
         };
         let copy = FootprintCopy {
-            uuid: cx.new_id(),
+            uuid: copy_uuid,
             hash: footprint.uuid.to_string(),
             footprint,
         };
         let instance = FootprintInstance {
-            uuid: cx.new_id(),
+            uuid: instance_uuid,
             component: None,
             footprint: copy.uuid,
             at: p.at.point(),

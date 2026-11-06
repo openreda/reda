@@ -23,8 +23,8 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use reda_model::{
-    ComponentType, Fields, Footprint, FootprintGraphic, FootprintText, LibraryInfo, Pad, Part, Pin,
-    PinMap, Provenance, Symbol, SymbolGraphic, Unit, Uuid,
+    ComponentType, Fields, Footprint, FootprintGenerator, FootprintGraphic, FootprintText,
+    LibraryInfo, Pad, Part, Pin, PinMap, Provenance, Symbol, SymbolGraphic, Unit, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -93,39 +93,18 @@ pub(crate) struct FootprintFile {
     /// lines. Elements made in REDA have none.
     #[serde(default)]
     provenance: Option<Box<Provenance>>,
-    /// Where the Designator and value text go.
+    /// The generator Command and resolved params that made the Footprint. Only the
+    /// Library file holds it: Document copies and their hashes leave it out.
     #[serde(default)]
-    text: FootprintTexts,
+    generator: Option<Box<FootprintGenerator>>,
     /// The Pads, sorted by UUID. Pads that share a number belong to one Pin.
     pads: Vec<Pad>,
     /// The Silkscreen, Courtyard and Assembly drawing, sorted by UUID.
     #[serde(default)]
     graphics: Vec<FootprintGraphic>,
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct FootprintTexts {
-    designator: FootprintText,
-    value: FootprintText,
-}
-
-impl FootprintTexts {
-    pub(crate) fn of(footprint: &Footprint) -> FootprintTexts {
-        FootprintTexts {
-            designator: footprint.designator,
-            value: footprint.value,
-        }
-    }
-}
-
-impl Default for FootprintTexts {
-    fn default() -> FootprintTexts {
-        FootprintTexts {
-            designator: FootprintText::DESIGNATOR,
-            value: FootprintText::VALUE,
-        }
-    }
+    /// The field texts, such as the Designator and value, sorted by UUID.
+    #[serde(default)]
+    texts: Vec<FootprintText>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -135,6 +114,9 @@ pub(crate) struct FootprintRow {
     name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     description: String,
+    /// The part's greatest height above the board, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    height: Option<reda_model::geom::Nm>,
 }
 
 /// A REDA Part file (`.redapart`).
@@ -258,51 +240,62 @@ impl FootprintRow {
             uuid: footprint.uuid,
             name: footprint.name.clone(),
             description: footprint.description.clone(),
+            height: footprint.height,
         }
     }
 
-    /// The Footprint with this text, these Pads and graphics, checked for unique UUIDs;
-    /// Pads and graphics come back sorted.
+    /// The Footprint with these Pads, graphics and texts, checked for unique UUIDs; they
+    /// come back sorted.
     pub(crate) fn into_footprint(
         self,
-        text: FootprintTexts,
         mut pads: Vec<Pad>,
         mut graphics: Vec<FootprintGraphic>,
+        mut texts: Vec<FootprintText>,
         provenance: Option<Box<Provenance>>,
     ) -> Result<Footprint, String> {
         unique(pads.iter().map(|p| p.uuid), "Pad")?;
         unique(graphics.iter().map(|g| g.uuid), "graphic")?;
+        unique(texts.iter().map(|t| t.uuid), "text")?;
         pads.sort_by_key(|p| p.uuid);
         graphics.sort_by_key(|g| g.uuid);
+        texts.sort_by_key(|t| t.uuid);
         Ok(Footprint {
             uuid: self.uuid,
             name: self.name,
             description: self.description,
+            height: self.height,
             pads,
             graphics,
-            designator: text.designator,
-            value: text.value,
+            texts,
+            generator: None,
             provenance,
         })
     }
 }
 
+/// The `.redafp` file of `footprint`, its `generator` included.
 pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("footprint", &FootprintRow::of(footprint))?;
     write_provenance(&mut w, &footprint.provenance)?;
-    w.field("text", &FootprintTexts::of(footprint))?;
+    if let Some(generator) = &footprint.generator {
+        w.field("generator", generator)?;
+    }
     w.table("pads", &footprint.pads, |p| p.uuid)?;
     w.table("graphics", &footprint.graphics, |g| g.uuid)?;
+    w.table("texts", &footprint.texts, |t| t.uuid)?;
     Ok(w.finish())
 }
 
 pub fn read_footprint(path: &Path, bytes: &[u8]) -> Result<Footprint, LoadError> {
     let invalid = |why: String| LoadError::Invalid(path.to_owned(), why);
     let file: FootprintFile = parse(FileKind::Footprint, path, bytes)?;
-    file.footprint
-        .into_footprint(file.text, file.pads, file.graphics, file.provenance)
-        .map_err(invalid)
+    let mut footprint = file
+        .footprint
+        .into_footprint(file.pads, file.graphics, file.texts, file.provenance)
+        .map_err(invalid)?;
+    footprint.generator = file.generator;
+    Ok(footprint)
 }
 
 impl PartRow {

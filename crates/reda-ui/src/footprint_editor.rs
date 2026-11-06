@@ -22,7 +22,6 @@ pub mod inspector;
 use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Uuid};
 use serde_json::{Value, json};
@@ -239,7 +238,7 @@ impl Command for ToolSet {
 pub fn selectable(footprint: &Footprint) -> Vec<Uuid> {
     let mut out: Vec<Uuid> = footprint.pads.iter().map(|p| p.uuid).collect();
     out.extend(footprint.graphics.iter().map(|g| g.uuid));
-    out.extend([DESIGNATOR_TEXT, VALUE_TEXT]);
+    out.extend(footprint.texts.iter().map(|t| t.uuid));
     out
 }
 
