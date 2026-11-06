@@ -2,12 +2,12 @@
 //! free drawing (text, lines and rectangles).
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{SchematicSheet, SheetShape, Wire};
+use reda_model::{JustifyAxis, SchematicSheet, SheetShape, Wire};
 
 use super::Builder;
 use crate::color::SchematicColor as C;
 use crate::scene::{Align, HAlign, Primitive, VAlign};
-use crate::text::{TextStyle, reading_direction};
+use crate::text::{LINE_PITCH, TextStyle, reading_direction};
 use crate::transform::rotate;
 
 const WIRE_WIDTH: Nm = Nm(152_400);
@@ -125,15 +125,38 @@ pub(super) fn graphics(b: &mut Builder, sheet: &SchematicSheet) {
 
 pub(super) fn texts(b: &mut Builder, sheet: &SchematicSheet) {
     for text in sheet.texts() {
+        // Laid out in the direction it reads, so text turned upside down is drawn the
+        // right way up with its justification point mirrored to match.
+        let reading = reading_direction(text.rotation);
+        let flipped = reading != text.rotation.normalized();
+        let turn = |axis: JustifyAxis| match (flipped, axis) {
+            (true, JustifyAxis::Start) => JustifyAxis::End,
+            (true, JustifyAxis::End) => JustifyAxis::Start,
+            (_, axis) => axis,
+        };
+        let h = match turn(text.justify.horizontal()) {
+            JustifyAxis::Start => HAlign::Left,
+            JustifyAxis::Middle => HAlign::Center,
+            JustifyAxis::End => HAlign::Right,
+        };
+        // Lines run down from the first; the block's bottom is the last line's baseline.
+        let lines = text.text.split('\n').count() as i64;
+        let below = (lines - 1) * text.height.0 * LINE_PITCH.0 / LINE_PITCH.1;
+        let (v, lift) = match turn(text.justify.vertical()) {
+            JustifyAxis::Start => (VAlign::Baseline, below),
+            JustifyAxis::Middle => (VAlign::Middle, below / 2),
+            JustifyAxis::End => (VAlign::Top, 0),
+        };
+        let (dx, dy) = rotate(0, lift, reading);
         b.text(
             text.uuid,
             C::Text,
             &text.text,
-            text.at,
+            Point::new(text.at.x + Nm(dx), text.at.y + Nm(dy)),
             TextStyle {
                 height: text.height,
-                rotation: text.rotation,
-                align: Align::new(HAlign::Left, VAlign::Baseline),
+                rotation: reading,
+                align: Align::new(h, v),
                 view_label: false,
             },
         );

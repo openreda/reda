@@ -16,6 +16,7 @@ mod file;
 use std::num::NonZeroU32;
 
 use reda_command::{Length, UserDirs};
+use reda_model::{CrossReferenceStyles, LocationStyle, SheetStyle};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -126,6 +127,22 @@ pub struct SchematicEditing {
     /// Port or Power Port name, as in `\RESET`. Off, a leading backslash has no effect and
     /// isn't drawn. Only how names are drawn changes, never the names.
     pub single_negation: bool,
+    /// Port Cross References Sheet Style (`none`, `name` or `number`), used by Projects
+    /// that follow the Preferences for cross-references.
+    pub cross_reference_sheet_style: SheetStyle,
+    /// Port Cross References Location Style (`none`, `zone` or `xy`), used by Projects
+    /// that follow the Preferences for cross-references.
+    pub cross_reference_location_style: LocationStyle,
+}
+
+impl SchematicEditing {
+    /// The cross-reference styles a Project that follows the Preferences uses.
+    pub fn cross_reference_styles(&self) -> CrossReferenceStyles {
+        CrossReferenceStyles {
+            sheet: self.cross_reference_sheet_style,
+            location: self.cross_reference_location_style,
+        }
+    }
 }
 
 impl Default for SchematicEditing {
@@ -144,6 +161,8 @@ impl Default for SchematicEditing {
             auto_pan,
             default_grid,
             single_negation: false,
+            cross_reference_sheet_style: CrossReferenceStyles::DEFAULT.sheet,
+            cross_reference_location_style: CrossReferenceStyles::DEFAULT.location,
         }
     }
 }

@@ -491,6 +491,37 @@ fn free_text_can_be_added_edited_moved_and_deleted() {
 }
 
 #[test]
+fn free_text_takes_nine_point_justification_and_several_lines() {
+    let dir = TempDir::new("text-justify");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Notes:\n1. Fit C3 last", "at": at(0, 0),
+               "justify": "top_right"}),
+    );
+    let text = out["result"]["text"].clone();
+    let stored = object(&mut engine, &text);
+    assert_eq!(stored["justify"], "top_right");
+    assert_eq!(stored["text"], "Notes:\n1. Fit C3 last");
+    engine.run_ok(
+        "schematic.text.set",
+        json!({"uuid": text, "justify": "center"}),
+    );
+    assert_eq!(object(&mut engine, &text)["justify"], "center");
+    // Bottom left is the default, and is left out of the file.
+    engine.run_ok(
+        "schematic.text.set",
+        json!({"uuid": text, "justify": "bottom_left"}),
+    );
+    assert_eq!(object(&mut engine, &text).get("justify"), None);
+    let err = engine.run_err(
+        "schematic.text.set",
+        json!({"uuid": text, "justify": "middle"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+#[test]
 fn lines_and_rectangles_can_be_added_edited_and_moved() {
     let dir = TempDir::new("graphics");
     let mut engine = demo(&dir);

@@ -84,6 +84,9 @@ pub struct Menu {
     pub id: String,
     /// The catalogue key of its title.
     pub title: String,
+    /// The icon key a submenu shows as a bar button, which opens the menu under it. With
+    /// none, a bar shows the title.
+    pub icon: Option<String>,
     pub items: Vec<Item>,
 }
 

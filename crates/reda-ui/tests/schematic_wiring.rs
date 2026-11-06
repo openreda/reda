@@ -412,6 +412,37 @@ fn the_net_label_tool_previews_turns_and_places_one_label_per_click() {
 }
 
 #[test]
+fn a_power_port_preset_starts_the_power_port_tool_on_its_name() {
+    let dir = TempDir::new("wiring-power-presets");
+    let mut shell = shell(&dir);
+    shell
+        .run("tool.activate:power_port_3v3", json!({}))
+        .unwrap();
+    assert_eq!(shell.tool(), Tool::PowerPort);
+    hover(&mut shell, at(500.0, 0.0));
+    assert_eq!(
+        click(&mut shell, at(500.0, 0.0)),
+        ["schematic.power_port.add"]
+    );
+    // The plain Power Port Tool starts on GND again.
+    shell.run("tool.activate:power_port", json!({})).unwrap();
+    hover(&mut shell, at(1000.0, 0.0));
+    click(&mut shell, at(1000.0, 0.0));
+
+    let project = shell.engine().project().unwrap();
+    let body = project.schematic_sheet(sheet()).unwrap();
+    let mut power: Vec<_> = body.power_ports().map(|p| (p.at, p.name.clone())).collect();
+    power.sort_by_key(|p| p.0.x);
+    assert_eq!(
+        power,
+        [
+            (pt(500, 0), "3V3".to_owned()),
+            (pt(1000, 0), "GND".to_owned())
+        ]
+    );
+}
+
+#[test]
 fn the_port_power_port_and_no_connect_tools_place_on_click() {
     let dir = TempDir::new("wiring-ports");
     let mut shell = shell(&dir);
