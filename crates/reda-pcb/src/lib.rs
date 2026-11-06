@@ -4,8 +4,8 @@
 //! flipping, locking and arranging Footprints, their Designator text, Mechanical Parts,
 //! Free Pads and the Placement Origin.
 //!
-//! Copper connectivity and the Ratsnest are in [`copper`], the per-Net rules in
-//! [`net_rules`], Zone fill in [`zone`], the design rules check in [`drc`], and the packing
+//! Copper connectivity and the Ratsnest are in [`copper`], the rule resolver in
+//! [`rules`], Zone fill in [`zone`], the design rules check in [`drc`], and the packing
 //! of new Footprints into clusters outside the board in [`cluster`].
 
 mod board;
@@ -13,12 +13,12 @@ pub mod cluster;
 mod commands;
 pub mod copper;
 pub mod drc;
-pub mod net_rules;
 pub mod placed;
+pub mod rules;
 mod text;
 pub mod zone;
 
-pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board};
+pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, new_board, seed_rules};
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     MechanicalSet, MechanicalSetParams, Placed, PlacementOp, SyncCheck, SyncState, TrackDragPlan,

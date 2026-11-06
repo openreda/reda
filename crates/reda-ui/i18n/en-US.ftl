@@ -127,6 +127,7 @@ projects-move-down = Move Down
 projects-cannot-move = It cannot move further.
 projects-delete = Delete
 projects-delete-sheet = Delete Sheet
+projects-confirm-delete-title = Confirm Delete
 projects-confirm-delete = Delete { $name }? It holds { $count } { $count ->
     [one] Component, which is
    *[other] Components, which are
@@ -264,6 +265,7 @@ properties-in-bom = In BOM
 properties-in-cpl = In CPL
 properties-not-fitted = Not Fitted
 properties-net-class = Net Class
+properties-default-net-class = Default
 properties-new-field-name = New field
 properties-new-field-value = Value of the new field
 properties-add-field = Add Field
@@ -548,11 +550,17 @@ closing-save-selected = Save Selected
 closing-dont-save = Don't Save
 closing-cancel = Cancel
 closing-save-failed = { $file } could not be saved: { $error }
+closing-settings-intro = Apply the changes in { $window } before closing it?
+closing-settings-row = { $window } (changes not applied)
+closing-apply = Apply
+closing-discard = Discard
 
 ## Settings dialogs
 
 settings-ok = OK
 settings-apply = Apply
+settings-close = Close
+settings-reset-defaults = Reset to Defaults
 settings-invalid = Fix the flagged values first.
 settings-page-invalid = { $page } (has invalid values)
 project-settings-title = Project Settings
@@ -878,6 +886,7 @@ board-setup-rules = Rules
 board-setup-page-clearance = Clearance
 board-setup-page-track-width = Track Width
 board-setup-page-via = Via
+board-setup-page-hole-size = Hole Size
 board-setup-page-annular-ring = Annular Ring
 board-setup-page-hole-spacing = Hole Spacing
 board-setup-page-edge-clearance = Edge Clearance
@@ -887,13 +896,18 @@ board-setup-clearance = Clearance
 board-setup-track-width = Track width
 board-setup-via-diameter = Via diameter
 board-setup-via-hole = Via hole
+board-setup-pad-hole = Pad hole
 board-setup-annular-ring = Annular ring
 board-setup-hole-to-hole = Hole-to-hole spacing
 board-setup-edge-clearance = Edge clearance
+board-setup-preferred = Preferred { $rule }
+board-setup-maximum = Maximum { $rule }
 board-setup-board-wide = Board-wide minimum { $rule } (mm)
+board-setup-board-wide-preferred = Board-wide preferred { $rule } (mm)
+board-setup-board-wide-maximum = Board-wide maximum { $rule } (mm)
 board-setup-overrides = Net Class overrides (mm)
 board-setup-override = { $class }: { $rule }
-board-setup-overrides-note = Leave an override empty to use the board-wide value. Where two Net Classes meet, the larger clearance applies.
+board-setup-overrides-note = Leave an override empty to use the board-wide value. Where a Net is in several Net Classes, the highest-ranked one that sets a value wins, and where two Nets meet, the larger clearance applies.
 board-setup-no-overrides = Net Classes do not override this rule.
 board-setup-net-class = Net Class
 board-setup-severity = DRC severity of { $check }:
@@ -923,10 +937,12 @@ board-setup-nets = Nets
 board-setup-filter = Filter Nets
 board-setup-no-nets = The board has no Nets yet.
 board-setup-class-of = Net Class of { $net }
+board-setup-default-class-name = Default
 
 ## Output Job dialog and job runs
 
 output-job-title = Output Job: { $job }
+output-job-window-title = Output Job
 output-job-page = Job
 output-job-name = Name
 output-job-pcb = PCB Document

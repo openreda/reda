@@ -33,16 +33,18 @@ pub enum Rule {
     Clearance,
     TrackWidth,
     Via,
+    HoleSize,
     AnnularRing,
     HoleSpacing,
     EdgeClearance,
 }
 
 impl Rule {
-    pub const ALL: [Rule; 6] = [
+    pub const ALL: [Rule; 7] = [
         Rule::Clearance,
         Rule::TrackWidth,
         Rule::Via,
+        Rule::HoleSize,
         Rule::AnnularRing,
         Rule::HoleSpacing,
         Rule::EdgeClearance,
@@ -52,8 +54,14 @@ impl Rule {
     pub fn fields(self) -> &'static [RuleField] {
         match self {
             Rule::Clearance => &[RuleField::Clearance],
-            Rule::TrackWidth => &[RuleField::TrackWidth],
-            Rule::Via => &[RuleField::ViaDiameter, RuleField::ViaHole],
+            Rule::TrackWidth => &[RuleField::TrackWidth, RuleField::TrackPreferred],
+            Rule::Via => &[
+                RuleField::ViaDiameter,
+                RuleField::ViaDiameterPreferred,
+                RuleField::ViaHole,
+                RuleField::ViaHolePreferred,
+            ],
+            Rule::HoleSize => &[RuleField::HoleMin, RuleField::HoleMax],
             Rule::AnnularRing => &[RuleField::AnnularRing],
             Rule::HoleSpacing => &[RuleField::HoleToHole],
             Rule::EdgeClearance => &[RuleField::EdgeClearance],
@@ -65,7 +73,7 @@ impl Rule {
         match self {
             Rule::Clearance => DrcCheck::Clearance,
             Rule::TrackWidth => DrcCheck::TrackWidth,
-            Rule::Via => DrcCheck::HoleSize,
+            Rule::Via | Rule::HoleSize => DrcCheck::HoleSize,
             Rule::AnnularRing => DrcCheck::AnnularRing,
             Rule::HoleSpacing => DrcCheck::HoleToHole,
             Rule::EdgeClearance => DrcCheck::EdgeClearance,
@@ -77,19 +85,16 @@ impl Rule {
             Rule::Clearance => tr!("board-setup-page-clearance"),
             Rule::TrackWidth => tr!("board-setup-page-track-width"),
             Rule::Via => tr!("board-setup-page-via"),
+            Rule::HoleSize => tr!("board-setup-page-hole-size"),
             Rule::AnnularRing => tr!("board-setup-page-annular-ring"),
             Rule::HoleSpacing => tr!("board-setup-page-hole-spacing"),
             Rule::EdgeClearance => tr!("board-setup-page-edge-clearance"),
         }
     }
 
-    /// The rules on the page a Net Class can override.
+    /// The rules on the page a Net Class can override: all of them.
     pub fn overrides(self) -> Vec<RuleField> {
-        self.fields()
-            .iter()
-            .copied()
-            .filter(|f| RuleField::OVERRIDES.contains(f))
-            .collect()
+        self.fields().to_vec()
     }
 
     fn owns(self, problem: &Problem) -> bool {

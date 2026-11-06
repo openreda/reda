@@ -2,7 +2,7 @@
 //! the selection, after an old → new preview (`schematic.reannotate.preview`). The lock
 //! of each Component in the scope can be switched here (`schematic.component.set`).
 
-use egui::{Id, Modal};
+use egui::Id;
 use reda_engine::command::CommandError;
 use reda_engine::model::{Project, Uuid};
 use reda_engine::schematic::natural_cmp;
@@ -244,9 +244,12 @@ impl ReannotateDialog {
         let (before_order, before_scope) = (self.order, self.scope);
         let mut lock = None;
         let mut result = (false, false);
-        let modal = Modal::new(Id::NULL.with("schematic-reannotate")).show(ctx, |ui| {
-            ui.set_width(460.0);
-            ui.heading(tr!("reannotate-title"));
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("schematic-reannotate"),
+            tr!("reannotate-title"),
+        )
+        .width(460.0)
+        .show(ctx, |ui| {
             egui::Grid::new("reannotate-options")
                 .num_columns(2)
                 .show(ui, |ui| {

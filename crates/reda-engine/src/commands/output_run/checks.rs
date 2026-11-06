@@ -156,46 +156,57 @@ pub(crate) fn warnings(
     found
 }
 
-/// A `rule_below_preset` for each board rule, and each Net Class override, that allows
-/// less than the preset: `rule`, `board` (the value), `minimum` (the preset's), `preset`
-/// (its name) and, for an override, `net_class`.
+/// A `rule_below_preset` for each enabled rule record value, board-wide or a Net Class's,
+/// that allows less than the preset's minimum: `rule` (the kind), `value` (which of its
+/// values), `board` (the value), `minimum` (the preset's), `preset` (its name) and, for a
+/// class record, `net_class`. Its objects are the class, if any, then the record.
 fn loose_rules(pcb: &PcbDocument, preset: &FabPreset) -> Vec<Violation> {
-    let (board, min) = (pcb.setup().rules, preset.rules);
-    let warn = |rule: &str, value: reda_model::geom::Nm, minimum: reda_model::geom::Nm| {
-        (value < minimum).then(|| {
-            Violation::new("rule_below_preset", Severity::Warning)
-                .arg("rule", rule)
+    use reda_model::{RuleField, RuleKind};
+    let min = preset.rules;
+    let minimum = |kind: RuleKind, field: RuleField| match (kind, field) {
+        (RuleKind::Clearance, RuleField::Value) => Some(min.clearance),
+        (RuleKind::TrackWidth, RuleField::Min) => Some(min.track_width),
+        (RuleKind::ViaSize, RuleField::DiameterMin) => Some(min.via_diameter),
+        (RuleKind::ViaSize, RuleField::HoleMin) => Some(min.via_hole),
+        (RuleKind::HoleSize, RuleField::Min) => Some(min.hole_min),
+        (RuleKind::AnnularRing, RuleField::Min) => Some(min.annular_ring),
+        (RuleKind::HoleToHole, RuleField::Min) => Some(min.hole_to_hole),
+        (RuleKind::EdgeClearance, RuleField::Value) => Some(min.edge_clearance),
+        _ => None,
+    };
+    let mut records: Vec<_> = pcb.rules().filter(|r| r.enabled).collect();
+    records.sort_by_key(|r| {
+        let rank = r
+            .scope
+            .net_class
+            .and_then(|c| pcb.net_class(c))
+            .map_or(0, |c| c.rank);
+        (rank, r.kind)
+    });
+    let mut found = Vec::new();
+    for record in records {
+        for &field in record.kind.fields() {
+            let (Some(value), Some(minimum)) =
+                (record.values.length(field), minimum(record.kind, field))
+            else {
+                continue;
+            };
+            if value >= minimum {
+                continue;
+            }
+            let class = record.scope.net_class.and_then(|c| pcb.net_class(c));
+            let mut v = Violation::new("rule_below_preset", Severity::Warning)
+                .arg("rule", record.kind.id())
+                .arg("value", field.path())
                 .arg("board", value)
                 .arg("minimum", minimum)
-                .arg("preset", preset.name.as_str())
-        })
-    };
-    let mut found: Vec<Violation> = [
-        ("clearance", board.clearance, min.clearance),
-        ("track_width", board.track_width, min.track_width),
-        ("via_diameter", board.via_diameter, min.via_diameter),
-        ("via_hole", board.via_hole, min.via_hole),
-        ("annular_ring", board.annular_ring, min.annular_ring),
-        ("hole_to_hole", board.hole_to_hole, min.hole_to_hole),
-        ("edge_clearance", board.edge_clearance, min.edge_clearance),
-    ]
-    .into_iter()
-    .filter_map(|(rule, value, minimum)| warn(rule, value, minimum))
-    .collect();
-    for class in pcb.net_classes() {
-        let overrides = [
-            ("clearance", class.clearance, min.clearance),
-            ("track_width", class.track_width, min.track_width),
-            ("via_diameter", class.via_diameter, min.via_diameter),
-            ("via_hole", class.via_hole, min.via_hole),
-        ];
-        for (rule, value, minimum) in overrides {
-            if let Some(v) = value.and_then(|v| warn(rule, v, minimum)) {
-                found.push(
-                    v.arg("net_class", class.name.as_str())
-                        .objects([class.uuid]),
-                );
+                .arg("preset", preset.name.as_str());
+            if let Some(class) = class {
+                v = v
+                    .arg("net_class", class.name.as_str())
+                    .objects([class.uuid]);
             }
+            found.push(v.objects([record.uuid]));
         }
     }
     found

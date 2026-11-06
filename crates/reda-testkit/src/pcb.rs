@@ -242,7 +242,7 @@ impl Command for NetAdd {
     const META: Meta = Meta {
         id: "test.net.add",
         title: "Add Net",
-        description: "Test only: adds a PCB Net in the Default Net Class.",
+        description: "Test only: adds a PCB Net, in the Default Net Class only.",
         category: "test",
         icon: "bug",
         kind: Kind::Edit,
@@ -255,12 +255,12 @@ impl Command for NetAdd {
             .project()?
             .pcb()
             .ok_or_else(|| CommandError::unavailable("no PCB Document"))?;
-        let (document, class) = (pcb.uuid, pcb.setup().default_net_class);
+        let document = pcb.uuid;
         let uuid = cx.new_id();
         let net = Net {
             uuid,
             name: p.name,
-            class,
+            classes: Vec::new(),
         };
         cx.tx()?
             .insert(Object::Net(InDocument::new(document, net)))?;

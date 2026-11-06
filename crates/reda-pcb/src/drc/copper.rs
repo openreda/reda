@@ -4,7 +4,7 @@ use reda_model::DrcCheck;
 
 use super::{Board, Report, item_objects};
 use crate::copper::Item;
-use crate::net_rules::net_rules;
+use crate::rules::net_rules;
 use crate::zone::keepouts_entered;
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
@@ -53,11 +53,12 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
     }
 }
 
-/// Tracks narrower than their Net Class's Track width (the board rule where the class
-/// sets none).
+/// Tracks narrower than the `track_width` minimum that applies to their Net.
 fn track_width(board: &Board<'_>, report: &mut Report) {
     for track in board.pcb.tracks() {
-        let minimum = net_rules(board.pcb, track.net).track_width;
+        let Some(minimum) = net_rules(board.pcb, track.net).track_width.min else {
+            continue;
+        };
         if track.width < minimum {
             report.add(DrcCheck::TrackWidth, |v| {
                 v.arg("minimum", minimum)
