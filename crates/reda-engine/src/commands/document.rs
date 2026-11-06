@@ -1,20 +1,28 @@
 //! `document.add`, `document.delete`, `document.rename` and `document.reorder`: Documents
 //! come, go, change name and move on the Project's own undo stack, each with its contents.
-//! The files follow on save (see `store::save`).
+//! The files follow on save (see `store::save`). `document.revert` drops a Document's
+//! unsaved changes by reading its file again.
 
-use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_model::{DocumentEntry, DocumentKind, Object, Project, Uuid};
+use std::collections::BTreeMap;
+
+use reda_command::{
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry,
+    Unavailable,
+};
+use reda_model::{DocumentEntry, DocumentKind, Object, Project, Scope, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::project::check_file_stem;
 use crate::builders::{add_document, remove_document};
+use crate::format::{read_bytes, read_pcb_file, read_sheet_file};
 
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(DocumentAdd);
     registry.add(DocumentDelete);
     registry.add(DocumentRename);
     registry.add(DocumentReorder);
+    registry.add(DocumentRevert);
 }
 
 pub struct DocumentAdd;
@@ -275,5 +283,98 @@ impl Command for DocumentReorder {
         let documents = props.documents.clone();
         cx.tx()?.replace(Object::Project(props))?;
         Ok(DocumentOrder { documents })
+    }
+}
+
+pub struct DocumentRevert;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DocumentRevertParams {
+    /// The Document's UUID.
+    pub document: Uuid,
+}
+
+impl Command for DocumentRevert {
+    const META: Meta = Meta {
+        id: "document.revert",
+        title: "Revert Document",
+        description: "Drops a Document's unsaved changes: its contents are read again from \
+                      its file, and its undo stack is forgotten, leaving it clean. The \
+                      Project file and other Documents keep their changes. A Document whose \
+                      file was never written is refused.",
+        category: "project",
+        icon: "undo",
+        kind: Kind::File,
+    };
+    type Params = DocumentRevertParams;
+    type Output = DocumentEntry;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        match cx.project {
+            Some(_) => Ok(()),
+            None => Err(Unavailable {
+                reason: NO_PROJECT.into(),
+            }),
+        }
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: DocumentRevertParams,
+    ) -> Result<DocumentEntry, CommandError> {
+        let session = cx.session()?;
+        let project = session
+            .project
+            .as_mut()
+            .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
+        let entry = entry(project, p.document)?.clone();
+        let never_saved = || {
+            CommandError::rejected(format!(
+                "{} has never been saved, so there is no file to revert to",
+                entry.title
+            ))
+        };
+        let (Some(folder), Some(file)) =
+            (&session.location, session.files_on_disk.get(&entry.uuid))
+        else {
+            return Err(never_saved());
+        };
+        let path = folder.join(file);
+        let bytes = match read_bytes(&path) {
+            Ok(bytes) => bytes,
+            Err(crate::format::LoadError::Missing(_)) => return Err(never_saved()),
+            Err(e) => return Err(e.into()),
+        };
+        let objects = match entry.kind {
+            DocumentKind::Schematic => read_sheet_file(&path, &bytes, entry.uuid)?,
+            DocumentKind::Pcb => read_pcb_file(&path, &bytes, entry.uuid)?,
+        };
+        let want: BTreeMap<Uuid, Object> = objects.into_iter().map(|o| (o.uuid(), o)).collect();
+        let have: BTreeMap<Uuid, Object> = (project.objects().into_iter())
+            .filter(|o| o.scope() == Scope::Document(entry.uuid))
+            .map(|o| (o.uuid(), o))
+            .collect();
+        let mut tx = project.transaction();
+        let invalid = |e: reda_model::TxError| {
+            CommandError::rejected(format!("{} cannot be read back: {e}", path.display()))
+        };
+        for uuid in have.keys().filter(|u| !want.contains_key(u)) {
+            tx.remove(*uuid).map_err(invalid)?;
+        }
+        for (uuid, object) in &want {
+            match have.get(uuid) {
+                None => tx.insert(object.clone()).map_err(invalid)?,
+                Some(old) if old != object => tx.replace(object.clone()).map_err(invalid)?,
+                Some(_) => {}
+            }
+        }
+        tx.commit().map_err(invalid)?;
+        if entry.kind == DocumentKind::Pcb {
+            super::zone_fill::load_caches(project, folder);
+        }
+        session.history.forget(Scope::Document(entry.uuid));
+        Ok(entry)
     }
 }
