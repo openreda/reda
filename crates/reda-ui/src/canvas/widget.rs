@@ -197,6 +197,16 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
         pitch,
         radius_px: GRID_DOT_RADIUS * ppp,
         color: palette.grid(),
+        // Only a sheet has paper; a board's Scene is not searched for one every frame.
+        paper: matches!(tab.scene.scene.source, SceneSource::Schematic(_))
+            .then(|| tab.scene.scene.paper())
+            .flatten()
+            .map(|(lo, hi)| {
+                (
+                    (lo.x.0 as f64, lo.y.0 as f64),
+                    (hi.x.0 as f64, hi.y.0 as f64),
+                )
+            }),
     });
     let frame = CanvasFrame {
         canvas: canvas_id(tab),

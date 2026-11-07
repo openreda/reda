@@ -15,6 +15,8 @@ struct Grid {
     _pad: u32,
     // Straight-alpha sRGB colour.
     color: vec4<f32>,
+    // The paper in target pixels: min x, min y, max x, max y. The grid stops at its edge.
+    clip: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> grid: Grid;
@@ -34,6 +36,9 @@ fn to_linear(c: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
+    if any(frag.xy < grid.clip.xy) || any(frag.xy > grid.clip.zw) {
+        discard;
+    }
     let local = frag.xy - grid.half_size - grid.phase;
     let d = local - round(local / grid.pitch) * grid.pitch;
     let a = clamp(grid.radius + 0.5 - length(d), 0.0, 1.0) * grid.color.a;
