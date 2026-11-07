@@ -14,8 +14,8 @@ use reda_engine::model::{
     ErcSettings, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
     GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer, LayerKind, LayerSet,
     LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation, OutputJob, OutputOrigin,
-    Outputs, PadConnection, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, Port,
-    PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
+    Outputs, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, Port, PortDirection,
+    PourOver, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
     ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side,
     Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
 };
@@ -501,16 +501,15 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                     layer,
                     net,
                     vertices: vertices.clone(),
-                    clearance: width,
-                    min_width: Nm(width.0 + 1),
-                    pad_connection: if bottom {
-                        PadConnection::Solid
+                    clearance: bottom.then_some(width),
+                    min_width: (!bottom).then_some(Nm(width.0 + 1)),
+                    pour_over: if bottom {
+                        PourOver::All
                     } else {
-                        PadConnection::Thermal
+                        PourOver::ZonesOnly
                     },
-                    thermal_gap: width,
-                    thermal_spoke_width: Nm(width.0 + 2),
-                    remove_islands: bottom,
+                    remove_unconnected: bottom,
+                    min_island_area: width.0 * 3,
                     priority: width.0 as u32 % 7,
                 },
             )));

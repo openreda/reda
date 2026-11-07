@@ -75,14 +75,19 @@ fn build(b: &Board, dir: &TempDir) -> (TestEngine, Uuid) {
                              "net": gnd.to_string()}]}),
         );
     }
+    if !b.thermal {
+        engine.run_ok(
+            "pcb.rules.set",
+            json!({"kind": "zone_connection", "values": {"smd": {"style": "solid"}}}),
+        );
+    }
     let corner = |x: i64, y: i64| json!({"x": x, "y": y});
     let zone = engine.run_ok(
         "pcb.zone.add",
         json!({"layer": "copper_top", "net": gnd.to_string(),
                "vertices": [corner(0, 0), corner(20 * MM, 0), corner(20 * MM, 20 * MM),
                             corner(0, 20 * MM)],
-               "clearance": CLEARANCE, "min_width": b.min_width,
-               "pad_connection": if b.thermal { "thermal" } else { "solid" }}),
+               "clearance": CLEARANCE, "min_width": b.min_width}),
     );
     (engine, uuid(&zone["result"]["uuid"]))
 }
@@ -149,7 +154,7 @@ proptest! {
         let dir = TempDir::new("zone-props");
         let (engine, zone) = build(&b, &dir);
         let fills = reda_pcb::zone::fill(pcb(&engine), &mut |_, _| true).unwrap();
-        let shapes = &fills.zones[&zone];
+        let shapes = &fills.zones[&zone].shapes;
 
         for shape in shapes {
             for ring in rings(shape) {

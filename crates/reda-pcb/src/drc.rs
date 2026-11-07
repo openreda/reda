@@ -18,6 +18,7 @@ pub mod health;
 mod holes;
 mod placement;
 mod silkscreen;
+mod zones;
 
 use reda_command::Fonts;
 use reda_model::{
@@ -61,6 +62,7 @@ pub fn check_only(
     placement::check(&board, &mut report);
     silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
+    zones::check(&board, fills, &mut report);
     for finding in health::findings(pcb) {
         report.add(finding.check, |v| {
             let mut found = finding.violation(pcb, v.severity);

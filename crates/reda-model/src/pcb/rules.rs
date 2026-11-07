@@ -5,11 +5,12 @@
 //! holds only the values it overrides. Which value applies to a Net is resolved in
 //! `reda-pcb`, not here.
 
-use reda_geom::Nm;
+use reda_geom::{Millideg, Nm};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::Uuid;
+use crate::pad::{ConnectionStyle, ZoneConnection};
 
 /// What a rule record limits.
 #[derive(
@@ -41,6 +42,11 @@ pub enum RuleKind {
     Dangling,
     /// Tracks up to `max_length` long are micro-segments.
     MicroSegment,
+    /// Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.
+    DeadCopper,
+    /// How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,
+    /// each `{style, spokes, spoke_width, gap, angle}`; no DRC severity.
+    ZoneConnection,
     /// Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.
     MaskExpansion,
     /// Solder-paste expansion per edge or signed percent change in area; no DRC severity.
@@ -49,7 +55,7 @@ pub enum RuleKind {
 
 impl RuleKind {
     /// Every kind, in file order.
-    pub const ALL: [RuleKind; 14] = [
+    pub const ALL: [RuleKind; 16] = [
         RuleKind::Clearance,
         RuleKind::TrackWidth,
         RuleKind::ViaSize,
@@ -62,6 +68,8 @@ impl RuleKind {
         RuleKind::CourtyardClearance,
         RuleKind::Dangling,
         RuleKind::MicroSegment,
+        RuleKind::DeadCopper,
+        RuleKind::ZoneConnection,
         RuleKind::MaskExpansion,
         RuleKind::PasteExpansion,
     ];
@@ -81,6 +89,8 @@ impl RuleKind {
             RuleKind::CourtyardClearance => "courtyard_clearance",
             RuleKind::Dangling => "dangling",
             RuleKind::MicroSegment => "micro_segment",
+            RuleKind::DeadCopper => "dead_copper",
+            RuleKind::ZoneConnection => "zone_connection",
             RuleKind::MaskExpansion => "mask_expansion",
             RuleKind::PasteExpansion => "paste_expansion",
         }
@@ -108,6 +118,8 @@ impl RuleKind {
             RuleKind::SilkToMask => &[Value, Mode],
             RuleKind::Dangling => &[Tolerance],
             RuleKind::MicroSegment => &[MaxLength],
+            RuleKind::DeadCopper => &[MinArea],
+            RuleKind::ZoneConnection => &RuleField::CONNECTION,
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
             RuleKind::PasteExpansion => &[Expansion, Percent],
         }
@@ -125,6 +137,8 @@ impl RuleKind {
             | RuleKind::SilkToMask => &[Value],
             RuleKind::Dangling => &[Tolerance],
             RuleKind::MicroSegment => &[MaxLength],
+            RuleKind::DeadCopper => &[MinArea],
+            RuleKind::ZoneConnection => &RuleField::CONNECTION,
             RuleKind::TrackWidth => &[Min, Preferred],
             RuleKind::ViaSize => &[DiameterMin, DiameterPreferred, HoleMin, HolePreferred],
             RuleKind::HoleSize => &[Min, Max],
@@ -162,6 +176,58 @@ pub enum RuleField {
     Mode,
     Tolerance,
     MaxLength,
+    MinArea,
+    ThroughHoleStyle,
+    ThroughHoleSpokes,
+    ThroughHoleSpokeWidth,
+    ThroughHoleGap,
+    ThroughHoleAngle,
+    SmdStyle,
+    SmdSpokes,
+    SmdSpokeWidth,
+    SmdGap,
+    SmdAngle,
+    ViaStyle,
+    ViaSpokes,
+    ViaSpokeWidth,
+    ViaGap,
+    ViaAngle,
+}
+
+/// What a `zone_connection` value applies to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ConnectionTarget {
+    ThroughHole,
+    Smd,
+    Via,
+}
+
+/// One value of a Zone connection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ConnectionValue {
+    Style,
+    Spokes,
+    SpokeWidth,
+    Gap,
+    Angle,
+}
+
+impl ConnectionTarget {
+    pub const ALL: [ConnectionTarget; 3] = [
+        ConnectionTarget::ThroughHole,
+        ConnectionTarget::Smd,
+        ConnectionTarget::Via,
+    ];
+}
+
+impl ConnectionValue {
+    pub const ALL: [ConnectionValue; 5] = [
+        ConnectionValue::Style,
+        ConnectionValue::Spokes,
+        ConnectionValue::SpokeWidth,
+        ConnectionValue::Gap,
+        ConnectionValue::Angle,
+    ];
 }
 
 impl RuleField {
@@ -189,7 +255,61 @@ impl RuleField {
             RuleField::Mode => "mode",
             RuleField::Tolerance => "tolerance",
             RuleField::MaxLength => "max_length",
+            RuleField::MinArea => "min_area",
+            RuleField::ThroughHoleStyle => "through_hole.style",
+            RuleField::ThroughHoleSpokes => "through_hole.spokes",
+            RuleField::ThroughHoleSpokeWidth => "through_hole.spoke_width",
+            RuleField::ThroughHoleGap => "through_hole.gap",
+            RuleField::ThroughHoleAngle => "through_hole.angle",
+            RuleField::SmdStyle => "smd.style",
+            RuleField::SmdSpokes => "smd.spokes",
+            RuleField::SmdSpokeWidth => "smd.spoke_width",
+            RuleField::SmdGap => "smd.gap",
+            RuleField::SmdAngle => "smd.angle",
+            RuleField::ViaStyle => "via.style",
+            RuleField::ViaSpokes => "via.spokes",
+            RuleField::ViaSpokeWidth => "via.spoke_width",
+            RuleField::ViaGap => "via.gap",
+            RuleField::ViaAngle => "via.angle",
         }
+    }
+
+    /// Every `zone_connection` value, by target then value.
+    pub const CONNECTION: [RuleField; 15] = [
+        RuleField::ThroughHoleStyle,
+        RuleField::ThroughHoleSpokes,
+        RuleField::ThroughHoleSpokeWidth,
+        RuleField::ThroughHoleGap,
+        RuleField::ThroughHoleAngle,
+        RuleField::SmdStyle,
+        RuleField::SmdSpokes,
+        RuleField::SmdSpokeWidth,
+        RuleField::SmdGap,
+        RuleField::SmdAngle,
+        RuleField::ViaStyle,
+        RuleField::ViaSpokes,
+        RuleField::ViaSpokeWidth,
+        RuleField::ViaGap,
+        RuleField::ViaAngle,
+    ];
+
+    /// The `zone_connection` field for one target's value.
+    pub fn connection_field(target: ConnectionTarget, value: ConnectionValue) -> RuleField {
+        let t = ConnectionTarget::ALL
+            .iter()
+            .position(|t| *t == target)
+            .unwrap();
+        let v = ConnectionValue::ALL
+            .iter()
+            .position(|v| *v == value)
+            .unwrap();
+        RuleField::CONNECTION[t * 5 + v]
+    }
+
+    /// Which target and value a `zone_connection` field is; `None` for other fields.
+    pub fn connection(self) -> Option<(ConnectionTarget, ConnectionValue)> {
+        let i = RuleField::CONNECTION.iter().position(|f| *f == self)?;
+        Some((ConnectionTarget::ALL[i / 5], ConnectionValue::ALL[i % 5]))
     }
 
     /// Whether it is a preferred value, which supplies routing defaults rather than a
@@ -211,6 +331,12 @@ pub enum RuleValue {
     Flag(bool),
     Percent(i32),
     Mode(SilkMaskMode),
+    /// An area in square nanometres.
+    Area(i64),
+    Style(ConnectionStyle),
+    /// A spoke count.
+    Count(u8),
+    Angle(Millideg),
 }
 
 /// What `silk_to_mask` measures silkscreen against.
@@ -241,14 +367,21 @@ impl RuleValue {
     pub fn length(self) -> Option<Nm> {
         match self {
             RuleValue::Length(n) => Some(n),
-            RuleValue::Flag(_) | RuleValue::Percent(_) | RuleValue::Mode(_) => None,
+            _ => None,
         }
     }
 
     pub fn flag(self) -> Option<bool> {
         match self {
             RuleValue::Flag(b) => Some(b),
-            RuleValue::Length(_) | RuleValue::Percent(_) | RuleValue::Mode(_) => None,
+            _ => None,
+        }
+    }
+
+    pub fn area(self) -> Option<i64> {
+        match self {
+            RuleValue::Area(a) => Some(a),
+            _ => None,
         }
     }
 
@@ -324,11 +457,33 @@ pub struct RuleValues {
     /// `micro_segment` only: Tracks up to this long are micro-segments.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_length: Option<Nm>,
+    /// `dead_copper` only: pieces of fill up to this area, in square nanometres, pass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_area: Option<i64>,
+    /// `zone_connection` only: how fills join through-hole Pads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub through_hole: Option<ZoneConnection>,
+    /// `zone_connection` only: how fills join SMD Pads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub smd: Option<ZoneConnection>,
+    /// `zone_connection` only: how fills join Vias.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via: Option<ZoneConnection>,
 }
 
 impl RuleValues {
     /// The value at `field`, if this record sets it.
     pub fn get(&self, field: RuleField) -> Option<RuleValue> {
+        if let Some((target, value)) = field.connection() {
+            let c = self.connection(target)?;
+            return match value {
+                ConnectionValue::Style => c.style.map(RuleValue::Style),
+                ConnectionValue::Spokes => c.spokes.map(RuleValue::Count),
+                ConnectionValue::SpokeWidth => c.spoke_width.map(RuleValue::Length),
+                ConnectionValue::Gap => c.gap.map(RuleValue::Length),
+                ConnectionValue::Angle => c.angle.map(RuleValue::Angle),
+            };
+        }
         let length = |n: Option<Nm>| n.map(RuleValue::Length);
         let diameter = self.diameter.unwrap_or_default();
         let hole = self.hole.unwrap_or_default();
@@ -354,6 +509,26 @@ impl RuleValues {
             RuleField::Mode => self.mode.map(RuleValue::Mode),
             RuleField::Tolerance => length(self.tolerance),
             RuleField::MaxLength => length(self.max_length),
+            RuleField::MinArea => self.min_area.map(RuleValue::Area),
+            _ => unreachable!("Zone connection values are handled above"),
+        }
+    }
+
+    /// The Zone connection this record sets for `target`, if any.
+    pub fn connection(&self, target: ConnectionTarget) -> Option<&ZoneConnection> {
+        match target {
+            ConnectionTarget::ThroughHole => self.through_hole.as_ref(),
+            ConnectionTarget::Smd => self.smd.as_ref(),
+            ConnectionTarget::Via => self.via.as_ref(),
+        }
+        .filter(|c| **c != ZoneConnection::default())
+    }
+
+    fn connection_mut(&mut self, target: ConnectionTarget) -> &mut Option<ZoneConnection> {
+        match target {
+            ConnectionTarget::ThroughHole => &mut self.through_hole,
+            ConnectionTarget::Smd => &mut self.smd,
+            ConnectionTarget::Via => &mut self.via,
         }
     }
 
@@ -366,6 +541,35 @@ impl RuleValues {
     /// the field is refused.
     pub fn set(&mut self, field: RuleField, value: Option<RuleValue>) -> Result<(), String> {
         let wrong = || format!("`{}` takes a {}", field.path(), type_name(field));
+        if let Some((target, which)) = field.connection() {
+            let slot = self.connection_mut(target);
+            let mut c = slot.unwrap_or_default();
+            match (which, value) {
+                (ConnectionValue::Style, None) => c.style = None,
+                (ConnectionValue::Style, Some(RuleValue::Style(s))) => c.style = Some(s),
+                (ConnectionValue::Spokes, None) => c.spokes = None,
+                (ConnectionValue::Spokes, Some(RuleValue::Count(n))) => c.spokes = Some(n),
+                (ConnectionValue::SpokeWidth, None) => c.spoke_width = None,
+                (ConnectionValue::SpokeWidth, Some(RuleValue::Length(n))) => {
+                    c.spoke_width = Some(n)
+                }
+                (ConnectionValue::Gap, None) => c.gap = None,
+                (ConnectionValue::Gap, Some(RuleValue::Length(n))) => c.gap = Some(n),
+                (ConnectionValue::Angle, None) => c.angle = None,
+                (ConnectionValue::Angle, Some(RuleValue::Angle(a))) => c.angle = Some(a),
+                _ => return Err(wrong()),
+            }
+            *slot = (c != ZoneConnection::default()).then_some(c);
+            return Ok(());
+        }
+        if field == RuleField::MinArea {
+            self.min_area = match value {
+                None => None,
+                Some(RuleValue::Area(a)) => Some(a),
+                Some(_) => return Err(wrong()),
+            };
+            return Ok(());
+        }
         if matches!(
             field,
             RuleField::IgnorePadToPad
@@ -456,11 +660,17 @@ fn type_name(field: RuleField) -> &'static str {
         | RuleField::TentViasBottom => "boolean",
         RuleField::Percent => "percentage",
         RuleField::Mode => "mode (`exposed_copper` or `mask_opening`)",
-        _ => "length",
+        RuleField::MinArea => "area",
+        f => match f.connection() {
+            Some((_, ConnectionValue::Style)) => "style (`relief`, `solid` or `none`)",
+            Some((_, ConnectionValue::Spokes)) => "spoke count",
+            Some((_, ConnectionValue::Angle)) => "angle",
+            _ => "length",
+        },
     }
 }
 
-const ALL_FIELDS: [RuleField; 21] = [
+const ALL_FIELDS: [RuleField; 37] = [
     RuleField::Value,
     RuleField::IgnorePadToPad,
     RuleField::Min,
@@ -482,6 +692,22 @@ const ALL_FIELDS: [RuleField; 21] = [
     RuleField::Mode,
     RuleField::Tolerance,
     RuleField::MaxLength,
+    RuleField::MinArea,
+    RuleField::ThroughHoleStyle,
+    RuleField::ThroughHoleSpokes,
+    RuleField::ThroughHoleSpokeWidth,
+    RuleField::ThroughHoleGap,
+    RuleField::ThroughHoleAngle,
+    RuleField::SmdStyle,
+    RuleField::SmdSpokes,
+    RuleField::SmdSpokeWidth,
+    RuleField::SmdGap,
+    RuleField::SmdAngle,
+    RuleField::ViaStyle,
+    RuleField::ViaSpokes,
+    RuleField::ViaSpokeWidth,
+    RuleField::ViaGap,
+    RuleField::ViaAngle,
 ];
 
 /// Where a rule record applies: filters that must all match. Empty is board-wide; v0.1
@@ -565,6 +791,14 @@ impl DesignRule {
             {
                 return Some("board-wide paste needs expansion or percent".into());
             }
+        }
+        for target in ConnectionTarget::ALL {
+            if let Some((_, why)) = self.values.connection(target).and_then(|c| c.problem()) {
+                return Some(why.replace("a Pad has", "a Zone connection has"));
+            }
+        }
+        if self.values.min_area.is_some_and(|a| a < 0) {
+            return Some("`min_area` cannot be negative".into());
         }
         if let Some(field) = self
             .values

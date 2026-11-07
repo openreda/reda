@@ -167,8 +167,11 @@ fn rect_core(hw: i64, hh: i64) -> Core {
     }
 }
 
+/// How far a chord of a flattened arc may stray from the arc: 0.001 mm.
+pub const ARC_TOLERANCE: Nm = Nm(1_000);
+
 /// The corners of a chain of chords along the arc from `from` to `to` sweeping `sweep`,
-/// none further than 1 µm from the arc.
+/// none further than [`ARC_TOLERANCE`] from the arc.
 pub fn arc_points(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
     let theta = (sweep.0 as f64 / 1000.0).to_radians();
     let (fx, fy) = (from.x.0 as f64, from.y.0 as f64);
@@ -183,12 +186,13 @@ pub fn arc_points(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
     let (mx, my) = ((fx + tx) / 2.0, (fy + ty) / 2.0);
     let (ox, oy) = (mx - cy / chord * offset, my + cx / chord * offset);
     let radius = (fx - ox).hypot(fy - oy);
-    let step = if radius > 1000.0 {
-        2.0 * (1.0 - 1000.0 / radius).acos()
+    let tolerance = ARC_TOLERANCE.0 as f64;
+    let step = if radius > tolerance {
+        2.0 * (1.0 - tolerance / radius).acos()
     } else {
         theta.abs()
     };
-    let n = ((theta.abs() / step).ceil() as usize).clamp(1, 720);
+    let n = ((theta.abs() / step).ceil() as usize).clamp(1, 1 << 16);
     let start = (fy - oy).atan2(fx - ox);
     let mut points = vec![from];
     for i in 1..n {

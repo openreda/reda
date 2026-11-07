@@ -10,7 +10,8 @@ use serde::Serialize;
 
 use super::{resolve, resolve_pair};
 
-/// The DRC check that reports a kind's limits; `None` for kinds that shape outputs.
+/// The DRC check that reports a kind's limits; `None` for kinds that shape outputs or
+/// fills.
 pub fn check_of(kind: RuleKind) -> Option<DrcCheck> {
     match kind {
         RuleKind::Clearance => Some(DrcCheck::Clearance),
@@ -25,7 +26,8 @@ pub fn check_of(kind: RuleKind) -> Option<DrcCheck> {
         RuleKind::CourtyardClearance => Some(DrcCheck::CourtyardOverlap),
         RuleKind::Dangling => Some(DrcCheck::Dangling),
         RuleKind::MicroSegment => Some(DrcCheck::MicroSegment),
-        RuleKind::MaskExpansion | RuleKind::PasteExpansion => None,
+        RuleKind::DeadCopper => Some(DrcCheck::DeadCopper),
+        RuleKind::ZoneConnection | RuleKind::MaskExpansion | RuleKind::PasteExpansion => None,
     }
 }
 

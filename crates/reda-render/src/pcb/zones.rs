@@ -23,7 +23,9 @@ pub(super) fn build(
     let pcb = b.pcb;
     for zone in pcb.zones() {
         let state = states.get(&zone.uuid).copied().unwrap_or_default();
-        let shapes = fills.and_then(|f| f.zones.get(&zone.uuid));
+        let shapes = fills
+            .and_then(|f| f.zones.get(&zone.uuid))
+            .map(|f| &f.shapes);
         let Some(layer) = b.layer(zone.layer) else {
             continue;
         };

@@ -514,6 +514,7 @@ impl Copper {
             return;
         };
         let pieces: Vec<(Info, Shape)> = shapes
+            .shapes
             .iter()
             .map(|s| {
                 // Up to 32 points along the outer edge anchor the Ratsnest.

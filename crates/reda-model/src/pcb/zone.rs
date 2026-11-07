@@ -9,18 +9,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::Uuid;
 
-/// How a Zone's fill joins the Pads of its own Net.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// How a Zone's fill treats copper of its own Net.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum PadConnection {
-    /// A gap around the Pad crossed by four spokes, so the Pad solders easily.
-    Thermal,
-    /// The fill runs straight into the Pad.
-    Solid,
+pub enum PourOver {
+    /// Same-Net Zones merge; same-Net Tracks keep clear by the clearance.
+    #[default]
+    ZonesOnly,
+    /// Same-Net Zones and Tracks merge.
+    All,
+    /// Same-Net Zones and Tracks keep clear by the clearance.
+    None,
 }
 
 /// A solid copper fill on one copper Layer, inside its outline, keeping clear of other
-/// Nets' copper. Its fill is computed on demand and cached outside the Document.
+/// Nets' copper. Its fill is computed on demand and cached outside the Document. How it
+/// joins Pads and Vias of its Net comes from the `zone_connection` rule.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Zone {
@@ -32,17 +36,22 @@ pub struct Zone {
     pub net: Option<Uuid>,
     /// The outline the fill stays inside; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
-    /// The gap kept to other Nets' copper; the Net Classes' clearance wins when larger.
-    pub clearance: Nm,
-    /// The narrowest copper the fill may leave: thinner necks are removed.
-    pub min_width: Nm,
-    pub pad_connection: PadConnection,
-    /// With thermal relief: the gap around each Pad of the Net.
-    pub thermal_gap: Nm,
-    /// With thermal relief: the width of the spokes.
-    pub thermal_spoke_width: Nm,
-    /// Whether pieces of fill that touch no copper of the Net are dropped.
-    pub remove_islands: bool,
+    /// The gap kept to other Nets' copper. Left out, the clearance rule applies; set, the
+    /// larger of it and the rule applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clearance: Option<Nm>,
+    /// The narrowest copper the fill may leave: thinner necks are removed. Left out, the
+    /// Net's `track_width` minimum.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_width: Option<Nm>,
+    /// How the fill treats same-Net Zones and Tracks.
+    pub pour_over: PourOver,
+    /// Whether pieces of fill that touch no copper of the Net are dropped. No effect on a
+    /// Zone with no Net.
+    pub remove_unconnected: bool,
+    /// Pieces of fill smaller than this, in square nanometres, are dropped, connected or
+    /// not.
+    pub min_island_area: i64,
     /// Where Zones overlap, the higher priority fills first and the others keep clear
     /// of it.
     pub priority: u32,
@@ -73,13 +82,21 @@ pub struct FillShape {
     pub holes: Vec<Vec<Point>>,
 }
 
-/// The fills of every Zone of one PCB Document, with the hash of the inputs they were
-/// computed from: when the board's hash differs, the fills are stale.
+/// The fills of the Zones of one PCB Document. Each Zone's fill carries the hash of the
+/// inputs it was computed from: when the Zone's hash differs, its fill is stale.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ZoneFills {
-    /// The hash of everything the fill depends on.
+    /// Each Zone's fill, by Zone UUID.
+    pub zones: BTreeMap<Uuid, ZoneFill>,
+}
+
+/// One Zone's fill and the hash of what it depends on.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ZoneFill {
+    /// The hash of everything this Zone's fill depends on.
     pub inputs: String,
-    /// Each Zone's fill, by Zone UUID; an empty list for a Zone with nothing left to fill.
-    pub zones: BTreeMap<Uuid, Vec<FillShape>>,
+    /// The pieces of fill; empty for a Zone with nothing left to fill.
+    pub shapes: Vec<FillShape>,
 }

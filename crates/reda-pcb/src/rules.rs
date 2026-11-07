@@ -13,10 +13,10 @@ pub mod presets;
 pub mod transfer;
 pub mod validation;
 
-use reda_model::geom::Nm;
+use reda_model::geom::{Millideg, Nm};
 use reda_model::{
-    DesignRule, Limit, PasteExpansion, PcbDocument, RuleField, RuleKind, RuleValue, RuleValues,
-    Uuid,
+    ConnectionStyle, ConnectionTarget, ConnectionValue, DesignRule, Limit, PasteExpansion,
+    PcbDocument, RuleField, RuleKind, RuleValue, RuleValues, Uuid, ZoneConnection,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -195,6 +195,78 @@ pub fn net_rules(pcb: &PcbDocument, net: Option<Uuid>) -> NetRules {
         annular_ring: limit(pcb, net, RuleKind::AnnularRing, Min),
         hole_to_hole: limit(pcb, net, RuleKind::HoleToHole, Min),
         edge_clearance: limit(pcb, net, RuleKind::EdgeClearance, Value),
+    }
+}
+
+/// A Zone connection with every value resolved.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Connection {
+    pub style: ConnectionStyle,
+    /// 2 or 4.
+    pub spokes: u8,
+    pub spoke_width: Nm,
+    /// The clear ring around a relieved or unconnected object.
+    pub gap: Nm,
+    /// 0, 45 or 90 degrees in the object's frame.
+    pub angle: Millideg,
+}
+
+/// How a fill of `net` joins a `target` object, value by value: the object's own value
+/// (`own`, a Pad's `zone_connection`), then the highest-ranked Net Class record that sets
+/// it, then the board-wide record. The record only shapes the fill, so a disabled
+/// board-wide record still supplies its values.
+pub fn zone_connection(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    target: ConnectionTarget,
+    own: Option<&ZoneConnection>,
+) -> Connection {
+    let value = |which: ConnectionValue| {
+        let field = RuleField::connection_field(target, which);
+        resolve(pcb, net, RuleKind::ZoneConnection, field)
+            .map(|s| s.value)
+            .or_else(|| pcb.board_rule(RuleKind::ZoneConnection).values.get(field))
+    };
+    let seed = match target {
+        ConnectionTarget::Via => crate::VIA_CONNECTION_SEED,
+        _ => crate::PAD_CONNECTION_SEED,
+    };
+    let own = own.copied().unwrap_or_default();
+    Connection {
+        style: own
+            .style
+            .or_else(|| match value(ConnectionValue::Style) {
+                Some(RuleValue::Style(s)) => Some(s),
+                _ => None,
+            })
+            .or(seed.style)
+            .expect("seeded"),
+        spokes: own
+            .spokes
+            .or_else(|| match value(ConnectionValue::Spokes) {
+                Some(RuleValue::Count(n)) => Some(n),
+                _ => None,
+            })
+            .or(seed.spokes)
+            .expect("seeded"),
+        spoke_width: own
+            .spoke_width
+            .or_else(|| value(ConnectionValue::SpokeWidth).and_then(RuleValue::length))
+            .or(seed.spoke_width)
+            .expect("seeded"),
+        gap: own
+            .gap
+            .or_else(|| value(ConnectionValue::Gap).and_then(RuleValue::length))
+            .or(seed.gap)
+            .expect("seeded"),
+        angle: own
+            .angle
+            .or_else(|| match value(ConnectionValue::Angle) {
+                Some(RuleValue::Angle(a)) => Some(a),
+                _ => None,
+            })
+            .or(seed.angle)
+            .expect("seeded"),
     }
 }
 

@@ -2,12 +2,13 @@
 //! set with `drc.set_severity` ([`super::drc`]).
 
 use reda_command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
+    Angle, AreaValue, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta,
+    Registry, Unavailable,
 };
 use reda_model::geom::Nm;
 use reda_model::{
-    DesignRule, FabRules, InDocument, Object, PcbDocument, Project, RuleField, RuleKind, RuleScope,
-    RuleValue, Uuid,
+    ConnectionTarget, ConnectionValue, DesignRule, FabRules, InDocument, Object, PcbDocument,
+    Project, RuleField, RuleKind, RuleScope, RuleValue, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -41,13 +42,39 @@ pub struct BoundsParam {
     pub max: Option<Option<Length>>,
 }
 
+/// A Zone connection's values to change; `null` clears one.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ConnectionParam {
+    /// `relief`, `solid` or `none`.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<reda_model::ConnectionStyle>")]
+    pub style: Option<Option<reda_model::ConnectionStyle>>,
+    /// 2 or 4.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u8>")]
+    pub spokes: Option<Option<u8>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub spoke_width: Option<Option<Length>>,
+    /// The clear ring around a relieved or unconnected object.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub gap: Option<Option<Length>>,
+    /// 0, 45 or 90 degrees in the object's own frame.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Angle>")]
+    pub angle: Option<Option<Angle>>,
+}
+
 /// The values to change; those left out keep theirs, and `null` clears one. Which a kind
 /// holds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`
 /// and `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;
 /// `hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;
 /// `edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`
 /// `value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;
-/// `micro_segment` `max_length`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting
+/// `micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`
+/// `through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting
 /// flags; `paste_expansion` either `expansion` or signed area `percent`.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -101,6 +128,15 @@ pub struct ValuesParam {
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Length>")]
     pub max_length: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<AreaValue>")]
+    pub min_area: Option<Option<AreaValue>>,
+    #[serde(default)]
+    pub through_hole: Option<ConnectionParam>,
+    #[serde(default)]
+    pub smd: Option<ConnectionParam>,
+    #[serde(default)]
+    pub via: Option<ConnectionParam>,
 }
 
 impl ValuesParam {
@@ -146,6 +182,41 @@ impl ValuesParam {
         }
         if let Some(flag) = self.ignore_pad_to_pad {
             out.push((RuleField::IgnorePadToPad, flag.map(RuleValue::Flag)));
+        }
+        if let Some(area) = self.min_area {
+            out.push((RuleField::MinArea, area.map(|a| RuleValue::Area(a.0))));
+        }
+        for (target, param) in [
+            (ConnectionTarget::ThroughHole, &self.through_hole),
+            (ConnectionTarget::Smd, &self.smd),
+            (ConnectionTarget::Via, &self.via),
+        ] {
+            let Some(c) = param else { continue };
+            let field = |v| RuleField::connection_field(target, v);
+            if let Some(v) = c.style {
+                out.push((field(ConnectionValue::Style), v.map(RuleValue::Style)));
+            }
+            if let Some(v) = c.spokes {
+                out.push((field(ConnectionValue::Spokes), v.map(RuleValue::Count)));
+            }
+            if let Some(v) = c.spoke_width {
+                out.push((
+                    field(ConnectionValue::SpokeWidth),
+                    v.map(|l| RuleValue::Length(l.nm())),
+                ));
+            }
+            if let Some(v) = c.gap {
+                out.push((
+                    field(ConnectionValue::Gap),
+                    v.map(|l| RuleValue::Length(l.nm())),
+                ));
+            }
+            if let Some(v) = c.angle {
+                out.push((
+                    field(ConnectionValue::Angle),
+                    v.map(|a| RuleValue::Angle(a.millideg())),
+                ));
+            }
         }
         out
     }

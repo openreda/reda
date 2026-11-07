@@ -47,6 +47,8 @@ pub fn check_name(check: DrcCheck) -> String {
         DrcCheck::MicroSegment => tr!("check-micro-segment"),
         DrcCheck::DuplicateCopper => tr!("check-duplicate-copper"),
         DrcCheck::ZeroAreaZone => tr!("check-zero-area-zone"),
+        DrcCheck::DeadCopper => tr!("check-dead-copper"),
+        DrcCheck::EmptyZone => tr!("check-empty-zone"),
         DrcCheck::OutOfSync => tr!("check-out-of-sync"),
         DrcCheck::OpeningCollapsed => tr!("check-opening-collapsed"),
         DrcCheck::RuleInvalid => tr!("check-rule-invalid"),

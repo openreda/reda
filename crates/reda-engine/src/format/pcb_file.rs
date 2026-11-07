@@ -63,7 +63,7 @@
 //!     {"uuid":"…","layer":"…","net":"…","vertices":[
 //!       {"x":0,"y":0},
 //!       …
-//!     ],"clearance":160000,"min_width":200000,"pad_connection":"thermal",…}
+//!     ],"pour_over":"zones_only","remove_unconnected":true,"min_island_area":0,…}
 //!   ],
 //!   "keepouts": [
 //!     {"uuid":"…","layers":["…"],"vertices":[

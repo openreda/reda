@@ -39,10 +39,12 @@
     {"uuid":"00000000-0000-4000-8000-000000196012","kind":"courtyard_clearance","scope":{},"values":{"value":0}},
     {"uuid":"00000000-0000-4000-8000-000000196013","kind":"dangling","scope":{},"values":{"tolerance":0}},
     {"uuid":"00000000-0000-4000-8000-000000196014","kind":"micro_segment","scope":{},"values":{"max_length":10000}},
+    {"uuid":"00000000-0000-4000-8000-000000200000","kind":"dead_copper","scope":{},"values":{"min_area":64516000000}},
+    {"uuid":"00000000-0000-4000-8000-000000200001","kind":"zone_connection","scope":{},"values":{"through_hole":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"smd":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"via":{"style":"solid","spokes":4,"spoke_width":250000,"gap":250000,"angle":0}}},
     {"uuid":"00000000-0000-4000-8000-000000ffff01","kind":"mask_expansion","scope":{},"values":{"top":0,"bottom":0,"from_hole_edge":false,"tent_vias_top":true,"tent_vias_bottom":true}},
     {"uuid":"00000000-0000-4000-8000-000000ffff02","kind":"paste_expansion","scope":{},"values":{"expansion":0}}
   ],
-  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
+  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
   "board_outline": {"uuid":"00000000-0000-4000-8000-000000000018","vertices":[
     {"x":2000000,"y":0},
     {"x":38000000,"y":0,"sweep":90000},
@@ -246,6 +248,6 @@
       {"x":39500000,"y":500000},
       {"x":39500000,"y":29500000},
       {"x":500000,"y":29500000}
-    ],"clearance":100000,"min_width":100000,"pad_connection":"thermal","thermal_gap":100000,"thermal_spoke_width":100000,"remove_islands":true,"priority":0}
+    ],"pour_over":"zones_only","remove_unconnected":true,"min_island_area":0,"priority":0}
   ]
 }

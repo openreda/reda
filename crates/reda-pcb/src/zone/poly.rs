@@ -21,8 +21,8 @@ pub(crate) type Contour = Vec<IntPoint<i64>>;
 /// Shapes of outer contour + holes, as `i_overlay` returns them.
 pub(crate) type Area = Vec<Vec<Contour>>;
 
-/// How far a circumscribed polygon may stray outside its circle.
-const ROUND_TOLERANCE: f64 = 1_000.0;
+/// How far a circumscribed polygon may stray outside its circle: the fill's arc tolerance.
+const ROUND_TOLERANCE: f64 = super::ARC_TOLERANCE.0 as f64;
 
 pub(crate) fn ip(p: P) -> IntPoint<i64> {
     IntPoint::new(p[0], p[1])
@@ -98,8 +98,12 @@ pub(crate) fn opened(area: &Area, half: i64) -> Area {
     if half <= 0 || area.is_empty() {
         return area.clone();
     }
+    // Round corners turn in steps whose chords stay within the arc tolerance.
+    let r = half as f64;
+    let step = 2.0 * (1.0 - (ROUND_TOLERANCE / r).min(1.0)).acos();
+    let bits = (step / std::f64::consts::TAU * 4_294_967_296.0) as u64;
     let join = IntLineJoin::Round(ArcOptions {
-        max_step: Angle::from_bits(1 << 26),
+        max_step: Angle::from_bits(bits.clamp(1 << 22, 1 << 29) as u32),
         rotation_precision: 5,
     });
     let shrunk = area
@@ -118,7 +122,7 @@ pub(crate) fn opened(area: &Area, half: i64) -> Area {
 /// most [`ROUND_TOLERANCE`] outside it.
 fn sides(radius: f64) -> usize {
     let n = std::f64::consts::PI / (radius / (radius + ROUND_TOLERANCE)).acos();
-    (n.ceil() as usize).clamp(8, 256)
+    (n.ceil() as usize).clamp(8, 1 << 14)
 }
 
 /// The corners of a polygon around the origin that contains the circle of `radius`.

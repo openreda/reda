@@ -270,6 +270,11 @@
           "default": "warning",
           "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance."
         },
+        "dead_copper": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area."
+        },
         "duplicate_copper": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
@@ -279,6 +284,11 @@
           "$ref": "#/$defs/Severity",
           "default": "error",
           "description": "Copper too close to the Board Outline or a Board Cutout."
+        },
+        "empty_zone": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Zone with a Net and nothing left to fill."
         },
         "footprint_outside_board": {
           "$ref": "#/$defs/Severity",
@@ -1401,21 +1411,6 @@
       ],
       "type": "object"
     },
-    "PadConnection": {
-      "description": "How a Zone's fill joins the Pads of its own Net.",
-      "oneOf": [
-        {
-          "const": "thermal",
-          "description": "A gap around the Pad crossed by four spokes, so the Pad solders easily.",
-          "type": "string"
-        },
-        {
-          "const": "solid",
-          "description": "The fill runs straight into the Pad.",
-          "type": "string"
-        }
-      ]
-    },
     "PadKind": {
       "enum": [
         "smd",
@@ -1705,6 +1700,26 @@
       ],
       "type": "object"
     },
+    "PourOver": {
+      "description": "How a Zone's fill treats copper of its own Net.",
+      "oneOf": [
+        {
+          "const": "zones_only",
+          "description": "Same-Net Zones merge; same-Net Tracks keep clear by the clearance.",
+          "type": "string"
+        },
+        {
+          "const": "all",
+          "description": "Same-Net Zones and Tracks merge.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "Same-Net Zones and Tracks keep clear by the clearance.",
+          "type": "string"
+        }
+      ]
+    },
     "Provenance": {
       "additionalProperties": false,
       "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
@@ -1791,6 +1806,16 @@
         {
           "const": "micro_segment",
           "description": "Tracks up to `max_length` long are micro-segments.",
+          "type": "string"
+        },
+        {
+          "const": "dead_copper",
+          "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+          "type": "string"
+        },
+        {
+          "const": "zone_connection",
+          "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
           "type": "string"
         },
         {
@@ -1899,6 +1924,14 @@
             "null"
           ]
         },
+        "min_area": {
+          "description": "`dead_copper` only: pieces of fill up to this area, in square nanometres, pass.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "mode": {
           "anyOf": [
             {
@@ -1926,6 +1959,17 @@
             "null"
           ]
         },
+        "smd": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`zone_connection` only: how fills join SMD Pads."
+        },
         "tent_vias_bottom": {
           "type": [
             "boolean",
@@ -1937,6 +1981,17 @@
             "boolean",
             "null"
           ]
+        },
+        "through_hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`zone_connection` only: how fills join through-hole Pads."
         },
         "tolerance": {
           "description": "`dangling` only: stubs up to this long pass.",
@@ -1961,6 +2016,17 @@
             "integer",
             "null"
           ]
+        },
+        "via": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`zone_connection` only: how fills join Vias."
         }
       },
       "type": "object"
@@ -2620,22 +2686,33 @@
     },
     "Zone": {
       "additionalProperties": false,
-      "description": "A solid copper fill on one copper Layer, inside its outline, keeping clear of other\nNets' copper. Its fill is computed on demand and cached outside the Document.",
+      "description": "A solid copper fill on one copper Layer, inside its outline, keeping clear of other\nNets' copper. Its fill is computed on demand and cached outside the Document. How it\njoins Pads and Vias of its Net comes from the `zone_connection` rule.",
       "properties": {
         "clearance": {
-          "description": "The gap kept to other Nets' copper; the Net Classes' clearance wins when larger.",
+          "description": "The gap kept to other Nets' copper. Left out, the clearance rule applies; set, the\nlarger of it and the rule applies.",
           "format": "int64",
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "layer": {
           "description": "The copper Layer it fills.",
           "format": "uuid",
           "type": "string"
         },
-        "min_width": {
-          "description": "The narrowest copper the fill may leave: thinner necks are removed.",
+        "min_island_area": {
+          "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",
           "format": "int64",
           "type": "integer"
+        },
+        "min_width": {
+          "description": "The narrowest copper the fill may leave: thinner necks are removed. Left out, the\nNet's `track_width` minimum.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "net": {
           "description": "Its PCB Net; left out for a fill on no Net.",
@@ -2645,8 +2722,9 @@
             "null"
           ]
         },
-        "pad_connection": {
-          "$ref": "#/$defs/PadConnection"
+        "pour_over": {
+          "$ref": "#/$defs/PourOver",
+          "description": "How the fill treats same-Net Zones and Tracks."
         },
         "priority": {
           "description": "Where Zones overlap, the higher priority fills first and the others keep clear\nof it.",
@@ -2654,19 +2732,9 @@
           "minimum": 0,
           "type": "integer"
         },
-        "remove_islands": {
-          "description": "Whether pieces of fill that touch no copper of the Net are dropped.",
+        "remove_unconnected": {
+          "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
           "type": "boolean"
-        },
-        "thermal_gap": {
-          "description": "With thermal relief: the gap around each Pad of the Net.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "thermal_spoke_width": {
-          "description": "With thermal relief: the width of the spokes.",
-          "format": "int64",
-          "type": "integer"
         },
         "uuid": {
           "format": "uuid",
@@ -2684,12 +2752,9 @@
         "uuid",
         "layer",
         "vertices",
-        "clearance",
-        "min_width",
-        "pad_connection",
-        "thermal_gap",
-        "thermal_spoke_width",
-        "remove_islands",
+        "pour_over",
+        "remove_unconnected",
+        "min_island_area",
         "priority"
       ],
       "type": "object"

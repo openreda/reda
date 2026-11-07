@@ -54,6 +54,42 @@ impl From<Millideg> for Angle {
     }
 }
 
+/// An area param: integer square nanometres, or a string such as `"0.0645mm2"`,
+/// `"0.0645mm²"` or `"100sqmil"`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AreaValue(pub i64);
+
+impl AreaValue {
+    /// Parses a number and an area unit: `nm2`, `um2`, `mm2`, `mil2`, `in2` (each also with
+    /// `²`, and `µm`), or `sqmil`.
+    pub fn parse(text: &str) -> Result<AreaValue, String> {
+        let t = text.trim();
+        let split = t
+            .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-' || c == '+'))
+            .ok_or_else(|| format!("`{text}` needs an area unit such as mm2"))?;
+        let (number, unit) = t.split_at(split);
+        let number: f64 = number
+            .parse()
+            .map_err(|_| format!("`{text}` does not start with a number"))?;
+        let unit = unit.trim();
+        let length = if let Some(u) = unit.strip_prefix("sq") {
+            u
+        } else if let Some(u) = unit.strip_suffix('2').or_else(|| unit.strip_suffix('²')) {
+            u
+        } else {
+            return Err(format!("`{text}` needs an area unit such as mm2"));
+        };
+        let side = Nm::parse(&format!("1{length}"))
+            .map_err(|_| format!("`{text}` has an unknown area unit"))?
+            .0 as f64;
+        let nm2 = number * side * side;
+        if !nm2.is_finite() || nm2.abs() > i64::MAX as f64 {
+            return Err(format!("`{text}` is too large"));
+        }
+        Ok(AreaValue(nm2.round() as i64))
+    }
+}
+
 /// Accepts an integer, or a string handed to `parse`.
 struct UnitVisitor<T> {
     expecting: &'static str,
@@ -88,6 +124,52 @@ impl<'de> Deserialize<'de> for Length {
             expecting: "integer nanometres or a length string such as \"1.27mm\"",
             parse: |s| Nm::parse(s).map(Length),
             from_int: |v| Length(Nm(v)),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for AreaValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<AreaValue, D::Error> {
+        struct V;
+        impl Visitor<'_> for V {
+            type Value = AreaValue;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("integer square nanometres or an area string such as \"0.0645mm2\"")
+            }
+            fn visit_i64<E: de::Error>(self, v: i64) -> Result<AreaValue, E> {
+                Ok(AreaValue(v))
+            }
+            fn visit_u64<E: de::Error>(self, v: u64) -> Result<AreaValue, E> {
+                i64::try_from(v)
+                    .map(AreaValue)
+                    .map_err(|_| E::custom("the value is too large"))
+            }
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<AreaValue, E> {
+                AreaValue::parse(v).map_err(E::custom)
+            }
+        }
+        deserializer.deserialize_any(V)
+    }
+}
+
+impl Serialize for AreaValue {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+impl JsonSchema for AreaValue {
+    fn schema_name() -> Cow<'static, str> {
+        "AreaValue".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        json_schema!({
+            "description": "An area: integer square nanometres, or a number and an area unit (nm2, um2, mm2, mil2, in2, also written with ², or sqmil) such as \"0.0645mm2\" or \"100sqmil\".",
+            "oneOf": [
+                { "type": "integer", "description": "Square nanometres." },
+                { "type": "string", "format": AREA_FORMAT, "description": "A number and an area unit." }
+            ]
         })
     }
 }
@@ -136,6 +218,8 @@ impl Serialize for Angle {
 pub(crate) const LENGTH_FORMAT: &str = "length";
 /// The JSON Schema `format` the registry checks with [`Nm::parse_copper`].
 pub(crate) const COPPER_FORMAT: &str = "copper_thickness";
+/// The JSON Schema `format` the registry checks with [`AreaValue::parse`].
+pub(crate) const AREA_FORMAT: &str = "area";
 /// The JSON Schema `format` the registry checks with [`Millideg::parse`].
 pub(crate) const ANGLE_FORMAT: &str = "angle";
 

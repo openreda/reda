@@ -111,7 +111,8 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
 
 /// The board-wide values of the rule kinds no Fab Preset seeds, which start at fixed
 /// defaults: silkscreen 0.254 mm from the edge and 0.10 mm from exposed copper, courtyards
-/// and the dangling tolerance at 0, micro-segments up to 0.01 mm.
+/// and the dangling tolerance at 0, micro-segments up to 0.01 mm, dead copper above
+/// 100 sq mil, and the Zone connection seeds.
 pub fn default_rules() -> Vec<(RuleKind, RuleValues)> {
     use reda_model::geom::Nm;
     let value = |value| RuleValues {
@@ -143,8 +144,43 @@ pub fn default_rules() -> Vec<(RuleKind, RuleValues)> {
                 ..RuleValues::default()
             },
         ),
+        (
+            RuleKind::DeadCopper,
+            RuleValues {
+                min_area: Some(DEAD_COPPER_MIN_AREA),
+                ..RuleValues::default()
+            },
+        ),
+        (
+            RuleKind::ZoneConnection,
+            RuleValues {
+                through_hole: Some(PAD_CONNECTION_SEED),
+                smd: Some(PAD_CONNECTION_SEED),
+                via: Some(VIA_CONNECTION_SEED),
+                ..RuleValues::default()
+            },
+        ),
     ]
 }
+
+/// The seeded `dead_copper` area: 100 square mil (0.0645 mm²), in square nanometres.
+pub const DEAD_COPPER_MIN_AREA: i64 = 25_400 * 25_400 * 100;
+
+/// The seeded Zone connection of through-hole and SMD Pads: relief, 4 spokes 0.25 mm wide
+/// across a 0.25 mm gap, along the Pad's axes.
+pub const PAD_CONNECTION_SEED: reda_model::ZoneConnection = reda_model::ZoneConnection {
+    style: Some(reda_model::ConnectionStyle::Relief),
+    spokes: Some(4),
+    spoke_width: Some(reda_model::geom::Nm(250_000)),
+    gap: Some(reda_model::geom::Nm(250_000)),
+    angle: Some(reda_model::geom::Millideg(0)),
+};
+
+/// The seeded Zone connection of Vias: solid, with the Pads' spoke values.
+pub const VIA_CONNECTION_SEED: reda_model::ZoneConnection = reda_model::ZoneConnection {
+    style: Some(reda_model::ConnectionStyle::Solid),
+    ..PAD_CONNECTION_SEED
+};
 
 /// The Fab Preset rules that seed a board like `pcb`'s board-wide records: their limits,
 /// preferred sizes and output seeds, whether enabled or not. Track and Via maximums and

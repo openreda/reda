@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use schemars::generate::SchemaSettings;
 use serde_json::{Map, Value};
 
-use crate::units::{ANGLE_FORMAT, COPPER_FORMAT, LENGTH_FORMAT};
+use crate::units::{ANGLE_FORMAT, AREA_FORMAT, AreaValue, COPPER_FORMAT, LENGTH_FORMAT};
 
 /// The schema params of type `T` are checked against.
 pub(crate) fn params_schema<T: JsonSchema>() -> Value {
@@ -215,6 +215,7 @@ impl<'r> Checker<'r> {
                 LENGTH_FORMAT => Nm::parse(text).err().map(|e| e.to_string()),
                 COPPER_FORMAT => Nm::parse_copper(text).err().map(|e| e.to_string()),
                 ANGLE_FORMAT => Millideg::parse(text).err().map(|e| e.to_string()),
+                AREA_FORMAT => AreaValue::parse(text).err(),
                 _ => None,
             };
             if let Some(message) = refused {
