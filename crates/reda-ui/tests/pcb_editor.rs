@@ -102,7 +102,12 @@ fn drawn_center(b: &Board, object: Uuid) -> Point {
         Point::new(Nm(i64::MAX), Nm(i64::MAX)),
         Point::new(Nm(i64::MIN), Nm(i64::MIN)),
     );
-    for item in tab.scene.scene.items_of(object) {
+    for item in tab.scene.scene.items_of(object).filter(|item| {
+        !matches!(
+            item.child,
+            Some(reda_ui::engine::render::Child::FootprintText { .. })
+        )
+    }) {
         if let Some((a, z)) = item.primitive.bounds() {
             lo = Point::new(lo.x.min(a.x), lo.y.min(a.y));
             hi = Point::new(hi.x.max(z.x), hi.y.max(z.y));
@@ -112,23 +117,55 @@ fn drawn_center(b: &Board, object: Uuid) -> Point {
 }
 
 fn click(b: &mut Board, at: Point, toggle: bool) {
-    b.shell.pcb_press(at, toggle, TOLERANCE);
+    b.shell.pcb_press_with_modifiers(
+        at,
+        if toggle {
+            egui::Modifiers::SHIFT
+        } else {
+            egui::Modifiers::NONE
+        },
+        TOLERANCE,
+    );
     b.shell.pcb_release();
 }
 
 #[test]
-fn a_click_selects_what_is_under_it_and_mod_click_toggles() {
+fn a_click_selects_a_pad_and_shift_click_toggles() {
     let mut b = board();
     let [f1, f2] = b.footprints;
 
     click(&mut b, mm(0.2, 0.1), false);
-    assert_eq!(b.shell.selection().objects, [f1]);
+    assert_eq!(
+        b.shell
+            .selection()
+            .pads
+            .iter()
+            .map(|p| p.footprint)
+            .collect::<Vec<_>>(),
+        [f1]
+    );
     assert_eq!(journal_ids(&b).last().unwrap(), "selection.set");
 
     click(&mut b, mm(10.0, 0.0), true);
-    assert_eq!(b.shell.selection().objects, [f1, f2]);
+    assert_eq!(
+        b.shell
+            .selection()
+            .pads
+            .iter()
+            .map(|p| p.footprint)
+            .collect::<Vec<_>>(),
+        [f1, f2]
+    );
     click(&mut b, mm(0.0, 0.0), true);
-    assert_eq!(b.shell.selection().objects, [f2]);
+    assert_eq!(
+        b.shell
+            .selection()
+            .pads
+            .iter()
+            .map(|p| p.footprint)
+            .collect::<Vec<_>>(),
+        [f2]
+    );
 
     click(&mut b, mm(5.0, 5.0), false);
     assert!(b.shell.selection().is_empty(), "a click on nothing clears");
@@ -195,7 +232,7 @@ fn space_and_l_turn_and_flip_in_flight_and_release_is_one_undo_step() {
 fn space_and_l_turn_and_flip_the_selection_when_nothing_is_in_flight() {
     let mut b = board();
     let [f1, _] = b.footprints;
-    click(&mut b, mm(0.0, 0.0), false);
+    run(&mut b.shell, "selection.set", json!({"objects":[f1]}));
 
     b.shell.run("tool.rotate", json!({})).unwrap();
     assert_eq!(journal_ids(&b).last().unwrap(), "pcb.rotate");
@@ -287,13 +324,18 @@ fn a_rubber_band_selects_what_lies_inside_it() {
 }
 
 #[test]
-fn a_locked_footprint_does_not_move_and_says_why() {
+fn a_protected_locked_footprint_is_skipped_by_the_canvas() {
     let mut b = board();
     let [f1, _] = b.footprints;
     run(
         &mut b.shell,
         "pcb.lock",
         json!({"footprints": [f1], "locked": true}),
+    );
+    run(
+        &mut b.shell,
+        "selection.filter.set",
+        json!({"document":b.pcb,"kinds":{"footprint_text":false}}),
     );
     let entries = b.shell.engine().journal().len();
 
@@ -302,6 +344,7 @@ fn a_locked_footprint_does_not_move_and_says_why() {
     b.shell.pcb_release();
 
     assert_eq!(footprint(&b, f1).at, mm(0.0, 0.0));
-    assert!(b.shell.message().unwrap().contains("locked"));
+    assert!(b.shell.message().is_none());
+    assert!(b.shell.selection().objects.is_empty());
     assert_eq!(journal_ids(&b)[entries..], ["selection.set"]);
 }

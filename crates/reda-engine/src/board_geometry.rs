@@ -98,6 +98,10 @@ fn footprint(
 
 fn board_pad(object: Uuid, p: PlacedPad) -> BoardPad {
     BoardPad {
+        child: (object != p.pad).then_some(reda_render::Child::Pad {
+            footprint: object,
+            pad: p.pad,
+        }),
         object,
         number: p.number,
         kind: p.kind,

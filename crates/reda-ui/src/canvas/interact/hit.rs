@@ -259,3 +259,60 @@ fn in_triangle(p: P, a: P, b: P, c: P) -> bool {
     let pos = d1 > 0.0 || d2 > 0.0 || d3 > 0.0;
     !(neg && pos)
 }
+
+/// All eligible objects under a point, ordered by selection tier and then their total
+/// drawn bounds, smallest first. An object on several Layers appears only once.
+pub fn hit_stack_on(
+    scene: &Scene,
+    layers: Option<&[Composite]>,
+    at: P,
+    tolerance: f64,
+    rank: impl Fn(&Item) -> Option<u8>,
+) -> Vec<Uuid> {
+    let visible = |i: &Item| layers.is_none_or(|ls| ls.iter().any(|l| l.layer == i.layer));
+    // One pass accumulates bounds and hits: hover must stay usable on large boards.
+    let mut objects = std::collections::BTreeMap::new();
+    for item in &scene.items {
+        if !visible(item) {
+            continue;
+        }
+        let Some(tier) = rank(item) else {
+            continue;
+        };
+        let entry = objects.entry(item.object).or_insert((
+            u8::MAX,
+            true,
+            false,
+            (f64::INFINITY, f64::INFINITY),
+            (f64::NEG_INFINITY, f64::NEG_INFINITY),
+        ));
+        if let Some((a, b)) = bounds(item) {
+            entry.3 = (entry.3.0.min(a.0), entry.3.1.min(a.1));
+            entry.4 = (entry.4.0.max(b.0), entry.4.1.max(b.1));
+        }
+        let d = distance(&item.primitive, at);
+        if d <= tolerance {
+            entry.0 = entry.0.min(tier);
+            entry.1 &= d > 0.0;
+            entry.2 = true;
+        }
+    }
+    let mut hits: Vec<_> = objects
+        .into_iter()
+        .filter_map(|(id, (tier, near, hit, lo, hi))| {
+            hit.then_some((
+                id,
+                tier,
+                near,
+                (hi.0 - lo.0).max(1.0) * (hi.1 - lo.1).max(1.0),
+            ))
+        })
+        .collect();
+    hits.sort_by(|a, b| {
+        a.1.cmp(&b.1)
+            .then(a.2.cmp(&b.2))
+            .then(a.3.total_cmp(&b.3))
+            .then(a.0.cmp(&b.0))
+    });
+    hits.into_iter().map(|h| h.0).collect()
+}

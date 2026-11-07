@@ -23,9 +23,7 @@ use reda_engine::schematic::connectivity::{net_at, placed_pins};
 use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{
-    BoxMode, Combine, Pointer, SnapTargets, box_select, combine, hit_test,
-};
+use crate::canvas::interact::{BoxMode, Combine, Pointer, SnapTargets, combine};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::shell::{Shell, ToolPreview};
 use crate::tools::Tool;
@@ -164,6 +162,11 @@ pub fn pointer(
     events: &[Pointer],
     scale: Scale,
 ) -> Vec<Invocation> {
+    if let Some(commands) =
+        crate::selection::picking::text_pointer(shell, document, events, scale.pick)
+    {
+        return commands;
+    }
     let Some(tab) = shell.document_tab_mut(document) else {
         return Vec::new();
     };
@@ -356,6 +359,7 @@ fn show(
 ) {
     preview_run(shell, document, &mut state);
     preview_scene(shell, document, &mut state, previewed);
+    let directional = shell.preferences().editing.directional_rectangle;
     let Some(tab) = shell.document_tab_mut(document) else {
         return;
     };
@@ -369,7 +373,11 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode: if directional {
+                        BoxMode::of_drag(*from, *to)
+                    } else {
+                        BoxMode::Enclose
+                    },
                 }),
                 ..Overlay::default()
             },
@@ -542,7 +550,7 @@ fn preview_scene(shell: &mut Shell, document: Uuid, state: &mut Interaction, pre
 const PREVIEW_UUID: u128 = 0x0000_0000_0000_4000_8000_7072_6576_6965;
 
 struct Cx<'a> {
-    shell: &'a Shell,
+    shell: &'a mut Shell,
     document: Uuid,
     scale: Scale,
     commands: Vec<Invocation>,
@@ -568,7 +576,10 @@ impl Cx<'_> {
             .objects
             .iter()
             .copied()
-            .filter(|o| on_sheet.contains(o))
+            .filter(|o| {
+                on_sheet.contains(o)
+                    && crate::selection::rules::allowed(self.shell, self.document, *o)
+            })
             .collect()
     }
 
@@ -580,11 +591,7 @@ impl Cx<'_> {
     }
 
     fn hit(&self, at: P) -> Option<Uuid> {
-        let tab = self.shell.document_tab(self.document)?;
-        let pickable = self.sheet().map(selectable).unwrap_or_default();
-        hit_test(&tab.scene.scene, at, self.scale.pick, |o| {
-            pickable.contains(&o)
-        })
+        crate::selection::picking::hit(self.shell, self.document, at, self.scale.pick)
     }
 
     /// Ends a Tool flight once its Tool is no longer active, and a committed flight's
@@ -790,6 +797,7 @@ impl Cx<'_> {
                 modifiers,
             },
             (Interaction::Idle, Pointer::Hover(at)) => {
+                crate::selection::picking::hover(self.shell, self.document, at, self.scale.pick);
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
@@ -798,13 +806,15 @@ impl Cx<'_> {
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                let how = Combine::of(modifiers);
-                let current = self.shell.selection().objects.clone();
-                let picked: Vec<Uuid> = self.hit(at).into_iter().collect();
-                if picked.is_empty() && how != Combine::Replace {
-                    return Interaction::Idle;
+                if let Some(command) = crate::selection::picking::click(
+                    self.shell,
+                    self.document,
+                    at,
+                    self.scale.pick,
+                    modifiers,
+                ) {
+                    self.commands.push(command);
                 }
-                self.select(combine(&current, &picked, how));
                 Interaction::Idle
             }
             (
@@ -816,7 +826,12 @@ impl Cx<'_> {
                 },
             ) => {
                 *hovered = None;
-                let Some(hit) = self.hit(from) else {
+                let Some(hit) = crate::selection::picking::movement_hit(
+                    self.shell,
+                    self.document,
+                    from,
+                    self.scale.pick,
+                ) else {
                     return Interaction::Boxing {
                         from,
                         to: at,
@@ -854,19 +869,11 @@ impl Cx<'_> {
     }
 
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        let Some(tab) = self.shell.document_tab(self.document) else {
-            return;
-        };
-        let pickable = self.sheet().map(selectable).unwrap_or_default();
-        let picked = box_select(
-            &tab.scene.scene,
-            from,
-            to,
-            BoxMode::of_drag(from, to),
-            |o| pickable.contains(&o),
-        );
-        let current = self.shell.selection().objects.clone();
-        self.select(combine(&current, &picked, Combine::of(modifiers)));
+        if let Some(command) =
+            crate::selection::picking::box_selection(self.shell, self.document, from, to, modifiers)
+        {
+            self.commands.push(command);
+        }
     }
 }
 

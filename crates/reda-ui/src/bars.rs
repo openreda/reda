@@ -224,7 +224,7 @@ pub fn resolve_in(
     dialog: Option<Scope>,
 ) -> Resolved {
     let registry = shell.engine().registry();
-    let (run_id, command, mut params) = match &action.binding {
+    let (mut run_id, mut command, mut params) = match &action.binding {
         Binding::Command(id) => (id.clone(), id.clone(), json!({})),
         Binding::Preset(id) => {
             let command = id.split(':').next().unwrap_or(id).to_owned();
@@ -232,6 +232,13 @@ pub fn resolve_in(
         }
         Binding::Raw { command, params } => (command.clone(), command.clone(), params.clone()),
     };
+    if command.ends_with(".delete")
+        && (!shell.selection().fields.is_empty() || !shell.selection().texts.is_empty())
+    {
+        run_id = "selection.delete".into();
+        command = run_id.clone();
+        params = json!({});
+    }
     let Some(meta) = registry.get(&command) else {
         return Resolved {
             title: run_id.clone(),
@@ -295,6 +302,7 @@ pub fn resolve_in(
         .map(|d| selected_on(shell, d))
         .filter(|s| !s.is_empty())
         .map(|s| json!(s));
+    let select_all = command == "selection.set" && params["objects"].as_str() == Some(SELECTABLE);
     let filled = fill(&mut params, UNDO_STACK, undo.as_ref())
         .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_ref()))
         .and_then(|()| fill(&mut params, GRID, grid.as_ref()))
@@ -312,6 +320,10 @@ pub fn resolve_in(
     let run = match filled {
         Err(reason) => Err(reason),
         Ok(()) => {
+            if select_all && let Some(document) = document {
+                params = serde_json::to_value(crate::selection::picking::all(shell, document))
+                    .expect("selection serializes");
+            }
             // The window is never headless.
             match shell.engine().available(&run_id, false) {
                 Ok(()) => Ok((run_id, params.clone())),
@@ -356,16 +368,36 @@ fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
 /// Everything selectable on `document`, sorted.
 fn selectable_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
     if crate::element_editor::is_element(shell.engine(), document) {
-        return crate::element_editor::parts(shell.engine(), document);
+        return crate::element_editor::parts(shell.engine(), document)
+            .into_iter()
+            .filter(|o| crate::selection::rules::allowed(shell, document, *o))
+            .collect();
     }
     let Some(project) = shell.engine().project() else {
         return Vec::new();
     };
+    if let Some(tab) = shell
+        .document_tab(document)
+        .filter(|_| project.pcb_document(document).is_some())
+    {
+        let mut out = Vec::new();
+        for item in &tab.scene.scene.items {
+            if crate::selection::rules::allowed(shell, document, item.object)
+                && !out.contains(&item.object)
+            {
+                out.push(item.object);
+            }
+        }
+        return out;
+    }
     let objects = project
         .schematic_sheet(document)
         .map(crate::schematic_editor::selectable)
         .unwrap_or_default();
-    objects.into_iter().collect()
+    objects
+        .into_iter()
+        .filter(|o| crate::selection::rules::allowed(shell, document, *o))
+        .collect()
 }
 
 /// Removes every object field whose value is `placeholder`, for an optional one.

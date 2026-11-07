@@ -536,6 +536,31 @@ impl Cx<'_, '_> {
             .project()
             .and_then(|p| p.document(document))
             .map(|d| d.kind);
+        self.shell.selection_picking_mut().time = Some(input.response.ctx.input(|i| i.time));
+        if self.shell.tool() == crate::tools::Tool::Select
+            && input.response.double_clicked()
+            && let Some(screen) = input.response.interact_pointer_pos()
+        {
+            crate::selection::picking::double_click(
+                self.shell,
+                document,
+                input.document_point(screen),
+                5.0 * input.camera.nm_per_point,
+                screen,
+            );
+            return Vec::new();
+        }
+        for event in &input.events {
+            match event {
+                crate::canvas::interact::Pointer::DragStart { .. } => {
+                    self.shell.selection_picking_mut().idle = false
+                }
+                crate::canvas::interact::Pointer::DragEnd(_) => {
+                    self.shell.selection_picking_mut().idle = true
+                }
+                _ => {}
+            }
+        }
         // A Part from the Library panel in flight takes the pointer on any canvas.
         if self.shell.tool() == crate::tools::Tool::Place {
             crate::placement::canvas(self.shell, document, input);
@@ -924,6 +949,7 @@ impl Cx<'_, '_> {
                 if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                     self.frame.commands.push(clicked);
                 }
+                crate::selection::picking::show(ui, self.shell, *uuid);
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {

@@ -26,6 +26,7 @@ pub fn register_all(registry: &mut Registry) {
 /// The kinds a sheet's Filter lists, in its order.
 pub const SCHEMATIC_KINDS: &[&str] = &[
     "unit",
+    "field_text",
     "wire",
     "net_label",
     "port",
@@ -45,6 +46,7 @@ pub const PCB_KINDS: &[&str] = &[
     "keepout",
     "free_pad",
     "pcb_text",
+    "footprint_text",
     "pcb_graphic",
     "board_outline",
     "board_cutout",

@@ -1146,8 +1146,47 @@ tab-out-of-sync = { $tab }, out of sync: { $count ->
     [one] 1 change
    *[other] { $count } changes
 }
+
+# Shared canvas selection.
+pref-editing-click-clears-selection = Click Clears Selection
+pref-editing-directional-rectangle = Directional Rectangle
+pref-editing-protect-locked-objects = Protect Locked Objects
 check-opening-collapsed = Mask or paste opening collapsed
 
+# Canvas selection and stack picking.
+selection-filter-title = Selection Filter
+selection-filter-all = All
+selection-filter-none = None
+selection-filter-kind = Select { $kind }
+selection-pick-title = Pick Object
+selection-pick-locked = Locked
+selection-pick-sheet = Sheet
+selection-pick-drill = Through hole
+selection-pick-layer = Layer
+selection-kind-unit = Component
+selection-kind-field-text = Field text
+selection-kind-wire = Wire
+selection-kind-net-label = Net Label
+selection-kind-port = Port
+selection-kind-power-port = Power Port
+selection-kind-no-connect = No-Connect Marker
+selection-kind-sheet-text = Text
+selection-kind-sheet-graphic = Graphic
+selection-kind-footprint-instance = Footprint
+selection-kind-pad = Pad
+selection-kind-track = Track
+selection-kind-via = Via
+selection-kind-zone = Zone
+selection-kind-keepout = Keepout
+selection-kind-free-pad = Free Pad
+selection-kind-pcb-text = Text
+selection-kind-footprint-text = Footprint text
+selection-kind-pcb-graphic = Graphic
+selection-kind-board-outline = Board Outline
+selection-kind-board-cutout = Board Cutout
+selection-kind-pin = Pin
+selection-kind-graphic = Graphic
+selection-kind-text = Text
 properties-text-frame-omitted = Text Frame: { $count ->
     [one] 1 line omitted
    *[other] { $count } lines omitted

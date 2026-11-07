@@ -242,6 +242,9 @@ impl Shell {
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
+        engine
+            .view_mut()
+            .set(selection::picking::Picking::default());
         engine.view_mut().set(Highlight::default());
         engine.view_mut().set(ActiveTool::default());
         engine.view_mut().set(PowerPortName::default());
@@ -384,6 +387,13 @@ impl Shell {
     /// moved focus to it from the keyboard.
     pub fn take_focus_request(&mut self) -> Option<TabKey> {
         self.focus_state().request.take()
+    }
+
+    pub(crate) fn selection_picking_mut(&mut self) -> &mut selection::picking::Picking {
+        self.engine
+            .view_mut()
+            .get_mut::<selection::picking::Picking>()
+            .expect("installed picker")
     }
 
     /// What is selected; it changes through `selection.set`.
@@ -530,7 +540,31 @@ impl Shell {
             return;
         }
         let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.press(self, at, toggle, tolerance);
+        tool.press(
+            self,
+            at,
+            egui::Modifiers {
+                command: toggle,
+                ..egui::Modifiers::NONE
+            },
+            tolerance,
+        );
+        self.pcb_tool = tool;
+    }
+
+    /// The canvas passes actual modifiers: Shift toggles picks, while Mod detaches drags.
+    pub fn pcb_press_with_modifiers(
+        &mut self,
+        at: Point,
+        modifiers: egui::Modifiers,
+        tolerance: Nm,
+    ) {
+        if self.drawing() {
+            self.pcb_press(at, modifiers.command, tolerance);
+            return;
+        }
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.press(self, at, modifiers, tolerance);
         self.pcb_tool = tool;
     }
 
@@ -1951,6 +1985,7 @@ impl Shell {
             "schematic.cut" => self.clipboard = Some(out["result"].clone()),
             // Escape (and any Tool change) puts back what the canvases have in flight.
             "tool.activate" => {
+                selection::picking::cancel(self);
                 let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
                 for document in documents {
                     crate::schematic_editor::cancel(self, document);
@@ -2138,13 +2173,13 @@ impl Shell {
                 Some(project) => cross_probe::marks(project, &key.0, &key.1, switches),
                 None => key.1.objects.clone(),
             };
-            if self.marked.objects[..] != key.0.objects[..]
+            if self.marked.objects[..] != key.0.canvas_ids()[..]
                 || self.marked.highlighted[..] != highlighted[..]
             {
                 self.generation += 1;
                 self.marked = SelectionHandle {
                     generation: self.generation,
-                    objects: Arc::from(key.0.objects.as_slice()),
+                    objects: Arc::from(key.0.canvas_ids()),
                     highlighted: Arc::from(highlighted),
                 };
             }

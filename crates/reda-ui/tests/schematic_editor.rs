@@ -147,7 +147,7 @@ fn wire_count(shell: &Shell) -> usize {
 }
 
 #[test]
-fn click_selects_shift_adds_mod_toggles_and_empty_clears() {
+fn click_selects_shift_toggles_mod_replaces_and_empty_clears() {
     let dir = TempDir::new("editor-click");
     let mut shell = shell(&dir);
     let r1 = place(&mut shell, 0, 0);
@@ -160,10 +160,16 @@ fn click_selects_shift_adds_mod_toggles_and_empty_clears() {
     assert_eq!(selected(&shell), [r1]);
     click(&mut shell, at(1200.0, 2.0), Modifiers::SHIFT);
     assert_eq!(selected(&shell), [r1, w]);
-    click(&mut shell, at(0.0, 120.0), Modifiers::COMMAND);
+    click(&mut shell, at(0.0, 120.0), Modifiers::SHIFT);
     assert_eq!(selected(&shell), [w]);
-    // Clicking the same again changes nothing, so it runs nothing.
-    assert!(click(&mut shell, at(1200.0, 0.0), Modifiers::NONE).is_empty());
+    click(&mut shell, at(0.0, 120.0), Modifiers::COMMAND);
+    assert_eq!(selected(&shell), [r1]);
+    click(&mut shell, at(0.0, 120.0), Modifiers::NONE);
+    assert!(
+        selected(&shell).is_empty(),
+        "the only selected object deselects"
+    );
+    click(&mut shell, at(1200.0, 0.0), Modifiers::NONE);
     // A Shift-click on nothing keeps the selection; a plain one clears it.
     click(&mut shell, at(3000.0, 3000.0), Modifiers::SHIFT);
     assert_eq!(selected(&shell), [w]);

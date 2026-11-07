@@ -36,6 +36,7 @@ pub struct BoardGeometry {
 /// A Pad placed on the board.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoardPad {
+    pub child: Option<crate::Child>,
     /// What selecting the Pad selects: its Footprint instance, or the Free Pad.
     pub object: Uuid,
     pub number: String,

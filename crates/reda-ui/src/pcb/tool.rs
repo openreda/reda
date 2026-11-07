@@ -1,7 +1,7 @@
 //! The PCB select-and-place Tool: what pointer presses, drags and the Space / L keys do
 //! on the board.
 //!
-//! - A click selects the topmost object under it (`selection.set`); `Mod`+click toggles
+//! - A click selects the topmost object under it (`selection.set`); Shift+click toggles
 //!   it; a click on nothing clears the selection.
 //! - Dragging a Footprint, Free Pad or the Output Origin moves it (with the rest of the
 //!   selection when it is selected). The move is drawn from a preview of the board
@@ -22,11 +22,9 @@
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{InDocument, Object, ObjectType, Project, TrackGeometry, Uuid};
 use reda_engine::pcb::{Copper, PlacementOp, placement_anchor, placement_preview, track_drag_plan};
-use reda_engine::render::{Item, SceneLayer};
 use serde_json::{Value, json};
 
 use super::snap::{self, SnapKind, Target};
-use crate::canvas::interact::{BoxMode, box_select_on, hit_test_on};
 use crate::shell::{Shell, ToolPreview};
 
 /// How far from the cursor electrical points still catch it when the canvas gives no
@@ -41,6 +39,9 @@ pub struct SelectTool {
     snap: Option<(Point, SnapKind)>,
     /// How far electrical points catch the cursor, from the canvas zoom.
     radius: Option<Nm>,
+    modifiers: egui::Modifiers,
+    tolerance: Nm,
+    dragged: bool,
 }
 
 #[derive(Debug, Default)]
@@ -168,25 +169,37 @@ impl SelectTool {
     }
 
     /// A button went down at `at`; `tolerance` is how near counts as on an object.
-    pub fn press(&mut self, shell: &Shell, at: Point, toggle: bool, tolerance: Nm) {
-        let hit = board(shell).and_then(|(project, pcb)| {
-            let tab = shell.document_tab(pcb)?;
-            let scene = &tab.scene;
-            hit_test_on(
-                &scene.scene,
-                scene.layers.as_deref(),
-                xy(at),
-                tolerance.0 as f64,
-                |i| pickable(project, i),
-            )
+    pub fn press(&mut self, shell: &Shell, at: Point, modifiers: egui::Modifiers, tolerance: Nm) {
+        self.modifiers = modifiers;
+        self.tolerance = tolerance;
+        self.dragged = false;
+        let hit = board(shell).and_then(|(_, pcb)| {
+            crate::selection::picking::hit(shell, pcb, xy(at), tolerance.0 as f64)
         });
-        self.state = State::Pressed { at, hit, toggle };
+        self.state = State::Pressed {
+            at,
+            hit,
+            toggle: modifiers.command,
+        };
     }
 
     /// The pointer moved to `to` with the button down.
     pub fn drag(&mut self, shell: &mut Shell, to: Point) {
+        self.dragged = true;
         match std::mem::take(&mut self.state) {
-            State::Pressed { at, hit, toggle } => match hit {
+            State::Pressed { at, hit, toggle } => match hit.map(|id| {
+                board(shell)
+                    .and_then(|(_, doc)| shell.document_tab(doc))
+                    .and_then(|t| {
+                        t.scene
+                            .scene
+                            .items
+                            .iter()
+                            .filter_map(|i| i.child.as_ref())
+                            .find(|c| c.id() == id)
+                    })
+                    .map_or(id, |c| c.owner())
+            }) {
                 None => self.state = State::Band { from: at, to },
                 Some(object) if is_track(shell, object) => {
                     self.start_track_drag(shell, at, object, toggle, to)
@@ -209,36 +222,40 @@ impl SelectTool {
     /// The button came up.
     pub fn release(&mut self, shell: &mut Shell) {
         match std::mem::take(&mut self.state) {
-            State::Pressed { hit, toggle, .. } => {
-                let mut objects = shell.selection().objects.clone();
-                match (hit, toggle) {
-                    (Some(o), true) => {
-                        if let Some(i) = objects.iter().position(|x| *x == o) {
-                            objects.remove(i);
-                        } else {
-                            objects.push(o);
-                        }
-                    }
-                    (Some(o), false) => objects = vec![o],
-                    (None, true) => return,
-                    (None, false) => objects.clear(),
+            State::Pressed { at, hit, .. } => {
+                let Some((_, document)) = board(shell) else {
+                    return;
+                };
+                if self.dragged {
+                    let ids: Vec<_> = hit.into_iter().collect();
+                    let params = serde_json::to_value(crate::selection::picking::selected(
+                        shell, document, &ids,
+                    ))
+                    .expect("selection serializes");
+                    let _ = shell.run_reporting("selection.set", params);
+                } else if let Some((id, params)) = crate::selection::picking::click(
+                    shell,
+                    document,
+                    xy(at),
+                    self.tolerance.0 as f64,
+                    self.modifiers,
+                ) {
+                    let _ = shell.run_reporting(&id, params);
                 }
-                select(shell, objects);
             }
             State::Band { from, to } => {
-                let found = board(shell).and_then(|(project, pcb)| {
-                    let tab = shell.document_tab(pcb)?;
-                    let scene = &tab.scene;
-                    Some(box_select_on(
-                        &scene.scene,
-                        scene.layers.as_deref(),
-                        xy(from),
-                        xy(to),
-                        BoxMode::Enclose,
-                        |i| pickable(project, i),
-                    ))
-                });
-                select(shell, found.unwrap_or_default());
+                let Some((_, document)) = board(shell) else {
+                    return;
+                };
+                if let Some((id, params)) = crate::selection::picking::box_selection(
+                    shell,
+                    document,
+                    xy(from),
+                    xy(to),
+                    self.modifiers,
+                ) {
+                    let _ = shell.run_reporting(&id, params);
+                }
             }
             State::Moving(m) => {
                 self.snap = None;
@@ -341,7 +358,12 @@ impl SelectTool {
         if !objects.contains(&object) {
             objects = vec![object];
         }
-        objects.retain(|o| project.object(*o).is_some_and(|x| movable(x.object_type())));
+        objects.retain(|o| {
+            project.object(*o).is_some_and(|x| movable(x.object_type()))
+                && crate::selection::rules::allowed(shell, document, *o)
+                && !(shell.preferences().editing.protect_locked_objects
+                    && crate::selection::rules::locked(shell, document, *o))
+        });
         if !kind.is_some_and(movable) || objects.is_empty() {
             // Dragging what cannot move just selects it.
             self.state = State::Pressed {
@@ -542,12 +564,6 @@ fn board_grid(shell: &Shell) -> Nm {
 /// Whether the Preference asks for electrical snap on the board.
 fn electrical_snap(shell: &Shell) -> bool {
     shell.preferences().pcb.electrical_snap
-}
-
-/// Objects the Tool can pick: anything drawn that is an object of the Project, except
-/// the Ratsnest (whose lines are tagged with their Net).
-fn pickable(project: &Project, item: &Item) -> bool {
-    item.layer != SceneLayer::Ratsnest && project.object(item.object).is_some()
 }
 
 /// The selected objects that can be placed.
