@@ -173,3 +173,70 @@ fn build_choices_are_editable_saved_and_reserved_keys_are_rejected() {
         assert_eq!(err.code, ErrorCode::InvalidParams);
     }
 }
+
+#[test]
+fn reserved_job_keys_are_refused_on_add_and_on_load() {
+    let dir = TempDir::new("jobs-reserved");
+    let mut engine = engine(&dir);
+    let preset = jobs(&engine)[0].fab_preset;
+    for key in ["checks", "overrides", "variant"] {
+        let err = engine.run_err("output.job.add", json!({"fab_preset": preset, key: {}}));
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{key}");
+    }
+    engine.run_ok("project.save", json!({}));
+    engine.run_ok("project.close", json!({}));
+
+    let file = dir.path().join("Demo").join("Demo.reda");
+    let saved = std::fs::read_to_string(&file).unwrap();
+    let job_line = saved
+        .lines()
+        .find(|l| l.contains("\"name_template\""))
+        .expect("the job is saved on one line");
+    let with_checks = job_line.replacen('{', "{\"checks\":{},", 1);
+    std::fs::write(&file, saved.replace(job_line, &with_checks)).unwrap();
+    let mut reopened = reda_testkit::test_engine();
+    reopened.run_err("project.open", json!({"path": dir.path().join("Demo")}));
+}
+
+#[test]
+fn a_name_template_takes_only_known_tokens_and_file_name_characters() {
+    let dir = TempDir::new("jobs-name-template");
+    let mut engine = engine(&dir);
+    let job = jobs(&engine)[0].clone();
+    for good in [
+        "${project}-${job}",
+        "${project}_${revision}_${date}_${preset}",
+        "rev $${not a token}",
+    ] {
+        engine.run_ok(
+            "output.job.set",
+            json!({"job": job.uuid, "name_template": good}),
+        );
+    }
+    for bad in [
+        "",
+        "  ",
+        "${project}-${board}",
+        "${project}-${variant}",
+        "${project",
+        "a/b",
+        "a\\b",
+        "a:b",
+        "${job}?",
+        "<${job}>",
+        "a|b*",
+        "\"q\"",
+    ] {
+        let err = engine.run_err(
+            "output.job.set",
+            json!({"job": job.uuid, "name_template": bad}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{bad:?}");
+        let err = engine.run_err(
+            "output.job.add",
+            json!({"fab_preset": job.fab_preset, "name_template": bad}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{bad:?}");
+    }
+    assert_eq!(jobs(&engine).len(), 1, "a refused add adds nothing");
+}

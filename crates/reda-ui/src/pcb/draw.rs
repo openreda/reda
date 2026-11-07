@@ -1,6 +1,6 @@
 //! The PCB drawing Tools: Board Outline (polygon or rectangle) and Cutouts, Zones and
 //! Keepouts, text, lines, arcs and rectangles on the active Layer, Free Pads, the
-//! Output Origin, the user origin and the measure Tool. (Mechanical Parts are placed
+//! Output Origin and the measure Tool. (Mechanical Parts are placed
 //! from the Library panel by the placement Tool, `crate::placement`.)
 //!
 //! Each is a small state machine over the same pointer events as the select Tool
@@ -11,16 +11,15 @@
 //!   `tool.undo_segment` (Backspace) takes back the last corner.
 //! - **Two points** (outline rectangle, line, rectangle): two clicks, or one drag.
 //! - **Arcs**: the two ends, then a point the arc passes through.
-//! - **One point** (text, Free Pad, Output Origin, user origin): a click; text then
+//! - **One point** (text, Free Pad, Output Origin): a click; text then
 //!   asks for its words ([`Draw::pending_text`]).
 //! - **Measure**: a click starts, the cursor follows, a second click holds it.
 //!
 //! Nothing runs while a shape is drawn: [`Draw::preview`] gives what to draw over the
-//! canvas. A finished shape runs exactly one Command; the user origin and the measure
-//! Tool change only the view. Points snap like the select Tool's (Pads, Track ends and
+//! canvas. A finished shape runs exactly one Command; the measure Tool changes
+//! nothing. Points snap like the select Tool's (Pads, Track ends and
 //! Vias, else the grid).
 
-mod commands;
 mod geometry;
 
 use reda_engine::model::geom::{Nm, Point};
@@ -34,7 +33,6 @@ use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
 
-pub use commands::register_all;
 pub use geometry::arc_through;
 
 /// The Free Pad the Free Pad Tool places: plated, round, 2 mm across, with a 1 mm hole.
@@ -84,7 +82,7 @@ fn shape(tool: Tool) -> Shape {
         Tool::BoardOutline | Tool::BoardCutout | Tool::Zone | Tool::Keepout => Shape::Polygon,
         Tool::BoardOutlineRect | Tool::Line | Tool::Rect => Shape::TwoPoints,
         Tool::Arc => Shape::Arc,
-        Tool::Text | Tool::FreePad | Tool::OutputOrigin | Tool::UserOrigin => Shape::Point,
+        Tool::Text | Tool::FreePad | Tool::OutputOrigin => Shape::Point,
         Tool::Measure => Shape::Measure,
         // Not a board drawing Tool (see `Tool::draws_on_board`).
         _ => Shape::None,
@@ -452,7 +450,6 @@ impl Draw {
                        "width": FREE_PAD_WIDTH, "hole": {"width": FREE_PAD_HOLE}}),
             ),
             Tool::OutputOrigin => ("pcb.output_origin.set", json!({"at": xy(points[0])})),
-            Tool::UserOrigin => ("pcb.view.origin.set", json!({"at": xy(points[0])})),
             // Text and Measure commit elsewhere; the rest are not board drawing Tools.
             _ => return None,
         })

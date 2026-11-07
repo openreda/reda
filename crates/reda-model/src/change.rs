@@ -145,7 +145,7 @@ pub enum ObjectType {
     Keepout,
     /// A Pad placed directly on the board, belonging to no Footprint.
     FreePad,
-    /// The point manufacturing outputs measure Footprint positions from.
+    /// Where the editor and relative manufacturing outputs measure coordinates from.
     OutputOrigin,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]

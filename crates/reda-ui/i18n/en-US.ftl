@@ -165,7 +165,6 @@ toolbar-save = Save
 command-field-placeholder = Search Documents, Components, Nets
 menu-place = Place
 menu-place-power-port-presets = Power Port Presets
-pcb-user-origin-reset = Reset User Origin
 menu-help = Help
 bars-no-active-document = no Document is active
 bars-nothing-selected = nothing is selected

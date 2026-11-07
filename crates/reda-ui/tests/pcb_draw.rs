@@ -1,8 +1,8 @@
 //! The PCB drawing Tools, through the Shell with no window: each previews while it is
 //! drawn, touches the Journal only when the shape is finished, and then runs one Command
 //! (Board Outline and Cutouts, Zones (Z) and Keepouts (K), text, lines, arcs and
-//! rectangles on the active Layer, Free Pads and the Output Origin);
-//! the user origin and the measure Tool change only the view; and the Shell says when
+//! rectangles on the active Layer, Free Pads and the Output Origin); the cursor reads
+//! from the Output Origin; the measure Tool changes nothing; and the Shell says when
 //! Zones need refilling.
 
 use std::path::{Path, PathBuf};
@@ -309,18 +309,28 @@ fn free_pads_and_the_output_origin_are_placed_by_a_click() {
 }
 
 #[test]
-fn the_user_origin_and_measure_change_only_the_view() {
+fn the_cursor_reads_from_the_output_origin() {
     let mut b = board();
-    let start = b.mark();
-    b.tool("user_origin");
+    assert_eq!(
+        b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)),
+        mm(12.0, 4.0),
+        "without an Output Origin the cursor reads from design zero"
+    );
+    b.tool("output_origin");
     b.click(mm(10.0, 5.0));
-    assert_eq!(b.shell.board_view().origin, Some(mm(10.0, 5.0)));
     assert_eq!(
         b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)),
         mm(2.0, -1.0),
-        "the cursor reads from the user origin"
+        "the cursor reads from the Output Origin"
     );
+    run(&mut b.shell, "pcb.output_origin.delete", json!({}));
+    assert_eq!(b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)), mm(12.0, 4.0));
+}
 
+#[test]
+fn measure_changes_nothing() {
+    let mut b = board();
+    let start = b.mark();
     b.tool("measure");
     b.click(mm(0.0, 0.0));
     b.shell.pcb_hover(mm(3.0, 4.0));
@@ -332,9 +342,6 @@ fn the_user_origin_and_measure_change_only_the_view() {
     let m = b.shell.pcb_draw().measurement().unwrap();
     assert_eq!(m.to, mm(3.0, 4.0), "a second click holds the measurement");
     assert!(b.edits_since(start).is_empty());
-
-    run(&mut b.shell, "pcb.view.origin.set", json!({}));
-    assert_eq!(b.shell.board_view().origin, None);
 }
 
 #[test]

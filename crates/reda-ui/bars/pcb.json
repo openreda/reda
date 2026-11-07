@@ -37,9 +37,7 @@
         "separator",
         { "id": "place.free_pad", "command": "tool.activate:free_pad" },
         { "id": "place.output_origin", "command": "tool.activate:output_origin" },
-        "separator",
-        { "id": "place.user_origin", "command": "tool.activate:user_origin" },
-        { "id": "place.user_origin_reset", "command": "pcb.view.origin.set", "title": "pcb-user-origin-reset" }
+        { "id": "place.output_origin_delete", "command": "pcb.output_origin.delete" }
       ]
     },
     {

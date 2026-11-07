@@ -1,7 +1,7 @@
 //! UUIDs: the identity of every persisted object.
 //!
 //! Written in-house rather than taken from a crate: REDA needs only formatting, parsing and
-//! the v4 bit layout. Generating them is the job of the engine's injected `IdSource`.
+//! the v4 and v8 bit layouts. Generating them is the job of the engine's injected `IdSource`.
 
 use std::fmt;
 use std::str::FromStr;
@@ -29,6 +29,16 @@ impl Uuid {
         const VERSION_MASK: u128 = 0xf << 76;
         const VARIANT_MASK: u128 = 0x3 << 62;
         let bits = (bits & !VERSION_MASK) | (0x4 << 76);
+        Uuid((bits & !VARIANT_MASK) | (0x2 << 62))
+    }
+
+    /// A version-8 UUID: an identifier REDA derives from other data, such as a hash, rather
+    /// than draws at random. The version and variant bits are forced, the rest taken from
+    /// `bits`.
+    pub const fn v8_from_bits(bits: u128) -> Uuid {
+        const VERSION_MASK: u128 = 0xf << 76;
+        const VARIANT_MASK: u128 = 0x3 << 62;
+        let bits = (bits & !VERSION_MASK) | (0x8 << 76);
         Uuid((bits & !VARIANT_MASK) | (0x2 << 62))
     }
 }

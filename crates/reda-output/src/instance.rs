@@ -121,5 +121,5 @@ pub(crate) fn coordinates_id(instances: &[BoardInstance<'_>]) -> reda_model::Uui
                 .to_be_bytes(),
         );
     }
-    reda_model::Uuid::v4_from_bits(hash)
+    reda_model::Uuid::v8_from_bits(hash)
 }

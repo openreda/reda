@@ -30,6 +30,5 @@ pub use tool::SelectTool;
 pub fn register_all(registry: &mut reda_engine::command::Registry) {
     commands::register_all(registry);
     route_commands::register_all(registry);
-    draw::register_all(registry);
 }
 pub use view::BoardView;
