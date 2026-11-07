@@ -73,7 +73,8 @@ impl Rule {
         match self {
             Rule::Clearance => DrcCheck::Clearance,
             Rule::TrackWidth => DrcCheck::TrackWidth,
-            Rule::Via | Rule::HoleSize => DrcCheck::HoleSize,
+            Rule::Via => DrcCheck::ViaSize,
+            Rule::HoleSize => DrcCheck::HoleSize,
             Rule::AnnularRing => DrcCheck::AnnularRing,
             Rule::HoleSpacing => DrcCheck::HoleToHole,
             Rule::EdgeClearance => DrcCheck::EdgeClearance,

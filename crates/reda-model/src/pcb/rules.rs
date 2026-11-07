@@ -496,3 +496,36 @@ impl DesignRule {
         None
     }
 }
+
+/// A Net Class as a [`RuleSet`] names it: by name only, since its Nets differ per board.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PortableClass {
+    pub name: String,
+}
+
+/// A rule record as a [`RuleSet`] holds it: its Net Class by name, and no UUID.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PortableRule {
+    pub kind: RuleKind,
+    /// The Net Class it applies to, by name; left out for a board-wide record.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net_class: Option<String>,
+    pub values: RuleValues,
+    /// Whether the record counts; left out when it does.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
+/// A board's rules made portable between boards (a `.redarules` file): the rule records,
+/// the Net Class names they need, in rank order, and the DRC severities. It holds no Net
+/// membership, because Net names differ per board.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RuleSet {
+    pub net_classes: Vec<PortableClass>,
+    pub rules: Vec<PortableRule>,
+    pub severities: crate::DrcSeverities,
+}

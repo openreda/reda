@@ -17,6 +17,7 @@ pub mod properties;
 pub mod query;
 pub mod reannotate;
 pub mod recovery;
+pub mod rules_file;
 pub mod similar;
 pub mod sync;
 pub mod write_through;
@@ -43,6 +44,7 @@ pub fn register_all(registry: &mut Registry) {
     properties::register_all(registry);
     query::register_all(registry);
     reannotate::register_all(registry);
+    rules_file::register_all(registry);
     similar::register_all(registry);
     recovery::register_all(registry);
     sync::register_all(registry);

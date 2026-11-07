@@ -435,8 +435,26 @@ violation-unplaced-units = { $designator } has unplaced Units: { $units }
 violation-unit-data-mismatch = The Units of { $designator } differ in: { $differs }
 violation-clearance = Clearance { $actual } is below { $required }
 violation-short-circuit = Short circuit between { $net_a } and { $net_b }
-violation-track-width = Track width { $actual } is below { $minimum }
-violation-hole-size = Hole size { $actual } is below { $minimum }
+violation-track-width = Track width { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-via-size = Via { $part ->
+        [hole] hole
+       *[diameter] diameter
+    } { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-hole-size = Hole size { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-rule-invalid = The { $rule } rule is invalid: { $problem ->
+        [negative] `{ $value }` is negative
+        [min_above_max] `{ $value }` is above the maximum
+       *[preferred_outside] `{ $value }` is outside the range
+    }
 violation-annular-ring = Annular ring { $actual } is below { $minimum }
 violation-hole-to-hole = Holes { $actual } apart, below { $required }
 violation-edge-clearance = Copper { $actual } from the board edge, below { $required }
@@ -1037,7 +1055,10 @@ violation-drc-errors = DRC finds { $count } { $count ->
     [one] error
    *[other] errors
 }
-violation-rule-below-preset = Board { $rule } { $board } is below { $preset }'s minimum { $minimum }
+violation-rule-outside-preset = The { $rule } rule's `{ $value }` { $board } is { $limit ->
+        [max] above { $preset }'s maximum
+       *[min] below { $preset }'s minimum
+    } { $preset_limit }
 violation-missing-font = Font “{ $font }” is not installed
 
 # Schematic: Net highlighting, graphics Tools and dialogs (Find, Select Similar,
@@ -1158,6 +1179,9 @@ pref-editing-click-clears-selection = Click Clears Selection
 pref-editing-directional-rectangle = Directional Rectangle
 pref-editing-protect-locked-objects = Protect Locked Objects
 check-opening-collapsed = Mask or paste opening collapsed
+check-via-size = Via Size
+check-rule-invalid = Invalid Rule
+check-rule-outside-preset = Rule Outside Fab Preset
 
 # Canvas selection and stack picking.
 selection-filter-title = Selection Filter

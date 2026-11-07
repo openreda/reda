@@ -46,6 +46,7 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
     placement::check(&board, &mut report);
     silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
+    rule_invalid(pcb, &mut report);
     for opening in crate::openings::resolve(pcb)
         .into_iter()
         .filter(|o| o.geometry.is_none())
@@ -89,6 +90,38 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
             v
         })
         .collect()
+}
+
+/// One `rule_invalid` per rule record with a blocking problem: its first, with the
+/// arguments `rule` (the kind), `value`, `problem` and, for a class record, `net_class`.
+/// Its objects are the class, if any, then the record.
+fn rule_invalid(pcb: &PcbDocument, report: &mut Report) {
+    let mut seen = Vec::new();
+    for problem in crate::rules::validation::problems(pcb) {
+        if seen.contains(&problem.rule) {
+            continue;
+        }
+        seen.push(problem.rule);
+        let class = problem.net_class.and_then(|c| pcb.net_class(c));
+        report.add(DrcCheck::RuleInvalid, |mut v| {
+            v = v
+                .with_rule(problem.rule)
+                .arg("rule", problem.kind.id())
+                .arg("value", problem.value.as_str())
+                .arg(
+                    "problem",
+                    match problem.problem {
+                        crate::rules::ProblemKind::Negative => "negative",
+                        crate::rules::ProblemKind::MinAboveMax => "min_above_max",
+                        crate::rules::ProblemKind::PreferredOutside => "preferred_outside",
+                    },
+                );
+            if let Some(class) = class {
+                v = v.arg("net_class", class.name.as_str()).object(class.uuid);
+            }
+            v.object(problem.rule)
+        });
+    }
 }
 
 /// The fingerprint of everything DRC reads: the PCB Document, its rules, severities and

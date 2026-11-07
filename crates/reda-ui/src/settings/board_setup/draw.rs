@@ -26,6 +26,7 @@ pub fn check_name(check: DrcCheck) -> String {
         DrcCheck::Clearance => tr!("check-clearance"),
         DrcCheck::ShortCircuit => tr!("check-short-circuit"),
         DrcCheck::TrackWidth => tr!("check-track-width"),
+        DrcCheck::ViaSize => tr!("check-via-size"),
         DrcCheck::HoleSize => tr!("check-hole-size"),
         DrcCheck::AnnularRing => tr!("check-annular-ring"),
         DrcCheck::HoleToHole => tr!("check-hole-to-hole"),
@@ -39,6 +40,8 @@ pub fn check_name(check: DrcCheck) -> String {
         DrcCheck::SilkscreenOverPads => tr!("check-silkscreen-over-pads"),
         DrcCheck::OutOfSync => tr!("check-out-of-sync"),
         DrcCheck::OpeningCollapsed => tr!("check-opening-collapsed"),
+        DrcCheck::RuleInvalid => tr!("check-rule-invalid"),
+        DrcCheck::RuleOutsidePreset => tr!("check-rule-outside-preset"),
     }
 }
 

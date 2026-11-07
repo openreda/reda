@@ -188,3 +188,47 @@ fn a_through_via_is_stored_top_to_bottom() {
     .expect("refused");
     assert!(err.contains("upper copper Layer to a lower one"), "{err}");
 }
+
+#[test]
+fn a_rule_with_a_blocking_problem_still_opens_and_drc_reports_it() {
+    let (_dir, path) = saved("load-rule-invalid");
+    let mut track_rule = String::new();
+    let mut engine = open_after(&path, |f| {
+        let rules = f["rules"].as_array_mut().unwrap();
+        let record = rules
+            .iter_mut()
+            .find(|r| r["kind"] == "track_width")
+            .unwrap();
+        track_rule = record["uuid"].as_str().unwrap().to_owned();
+        // A minimum above the maximum, as a merge can leave it.
+        record["values"] = json!({"min": 400_000, "preferred": 450_000, "max": 300_000});
+    })
+    .expect("opens");
+    let run = engine.run_ok("drc.run", json!({}));
+    let invalid: Vec<&Value> = run["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "rule_invalid")
+        .collect();
+    assert!(!invalid.is_empty(), "{run:#}");
+    let v = invalid[0];
+    assert_eq!(v["severity"], "error");
+    assert_eq!(v["rule"], track_rule.as_str());
+    assert_eq!(v["args"]["rule"], "track_width");
+    assert_eq!(v["args"]["value"], "min");
+    assert_eq!(v["args"]["problem"], "min_above_max");
+    assert!(v.get("at").is_none() && v.get("document").is_none(), "{v}");
+    let validate = engine.run_ok("pcb.rules.validate", json!({}));
+    assert_eq!(validate["problems"][0]["rule"], track_rule.as_str());
+    assert_eq!(validate["problems"][0]["problem"], "min_above_max");
+    // The user can fix it.
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "track_width", "values": {"max": null}}),
+    );
+    assert_eq!(
+        engine.run_ok("pcb.rules.validate", json!({}))["problems"],
+        json!([])
+    );
+}

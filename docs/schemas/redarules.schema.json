@@ -1,0 +1,397 @@
+{
+  "$defs": {
+    "Bounds": {
+      "additionalProperties": false,
+      "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
+      "properties": {
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DrcSeverities": {
+      "additionalProperties": false,
+      "description": "The severity of every DRC check, stored next to the rules. A check left out has its\ndefault.",
+      "properties": {
+        "annular_ring": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "An annular ring below the minimum."
+        },
+        "clearance": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Clearance between copper of different Nets."
+        },
+        "copper_without_net": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Copper with no Net."
+        },
+        "courtyard_overlap": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Overlapping courtyards."
+        },
+        "dangling": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Tracks and Vias that end unconnected."
+        },
+        "edge_clearance": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Copper too close to the Board Outline or a Board Cutout."
+        },
+        "footprint_outside_board": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Footprint outside the Board Outline."
+        },
+        "hole_size": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range."
+        },
+        "hole_to_hole": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Holes closer than the minimum spacing."
+        },
+        "keepout": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "An object inside a Keepout that forbids it."
+        },
+        "opening_collapsed": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A negative mask or paste expansion leaves no opening."
+        },
+        "out_of_sync": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "The PCB out of sync with the schematic."
+        },
+        "rule_invalid": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause."
+        },
+        "rule_outside_preset": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A rule that allows less than a Fab Preset limit."
+        },
+        "short_circuit": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Different Nets touching."
+        },
+        "silkscreen_over_pads": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Silkscreen over exposed Pads."
+        },
+        "track_width": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Track narrower than the minimum or wider than the maximum."
+        },
+        "unrouted": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Connections the Ratsnest still shows."
+        },
+        "via_size": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Via diameter or hole outside the `via_size` range."
+        }
+      },
+      "type": "object"
+    },
+    "PortableClass": {
+      "additionalProperties": false,
+      "description": "A Net Class as a [`RuleSet`] names it: by name only, since its Nets differ per board.",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "PortableRule": {
+      "additionalProperties": false,
+      "description": "A rule record as a [`RuleSet`] holds it: its Net Class by name, and no UUID.",
+      "properties": {
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "enabled": {
+          "description": "Whether the record counts; left out when it does.",
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/RuleKind"
+        },
+        "net_class": {
+          "description": "The Net Class it applies to, by name; left out for a board-wide record.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "values": {
+          "$ref": "#/$defs/RuleValues"
+        }
+      },
+      "required": [
+        "kind",
+        "values"
+      ],
+      "type": "object"
+    },
+    "RuleKind": {
+      "description": "What a rule record limits.",
+      "oneOf": [
+        {
+          "const": "clearance",
+          "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+          "type": "string"
+        },
+        {
+          "const": "track_width",
+          "description": "Track width: `min`, `preferred`, `max?`.",
+          "type": "string"
+        },
+        {
+          "const": "via_size",
+          "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+          "type": "string"
+        },
+        {
+          "const": "hole_size",
+          "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+          "type": "string"
+        },
+        {
+          "const": "annular_ring",
+          "description": "Annular ring: `min`.",
+          "type": "string"
+        },
+        {
+          "const": "hole_to_hole",
+          "description": "Spacing between hole edges: `min`.",
+          "type": "string"
+        },
+        {
+          "const": "edge_clearance",
+          "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+          "type": "string"
+        },
+        {
+          "const": "mask_expansion",
+          "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+          "type": "string"
+        },
+        {
+          "const": "paste_expansion",
+          "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+          "type": "string"
+        }
+      ]
+    },
+    "RuleValues": {
+      "additionalProperties": false,
+      "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
+      "properties": {
+        "bottom": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "diameter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bounds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Via size only: the Via's copper diameter."
+        },
+        "expansion": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "from_hole_edge": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bounds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Via size only: the Via's drilled hole."
+        },
+        "ignore_pad_to_pad": {
+          "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "percent": {
+          "description": "Signed change in area in percent, strictly above -100.",
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "tent_vias_bottom": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "tent_vias_top": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "top": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Severity": {
+      "description": "How a check's Violations are reported.",
+      "enum": [
+        "error",
+        "warning",
+        "off"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA rules file (`.redarules`).",
+  "properties": {
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "net_classes": {
+      "description": "The Net Classes the rules name, by name, highest rank first.",
+      "items": {
+        "$ref": "#/$defs/PortableClass"
+      },
+      "type": "array"
+    },
+    "rules": {
+      "description": "The rule records: board-wide ones, then each class's, which name it.",
+      "items": {
+        "$ref": "#/$defs/PortableRule"
+      },
+      "type": "array"
+    },
+    "severities": {
+      "$ref": "#/$defs/DrcSeverities",
+      "description": "The DRC severities."
+    }
+  },
+  "required": [
+    "format",
+    "net_classes",
+    "rules",
+    "severities"
+  ],
+  "title": "REDA rules file",
+  "type": "object"
+}

@@ -342,7 +342,8 @@ fn applying_a_fab_preset_reseeds_board_records_and_keeps_class_records() {
     let diff = engine.run_ok("pcb.rules.fab_preset_diff", json!({"preset": preset}));
     assert_eq!(
         diff["changes"],
-        json!([{"kind": "clearance", "field": "value", "board": 500000, "preset": 100000}])
+        json!([{"kind": "clearance", "field": "value", "board": 500000, "preset": 100000,
+                "limit": true, "ticked": true}])
     );
     engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset": preset}));
     let pcb = pcb(&engine);
@@ -404,4 +405,157 @@ fn mask_and_paste_preset_seeds_match_the_specification_table() {
             serde_json::to_value(pcb(&engine).board_rule(RuleKind::PasteExpansion)).unwrap();
         assert_eq!(paste["values"], json!({"expansion":0}), "{preset}");
     }
+}
+
+/// A JLCPCB board with the Generic preset copied into the Project: Generic raises the
+/// limits (Track 0.10 to 0.20 mm, Via diameter 0.51 to 0.70 mm).
+fn jlcpcb_board(dir: &TempDir) -> (TestEngine, Uuid) {
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB"}),
+    );
+    let generic = uuid(&engine.run_ok("fab_preset.add", json!({"name": "Generic"})));
+    (engine, generic)
+}
+
+/// `(kind, field, limit, ticked)` of every preview row.
+fn rows(diff: &Value) -> Vec<(String, String, bool, bool)> {
+    diff["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["kind"].as_str().unwrap().to_owned(),
+                c["field"].as_str().unwrap().to_owned(),
+                c["limit"].as_bool().unwrap(),
+                c["ticked"].as_bool().unwrap(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn the_preview_ticks_limits_and_only_preferred_sizes_that_fall_outside() {
+    let dir = TempDir::new("rules-preview-ticks");
+    let (mut engine, generic) = jlcpcb_board(&dir);
+    let diff = engine.run_ok("pcb.rules.fab_preset_diff", json!({"preset": generic}));
+    let rows = rows(&diff);
+    let row = |kind: &str, field: &str| {
+        rows.iter()
+            .find(|r| r.0 == kind && r.1 == field)
+            .map(|r| (r.2, r.3))
+    };
+    assert_eq!(row("track_width", "min"), Some((true, true)), "{diff:#}");
+    assert_eq!(row("via_size", "diameter_min"), Some((true, true)));
+    // 0.66 mm falls below the new 0.70 mm minimum.
+    assert_eq!(row("via_size", "diameter_preferred"), Some((false, true)));
+    // The board's 0.30 mm hole stays inside the new range... and is already Generic's.
+    assert_eq!(row("via_size", "hole_preferred"), None);
+    assert_eq!(row("track_width", "preferred"), None);
+}
+
+#[test]
+fn applying_a_fab_preset_takes_the_chosen_rows_and_flags_class_records_it_breaks() {
+    let dir = TempDir::new("rules-apply-rows");
+    let (mut engine, generic) = jlcpcb_board(&dir);
+    // Valid over the board's 0.10 mm minimum, broken by Generic's 0.20 mm.
+    let power = class(&mut engine, "Power", &[]);
+    let narrow = set(
+        &mut engine,
+        json!({"kind": "track_width", "scope": {"net_class": power},
+               "values": {"preferred": "0.12mm", "max": "0.15mm"}}),
+    );
+    let narrow: Uuid = narrow["uuid"].as_str().unwrap().parse().unwrap();
+    let diff = engine.run_ok("pcb.rules.fab_preset_diff", json!({"preset": generic}));
+    assert_eq!(
+        diff["class_problems"],
+        json!([{"rule": narrow, "net_class": power, "kind": "track_width", "value": "min",
+                "message": "`min` is above `max`"}]),
+        "{diff:#}"
+    );
+
+    // Only the chosen rows change.
+    let out = engine.run_ok(
+        "pcb.rules.apply_fab_preset",
+        json!({"preset": generic, "rows": [{"kind": "clearance", "field": "value"}]}),
+    );
+    assert_eq!(out["result"]["changes"].as_array().unwrap().len(), 1);
+    assert_eq!(out["result"]["class_problems"], json!([]));
+    let board = pcb(&engine);
+    assert_eq!(
+        board.board_rule(RuleKind::Clearance).values.value,
+        Some(um(160))
+    );
+    assert_eq!(
+        board.board_rule(RuleKind::TrackWidth).values.min,
+        Some(um(100))
+    );
+
+    // A row that would leave the board's own record blocking is refused.
+    let err = engine.run_err(
+        "pcb.rules.apply_fab_preset",
+        json!({"preset": generic, "rows": [{"kind": "via_size", "field": "diameter_min"}]}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{}", err.message);
+
+    // The ticked rows apply; the class record is flagged and left as it was.
+    let out = engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset": generic}));
+    assert_eq!(out["result"]["class_problems"][0]["rule"], json!(narrow));
+    let board = pcb(&engine);
+    assert_eq!(
+        board.board_rule(RuleKind::TrackWidth).values.min,
+        Some(um(200))
+    );
+    assert_eq!(board.rule(narrow).unwrap().values.max, Some(um(150)));
+}
+
+#[test]
+fn saving_rules_as_a_fab_preset_writes_board_wide_values_only() {
+    let dir = TempDir::new("rules-save-preset");
+    let mut engine = engine(&dir);
+    let power = class(&mut engine, "Power", &[]);
+    set(
+        &mut engine,
+        json!({"kind": "clearance", "scope": {"net_class": power}, "values": {"value": "1mm"}}),
+    );
+    set(
+        &mut engine,
+        json!({"kind": "clearance", "values": {"value": "0.3mm"}}),
+    );
+    set(
+        &mut engine,
+        json!({"kind": "track_width", "values": {"preferred": "0.4mm", "max": "2mm"}}),
+    );
+    let generic = engine
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .clone();
+    let out = engine.run_ok(
+        "pcb.rules.save_as_preset",
+        json!({"name": "  House rules ", "from": generic.uuid}),
+    );
+    let saved = engine
+        .project()
+        .unwrap()
+        .fab_preset(uuid(&out))
+        .unwrap()
+        .clone();
+    assert_eq!(saved.name, "House rules");
+    assert_eq!(saved.rules.clearance, um(300));
+    assert_eq!(saved.rules.preferred.track_width, um(400));
+    assert_eq!(saved.rules.track_width, generic.rules.track_width);
+    assert_eq!(saved.rules.hole_max, generic.rules.hole_max);
+    assert_eq!(saved.gerber, generic.gerber);
+    assert_eq!(saved.bom, generic.bom);
+    // A new board from it is seeded with the same board-wide values.
+    let diff = engine.run_ok("pcb.rules.fab_preset_diff", json!({"preset": saved.uuid}));
+    assert_eq!(diff["changes"], json!([]), "{diff:#}");
+
+    let err = engine.run_err("pcb.rules.save_as_preset", json!({"name": " "}));
+    assert_eq!(err.code, ErrorCode::InvalidParams);
 }

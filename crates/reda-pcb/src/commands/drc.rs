@@ -62,10 +62,16 @@ fn current(cx: &Context<'_>, sync: SyncCheck) -> Result<Checked, CommandError> {
         )
         .on_layers(pcb.copper_layers().map(|l| l.uuid))
     }));
+    let presets = crate::rules::presets::job_presets(project, pcb);
+    violations.extend(crate::rules::presets::outside_preset_violations(
+        pcb,
+        &presets,
+        pcb.setup().severities.get(DrcCheck::RuleOutsidePreset),
+    ));
     Ok(Checked {
         violations,
         refilled,
-        design: fingerprint(pcb, &state.changes),
+        design: fingerprint(project, pcb, &state.changes),
     })
 }
 
@@ -76,11 +82,17 @@ struct Checked {
     design: String,
 }
 
-/// The fingerprint of the board and of the Change List pending against it.
-fn fingerprint(pcb: &reda_model::PcbDocument, changes: &str) -> String {
+/// The fingerprint of the board, of the Change List pending against it and of the Fab
+/// Presets its Output Jobs use, which `rule_outside_preset` compares with.
+fn fingerprint(project: &Project, pcb: &reda_model::PcbDocument, changes: &str) -> String {
+    let presets: Vec<_> = crate::rules::presets::job_presets(project, pcb)
+        .into_iter()
+        .map(|p| (p.name, p.rules))
+        .collect();
     reda_command::Fingerprint::new()
         .add(&design_fingerprint(pcb))
         .add(changes)
+        .add(&presets)
         .finish()
 }
 
@@ -188,7 +200,7 @@ impl Command for DrcStale {
     fn run(&self, cx: &mut Context<'_>, p: DrcStaleParams) -> Result<DrcStaleResult, CommandError> {
         let changes = (self.sync)(cx.project()?).changes;
         Ok(DrcStaleResult {
-            stale: fingerprint(pcb(cx)?, &changes) != p.design,
+            stale: fingerprint(cx.project()?, pcb(cx)?, &changes) != p.design,
         })
     }
 }

@@ -279,8 +279,9 @@ fn fab_preset_rules_are_previewed_then_reseed_the_board() {
     assert_eq!(
         preview,
         json!({"changes": [
-            {"kind": "clearance", "field": "value", "board": 300000, "preset": 100000}
-        ]})
+            {"kind": "clearance", "field": "value", "board": 300000, "preset": 100000,
+             "limit": true, "ticked": true}
+        ], "class_problems": []})
     );
     assert_eq!(
         board_value(&engine, RuleKind::Clearance),
