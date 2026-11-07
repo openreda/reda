@@ -8,7 +8,7 @@ use reda_model::{
 };
 
 use crate::placed::{PlacedPad, placed_free_pad, placed_pads};
-use crate::rules::{limit, ranked_classes, resolve as rule_value};
+use crate::rules::{limit, paste_expansion, resolve as rule_value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -123,7 +123,7 @@ fn pad_openings(
     let paste = pad
         .paste
         .clone()
-        .unwrap_or_else(|| match paste_rule(pcb, pad.net) {
+        .unwrap_or_else(|| match paste_expansion(pcb, pad.net) {
             PasteExpansion::Expansion { expansion } => Paste::Expansion { expansion },
             PasteExpansion::Percent { percent } => Paste::Percent { percent },
         });
@@ -158,23 +158,4 @@ fn scaled(mut outline: CornerRect, percent: i32) -> Option<CornerRect> {
         CornerCut::Chamfer(r) => CornerCut::Chamfer(scale(r)),
     });
     (outline.width > Nm::ZERO && outline.height > Nm::ZERO).then_some(outline)
-}
-
-fn paste_rule(pcb: &PcbDocument, net: Option<Uuid>) -> PasteExpansion {
-    let class = ranked_classes(pcb, net).into_iter().find_map(|c| {
-        pcb.class_rule(RuleKind::PasteExpansion, c)
-            .filter(|r| r.enabled)
-    });
-    let record = class.unwrap_or_else(|| pcb.board_rule(RuleKind::PasteExpansion));
-    if !record.enabled {
-        return PasteExpansion::Expansion {
-            expansion: Nm::ZERO,
-        };
-    }
-    match record.values.percent {
-        Some(percent) => PasteExpansion::Percent { percent },
-        None => PasteExpansion::Expansion {
-            expansion: record.values.expansion.unwrap_or(Nm::ZERO),
-        },
-    }
 }

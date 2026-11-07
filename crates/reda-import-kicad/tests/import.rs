@@ -593,3 +593,66 @@ fn paste_only_pads_become_windows_and_never_copper() {
         out.warnings
     );
 }
+
+#[test]
+fn paste_windows_on_rotated_and_bottom_pads_land_where_the_paste_pads_were() {
+    // Each paste-only Pad, imported once as a window and once as copper (the reference),
+    // must cover the same place: the window in its copper Pad's rotated frame, with width
+    // and height swapped where the two differ by a quarter turn.
+    let footprint = |top: &str, bottom: &str| {
+        format!(
+            r#"(footprint "Rotated"
+              (pad "1" smd rect (at 5 5 90) (size 4 2) (layers "F.Cu" "F.Mask"))
+              (pad "{top}" smd rect (at 5 3.5) (size 1.2 0.8) (layers "{top_layer}"))
+              (pad "2" smd rect (at -5 2 30) (size 4 2) (layers "B.Cu" "B.Mask"))
+              (pad "{bottom}" smd rect (at -4.567 2.25 30) (size 0.4 0.3) (layers "{bottom_layer}")))"#,
+            top_layer = if top.is_empty() { "F.Paste" } else { "F.Cu" },
+            bottom_layer = if bottom.is_empty() { "B.Paste" } else { "B.Cu" },
+        )
+    };
+    let pads = |footprint: &str| {
+        import(
+            &fixture("divider.kicad_sym"),
+            footprint,
+            &ImportOptions::default(),
+            &mut ids(),
+        )
+        .unwrap()
+        .footprint
+        .pads
+    };
+    let windowed = pads(&footprint("", ""));
+    let reference = pads(&footprint("3", "4"));
+    assert_eq!(
+        windowed.len(),
+        2,
+        "paste-only pads must never become copper"
+    );
+    for (copper, number) in windowed.iter().zip(["3", "4"]) {
+        let expected = reference.iter().find(|p| p.number == number).unwrap();
+        let Some(reda_model::Paste::Windows { windows }) = &copper.paste else {
+            panic!(
+                "Pad {} has no paste windows: {:?}",
+                copper.number, copper.paste
+            );
+        };
+        let [window] = windows.as_slice() else {
+            panic!("Pad {} should hold one window: {windows:?}", copper.number);
+        };
+        let placed = copper.at + window.at.rotated_about(Point::default(), copper.rotation);
+        assert!(
+            (placed.x.0 - expected.at.x.0).abs() <= 2 && (placed.y.0 - expected.at.y.0).abs() <= 2,
+            "Pad {}: window placed at {placed:?}, paste pad was at {:?}",
+            copper.number,
+            expected.at
+        );
+        let quarter = (expected.rotation.0 - copper.rotation.0).rem_euclid(180_000) == 90_000;
+        let size = if quarter {
+            (expected.height, expected.width)
+        } else {
+            (expected.width, expected.height)
+        };
+        assert_eq!((window.width, window.height), size, "Pad {}", copper.number);
+        assert_eq!(copper.side, expected.side, "Pad {}", copper.number);
+    }
+}

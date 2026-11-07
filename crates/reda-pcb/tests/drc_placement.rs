@@ -170,6 +170,11 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
     expected.sort();
     assert_eq!(found, expected, "{run:#}");
     assert_eq!(of(&run, "silkscreen_over_pads")[0]["severity"], "warning");
+    for v in of(&run, "silkscreen_over_pads") {
+        assert_eq!(v["document"], common::PCB);
+        assert!(v["at"].is_object());
+        assert_eq!(v["layers"].as_array().unwrap().len(), 1);
+    }
 }
 
 /// The schematic Component a synced Footprint stands for.
@@ -236,9 +241,13 @@ fn an_out_of_sync_violation_can_be_waived() {
         "schematic.component.set",
         json!({"components": [c1], "value": "4k7"}),
     );
+    let v = &of(&drc(&mut engine), "out_of_sync")[0];
+    assert_eq!(v["document"], common::PCB);
+    assert!(v["at"].is_object());
+    assert!(v["layers"].is_array());
     engine.run_ok(
         "drc.waive",
-        json!({"check": "out_of_sync", "objects": [], "comment": "later"}),
+        json!({"violations": [{"check": "out_of_sync", "objects": []}], "reason": "later"}),
     );
     let run = drc(&mut engine);
     assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");

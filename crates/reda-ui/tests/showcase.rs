@@ -84,7 +84,11 @@ const SCENES: &[Scene] = &[
 ];
 
 /// The folder the scenes' Projects and per-user state are staged in.
-const STAGE: &str = "/tmp/reda-showcase";
+fn stage_root() -> PathBuf {
+    std::env::var_os("REDA_SHOWCASE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/tmp/reda-showcase"))
+}
 
 /// Where a scene's window lives: its per-user folder (holding the theme) and its Projects'
 /// folder.
@@ -98,7 +102,7 @@ impl Stage {
     /// machine (the showcase is drawn on Linux). Scenes are drawn one at a time, so each
     /// takes the folder over.
     fn new(theme: &'static str) -> Stage {
-        let root = PathBuf::from(STAGE);
+        let root = stage_root();
         let _ = std::fs::remove_dir_all(&root);
         let (home, work) = (root.join("home"), root.join("Projects"));
         std::fs::create_dir_all(&home).unwrap();
@@ -378,7 +382,7 @@ fn every_scene_renders_in_both_themes() {
             drop(h);
         }
     }
-    let _ = std::fs::remove_dir_all(STAGE);
+    let _ = std::fs::remove_dir_all(stage_root());
     let manifest = json!({ "scenes": entries });
     std::fs::write(
         out.join("manifest.json"),

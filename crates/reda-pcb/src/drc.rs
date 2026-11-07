@@ -12,13 +12,16 @@
 
 mod connections;
 mod copper;
+mod details;
 mod edge;
 mod holes;
 mod placement;
 mod silkscreen;
 
 use reda_command::Fonts;
-use reda_model::{DrcCheck, DrcSeverities, PcbDocument, Severity, Uuid, Violation, ZoneFills};
+use reda_model::{
+    DrcCheck, DrcSeverities, LayerKind, PcbDocument, Severity, Uuid, Violation, ZoneFills,
+};
 
 use crate::Copper;
 use crate::copper::Item;
@@ -49,6 +52,18 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
     {
         report.add(DrcCheck::OpeningCollapsed, |v| {
             v.objects(opening.objects)
+                .located(pcb.uuid, opening.at)
+                .on_layers(
+                    pcb.layers()
+                        .find(
+                            match opening.kind {
+                                crate::openings::Kind::Mask => LayerKind::SolderMask,
+                                crate::openings::Kind::Paste => LayerKind::Paste,
+                            },
+                            Some(opening.side),
+                        )
+                        .map(|layer| layer.uuid),
+                )
                 .arg(
                     "kind",
                     match opening.kind {
@@ -67,7 +82,13 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
     }
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
-    found.into_iter().map(|(_, v)| v).collect()
+    found
+        .into_iter()
+        .map(|(_, mut v)| {
+            details::complete(&board, &mut v);
+            v
+        })
+        .collect()
 }
 
 /// The fingerprint of everything DRC reads: the PCB Document, its rules, severities and

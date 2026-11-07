@@ -72,7 +72,7 @@
 //!     ],"copper":true,"vias":true}
 //!   ],
 //!   "waivers": [
-//!     {"uuid":"…","check":"clearance","objects":["…","…"],"comment":"…"}
+//!     {"uuid":"…","check":"clearance","objects":["…","…"],"author":"Ada","created":1767225600000,"reason":"…"}
 //!   ]
 //! }
 //! ```

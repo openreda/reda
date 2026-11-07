@@ -9,7 +9,7 @@
 use std::collections::BTreeSet;
 
 use reda_command::Fonts;
-use reda_model::geom::Point;
+use reda_model::geom::{Nm, Point};
 use reda_model::{
     DrcCheck, FootprintLayer, GraphicShape, LayerKind, PcbDocument, Shape, Side, Uuid,
 };
@@ -63,7 +63,20 @@ pub(super) fn check(board: &Board<'_>, fonts: &Fonts, report: &mut Report) {
                 }
             }
             if seen.insert(objects.clone()) {
-                report.add(DrcCheck::SilkscreenOverPads, |v| v.objects(objects));
+                let layer = pcb
+                    .layers()
+                    .find(LayerKind::Silkscreen, Some(silk.side))
+                    .expect("silk is on a board Layer")
+                    .uuid;
+                let overlap = poly::intersection(&silk.area, &opening.area);
+                let (lo, hi) = poly::bounds(&overlap).expect("overlapping shapes have bounds");
+                let at = Point::new(
+                    Nm(lo[0] + (hi[0] - lo[0]) / 2),
+                    Nm(lo[1] + (hi[1] - lo[1]) / 2),
+                );
+                report.add(DrcCheck::SilkscreenOverPads, |v| {
+                    v.objects(objects).located(pcb.uuid, at).on_layers([layer])
+                });
             }
         }
     }
