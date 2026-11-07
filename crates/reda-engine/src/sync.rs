@@ -387,6 +387,10 @@ pub(crate) fn component_key(component: &ComponentRef) -> String {
 /// The local edits on the board that an Update from Library removes from `component`,
 /// whose Footprint becomes `after` (Footprint UUID and copy hash; `None` for none): those of
 /// its Locally Edited Footprint, when `after` is not the copy it was edited from.
+/// The local edits of PCB copy `copy` against the copy it was edited from: none when it
+/// isn't Locally Edited.
+pub(crate) use components::lost_local_edits as lost_local_edits_of;
+
 pub(crate) fn lost_local_edits(
     project: &Project,
     component: Uuid,

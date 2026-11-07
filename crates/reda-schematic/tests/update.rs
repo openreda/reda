@@ -2,13 +2,13 @@
 //! marked, previewed and updated on request, and a placed Component leads back to its
 //! Library elements for Edit in Library.
 
+mod update_fixture;
+
 use std::path::{Path, PathBuf};
 
 use reda_command::ErrorCode;
-use reda_testkit::{TempDir, TestEngine, test_engine_with_library};
 use serde_json::{Value, json};
-
-const SHEET: &str = "00000000-0000-4000-8000-000000000002";
+use update_fixture::{Fixture, SHEET, fixture};
 const R_10K: &str = "a0000000-0000-4000-8000-000000000100";
 const C_100N: &str = "a0000000-0000-4000-8000-000000000110";
 const LM358: &str = "a0000000-0000-4000-8000-000000000120";
@@ -17,104 +17,6 @@ const R_SYMBOL: &str = "a0000000-0000-4000-8000-000000000010";
 const R_0603: &str = "a0000000-0000-4000-8000-000000000040";
 const R_0805: &str = "a0000000-0000-4000-8000-000000000050";
 const R_2512: &str = "a0000000-0000-4000-8000-000000000070";
-
-/// A writable copy of the fixture Library and a Project using it as its starter Library.
-struct Fixture {
-    library: PathBuf,
-    project: PathBuf,
-    engine: TestEngine,
-    _dirs: (TempDir, TempDir),
-}
-
-fn copy_dir(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap() {
-        let entry = entry.unwrap();
-        let target = to.join(entry.file_name());
-        if entry.file_type().unwrap().is_dir() {
-            copy_dir(&entry.path(), &target);
-        } else {
-            std::fs::copy(entry.path(), target).unwrap();
-        }
-    }
-}
-
-fn fixture(label: &str) -> Fixture {
-    let lib_dir = TempDir::new(&format!("{label}-lib"));
-    let library = lib_dir.path().join("Test");
-    copy_dir(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/library/Test"),
-        &library,
-    );
-    let project_dir = TempDir::new(label);
-    let mut engine = test_engine_with_library(&library);
-    engine.run_ok(
-        "project.new",
-        json!({"path": project_dir.path(), "name": "Demo"}),
-    );
-    Fixture {
-        library,
-        project: project_dir.path().to_owned(),
-        engine,
-        _dirs: (lib_dir, project_dir),
-    }
-}
-
-impl Fixture {
-    fn place(&mut self, part: &str, x: &str) -> Value {
-        self.engine.run_ok(
-            "schematic.component.place",
-            json!({"document": SHEET, "part": part, "at": {"x": x, "y": "0mm"}}),
-        )["result"]
-            .clone()
-    }
-
-    /// Rewrites a Library file, replacing `from` with `to`.
-    fn edit_library(&self, file: &str, from: &str, to: &str) {
-        let path = self.library.join(file);
-        let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.contains(from), "{file} has no {from:?}");
-        std::fs::write(&path, text.replace(from, to)).unwrap();
-    }
-
-    /// The Components whose Library Status is not Up to Date.
-    fn outdated(&mut self) -> Vec<Value> {
-        self.status()
-            .into_iter()
-            .filter(|c| c["status"] != "up_to_date")
-            .collect()
-    }
-
-    /// `schematic.component.library_status` for every placed Component.
-    fn status(&mut self) -> Vec<Value> {
-        self.engine
-            .run_ok("schematic.component.library_status", json!({}))["components"]
-            .as_array()
-            .unwrap()
-            .clone()
-    }
-
-    fn preview(&mut self, params: Value) -> Value {
-        self.engine
-            .run_ok("schematic.component.update_preview", params)
-    }
-
-    /// Previews with `scope`, then applies that preview with `scope` and `extra`.
-    fn apply(&mut self, scope: Value, extra: Value) -> Value {
-        let preview = self.preview(scope.clone());
-        let mut params = scope;
-        for (k, v) in extra.as_object().unwrap() {
-            params[k] = v.clone();
-        }
-        params["preview_hash"] = preview["preview_hash"].clone();
-        self.engine
-            .run_ok("schematic.component.update_from_library", params)
-    }
-
-    fn object(&mut self, uuid: &Value) -> Value {
-        self.engine.run_ok("object.get", json!({"uuid": uuid}))["object"].clone()
-    }
-}
 
 #[test]
 fn library_status_names_the_aspects_that_differ_and_reports_source_missing() {
@@ -1193,4 +1095,46 @@ fn locked_fields_are_kept_equal_on_every_unit() {
     for unit in [&u1["unit"], &b["result"]["unit"]] {
         assert_eq!(f.object(unit)["locked_fields"], json!(["mpn", "value"]));
     }
+}
+
+#[test]
+fn an_update_matches_units_by_uuid() {
+    let mut f = fixture("units-by-uuid");
+    let u1 = f.place(LM358, "0mm");
+    let component = u1["component"]["uuid"].clone();
+    let unit_b = f.engine.run_ok(
+        "schematic.unit.place",
+        json!({"document": SHEET, "component": component, "at": {"x": "20mm", "y": 0}}),
+    )["result"]["unit"]
+        .clone();
+    assert_eq!(f.object(&unit_b)["unit"], OPAMP_UNIT_B);
+    // Unit B moves to the front of the Symbol and is renamed: by index the placed Unit A
+    // would now be B, but Units match by UUID.
+    f.edit_library(
+        "symbols/OpAmp_Dual.redasym",
+        r#"    {"uuid":"a0000000-0000-4000-8000-000000000031","name":"A"},
+    {"uuid":"a0000000-0000-4000-8000-000000000032","name":"B"},"#,
+        r#"    {"uuid":"a0000000-0000-4000-8000-000000000032","name":"Second"},
+    {"uuid":"a0000000-0000-4000-8000-000000000031","name":"A"},"#,
+    );
+
+    let preview = f.preview(json!({}));
+    let row = &preview["components"][0];
+    assert!(row.get("blocked").is_none(), "{row}");
+    assert!(
+        !row["changes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["kind"] == "unit_removed" || c["kind"] == "unit_added"),
+        "{row}"
+    );
+    f.apply(json!({}), json!({}));
+
+    assert_eq!(f.object(&unit_b)["unit"], OPAMP_UNIT_B);
+    assert_eq!(
+        f.object(&u1["unit"])["unit"],
+        "a0000000-0000-4000-8000-000000000031"
+    );
+    assert_eq!(f.status()[0]["status"], "up_to_date");
 }

@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use reda_model::{Footprint, Pad, PinMap, PinType, Symbol, Uuid};
+use reda_model::{Footprint, Pad, PinMap, PinType, Symbol, Unit, Uuid};
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -127,11 +127,39 @@ pub(crate) trait PinNets {
     fn after(&self, unit: Uuid, pin: Uuid) -> Option<String>;
 }
 
+/// How the Units of a Symbol before and after an update correspond.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum UnitMatch {
+    /// By UUID: Update from Library.
+    Uuid,
+    /// By position in the Symbol's list: Replace Part.
+    Index,
+}
+
+impl UnitMatch {
+    /// The Unit of `new` that Unit `unit` of `old` becomes, if any.
+    pub fn of<'a>(self, old: &Symbol, new: &'a Symbol, unit: Uuid) -> Option<&'a Unit> {
+        match self {
+            UnitMatch::Uuid => new.units.iter().find(|u| u.uuid == unit),
+            UnitMatch::Index => {
+                let i = old.units.iter().position(|u| u.uuid == unit)?;
+                new.units.get(i)
+            }
+        }
+    }
+
+    /// The Unit of `old` that Unit `unit` of `new` comes from, if any.
+    fn from<'a>(self, old: &'a Symbol, new: &Symbol, unit: Uuid) -> Option<&'a Unit> {
+        self.of(new, old, unit)
+    }
+}
+
 /// The Symbol changes from `old` to `new` for a Component whose placed Units are
-/// `placed` (Unit instance UUID, Symbol Unit UUID).
+/// `placed` (Unit instance UUID, Symbol Unit UUID in `old`), Units matched by `matching`.
 pub(crate) fn symbol_changes(
     old: &Symbol,
     new: &Symbol,
+    matching: UnitMatch,
     placed: &[(Uuid, Uuid)],
     nets: &dyn PinNets,
     out: &mut Vec<PartChange>,
@@ -145,7 +173,7 @@ pub(crate) fn symbol_changes(
     });
     let instance = |unit: Uuid| placed.iter().find(|(_, u)| *u == unit).map(|(i, _)| *i);
     for unit in &old.units {
-        if !new.units.iter().any(|u| u.uuid == unit.uuid) {
+        if matching.of(old, new, unit.uuid).is_none() {
             out.push(PartChange::UnitRemoved {
                 unit: unit.name.clone(),
                 placed: instance(unit.uuid).is_some(),
@@ -153,15 +181,18 @@ pub(crate) fn symbol_changes(
         }
     }
     for unit in &new.units {
-        if !old.units.iter().any(|u| u.uuid == unit.uuid) {
+        if matching.from(old, new, unit.uuid).is_none() {
             out.push(PartChange::UnitAdded {
                 unit: unit.name.clone(),
             });
         }
     }
-    for unit in (new.units.iter()).filter(|u| old.units.iter().any(|o| o.uuid == u.uuid)) {
-        let at = instance(unit.uuid);
-        let olds: Vec<_> = old.unit_pins(unit.uuid).collect();
+    for unit in &new.units {
+        let Some(before) = matching.from(old, new, unit.uuid) else {
+            continue;
+        };
+        let at = instance(before.uuid);
+        let olds: Vec<_> = old.unit_pins(before.uuid).collect();
         let news: Vec<_> = new.unit_pins(unit.uuid).collect();
         let mut numbers: Vec<&str> = olds.iter().map(|p| p.number.as_str()).collect();
         for p in &news {
@@ -262,7 +293,7 @@ pub(crate) fn footprint_changes(
 }
 
 /// A changed Footprint with its Pad detail.
-fn modified(old: &Footprint, new: &Footprint) -> PartChange {
+pub(crate) fn modified(old: &Footprint, new: &Footprint) -> PartChange {
     let numbers =
         |fp: &Footprint| -> BTreeSet<String> { fp.pads.iter().map(|p| p.number.clone()).collect() };
     let (o, n) = (numbers(old), numbers(new));

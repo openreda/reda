@@ -76,7 +76,11 @@ pub use update::{
     ComponentUpdate, FootprintChange, FromTo, LibraryStatus, LibraryStatusParams,
     LibraryStatusQuery, LibraryStatusResult, LostLocalEdits, PartChange, PartsOf, Problem,
     SettingsParams, UpdateApplied, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams,
-    UpdatePreview, UpdateResult,
+    UpdatePreview, UpdateResult, footprint_change,
+};
+pub use update::{
+    KeepFields, ReplaceParams, ReplacePart, ReplacePartParams, ReplacePreview,
+    ReplacePreviewResult, ReplaceRow, Replaced,
 };
 pub use wiring::{
     NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
@@ -108,6 +112,8 @@ pub fn register_all_with_user(
     registry.add(LibraryStatusQuery);
     registry.add(UpdatePreview { lost_local_edits });
     registry.add(UpdateFromLibrary { lost_local_edits });
+    registry.add(ReplacePreview { lost_local_edits });
+    registry.add(ReplacePart { lost_local_edits });
     registry.add(LibraryElement);
     registry.add(SheetSetFrame);
     registry.add(SheetTitleBlock);

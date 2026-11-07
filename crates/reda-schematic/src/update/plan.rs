@@ -4,10 +4,12 @@
 
 use reda_command::{CommandError, Context, Fingerprint, PartCopy};
 use reda_model::library_update::{FootprintChoice, LibraryUpdateSettings};
-use reda_model::{InDocument, Object, PartEntry, Project, UnitInstance, Uuid};
+use reda_model::{
+    Footprint, InDocument, Object, PartEntry, PinMap, Project, Symbol, UnitInstance, Uuid,
+};
 
 use super::cells::{self, CellAction, CellCase};
-use super::diff::{self, PartChange, PinNets};
+use super::diff::{self, PartChange, PinNets, UnitMatch};
 use super::status::{self, Aspect, Content, LibraryStatus};
 use super::{
     ComponentUpdate, LostLocalEdits, Placed, Problem, UpdateParams, chosen, compared, differs,
@@ -44,7 +46,11 @@ pub(crate) struct Plan {
     /// The part-table content its Units get; `None` for Source Missing.
     pub content: Option<EntryContent>,
     /// The Footprint choice after, when the Footprints aspect is taken.
-    footprint: Option<Option<Uuid>>,
+    pub footprint: Option<Option<Uuid>>,
+    /// How the Symbol's Units before and after correspond.
+    pub unit_match: UnitMatch,
+    /// Each placed Unit's Symbol Unit before and after, where they differ.
+    pub unit_map: Vec<(Uuid, Uuid)>,
 }
 
 impl Plan {
@@ -99,6 +105,9 @@ impl Plan {
     ) -> UnitInstance {
         let mut unit = unit.clone();
         unit.part = entry;
+        if let Some((_, to)) = self.unit_map.iter().find(|(from, _)| *from == unit.unit) {
+            unit.unit = *to;
+        }
         cells::apply(&mut unit, &self.report.cells);
         // A Net Tie refuses Not Fitted, so becoming one clears it.
         if !unit.component_type.allows_not_fitted() {
@@ -209,6 +218,8 @@ fn first_pass(
                 units,
                 content: None,
                 footprint: None,
+                unit_match: UnitMatch::Uuid,
+                unit_map: vec![],
             });
         }
     };
@@ -228,7 +239,7 @@ fn first_pass(
     // The mixed content: each aspect taken from the Library, the rest as it was.
     let mut part = old.part.clone();
     let mut symbol = old.symbol.clone();
-    let old_copies: Vec<(String, reda_model::Footprint)> = (old.footprints.iter())
+    let old_copies: Vec<(String, Footprint)> = (old.footprints.iter())
         .map(|c| {
             let c = home.footprint(*c).expect("an entry's copies exist");
             (c.hash.clone(), c.footprint.clone())
@@ -305,7 +316,7 @@ fn first_pass(
         symbol: copy.symbol.as_ref(),
         footprints: &new_fps,
     };
-    let mixed_fps: Vec<&reda_model::Footprint> = footprints.iter().map(|(_, f)| f).collect();
+    let mixed_fps: Vec<&Footprint> = footprints.iter().map(|(_, f)| f).collect();
     let mixed = Content {
         part: &part,
         symbol: Some(&symbol),
@@ -342,18 +353,14 @@ fn first_pass(
 
     // A Pin the mix leaves with no Pad on the chosen Footprint.
     let chosen_after = footprint.unwrap_or(unit.footprint);
-    if let Some(fp) = fp_of(&mixed_fps, chosen_after) {
-        let before = fp_of(&old_fps, unit.footprint)
-            .map(|fp| diff::pins_without_pads(&old.symbol, &old.part.pin_map, fp))
-            .unwrap_or_default();
-        for (unit, number) in diff::pins_without_pads(&symbol, &part.pin_map, fp) {
-            if !before.contains(&(unit.clone(), number.clone())) {
-                report
-                    .problems
-                    .push(Problem::PinWithoutPad { unit, number });
-            }
-        }
-    }
+    report.problems.extend(pins_without_pads(
+        (
+            &old.symbol,
+            &old.part.pin_map,
+            fp_of(&old_fps, unit.footprint),
+        ),
+        (&symbol, &part.pin_map, fp_of(&mixed_fps, chosen_after)),
+    ));
     report.blocked = report.problems.iter().any(Problem::blocks);
 
     let hash_of = |f: Uuid| {
@@ -376,14 +383,32 @@ fn first_pass(
             footprints,
         }),
         footprint,
+        unit_match: UnitMatch::Uuid,
+        unit_map: vec![],
     })
 }
 
+/// A Symbol, its pin map and the Footprint chosen, before or after.
+pub(crate) type PinsAndPads<'a> = (&'a Symbol, &'a PinMap, Option<&'a Footprint>);
+
+/// The Problem rows for the Pins `after` newly leaves with no Pad on its Footprint.
+pub(crate) fn pins_without_pads(before: PinsAndPads<'_>, after: PinsAndPads<'_>) -> Vec<Problem> {
+    let Some(fp) = after.2 else {
+        return vec![];
+    };
+    let had = before
+        .2
+        .map(|fp| diff::pins_without_pads(before.0, before.1, fp))
+        .unwrap_or_default();
+    diff::pins_without_pads(after.0, after.1, fp)
+        .into_iter()
+        .filter(|pin| !had.contains(pin))
+        .map(|(unit, number)| Problem::PinWithoutPad { unit, number })
+        .collect()
+}
+
 /// The Footprint `f` among `fps`.
-fn fp_of<'a>(
-    fps: &[&'a reda_model::Footprint],
-    f: Option<Uuid>,
-) -> Option<&'a reda_model::Footprint> {
+pub(crate) fn fp_of<'a>(fps: &[&'a Footprint], f: Option<Uuid>) -> Option<&'a Footprint> {
     f.and_then(|f| fps.iter().find(|fp| fp.uuid == f).copied())
 }
 
@@ -415,7 +440,7 @@ impl PinNets for Nets {
 
 /// Adds each plan's changes: the Part's name, then the Symbol's (with Nets, worked out
 /// on a copy of the Project with every plan applied), then the Footprints'.
-fn add_changes(project: &Project, plans: &mut [Plan]) {
+pub(crate) fn add_changes(project: &Project, plans: &mut [Plan]) {
     let symbols = plans
         .iter()
         .any(|p| p.report.aspects.contains(&Aspect::Symbol) && p.content.is_some());
@@ -443,7 +468,14 @@ fn add_changes(project: &Project, plans: &mut [Plan]) {
         if let Some(nets) = nets.as_ref().filter(|_| taken(Aspect::Symbol)) {
             let placed: Vec<(Uuid, Uuid)> =
                 plan.units.iter().map(|(_, u)| (u.uuid, u.unit)).collect();
-            diff::symbol_changes(&old.symbol, &content.symbol, &placed, nets, &mut changes);
+            diff::symbol_changes(
+                &old.symbol,
+                &content.symbol,
+                plan.unit_match,
+                &placed,
+                nets,
+                &mut changes,
+            );
         }
         if taken(Aspect::Footprints) {
             let old_fps = status::entry_footprints(home, old);

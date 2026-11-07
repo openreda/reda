@@ -35484,6 +35484,600 @@
     },
     {
       "category": "pcb",
+      "description": "Applies the update `pcb.footprint.update_preview` showed, given its `preview_hash` and the same `footprints`; fails with `conflict` when the result no longer matches. Each Footprint takes the Library's copy in place, keeping position, rotation, side, lock, Designator text placement and Pad Nets; its fields aren't touched, and local Pad edits go. `excluded` instances and Source Missing ones stay as they are.",
+      "icon": "library_update",
+      "id": "pcb.footprint.update_from_library",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "excluded": {
+            "default": [],
+            "description": "Instances of the preview left as they are.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "footprints": {
+            "description": "As for the preview.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "preview_hash": {
+            "description": "The `preview_hash` of the `pcb.footprint.update_preview` this applies.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preview_hash"
+        ],
+        "title": "FootprintUpdateFromLibraryParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "not_updated": {
+            "description": "The instances of the preview left as they were: excluded or Source Missing.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updated": {
+            "description": "The instances updated, by Designator in natural order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "updated",
+          "not_updated"
+        ],
+        "title": "FootprintUpdateApplied",
+        "type": "object"
+      },
+      "title": "Update from Library"
+    },
+    {
+      "category": "pcb",
+      "description": "Shows what PCB ▸ Update from Library would change, without changing anything: each Mechanical Part placed straight onto the board (no Component) whose Footprint copy differs by hash from the Library Footprint with its UUID, with the Pads added, removed, moved or resized and the local Pad edits the update removes. A Footprint no registered Library holds is `source_missing`. Instances with a Component update through `schematic.component.update_preview` and Sync. Apply it with `pcb.footprint.update_from_library`.",
+      "icon": "library_update",
+      "id": "pcb.footprint.update_preview",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprints": {
+            "description": "The Footprint instances to update, by UUID: Mechanical Parts placed on the PCB, with\nno Component. Every such instance by default.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "FootprintUpdateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FootprintChange": {
+            "enum": [
+              "added",
+              "removed",
+              "modified"
+            ],
+            "type": "string"
+          },
+          "FootprintUpdateRow": {
+            "description": "What an update changes on one placed Footprint.",
+            "properties": {
+              "changes": {
+                "description": "The Footprint's difference: the Pad numbers added or removed and the Pads moved or\nresized.",
+                "items": {
+                  "$ref": "#/$defs/PartChange"
+                },
+                "type": "array"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "footprint": {
+                "description": "The Library Footprint, by UUID, and its name in the board's copy.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "instance": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "lost_local_edits": {
+                "description": "The local Pad and graphics edits of this Locally Edited Footprint that the update\nremoves, each with its Pad, property and values. Omitted when none.",
+                "items": {
+                  "$ref": "#/$defs/LocalEdit"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "reason": {
+                "description": "For Source Missing: what is missing.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/$defs/LibraryStatus",
+                "description": "`library_differs`, or `source_missing`, which cannot be updated."
+              }
+            },
+            "required": [
+              "instance",
+              "designator",
+              "footprint",
+              "name",
+              "status"
+            ],
+            "type": "object"
+          },
+          "FromTo": {
+            "description": "A value before and after.",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "FromTo2": {
+            "description": "A value before and after.",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/PinType"
+              },
+              "to": {
+                "$ref": "#/$defs/PinType"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "LibraryStatus": {
+            "description": "How a placed Component compares with the Libraries.",
+            "oneOf": [
+              {
+                "const": "up_to_date",
+                "description": "Every aspect's content hash matches.",
+                "type": "string"
+              },
+              {
+                "const": "library_differs",
+                "description": "At least one aspect differs.",
+                "type": "string"
+              },
+              {
+                "const": "source_missing",
+                "description": "No registered Library holds the Part, or a Symbol or Footprint it references.",
+                "type": "string"
+              }
+            ]
+          },
+          "LocalEdit": {
+            "description": "One property of one Pad or graphic that differs from the copy it came from.",
+            "properties": {
+              "edited": {
+                "description": "The edited value; left out when it isn't set."
+              },
+              "graphic": {
+                "description": "The graphic, for a graphic edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "number": {
+                "description": "The Pad's number, for a Pad edit.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "original": {
+                "description": "The original value; left out when it wasn't set."
+              },
+              "pad": {
+                "description": "The Pad, for a Pad edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "property": {
+                "description": "The property, as the file names it; `graphic` for a graphic added or deleted whole.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "property"
+            ],
+            "type": "object"
+          },
+          "PartChange": {
+            "description": "One difference an update makes, under the aspect that brings it.",
+            "oneOf": [
+              {
+                "description": "Fields: the Part was renamed.",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "name",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: the Symbol changed; `name` is its name after, and `graphics` whether its\ndrawing changed.",
+                "properties": {
+                  "graphics": {
+                    "type": "boolean"
+                  },
+                  "kind": {
+                    "const": "symbol",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: a Unit new in the Symbol. It appears as unplaced.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_added",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: a Unit gone from the Symbol. A placed one blocks the Component until the\nuser deletes that Unit.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_removed",
+                    "type": "string"
+                  },
+                  "placed": {
+                    "type": "boolean"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: a Pin added, removed, renamed, retyped or moved, matched by number within\nits Unit. On a placed Unit, `leaves` and `joins` name the Nets the Pin leaves and\njoins: Wires never move, so a moved Pin may leave its Net.",
+                "properties": {
+                  "added": {
+                    "type": "boolean"
+                  },
+                  "electrical_type": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FromTo2"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "joins": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "pin",
+                    "type": "string"
+                  },
+                  "leaves": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "moved": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FromTo"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "removed": {
+                    "type": "boolean"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit",
+                  "number"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: an alternate added, removed or changed. On a changed one, the Pad\nnumbers added or removed and the Pads (by number) moved or resized. The PCB gets\nthe change through Sync, not through the update.",
+                "properties": {
+                  "change": {
+                    "$ref": "#/$defs/FootprintChange"
+                  },
+                  "footprint": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "pads_added": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_moved": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_removed": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_resized": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "name",
+                  "change"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: the alternates kept are in a new order; the first is the default.",
+                "properties": {
+                  "kind": {
+                    "const": "footprint_order",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: the pin-pad map overrides, old and new.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/PinMap"
+                  },
+                  "kind": {
+                    "const": "pin_map",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/PinMap"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: the Component's Footprint choice changes (`null` = none).",
+                "properties": {
+                  "from": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "footprint_choice",
+                    "type": "string"
+                  },
+                  "to": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PinMap": {
+            "additionalProperties": false,
+            "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+            "properties": {
+              "pins": {
+                "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+                "items": {
+                  "$ref": "#/$defs/PinPads"
+                },
+                "type": "array"
+              },
+              "unconnected": {
+                "description": "Pad numbers deliberately left unconnected, sorted.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "footprints": {
+            "description": "The instances in scope that are not Up to Date, by Designator in natural order.",
+            "items": {
+              "$ref": "#/$defs/FootprintUpdateRow"
+            },
+            "type": "array"
+          },
+          "preview_hash": {
+            "description": "Pass it to `pcb.footprint.update_from_library` with the same `footprints`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "footprints",
+          "preview_hash"
+        ],
+        "title": "FootprintUpdateResult",
+        "type": "object"
+      },
+      "title": "Preview Update from Library"
+    },
+    {
+      "category": "pcb",
       "description": "Adds a Pad that belongs to no Footprint: plated (SMD or through-hole) and optionally on a Net, or non-plated (a bare hole). For mounting holes, fiducials and test points.",
       "icon": "pad",
       "id": "pcb.free_pad.add",
@@ -44920,6 +45514,859 @@
         "type": "object"
       },
       "title": "Place Component"
+    },
+    {
+      "category": "schematic",
+      "description": "Gives Components another Part, from any registered Library. Each keeps its UUID (so Sync swaps its Footprint in place), Designator, Not Fitted, Unit positions and field positions. `keep_fields`: `edited` (default) keeps values that differ from the old Part's defaults, `all` keeps every value, `none` takes the new Part's. Component Type is always the new Part's; In BOM and In CPL follow `keep_fields`. The Footprint is the same one by UUID, then by name, then the new default, unless `footprint` names one. Units match by index, and a placed Unit with no match blocks that Component. Refused for a Part with no Symbol. Wires never move. Preview it with `schematic.component.replace_preview`.",
+      "icon": "library_update",
+      "id": "schematic.component.replace_part",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "KeepFields": {
+            "description": "Which of the Component's values a Replace keeps.",
+            "oneOf": [
+              {
+                "const": "edited",
+                "description": "Values that differ from the old Part's defaults stay; the rest take the new Part's.",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "description": "Every value the Component holds stays; only fields it has no value for take the new\nPart's defaults.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Every value takes the new Part's default, and fields the new Part lacks go.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "description": "As for the preview.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "footprint": {
+            "description": "As for the preview.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keep_fields": {
+            "$ref": "#/$defs/KeepFields",
+            "default": "edited",
+            "description": "As for the preview."
+          },
+          "part": {
+            "description": "As for the preview.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "preview_hash": {
+            "description": "The `preview_hash` of a `schematic.component.replace_preview` run with the same\nparameters; when given, a replace that no longer matches fails with `conflict`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "components",
+          "part"
+        ],
+        "title": "ReplacePartParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "replaced": {
+            "description": "The Components replaced, by Designator in natural order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "replaced"
+        ],
+        "title": "Replaced",
+        "type": "object"
+      },
+      "title": "Replace Part"
+    },
+    {
+      "category": "schematic",
+      "description": "Shows what Replace Part would change, without changing anything: the Update from Library compare with `part` as the new Part, for every aspect. Per Component: its Units matched by index, the Symbol's Units and Pins with the Nets each Pin leaves or joins (Wires never move), the Footprints with their Pads and pin map, the Footprint it gets, the field grid under `keep_fields`, problems and the local Pad edits removed. Apply it with `schematic.component.replace_part`.",
+      "icon": "library_update",
+      "id": "schematic.component.replace_preview",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "KeepFields": {
+            "description": "Which of the Component's values a Replace keeps.",
+            "oneOf": [
+              {
+                "const": "edited",
+                "description": "Values that differ from the old Part's defaults stay; the rest take the new Part's.",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "description": "Every value the Component holds stays; only fields it has no value for take the new\nPart's defaults.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Every value takes the new Part's default, and fields the new Part lacks go.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "description": "The Components to replace, by UUID; they all take `part`.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "footprint": {
+            "description": "One of the new Part's alternate Footprints, by UUID, for every Component. By default\neach keeps the same Footprint by UUID, else one with the same name, else takes the\nnew Part's default.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keep_fields": {
+            "$ref": "#/$defs/KeepFields",
+            "default": "edited"
+          },
+          "part": {
+            "description": "The new Part, by UUID, from any registered Library. It needs a Symbol.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "components",
+          "part"
+        ],
+        "title": "ReplaceParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Cell": {
+            "description": "One cell of the field grid.",
+            "properties": {
+              "action": {
+                "$ref": "#/$defs/CellAction",
+                "description": "How the cell starts."
+              },
+              "case": {
+                "$ref": "#/$defs/CellCase"
+              },
+              "cell": {
+                "description": "A field's name, or `component_type`, `in_bom`, `in_cpl` or `not_fitted`.",
+                "type": "string"
+              },
+              "component": {
+                "description": "The Component's value.",
+                "type": "string"
+              },
+              "new": {
+                "description": "The new default, from the Library (`\"\"` = not set).",
+                "type": "string"
+              },
+              "old": {
+                "description": "The old default, from the part-table copy (`\"\"` = not set).",
+                "type": "string"
+              }
+            },
+            "required": [
+              "cell",
+              "case",
+              "old",
+              "new",
+              "component",
+              "action"
+            ],
+            "type": "object"
+          },
+          "CellAction": {
+            "description": "What a cell does to the Component.",
+            "oneOf": [
+              {
+                "const": "update",
+                "description": "The Component takes the new default (an empty one removes the field).",
+                "type": "string"
+              },
+              {
+                "const": "reject",
+                "description": "The Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Nothing to do: the value is the new default already, or the cell is locked.",
+                "type": "string"
+              }
+            ]
+          },
+          "CellCase": {
+            "description": "How the three values of a cell compare.",
+            "oneOf": [
+              {
+                "const": "changed",
+                "description": "The default changed and the Component holds the old one.",
+                "type": "string"
+              },
+              {
+                "const": "same",
+                "description": "The default changed and the Component already holds the new one.",
+                "type": "string"
+              },
+              {
+                "const": "edited",
+                "description": "The default changed (or is gone) and the Component holds a value of its own.",
+                "type": "string"
+              },
+              {
+                "const": "added",
+                "description": "The field is new in the Library and the Component has no value.",
+                "type": "string"
+              },
+              {
+                "const": "removed",
+                "description": "The field is gone from the Library and the Component holds the old default.",
+                "type": "string"
+              },
+              {
+                "const": "component_only",
+                "description": "Only the Component has the field.",
+                "type": "string"
+              },
+              {
+                "const": "locked",
+                "description": "The field is one of the Component's Locked Fields: no change, and no override\nuntil it is unlocked.",
+                "type": "string"
+              },
+              {
+                "const": "cleared",
+                "description": "Not Fitted, cleared because the Component becomes a Net Tie, which refuses it.",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintChange": {
+            "enum": [
+              "added",
+              "removed",
+              "modified"
+            ],
+            "type": "string"
+          },
+          "FromTo": {
+            "description": "A value before and after.",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "FromTo2": {
+            "description": "A value before and after.",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/PinType"
+              },
+              "to": {
+                "$ref": "#/$defs/PinType"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "LocalEdit": {
+            "description": "One property of one Pad or graphic that differs from the copy it came from.",
+            "properties": {
+              "edited": {
+                "description": "The edited value; left out when it isn't set."
+              },
+              "graphic": {
+                "description": "The graphic, for a graphic edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "number": {
+                "description": "The Pad's number, for a Pad edit.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "original": {
+                "description": "The original value; left out when it wasn't set."
+              },
+              "pad": {
+                "description": "The Pad, for a Pad edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "property": {
+                "description": "The property, as the file names it; `graphic` for a graphic added or deleted whole.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "property"
+            ],
+            "type": "object"
+          },
+          "PartChange": {
+            "description": "One difference an update makes, under the aspect that brings it.",
+            "oneOf": [
+              {
+                "description": "Fields: the Part was renamed.",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "name",
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: the Symbol changed; `name` is its name after, and `graphics` whether its\ndrawing changed.",
+                "properties": {
+                  "graphics": {
+                    "type": "boolean"
+                  },
+                  "kind": {
+                    "const": "symbol",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: a Unit new in the Symbol. It appears as unplaced.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_added",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: a Unit gone from the Symbol. A placed one blocks the Component until the\nuser deletes that Unit.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_removed",
+                    "type": "string"
+                  },
+                  "placed": {
+                    "type": "boolean"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: a Pin added, removed, renamed, retyped or moved, matched by number within\nits Unit. On a placed Unit, `leaves` and `joins` name the Nets the Pin leaves and\njoins: Wires never move, so a moved Pin may leave its Net.",
+                "properties": {
+                  "added": {
+                    "type": "boolean"
+                  },
+                  "electrical_type": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FromTo2"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "joins": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "pin",
+                    "type": "string"
+                  },
+                  "leaves": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "moved": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FromTo"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "removed": {
+                    "type": "boolean"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit",
+                  "number"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: an alternate added, removed or changed. On a changed one, the Pad\nnumbers added or removed and the Pads (by number) moved or resized. The PCB gets\nthe change through Sync, not through the update.",
+                "properties": {
+                  "change": {
+                    "$ref": "#/$defs/FootprintChange"
+                  },
+                  "footprint": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "footprint",
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "pads_added": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_moved": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_removed": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_resized": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "footprint",
+                  "name",
+                  "change"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: the alternates kept are in a new order; the first is the default.",
+                "properties": {
+                  "kind": {
+                    "const": "footprint_order",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: the pin-pad map overrides, old and new.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/PinMap"
+                  },
+                  "kind": {
+                    "const": "pin_map",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/PinMap"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: the Component's Footprint choice changes (`null` = none).",
+                "properties": {
+                  "from": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "footprint_choice",
+                    "type": "string"
+                  },
+                  "to": {
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PinMap": {
+            "additionalProperties": false,
+            "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+            "properties": {
+              "pins": {
+                "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+                "items": {
+                  "$ref": "#/$defs/PinPads"
+                },
+                "type": "array"
+              },
+              "unconnected": {
+                "description": "Pad numbers deliberately left unconnected, sorted.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Problem": {
+            "description": "Something in an update that needs the user: a blocking one stops that Component.",
+            "oneOf": [
+              {
+                "description": "A placed Unit is gone from the Symbol: delete it first. Blocks.",
+                "properties": {
+                  "kind": {
+                    "const": "placed_unit_removed",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Library Part has no Symbol, so the Symbol cannot be taken. Blocks.",
+                "properties": {
+                  "kind": {
+                    "const": "no_symbol",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The mix leaves a Pin with no Pad on the chosen Footprint.",
+                "properties": {
+                  "kind": {
+                    "const": "pin_without_pad",
+                    "type": "string"
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit",
+                  "number"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "ReplaceRow": {
+            "description": "What a Replace changes on one Component.",
+            "properties": {
+              "blocked": {
+                "description": "Whether a Problem stops this Component's Replace. Omitted when false.",
+                "type": "boolean"
+              },
+              "cells": {
+                "description": "The field grid: how each value goes under `keep_fields`. Component Type always\ntakes the new Part's.",
+                "items": {
+                  "$ref": "#/$defs/Cell"
+                },
+                "type": "array"
+              },
+              "changes": {
+                "description": "The differences: the Part's name, the Symbol (Units, and Pins with the Nets they\nleave or join), then the Footprints.",
+                "items": {
+                  "$ref": "#/$defs/PartChange"
+                },
+                "type": "array"
+              },
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "footprint": {
+                "description": "The Footprint it gets (`null` = none).",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "from_part": {
+                "description": "The Part it has now, by UUID, and its name.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "from_part_name": {
+                "type": "string"
+              },
+              "lost_local_edits": {
+                "description": "The local Pad and graphics edits of its Locally Edited Footprint on the board that\nthe Replace removes, each with its Pad, property and values. Omitted when none.",
+                "items": {
+                  "$ref": "#/$defs/LocalEdit"
+                },
+                "type": "array"
+              },
+              "problems": {
+                "items": {
+                  "$ref": "#/$defs/Problem"
+                },
+                "type": "array"
+              },
+              "units": {
+                "description": "Each placed Unit and the new Symbol's Unit it becomes, matched by index; `to` is\nleft out for one with no match, which blocks.",
+                "items": {
+                  "$ref": "#/$defs/UnitReplaced"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "from_part",
+              "from_part_name",
+              "footprint",
+              "units",
+              "changes"
+            ],
+            "type": "object"
+          },
+          "UnitReplaced": {
+            "description": "One placed Unit in a Replace.",
+            "properties": {
+              "from": {
+                "description": "Its Unit's name in the old Symbol.",
+                "type": "string"
+              },
+              "to": {
+                "description": "The name of the new Symbol's Unit at the same index.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "unit": {
+                "description": "The placed Unit, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "unit",
+              "from"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "The Components, by Designator in natural order.",
+            "items": {
+              "$ref": "#/$defs/ReplaceRow"
+            },
+            "type": "array"
+          },
+          "part": {
+            "description": "The new Part, by UUID, and its name.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "part_name": {
+            "type": "string"
+          },
+          "preview_hash": {
+            "description": "Pass it to `schematic.component.replace_part` with the same parameters.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part",
+          "part_name",
+          "components",
+          "preview_hash"
+        ],
+        "title": "ReplacePreviewResult",
+        "type": "object"
+      },
+      "title": "Preview Replace Part"
     },
     {
       "category": "schematic",
