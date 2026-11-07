@@ -30,8 +30,8 @@ pub fn board_layer(pcb: &PcbDocument, layer: FootprintLayer) -> Option<Uuid> {
     pcb.layers().find(kind, Some(side)).map(|l| l.uuid)
 }
 
-/// Every text a placed Footprint draws, as PCB text whose `uuid` is the instance: the
-/// text shapes of its drawing (Hershey, anchored at the start of the baseline), then each
+/// Every text a placed Footprint draws, as PCB text retaining each field entry's UUID: the
+/// text shapes of its drawing (Hershey, anchored at the last baseline), then each
 /// of its field texts (centred on its placement) when visible and the instance has that
 /// field. Text on a Layer the board lacks is left out.
 pub fn footprint_texts(
@@ -153,7 +153,7 @@ pub fn placed_field_texts(
 /// origin, top side), on the board Layers of `pcb`, each with the UUID of its graphic or
 /// field text: its drawing's text shapes, then its field texts, laid out exactly as on a
 /// board. The Designator shows as `designator`, the value as `value` and any other field
-/// as its name. Each PCB text's `uuid` is the Footprint's.
+/// as its name. Field texts retain their entry UUIDs.
 pub fn element_texts(
     pcb: &PcbDocument,
     footprint: &Footprint,
@@ -219,9 +219,8 @@ fn pcb_text(
     }
 }
 
-/// A field text centred on its placement, mirrored on a bottom Layer: the centre of the
-/// glyphs' box (strokes and fill) lands on `at`. This is the one place the canvas, the
-/// Gerber silkscreen and DRC centre Footprint text.
+/// A field text at its shared style anchor, mirrored on a bottom Layer. The canvas,
+/// fabrication plots and DRC all resolve its justification through `text_geometry`.
 fn centred_text(
     pcb: &PcbDocument,
     _object: Uuid,

@@ -57,7 +57,7 @@
       {"uuid":"8aab28e9-82a2-4b70-9c95-c663eda97630","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","shape":{"kind":"line","start":{"x":-2032000,"y":508000},"end":{"x":2032000,"y":508000}},"width":254000},
       {"uuid":"c083b96f-c08b-4436-9ed4-c77a9ab4a55d","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","shape":{"kind":"line","start":{"x":-2032000,"y":-508000},"end":{"x":2032000,"y":-508000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"a98b3441c6e4409decad8344c0db6c02","part":{"uuid":"d0560bc9-5203-4a8b-b575-24058968bdd8","name":"Header_1x02","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"0d12434e-5c88-4016-a415-e4bec26351fe"},"footprints":["26d79843-0798-462a-8497-835a14905264","a3cf2a76-4db1-40d0-b706-993194277cef"],"copies":["00000000-0000-4000-8000-000000000043","00000000-0000-4000-8000-000000000044"],"fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"0d12434e-5c88-4016-a415-e4bec26351fe","name":"Conn_1x02","designator_prefix":"J","description":"Generic connector, 1 × 2 pins"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"3f1d0201251719e2a9ed079cc7ca07ae","part":{"uuid":"d0560bc9-5203-4a8b-b575-24058968bdd8","name":"Header_1x02","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"0d12434e-5c88-4016-a415-e4bec26351fe"},"footprints":["26d79843-0798-462a-8497-835a14905264","a3cf2a76-4db1-40d0-b706-993194277cef"],"copies":["00000000-0000-4000-8000-000000000043","00000000-0000-4000-8000-000000000044"],"fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"0d12434e-5c88-4016-a415-e4bec26351fe","name":"Conn_1x02","designator_prefix":"J","description":"Generic connector, 1 × 2 pins"},"units":[
       {"uuid":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","name":"A"}
     ],"pins":[
       {"uuid":"1b766ffd-a0c4-461e-ad0f-e59c6ee1a3ea","unit":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
@@ -313,7 +313,7 @@
       {"uuid":"44e00762-a41d-49b3-9770-d4b89f8e2d8d","field":"Designator","at":{"x":0,"y":2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"d892f725-4b0a-4cea-9b32-7beea19dcad3","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000043","hash":"534b66034596997f1531bfbac7b4018a","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000043","hash":"aff37f12ad3ea2503f0cf0d5afde2908","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
       {"uuid":"51072fb9-94c3-4b5d-80bf-636681ace084","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"75bf775f-bdf6-476e-a21c-ac73893d1705","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
     ],"graphics":[
@@ -327,7 +327,7 @@
       {"uuid":"0a73cdc3-c47e-4114-8f77-f6b28948356a","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"81bd3f94-6d32-4707-9448-c1ab0ecaf351","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000044","hash":"61bd2647fee626cff25cc023d656fc7d","footprint":{"uuid":"a3cf2a76-4db1-40d0-b706-993194277cef","name":"HDR127P1X2","description":"Pin header, 1 × 2, 1.27 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000044","hash":"05707182fd93cc0b061bc15af8b5ed60","footprint":{"uuid":"a3cf2a76-4db1-40d0-b706-993194277cef","name":"HDR127P1X2","description":"Pin header, 1 × 2, 1.27 mm pitch"},"pads":[
       {"uuid":"10b9bb66-da82-4d69-98e7-70ee1d917aa1","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"37c3512e-5a88-4050-bec2-027d541f600a","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
     ],"graphics":[

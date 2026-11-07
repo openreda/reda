@@ -173,6 +173,22 @@ impl Align {
     }
 }
 
+impl From<reda_model::TextJustify> for Align {
+    fn from(justify: reda_model::TextJustify) -> Self {
+        let h = match justify.h {
+            reda_model::TextHJustify::Left => HAlign::Left,
+            reda_model::TextHJustify::Center => HAlign::Center,
+            reda_model::TextHJustify::Right => HAlign::Right,
+        };
+        let v = match justify.v {
+            reda_model::TextVJustify::Bottom => VAlign::Baseline,
+            reda_model::TextVJustify::Center => VAlign::Middle,
+            reda_model::TextVJustify::Top => VAlign::Top,
+        };
+        Self::new(h, v)
+    }
+}
+
 impl Primitive {
     /// The axis-aligned bounds of the primitive's ink, as (min, max).
     pub fn bounds(&self) -> Option<(Point, Point)> {

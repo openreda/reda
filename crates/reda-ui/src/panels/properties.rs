@@ -31,6 +31,18 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
     let mut edits = Vec::new();
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.label(tr!("properties-selected", count = properties.count));
+        for uuid in &shell.selection().objects {
+            if let Some(reda_engine::model::Object::PcbText(text)) = project.object(*uuid) {
+                let omitted =
+                    reda_engine::pcb::text_geometry(&text, shell.engine().fonts()).dropped_lines;
+                if omitted > 0 {
+                    ui.colored_label(
+                        ui.visuals().warn_fg_color,
+                        tr!("properties-text-frame-omitted", count = omitted),
+                    );
+                }
+            }
+        }
         for (kind, n) in &properties.kinds {
             ui.weak(format!("{kind} × {n}"));
         }

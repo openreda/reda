@@ -675,3 +675,60 @@ fn pcbway_mask_files_record_the_specified_fifty_micrometre_expansion() {
         );
     }
 }
+
+#[test]
+fn knockout_text_plots_dark_polygons_with_glyph_holes_without_erasing_other_silk() {
+    let dir = TempDir::new("gerber-knockout");
+    let mut engine = board(&dir);
+    engine.run_ok("pcb.graphic.add_line",json!({"layer":"silkscreen_top","width":"0.1mm","from":{"x":0,"y":0},"to":{"x":"20mm","y":0}}));
+    engine.run_ok("pcb.text.add",json!({"layer":"silkscreen_top","text":"A","x":"5mm","y":"5mm","height":"2.1mm","thickness":"0.2mm","knockout":{"margin":"0.3mm"}}));
+    let files = plot(&engine);
+    let layer = read(&file(&files, "Demo.GTO").bytes);
+    assert_eq!(layer.draws().count(), 1, "background silk is kept");
+    let regions: Vec<_> = layer.regions().collect();
+    assert!(!regions.is_empty());
+    assert!(
+        regions
+            .iter()
+            .all(|r| matches!(r, Object::Region { dark: true, .. })),
+        "knockout never emits clear regions"
+    );
+    let covered = |x: i64, y: i64| {
+        regions.iter().any(|r| {
+            let Object::Region { points, .. } = r else {
+                unreachable!()
+            };
+            assert!(points.len() == 3 || (points.len() == 4 && points.first() == points.last()));
+            let cross = |a: (i64, i64), b: (i64, i64)| {
+                (b.0 - a.0) as i128 * (y - a.1) as i128 - (b.1 - a.1) as i128 * (x - a.0) as i128
+            };
+            let sides = [
+                cross(points[0], points[1]),
+                cross(points[1], points[2]),
+                cross(points[2], points[0]),
+            ];
+            sides.iter().all(|s| *s >= 0) || sides.iter().all(|s| *s <= 0)
+        })
+    };
+    assert!(covered(5_000_000, 4_800_000), "grown box is plotted");
+    assert!(!covered(5_100_000, 5_000_000), "stroke glyph is cut out");
+}
+
+#[test]
+fn gerber_text_frames_omit_whole_lines_instead_of_clipping_glyphs() {
+    let dir = TempDir::new("gerber-text-frame");
+    let mut engine = board(&dir);
+    engine.run_ok("pcb.text.add",json!({"layer":"silkscreen_top","text":"AAA","x":"5mm","y":"5mm","height":"2.1mm","frame":{"width":"3.6mm","height":"2.1mm"}}));
+    let files = plot(&engine);
+    let layer = read(&file(&files, "Demo.GTO").bytes);
+    assert_eq!(
+        layer.draws().count(),
+        6,
+        "two complete A glyphs fit; the wrapped third line is absent"
+    );
+    assert!(
+        layer
+            .draws()
+            .all(|o| matches!(o,Object::Draw {from,to,..} if from.1>=5_000_000 && to.1>=5_000_000))
+    );
+}

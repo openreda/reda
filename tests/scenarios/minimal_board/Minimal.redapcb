@@ -56,11 +56,11 @@
     {"uuid":"00000000-0000-4000-8000-000000000044","name":"VCC"}
   ],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-000000000050","layer":"00000000-0000-4000-8000-000000000007","text":"MINIMAL","font":"Hershey Roman Simplex","position":{"x":20000000,"y":2000000},"height":1000000,"thickness":150000}
+    {"uuid":"00000000-0000-4000-8000-000000000050","layer":"00000000-0000-4000-8000-000000000007","text":"MINIMAL","position":{"x":20000000,"y":2000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"}}
   ],
   "graphics": [],
   "footprint_copies": [
-    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"fcf5871763ca7a2d6a440a424d13db2e","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"0c4681d239b294438852bd77080c98a6","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
       {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000},
       {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":50000}
     ],"graphics":[
@@ -71,7 +71,7 @@
       {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000047","hash":"32c9b61778f6276e737e4cd7cdb60f00","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000047","hash":"aff37f12ad3ea2503f0cf0d5afde2908","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
       {"uuid":"51072fb9-94c3-4b5d-80bf-636681ace084","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"75bf775f-bdf6-476e-a21c-ac73893d1705","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
     ],"graphics":[
@@ -85,7 +85,7 @@
       {"uuid":"0a73cdc3-c47e-4114-8f77-f6b28948356a","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"81bd3f94-6d32-4707-9448-c1ab0ecaf351","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000049","hash":"5721a5ad2916786270514afdb3a825eb","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000049","hash":"f66650588f7be8832a306c50aa7314b3","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
       {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
       {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
     ],"graphics":[

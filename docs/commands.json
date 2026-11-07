@@ -14149,6 +14149,7 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
                 "type": "string"
               },
               "frame": {
@@ -14162,7 +14163,7 @@
                 ]
               },
               "height": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Capital height.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -14206,7 +14207,7 @@
                 "type": "string"
               },
               "thickness": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Stroke-font pen width; outline fonts ignore it.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -17588,10 +17589,11 @@
             "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Capital height.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -17613,7 +17615,7 @@
                 ]
               },
               "thickness": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Stroke-font pen width; outline fonts ignore it.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -19889,6 +19891,7 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
                 "type": "string"
               },
               "frame": {
@@ -19902,7 +19905,7 @@
                 ]
               },
               "height": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Capital height.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -19946,7 +19949,7 @@
                 "type": "string"
               },
               "thickness": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Stroke-font pen width; outline fonts ignore it.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -23349,10 +23352,11 @@
             "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Capital height.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -23374,7 +23378,7 @@
                 ]
               },
               "thickness": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Stroke-font pen width; outline fonts ignore it.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -30741,7 +30745,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds free text on a copper, silkscreen, mechanical or documentation Layer, starting at (`x`, `y`), the left end of its baseline. It uses the Hershey stroke font unless `font` names another family. Text on a bottom Layer is mirrored unless `mirrored` is false.",
+      "description": "Adds free text on a copper, silkscreen, mechanical or documentation Layer, anchored at (`x`, `y`), left/bottom by default. It uses the Hershey stroke font unless `font` names another family. Text on a bottom Layer is mirrored unless `mirrored` is false.",
       "icon": "text",
       "id": "pcb.text.add",
       "kind": "edit",
@@ -30933,7 +30937,7 @@
           },
           "x": {
             "$ref": "#/$defs/Length",
-            "description": "The left end of the first baseline."
+            "description": "The text block or frame anchor."
           },
           "y": {
             "$ref": "#/$defs/Length"
@@ -31393,7 +31397,7 @@
               }
             ],
             "default": null,
-            "description": "A new start point; give both coordinates."
+            "description": "A new anchor; give both coordinates."
           },
           "y": {
             "anyOf": [
@@ -36494,10 +36498,11 @@
             "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Capital height.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -36519,7 +36524,7 @@
                 ]
               },
               "thickness": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Stroke-font pen width; outline fonts ignore it.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -38543,10 +38548,11 @@
             "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Capital height.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -38568,7 +38574,7 @@
                 ]
               },
               "thickness": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Stroke-font pen width; outline fonts ignore it.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -42825,10 +42831,11 @@
             "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Capital height.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -42850,7 +42857,7 @@
                 ]
               },
               "thickness": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "Stroke-font pen width; outline fonts ignore it.",
                 "format": "int64",
                 "type": "integer"
               }

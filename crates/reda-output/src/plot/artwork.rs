@@ -4,7 +4,8 @@
 //! A Layer's artwork is its Footprints' drawing, Designators and value text, then the free
 //! drawing and text on it. Text is plotted from the same geometry the canvas draws
 //! ([`reda_pcb::text_geometry`]): stroke-font strokes as round-pen draws, outline-font
-//! glyphs as filled triangles.
+//! glyphs and flattened knockout text as filled triangles. Text Frames use the same
+//! complete-line omission as the canvas.
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{GraphicShape, PcbText, Shape, Side, Uuid};

@@ -1577,6 +1577,7 @@
       "description": "Free text on a PCB Layer.\n\n`position` is its justification anchor. Mirroring and rotation apply about it.",
       "properties": {
         "font": {
+          "description": "The named family. A missing family draws as bundled Noto Sans.",
           "type": "string"
         },
         "frame": {
@@ -1590,7 +1591,7 @@
           ]
         },
         "height": {
-          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "description": "Capital height.",
           "format": "int64",
           "type": "integer"
         },
@@ -1634,7 +1635,7 @@
           "type": "string"
         },
         "thickness": {
-          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "description": "Stroke-font pen width; outline fonts ignore it.",
           "format": "int64",
           "type": "integer"
         },
@@ -2201,10 +2202,11 @@
       "description": "The shared style of free PCB text and Footprint field text.",
       "properties": {
         "font": {
+          "description": "The named family. A missing family draws as bundled Noto Sans.",
           "type": "string"
         },
         "height": {
-          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "description": "Capital height.",
           "format": "int64",
           "type": "integer"
         },
@@ -2226,7 +2228,7 @@
           ]
         },
         "thickness": {
-          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "description": "Stroke-font pen width; outline fonts ignore it.",
           "format": "int64",
           "type": "integer"
         }

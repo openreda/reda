@@ -1187,3 +1187,7 @@ selection-kind-board-cutout = Board Cutout
 selection-kind-pin = Pin
 selection-kind-graphic = Graphic
 selection-kind-text = Text
+properties-text-frame-omitted = Text Frame: { $count ->
+    [one] 1 line omitted
+   *[other] { $count } lines omitted
+    }

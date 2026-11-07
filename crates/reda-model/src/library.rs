@@ -287,6 +287,7 @@ pub struct FootprintText {
     /// The text centre, relative to the Footprint origin.
     pub at: Point,
     pub rotation: Millideg,
+    #[serde(deserialize_with = "footprint_text_style")]
     pub style: TextStyle,
     pub layer: FootprintLayer,
     #[serde(default = "yes", skip_serializing_if = "is_true")]
@@ -319,12 +320,28 @@ impl FootprintText {
     }
 }
 
+/// Footprint entries default to centre; free PCB text defaults to left/bottom.
+fn footprint_text_style<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<TextStyle, D::Error> {
+    let mut value = serde_json::Value::deserialize(deserializer)?;
+    if let Some(fields) = value.as_object_mut() {
+        fields
+            .entry("justify")
+            .or_insert_with(|| serde_json::json!({"h":"center","v":"center"}));
+    }
+    serde_json::from_value(value).map_err(serde::de::Error::custom)
+}
+
 /// The shared style of free PCB text and Footprint field text.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TextStyle {
+    /// The named family. A missing family draws as bundled Noto Sans.
     pub font: String,
+    /// Capital height.
     pub height: Nm,
+    /// Stroke-font pen width; outline fonts ignore it.
     pub thickness: Nm,
     #[serde(default)]
     pub justify: TextJustify,

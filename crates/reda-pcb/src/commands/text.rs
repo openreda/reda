@@ -65,7 +65,7 @@ pub struct TextAddParams {
     pub layer: LayerRef,
     /// The text; `\n` starts a new line.
     pub text: String,
-    /// The left end of the first baseline.
+    /// The text block or frame anchor.
     pub x: Length,
     pub y: Length,
     /// The capital height; 1 mm when left out.
@@ -98,7 +98,7 @@ impl Command for TextAdd {
         id: "pcb.text.add",
         title: "Add Text",
         description: "Adds free text on a copper, silkscreen, mechanical or documentation \
-                      Layer, starting at (`x`, `y`), the left end of its baseline. It uses \
+                      Layer, anchored at (`x`, `y`), left/bottom by default. It uses \
                       the Hershey stroke font unless `font` names another family. Text on a \
                       bottom Layer is mirrored unless `mirrored` is false.",
         category: "pcb",
@@ -164,7 +164,7 @@ pub struct TextSetParams {
     /// New text; `\n` starts a new line.
     #[serde(default)]
     pub text: Option<String>,
-    /// A new start point; give both coordinates.
+    /// A new anchor; give both coordinates.
     #[serde(default)]
     pub x: Option<Length>,
     #[serde(default)]
