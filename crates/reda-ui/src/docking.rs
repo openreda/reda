@@ -536,7 +536,9 @@ impl Cx<'_, '_> {
             .project()
             .and_then(|p| p.document(document))
             .map(|d| d.kind);
-        self.shell.selection_picking_mut().time = Some(input.response.ctx.input(|i| i.time));
+        self.shell
+            .selection_picking_mut()
+            .set_time(input.response.ctx.input(|i| i.time));
         if self.shell.tool() == crate::tools::Tool::Select
             && input.response.double_clicked()
             && let Some(screen) = input.response.interact_pointer_pos()
@@ -553,10 +555,10 @@ impl Cx<'_, '_> {
         for event in &input.events {
             match event {
                 crate::canvas::interact::Pointer::DragStart { .. } => {
-                    self.shell.selection_picking_mut().idle = false
+                    self.shell.selection_picking_mut().set_idle(false)
                 }
                 crate::canvas::interact::Pointer::DragEnd(_) => {
-                    self.shell.selection_picking_mut().idle = true
+                    self.shell.selection_picking_mut().set_idle(true)
                 }
                 _ => {}
             }

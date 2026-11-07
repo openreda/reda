@@ -2,6 +2,7 @@
 //! object snap mode and Gridless (`view.snap.set`), the grid and the units. It is kept in
 //! `.reda/view.json` per Document, never in the Document. Also `view.jump_to`.
 
+use reda_ui::working_state::FilterKind;
 use std::path::{Path, PathBuf};
 
 use reda_testkit::TempDir;
@@ -85,8 +86,8 @@ fn the_filter_has_a_toggle_per_kind_of_the_document_type_plus_all_and_none() {
     let mut expected = sheet_kinds.clone();
     expected.retain(|k| k != "wire" && k != "net_label");
     assert_eq!(on(&out), expected);
-    assert!(!shell.selection_filter(sheet).allows("wire"));
-    assert!(shell.selection_filter(sheet).allows("unit"));
+    assert!(!shell.selection_filter(sheet).allows(FilterKind::Wire));
+    assert!(shell.selection_filter(sheet).allows(FilterKind::Unit));
 
     // None, then one back.
     let out = shell
@@ -239,9 +240,9 @@ fn the_working_state_is_kept_in_view_json_and_not_in_the_documents() {
         .run("view.snap.set", json!({"document": board}))
         .unwrap();
     assert_eq!(out, json!({"mode": "off", "gridless": true}));
-    assert!(!again.selection_filter(board).allows("zone"));
-    assert!(again.selection_filter(board).allows("track"));
-    assert!(!again.selection_filter(sheet).allows("wire"));
+    assert!(!again.selection_filter(board).allows(FilterKind::Zone));
+    assert!(again.selection_filter(board).allows(FilterKind::Track));
+    assert!(!again.selection_filter(sheet).allows(FilterKind::Wire));
 }
 
 #[test]

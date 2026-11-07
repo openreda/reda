@@ -1,6 +1,7 @@
 //! Both Selection Filter surfaces read the same per-Document working state.
 
-use crate::{shell::Shell, working_state::filter_kinds};
+use crate::shell::Shell;
+use crate::working_state::{FilterKind, filter_kinds};
 use reda_engine::model::Uuid;
 use serde_json::{Value, json};
 
@@ -23,7 +24,7 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
             }
         }
     });
-    for kind in filter_kinds(ty) {
+    for &kind in filter_kinds(ty) {
         let mut on = filter.allows(kind);
         if ui
             .checkbox(
@@ -34,7 +35,7 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
         {
             commands.push((
                 "selection.filter.set",
-                json!({"document":document,"kinds":{*kind:on}}),
+                json!({"document":document,"kinds":{kind.name():on}}),
             ));
         }
     }
@@ -91,6 +92,9 @@ pub fn button(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Option<(Strin
     command
 }
 
-pub fn kind_label(kind: &str) -> String {
-    crate::i18n::translate(&format!("selection-kind-{}", kind.replace('_', "-")), &[])
+pub fn kind_label(kind: FilterKind) -> String {
+    crate::i18n::translate(
+        &format!("selection-kind-{}", kind.name().replace('_', "-")),
+        &[],
+    )
 }

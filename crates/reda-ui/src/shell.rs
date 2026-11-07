@@ -106,6 +106,11 @@ pub struct DocumentTab {
 }
 
 impl DocumentTab {
+    /// The canvas shows a board from below, so Document x runs right to left on screen.
+    pub fn mirrored(&self) -> bool {
+        self.layers.from_bottom && self.scene.layers.is_some()
+    }
+
     fn new(document: Uuid, title: String, scene: SceneHandle) -> DocumentTab {
         DocumentTab {
             document,
@@ -1078,7 +1083,7 @@ impl Shell {
             view.grid = grid;
             view.snap_mode = snap.map(|s| s.mode);
             view.gridless = snap.is_some_and(|s| s.gridless);
-            view.selection_filter_off = filter.off;
+            view.selection_filter_off = filter.off.iter().map(|k| k.name().to_owned()).collect();
         }
         if let Some(pcb) = project.pcb() {
             let view = documents.entry(pcb.uuid).or_default();
@@ -1826,9 +1831,9 @@ impl Shell {
                 working.snap.insert(*document, snap);
             }
             let list = working_state::filter_kinds(ty);
-            let off: BTreeSet<String> = (view.selection_filter_off.iter())
-                .filter(|k| list.contains(&k.as_str()))
-                .cloned()
+            let off: BTreeSet<_> = (view.selection_filter_off.iter())
+                .filter_map(|name| working_state::FilterKind::parse(name))
+                .filter(|k| list.contains(k))
                 .collect();
             if !off.is_empty() {
                 working.filters.insert(*document, SelectionFilter { off });

@@ -4,7 +4,7 @@
 //!
 //! - Units show as tabs over the canvas (`library.symbol.unit.show` switches); the canvas
 //!   draws the shown Unit ([`reda_engine::render::symbol_scene`]) and the Tools work on it.
-//! - Select picks Pins and graphics (click, Shift/Mod, box), and dragging moves them on
+//! - Select picks Pins and graphics (click, Shift+click, box), and dragging moves them on
 //!   the grid: one `library.symbol.move` on release.
 //! - Pin places a Pin per click on the 50 mil grid, numbered one past the highest; Space
 //!   (`tool.rotate`) turns the next one by 90°.
@@ -35,7 +35,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{BoxMode, Combine, Pointer, combine, snap_to_grid};
+use crate::canvas::interact::{BoxMode, Pointer, snap_to_grid};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
@@ -265,7 +265,12 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
     let tool = shell.tool();
     let grid = snap_grid(shell, symbol, tool);
     let state = canvas(shell, symbol);
-    let directional = shell.preferences().editing.directional_rectangle;
+    let mode = match &state.interaction {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, symbol, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
     let Some(tab) = shell.document_tab_mut(symbol) else {
         return;
     };
@@ -287,11 +292,7 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: if directional {
-                        BoxMode::of_drag(*from, *to)
-                    } else {
-                        BoxMode::Enclose
-                    },
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -346,13 +347,6 @@ impl Cx<'_> {
     fn snap(&self, at: P) -> Point {
         let tool = self.shell.tool();
         snap_to_grid(at, snap_grid(self.shell, self.element(), tool))
-    }
-
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
     }
 
     fn run(&mut self, id: &str, params: Value) {
@@ -544,26 +538,16 @@ impl Cx<'_> {
                         modifiers,
                     };
                 };
-                let selected = &self.shell.selection().objects;
-                let already_selected = selected.contains(&hit);
-                let objects = if already_selected {
-                    selected.clone()
-                } else if modifiers.shift {
-                    combine(selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                if !already_selected {
-                    self.select(objects.clone());
-                }
                 let parts = element_editor::parts(self.shell.engine(), self.element());
-                let objects = objects
-                    .into_iter()
-                    .filter(|id| {
-                        parts.contains(id)
-                            && crate::selection::rules::allowed(self.shell, self.element(), *id)
-                    })
-                    .collect();
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.element(),
+                    hit,
+                    modifiers,
+                    |id| parts.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 if self.read_only {
                     return Interaction::Idle;
                 }

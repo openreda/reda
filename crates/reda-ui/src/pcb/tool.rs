@@ -1,8 +1,9 @@
 //! The PCB select-and-place Tool: what pointer presses, drags and the Space / L keys do
 //! on the board.
 //!
-//! - A click selects the topmost object under it (`selection.set`); Shift+click toggles
-//!   it; a click on nothing clears the selection.
+//! - A click picks from the stack under it (`selection.set`, see `selection::picking`);
+//!   Shift+click toggles it; a click on nothing clears the selection unless Click Clears
+//!   Selection is off.
 //! - Dragging a Footprint, Free Pad or the Output Origin moves it (with the rest of the
 //!   selection when it is selected). The move is drawn from a preview of the board
 //!   (`reda_pcb::placement_preview`) and runs nothing until release, when it becomes one
@@ -10,7 +11,9 @@
 //! - Dragging a Track segment moves it across itself, its neighbours stretching to stay
 //!   attached (`Mod`+drag moves it freely, detached), drawn from the same plan as
 //!   `pcb.track.drag` (`reda_pcb::track_drag_plan`) and run as that one Command on release.
-//! - Dragging from nothing draws a rubber band that selects what lies wholly inside.
+//! - Dragging from nothing draws a rubber band: left to right (as seen on screen) it
+//!   selects what it encloses, right to left what it touches, unless Directional
+//!   Rectangle is off.
 //! - Space turns by 90° and L flips to the other side: in flight they join the move,
 //!   otherwise they run `pcb.rotate` / `pcb.flip` on the selection.
 //! - Moves snap the grabbed point (a Pad centre near the grab, else the object's
@@ -219,12 +222,20 @@ impl SelectTool {
                     return;
                 };
                 if self.dragged {
-                    let ids: Vec<_> = hit.into_iter().collect();
-                    let params = serde_json::to_value(crate::selection::picking::selected(
-                        shell, document, &ids,
-                    ))
-                    .expect("selection serializes");
-                    let _ = shell.run_reporting("selection.set", params);
+                    // Dragging what cannot move just selects it, as a drag selects first.
+                    let select = hit.and_then(|hit| {
+                        crate::selection::picking::drag_start(
+                            shell,
+                            document,
+                            hit,
+                            self.modifiers,
+                            |_| false,
+                        )
+                        .select
+                    });
+                    if let Some((id, params)) = select {
+                        let _ = shell.run_reporting(&id, params);
+                    }
                 } else if let Some((id, params)) = crate::selection::picking::click(
                     shell,
                     document,
@@ -346,17 +357,11 @@ impl SelectTool {
         };
         let pcb = project.pcb().expect("a board");
         let kind = project.object(object).map(|o| o.object_type());
-        let mut objects = shell.selection().objects.clone();
-        let already_selected = objects.contains(&object);
-        if !already_selected {
-            objects = vec![object];
-        }
-        objects.retain(|o| {
-            project.object(*o).is_some_and(|x| movable(x.object_type()))
-                && crate::selection::rules::allowed(shell, document, *o)
-                && !(shell.preferences().editing.protect_locked_objects
-                    && crate::selection::rules::locked(shell, document, *o))
-        });
+        let drag =
+            crate::selection::picking::drag_start(shell, document, object, self.modifiers, |id| {
+                project.object(id).is_some_and(|x| movable(x.object_type()))
+            });
+        let objects = drag.objects;
         if !kind.is_some_and(movable) || objects.is_empty() {
             // Dragging what cannot move just selects it.
             self.state = State::Pressed {
@@ -385,16 +390,14 @@ impl SelectTool {
                 _ => None,
             })
             .unwrap_or(at);
-        if let Err(e) = placement_preview(pcb, &objects, &[]) {
-            if !already_selected {
-                select(shell, objects);
-            }
+        let failed = placement_preview(pcb, &objects, &[]).err();
+        if let Some((id, params)) = drag.select {
+            let _ = shell.run_reporting(&id, params);
+        }
+        if let Some(e) = failed {
             shell.report(crate::tr!("error-command", error = e.message));
             self.state = State::Spent;
             return;
-        }
-        if !already_selected {
-            select(shell, objects.clone());
         }
         let mut m = Move {
             document,
@@ -458,7 +461,12 @@ impl SelectTool {
             return;
         };
         if shell.selection().objects != [track] {
-            select(shell, vec![track]);
+            let (id, params) =
+                crate::selection::picking::set_command(&crate::selection::Selection {
+                    objects: vec![track],
+                    ..Default::default()
+                });
+            let _ = shell.run_reporting(&id, params);
         }
         shell.begin_tool(ToolPreview::new(crate::tr!("tool-drag-track"), [track]));
         let mut d = TrackDrag {
@@ -577,10 +585,6 @@ fn placeable_selection(shell: &Shell) -> Vec<Uuid> {
         .copied()
         .filter(|o| project.object(*o).is_some_and(|x| movable(x.object_type())))
         .collect()
-}
-
-fn select(shell: &mut Shell, objects: Vec<Uuid>) {
-    let _ = shell.run_reporting("selection.set", json!({ "objects": objects }));
 }
 
 /// Draws the board with `objects` after `ops`.

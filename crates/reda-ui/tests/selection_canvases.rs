@@ -23,6 +23,18 @@ fn run(h: &mut Harness<'_, App>, id: &str, params: Value) -> Value {
 }
 
 fn canvas(kind: &str) -> Canvas {
+    canvas_with(kind, Harness::builder())
+}
+
+/// A canvas whose harness takes small steps, so two clicks make a double-click.
+fn quick_canvas(kind: &str) -> Canvas {
+    canvas_with(
+        kind,
+        Harness::builder().with_step_dt(0.01).with_max_steps(100),
+    )
+}
+
+fn canvas_with(kind: &str, builder: egui_kittest::HarnessBuilder<App>) -> Canvas {
     let dir = TempDir::new(&format!("selection-{kind}-canvas"));
     let lib = dir.path().join("library");
     std::fs::create_dir_all(&lib).unwrap();
@@ -83,7 +95,7 @@ fn canvas(kind: &str) -> Canvas {
                 .unwrap(),
         );
     }
-    let h = Harness::builder()
+    let h = builder
         .with_size([1100.0, 900.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     Canvas {
@@ -266,5 +278,129 @@ fn library_drags_preserve_filtered_graphics_in_the_selection_and_in_place() {
             }
             _ => panic!("expected the same Library element kind"),
         }
+    }
+}
+
+/// [`click`], `gap` seconds after the last input, so clicks can be timed against the
+/// 600 ms repeat window and egui's double-click.
+fn click_after(c: &mut Canvas, at: Pos2, modifiers: Modifiers, gap: f64) {
+    c.h.input_mut().time = Some(c.h.ctx.input(|i| i.time) + gap);
+    click(c, at, modifiers);
+}
+
+fn rectangle(c: &mut Canvas, from: Pos2, to: Pos2) -> Vec<Uuid> {
+    run(&mut c.h, "selection.set", json!({}));
+    c.h.input_mut().time = Some(c.h.ctx.input(|i| i.time) + 1.0);
+    c.h.drag_at(from);
+    c.h.run();
+    c.h.hover_at(to);
+    c.h.run();
+    c.h.drop_at(to);
+    c.h.run();
+    c.h.state().shell().selection().objects.clone()
+}
+
+#[test]
+fn both_library_canvases_add_with_shift_cycle_on_repeat_and_keep_or_clear_on_empty_clicks() {
+    for kind in ["symbol", "footprint"] {
+        let mut c = canvas(kind);
+        c.h.run();
+        let (centre, edge) = (screen(&c, 0.0, 0.0), screen(&c, 5.0, 0.0));
+        click_after(&mut c, edge, Modifiers::NONE, 1.0);
+        assert_eq!(c.h.state().shell().selection().objects, [c.large]);
+        click_after(&mut c, centre, Modifiers::SHIFT, 1.0);
+        assert_eq!(
+            c.h.state().shell().selection().objects,
+            [c.large, c.small],
+            "{kind}: Shift+click adds"
+        );
+        click_after(&mut c, centre, Modifiers::NONE, 1.0);
+        assert_eq!(c.h.state().shell().selection().objects, [c.small]);
+        click_after(&mut c, centre, Modifiers::NONE, 0.45);
+        assert_eq!(
+            c.h.state().shell().selection().objects,
+            [c.large],
+            "{kind}: a repeat click within 600 ms cycles"
+        );
+        run(
+            &mut c.h,
+            "app.preferences.set",
+            json!({"key":"editing.click_clears_selection","value":false}),
+        );
+        let empty = c.h.get_by_role(Role::Canvas).rect().left_bottom() + egui::vec2(30.0, -60.0);
+        click_after(&mut c, empty, Modifiers::NONE, 1.0);
+        assert_eq!(
+            c.h.state().shell().selection().objects,
+            [c.large],
+            "{kind}: an empty click keeps the selection with Click Clears Selection off"
+        );
+        run(
+            &mut c.h,
+            "app.preferences.set",
+            json!({"key":"editing.click_clears_selection","value":true}),
+        );
+        click_after(&mut c, empty, Modifiers::NONE, 1.0);
+        assert!(
+            c.h.state().shell().selection().is_empty(),
+            "{kind}: and clears it when on"
+        );
+    }
+}
+
+#[test]
+fn both_library_canvases_pick_by_rectangle_direction() {
+    for kind in ["symbol", "footprint"] {
+        let mut c = canvas(kind);
+        c.h.run();
+        // Over a corner of both rectangles, enclosing neither; the corners are outside both.
+        let (left, right) = (screen(&c, -6.0, 0.5), screen(&c, 0.5, -6.0));
+        assert!(
+            rectangle(&mut c, left, right).is_empty(),
+            "{kind}: left to right selects only what it encloses"
+        );
+        let touched = rectangle(&mut c, right, left);
+        assert!(
+            touched.contains(&c.small) && touched.contains(&c.large),
+            "{kind}: right to left selects what it touches"
+        );
+        run(
+            &mut c.h,
+            "app.preferences.set",
+            json!({"key":"editing.directional_rectangle","value":false}),
+        );
+        assert!(
+            rectangle(&mut c, right, left).is_empty(),
+            "{kind}: with Directional Rectangle off every rectangle encloses"
+        );
+    }
+}
+
+#[test]
+fn both_library_canvases_open_the_pick_list_on_a_double_click() {
+    for kind in ["symbol", "footprint"] {
+        let mut c = quick_canvas(kind);
+        c.h.run();
+        let at = screen(&c, 0.0, 0.0);
+        for _ in 0..2 {
+            click(&mut c, at, Modifiers::NONE);
+        }
+        c.h.get_by_label("Pick Object");
+        assert!(
+            c.h.state().shell().selection().is_empty(),
+            "{kind}: the list opens over the selection from before the double-click"
+        );
+        assert!(
+            c.h.query_by_label("Graphic · 1").is_some()
+                && c.h.query_by_label("Graphic · 2").is_some(),
+            "{kind}: both stacked graphics are listed"
+        );
+        c.h.get_by_label("Graphic · 2").click();
+        c.h.run();
+        let picked = &c.h.state().shell().selection().objects;
+        assert!(
+            picked.len() == 1 && [c.small, c.large].contains(&picked[0]),
+            "{kind}: choosing an entry selects it"
+        );
+        assert!(c.h.query_by_label("Pick Object").is_none());
     }
 }

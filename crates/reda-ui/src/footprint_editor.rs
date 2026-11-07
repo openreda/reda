@@ -2,7 +2,7 @@
 //! canvas Tools. Its keys are Keymap bindings in the `footprint` context
 //! (`keymap/reda.toml`).
 //!
-//! - Select picks Pads, graphics and the Designator and value text (click, Shift/Mod,
+//! - Select picks Pads, graphics and the Designator and value text (click, Shift+click,
 //!   box), and dragging moves them on the grid: one `library.footprint.move` on release.
 //! - Pad places a Pad per click from the Pad Tool's settings ([`PadTemplate`]: SMD,
 //!   plated or non-plated; circle, rectangle, rounded rectangle or oval; a round hole or a
@@ -28,7 +28,7 @@ use reda_engine::model::{
 };
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{BoxMode, Combine, Pointer, combine, snap_to_grid};
+use crate::canvas::interact::{BoxMode, Pointer, snap_to_grid};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
@@ -370,7 +370,12 @@ fn show(
     cursor: Option<P>,
 ) {
     let grid = shell.grid(element);
-    let directional = shell.preferences().editing.directional_rectangle;
+    let mode = match &state {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, element, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
     let Some(tab) = shell.document_tab_mut(element) else {
         return;
     };
@@ -391,11 +396,7 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: if directional {
-                        BoxMode::of_drag(*from, *to)
-                    } else {
-                        BoxMode::Enclose
-                    },
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -449,13 +450,6 @@ impl Cx<'_> {
 
     fn snap(&self, at: P) -> Point {
         snap_to_grid(at, self.grid())
-    }
-
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
     }
 
     fn run(&mut self, id: &str, params: Value) {
@@ -656,26 +650,16 @@ impl Cx<'_> {
                         modifiers,
                     };
                 };
-                let selected = &self.shell.selection().objects;
-                let already_selected = selected.contains(&hit);
-                let objects = if already_selected {
-                    selected.clone()
-                } else if modifiers.shift {
-                    combine(selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                if !already_selected {
-                    self.select(objects.clone());
-                }
                 let parts = element_editor::parts(self.shell.engine(), self.element);
-                let objects = objects
-                    .into_iter()
-                    .filter(|id| {
-                        parts.contains(id)
-                            && crate::selection::rules::allowed(self.shell, self.element, *id)
-                    })
-                    .collect();
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.element,
+                    hit,
+                    modifiers,
+                    |id| parts.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 let anchor = self.snap(from);
                 Interaction::Moving {
                     offset: self.snap(at) - anchor,

@@ -1,37 +1,51 @@
-//! Stack ordering and cycling shared by all canvas editors.
+//! Stack ordering, clicks, rectangles, drags and cycling shared by all canvas editors.
+//! Dragging text is in [`moving_text`], the double-click pick list in [`pick_list`].
+
+mod moving_text;
+mod pick_list;
 
 use std::collections::BTreeMap;
 use std::time::Instant;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta};
 use reda_engine::model::Uuid;
-use reda_engine::render::{Child, Item, Scene, SceneLayer};
+use reda_engine::render::{Item, Scene, SceneLayer};
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
+
+pub use moving_text::text_pointer;
+pub use pick_list::{double_click, show};
 
 use super::{Selection, SelectionSetResult, rules};
-use crate::canvas::interact::{Combine, click_selection, hit_stack_on};
+use crate::canvas::interact::{Combine, click_selection, combine, hit_stack_on};
 use crate::shell::Shell;
+use crate::working_state::FilterKind;
 
+/// The objects under one pointer position, best first, and which one is picked.
 #[derive(Clone, Debug)]
-pub struct Stack {
-    pub at: (f64, f64),
-    pub tolerance: f64,
-    pub objects: Vec<Uuid>,
-    pub index: usize,
-    pub time: f64,
-    pub targets: BTreeMap<Uuid, Selection>,
+struct Stack {
+    at: (f64, f64),
+    tolerance: f64,
+    objects: Vec<Uuid>,
+    index: usize,
+    /// When a plain click last picked from it; a repeat click soon after cycles.
+    time: f64,
+    targets: BTreeMap<Uuid, Selection>,
 }
 
+/// Each canvas's picking state, kept in the engine's view state.
 #[derive(Debug)]
 pub struct Picking {
-    pub stacks: BTreeMap<Uuid, Stack>,
+    stacks: BTreeMap<Uuid, Stack>,
     epoch: Instant,
-    pub time: Option<f64>,
-    moving: Option<MovingText>,
-    pub list: Option<PickList>,
-    pub idle: bool,
+    time: Option<f64>,
+    moving: Option<moving_text::MovingText>,
+    list: Option<pick_list::PickList>,
+    /// The selection before the click that began the current click gesture, by Document:
+    /// a double-click opens its pick list over it.
+    gesture: Option<(Uuid, Selection)>,
+    idle: bool,
 }
 
 impl Default for Picking {
@@ -42,6 +56,7 @@ impl Default for Picking {
             time: None,
             moving: None,
             list: None,
+            gesture: None,
             idle: true,
         }
     }
@@ -52,6 +67,16 @@ impl Picking {
         self.time
             .unwrap_or_else(|| self.epoch.elapsed().as_secs_f64())
     }
+
+    /// The canvas's input time (seconds) for this frame, which repeat clicks are timed by.
+    pub fn set_time(&mut self, time: f64) {
+        self.time = Some(time);
+    }
+
+    /// Whether no canvas operation (a drag) is in progress, so Shift+Tab may cycle.
+    pub fn set_idle(&mut self, idle: bool) {
+        self.idle = idle;
+    }
 }
 
 /// The board's explicit tiers, with sheet body primitives after Pins and text.
@@ -60,31 +85,10 @@ fn rank(shell: &Shell, document: Uuid, item: &Item) -> Option<u8> {
 }
 
 fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) -> Option<u8> {
-    if item.layer == SceneLayer::Ratsnest {
+    if item.layer == SceneLayer::Ratsnest || !rules::item_pickable(shell, document, item, protect) {
         return None;
     }
     let kind = rules::item_kind(shell, document, item)?;
-    if !shell.selection_filter(document).allows(&kind)
-        || !crate::bars::document_type(shell, document)
-            .is_some_and(|ty| crate::working_state::filter_kinds(ty).contains(&kind.as_str()))
-    {
-        return None;
-    }
-    if protect
-        && shell.preferences().editing.protect_locked_objects
-        && !matches!(item.child, Some(Child::FootprintText { .. }))
-    {
-        let owner = item.child.as_ref().map_or(item.object, Child::owner);
-        if shell
-            .engine()
-            .project()
-            .and_then(|p| p.pcb_document(document))
-            .and_then(|p| p.footprint(owner))
-            .is_some_and(|f| f.locked)
-        {
-            return None;
-        }
-    }
     if crate::bars::document_type(shell, document) == Some(crate::bars::DocumentType::Footprint) {
         let active = shell
             .document_tab(document)
@@ -109,7 +113,7 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
         .filter(|p| p.pcb_document(document).is_some())
     else {
         use reda_engine::render::{ColorKey, Primitive, SchematicColor};
-        let body = kind == "unit"
+        let body = kind == FilterKind::Unit
             && matches!(
                 item.color,
                 ColorKey::Schematic(SchematicColor::Body | SchematicColor::BodyFill)
@@ -117,10 +121,10 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
             && !matches!(item.primitive, Primitive::Glyphs(_));
         return Some(u8::from(body));
     };
-    Some(match kind.as_str() {
-        "footprint_instance" => 2,
-        "zone" | "keepout" => 3,
-        "board_outline" | "board_cutout" => 4,
+    Some(match kind {
+        FilterKind::FootprintInstance => 2,
+        FilterKind::Zone | FilterKind::Keepout => 3,
+        FilterKind::BoardOutline | FilterKind::BoardCutout => 4,
         _ if item.layer
             == shell
                 .board_view()
@@ -151,6 +155,14 @@ pub fn hit(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f64) -> Opt
     stack(shell, document, at, tolerance).first().copied()
 }
 
+/// The `selection.set` Command that selects `selection`.
+pub fn set_command(selection: &Selection) -> (String, Value) {
+    (
+        "selection.set".into(),
+        serde_json::to_value(selection).expect("selection serializes"),
+    )
+}
+
 /// Chooses a hit, cycles a repeated click, and returns the normal public selection Command.
 pub fn click(
     shell: &mut Shell,
@@ -166,14 +178,17 @@ pub fn click(
     {
         return None;
     }
-    let current = shell.selection().canvas_ids();
+    let before = shell.selection().clone();
+    let current = before.canvas_ids();
     let targets: BTreeMap<_, _> = objects
         .iter()
         .map(|id| (*id, selected(shell, document, &[*id])))
         .collect();
     let picker = shell.selection_picking_mut();
     let now = picker.now();
-    let index = picker
+    // Only plain clicks cycle: a Shift+click toggles, and the plain click after it on
+    // the same spot starts over at the top of the stack.
+    let repeat = picker
         .stacks
         .get(&document)
         .filter(|s| {
@@ -184,7 +199,11 @@ pub fn click(
                 && now >= s.time
                 && now - s.time <= 0.6
         })
-        .map_or(0, |s| (s.index + 1) % objects.len());
+        .map(|s| s.index);
+    let index = repeat.map_or(0, |i| (i + 1) % objects.len());
+    if repeat.is_none() || picker.gesture.as_ref().is_none_or(|(d, _)| *d != document) {
+        picker.gesture = Some((document, before));
+    }
     let picked: Vec<_> = objects.get(index).copied().into_iter().collect();
     picker.stacks.insert(
         document,
@@ -193,16 +212,16 @@ pub fn click(
             tolerance,
             objects,
             index,
-            time: now,
+            time: if how == Combine::Replace {
+                now
+            } else {
+                f64::NEG_INFINITY
+            },
             targets,
         },
     );
     let selected = click_selection(&current, &picked, how);
-    Some((
-        "selection.set".into(),
-        serde_json::to_value(self::selected(shell, document, &selected))
-            .expect("selection serializes"),
-    ))
+    Some(set_command(&self::selected(shell, document, &selected)))
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -270,6 +289,7 @@ pub fn pick_scene(scene: &Scene) -> Scene {
 }
 
 pub fn selected(shell: &Shell, document: Uuid, ids: &[Uuid]) -> Selection {
+    use reda_engine::render::Child;
     let mut selected = Selection::default();
     for id in ids {
         let child = rules::child(shell, document, *id);
@@ -307,229 +327,19 @@ pub fn box_selection(
         tab.scene.layers.as_deref(),
         from,
         to,
-        rules::box_mode(shell, from, to),
+        rules::box_mode(shell, document, from, to),
         |i| rank(shell, document, i).is_some(),
     );
-    let ids = crate::canvas::interact::combine(
+    let ids = combine(
         &shell.selection().canvas_ids(),
         &picked,
         Combine::of(modifiers),
     );
-    Some((
-        "selection.set".into(),
-        serde_json::to_value(selected(shell, document, &ids)).expect("selection serializes"),
-    ))
+    Some(set_command(&selected(shell, document, &ids)))
 }
 
-#[derive(Clone, Debug)]
-pub struct MovingText {
-    document: Uuid,
-    targets: Vec<(Child, reda_engine::model::geom::Point)>,
-    objects: Vec<Uuid>,
-    schematic: bool,
-    keep_connections: bool,
-    grab: reda_engine::model::geom::Point,
-    by: reda_engine::model::geom::Point,
-}
-
-/// Text is a real child target: dragging it commits its placement Command, never a
-/// parent move. A selected parent continues to carry all of its own text.
-pub fn text_pointer(
-    shell: &mut Shell,
-    document: Uuid,
-    events: &[crate::canvas::interact::Pointer],
-    tolerance: f64,
-) -> Option<Vec<(String, Value)>> {
-    use crate::canvas::LiveHandle;
-    use crate::canvas::interact::Pointer;
-    use reda_engine::model::geom::Point;
-    if shell.tool() != crate::tools::Tool::Select {
-        return None;
-    }
-    let mut moving = shell.selection_picking_mut().moving.take();
-    let mut commands = Vec::new();
-    let mut consumed = moving.is_some();
-    for event in events {
-        if moving.is_none() {
-            if let Pointer::DragStart {
-                from,
-                at,
-                modifiers,
-            } = *event
-            {
-                let hit = hit(shell, document, from, tolerance)?;
-                let current = shell.selection().clone();
-                let child = rules::child(shell, document, hit).cloned();
-                let standalone_text = current
-                    .fields
-                    .iter()
-                    .any(|f| !current.objects.contains(&f.unit))
-                    || current
-                        .texts
-                        .iter()
-                        .any(|t| !current.objects.contains(&t.footprint));
-                let parent_selected = child.as_ref().is_some_and(|c| {
-                    current.objects.contains(&c.owner())
-                        && rules::allowed(shell, document, c.owner())
-                        && !(shell.preferences().editing.protect_locked_objects
-                            && rules::locked(shell, document, c.owner()))
-                });
-                if matches!(child, Some(Child::Pad { .. }))
-                    || (parent_selected && !standalone_text)
-                    || (child.is_none() && !(current.objects.contains(&hit) && standalone_text))
-                {
-                    return None;
-                }
-                let mut keys = current.canvas_ids();
-                let already_selected = keys.contains(&hit) || parent_selected;
-                if !already_selected && !modifiers.shift {
-                    keys.clear();
-                }
-                if !keys.contains(&hit) {
-                    keys.push(hit);
-                }
-                let picked = if already_selected {
-                    current.clone()
-                } else {
-                    selected(shell, document, &keys)
-                };
-                let schematic = crate::bars::document_type(shell, document)
-                    == Some(crate::bars::DocumentType::Schematic);
-                let objects: Vec<_> = picked
-                    .objects
-                    .iter()
-                    .copied()
-                    .filter(|id| {
-                        rules::allowed(shell, document, *id)
-                            && !(shell.preferences().editing.protect_locked_objects
-                                && rules::locked(shell, document, *id))
-                            && shell
-                                .engine()
-                                .project()
-                                .and_then(|p| p.object(*id))
-                                .is_some_and(|o| {
-                                    o.scope() == reda_engine::model::Scope::Document(document)
-                                        && (schematic
-                                            || matches!(
-                                                o.object_type(),
-                                                reda_engine::model::ObjectType::FootprintInstance
-                                                    | reda_engine::model::ObjectType::FreePad
-                                                    | reda_engine::model::ObjectType::OutputOrigin
-                                            ))
-                                })
-                    })
-                    .collect();
-                let text_ids = picked.canvas_ids();
-                let mut targets = Vec::new();
-                for item in &shell.document_tab(document)?.scene.scene.items {
-                    let Some(child) = &item.child else {
-                        continue;
-                    };
-                    if matches!(child, Child::Pad { .. })
-                        || !text_ids.contains(&child.id())
-                        || objects.contains(&child.owner())
-                        || !rules::allowed(shell, document, child.id())
-                        || targets.iter().any(|(seen, _)| seen == child)
-                    {
-                        continue;
-                    }
-                    if let reda_engine::render::Primitive::Glyphs(run) = &item.primitive {
-                        targets.push((child.clone(), run.at));
-                    }
-                }
-                let grab = shell.snap_to_grid(document, from);
-                let by = shell.snap_to_grid(document, at) - grab;
-                if picked != current {
-                    commands.push((
-                        "selection.set".into(),
-                        serde_json::to_value(picked).expect("selection serializes"),
-                    ));
-                }
-                moving = Some(MovingText {
-                    document,
-                    targets,
-                    objects,
-                    schematic,
-                    keep_connections: !modifiers.command,
-                    grab,
-                    by,
-                });
-                consumed = true;
-            }
-            continue;
-        }
-        let m = moving.as_mut().expect("a move is active");
-        if m.document != document {
-            break;
-        }
-        match *event {
-            Pointer::Drag(at) | Pointer::Hover(at) => {
-                m.by = shell.snap_to_grid(document, at) - m.grab
-            }
-            Pointer::DragEnd(at) => {
-                m.by = shell.snap_to_grid(document, at) - m.grab;
-                if m.by != Point::default() {
-                    let mut steps = Vec::new();
-                    if !m.objects.is_empty() {
-                        let id = if m.schematic {
-                            if m.keep_connections {
-                                "schematic.drag"
-                            } else {
-                                "schematic.move"
-                            }
-                        } else {
-                            "pcb.move"
-                        };
-                        steps.push(json!({"id":id,"params":{"objects":m.objects,"by":{"x":m.by.x.0,"y":m.by.y.0}}}));
-                    }
-                    for (child, start) in &m.targets {
-                        let at = *start + m.by;
-                        let (id, params) = match child {
-                            Child::Field { unit, field } => (
-                                "schematic.field.move",
-                                json!({"unit":unit,"field":field,"at":{"x":at.x.0,"y":at.y.0}}),
-                            ),
-                            Child::FootprintText { footprint, text } => (
-                                "pcb.footprint.text.set",
-                                json!({"instances":[footprint],"texts":[text],"at":{"x":at.x.0,"y":at.y.0}}),
-                            ),
-                            Child::Pad { .. } => unreachable!(),
-                        };
-                        steps.push(json!({"id":id,"params":params}));
-                    }
-                    if steps.len() == 1 {
-                        commands.push((
-                            steps[0]["id"].as_str().expect("step id").into(),
-                            steps[0]["params"].clone(),
-                        ));
-                    } else if !steps.is_empty() {
-                        commands.push(("batch".into(), json!({"commands":steps})));
-                    }
-                }
-                moving = None;
-            }
-            _ => {}
-        }
-    }
-    if consumed && let Some(tab) = shell.document_tab_mut(document) {
-        let ids: Vec<_> = moving
-            .iter()
-            .flat_map(|m| {
-                m.objects
-                    .iter()
-                    .copied()
-                    .chain(m.targets.iter().map(|(child, _)| child.id()))
-            })
-            .collect();
-        tab.live = LiveHandle::new(None, &ids, &[]);
-        tab.moving_offset = moving
-            .as_ref()
-            .map_or((0.0, 0.0), |m| (m.by.x.0 as f64, m.by.y.0 as f64));
-    }
-    shell.selection_picking_mut().moving = moving;
-    consumed.then_some(commands)
-}
-
+/// What a drag picks up: the object under the pointer, or the selected parent of the
+/// child under it, so a selected Component drags with its text.
 pub fn movement_hit(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f64) -> Option<Uuid> {
     let id = hit(shell, document, at, tolerance)?;
     let child = rules::child(shell, document, id);
@@ -537,12 +347,49 @@ pub fn movement_hit(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f6
         child
             .filter(|c| {
                 shell.selection().objects.contains(&c.owner())
-                    && rules::allowed(shell, document, c.owner())
-                    && !(shell.preferences().editing.protect_locked_objects
-                        && rules::locked(shell, document, c.owner()))
+                    && rules::pickable(shell, document, c.owner())
             })
             .map_or(id, |c| c.owner()),
     )
+}
+
+/// What a drag that starts on `hit` selects and moves, the same on every canvas.
+pub struct DragStart {
+    /// `selection.set` for the selection the drag carries, when it isn't the current one.
+    pub select: Option<(String, Value)>,
+    /// The carried objects that move: pickable, and accepted by the canvas's `movable`.
+    /// Filtered or protected members stay selected, and stay put.
+    pub objects: Vec<Uuid>,
+}
+
+/// A drag on a selected object carries the whole selection; on anything else it selects
+/// that object first (Shift adds it to the selection).
+pub fn drag_start(
+    shell: &Shell,
+    document: Uuid,
+    hit: Uuid,
+    modifiers: egui::Modifiers,
+    movable: impl Fn(Uuid) -> bool,
+) -> DragStart {
+    let current = shell.selection();
+    let ids = current.canvas_ids();
+    let carried = if ids.contains(&hit) {
+        current.clone()
+    } else if modifiers.shift {
+        selected(shell, document, &combine(&ids, &[hit], Combine::Add))
+    } else {
+        selected(shell, document, &[hit])
+    };
+    let objects = carried
+        .objects
+        .iter()
+        .copied()
+        .filter(|id| movable(*id) && rules::pickable(shell, document, *id))
+        .collect();
+    DragStart {
+        select: (carried != *current).then(|| set_command(&carried)),
+        objects,
+    }
 }
 
 /// Keyboard Commands run before the next canvas hover. Rebuild at the cached pointer
@@ -589,177 +436,6 @@ pub fn hover(shell: &mut Shell, document: Uuid, at: (f64, f64), tolerance: f64) 
             targets,
         },
     );
-}
-
-#[derive(Clone, Debug)]
-pub struct PickList {
-    document: Uuid,
-    objects: Vec<Uuid>,
-    at: egui::Pos2,
-}
-
-/// A double click explicitly offers protected objects as well, so they can be unlocked.
-pub fn double_click(
-    shell: &mut Shell,
-    document: Uuid,
-    at: (f64, f64),
-    tolerance: f64,
-    screen: egui::Pos2,
-) {
-    let Some(tab) = shell.document_tab(document) else {
-        return;
-    };
-    let scene = document_scene(shell, document);
-    let mut objects = hit_stack_on(&scene, tab.scene.layers.as_deref(), at, tolerance, |i| {
-        rank_with_locks(shell, document, i, false)
-    });
-    if objects.len() <= 1 {
-        if let Some(id) = objects.first() {
-            let params = serde_json::to_value(selected(shell, document, &[*id]))
-                .expect("selection serializes");
-            let _ = shell.run_reporting("selection.set", params);
-            let _ = shell.run_reporting("panel.show", json!({"panel":"properties"}));
-        }
-        return;
-    }
-    let layers = layer_list(shell, document);
-    let layer = |id: Uuid| scene.items.iter().find(|i| i.object == id).map(|i| i.layer);
-    objects.sort_by_key(|id| {
-        (
-            match layer(*id) {
-                Some(SceneLayer::Board(id)) => layers
-                    .iter()
-                    .position(|l| l.uuid == id)
-                    .unwrap_or(usize::MAX - 1),
-                _ => usize::MAX,
-            },
-            *id,
-        )
-    });
-    shell.selection_picking_mut().list = Some(PickList {
-        document,
-        objects,
-        at: screen,
-    });
-}
-
-/// Layer-grouped visual choices with a live canvas preview. Hover never changes Selection.
-pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
-    let Some(list) = shell
-        .selection_picking_mut()
-        .list
-        .clone()
-        .filter(|l| l.document == document)
-    else {
-        return;
-    };
-    let mut open = true;
-    let mut preview = None;
-    let mut choose = None;
-    let scene = document_scene(shell, document);
-    let layers = layer_list(shell, document);
-    egui::Window::new(crate::tr!("selection-pick-title"))
-        .id(egui::Id::NULL.with(("pick-object", document)))
-        .default_pos(list.at)
-        .collapsible(false)
-        .resizable(false)
-        .open(&mut open)
-        .show(ui.ctx(), |ui| {
-            let mut previous = None;
-            for (ordinal, id) in list.objects.iter().enumerate() {
-                if !rules::allowed(shell, document, *id) {
-                    continue;
-                }
-                let layer = scene
-                    .items
-                    .iter()
-                    .find(|i| i.object == *id)
-                    .map(|i| i.layer);
-                if layer != previous {
-                    let name = match layer {
-                        Some(SceneLayer::Board(layer)) => shell
-                            .engine()
-                            .project()
-                            .and_then(|p| p.pcb_document(document))
-                            .and_then(|p| p.layers().layer(layer))
-                            .map(|l| {
-                                crate::panels::layers::layer_name(
-                                    shell
-                                        .engine()
-                                        .project()
-                                        .and_then(|p| p.pcb_document(document))
-                                        .expect("board"),
-                                    l,
-                                )
-                            })
-                            .or_else(|| {
-                                layers
-                                    .iter()
-                                    .find(|l| l.uuid == layer)
-                                    .map(editor_layer_name)
-                            })
-                            .unwrap_or_else(|| crate::tr!("selection-pick-layer")),
-                        Some(SceneLayer::Drill) => crate::tr!("selection-pick-drill"),
-                        _ => crate::tr!("selection-pick-sheet"),
-                    };
-                    ui.strong(name);
-                    previous = layer;
-                }
-                let label = entry_label(shell, document, *id, ordinal);
-                ui.horizontal(|ui| {
-                    let (rect, _) =
-                        ui.allocate_exact_size(egui::vec2(28.0, 20.0), egui::Sense::hover());
-                    thumbnail(ui, &scene, *id, rect);
-                    let row = ui.selectable_label(false, label);
-                    if row.hovered() {
-                        preview = Some(*id);
-                    }
-                    if row.clicked() {
-                        choose = Some(*id);
-                    }
-                    if rules::locked(shell, document, *id) {
-                        let (lock, response) =
-                            ui.allocate_exact_size(egui::vec2(16.0, 20.0), egui::Sense::hover());
-                        let color = ui.visuals().text_color();
-                        ui.painter().circle_stroke(
-                            lock.center() - egui::vec2(0.0, 3.0),
-                            4.0,
-                            egui::Stroke::new(1.5, color),
-                        );
-                        ui.painter().rect_filled(
-                            egui::Rect::from_center_size(
-                                lock.center() + egui::vec2(0.0, 3.0),
-                                egui::vec2(11.0, 9.0),
-                            ),
-                            2.0,
-                            color,
-                        );
-                        response.widget_info(|| {
-                            egui::WidgetInfo::labeled(
-                                egui::Role::Image,
-                                true,
-                                crate::tr!("selection-pick-locked"),
-                            )
-                        });
-                    }
-                });
-            }
-        });
-    if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-        open = false;
-    }
-    if let Some(id) = choose {
-        let params =
-            serde_json::to_value(selected(shell, document, &[id])).expect("selection serializes");
-        let _ = shell.run_reporting("selection.set", params);
-        open = false;
-    }
-    if let Some(tab) = shell.document_tab_mut(document) {
-        tab.live = crate::canvas::LiveHandle::new(if open { preview } else { None }, &[], &[]);
-    }
-    if !open {
-        shell.selection_picking_mut().list = None;
-    }
 }
 
 /// A Footprint can be picked by its body even when its only ink consists of Pads.
@@ -824,167 +500,5 @@ pub fn cancel(shell: &mut Shell) {
     if let Some(tab) = document.and_then(|d| shell.document_tab_mut(d)) {
         tab.live = crate::canvas::LiveHandle::default();
         tab.moving_offset = (0.0, 0.0);
-    }
-}
-
-fn layer_list(shell: &Shell, document: Uuid) -> Vec<reda_engine::model::Layer> {
-    if let Some(pcb) = shell
-        .engine()
-        .project()
-        .and_then(|p| p.pcb_document(document))
-    {
-        return pcb.layers().layers.clone();
-    }
-    if let Some(reda_engine::model::LibraryElement::Footprint(f)) = shell.engine().element(document)
-    {
-        return reda_engine::footprint_scene(f, shell.engine().fonts()).layers;
-    }
-    Vec::new()
-}
-
-fn editor_layer_name(layer: &reda_engine::model::Layer) -> String {
-    use reda_engine::model::{LayerKind, Side};
-    let kind = match layer.kind {
-        LayerKind::Copper => crate::tr!("layer-copper"),
-        LayerKind::Silkscreen => crate::tr!("layer-silkscreen"),
-        LayerKind::SolderMask => crate::tr!("layer-solder-mask"),
-        LayerKind::Paste => crate::tr!("layer-paste"),
-        LayerKind::Courtyard => crate::tr!("layer-courtyard"),
-        LayerKind::Assembly => crate::tr!("layer-assembly"),
-        LayerKind::BoardOutline => crate::tr!("layer-board-outline"),
-        LayerKind::Mechanical => crate::tr!("layer-mechanical"),
-        LayerKind::Documentation => crate::tr!("layer-documentation"),
-    };
-    match layer.side {
-        Some(Side::Top) => crate::tr!("layer-top", kind = kind.as_str()),
-        Some(Side::Bottom) => crate::tr!("layer-bottom", kind = kind.as_str()),
-        None => kind,
-    }
-}
-
-fn entry_label(shell: &Shell, document: Uuid, id: Uuid, ordinal: usize) -> String {
-    use reda_engine::model::Object;
-    let kind = super::filter_ui::kind_label(
-        &rules::kind(shell, document, id).unwrap_or_else(|| "graphic".into()),
-    );
-    if let Some(object) = shell.engine().elements().and_then(|p| p.object(id)) {
-        let detail = match object {
-            Object::Unit(u) => u.object.designator,
-            Object::FootprintInstance(f) => f.object.designator,
-            Object::Wire(w) => crate::tr!(
-                "selection-pick-length",
-                length = format!(
-                    "{:.2}",
-                    w.segments()
-                        .map(|(a, b)| ((b.x - a.x).0 as f64).hypot((b.y - a.y).0 as f64))
-                        .sum::<f64>()
-                        / 1e6
-                )
-            ),
-            Object::FreePad(p) => crate::tr!(
-                "selection-pick-size",
-                width = format!("{:.2}", p.width.0 as f64 / 1e6),
-                height = format!("{:.2}", p.height.0 as f64 / 1e6)
-            ),
-            _ => format!("{}", ordinal + 1),
-        };
-        return crate::tr!(
-            "selection-pick-entry",
-            kind = kind.as_str(),
-            detail = detail
-        );
-    }
-    if let Some(item) = rules::child_item(shell, document, id) {
-        if let reda_engine::render::Primitive::Glyphs(run) = &item.primitive {
-            return crate::tr!(
-                "selection-pick-entry",
-                kind = kind.as_str(),
-                detail = run.text.as_str()
-            );
-        }
-        if let Some(Child::Pad { footprint, pad }) = &item.child
-            && let Some(pcb) = shell
-                .engine()
-                .project()
-                .and_then(|p| p.pcb_document(document))
-            && let Some(f) = pcb.footprint(*footprint)
-            && let Some(p) = pcb
-                .footprint_copy(f.footprint)
-                .and_then(|copy| copy.footprint.pads.iter().find(|p| p.uuid == *pad))
-        {
-            return crate::tr!(
-                "selection-pick-pad",
-                kind = kind.as_str(),
-                number = p.number.as_str(),
-                designator = f.designator.as_str()
-            );
-        }
-    }
-    crate::tr!(
-        "selection-pick-entry",
-        kind = kind.as_str(),
-        detail = (ordinal + 1).to_string()
-    )
-}
-
-fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {
-    use reda_engine::render::Primitive;
-    let items: Vec<_> = scene.items.iter().filter(|i| i.object == object).collect();
-    let bounds = items
-        .iter()
-        .filter_map(|i| i.primitive.bounds())
-        .reduce(|(a, b), (c, d)| {
-            (
-                reda_engine::model::geom::Point::new(a.x.min(c.x), a.y.min(c.y)),
-                reda_engine::model::geom::Point::new(b.x.max(d.x), b.y.max(d.y)),
-            )
-        });
-    let Some((lo, hi)) = bounds else {
-        return;
-    };
-    let scale = ((rect.width() - 4.0) as f64 / ((hi.x - lo.x).0.max(1) as f64))
-        .min((rect.height() - 4.0) as f64 / ((hi.y - lo.y).0.max(1) as f64));
-    let center = (
-        ((lo.x.0 + hi.x.0) as f64 / 2.0),
-        ((lo.y.0 + hi.y.0) as f64 / 2.0),
-    );
-    let at = |p: reda_engine::model::geom::Point| {
-        rect.center()
-            + egui::vec2(
-                ((p.x.0 as f64 - center.0) * scale) as f32,
-                ((center.1 - p.y.0 as f64) * scale) as f32,
-            )
-    };
-    let color = ui.visuals().selection.stroke.color;
-    let stroke = egui::Stroke::new(1.3, color);
-    for item in items {
-        match &item.primitive {
-            Primitive::Capsule { a, b, .. } => {
-                ui.painter().line_segment([at(*a), at(*b)], stroke);
-            }
-            Primitive::Ring { center, outer, .. } => {
-                ui.painter()
-                    .circle_stroke(at(*center), (outer.0 as f64 * scale) as f32, stroke);
-            }
-            Primitive::Glyphs(_) => {
-                ui.painter().text(
-                    rect.center(),
-                    egui::Align2::CENTER_CENTER,
-                    "T",
-                    egui::FontId::proportional(14.0),
-                    color,
-                );
-            }
-            other => {
-                if let Some((a, b)) = other.bounds() {
-                    ui.painter().rect_stroke(
-                        egui::Rect::from_two_pos(at(a), at(b)),
-                        1.0,
-                        stroke,
-                        egui::StrokeKind::Inside,
-                    );
-                }
-            }
-        }
     }
 }

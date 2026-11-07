@@ -92,6 +92,7 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
         to: (b.x.0 as f64, b.y.0 as f64),
         mode: crate::selection::rules::box_mode(
             shell,
+            document,
             (a.x.0 as f64, a.y.0 as f64),
             (b.x.0 as f64, b.y.0 as f64),
         ),
