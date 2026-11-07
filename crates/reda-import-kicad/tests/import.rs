@@ -169,7 +169,10 @@ fn units_pins_and_body_drawing_carry_over_from_a_multi_unit_symbol() {
     assert_eq!(unit_of("4").0, "B");
     let (unit, gnd) = unit_of("5");
     assert_eq!(unit, "C");
-    assert!(!gnd.name_visible && !gnd.number_visible, "a hidden pin");
+    assert!(
+        gnd.name_visible && gnd.number_visible,
+        "a hidden pin shows, because REDA has no hidden Pins"
+    );
     assert_eq!(gnd.electrical_type, PinType::PowerIn);
     assert_eq!(unit_of("6").1.electrical_type, PinType::NotConnected);
     assert_eq!(unit_of("7").1.electrical_type, PinType::Passive);
@@ -525,7 +528,7 @@ fn imported_text_is_escaped_so_it_displays_as_written() {
         );
     let footprint = fixture("divider.kicad_mod").replace(
         "  (fp_line ",
-        "  (fp_text user \"${REFERENCE}\" (at 0 0) (layer \"F.Fab\") \
+        "  (fp_text user \"${REFERENCE}x\" (at 0 0) (layer \"F.Fab\") \
          (effects (font (size 1 1) (thickness 0.15))))\n  (fp_line ",
     );
     let out = import(&symbol, &footprint, &ImportOptions::default(), &mut ids()).unwrap();
@@ -547,7 +550,7 @@ fn imported_text_is_escaped_so_it_displays_as_written() {
     );
     assert_eq!(
         texts(out.footprint.graphics.iter().map(|g| &g.shape).collect()),
-        ["$${REFERENCE}"]
+        ["$${REFERENCE}x"]
     );
     let mut stored = vec![];
     text::part_texts(&out.part, &mut stored);
@@ -655,4 +658,370 @@ fn paste_windows_on_rotated_and_bottom_pads_land_where_the_paste_pads_were() {
         assert_eq!((window.width, window.height), size, "Pad {}", copper.number);
         assert_eq!(copper.side, expected.side, "Pad {}", copper.number);
     }
+}
+
+/// The import with `symbol_edit` applied to the divider symbol and `footprint_edit` to its
+/// footprint, each a `(from, to)` text replacement.
+fn import_edited(symbol_edit: (&str, &str), footprint_edit: (&str, &str)) -> Imported {
+    let symbol = fixture("divider.kicad_sym").replace(symbol_edit.0, symbol_edit.1);
+    let footprint = fixture("divider.kicad_mod").replace(footprint_edit.0, footprint_edit.1);
+    import(&symbol, &footprint, &ImportOptions::default(), &mut ids()).unwrap()
+}
+
+const SYMBOL_FLAGS: &str = "(in_bom yes) (on_board yes)";
+const FOOTPRINT_ATTR: &str = "(attr smd)";
+
+#[test]
+fn bom_and_cpl_exclusions_set_in_bom_and_in_cpl_false() {
+    let plain = import_edited(("", ""), ("", ""));
+    assert!(plain.part.in_bom && plain.part.in_cpl);
+
+    let symbol_no_bom = import_edited((SYMBOL_FLAGS, "(in_bom no) (on_board yes)"), ("", ""));
+    assert!(!symbol_no_bom.part.in_bom);
+    assert!(symbol_no_bom.part.in_cpl);
+
+    let footprint_no_bom = import_edited(("", ""), (FOOTPRINT_ATTR, "(attr smd exclude_from_bom)"));
+    assert!(!footprint_no_bom.part.in_bom);
+    assert!(footprint_no_bom.part.in_cpl);
+
+    let no_pos = import_edited(
+        ("", ""),
+        (FOOTPRINT_ATTR, "(attr smd exclude_from_pos_files)"),
+    );
+    assert!(no_pos.part.in_bom);
+    assert!(!no_pos.part.in_cpl);
+    assert!(no_pos.warnings.is_empty(), "{:?}", no_pos.warnings);
+}
+
+#[test]
+fn dnp_is_ignored_and_board_only_parts_warn() {
+    let dnp = import_edited(("", ""), (FOOTPRINT_ATTR, "(attr smd dnp)"));
+    assert!(dnp.part.in_bom && dnp.part.in_cpl);
+    assert_eq!(dnp.part.component_type, ComponentType::Standard);
+    assert!(dnp.warnings.is_empty(), "{:?}", dnp.warnings);
+
+    let board_only = import_edited(("", ""), (FOOTPRINT_ATTR, "(attr smd board_only)"));
+    assert!(
+        board_only.warnings.iter().any(|w| w.contains("board-only")),
+        "{:?}",
+        board_only.warnings
+    );
+    let off_board = import_edited((SYMBOL_FLAGS, "(in_bom yes) (on_board no)"), ("", ""));
+    assert!(
+        off_board
+            .warnings
+            .iter()
+            .any(|w| w.contains("not on the board")),
+        "{:?}",
+        off_board.warnings
+    );
+    // Both still make the Symbol and Footprint pair.
+    assert_eq!(off_board.part.symbol, Some(off_board.symbol.uuid));
+    assert_eq!(board_only.part.footprints, vec![board_only.footprint.uuid]);
+}
+
+const PIN_ONE: &str = "(pin passive line (at 0 3.81 270) (length 1.27)";
+
+/// The divider's Pin 1 as imported with its opening `(pin …` replaced by `opening` and
+/// `extra` added after its number.
+fn pin_one_as(opening: &str, extra: &str) -> (reda_model::Pin, Vec<String>) {
+    let symbol = fixture("divider.kicad_sym")
+        .replace(PIN_ONE, opening)
+        .replace(
+            "(number \"1\" (effects (font (size 1.27 1.27))))",
+            &format!("(number \"1\" (effects (font (size 1.27 1.27)))) {extra}"),
+        );
+    let out = import(
+        &symbol,
+        &fixture("divider.kicad_mod"),
+        &ImportOptions::default(),
+        &mut ids(),
+    )
+    .unwrap();
+    let pin = out.symbol.pins.iter().find(|p| p.number == "1").unwrap();
+    (pin.clone(), out.warnings)
+}
+
+#[test]
+fn hidden_pins_come_in_with_a_visible_name_and_number_and_a_warning() {
+    let (shown, warnings) = pin_one_as(PIN_ONE, "");
+    assert!(shown.name_visible && shown.number_visible);
+    assert!(warnings.is_empty(), "{warnings:?}");
+
+    for opening in [
+        "(pin passive line (at 0 3.81 270) (length 1.27) hide",
+        "(pin passive line (at 0 3.81 270) (length 1.27) (hide yes)",
+    ] {
+        let (pin, warnings) = pin_one_as(opening, "");
+        assert!(pin.name_visible && pin.number_visible, "{opening}");
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.contains("pin \"1\"") && w.contains("hidden")),
+            "{warnings:?}"
+        );
+    }
+    let (pin, warnings) = pin_one_as(
+        "(pin passive line (at 0 3.81 270) (length 1.27) (hide no)",
+        "",
+    );
+    assert!(pin.name_visible && pin.number_visible);
+    assert!(warnings.is_empty(), "{warnings:?}");
+}
+
+#[test]
+fn pin_alternates_are_dropped_with_a_warning() {
+    let (pin, warnings) = pin_one_as(
+        PIN_ONE,
+        "(alternate \"SDA\" bidirectional line) (alternate \"TX\" output line)",
+    );
+    assert_eq!(pin.name, "");
+    assert_eq!(pin.electrical_type, PinType::Passive);
+    assert_eq!(
+        warnings
+            .iter()
+            .filter(|w| w.contains("pin \"1\"") && w.contains("alternate"))
+            .count(),
+        1,
+        "{warnings:?}"
+    );
+}
+
+#[test]
+fn pin_styles_become_decorations_and_the_rest_warn() {
+    use reda_model::{InsideEdge, OutsideEdge};
+    let cases = [
+        ("line", None, None),
+        ("inverted", None, Some(OutsideEdge::Dot)),
+        ("clock", Some(InsideEdge::Clock), None),
+        (
+            "inverted_clock",
+            Some(InsideEdge::Clock),
+            Some(OutsideEdge::Dot),
+        ),
+        ("input_low", None, Some(OutsideEdge::ActiveLowInput)),
+        (
+            "clock_low",
+            Some(InsideEdge::Clock),
+            Some(OutsideEdge::ActiveLowInput),
+        ),
+        ("output_low", None, Some(OutsideEdge::ActiveLowOutput)),
+    ];
+    for (style, inside, outside) in cases {
+        let (pin, warnings) = pin_one_as(
+            &format!("(pin passive {style} (at 0 3.81 270) (length 1.27)"),
+            "",
+        );
+        assert_eq!(
+            (pin.inside_edge, pin.outside_edge),
+            (inside, outside),
+            "{style}"
+        );
+        assert!(warnings.is_empty(), "{style}: {warnings:?}");
+    }
+    for style in ["edge_clock_high", "non_logic"] {
+        let (pin, warnings) = pin_one_as(
+            &format!("(pin passive {style} (at 0 3.81 270) (length 1.27)"),
+            "",
+        );
+        assert_eq!((pin.inside_edge, pin.outside_edge), (None, None), "{style}");
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.contains("pin \"1\"") && w.contains(style)),
+            "{warnings:?}"
+        );
+    }
+}
+
+#[test]
+fn reference_value_and_fab_text_keep_their_layer_and_place() {
+    let footprint = r#"(footprint "FabText" (version 20240108) (generator "pcbnew")
+      (layer "F.Cu")
+      (property "Reference" "REF**" (at 0 -2 0) (layer "B.SilkS") (effects (font (size 0.8 0.8))))
+      (property "Value" "FabText" (at 0 2 90) (layer "F.Fab") (effects (font (size 0.6 0.6))))
+      (fp_text user "${REFERENCE}" (at 0.5 0.25 90) (layer "F.Fab") (effects (font (size 0.5 0.5))))
+      (fp_text user "%R" (at 0 0) (layer "B.Fab") (effects (font (size 0.4 0.4))))
+      (fp_text user "PIN1" (at -1 -1) (layer "B.Fab") (effects (font (size 0.3 0.3))))
+      (fp_line (start -1 -1) (end 1 -1) (layer "F.Fab") (width 0.1))
+      (fp_circle (center 0 0) (end 0.5 0) (layer "B.Fab") (width 0.1))
+      (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu" "F.Paste" "F.Mask")))"#;
+    let out = import(
+        &fixture("divider.kicad_sym"),
+        footprint,
+        &ImportOptions::default(),
+        &mut ids(),
+    )
+    .unwrap();
+    let fp = &out.footprint;
+    let text = |field: &str, layer| {
+        fp.texts
+            .iter()
+            .find(|t| t.field == field && t.layer == layer)
+            .unwrap_or_else(|| panic!("no {field} on {layer:?}: {:?}", fp.texts))
+    };
+    let silk = text("Designator", FootprintLayer::SilkscreenBottom);
+    assert_eq!((silk.at, silk.style.height), (pt("0", "2"), mm("0.8")));
+    let value = text("Value", FootprintLayer::AssemblyTop);
+    assert_eq!(
+        (value.at, value.rotation),
+        (pt("0", "-2"), Millideg(90_000))
+    );
+    // KiCad's reference text on a Fab Layer is the assembly Designator.
+    let assembly = text("Designator", FootprintLayer::AssemblyTop);
+    assert_eq!(assembly.at, pt("0.5", "-0.25"));
+    assert_eq!(
+        (assembly.rotation, assembly.style.height),
+        (Millideg(90_000), mm("0.5"))
+    );
+    text("Designator", FootprintLayer::AssemblyBottom);
+    assert_eq!(fp.texts.len(), 4, "{:?}", fp.texts);
+
+    let on = |layer| {
+        fp.graphics
+            .iter()
+            .filter(move |g| g.layer == layer)
+            .collect::<Vec<_>>()
+    };
+    assert!(
+        matches!(on(FootprintLayer::AssemblyTop)[..], [g] if matches!(g.shape, Shape::Line { .. }))
+    );
+    let bottom = on(FootprintLayer::AssemblyBottom);
+    assert_eq!(bottom.len(), 2, "circle and PIN1 text");
+    assert!(
+        bottom
+            .iter()
+            .any(|g| matches!(&g.shape, Shape::Text { text, .. } if text == "PIN1"))
+    );
+}
+
+fn courtyard_import(items: &str) -> Imported {
+    let footprint = format!(
+        r#"(footprint "Courtyard" (layer "F.Cu")
+          (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu" "F.Paste" "F.Mask"))
+          {items})"#
+    );
+    import(
+        &fixture("divider.kicad_sym"),
+        &footprint,
+        &ImportOptions::default(),
+        &mut ids(),
+    )
+    .unwrap()
+}
+
+fn courtyard_shapes(out: &Imported, layer: FootprintLayer) -> Vec<Shape> {
+    out.footprint
+        .graphics
+        .iter()
+        .filter(|g| g.layer == layer)
+        .map(|g| g.shape.clone())
+        .collect()
+}
+
+#[test]
+fn courtyard_lines_and_arcs_chain_into_a_polygon() {
+    // A D shape: three lines given out of order and reversed, closed by a half-circle arc
+    // of radius 1 about (1, 0) through (2, 0), on the top; a plain square on the bottom.
+    let out = courtyard_import(
+        r#"(fp_line (start -1 1) (end -1 -1) (layer "F.CrtYd") (width 0.05))
+           (fp_line (start 1 1) (end -1 1) (layer "F.CrtYd") (width 0.05))
+           (fp_arc (start 1 -1) (mid 2 0) (end 1 1) (layer "F.CrtYd") (width 0.05))
+           (fp_line (start 1 -1) (end -1 -1) (layer "F.CrtYd") (width 0.05))
+           (fp_line (start -2 -2) (end 2 -2) (layer "B.CrtYd") (width 0.05))
+           (fp_line (start 2 2) (end 2 -2) (layer "B.CrtYd") (width 0.05))
+           (fp_line (start 2 2) (end -2 2) (layer "B.CrtYd") (width 0.05))
+           (fp_line (start -2 -2) (end -2 2) (layer "B.CrtYd") (width 0.05))"#,
+    );
+    assert!(out.warnings.is_empty(), "{:?}", out.warnings);
+
+    let top = courtyard_shapes(&out, FootprintLayer::CourtyardTop);
+    let [Shape::Polygon { points }] = top.as_slice() else {
+        panic!("one top courtyard polygon expected: {top:?}");
+    };
+    // y flipped: the corners are (±1, ±1); the arc bulges out to x = 2.
+    for corner in [pt("-1", "1"), pt("-1", "-1"), pt("1", "1"), pt("1", "-1")] {
+        assert!(
+            points.contains(&corner),
+            "{corner:?} missing from {points:?}"
+        );
+    }
+    let bulge: Vec<_> = points.iter().filter(|p| p.x > mm("1")).collect();
+    assert!(
+        bulge.len() > 3,
+        "the arc is followed by many points: {points:?}"
+    );
+    for p in &bulge {
+        let r = ((p.x.0 - 1_000_000) as f64).hypot(p.y.0 as f64);
+        assert!((r - 1_000_000.0).abs() < 2_000.0, "{p:?} is off the arc");
+    }
+    assert!(bulge.iter().any(|p| p.x >= mm("1.999")), "{bulge:?}");
+    assert_eq!(
+        points.len(),
+        4 + bulge.len(),
+        "no point repeats: {points:?}"
+    );
+
+    let bottom = courtyard_shapes(&out, FootprintLayer::CourtyardBottom);
+    let [Shape::Polygon { points }] = bottom.as_slice() else {
+        panic!("one bottom courtyard polygon expected: {bottom:?}");
+    };
+    assert_eq!(points.len(), 4, "{points:?}");
+}
+
+#[test]
+fn a_courtyard_chain_that_does_not_close_becomes_its_bounding_rect_with_a_warning() {
+    let out = courtyard_import(
+        r#"(fp_line (start -1 -1) (end 1 -1) (layer "F.CrtYd") (width 0.05))
+           (fp_line (start 1 -1) (end 1 1) (layer "F.CrtYd") (width 0.05))
+           (fp_arc (start 1 1) (mid 0 2) (end -1 1) (layer "F.CrtYd") (width 0.05))"#,
+    );
+    assert_eq!(
+        courtyard_shapes(&out, FootprintLayer::CourtyardTop),
+        [Shape::Rect {
+            start: pt("-1", "-2"),
+            end: pt("1", "1"),
+        }]
+    );
+    assert!(
+        out.warnings
+            .iter()
+            .any(|w| w.contains("courtyard") && w.contains("close")),
+        "{:?}",
+        out.warnings
+    );
+}
+
+#[test]
+fn thermal_width_and_gap_map_to_the_pads_zone_connection_in_both_spellings() {
+    let footprint = r#"(module "Thermals" (layer F.Cu)
+      (pad 1 thru_hole circle (at 0 0) (size 2 2) (drill 1) (layers *.Cu *.Mask)
+        (zone_connect 1) (thermal_width 0.25) (thermal_gap 0.35))
+      (pad 2 smd rect (at 3 0) (size 2 2) (layers B.Cu B.Paste B.Mask)
+        (thermal_bridge_width 0.45) (thermal_gap 0.55)))"#;
+    let out = import(
+        &fixture("divider.kicad_sym"),
+        footprint,
+        &ImportOptions::default(),
+        &mut ids(),
+    )
+    .unwrap();
+    let pad = |n: &str| out.footprint.pads.iter().find(|p| p.number == n).unwrap();
+    let one = pad("1").zone_connection.unwrap();
+    assert_eq!(one.style, Some(ConnectionStyle::Relief));
+    assert_eq!(
+        (one.spoke_width, one.gap),
+        (Some(mm("0.25")), Some(mm("0.35")))
+    );
+    let two = pad("2").zone_connection.unwrap();
+    assert_eq!(two.style, None, "no zone_connect: the style is inherited");
+    assert_eq!(
+        (two.spoke_width, two.gap),
+        (Some(mm("0.45")), Some(mm("0.55")))
+    );
+    assert_eq!(
+        pad("2").side,
+        Some(Side::Bottom),
+        "a B.Cu SMD Pad is on the bottom"
+    );
 }

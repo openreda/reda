@@ -21,6 +21,7 @@
 //! footprint's y is negated. Angles keep their sign, because a turn that looks
 //! counter-clockwise on screen stays counter-clockwise when the axis flips with the view.
 
+mod courtyard;
 mod fields;
 mod footprint;
 mod net_classes;
@@ -134,6 +135,7 @@ pub fn import(
 
     let mut warnings = source.warnings.clone();
     let symbol = symbol::build(&source, file_name(&source.name), provenance.clone(), new_id);
+    let (in_bom, in_cpl) = (source.in_bom && fp_source.in_bom, fp_source.in_cpl);
     let footprint = footprint::build(
         fp_source.clone(),
         file_name(&fp_source.name),
@@ -158,8 +160,8 @@ pub fn import(
         name,
         // An imported Net Tie stays Standard until the user retypes it.
         component_type: ComponentType::Standard,
-        in_bom: ComponentType::Standard.default_in_bom(),
-        in_cpl: ComponentType::Standard.default_in_cpl(),
+        in_bom: ComponentType::Standard.default_in_bom() && in_bom,
+        in_cpl: ComponentType::Standard.default_in_cpl() && in_cpl,
         symbol: Some(symbol.uuid),
         footprints: vec![footprint.uuid],
         fields: mapped.fields,
