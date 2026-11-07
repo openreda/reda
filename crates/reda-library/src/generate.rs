@@ -19,6 +19,7 @@ mod no_lead;
 mod pattern;
 mod qfp;
 mod quad;
+mod regenerate;
 pub mod sections;
 mod small_outline;
 mod sot;
@@ -41,6 +42,7 @@ pub use no_lead::{Dfn, ExposedPadDimensions, NoLeadDimensions, NoLeadParams, Qfn
 pub use pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, Resolved, WarningCode};
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
 pub use quad::Pin1Location;
+pub use regenerate::{Change, Lost, Regenerate, RegenerateParams, RegeneratePreview, Regenerated};
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
 pub use through_hole::{Dip, DipParams, Header, HeaderParams, HeaderPitch};
@@ -179,21 +181,46 @@ pub const GENERATORS: [&str; 11] = [
     <Header as FootprintFamily>::META.id,
 ];
 
-type Preview = fn(&serde_json::Value) -> Result<Footprint, CommandError>;
+type Build = fn(
+    &serde_json::Value,
+    &mut dyn FnMut() -> Uuid,
+) -> Result<(Footprint, Vec<GeneratorWarning>), CommandError>;
 
-const PREVIEWS: [Preview; 11] = [
-    preview_of::<Chip>,
-    preview_of::<Molded>,
-    preview_of::<Sot>,
-    preview_of::<Soic>,
-    preview_of::<Ssop>,
-    preview_of::<Tssop>,
-    preview_of::<Dfn>,
-    preview_of::<Qfn>,
-    preview_of::<Qfp>,
-    preview_of::<Dip>,
-    preview_of::<Header>,
+/// Each of [`GENERATORS`]' builds, in the same order.
+const BUILDS: [Build; 11] = [
+    build_of::<Chip>,
+    build_of::<Molded>,
+    build_of::<Sot>,
+    build_of::<Soic>,
+    build_of::<Ssop>,
+    build_of::<Tssop>,
+    build_of::<Dfn>,
+    build_of::<Qfn>,
+    build_of::<Qfp>,
+    build_of::<Dip>,
+    build_of::<Header>,
 ];
+
+fn build_of<F: FootprintFamily>(
+    params: &serde_json::Value,
+    new_id: &mut dyn FnMut() -> Uuid,
+) -> Result<(Footprint, Vec<GeneratorWarning>), CommandError> {
+    let p: F::Params = serde_json::from_value(params.clone())
+        .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
+    build::<F>(&p, new_id)
+}
+
+/// The Footprint the generator Command `command` makes from `params`, taking UUIDs from
+/// `new_id`, and its warnings, without writing anything. `None` when `command` is not a
+/// generator.
+pub fn rebuild(
+    command: &str,
+    params: &serde_json::Value,
+    new_id: &mut dyn FnMut() -> Uuid,
+) -> Option<Result<(Footprint, Vec<GeneratorWarning>), CommandError>> {
+    let i = GENERATORS.iter().position(|id| *id == command)?;
+    Some(BUILDS[i](params, new_id))
+}
 
 /// The Footprint the generator Command `command` would write with `params`, computed
 /// without writing anything (its UUIDs count up from 1), for a generator form's preview. `None`
@@ -202,19 +229,12 @@ pub fn preview(
     command: &str,
     params: &serde_json::Value,
 ) -> Option<Result<Footprint, CommandError>> {
-    let i = GENERATORS.iter().position(|id| *id == command)?;
-    Some(PREVIEWS[i](params))
-}
-
-fn preview_of<F: FootprintFamily>(params: &serde_json::Value) -> Result<Footprint, CommandError> {
-    let p: F::Params = serde_json::from_value(params.clone())
-        .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
     let mut next = 0;
-    let (footprint, _) = build::<F>(&p, || {
+    let built = rebuild(command, params, &mut || {
         next += 1;
         Uuid::from_u128(next)
     })?;
-    Ok(footprint)
+    Some(built.map(|(footprint, _)| footprint))
 }
 
 /// The Footprint family `F` makes from `p`, taking UUIDs from `new_id`, and the warnings

@@ -225,3 +225,191 @@ fn a_non_compliant_override_warns_again_naming_only_itself() {
     let (out, _) = generate(&mut again, command, file["generator"]["params"].clone());
     assert_eq!(warning(&out), [json!(["/pads/length"])]);
 }
+
+/// A generated Footprint, opened for editing: its UUID and file.
+fn generated_open(e: &mut TestEngine, family: &str, params: Value) -> (String, Value) {
+    let (out, file) = generate(e, &format!("library.footprint.generate.{family}"), params);
+    let uuid = out["footprint"].as_str().unwrap().to_owned();
+    e.run_ok("library.element.open", json!({"element": uuid}));
+    (uuid, file)
+}
+
+/// The open Footprint, saved, as its file reads.
+fn saved(e: &mut TestEngine, uuid: &str) -> Value {
+    let out = e.run_ok("library.element.save", json!({"element": uuid}));
+    let file = out["written"][0].as_str().unwrap().to_owned();
+    serde_json::from_slice(&std::fs::read(file).unwrap()).unwrap()
+}
+
+/// Each Pad's number and UUID, in number order.
+fn pad_uuids(file: &Value) -> Vec<(String, String)> {
+    let mut pads: Vec<_> = file["pads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            (
+                p["number"].as_str().unwrap().to_owned(),
+                p["uuid"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    pads.sort_by_key(|p| p.0.parse::<u32>().unwrap());
+    pads
+}
+
+#[test]
+fn regenerating_unchanged_params_gives_back_the_same_footprint() {
+    let dir = TempDir::new("regen-same");
+    let mut e = engine_with_library(&dir);
+    let (uuid, file) = generated_open(&mut e, "soic", json!({"pins": 8}));
+    let preview = e.run_ok(
+        "library.footprint.regenerate.preview",
+        json!({"footprint": uuid}),
+    );
+    assert_eq!(preview["lost"], json!([]));
+    assert_eq!(preview["added"], json!([]));
+    assert_eq!(preview["unchanged"], true);
+    let out = e.run_ok("library.footprint.regenerate", json!({"footprint": uuid}));
+    assert_eq!(out["result"]["lost"], json!([]));
+    // Every UUID is kept, so the file, and the hash a placed Component compares, are
+    // the same: regenerating to the same geometry doesn't read Library Differs.
+    assert_eq!(saved(&mut e, &uuid), file);
+}
+
+#[test]
+fn regenerating_keeps_uuids_by_number_and_replaces_hand_edits_after_a_preview() {
+    let dir = TempDir::new("regen-edits");
+    let mut e = engine_with_library(&dir);
+    let (uuid, file) = generated_open(&mut e, "soic", json!({"pins": 8}));
+    let before = pad_uuids(&file);
+    let pad_1 = before[0].1.clone();
+    // Hand edits: Pad 1 moved, a Silkscreen line added, the description changed.
+    e.run_ok(
+        "library.footprint.pad.edit",
+        json!({"footprint": uuid, "pad": pad_1, "at": {"x": "-3mm", "y": "1.905mm"}}),
+    );
+    let added = e.run_ok(
+        "library.footprint.graphic.add",
+        json!({"footprint": uuid, "layer": "silkscreen_top", "shape": {
+            "kind": "line", "start": {"x": "0mm", "y": "0mm"}, "end": {"x": "1mm", "y": "0mm"}}}),
+    )["result"]["graphic"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    e.run_ok(
+        "library.footprint.edit",
+        json!({"footprint": uuid, "description": "mine"}),
+    );
+    // New params: the Most density, and pin 5 left out.
+    let mut params = file["generator"]["params"].clone();
+    let p = params.as_object_mut().unwrap();
+    for section in ["goals", "tolerances", "pads"] {
+        p.remove(section);
+    }
+    p.remove("description");
+    params["goals"] = json!({"density": "most"});
+    params["absent_pins"] = json!([5]);
+    let request = json!({"footprint": uuid, "params": params});
+    let preview = e.run_ok("library.footprint.regenerate.preview", request.clone());
+    let lost: Vec<(String, String, String)> = preview["lost"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| {
+            (
+                l["kind"].as_str().unwrap().to_owned(),
+                l["what"].as_str().unwrap().to_owned(),
+                l["change"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    for expected in [
+        ("pad", "Pad 1", "changed"),
+        ("pad", "Pad 5", "removed"),
+        ("graphic", "Line on silkscreen_top", "removed"),
+        ("footprint", "description", "changed"),
+    ] {
+        let expected = (expected.0.into(), expected.1.into(), expected.2.into());
+        assert!(lost.contains(&expected), "{expected:?} in {lost:?}");
+    }
+    assert_eq!(preview["unchanged"], false);
+    // The preview changes nothing.
+    let mut file_now = saved(&mut e, &uuid);
+    assert_eq!(file_now["footprint"]["description"], "mine");
+
+    let out = e.run_ok("library.footprint.regenerate", request);
+    assert_eq!(out["result"]["lost"], preview["lost"]);
+    file_now = saved(&mut e, &uuid);
+    assert_eq!(
+        file_now["footprint"]["uuid"], uuid,
+        "the Footprint keeps its UUID"
+    );
+    assert_eq!(
+        file_now["footprint"]["name"], "SOIC127P600X175-8N",
+        "and its name"
+    );
+    let mut expected = before.clone();
+    expected.remove(4);
+    assert_eq!(
+        pad_uuids(&file_now),
+        expected,
+        "Pads keep their UUIDs by number"
+    );
+    assert!(
+        !file_now["graphics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|g| g["uuid"] == added),
+        "the hand-drawn line is gone"
+    );
+    assert_eq!(
+        file_now["footprint"]["description"],
+        "SOIC-8, 1.27 mm pitch, IPC-7351 Most"
+    );
+    assert_eq!(file_now["generator"]["params"]["goals"]["density"], "most");
+    assert_eq!(
+        file_now["generator"]["params"]["name"],
+        "SOIC127P600X175-8N"
+    );
+    // Most density: larger Pads than Nominal's 1.45 mm.
+    let pad_1_now = file_now["pads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["number"] == "1")
+        .unwrap();
+    assert!(pad_1_now["width"].as_i64().unwrap() > 1_450_000);
+
+    // One undo step brings the hand-edited Footprint back.
+    e.run_ok("edit.undo", json!({"document": uuid}));
+    let undone = saved(&mut e, &uuid);
+    assert_eq!(undone["footprint"]["description"], "mine");
+    assert_eq!(pad_uuids(&undone), before);
+}
+
+#[test]
+fn only_a_generated_editable_footprint_regenerates() {
+    let dir = TempDir::new("regen-refused");
+    let mut e = engine_with_library(&dir);
+    let made = e.run_ok(
+        "library.element.new",
+        json!({"library": LIBRARY, "kind": "footprint", "name": "Hand"}),
+    );
+    let hand = made["element"].as_str().unwrap();
+    let err = e.run_err("library.footprint.regenerate", json!({"footprint": hand}));
+    assert_eq!(err.code, reda_command::ErrorCode::Rejected, "{err:?}");
+    let err = e.run_err(
+        "library.footprint.regenerate",
+        json!({"footprint": "00000000-0000-4000-8000-0000000000ff"}),
+    );
+    assert_eq!(err.code, reda_command::ErrorCode::NotFound);
+    // Params that don't work are refused with the family's pointer.
+    let (uuid, _) = generated_open(&mut e, "soic", json!({"pins": 8}));
+    let err = e.run_err(
+        "library.footprint.regenerate",
+        json!({"footprint": uuid, "params": {"pins": 9}}),
+    );
+    assert_eq!(err.details.unwrap()["pointer"], "/params/pins");
+}

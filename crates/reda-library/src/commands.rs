@@ -11,6 +11,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ProjectLibraryAdd);
     registry.add(ProjectLibraryRemove);
     crate::edit::register_all(registry);
+    registry.add(crate::generate::Regenerate);
+    registry.add(crate::generate::RegeneratePreview);
 }
 
 /// Params naming one Project Library folder.
