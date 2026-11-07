@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"fc63d2e4-35d0-43e8-87a8-bd01d8595462","name":"DIO_Axial_DO-41_P10.16mm","description":"Diode, DO-41 axial, 5.2 × 2.7 mm body, leads 10.16 mm apart. Per onsemi DO-41 case 59-10"},
+  "footprint": {"uuid":"fc63d2e4-35d0-43e8-87a8-bd01d8595462","name":"DIO_Axial_DO-41_P10.16mm","description":"Diode, DO-41 axial, 5.2 × 2.7 mm body, leads 10.16 mm apart. Per onsemi DO-41 case 59-10","height":2700000},
   "pads": [
     {"uuid":"3a67c1de-871c-4e55-a73a-93d33be4bb7f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}},
     {"uuid":"a3b6311c-70c8-403e-af1d-d6fa4f7a48b8","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}}
@@ -16,7 +16,8 @@
     {"uuid":"ed13a1fc-0cbb-4488-b7fc-8dc59c208ab8","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2660000,"y":0},"end":{"x":-3820000,"y":0}},"width":120000}
   ],
   "texts": [
-    {"uuid":"aa152561-ec1e-4bcf-ad03-ee3be9a058cd","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"886f997e-f29b-453b-b3a2-4ebfb085f8ed","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"aa152561-ec1e-4bcf-ad03-ee3be9a058cd","field":"Value","at":{"x":0,"y":-2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"f50bcfb6-b963-4f3c-a228-d854e420e4b3","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

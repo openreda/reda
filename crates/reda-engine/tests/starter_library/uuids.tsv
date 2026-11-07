@@ -11,6 +11,7 @@ footprint/CAPP_Radial_D5.0mm_P2.00mm	b75e8054-1fe9-43c6-b9e0-76b97264a8cf
 footprint/CAPP_Radial_D5.0mm_P2.00mm	e481498b-dbf1-4d04-bec2-eca61c979ff3
 footprint/CAPP_Radial_D5.0mm_P2.00mm	b01807be-087d-4af6-b89d-1c919fcd2395
 footprint/CAPP_Radial_D5.0mm_P2.00mm	e4149877-7ccc-4a06-a8e3-c4182a9df793
+footprint/CAPP_Radial_D5.0mm_P2.00mm	e20aabb6-9ae2-4d03-83af-8f1caeb11e0c
 footprint/CAPP_Radial_D6.3mm_P2.50mm	1f399e5c-50d0-4d9c-bb9f-153e8a201cae
 footprint/CAPP_Radial_D6.3mm_P2.50mm	2bcaec19-4ad7-4e2e-b851-23d067cdbec0
 footprint/CAPP_Radial_D6.3mm_P2.50mm	fdfaa117-0175-43a3-a9ae-aafd7820f6a2
@@ -21,6 +22,7 @@ footprint/CAPP_Radial_D6.3mm_P2.50mm	65768991-8ecd-44ed-aede-a64a8f0d2bd9
 footprint/CAPP_Radial_D6.3mm_P2.50mm	cbdc52bd-5eed-4319-8edb-187cc232f21f
 footprint/CAPP_Radial_D6.3mm_P2.50mm	1b60135b-5af7-4a8c-aceb-8367f05a1121
 footprint/CAPP_Radial_D6.3mm_P2.50mm	a0f1b39a-5f51-4533-9cb5-73e892254263
+footprint/CAPP_Radial_D6.3mm_P2.50mm	e16e9843-d1b1-41cc-8548-314e7fe26d3b
 footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	cd0be5b4-30b8-43a1-86a0-04fe884fe2c5
 footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	44e00762-a41d-49b3-9770-d4b89f8e2d8d
 footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	d892f725-4b0a-4cea-9b32-7beea19dcad3
@@ -30,6 +32,7 @@ footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	21c680c6-582a-47e4-877b-0ddb2b010322
 footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	fdf40709-28ed-4787-b83c-9a01b0ede2f3
 footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	994ab059-2eb6-42ec-ae9c-ebade935e3b0
 footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	f24cc5cc-f235-443b-aa47-8ff76a78e5ca
+footprint/CAP_Disc_D5.0mm_W2.5mm_P5.08mm	c21bea96-b079-4f3c-9e7f-d0c71a08b449
 footprint/DIO_Axial_DO-35_P7.62mm	3bd53cfd-bcbc-4628-a910-226fbcc07db4
 footprint/DIO_Axial_DO-35_P7.62mm	2e915579-7507-420c-967c-5dbbf0cd5d46
 footprint/DIO_Axial_DO-35_P7.62mm	1c80f322-c118-4598-abe0-629c0f94ddd5
@@ -43,6 +46,7 @@ footprint/DIO_Axial_DO-35_P7.62mm	9599d6cc-9b71-467c-93cb-027c7a88ecc7
 footprint/DIO_Axial_DO-35_P7.62mm	a68f5347-5950-4fb4-941e-f634699fd15a
 footprint/DIO_Axial_DO-35_P7.62mm	cc025516-23bd-4d31-81ce-b28698a25cea
 footprint/DIO_Axial_DO-35_P7.62mm	a9a9aed3-f03a-406f-b619-bcf899ecf7e9
+footprint/DIO_Axial_DO-35_P7.62mm	91461d17-be5f-4ace-a544-33ea0534418c
 footprint/DIO_Axial_DO-41_P10.16mm	fc63d2e4-35d0-43e8-87a8-bd01d8595462
 footprint/DIO_Axial_DO-41_P10.16mm	f50bcfb6-b963-4f3c-a228-d854e420e4b3
 footprint/DIO_Axial_DO-41_P10.16mm	aa152561-ec1e-4bcf-ad03-ee3be9a058cd
@@ -56,6 +60,7 @@ footprint/DIO_Axial_DO-41_P10.16mm	c2ddc0f2-e9b2-456f-9e4f-ddfcbebd6a8e
 footprint/DIO_Axial_DO-41_P10.16mm	c4ee5277-5a12-4089-b8c1-5b86e5c4dea2
 footprint/DIO_Axial_DO-41_P10.16mm	75edc450-9e58-4279-801f-b2a4f2250add
 footprint/DIO_Axial_DO-41_P10.16mm	eca3c488-8d31-4073-9bf6-da13299ff017
+footprint/DIO_Axial_DO-41_P10.16mm	886f997e-f29b-453b-b3a2-4ebfb085f8ed
 footprint/DIO_SMA	d7207e2b-b137-4fb4-a47b-9c233f186cc7
 footprint/DIO_SMA	6b219b09-81b7-4d78-b925-e1c2b1ff673c
 footprint/DIO_SMA	41235380-81b9-49ab-8718-60fbe7a66b35
@@ -66,6 +71,7 @@ footprint/DIO_SMA	5a81897e-4d7b-4591-adf5-ed5703533046
 footprint/DIO_SMA	c908bf2e-c5ab-4600-b870-187824a13e73
 footprint/DIO_SMA	58e98e38-e665-480b-8f16-538d36aee710
 footprint/DIO_SMA	243f3486-a08e-4be4-9575-708b5647b3d9
+footprint/DIO_SMA	28b386de-bd11-4fc6-8ce6-b6c4e73752cf
 footprint/DIO_SOD-123	994846c1-6dfb-48a2-babf-ae60f86398b2
 footprint/DIO_SOD-123	07324cfa-4f7d-418a-9a90-ed980b560537
 footprint/DIO_SOD-123	f4ab1a0e-b100-400b-a9a0-69c041c6604b
@@ -76,11 +82,14 @@ footprint/DIO_SOD-123	a3950371-cf48-4b24-8785-4f656e358b7d
 footprint/DIO_SOD-123	beecdd15-e7b9-49a1-b08e-92bd1807ae7f
 footprint/DIO_SOD-123	c90fdd17-de7e-4992-a9a2-6bb9c85aeed7
 footprint/DIO_SOD-123	d85193b2-c5cd-49df-950d-9f1760a129d5
+footprint/DIO_SOD-123	a459eebf-7e28-496d-b34e-b923261565c8
 footprint/Fiducial_1mm_Mask2mm	4147e6dc-4826-4af3-8aaf-99a7accd9bbd
 footprint/Fiducial_1mm_Mask2mm	0c79f3d1-10e6-42c2-a645-7d1a72c13010
 footprint/Fiducial_1mm_Mask2mm	da255ad9-bdee-4306-b31d-47ea31dd1ec3
 footprint/Fiducial_1mm_Mask2mm	be19c584-9350-4171-95c9-c3717c606f4b
 footprint/Fiducial_1mm_Mask2mm	83e14916-371b-4fdb-aad7-667ce7073251
+footprint/Fiducial_1mm_Mask2mm	f504df24-adb9-48a8-bcef-ca23bd04be9f
+footprint/Fiducial_1mm_Mask2mm	4f17084a-3c6f-4582-9bed-7b2a6d82abb0
 footprint/LED_THT_D3.0mm_P2.54mm	d1dde49b-9032-429b-ba14-75bfc08d5a03
 footprint/LED_THT_D3.0mm_P2.54mm	4b0f0018-82bb-4cfc-8b8a-3d5d9bc44b62
 footprint/LED_THT_D3.0mm_P2.54mm	4f5b333c-5a38-48c1-a05d-1fc8b2f53f93
@@ -89,6 +98,7 @@ footprint/LED_THT_D3.0mm_P2.54mm	f0bbb8ef-024c-462a-9de5-7faf95d15725
 footprint/LED_THT_D3.0mm_P2.54mm	5fb9b982-8c9d-4d86-ace6-12dfc9dfd84d
 footprint/LED_THT_D3.0mm_P2.54mm	cf86bc5f-9203-4149-9c67-dd6852644f96
 footprint/LED_THT_D3.0mm_P2.54mm	21b40c14-c8a5-4cf3-9750-cf3ce54be40d
+footprint/LED_THT_D3.0mm_P2.54mm	85972a59-7158-48cf-a23b-473331342957
 footprint/LED_THT_D5.0mm_P2.54mm	a98b17f8-5ccd-4961-80a0-035239726052
 footprint/LED_THT_D5.0mm_P2.54mm	032141cd-ebdf-4466-b6fe-393be90bd26f
 footprint/LED_THT_D5.0mm_P2.54mm	3348bbb7-088d-486e-a760-ff5f838edd04
@@ -97,6 +107,7 @@ footprint/LED_THT_D5.0mm_P2.54mm	74141d46-6319-4f05-9e44-f274e2e07c2f
 footprint/LED_THT_D5.0mm_P2.54mm	1364b159-c76e-47f8-b56f-577f1a2f81d5
 footprint/LED_THT_D5.0mm_P2.54mm	4be44faa-f0e0-4de9-8817-e4d5dea6a581
 footprint/LED_THT_D5.0mm_P2.54mm	bdc21574-3d46-486e-bf88-31dfd8d4b582
+footprint/LED_THT_D5.0mm_P2.54mm	c5ed2c0c-d9c2-4a33-8f60-639c8c81c5d3
 footprint/MountingHole_M2	fa52c198-bd89-43fa-8c5c-25cd76d48bdf
 footprint/MountingHole_M2	9b437beb-4ef9-4fb2-a605-7af8f085b23b
 footprint/MountingHole_M2	f893fe43-ee4e-4802-956e-a06d76158c74
@@ -104,6 +115,7 @@ footprint/MountingHole_M2	1a944a2b-0983-4ac8-90e0-b576c2c41f44
 footprint/MountingHole_M2	3e27e2d4-3538-4eaa-bf30-367501613866
 footprint/MountingHole_M2	bd02590a-9c7a-433d-bf42-47bd8d9cdbb8
 footprint/MountingHole_M2	f213fe62-e052-4067-b104-083a882e5aa1
+footprint/MountingHole_M2	847068a0-7dab-44a1-9e91-7b14a59b19b3
 footprint/MountingHole_M2.5	e5327c47-451f-4774-8c20-2fb374d28712
 footprint/MountingHole_M2.5	4910fe0f-68dc-46d0-aaa4-70ddd2b00c2a
 footprint/MountingHole_M2.5	75642a11-54f0-4eca-aa68-869bb07502e9
@@ -111,6 +123,7 @@ footprint/MountingHole_M2.5	442904a3-35fb-4ac2-a25b-1fb5c222df7e
 footprint/MountingHole_M2.5	bc47949f-9342-4e7a-9b99-781a4700f43e
 footprint/MountingHole_M2.5	a33d477d-c391-4f50-9c6f-7e274cc51a98
 footprint/MountingHole_M2.5	ad2a9b0c-9110-4ba6-a08d-67ea95208d34
+footprint/MountingHole_M2.5	9e1f670f-25f9-455b-8aaf-28865d7a4844
 footprint/MountingHole_M3	5b59cdab-565f-4f43-8563-7b49605b64f5
 footprint/MountingHole_M3	bb441b10-60ec-4428-ae40-879cae13aec1
 footprint/MountingHole_M3	732e356d-ae3f-4ac3-9110-707295538d10
@@ -118,6 +131,7 @@ footprint/MountingHole_M3	4b5efa83-470e-4f52-b548-506a36d274ea
 footprint/MountingHole_M3	5e771c7c-f442-40c2-a129-51230861d7ba
 footprint/MountingHole_M3	a380f050-8ebf-4e83-aa14-6c81b57e57d8
 footprint/MountingHole_M3	6f0b6cfc-748f-4f24-9119-26bea6487e1a
+footprint/MountingHole_M3	63e425a8-5232-4ae9-bbe4-7dc6f22e2aa0
 footprint/MountingHole_M3_Pad	8cef86d0-5480-4597-8542-ac0c2cbd9774
 footprint/MountingHole_M3_Pad	b959b391-ba71-4253-8244-8bf4c90a5061
 footprint/MountingHole_M3_Pad	53d1a70a-887f-4505-b6b5-1a1f06a1dd0d
@@ -125,6 +139,7 @@ footprint/MountingHole_M3_Pad	2006a74a-2b8a-4eb2-bf0f-eb2847ea7dfd
 footprint/MountingHole_M3_Pad	9eb235d7-3abc-4cb0-b640-f67448fcb6e0
 footprint/MountingHole_M3_Pad	75707370-d04e-4984-add4-0395b0cb1b80
 footprint/MountingHole_M3_Pad	d764bb9b-b9e4-42e6-ba3c-22db19dfbbc4
+footprint/MountingHole_M3_Pad	ed6d441c-eaae-49b7-b946-29eaef6ee0ac
 footprint/NetTie_2_SMD_Pad0.5mm	12c5684d-d33c-4b0f-9976-eadf8448d148
 footprint/NetTie_2_SMD_Pad0.5mm	a5e4e866-4020-4c11-82ce-dd1a78e4c783
 footprint/NetTie_2_SMD_Pad0.5mm	47a00aa4-04c7-477b-aa70-7347f43a8f93
@@ -132,6 +147,7 @@ footprint/NetTie_2_SMD_Pad0.5mm	e8743dd2-4de3-4feb-87d5-c28801d13218
 footprint/NetTie_2_SMD_Pad0.5mm	a50d96b0-da32-497e-a262-4be1a58b0139
 footprint/NetTie_2_SMD_Pad0.5mm	44b620e5-5e97-459d-9d46-b8ce836180cc
 footprint/NetTie_2_SMD_Pad0.5mm	55a77829-63e4-487b-942a-dfc280185cc8
+footprint/NetTie_2_SMD_Pad0.5mm	3ef97327-0a7b-4be8-aa79-8842b3411c3c
 footprint/NetTie_2_SMD_Pad2.0mm	9d14b16b-73a6-46e6-9c2f-1a1f99a7db71
 footprint/NetTie_2_SMD_Pad2.0mm	6f4ef565-bdf2-48d6-ba3a-5d0190c0725e
 footprint/NetTie_2_SMD_Pad2.0mm	259e96b0-569d-4d66-a0dc-a8b16981d676
@@ -139,6 +155,7 @@ footprint/NetTie_2_SMD_Pad2.0mm	26fbbb2f-8d60-4394-9849-12f15bcaef7f
 footprint/NetTie_2_SMD_Pad2.0mm	debc890b-e249-40a1-9270-a894bdb4ea53
 footprint/NetTie_2_SMD_Pad2.0mm	7ca8b438-f523-4344-af15-4bdc2c76a156
 footprint/NetTie_2_SMD_Pad2.0mm	2c58fc4d-3216-4034-9647-f933c7279a11
+footprint/NetTie_2_SMD_Pad2.0mm	9244dc47-6faa-4d42-8270-f64ac3f38c94
 footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	afd4eee0-373d-4487-aade-3ad89f20f99d
 footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	93505dbc-3734-4000-9025-215dbd4b74cb
 footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	014b6758-bd5a-45eb-bbf1-b911bfab5ba2
@@ -149,6 +166,7 @@ footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	11245a08-735a-4cb4-9618-d16e03d7d8e4
 footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	a3451996-a692-4def-b945-a4889a6711ee
 footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	cb042bfe-c1e6-4836-a31e-831a7b9fc7a8
 footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	575248fd-9f11-4e27-bc91-aa72e2b14ab1
+footprint/RES_Axial_L6.3mm_D2.5mm_P10.16mm	29b5bd88-41a1-4356-b591-e9aae0b6661f
 footprint/SW_Push_6x6mm_SMD	2cd4d46f-5827-4e37-a0e9-6b64a24b342d
 footprint/SW_Push_6x6mm_SMD	96610136-69c7-4cf6-b9ad-aa6273018c5d
 footprint/SW_Push_6x6mm_SMD	d1b0fd80-f55b-40cc-9679-00c5ea7aa46f
@@ -163,6 +181,7 @@ footprint/SW_Push_6x6mm_SMD	df97c01e-f4b8-4ba8-a0f7-3c93a13ef326
 footprint/SW_Push_6x6mm_SMD	21bfbee2-5102-43dc-b235-3a6f54c9593a
 footprint/SW_Push_6x6mm_SMD	7e3d0616-0ccc-482c-913c-bd5aeb1f7880
 footprint/SW_Push_6x6mm_SMD	13e3a93a-71a2-49cb-a7ed-8e104e00990e
+footprint/SW_Push_6x6mm_SMD	15ab054e-ef66-46a4-a5d5-aa0f83e777cd
 footprint/SW_Push_6x6mm_THT	a2875459-87a5-4f15-97e9-6fef455c929e
 footprint/SW_Push_6x6mm_THT	4cd83cc3-e2f7-467e-aedb-8efbdc51a4cb
 footprint/SW_Push_6x6mm_THT	a39b7ab3-b7e1-46e2-8a10-0f68fb1f2b27
@@ -177,6 +196,7 @@ footprint/SW_Push_6x6mm_THT	d30f9c56-ab2a-4caf-910e-3a8611a77149
 footprint/SW_Push_6x6mm_THT	ef6e32dd-62be-42b1-a809-f812fb156174
 footprint/SW_Push_6x6mm_THT	733b826a-d2a7-45f0-9fca-068d29dea436
 footprint/SW_Push_6x6mm_THT	e6039dae-bcfe-4ca9-9168-70395d983392
+footprint/SW_Push_6x6mm_THT	04efb847-0d43-49be-9f7e-35c8932fbda7
 footprint/TERM_Screw_1x02_P3.50mm	df89425e-24b7-466d-a207-2644c9443b67
 footprint/TERM_Screw_1x02_P3.50mm	060ec9cd-360a-44c5-ac31-8a8be6041010
 footprint/TERM_Screw_1x02_P3.50mm	8146d47b-be82-4659-8a05-689c7763e82d
@@ -185,6 +205,7 @@ footprint/TERM_Screw_1x02_P3.50mm	6d3c83d9-9433-477a-adda-2ccbf0d9e5eb
 footprint/TERM_Screw_1x02_P3.50mm	eef01647-856f-4b85-9033-07cfef567aad
 footprint/TERM_Screw_1x02_P3.50mm	faf5df47-a81c-400b-ae95-565d0799b8de
 footprint/TERM_Screw_1x02_P3.50mm	60db1f23-e7e5-4f33-a596-20ccfdbe420b
+footprint/TERM_Screw_1x02_P3.50mm	0b08eee6-830b-4bb9-b417-fb0b6f334c39
 footprint/TERM_Screw_1x02_P5.08mm	279b0c57-2dcb-4d73-9fc5-a41b91ab587b
 footprint/TERM_Screw_1x02_P5.08mm	df903529-b19a-4d7c-a4f9-f2ecf730b818
 footprint/TERM_Screw_1x02_P5.08mm	218b8f46-5086-4e2b-8cb1-4a0f233113c9
@@ -193,6 +214,7 @@ footprint/TERM_Screw_1x02_P5.08mm	f808534b-ab00-421e-acd7-31d72fab9b87
 footprint/TERM_Screw_1x02_P5.08mm	3097ff95-86de-4834-a12e-ea0e89967359
 footprint/TERM_Screw_1x02_P5.08mm	aa0a929f-cd8a-4eb3-8ef8-e3f8142d2a9f
 footprint/TERM_Screw_1x02_P5.08mm	f13eb565-a277-4728-af8c-2beb88491ea6
+footprint/TERM_Screw_1x02_P5.08mm	672a7655-44ae-4dc7-84a2-fb1198b4208c
 footprint/TERM_Screw_1x03_P3.50mm	3385ab36-ede1-4ac6-b2fd-440a58b50baa
 footprint/TERM_Screw_1x03_P3.50mm	94da2197-f85b-4779-a79d-163e57dc5320
 footprint/TERM_Screw_1x03_P3.50mm	80dd72a0-d052-4eae-9119-2a3599868b03
@@ -202,6 +224,7 @@ footprint/TERM_Screw_1x03_P3.50mm	666f2733-9c7e-4584-9212-cfd0dd823880
 footprint/TERM_Screw_1x03_P3.50mm	37c00521-a386-4328-b6ea-aef0ebb18ad8
 footprint/TERM_Screw_1x03_P3.50mm	a940f11b-342f-4ec2-85b1-b1e6fb833791
 footprint/TERM_Screw_1x03_P3.50mm	87d8d6da-9ad1-412e-8df9-819f39a9fda6
+footprint/TERM_Screw_1x03_P3.50mm	629b694f-b0bd-4739-9b96-f7ea1df1fba8
 footprint/TERM_Screw_1x03_P5.08mm	fa427f08-4c9a-40c3-a75b-86a822ec3481
 footprint/TERM_Screw_1x03_P5.08mm	89ce9281-6306-428d-a8e1-2c87ef90f363
 footprint/TERM_Screw_1x03_P5.08mm	a221b58e-a41d-4c50-84a1-c34569ea2cd4
@@ -211,6 +234,7 @@ footprint/TERM_Screw_1x03_P5.08mm	3b82911a-b652-4afd-9a20-64513c433b48
 footprint/TERM_Screw_1x03_P5.08mm	5ff55d25-87e0-4ba1-b6ac-48c9f39eb087
 footprint/TERM_Screw_1x03_P5.08mm	b4541803-1942-4410-90bc-354504ceada6
 footprint/TERM_Screw_1x03_P5.08mm	cd0e544c-069a-4e7a-a336-1761840647d8
+footprint/TERM_Screw_1x03_P5.08mm	eb1892aa-2bd1-429f-8b86-6d00eb89cf3a
 footprint/TO-92_Inline_P2.54mm	163fae4f-3930-40a9-96ae-7630ccb29298
 footprint/TO-92_Inline_P2.54mm	c491169d-e557-4cdb-8d1a-4172cfa69575
 footprint/TO-92_Inline_P2.54mm	5b4e420b-5828-474c-95b7-7f1fa3a3ac7d
@@ -222,12 +246,14 @@ footprint/TO-92_Inline_P2.54mm	31cdf36c-ee38-4815-bab1-baf1e9bbaad7
 footprint/TO-92_Inline_P2.54mm	fcebc2d2-e1df-4fb8-8c3e-b876dbbe3ca5
 footprint/TO-92_Inline_P2.54mm	3c386694-8fdc-4499-b7c0-123dce0f3085
 footprint/TO-92_Inline_P2.54mm	eee55069-cae0-4787-afe7-0d0d6a1bd49d
+footprint/TO-92_Inline_P2.54mm	39bd9b7a-5edd-4ff9-b467-a2a76dcc5b04
 footprint/TestPoint_Pad_D1.5mm	068a2e9e-2381-49d3-9b44-29dc7758faa7
 footprint/TestPoint_Pad_D1.5mm	9aa8aef8-66ff-4c87-be15-8a8f2b79eda8
 footprint/TestPoint_Pad_D1.5mm	47359940-5479-43e7-bd0b-d8bd754cc3f1
 footprint/TestPoint_Pad_D1.5mm	b92b28a0-c36e-44e3-8af5-0321457669dc
 footprint/TestPoint_Pad_D1.5mm	db64a67d-1967-4072-ba55-57ecc11e351a
 footprint/TestPoint_Pad_D1.5mm	c45b309b-e61e-46c7-b8d8-ab5a0b9c03d3
+footprint/TestPoint_Pad_D1.5mm	750a4c30-da39-401f-b1d2-6a510e5588f6
 footprint/USB_C_Receptacle_16P_Horizontal	13f78ea2-b54f-4c17-86db-609c54392855
 footprint/USB_C_Receptacle_16P_Horizontal	210590f8-c0cc-4dfb-b429-4245f9d06fa3
 footprint/USB_C_Receptacle_16P_Horizontal	acbf76b7-9ead-4536-92fe-9b3a78a471d2
@@ -255,6 +281,7 @@ footprint/USB_C_Receptacle_16P_Horizontal	d6fee22f-7de8-4f6b-90c9-cd0c068acbaa
 footprint/USB_C_Receptacle_16P_Horizontal	c9a67e77-9a05-4045-8fad-2820487216b7
 footprint/USB_C_Receptacle_16P_Horizontal	c2fa5e32-8674-48e0-a157-28c076f501ad
 footprint/USB_C_Receptacle_16P_Horizontal	0e6e3d35-0d25-47b2-ae8e-6ac09d89109a
+footprint/USB_C_Receptacle_16P_Horizontal	af54a134-0575-4098-96ed-3419aa15ff03
 footprint/XTAL_HC-49US_P4.88mm	05961479-c2ed-4f9e-9d0e-a89337f482e1
 footprint/XTAL_HC-49US_P4.88mm	e0db06b2-a59a-4f66-843b-573692b15a59
 footprint/XTAL_HC-49US_P4.88mm	9fa150d5-92c8-4fdd-811b-fde05a8a69ba
@@ -263,6 +290,7 @@ footprint/XTAL_HC-49US_P4.88mm	bb60e712-e04a-4a8e-bc8d-e44fd5943b98
 footprint/XTAL_HC-49US_P4.88mm	d990eea6-7f2e-422f-9397-aa822fb86be4
 footprint/XTAL_HC-49US_P4.88mm	90f266aa-7ef4-4546-9732-679f59433143
 footprint/XTAL_HC-49US_P4.88mm	735bfbc6-5545-45da-91b0-447ee31c01d9
+footprint/XTAL_HC-49US_P4.88mm	4300e44a-542e-446e-a63b-9980d070002c
 footprint/XTAL_SMD_3225_4Pad	595b8b5e-8c78-4efa-b9ad-91bead0c60bf
 footprint/XTAL_SMD_3225_4Pad	c81ae152-d5dc-450f-9e96-7927363fda9e
 footprint/XTAL_SMD_3225_4Pad	a2594d3f-d7e5-443c-9389-bf2e01d940d1
@@ -274,6 +302,7 @@ footprint/XTAL_SMD_3225_4Pad	99adf142-5d80-46e7-ba43-52a268684d47
 footprint/XTAL_SMD_3225_4Pad	cf38f301-418c-4507-bc13-6b0a713875ab
 footprint/XTAL_SMD_3225_4Pad	e3870bc4-a0ac-4965-9e2b-04ec25072404
 footprint/XTAL_SMD_3225_4Pad	161e503d-7326-4c4a-a2fa-02ad8d23132c
+footprint/XTAL_SMD_3225_4Pad	26cc2c21-8cf6-486b-a785-3f777fb16eb0
 generate/chip/{"class":"capacitor","description":"Chip LED, 1608 metric, IPC-7351 Nominal","dimensions":{"height":"0.8mm","length":{"max":1700000,"min":1500000},"terminal":{"max":400000,"min":200000},"width":{"max":900000,"min":700000}},"name":"LEDC1608X80N","polarity_mark":true}	dc181a05-7861-4a1b-b740-ff448eb58ad6
 generate/chip/{"class":"capacitor","description":"Chip LED, 1608 metric, IPC-7351 Nominal","dimensions":{"height":"0.8mm","length":{"max":1700000,"min":1500000},"terminal":{"max":400000,"min":200000},"width":{"max":900000,"min":700000}},"name":"LEDC1608X80N","polarity_mark":true}	b034cab0-2c1e-489e-9521-1346c8e2152b
 generate/chip/{"class":"capacitor","description":"Chip LED, 1608 metric, IPC-7351 Nominal","dimensions":{"height":"0.8mm","length":{"max":1700000,"min":1500000},"terminal":{"max":400000,"min":200000},"width":{"max":900000,"min":700000}},"name":"LEDC1608X80N","polarity_mark":true}	1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7

@@ -5,7 +5,7 @@
     {"uuid":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"A"}
   ],
   "pins": [
-    {"uuid":"145f4f48-67a9-4f99-8fe8-82c7f099d1b5","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"VBUS","number":"A4","electrical_type":"passive","at":{"x":10160000,"y":7620000},"rotation":180000,"length":2540000},
+    {"uuid":"145f4f48-67a9-4f99-8fe8-82c7f099d1b5","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"VBUS","number":"A4","electrical_type":"passive","at":{"x":10160000,"y":6350000},"rotation":180000,"length":2540000},
     {"uuid":"25ab8337-0894-4997-8115-2743ef8270e4","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"D-","number":"A7","electrical_type":"passive","at":{"x":10160000,"y":-3810000},"rotation":180000,"length":2540000},
     {"uuid":"4eeecc3c-0c43-48b3-9097-05cf3e7355e1","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"SHIELD","number":"S1","electrical_type":"passive","at":{"x":-5080000,"y":-13970000},"rotation":90000,"length":2540000},
     {"uuid":"ae4f94d8-e01a-4181-a6d8-d62062accf4d","unit":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"SBU1","number":"A8","electrical_type":"passive","at":{"x":10160000,"y":-6350000},"rotation":180000,"length":2540000},

@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"994846c1-6dfb-48a2-babf-ae60f86398b2","name":"DIO_SOD-123","description":"Diode, SOD-123, 2.69 × 1.60 mm body. Lands per onsemi SOD-123 case 425, Recommended Mounting Footprint"},
+  "footprint": {"uuid":"994846c1-6dfb-48a2-babf-ae60f86398b2","name":"DIO_SOD-123","description":"Diode, SOD-123, 2.69 × 1.60 mm body. Lands per onsemi SOD-123 case 425, Recommended Mounting Footprint","height":1350000},
   "pads": [
     {"uuid":"df287dd6-4cf8-4ba7-ada7-565c469515a0","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1635000,"y":0},"rotation":0,"width":910000,"height":1220000,"corner_ratio":50000},
     {"uuid":"fb70f03b-f8f6-4a85-a0c0-d27dce85e8e2","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1635000,"y":0},"rotation":0,"width":910000,"height":1220000,"corner_ratio":50000}
@@ -14,6 +14,7 @@
   ],
   "texts": [
     {"uuid":"07324cfa-4f7d-418a-9a90-ed980b560537","field":"Designator","at":{"x":0,"y":2040000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-    {"uuid":"f4ab1a0e-b100-400b-a9a0-69c041c6604b","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    {"uuid":"a459eebf-7e28-496d-b34e-b923261565c8","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"f4ab1a0e-b100-400b-a9a0-69c041c6604b","field":"Value","at":{"x":0,"y":-1840000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

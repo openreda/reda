@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"595b8b5e-8c78-4efa-b9ad-91bead0c60bf","name":"XTAL_SMD_3225_4Pad","description":"SMD crystal, 3.2 × 2.5 mm ceramic package, 4 pads. Lands per Abracon ABM8 datasheet, Recommended land pattern"},
+  "footprint": {"uuid":"595b8b5e-8c78-4efa-b9ad-91bead0c60bf","name":"XTAL_SMD_3225_4Pad","description":"SMD crystal, 3.2 × 2.5 mm ceramic package, 4 pads. Lands per Abracon ABM8 datasheet, Recommended land pattern","height":800000},
   "pads": [
     {"uuid":"60ec9f5d-fba4-44d6-8b9b-e81f0a6c4855","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1150000,"y":-875000},"rotation":0,"width":1300000,"height":1050000,"corner_ratio":50000},
     {"uuid":"c90b0205-adf2-4564-bdbe-ced9e9265530","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":1150000,"y":875000},"rotation":0,"width":1300000,"height":1050000,"corner_ratio":50000},
@@ -14,7 +14,8 @@
     {"uuid":"e3870bc4-a0ac-4965-9e2b-04ec25072404","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2060000,"y":-1660000},"end":{"x":-200000,"y":-1660000}},"width":120000}
   ],
   "texts": [
-    {"uuid":"a2594d3f-d7e5-443c-9389-bf2e01d940d1","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"26cc2c21-8cf6-486b-a785-3f777fb16eb0","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"a2594d3f-d7e5-443c-9389-bf2e01d940d1","field":"Value","at":{"x":0,"y":-2450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"c81ae152-d5dc-450f-9e96-7927363fda9e","field":"Designator","at":{"x":0,"y":2550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

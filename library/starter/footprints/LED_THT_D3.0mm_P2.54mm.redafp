@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart"},
+  "footprint": {"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart","height":5300000},
   "pads": [
     {"uuid":"6a99ad72-426c-478c-b3f3-067cf1f78846","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}},
     {"uuid":"f0bbb8ef-024c-462a-9de5-7faf95d15725","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}}
@@ -12,6 +12,7 @@
   ],
   "texts": [
     {"uuid":"4b0f0018-82bb-4cfc-8b8a-3d5d9bc44b62","field":"Designator","at":{"x":0,"y":3610000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-    {"uuid":"4f5b333c-5a38-48c1-a05d-1fc8b2f53f93","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    {"uuid":"4f5b333c-5a38-48c1-a05d-1fc8b2f53f93","field":"Value","at":{"x":0,"y":-3510000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"85972a59-7158-48cf-a23b-473331342957","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

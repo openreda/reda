@@ -37,7 +37,7 @@ pub fn build(s: &mut Script) {
 fn usb_c(s: &mut Script) {
     let sym = s.symbol("USB_C_USB2.0", "J", "USB 2.0 Type-C receptacle");
     for (name, number, y) in [
-        ("VBUS", "A4", 300),
+        ("VBUS", "A4", 250),
         ("CC1", "A5", 150),
         ("CC2", "B5", 50),
         ("D+", "A6", -50),
@@ -56,6 +56,7 @@ fn usb_c(s: &mut Script) {
         "USB_C_Receptacle_16P_Horizontal",
         "USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board \
          edge. Lands per GCT USB4105 drawing, Recommended PCB Layout",
+        3.2,
     );
     for (number, x, wide) in [
         ("A1", -3.2, true),
@@ -229,8 +230,8 @@ fn screw_terminals(s: &mut Script) {
             .unwrap_or_else(|| panic!("{sym} is made with the headers"));
         let mut footprints = vec![];
         // Pitch, pad, hole, body past the end pins, and body depth in front of (wire
-        // entry) and behind the pins.
-        for (pitch, pad, drill, end, entry, back, source) in [
+        // entry) and behind the pins, and height above the board.
+        for (pitch, pad, drill, end, entry, back, height, source) in [
             (
                 5.08,
                 2.6,
@@ -238,6 +239,7 @@ fn screw_terminals(s: &mut Script) {
                 2.54,
                 5.35,
                 4.9,
+                10.0,
                 "Same Sky TB007-508 datasheet",
             ),
             (
@@ -247,13 +249,14 @@ fn screw_terminals(s: &mut Script) {
                 1.775,
                 4.0,
                 3.4,
+                8.5,
                 "Würth Elektronik 691214110002 datasheet",
             ),
         ] {
             let name = format!("TERM_Screw_1x{count:02}_P{pitch:.2}mm");
             let description =
                 format!("Screw terminal block, {count} positions, {pitch} mm pitch. Per {source}");
-            let fp = s.footprint(&name, &description);
+            let fp = s.footprint(&name, &description, height);
             let first = -(count as f64 - 1.0) * pitch / 2.0;
             for i in 0..count {
                 let x = first + i as f64 * pitch;

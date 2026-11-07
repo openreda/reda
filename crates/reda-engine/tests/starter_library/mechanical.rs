@@ -19,6 +19,14 @@ pub fn build(s: &mut Script) {
     test_point(s);
 }
 
+/// The height of a copper-only Footprint: 1 oz copper, 0.035 mm.
+const COPPER: f64 = 0.035;
+
+/// The head height of an ISO 4762 socket head cap screw: the screw's diameter.
+fn head_height(screw: &str) -> f64 {
+    screw[1..].parse().unwrap()
+}
+
 /// A clearance hole for `screw`: non-plated, or `plated` with a copper ring the size of
 /// the screw head (Pad 1, to tie to a Net such as GND).
 fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool) {
@@ -32,6 +40,7 @@ fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool
     let fp = s.footprint(
         &name,
         &format!("{description}. Hole per ISO 273 fine, head per ISO 4762"),
+        head_height(screw),
     );
     let size = if plated { head } else { hole };
     s.pad(
@@ -64,7 +73,7 @@ fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool
 /// A 1 mm copper dot in a 2 mm solder-mask opening, for pick-and-place cameras.
 fn fiducial(s: &mut Script) {
     let description = "Fiducial mark, 1 mm copper in a 2 mm mask opening";
-    let fp = s.footprint("Fiducial_1mm_Mask2mm", description);
+    let fp = s.footprint("Fiducial_1mm_Mask2mm", description, COPPER);
     s.pad(
         &fp,
         json!({
@@ -78,6 +87,8 @@ fn fiducial(s: &mut Script) {
             "paste": "none",
         }),
     );
+    // The Assembly outline is the copper dot, the only thing there is to place.
+    s.fp_draw(&fp, "assembly_top", circle(0, 0, mm(0.5)), mm(0.1));
     s.fp_draw(&fp, "courtyard_top", circle(0, 0, mm(1.25)), mm(0.05));
     let fp = s.finish_footprint(&fp, mm(1.25));
     s.part(PartSpec {
@@ -123,7 +134,7 @@ fn net_tie(s: &mut Script) {
 fn tie_footprint(s: &mut Script, size: f64) -> String {
     let name = format!("NetTie_2_SMD_Pad{size:.1}mm");
     let description = format!("Net Tie, two touching {size} mm SMD Pads, tented, no paste");
-    let fp = s.footprint(&name, &description);
+    let fp = s.footprint(&name, &description, COPPER);
     for (number, x) in [("1", -size / 2.0), ("2", size / 2.0)] {
         s.pad(
             &fp,
@@ -156,7 +167,7 @@ fn test_point(s: &mut Script) {
     s.draw(&sym, circle(0, mil(50), mil(50)), false);
     let sym = s.finish_symbol(sym);
     let description = "Test point, 1.5 mm round SMD Pad, no paste";
-    let fp = s.footprint("TestPoint_Pad_D1.5mm", description);
+    let fp = s.footprint("TestPoint_Pad_D1.5mm", description, COPPER);
     s.pad(
         &fp,
         json!({

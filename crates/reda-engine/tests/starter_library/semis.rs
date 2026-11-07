@@ -84,10 +84,12 @@ struct Smd<'a> {
     pitch: f64,
     pad: (f64, f64),
     body: (f64, f64),
+    /// The part's greatest height above the board.
+    height: f64,
 }
 
 fn smd_two(s: &mut Script, t: Smd<'_>) -> String {
-    let fp = s.footprint(t.name, t.description);
+    let fp = s.footprint(t.name, t.description, t.height);
     for (number, x) in [("1", -t.pitch / 2.0), ("2", t.pitch / 2.0)] {
         s.pad(
             &fp,
@@ -143,6 +145,7 @@ fn diode_footprints(s: &mut Script) -> Diodes {
             pitch: 3.27,
             pad: (0.91, 1.22),
             body: (2.69, 1.6),
+            height: 1.35,
         },
     );
     // onsemi MBRA340T3/D, SMA case 403D issue J, Recommended Mounting Footprint:
@@ -156,6 +159,7 @@ fn diode_footprints(s: &mut Script) -> Diodes {
             pitch: 4.0,
             pad: (2.0, 2.0),
             body: (4.32, 2.6),
+            height: 2.44,
         },
     );
     // onsemi 1N4001/D, DO-41 case 59-10: body 5.20 × 2.70 mm max, leads Ø0.86 mm max, so
@@ -170,6 +174,7 @@ fn diode_footprints(s: &mut Script) -> Diodes {
             pad: 2.0,
             drill: 1.1,
             extent: (2.6, 1.35),
+            height: 2.7,
         },
         |s, fp| axial(s, fp, 10.16, 2.0, (5.2, 2.7), Some(1.9)),
     );
@@ -186,6 +191,7 @@ fn diode_footprints(s: &mut Script) -> Diodes {
             pad: 1.6,
             drill: 0.8,
             extent: (2.28, 0.955),
+            height: 1.91,
         },
         |s, fp| axial(s, fp, 7.62, 1.6, (4.56, 1.91), Some(1.7)),
     );
@@ -287,7 +293,8 @@ fn led(s: &mut Script) {
     }
     // The 3 mm LED's pads are 1.6 mm (IPC-2222 Level B for its 0.9 mm hole is 1.5 mm) so
     // its Silkscreen ring stays 0.2 mm clear of the square Pad 1.
-    for (size, pad, body, ring) in [(3.0, 1.6, 1.5, 2.5), (5.0, 1.8, 2.5, 2.96)] {
+    // Heights: the common 3 mm and 5 mm lamps' 5.3 and 8.6 mm, flange to dome.
+    for (size, pad, body, ring, height) in [(3.0, 1.6, 1.5, 2.5, 5.3), (5.0, 1.8, 2.5, 2.96, 8.6)] {
         let name = format!("LED_THT_D{size:.1}mm_P2.54mm");
         let description = format!("LED, {size} mm round, leads 2.54 mm apart");
         footprints.push(tht_two(
@@ -299,6 +306,7 @@ fn led(s: &mut Script) {
                 pad,
                 drill: 0.9,
                 extent: (ring + 0.06, ring + 0.06),
+                height,
             },
             |s, fp| {
                 s.fp_draw(fp, "assembly_top", circle(0, 0, mm(body)), mm(0.1));
@@ -329,6 +337,8 @@ fn transistor_footprints(s: &mut Script) -> (String, String) {
         "TO-92_Inline_P2.54mm",
         "TO-92, leads in a line 2.54 mm apart, flat face down. \
          Per onsemi TO-92 case 29-11, bent lead",
+        // Standing: the body's length.
+        5.2,
     );
     for (i, number) in ["1", "2", "3"].iter().enumerate() {
         let x = (i as f64 - 1.0) * 2.54;

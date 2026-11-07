@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"a2875459-87a5-4f15-97e9-6fef455c929e","name":"SW_Push_6x6mm_THT","description":"Tactile switch, 6 × 6 mm, through-hole. Per Omron B3F datasheet, PCB Processing Dimensions"},
+  "footprint": {"uuid":"a2875459-87a5-4f15-97e9-6fef455c929e","name":"SW_Push_6x6mm_THT","description":"Tactile switch, 6 × 6 mm, through-hole. Per Omron B3F datasheet, PCB Processing Dimensions","height":4300000},
   "pads": [
     {"uuid":"3cc41757-3443-4d73-95d8-e897615aafeb","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":3250000,"y":2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
     {"uuid":"585692db-8da7-4183-8998-b05df0a9f6d4","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":-3250000,"y":-2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},
@@ -17,7 +17,8 @@
     {"uuid":"fd71fd78-c7d2-49af-813a-f5a53aa6322f","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1750000},"width":100000}
   ],
   "texts": [
+    {"uuid":"04efb847-0d43-49be-9f7e-35c8932fbda7","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"4cd83cc3-e2f7-467e-aedb-8efbdc51a4cb","field":"Designator","at":{"x":0,"y":4200000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-    {"uuid":"a39b7ab3-b7e1-46e2-8a10-0f68fb1f2b27","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    {"uuid":"a39b7ab3-b7e1-46e2-8a10-0f68fb1f2b27","field":"Value","at":{"x":0,"y":-4100000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

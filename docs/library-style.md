@@ -8,7 +8,7 @@ The conventions of the Starter Library, checked by tests over it. They also guid
 - Pin length is 100 mil, or 200 mil on large ICs.
 - Bodies sit on the 50 mil grid.
 - A rectangular IC body has Pin 1 at the origin. Op-amps and discretes are centred on the body.
-- The Designator goes above the body and the Value below it.
+- Symbols store no Designator or Value position. [Autoposition](spec/v0.1/schematic.md#fields) draws the Designator and, below it, the Value, beside the body.
 
 ## Footprints
 

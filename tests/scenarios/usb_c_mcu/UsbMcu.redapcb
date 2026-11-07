@@ -104,7 +104,7 @@
       {"uuid":"68127592-062c-43f9-9f7f-15c75d5bc9c0","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"fc5a1da4-a477-4e33-a0c3-e21a2e8ca40b","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c8","hash":"d64a28d2e8e2371e2ce314265922b05e","footprint":{"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c8","hash":"5d6d3252707710d1698307b6ad0dbfc6","footprint":{"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout","height":3200000},"pads":[
       {"uuid":"0f8b3078-57ca-4e48-b465-770d7f72d774","number":"S1","kind":"plated_through_hole","shape":"oval","at":{"x":-4320000,"y":2805000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},
       {"uuid":"12ef56d9-c47e-41ae-8e4f-7dddcba6fe4c","number":"S4","kind":"plated_through_hole","shape":"oval","at":{"x":4320000,"y":-1375000},"rotation":0,"width":1000000,"height":1800000,"hole":{"width":600000,"height":1400000}},
       {"uuid":"2137f401-4e41-4f86-b48d-1693c37f0401","number":"","kind":"non_plated","shape":"circle","at":{"x":2890000,"y":2305000},"rotation":0,"width":650000,"height":650000,"hole":{"width":650000,"height":650000}},
@@ -132,7 +132,8 @@
       {"uuid":"d6fee22f-7de8-4f6b-90c9-cd0c068acbaa","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4470000,"y":-215000},"end":{"x":-4470000,"y":1495000}},"width":120000}
     ],"texts":[
       {"uuid":"210590f8-c0cc-4dfb-b429-4245f9d06fa3","field":"Designator","at":{"x":0,"y":5025000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-      {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","field":"Value","at":{"x":0,"y":-325000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","field":"Value","at":{"x":0,"y":-4925000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"af54a134-0575-4098-96ed-3419aa15ff03","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-0000000000ca","hash":"c65586be4dcb3ab182f1bd8b15968022","footprint":{"uuid":"52217535-29ec-4cda-bd22-4076c17fb28c","name":"HDRV0W64P254R1L1270T254H850B","description":"Pin header, 1 × 5, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"1761c40f-5c73-4ff9-81b4-02095f5348d4","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},

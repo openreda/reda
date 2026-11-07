@@ -5,8 +5,8 @@
     {"uuid":"d517f7e6-39de-4f4e-907f-7b893f6c62ba","name":"A"}
   ],
   "pins": [
-    {"uuid":"10268125-e508-4513-82a3-2a688a106511","unit":"d517f7e6-39de-4f4e-907f-7b893f6c62ba","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":1270000,"name_visible":false,"number_visible":false},
-    {"uuid":"6262d348-7a56-4324-b6af-32d17b183968","unit":"d517f7e6-39de-4f4e-907f-7b893f6c62ba","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000,"name_visible":false,"number_visible":false}
+    {"uuid":"10268125-e508-4513-82a3-2a688a106511","unit":"d517f7e6-39de-4f4e-907f-7b893f6c62ba","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-5080000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"6262d348-7a56-4324-b6af-32d17b183968","unit":"d517f7e6-39de-4f4e-907f-7b893f6c62ba","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":5080000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false}
   ],
   "graphics": [
     {"uuid":"16f8dfb2-fb9d-4b98-b72d-a3999658973f","unit":"d517f7e6-39de-4f4e-907f-7b893f6c62ba","shape":{"kind":"arc","center":{"x":0,"y":1905000},"start":{"x":0,"y":2540000},"sweep":-180000},"width":254000},

@@ -5,12 +5,12 @@
     {"uuid":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"A"}
   ],
   "pins": [
-    {"uuid":"44019af8-5e21-44b6-890d-87b39497975d","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"GND","number":"1","electrical_type":"power_in","at":{"x":0,"y":-5080000},"rotation":90000,"length":2540000},
-    {"uuid":"6087d693-93b1-4935-a45c-672efe360906","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"VIN","number":"3","electrical_type":"power_in","at":{"x":-7620000,"y":0},"rotation":0,"length":2540000},
-    {"uuid":"d31592b8-bc74-4f44-b8d5-09fe21ee94ca","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"VOUT","number":"2","electrical_type":"power_out","at":{"x":7620000,"y":0},"rotation":180000,"length":2540000}
+    {"uuid":"44019af8-5e21-44b6-890d-87b39497975d","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"GND","number":"1","electrical_type":"power_in","at":{"x":0,"y":0},"rotation":90000,"length":2540000},
+    {"uuid":"6087d693-93b1-4935-a45c-672efe360906","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"VIN","number":"3","electrical_type":"power_in","at":{"x":-7620000,"y":5080000},"rotation":0,"length":2540000},
+    {"uuid":"d31592b8-bc74-4f44-b8d5-09fe21ee94ca","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"VOUT","number":"2","electrical_type":"power_out","at":{"x":7620000,"y":5080000},"rotation":180000,"length":2540000}
   ],
   "graphics": [
-    {"uuid":"41976ca9-bd36-48ec-be86-d733fdd7ab46","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","shape":{"kind":"text","at":{"x":0,"y":1270000},"text":"LDO","size":1270000,"rotation":0},"width":254000},
-    {"uuid":"77a24631-977d-40e0-9811-b0a12d5111bb","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","shape":{"kind":"rect","start":{"x":-5080000,"y":-2540000},"end":{"x":5080000,"y":2540000}},"width":254000}
+    {"uuid":"41976ca9-bd36-48ec-be86-d733fdd7ab46","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","shape":{"kind":"text","at":{"x":0,"y":6350000},"text":"LDO","size":1270000,"rotation":0},"width":254000},
+    {"uuid":"77a24631-977d-40e0-9811-b0a12d5111bb","unit":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","shape":{"kind":"rect","start":{"x":-5080000,"y":2540000},"end":{"x":5080000,"y":7620000}},"width":254000}
   ]
 }
