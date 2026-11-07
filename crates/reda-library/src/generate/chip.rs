@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Goals, Tol};
-use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
+use super::{FootprintFamily, FootprintPlan, GoalsParams, Target, TolParam, hundredths};
 use crate::generate::pattern::{Body, PadSpec};
 
 pub struct Chip;
@@ -31,6 +31,8 @@ pub struct ChipParams {
     /// What the chip is, which sets the name prefix (`RESC`, `CAPC`, `INDC`).
     #[serde(default)]
     pub class: ChipClass,
+    #[serde(default)]
+    pub goals: GoalsParams,
 }
 
 /// A chip's body dimensions.
@@ -210,10 +212,11 @@ impl FootprintFamily for Chip {
     const META: Meta = Meta {
         id: "library.footprint.generate.chip",
         title: "Generate Chip Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a two-terminal \
+        description: "Generates an IPC-7351 Footprint for a two-terminal \
                       rectangular chip (resistor, capacitor or inductor) of a standard size \
                       from 0201 to 2512, or of the body `dimensions` given, writes it into a \
-                      registered Library and runs the Library check on it.",
+                      registered Library and runs the Library check on it. `goals.density` \
+                      picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -253,11 +256,8 @@ impl FootprintFamily for Chip {
                 ));
             }
         };
-        let goals = if length.nominal().0 >= 1_500_000 {
-            Goals::CHIP
-        } else {
-            Goals::SMALL_CHIP
-        };
+        let density = p.goals.density;
+        let goals = Goals::chip(length, width, density);
         let span = ipc::span(length, terminal, goals)
             .map_err(|why| CommandError::invalid_params("/dimensions/terminal", why))?;
         let pad_width = ipc::pad_width(width, goals);
@@ -278,15 +278,25 @@ impl FootprintFamily for Chip {
                 (width.nominal().0 + 50_000) / 100_000
             ),
         };
-        let name = format!("{}{code}X{}N", p.class.prefix(), hundredths(height));
+        let name = format!(
+            "{}{code}X{}{}",
+            p.class.prefix(),
+            hundredths(height),
+            density.letter()
+        );
         let description = match &size {
             Some(s) => format!(
-                "{}, {} ({} metric), IPC-7351 Nominal",
+                "{}, {} ({} metric), IPC-7351 {}",
                 p.class.noun(),
                 s.imperial,
-                s.metric
+                s.metric,
+                density.title()
             ),
-            None => format!("{}, {code} metric, IPC-7351 Nominal", p.class.noun()),
+            None => format!(
+                "{}, {code} metric, IPC-7351 {}",
+                p.class.noun(),
+                density.title()
+            ),
         };
         Ok(FootprintPlan {
             name,

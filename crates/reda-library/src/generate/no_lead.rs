@@ -12,10 +12,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing};
-use super::ipc::{self, Termination, Tol};
+use super::ipc::{self, Density, Termination, Tol};
 use super::pattern::PadSpec;
 use super::quad::{self, Quad};
-use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
+use super::{FootprintFamily, FootprintPlan, GoalsParams, Target, TolParam, hundredths};
 
 /// The least gap kept between the exposed pad's Pad and the lead Pads.
 pub const EXPOSED_PAD_CLEARANCE: Nm = Nm(200_000);
@@ -64,25 +64,28 @@ impl NoLead {
         }
     }
 
-    /// The IPC-7351 name: `<prefix><pitch>P<E>X<D>X<height>-<pins>N`, counting the
-    /// exposed pad as a pin.
-    fn ipc_name(&self, prefix: &str, leads: usize) -> String {
+    /// The IPC-7351 name: `<prefix><pitch>P<E>X<D>X<height>-<pins><density>`, width
+    /// before length and counting the exposed pad as a pin. Sources disagree on both,
+    /// so these are REDA's choices.
+    fn ipc_name(&self, prefix: &str, leads: usize, density: Density) -> String {
         let pins = leads + usize::from(self.exposed_pad.is_some());
         format!(
-            "{prefix}{}P{}X{}X{}-{pins}N",
+            "{prefix}{}P{}X{}X{}-{pins}{}",
             hundredths(self.pitch),
             hundredths(self.body_width.nominal()),
             hundredths(self.body_length.nominal()),
-            hundredths(self.height)
+            hundredths(self.height),
+            density.letter()
         )
     }
 
-    fn description(&self, title: &str, leads: usize) -> String {
+    fn description(&self, title: &str, leads: usize, density: Density) -> String {
         format!(
-            "{title}-{leads}, {} × {} mm body, {} mm pitch, IPC-7351 Nominal",
+            "{title}-{leads}, {} × {} mm body, {} mm pitch, IPC-7351 {}",
             self.body_width.nominal().0 as f64 / 1e6,
             self.body_length.nominal().0 as f64 / 1e6,
-            self.pitch.0 as f64 / 1e6
+            self.pitch.0 as f64 / 1e6,
+            density.title()
         )
     }
 
@@ -177,6 +180,8 @@ pub struct NoLeadParams {
     /// A datasheet's dimensions, in place of the standard body.
     #[serde(default)]
     pub dimensions: Option<NoLeadDimensions>,
+    #[serde(default)]
+    pub goals: GoalsParams,
 }
 
 /// The dimensions for `pins`: the datasheet's, or the standard body from `table`.
@@ -251,10 +256,11 @@ impl FootprintFamily for Dfn {
     const META: Meta = Meta {
         id: "library.footprint.generate.dfn",
         title: "Generate DFN Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a DFN (SON) with two rows of \
+        description: "Generates an IPC-7351 Footprint for a DFN (SON) with two rows of \
                       terminals and an exposed pad, from a standard body or the `dimensions` \
                       given, writes it into a registered Library and runs the Library check \
-                      on it.",
+                      on it. \
+                      `goals.density` picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -286,12 +292,14 @@ impl FootprintFamily for Dfn {
             height: dims.height,
         };
         let leads = gull_wing::dual_row(p.pins, dims.pitch, dims.lead_width);
+        let density = p.goals.density;
         let mut pattern = gull_wing::plan(
             &rows,
             &leads,
             Termination::NoLead,
-            dims.ipc_name("SON", p.pins),
-            dims.description("DFN", p.pins),
+            density,
+            dims.ipc_name("SON", p.pins, density),
+            dims.description("DFN", p.pins, density),
         )?;
         add_exposed_pad(&mut pattern, &dims, p.pins + 1)?;
         Ok(pattern)
@@ -404,10 +412,11 @@ impl FootprintFamily for Qfn {
     const META: Meta = Meta {
         id: "library.footprint.generate.qfn",
         title: "Generate QFN Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a QFN with terminals on four \
+        description: "Generates an IPC-7351 Footprint for a QFN with terminals on four \
                       sides and an exposed pad, from a standard body or the `dimensions` \
                       given, writes it into a registered Library and runs the Library check \
-                      on it.",
+                      on it. \
+                      `goals.density` picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -441,11 +450,13 @@ impl FootprintFamily for Qfn {
             lead_length: dims.lead_length,
             height: dims.height,
         };
+        let density = p.goals.density;
         let mut pattern = quad::plan(
             &quad,
             Termination::NoLead,
-            dims.ipc_name("QFN", p.pins),
-            dims.description("QFN", p.pins),
+            density,
+            dims.ipc_name("QFN", p.pins, density),
+            dims.description("QFN", p.pins, density),
         )?;
         add_exposed_pad(&mut pattern, &dims, p.pins + 1)?;
         Ok(pattern)

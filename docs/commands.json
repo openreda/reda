@@ -4243,7 +4243,7 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a two-terminal rectangular chip (resistor, capacitor or inductor) of a standard size from 0201 to 2512, or of the body `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a two-terminal rectangular chip (resistor, capacitor or inductor) of a standard size from 0201 to 2512, or of the body `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.chip",
       "kind": "file",
@@ -4301,6 +4301,38 @@
             ],
             "type": "string"
           },
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -4352,6 +4384,12 @@
             ],
             "default": null,
             "description": "The body dimensions from a datasheet, for a chip of no standard size."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
           },
           "library": {
             "description": "The registered Library to write the Footprint into.",
@@ -4632,12 +4670,32 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a DFN (SON) with two rows of terminals and an exposed pad, from a standard body or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a DFN (SON) with two rows of terminals and an exposed pad, from a standard body or the `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.dfn",
       "kind": "file",
       "params": {
         "$defs": {
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
           "ExposedPadDimensions": {
             "additionalProperties": false,
             "description": "An exposed pad's size.",
@@ -4655,6 +4713,18 @@
               "length",
               "width"
             ],
+            "type": "object"
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
             "type": "object"
           },
           "Length": {
@@ -4754,6 +4824,12 @@
             ],
             "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
           },
           "library": {
             "description": "The registered Library to write the Footprint into.",
@@ -5044,7 +5120,7 @@
           },
           "name": {
             "default": null,
-            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`DIP254P762X533-8`.",
+            "description": "The Footprint's name. Omitted, it is\n`DIP<row spacing>W<lead width>P<pitch>L<body length>H<height>Q<pins>B`, such as\n`DIP762W46P254L1016H533Q8B`.",
             "type": [
               "string",
               "null"
@@ -5347,7 +5423,7 @@
           },
           "name": {
             "default": null,
-            "description": "The Footprint's name. Omitted, it is `HDR<pitch>P<rows>X<pins per row>`, such as\n`HDR254P2X5`, or `SKT…` for a socket.",
+            "description": "The Footprint's name. Omitted, it is\n`HDRV<row span>W<post width>P<pitch>R<rows>L<length>T<width>H<height>B`, such as\n`HDRV254W64P254R2L1270T508H850B`, or `SKTV…` for a socket.",
             "type": [
               "string",
               "null"
@@ -5630,12 +5706,32 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a QFN with terminals on four sides and an exposed pad, from a standard body or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a QFN with terminals on four sides and an exposed pad, from a standard body or the `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.qfn",
       "kind": "file",
       "params": {
         "$defs": {
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
           "ExposedPadDimensions": {
             "additionalProperties": false,
             "description": "An exposed pad's size.",
@@ -5653,6 +5749,18 @@
               "length",
               "width"
             ],
+            "type": "object"
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
             "type": "object"
           },
           "Length": {
@@ -5752,6 +5860,12 @@
             ],
             "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
           },
           "library": {
             "description": "The registered Library to write the Footprint into.",
@@ -6027,12 +6141,44 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a QFP with the same number of gull-wing leads on each side, from a standard LQFP body or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a QFP with the same number of gull-wing leads on each side, from a standard LQFP body or the `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.qfp",
       "kind": "file",
       "params": {
         "$defs": {
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -6128,6 +6274,12 @@
             ],
             "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
           },
           "library": {
             "description": "The registered Library to write the Footprint into.",
@@ -6403,12 +6555,44 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a 1.27 mm pitch SOIC with a narrow or wide standard body, or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a 1.27 mm pitch SOIC with a narrow or wide standard body, or the `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.soic",
       "kind": "file",
       "params": {
         "$defs": {
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
+            "type": "object"
+          },
           "GullWingDimensions": {
             "additionalProperties": false,
             "description": "A gull-wing package's dimensions from a datasheet.",
@@ -6499,6 +6683,12 @@
             ],
             "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
           },
           "library": {
             "description": "The registered Library to write the Footprint into.",
@@ -6779,12 +6969,44 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a SOT-23 with 3, 5 or 6 leads or a SOT-223, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a SOT-23 with 3, 5 or 6 leads or a SOT-223, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.sot",
       "kind": "file",
       "params": {
         "$defs": {
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
+            "type": "object"
+          },
           "SotPackage": {
             "oneOf": [
               {
@@ -6813,6 +7035,12 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
+          },
           "library": {
             "description": "The registered Library to write the Footprint into.",
             "format": "uuid",
@@ -7084,12 +7312,44 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a 0.65 mm pitch SSOP with the standard 5.3 mm body (JEDEC MO-150), or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a 0.65 mm pitch SSOP with the standard 5.3 mm body (JEDEC MO-150), or the `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.ssop",
       "kind": "file",
       "params": {
         "$defs": {
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
+            "type": "object"
+          },
           "GullWingDimensions": {
             "additionalProperties": false,
             "description": "A gull-wing package's dimensions from a datasheet.",
@@ -7180,6 +7440,12 @@
             ],
             "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
           },
           "library": {
             "description": "The registered Library to write the Footprint into.",
@@ -7455,12 +7721,44 @@
     },
     {
       "category": "library",
-      "description": "Generates an IPC-7351 Nominal Footprint for a 0.65 mm pitch TSSOP with the standard 4.4 mm body (JEDEC MO-153), or the `dimensions` given, writes it into a registered Library and runs the Library check on it.",
+      "description": "Generates an IPC-7351 Footprint for a 0.65 mm pitch TSSOP with the standard 4.4 mm body (JEDEC MO-153), or the `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.tssop",
       "kind": "file",
       "params": {
         "$defs": {
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              }
+            },
+            "type": "object"
+          },
           "GullWingDimensions": {
             "additionalProperties": false,
             "description": "A gull-wing package's dimensions from a datasheet.",
@@ -7551,6 +7849,12 @@
             ],
             "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal"
+            }
           },
           "library": {
             "description": "The registered Library to write the Footprint into.",

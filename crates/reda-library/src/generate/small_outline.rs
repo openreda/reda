@@ -8,8 +8,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, GullWingDimensions};
-use super::ipc::{Termination, Tol};
-use super::{FootprintFamily, FootprintPlan, Target};
+use super::ipc::{Density, Termination, Tol};
+use super::{FootprintFamily, FootprintPlan, GoalsParams, Target};
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -29,6 +29,8 @@ pub struct SoicParams {
     /// A datasheet's dimensions, in place of the standard body.
     #[serde(default)]
     pub dimensions: Option<GullWingDimensions>,
+    #[serde(default)]
+    pub goals: GoalsParams,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -46,6 +48,8 @@ pub struct SmallOutlineParams {
     /// A datasheet's dimensions, in place of the standard body.
     #[serde(default)]
     pub dimensions: Option<GullWingDimensions>,
+    #[serde(default)]
+    pub goals: GoalsParams,
 }
 
 /// A standard body: its lead geometry, and its length (D) for each lead count.
@@ -133,6 +137,7 @@ fn small_outline(
     prefix: &str,
     pins: usize,
     dimensions: Option<GullWingDimensions>,
+    density: Density,
 ) -> Result<FootprintPlan, CommandError> {
     if pins < 4 || !pins.is_multiple_of(2) {
         return Err(CommandError::invalid_params(
@@ -165,13 +170,21 @@ fn small_outline(
         }
     };
     let leads = gull_wing::dual_row(pins, dims.pitch, dims.lead_width);
-    let name = dims.ipc_name(prefix, pins);
+    let name = dims.ipc_name(prefix, pins, density);
     let description = format!(
-        "{}-{pins}, {} mm pitch, IPC-7351 Nominal",
+        "{}-{pins}, {} mm pitch, IPC-7351 {}",
         standard.title,
-        dims.pitch.0 as f64 / 1e6
+        dims.pitch.0 as f64 / 1e6,
+        density.title()
     );
-    gull_wing::plan(&dims, &leads, Termination::GullWing, name, description)
+    gull_wing::plan(
+        &dims,
+        &leads,
+        Termination::GullWing,
+        density,
+        name,
+        description,
+    )
 }
 
 pub struct Soic;
@@ -180,9 +193,10 @@ impl FootprintFamily for Soic {
     const META: Meta = Meta {
         id: "library.footprint.generate.soic",
         title: "Generate SOIC Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a 1.27 mm pitch SOIC with \
+        description: "Generates an IPC-7351 Footprint for a 1.27 mm pitch SOIC with \
                       a narrow or wide standard body, or the `dimensions` given, writes it \
-                      into a registered Library and runs the Library check on it.",
+                      into a registered Library and runs the Library check on it. \
+                      `goals.density` picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -198,7 +212,7 @@ impl FootprintFamily for Soic {
 
     fn plan(p: &SoicParams) -> Result<FootprintPlan, CommandError> {
         let standard = if p.wide { &SOIC_WIDE } else { &SOIC_NARROW };
-        small_outline(standard, "SOIC", p.pins, p.dimensions)
+        small_outline(standard, "SOIC", p.pins, p.dimensions, p.goals.density)
     }
 }
 
@@ -208,9 +222,10 @@ impl FootprintFamily for Ssop {
     const META: Meta = Meta {
         id: "library.footprint.generate.ssop",
         title: "Generate SSOP Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a 0.65 mm pitch SSOP with \
+        description: "Generates an IPC-7351 Footprint for a 0.65 mm pitch SSOP with \
                       the standard 5.3 mm body (JEDEC MO-150), or the `dimensions` given, \
-                      writes it into a registered Library and runs the Library check on it.",
+                      writes it into a registered Library and runs the Library check on it. \
+                      `goals.density` picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -225,7 +240,7 @@ impl FootprintFamily for Ssop {
     }
 
     fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
-        small_outline(&SSOP, "SOP", p.pins, p.dimensions)
+        small_outline(&SSOP, "SOP", p.pins, p.dimensions, p.goals.density)
     }
 }
 
@@ -235,9 +250,10 @@ impl FootprintFamily for Tssop {
     const META: Meta = Meta {
         id: "library.footprint.generate.tssop",
         title: "Generate TSSOP Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a 0.65 mm pitch TSSOP with \
+        description: "Generates an IPC-7351 Footprint for a 0.65 mm pitch TSSOP with \
                       the standard 4.4 mm body (JEDEC MO-153), or the `dimensions` given, \
-                      writes it into a registered Library and runs the Library check on it.",
+                      writes it into a registered Library and runs the Library check on it. \
+                      `goals.density` picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -252,6 +268,6 @@ impl FootprintFamily for Tssop {
     }
 
     fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
-        small_outline(&TSSOP, "SOP", p.pins, p.dimensions)
+        small_outline(&TSSOP, "SOP", p.pins, p.dimensions, p.goals.density)
     }
 }

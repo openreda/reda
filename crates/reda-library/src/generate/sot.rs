@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, Lead, Side};
 use super::ipc::{Termination, Tol};
-use super::{FootprintFamily, FootprintPlan, Target};
+use super::{FootprintFamily, FootprintPlan, GoalsParams, Target};
 
 pub struct Sot;
 
@@ -22,6 +22,8 @@ pub struct SotParams {
     #[serde(default)]
     pub name: Option<String>,
     pub package: SotPackage,
+    #[serde(default)]
+    pub goals: GoalsParams,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
@@ -85,9 +87,10 @@ impl FootprintFamily for Sot {
     const META: Meta = Meta {
         id: "library.footprint.generate.sot",
         title: "Generate SOT Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a SOT-23 with 3, 5 or 6 \
-                      leads or a SOT-223, writes it into a registered Library and runs the \
-                      Library check on it.",
+        description: "Generates an IPC-7351 Footprint for a SOT-23 with 3, 5 or 6 leads \
+                      or a SOT-223, writes it into a registered Library and runs the Library \
+                      check on it. `goals.density` picks the IPC density level, Nominal by \
+                      default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -131,8 +134,16 @@ impl FootprintFamily for Sot {
                 lead(4, Right, 0, &dims, TO_261_TAB),
             ],
         };
-        let name = dims.ipc_name("SOT", leads.len());
-        let description = format!("{title}, IPC-7351 Nominal");
-        gull_wing::plan(&dims, &leads, Termination::GullWing, name, description)
+        let density = p.goals.density;
+        let name = dims.ipc_name("SOT", leads.len(), density);
+        let description = format!("{title}, IPC-7351 {}", density.title());
+        gull_wing::plan(
+            &dims,
+            &leads,
+            Termination::GullWing,
+            density,
+            name,
+            description,
+        )
     }
 }

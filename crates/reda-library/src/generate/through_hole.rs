@@ -6,6 +6,10 @@
 //! neighbour, as on 1.27 mm headers, it is shrunk, keeping at least a 0.10 mm ring.
 //! Pin 1's Pad is square, the others round.
 //!
+//! Through-hole families stay at level B: the IPC sources REDA follows give no other
+//! through-hole levels. Their names take the published through-hole form, ending in `B`;
+//! the sources give examples rather than a rule, so the reading of each field is REDA's.
+//!
 //! Zero orientation: pin 1 at the upper left.
 
 use reda_command::{CommandError, Kind, Meta};
@@ -97,8 +101,9 @@ pub struct Dip;
 pub struct DipParams {
     /// The registered Library to write the Footprint into.
     pub library: Uuid,
-    /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as
-    /// `DIP254P762X533-8`.
+    /// The Footprint's name. Omitted, it is
+    /// `DIP<row spacing>W<lead width>P<pitch>L<body length>H<height>Q<pins>B`, such as
+    /// `DIP762W46P254L1016H533Q8B`.
     #[serde(default)]
     pub name: Option<String>,
     /// The number of leads: even, 4 to 64.
@@ -162,9 +167,11 @@ impl FootprintFamily for Dip {
         let silkscreen = clip_silkscreen(&outline, &pad_specs);
         Ok(FootprintPlan {
             name: format!(
-                "DIP{}P{}X{}-{}",
-                hundredths(DIP_PITCH),
+                "DIP{}W{}P{}L{}H{}Q{}B",
                 hundredths(row_spacing),
+                hundredths(DIP_LEAD.width.nominal()),
+                hundredths(DIP_PITCH),
+                hundredths(length),
                 hundredths(DIP_HEIGHT),
                 p.pins
             ),
@@ -206,6 +213,14 @@ impl HeaderPitch {
         }
     }
 
+    /// The typical height of a straight header or socket above the board.
+    fn height(self) -> Nm {
+        match self {
+            HeaderPitch::P254 => ipc::mm(8.50),
+            HeaderPitch::P127 => ipc::mm(4.00),
+        }
+    }
+
     fn post(self) -> LeadSection {
         match self {
             HeaderPitch::P254 => LeadSection::mm((0.64, 0.64), (0.64, 0.64)),
@@ -219,8 +234,9 @@ impl HeaderPitch {
 pub struct HeaderParams {
     /// The registered Library to write the Footprint into.
     pub library: Uuid,
-    /// The Footprint's name. Omitted, it is `HDR<pitch>P<rows>X<pins per row>`, such as
-    /// `HDR254P2X5`, or `SKT…` for a socket.
+    /// The Footprint's name. Omitted, it is
+    /// `HDRV<row span>W<post width>P<pitch>R<rows>L<length>T<width>H<height>B`, such as
+    /// `HDRV254W64P254R2L1270T508H850B`, or `SKTV…` for a socket.
     #[serde(default)]
     pub name: Option<String>,
     /// 1 or 2 rows.
@@ -293,12 +309,20 @@ impl FootprintFamily for Header {
             &pad_specs,
         );
         let (prefix, noun) = if p.socket {
-            ("SKT", "Socket")
+            ("SKTV", "Socket")
         } else {
-            ("HDR", "Pin header")
+            ("HDRV", "Pin header")
         };
         Ok(FootprintPlan {
-            name: format!("{prefix}{}P{rows}X{count}", hundredths(pitch)),
+            name: format!(
+                "{prefix}{}W{}P{}R{rows}L{}T{}H{}B",
+                hundredths(Nm((rows - 1) * pitch.0)),
+                hundredths(p.pitch.post().width.nominal()),
+                hundredths(pitch),
+                hundredths(body.1),
+                hundredths(body.0),
+                hundredths(p.pitch.height())
+            ),
             description: format!(
                 "{noun}, {rows} × {count}, {} mm pitch",
                 pitch.0 as f64 / 1e6
@@ -311,8 +335,7 @@ impl FootprintFamily for Header {
             },
             silkscreen,
             courtyard_excess: COURTYARD_EXCESS,
-            // Headers take no height param yet.
-            height: None,
+            height: Some(p.pitch.height()),
         })
     }
 }

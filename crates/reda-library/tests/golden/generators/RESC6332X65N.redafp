@@ -1,17 +1,17 @@
 {
   "format": 1,
   "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"RESC6332X65N","description":"Chip resistor, 2512 (6332 metric), IPC-7351 Nominal","height":650000},
-  "generator": {"command":"library.footprint.generate.chip","params":{"class":"resistor","dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"2512"}},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"resistor","dimensions":null,"goals":{"density":"nominal"},"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"2512"}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3000000,"y":0},"rotation":0,"width":1300000,"height":3450000,"corner_ratio":38462},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":3000000,"y":0},"rotation":0,"width":1300000,"height":3450000,"corner_ratio":38462}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-3000000,"y":0},"rotation":0,"width":1250000,"height":3400000,"corner_ratio":40000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":3000000,"y":0},"rotation":0,"width":1250000,"height":3400000,"corner_ratio":40000}
   ],
   "graphics": [
-    {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3900000,"y":-2000000},"end":{"x":3900000,"y":2000000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3900000,"y":-1950000},"end":{"x":3900000,"y":1950000}},"width":50000},
     {"uuid":"00000000-0000-4000-8000-000000000005","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3175000,"y":-1600000},"end":{"x":3175000,"y":1600000}},"width":100000}
   ],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-000000000006","field":"Designator","at":{"x":0,"y":2700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000006","field":"Designator","at":{"x":0,"y":2650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
     {"uuid":"00000000-0000-4000-8000-000000000007","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

@@ -9,7 +9,7 @@ use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::ipc::{self, Termination, Tol};
+use super::ipc::{self, Density, Termination, Tol};
 use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH};
 use super::{TolParam, hundredths};
 
@@ -53,14 +53,15 @@ impl GullWing {
         }
     }
 
-    /// The IPC-7351 name: `<prefix><pitch>P<lead span>X<height>-<pins>N`, in hundredths
-    /// of a millimetre.
-    pub fn ipc_name(&self, prefix: &str, pins: usize) -> String {
+    /// The IPC-7351 name: `<prefix><pitch>P<lead span>X<height>-<pins><density>`, in
+    /// hundredths of a millimetre.
+    pub fn ipc_name(&self, prefix: &str, pins: usize, density: Density) -> String {
         format!(
-            "{prefix}{}P{}X{}-{pins}N",
+            "{prefix}{}P{}X{}-{pins}{}",
             hundredths(self.pitch),
             hundredths(self.lead_span.nominal()),
-            hundredths(self.height)
+            hundredths(self.height),
+            density.letter()
         )
     }
 }
@@ -175,16 +176,17 @@ pub(crate) fn keep_body_middle_clear(span: ipc::Span, body: Nm) -> Result<ipc::S
 }
 
 /// The Footprint for `leads` of a package with dimensions `dims`, terminated as
-/// `termination`. Silkscreen lines run along the body's top and bottom edges; the top one
+/// `termination`, at `density`. Silkscreen lines run along the body's top and bottom edges; the top one
 /// reaches out over pin 1 when it clears the copper.
 pub fn plan(
     dims: &GullWing,
     leads: &[Lead],
     termination: Termination,
+    density: Density,
     name: String,
     description: String,
 ) -> Result<FootprintPlan, CommandError> {
-    let goals = termination.goals(dims.pitch);
+    let goals = termination.goals(dims.pitch, density);
     let mut span = ipc::span(dims.lead_span, dims.lead_length, goals)
         .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
     if termination == Termination::GullWing {

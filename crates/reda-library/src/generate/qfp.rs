@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Termination, Tol};
 use super::quad::{self, Quad};
-use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
+use super::{FootprintFamily, FootprintPlan, GoalsParams, Target, TolParam, hundredths};
 
 pub struct Qfp;
 
@@ -28,6 +28,8 @@ pub struct QfpParams {
     /// A datasheet's dimensions, in place of the standard body.
     #[serde(default)]
     pub dimensions: Option<QfpDimensions>,
+    #[serde(default)]
+    pub goals: GoalsParams,
 }
 
 /// A QFP's dimensions from a datasheet, with the JEDEC letters in brackets.
@@ -156,10 +158,11 @@ impl FootprintFamily for Qfp {
     const META: Meta = Meta {
         id: "library.footprint.generate.qfp",
         title: "Generate QFP Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a QFP with the same number \
+        description: "Generates an IPC-7351 Footprint for a QFP with the same number \
                       of gull-wing leads on each side, from a standard LQFP body or the \
                       `dimensions` given, writes it into a registered Library and runs the \
-                      Library check on it.",
+                      Library check on it. \
+                      `goals.density` picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -210,21 +213,24 @@ impl FootprintFamily for Qfp {
             lead_length: dims.lead_length,
             height: dims.height,
         };
+        let density = p.goals.density;
         let name = format!(
-            "QFP{}P{}X{}X{}-{}N",
+            "QFP{}P{}X{}X{}-{}{}",
             hundredths(dims.pitch),
             hundredths(dims.span_x.nominal()),
             hundredths(dims.span_y.nominal()),
             hundredths(dims.height),
-            p.pins
+            p.pins,
+            density.letter()
         );
         let description = format!(
-            "QFP-{}, {} × {} mm body, {} mm pitch, IPC-7351 Nominal",
+            "QFP-{}, {} × {} mm body, {} mm pitch, IPC-7351 {}",
             p.pins,
             dims.body_x.nominal().0 as f64 / 1e6,
             dims.body_y.nominal().0 as f64 / 1e6,
-            dims.pitch.0 as f64 / 1e6
+            dims.pitch.0 as f64 / 1e6,
+            density.title()
         );
-        quad::plan(&quad, Termination::GullWing, name, description)
+        quad::plan(&quad, Termination::GullWing, density, name, description)
     }
 }

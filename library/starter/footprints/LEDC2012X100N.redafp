@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal","height":1000000},
-  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":{"height":1000000,"length":{"max":2100000,"min":1900000},"terminal":{"max":500000,"min":300000},"width":{"max":1350000,"min":1150000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"LEDC2012X100N","size":null}},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":{"height":1000000,"length":{"max":2100000,"min":1900000},"terminal":{"max":500000,"min":300000},"width":{"max":1350000,"min":1150000}},"goals":{"density":"nominal"},"library":"5a7e0000-0000-4000-8000-000000000001","name":"LEDC2012X100N","size":null}},
   "pads": [
     {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000},
     {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":50000}

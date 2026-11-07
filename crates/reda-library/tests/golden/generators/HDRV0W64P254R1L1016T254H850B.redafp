@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"HDRV0W64P254R1L1016T254H850B","description":"Pin header, 1 × 4, 2.54 mm pitch","height":8500000},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"000000aa-0000-4000-8000-000000000000","name":null,"pins_per_row":4,"pitch":"2.54","rows":1,"socket":false}},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-000000000006","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-5350000},"end":{"x":1550000,"y":5350000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000007","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":5080000},{"x":1270000,"y":5080000},{"x":1270000,"y":-5080000},{"x":-1270000,"y":-5080000},{"x":-1270000,"y":4445000}]},"width":100000},
+    {"uuid":"00000000-0000-4000-8000-000000000008","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":5140000},"end":{"x":1330000,"y":5140000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000009","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-5140000},"end":{"x":1330000,"y":5140000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-5140000},"end":{"x":1330000,"y":-5140000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-5140000},"end":{"x":-1330000,"y":5140000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-00000000000c","field":"Designator","at":{"x":0,"y":6050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+  ]
+}

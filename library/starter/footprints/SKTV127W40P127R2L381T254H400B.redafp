@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"2cc93fdc-b24d-4ed1-b526-e46684357bba","name":"SKTV127W40P127R2L381T254H400B","description":"Socket, 2 × 3, 1.27 mm pitch","height":4000000},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":3,"pitch":"1.27","rows":2,"socket":true}},
+  "pads": [
+    {"uuid":"2463b702-3fcb-4cd3-ae09-0a12223f6bac","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-635000,"y":1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"31d3ef0e-91c6-499c-a5a0-169c056fd16a","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":0},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"4d443df9-0fdb-43c5-967f-013f804ab8dd","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":-1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"9dc7c2ea-f320-41aa-b8ef-13c3744db823","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"9ecea1e2-6cb5-4fa9-ac2b-22224c47c11c","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":0},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"c7501381-a0d9-469c-a5ff-e369f7ccbd99","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":-1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
+  ],
+  "graphics": [
+    {"uuid":"0dbdd255-c392-4a8b-ba1e-a2bf2b5f4407","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-2200000},"end":{"x":1550000,"y":2200000}},"width":50000},
+    {"uuid":"1e7cc955-846a-42f8-909b-93927d65f0d3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1395000,"y":-2030000},"end":{"x":-1395000,"y":2030000}},"width":120000},
+    {"uuid":"768a82a3-67ce-4fdb-8184-0e6a14d20722","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":1905000},{"x":1270000,"y":1905000},{"x":1270000,"y":-1905000},{"x":-1270000,"y":-1905000},{"x":-1270000,"y":1270000}]},"width":100000},
+    {"uuid":"a51179b1-cf40-4c2d-b062-7bddebc74370","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1395000,"y":-2030000},"end":{"x":1395000,"y":-2030000}},"width":120000},
+    {"uuid":"aed1daa2-80c8-42d9-a0b9-b49971d3397d","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1395000,"y":-2030000},"end":{"x":1395000,"y":2030000}},"width":120000},
+    {"uuid":"f8ce1e5f-a1b3-4c28-95f5-68ab08e75dc1","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1395000,"y":2030000},"end":{"x":1395000,"y":2030000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"4b3a7a5e-f943-48ed-9313-d3e6d03c73bd","field":"Designator","at":{"x":0,"y":2900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"b65f14d4-a164-4940-be9f-d9180fbe6d76","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+  ]
+}

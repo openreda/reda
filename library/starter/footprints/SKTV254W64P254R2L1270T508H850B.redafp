@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"d383b026-d7f2-4b1d-8a1d-423e82cb65aa","name":"SKTV254W64P254R2L1270T508H850B","description":"Socket, 2 × 5, 2.54 mm pitch","height":8500000},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":5,"pitch":"2.54","rows":2,"socket":true}},
+  "pads": [
+    {"uuid":"16d3ac7d-ebbd-4e27-9b96-97ba36a3c031","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"481156c6-207f-426f-bc0c-269a45e61bf8","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"4de2db7e-a92b-499c-8f70-d85e095d5375","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"5a3ee92e-635b-4b9d-a180-69eead6ebaa8","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"9ddf9275-649e-4eae-948b-144aec50b8c9","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"bd0712d9-7a23-41de-bff6-bd5e65f96de1","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"c20c475b-2abb-4e26-8392-5a76e0923e32","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":-2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"c8c8088c-2f56-46f6-acee-b927dbd0bd42","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":2540000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"f0dadd0d-bf8b-48bd-bcc0-9849ce2c6c6a","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":-5080000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"f33802ef-e481-4380-99c8-06db940b9e08","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"12fdf4e1-7a3f-4be9-a051-aa9b0ac654f9","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2800000,"y":-6600000},"end":{"x":2800000,"y":6600000}},"width":50000},
+    {"uuid":"693c3826-22e2-47c1-9f68-b18297e08652","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-1540000,"y":6350000},{"x":2540000,"y":6350000},{"x":2540000,"y":-6350000},{"x":-2540000,"y":-6350000},{"x":-2540000,"y":5350000}]},"width":100000},
+    {"uuid":"98ba360e-63fa-42a1-bcdf-404cc60dde90","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":-6410000},"end":{"x":-2600000,"y":6410000}},"width":120000},
+    {"uuid":"b2b49d2f-1f91-4078-b7b1-5c4fc8edfa88","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":-6410000},"end":{"x":2600000,"y":-6410000}},"width":120000},
+    {"uuid":"de4d4e6a-2485-48f7-86d0-7d6afeb21dc3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2600000,"y":6410000},"end":{"x":2600000,"y":6410000}},"width":120000},
+    {"uuid":"df3b4f51-4102-4916-8086-2064e8bf7991","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2600000,"y":-6410000},"end":{"x":2600000,"y":6410000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"8d021113-ac50-4219-951c-fc66bbd02382","field":"Designator","at":{"x":0,"y":7300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"aff0fd2b-33aa-4141-8634-944e89c0cd82","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+  ]
+}
