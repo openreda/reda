@@ -154,7 +154,7 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         number: i.to_string(),
         kind: PadKind::Smd,
         shape: PadShape::RoundedRect,
-        at: Point::new(Nm::from_um(800) * (i as i64), Nm(0)),
+        at: Point::new(Nm::from_um(1000) * (i as i64), Nm(0)),
         rotation: Millideg(0),
         width: Nm::from_um(800),
         height: Nm::from_um(900),

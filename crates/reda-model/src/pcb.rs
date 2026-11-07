@@ -113,6 +113,10 @@ crate::check::severities! {
     clearance => Clearance = Error,
     /// Different Nets touching.
     short_circuit => ShortCircuit = Error,
+    /// Pads with different numbers touching on a Part that isn't a Net Tie.
+    shorted_copper => ShortedCopper = Error,
+    /// A Net Tie's Footprint that isn't a valid tie.
+    net_tie_not_joined => NetTieNotJoined = Error,
     /// A Track narrower than the minimum or wider than the maximum.
     track_width => TrackWidth = Error,
     /// A Via diameter or hole outside the `via_size` range.

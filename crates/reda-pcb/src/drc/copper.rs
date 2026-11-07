@@ -1,15 +1,17 @@
 //! The copper checks: clearance, short circuits, Track width and Keepouts.
 
-use reda_model::{DrcCheck, Limit, RuleField, RuleKind};
+use reda_model::{ComponentType, DrcCheck, Limit, RuleField, RuleKind, footprint_copper};
 
 use super::{Board, Report, item_objects};
 use crate::copper::Item;
+use crate::copper::shape::{BoardShape as _, Shape};
 use crate::rules::{net_rules, resolve, resolve_pair};
 use crate::zone::keepouts_entered;
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     clearance(board, report);
     short_circuit(board, report);
+    footprint_copper(board, report);
     track_width(board, report);
     keepout(board, report);
 }
@@ -68,11 +70,17 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
         return;
     }
     let copper = board.copper;
+    let ties = crate::copper::ties::Ties::of(board.pcb);
     let mut seen = std::collections::BTreeSet::new();
     for (a, b) in copper.touching_pairs() {
         let (na, nb) = (copper.net(a), copper.net(b));
         let objects = [item_objects(a), item_objects(b)].concat();
-        if na.is_none() || nb.is_none() || na == nb || !seen.insert(objects.clone()) {
+        if na.is_none()
+            || nb.is_none()
+            || na == nb
+            || ties.same_tie(a, b)
+            || !seen.insert(objects.clone())
+        {
             continue;
         }
         let touching: Vec<_> = copper
@@ -95,6 +103,43 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
                 .arg("net_b", board.net_name(nb))
                 .objects(objects)
         });
+    }
+}
+
+/// `shorted_copper` and `net_tie_not_joined` on each placed Footprint, read from its copy
+/// with the same geometry as the Library check, so a Footprint swap or a type change is
+/// caught. One `shorted_copper` per touching pair, objects as for a short.
+fn footprint_copper(board: &Board<'_>, report: &mut Report) {
+    let pcb = board.pcb;
+    for instance in pcb.footprints() {
+        let Some(copy) = pcb.footprint_copy(instance.footprint) else {
+            continue;
+        };
+        let footprint = &copy.footprint;
+        if instance.component_type == ComponentType::NetTie {
+            if let Some(problem) = footprint_copper::tie_problem(footprint) {
+                report.add(DrcCheck::NetTieNotJoined, |v| {
+                    v.arg("footprint", footprint.name.as_str())
+                        .arg("reason", problem.id())
+                        .object(instance.uuid)
+                });
+            }
+            continue;
+        }
+        if report.is_off(DrcCheck::ShortedCopper) {
+            continue;
+        }
+        for (a, b) in footprint_copper::shorted_pads(footprint) {
+            let (a, b) = (&footprint.pads[a], &footprint.pads[b]);
+            let [at, _] = Shape::pad(instance, a).closest_points(&Shape::pad(instance, b));
+            report.add(DrcCheck::ShortedCopper, |v| {
+                v.located(pcb.uuid, at)
+                    .arg("pad_a", a.number.as_str())
+                    .arg("pad_b", b.number.as_str())
+                    .arg("footprint", footprint.name.as_str())
+                    .objects([instance.uuid, a.uuid, instance.uuid, b.uuid])
+            });
+        }
     }
 }
 
