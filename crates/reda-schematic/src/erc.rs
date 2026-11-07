@@ -134,6 +134,16 @@ pub struct ErcRun;
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ErcRunParams {
+    /// Only report Violations on these Schematic Sheets: those with an object on one of
+    /// them. The whole design is still checked, then the result is filtered.
+    #[serde(default)]
+    pub documents: Option<Vec<Uuid>>,
+    /// Only report Violations involving one of these objects.
+    #[serde(default)]
+    pub objects: Option<Vec<Uuid>>,
+    /// Run only these checks; all that are not Off when left out.
+    #[serde(default)]
+    pub checks: Option<Vec<ErcCheck>>,
     /// Also list the Violations that Waivers waive, each naming its Waiver.
     #[serde(default)]
     pub include_waived: bool,
@@ -146,8 +156,12 @@ pub struct ErcRunResult {
     /// How many Violations Waivers waived.
     pub waived: usize,
     /// Waivers that match no Violation any more, because their objects no longer break
-    /// the check.
+    /// the check. Only checks that ran across the whole design report them, so a
+    /// `partial` run reports none.
     pub unmatched_waivers: Vec<Uuid>,
+    /// The run was narrowed by `documents` or `objects`, so it lists only the Violations
+    /// in that scope and marks no Waiver stale.
+    pub partial: bool,
     /// A fingerprint of the design the run checked. Pass it to `erc.stale` to learn
     /// whether the design was edited since.
     pub design: String,
@@ -169,25 +183,63 @@ impl Command for ErcRun {
     type Output = ErcRunResult;
 
     fn run(&self, cx: &mut Context<'_>, p: ErcRunParams) -> Result<ErcRunResult, CommandError> {
-        let project = cx.project()?;
         let library = |uuids: &[Uuid]| cx.library_parts(uuids);
-        let waived = apply_waivers(
-            check(project, &library),
-            waivers(project),
-            p.include_waived,
-            |id| {
-                ErcCheck::ALL
-                    .iter()
-                    .any(|c| c.id() == id && project.props().erc.is_on(*c))
-            },
-        );
-        Ok(ErcRunResult {
-            violations: waived.violations,
-            waived: waived.waived,
-            unmatched_waivers: waived.unmatched,
-            design: design_fingerprint(project),
-        })
+        run(cx.project()?, &library, &p)
     }
+}
+
+/// What `erc.run` returns for `p`: [`check`], narrowed to the checks and scope asked for,
+/// with the sheets' Waivers laid over it. `checks.report` writes the same result.
+pub fn run(
+    project: &Project,
+    library: crate::PartsOf<'_>,
+    p: &ErcRunParams,
+) -> Result<ErcRunResult, CommandError> {
+    for (i, document) in p.documents.iter().flatten().enumerate() {
+        if project.schematic_sheet(*document).is_none() {
+            return Err(CommandError::invalid_params(
+                &format!("/documents/{i}"),
+                format!("{document} is not a Schematic Sheet of the Project"),
+            ));
+        }
+    }
+    let wanted = |check: ErcCheck| p.checks.as_ref().is_none_or(|only| only.contains(&check));
+    let partial = p.documents.is_some() || p.objects.is_some();
+    let in_scope = |v: &Violation| {
+        let on_documents = p.documents.as_ref().is_none_or(|documents| {
+            v.document.is_some_and(|d| documents.contains(&d))
+                || v.objects.iter().any(|o| {
+                    project.object(*o).is_some_and(|object| {
+                        matches!(object.scope(), reda_model::Scope::Document(d) if documents.contains(&d))
+                    })
+                })
+        });
+        let of_objects = (p.objects.as_ref())
+            .is_none_or(|objects| v.objects.iter().any(|o| objects.contains(o)));
+        on_documents && of_objects
+    };
+    let found: Vec<Violation> = check(project, library)
+        .into_iter()
+        .filter(|v| {
+            (ErcCheck::ALL.iter())
+                .find(|c| c.id() == v.check)
+                .is_none_or(|c| wanted(*c))
+        })
+        .filter(in_scope)
+        .collect();
+    let waived = apply_waivers(found, waivers(project), p.include_waived, |id| {
+        !partial
+            && ErcCheck::ALL
+                .iter()
+                .any(|c| c.id() == id && project.props().erc.is_on(*c) && wanted(*c))
+    });
+    Ok(ErcRunResult {
+        violations: waived.violations,
+        waived: waived.waived,
+        unmatched_waivers: waived.unmatched,
+        partial,
+        design: design_fingerprint(project),
+    })
 }
 
 pub struct ErcStale;

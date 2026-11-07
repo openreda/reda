@@ -94,6 +94,30 @@ impl IdSource for RandomIds {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(pub i64);
 
+impl Timestamp {
+    /// The time as `YYYY-MM-DD HH:MM:SS UTC`.
+    pub fn utc(self) -> String {
+        let secs = self.0.div_euclid(1000);
+        let (days, rest) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
+        // Howard Hinnant's days-to-civil algorithm.
+        let z = days + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z - era * 146_097;
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = doy - (153 * mp + 2) / 5 + 1;
+        let month = if mp < 10 { mp + 3 } else { mp - 9 };
+        let year = yoe + era * 400 + i64::from(month <= 2);
+        format!(
+            "{year:04}-{month:02}-{day:02} {:02}:{:02}:{:02} UTC",
+            rest / 3600,
+            rest % 3600 / 60,
+            rest % 60
+        )
+    }
+}
+
 /// Tells the engine the current time.
 pub trait Clock: Send + Sync {
     fn now(&self) -> Timestamp;

@@ -41,6 +41,8 @@ pub struct Preferences {
     /// Editing in the PCB Document.
     pub pcb: Editing,
     pub display: Display,
+    /// ERC and DRC results on the canvas.
+    pub checks: Checks,
     pub libraries: Libraries,
     pub agents: Agents,
     pub keymap: Keymap,
@@ -282,6 +284,21 @@ impl SchematicEditing {
 pub enum Units {
     Mm,
     Mil,
+}
+
+/// How check results show on the canvas.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct Checks {
+    /// The most Violation markers drawn on one canvas; the rest are counted as "not
+    /// shown". Every Violation is still detected and listed.
+    pub max_markers: u32,
+}
+
+impl Default for Checks {
+    fn default() -> Checks {
+        Checks { max_markers: 500 }
+    }
 }
 
 /// Display settings.

@@ -170,6 +170,510 @@
       "title": "Batch"
     },
     {
+      "category": "checks",
+      "description": "Runs ERC (`kind: erc`) or DRC (`kind: drc`) with the same parameters as `erc.run` or `drc.run`, or takes the Change List of `sync.preview` (`kind: sync`), and writes it to `path` as JSON or HTML. Waived Violations are always listed, each naming its Waiver. The JSON is the run's result with `kind`, `project`, `generated` (the Clock, ms), a per-check `summary` and the `stale_waivers`; the HTML has a per-check summary and Violations, waived, stale-Waiver and (DRC) health sections. Nothing in the design changes.",
+      "icon": "drc",
+      "id": "checks.report",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "AreaParam": {
+            "additionalProperties": false,
+            "description": "A box on the board, by two opposite corners in either order. Its edges count as\ninside.",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/PointParam"
+              },
+              "to": {
+                "$ref": "#/$defs/PointParam"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "DrcCheck": {
+            "description": "One DRC check, named as in [`DrcSeverities`].",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets.",
+                "type": "string"
+              },
+              {
+                "const": "short_circuit",
+                "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "shorted_copper",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_not_joined",
+                "description": "A Net Tie's Footprint that isn't a valid tie.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "A Track narrower than the minimum or wider than the maximum.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "An annular ring below the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Holes closer than the minimum spacing.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "keepout",
+                "description": "An object inside a Keepout that forbids it.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_outside_board",
+                "description": "A Footprint outside the Board Outline.",
+                "type": "string"
+              },
+              {
+                "const": "unrouted",
+                "description": "Connections the Ratsnest still shows.",
+                "type": "string"
+              },
+              {
+                "const": "copper_without_net",
+                "description": "Copper with no Net.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance.",
+                "type": "string"
+              },
+              {
+                "const": "poor_connection",
+                "description": "A Track end touching copper, with its centre outside that copper.",
+                "type": "string"
+              },
+              {
+                "const": "via_under_smd",
+                "description": "A Via inside an SMD Pad.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_overlap",
+                "description": "Courtyards closer than `courtyard_clearance`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "zero_length_track",
+                "description": "Health check: a Track whose ends coincide.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Health check: a Track no longer than the `micro_segment` length.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_copper",
+                "description": "Health check: Tracks or Vias that repeat one another exactly.",
+                "type": "string"
+              },
+              {
+                "const": "zero_area_zone",
+                "description": "Health check: a Zone whose outline encloses no area.",
+                "type": "string"
+              },
+              {
+                "const": "out_of_sync",
+                "description": "The PCB out of sync with the schematic.",
+                "type": "string"
+              },
+              {
+                "const": "opening_collapsed",
+                "description": "A negative mask or paste expansion leaves no opening.",
+                "type": "string"
+              },
+              {
+                "const": "rule_invalid",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause.",
+                "type": "string"
+              },
+              {
+                "const": "rule_outside_preset",
+                "description": "A rule that allows less than a Fab Preset limit.",
+                "type": "string"
+              }
+            ]
+          },
+          "ErcCheck": {
+            "description": "One ERC check, named as in [`ErcSeverities`].",
+            "oneOf": [
+              {
+                "const": "unconnected_pin",
+                "description": "A Pin connected to nothing. Pins with a No-Connect Marker are exempt. Its\nseverity is the Pin Matrix cell of the Pin's type and Unconnected.",
+                "type": "string"
+              },
+              {
+                "const": "pin_conflict",
+                "description": "Two Pins or Ports on a Net whose types conflict. Its severity is the Pin\nMatrix cell of the two types.",
+                "type": "string"
+              },
+              {
+                "const": "undriven_power",
+                "description": "A Net with Power In Pins and no Power Out Pin or Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "no_driving_source",
+                "description": "A Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open\nEmitter or Power Out Pin, and no Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "single_pin_net",
+                "description": "A wired Net with only one Pin.",
+                "type": "string"
+              },
+              {
+                "const": "dangling_wire",
+                "description": "A Wire end that touches nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unattached_label",
+                "description": "A Net Label, Port or Power Port attached to nothing.",
+                "type": "string"
+              },
+              {
+                "const": "no_connect_connected",
+                "description": "A No-Connect Marker on a Pin that is connected.",
+                "type": "string"
+              },
+              {
+                "const": "net_names_on_sheet",
+                "description": "One Net with different names on one sheet; names differing only in case are one\nname.",
+                "type": "string"
+              },
+              {
+                "const": "net_names_across_sheets",
+                "description": "One Net with different names on different sheets.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_nets",
+                "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync.",
+                "type": "string"
+              },
+              {
+                "const": "single_sheet_port",
+                "description": "A Port whose name no other sheet has.",
+                "type": "string"
+              },
+              {
+                "const": "port_no_driver",
+                "description": "A Net whose Ports are all `in`, so nothing drives it.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_designator",
+                "description": "Several Components with the same Designator.",
+                "type": "string"
+              },
+              {
+                "const": "unplaced_units",
+                "description": "Units of a placed multi-unit Component left unplaced.",
+                "type": "string"
+              },
+              {
+                "const": "unit_placed_twice",
+                "description": "One Unit of a Component placed more than once.",
+                "type": "string"
+              },
+              {
+                "const": "no_footprint_choice",
+                "description": "A Standard or Net Tie Component with no Footprint choice.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_one_net",
+                "description": "A Net Tie with all its Pins on one Net, so the tie does nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unit_data_mismatch",
+                "description": "Units of one Component whose Component data differ.",
+                "type": "string"
+              },
+              {
+                "const": "off_grid",
+                "description": "A Pin or Wire vertex off the 50 mil connection grid.",
+                "type": "string"
+              },
+              {
+                "const": "off_sheet",
+                "description": "An object outside the sheet border.",
+                "type": "string"
+              },
+              {
+                "const": "library_out_of_date",
+                "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ReportFormat": {
+            "oneOf": [
+              {
+                "const": "json",
+                "description": "The run's result, with a per-check summary and the stale Waivers.",
+                "type": "string"
+              },
+              {
+                "const": "html",
+                "description": "A page with a per-check summary and sections for the Violations, the waived\nViolations, the stale Waivers and (for DRC) the health checks.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the report is of, with the parameters of its run Command.",
+        "oneOf": [
+          {
+            "description": "ERC, with `erc.run`'s parameters.",
+            "properties": {
+              "checks": {
+                "default": null,
+                "description": "Run only these checks; all that are not Off when left out.",
+                "items": {
+                  "$ref": "#/$defs/ErcCheck"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "documents": {
+                "default": null,
+                "description": "Only report Violations on these Schematic Sheets: those with an object on one of\nthem. The whole design is still checked, then the result is filtered.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "include_waived": {
+                "default": false,
+                "description": "Also list the Violations that Waivers waive, each naming its Waiver.",
+                "type": "boolean"
+              },
+              "kind": {
+                "const": "erc",
+                "type": "string"
+              },
+              "objects": {
+                "default": null,
+                "description": "Only report Violations involving one of these objects.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "DRC, with `drc.run`'s parameters.",
+            "properties": {
+              "area": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AreaParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Only report Violations with an object touching this box."
+              },
+              "checks": {
+                "default": null,
+                "description": "Run only these checks; all that are not Off when left out. The health checks\nalone need no Zone refill, so a board can run them as it opens.",
+                "items": {
+                  "$ref": "#/$defs/DrcCheck"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "include_waived": {
+                "default": false,
+                "description": "Also list the Violations that Waivers waive, each naming its Waiver.",
+                "type": "boolean"
+              },
+              "kind": {
+                "const": "drc",
+                "type": "string"
+              },
+              "layers": {
+                "description": "Only report Violations on one of these Layers.",
+                "items": {
+                  "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "objects": {
+                "default": null,
+                "description": "Only report Violations involving one of these objects. The whole board is still\nchecked, then the result is filtered.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "The Change List `sync.preview` returns.",
+            "properties": {
+              "kind": {
+                "const": "sync",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          }
+        ],
+        "properties": {
+          "format": {
+            "$ref": "#/$defs/ReportFormat"
+          },
+          "path": {
+            "description": "Where to write the report. A relative path is taken from the Project folder.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "format"
+        ],
+        "title": "ChecksReportParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "count": {
+            "description": "ERC and DRC: the Errors and Warnings listed, waived ones left out. Sync: the\nout-of-sync count.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "path": {
+            "description": "The file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "count"
+        ],
+        "title": "ChecksReportResult",
+        "type": "object"
+      },
+      "title": "Write Check Report"
+    },
+    {
       "category": "project",
       "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rule records and DRC severities, and is available only while the Project has none. Its file is written on save.",
       "icon": "document_add",
@@ -952,6 +1456,23 @@
       "kind": "query",
       "params": {
         "$defs": {
+          "AreaParam": {
+            "additionalProperties": false,
+            "description": "A box on the board, by two opposite corners in either order. Its edges count as\ninside.",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/PointParam"
+              },
+              "to": {
+                "$ref": "#/$defs/PointParam"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
           "DrcCheck": {
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
@@ -1096,11 +1617,53 @@
                 "type": "string"
               }
             ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AreaParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only report Violations with an object touching this box."
+          },
           "checks": {
             "default": null,
             "description": "Run only these checks; all that are not Off when left out. The health checks\nalone need no Zone refill, so a board can run them as it opens.",
@@ -1116,6 +1679,29 @@
             "default": false,
             "description": "Also list the Violations that Waivers waive, each naming its Waiver.",
             "type": "boolean"
+          },
+          "layers": {
+            "description": "Only report Violations on one of these Layers.",
+            "items": {
+              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "objects": {
+            "default": null,
+            "description": "Only report Violations involving one of these objects. The whole board is still\nchecked, then the result is filtered.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "title": "DrcRunParams",
@@ -1357,12 +1943,16 @@
             },
             "type": "array"
           },
+          "partial": {
+            "description": "The run was narrowed by `objects`, `area` or `layers`, so it lists only the\nViolations in that scope and marks no Waiver stale.",
+            "type": "boolean"
+          },
           "refilled": {
             "description": "Whether some Zone was unfilled or stale, so the run checked a fresh fill. The fill\nis not stored: run `pcb.zone.fill` to keep it.",
             "type": "boolean"
           },
           "unmatched_waivers": {
-            "description": "Waivers that match no Violation any more, because their objects no longer break\nthe check.",
+            "description": "Waivers that match no Violation any more, because their objects no longer break\nthe check. Only checks that ran across the whole board report them, so a\n`partial` run reports none.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -1387,6 +1977,7 @@
           "violations",
           "waived",
           "unmatched_waivers",
+          "partial",
           "refilled",
           "design",
           "locally_edited"
@@ -1999,13 +2590,165 @@
       "id": "erc.run",
       "kind": "query",
       "params": {
+        "$defs": {
+          "ErcCheck": {
+            "description": "One ERC check, named as in [`ErcSeverities`].",
+            "oneOf": [
+              {
+                "const": "unconnected_pin",
+                "description": "A Pin connected to nothing. Pins with a No-Connect Marker are exempt. Its\nseverity is the Pin Matrix cell of the Pin's type and Unconnected.",
+                "type": "string"
+              },
+              {
+                "const": "pin_conflict",
+                "description": "Two Pins or Ports on a Net whose types conflict. Its severity is the Pin\nMatrix cell of the two types.",
+                "type": "string"
+              },
+              {
+                "const": "undriven_power",
+                "description": "A Net with Power In Pins and no Power Out Pin or Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "no_driving_source",
+                "description": "A Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open\nEmitter or Power Out Pin, and no Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "single_pin_net",
+                "description": "A wired Net with only one Pin.",
+                "type": "string"
+              },
+              {
+                "const": "dangling_wire",
+                "description": "A Wire end that touches nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unattached_label",
+                "description": "A Net Label, Port or Power Port attached to nothing.",
+                "type": "string"
+              },
+              {
+                "const": "no_connect_connected",
+                "description": "A No-Connect Marker on a Pin that is connected.",
+                "type": "string"
+              },
+              {
+                "const": "net_names_on_sheet",
+                "description": "One Net with different names on one sheet; names differing only in case are one\nname.",
+                "type": "string"
+              },
+              {
+                "const": "net_names_across_sheets",
+                "description": "One Net with different names on different sheets.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_nets",
+                "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync.",
+                "type": "string"
+              },
+              {
+                "const": "single_sheet_port",
+                "description": "A Port whose name no other sheet has.",
+                "type": "string"
+              },
+              {
+                "const": "port_no_driver",
+                "description": "A Net whose Ports are all `in`, so nothing drives it.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_designator",
+                "description": "Several Components with the same Designator.",
+                "type": "string"
+              },
+              {
+                "const": "unplaced_units",
+                "description": "Units of a placed multi-unit Component left unplaced.",
+                "type": "string"
+              },
+              {
+                "const": "unit_placed_twice",
+                "description": "One Unit of a Component placed more than once.",
+                "type": "string"
+              },
+              {
+                "const": "no_footprint_choice",
+                "description": "A Standard or Net Tie Component with no Footprint choice.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_one_net",
+                "description": "A Net Tie with all its Pins on one Net, so the tie does nothing.",
+                "type": "string"
+              },
+              {
+                "const": "unit_data_mismatch",
+                "description": "Units of one Component whose Component data differ.",
+                "type": "string"
+              },
+              {
+                "const": "off_grid",
+                "description": "A Pin or Wire vertex off the 50 mil connection grid.",
+                "type": "string"
+              },
+              {
+                "const": "off_sheet",
+                "description": "An object outside the sheet border.",
+                "type": "string"
+              },
+              {
+                "const": "library_out_of_date",
+                "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table.",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "checks": {
+            "default": null,
+            "description": "Run only these checks; all that are not Off when left out.",
+            "items": {
+              "$ref": "#/$defs/ErcCheck"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "documents": {
+            "default": null,
+            "description": "Only report Violations on these Schematic Sheets: those with an object on one of\nthem. The whole design is still checked, then the result is filtered.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "include_waived": {
             "default": false,
             "description": "Also list the Violations that Waivers waive, each naming its Waiver.",
             "type": "boolean"
+          },
+          "objects": {
+            "default": null,
+            "description": "Only report Violations involving one of these objects.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "title": "ErcRunParams",
@@ -2222,8 +2965,12 @@
             "description": "A fingerprint of the design the run checked. Pass it to `erc.stale` to learn\nwhether the design was edited since.",
             "type": "string"
           },
+          "partial": {
+            "description": "The run was narrowed by `documents` or `objects`, so it lists only the Violations\nin that scope and marks no Waiver stale.",
+            "type": "boolean"
+          },
           "unmatched_waivers": {
-            "description": "Waivers that match no Violation any more, because their objects no longer break\nthe check.",
+            "description": "Waivers that match no Violation any more, because their objects no longer break\nthe check. Only checks that ran across the whole design report them, so a\n`partial` run reports none.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -2248,6 +2995,7 @@
           "violations",
           "waived",
           "unmatched_waivers",
+          "partial",
           "design"
         ],
         "title": "ErcRunResult",

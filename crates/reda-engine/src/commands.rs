@@ -1,6 +1,7 @@
 //! The engine's own Commands: Project files, undo and redo, and, later, cross-Document
 //! work.
 
+pub mod checks_report;
 pub mod document;
 pub mod element_copy;
 pub mod elements;
@@ -35,6 +36,7 @@ use serde::{Deserialize, Deserializer};
 
 /// Adds every Command defined in `reda-engine`.
 pub fn register_all(registry: &mut Registry) {
+    checks_report::register_all(registry);
     document::register_all(registry);
     fab_preset::register_all(registry);
     elements::register_all(registry);

@@ -24,6 +24,39 @@ pub struct ShowWaived(pub bool);
 /// Adds `view.messages.show_waived` to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut reda_engine::command::Registry) {
     registry.add(ShowWaivedSet);
+    registry.add(ChecksClear);
+}
+
+/// How many times `view.checks.clear` has run: view state the Shell follows to forget
+/// the check results.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ChecksCleared(pub u64);
+
+struct ChecksClear;
+
+impl reda_engine::command::Command for ChecksClear {
+    const META: reda_engine::command::Meta = reda_engine::command::Meta {
+        id: "view.checks.clear",
+        title: "Clear Check Results",
+        description: "Clears the ERC and DRC results from the Messages panel and their \
+                      markers from the canvas. View state only: it resolves nothing, so \
+                      the next run lists them again.",
+        category: "view",
+        icon: "close",
+        kind: reda_engine::command::Kind::View,
+    };
+    type Params = reda_engine::command::NoParams;
+    type Output = ();
+
+    fn run(
+        &self,
+        cx: &mut reda_engine::command::Context<'_>,
+        _: reda_engine::command::NoParams,
+    ) -> Result<(), reda_engine::command::CommandError> {
+        let cleared = cx.view::<ChecksCleared>()?;
+        cleared.0 += 1;
+        Ok(())
+    }
 }
 
 #[derive(serde::Deserialize, schemars::JsonSchema)]
@@ -65,19 +98,6 @@ impl reda_engine::command::Command for ShowWaivedSet {
         Ok(ShowWaivedResult { show: state.0 })
     }
 }
-
-/// Arguments that are lengths in nm, shown in millimetres.
-const LENGTH_ARGS: &[&str] = &[
-    "x",
-    "y",
-    "actual",
-    "required",
-    "minimum",
-    "grid",
-    "board",
-    "length",
-    "max_length",
-];
 
 /// A check whose results the panel shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -342,7 +362,9 @@ pub fn violation_text(violation: &Violation) -> String {
         .iter()
         .map(|(name, value)| {
             let value = match value {
-                ViolationArg::Int(n) if LENGTH_ARGS.contains(&name.as_str()) => {
+                ViolationArg::Int(n)
+                    if reda_engine::model::LENGTH_ARGS.contains(&name.as_str()) =>
+                {
                     FluentValue::from(mm(*n))
                 }
                 ViolationArg::Int(n) => FluentValue::from(*n),

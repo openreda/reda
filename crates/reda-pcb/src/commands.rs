@@ -21,7 +21,7 @@ mod via;
 mod zone;
 mod zone_fill;
 
-pub use drc::{SyncCheck, SyncState};
+pub use drc::{AreaParam, DrcRunParams, DrcRunResult, SyncCheck, SyncState, run as drc_run};
 pub use mechanical::{MechanicalSet, MechanicalSetParams};
 pub use outline::rect_outline;
 pub use placement::{
