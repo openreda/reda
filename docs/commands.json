@@ -745,7 +745,7 @@
     },
     {
       "category": "pcb",
-      "description": "Checks the PCB with the DRC checks that are not Off, after refilling stale Zones, and returns the Violations: each with its check id, severity, message arguments and the UUIDs of the objects involved (a Pad as its Footprint then the Pad). Waived Violations are left out unless `include_waived`.",
+      "description": "Checks the PCB with the DRC checks that are not Off, after refilling stale Zones, and returns the Violations: each with its check id, severity, message arguments and the UUIDs of the objects involved (a Pad as its Footprint then the Pad). Waived Violations are left out unless `include_waived`. `locally_edited` lists the Locally Edited Footprints.",
       "icon": "drc",
       "id": "drc.run",
       "kind": "query",
@@ -772,6 +772,24 @@
               "max"
             ],
             "type": "string"
+          },
+          "LocallyEdited": {
+            "description": "A placed Footprint with local edits, as the DRC report lists it.",
+            "properties": {
+              "designator": {
+                "type": "string"
+              },
+              "instance": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "instance",
+              "designator"
+            ],
+            "type": "object"
           },
           "Measurement": {
             "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
@@ -973,6 +991,13 @@
             "description": "A fingerprint of the board the run checked. Pass it to `drc.stale` to learn\nwhether the board was edited since.",
             "type": "string"
           },
+          "locally_edited": {
+            "description": "The Locally Edited Footprints: placed Footprints whose Pads or graphics were\nchanged on the board, by Designator.",
+            "items": {
+              "$ref": "#/$defs/LocallyEdited"
+            },
+            "type": "array"
+          },
           "refilled": {
             "description": "Whether some Zone was unfilled or stale, so the run checked a fresh fill. The fill\nis not stored: run `pcb.zone.fill` to keep it.",
             "type": "boolean"
@@ -1004,7 +1029,8 @@
           "waived",
           "unmatched_waivers",
           "refilled",
-          "design"
+          "design",
+          "locally_edited"
         ],
         "title": "DrcRunResult",
         "type": "object"
@@ -13428,6 +13454,24 @@
             ],
             "type": "object"
           },
+          "EditedFrom": {
+            "additionalProperties": false,
+            "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
+            "properties": {
+              "hash": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash"
+            ],
+            "type": "object"
+          },
           "ErcSeverities": {
             "additionalProperties": false,
             "description": "The severity of every ERC check, stored in the Project. A check left out has its\ndefault.",
@@ -14171,6 +14215,17 @@
           "InDocument11": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "edited_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EditedFrom"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "On a PCB's Locally Edited Footprint: the copy it was edited from. Never on a sheet."
+              },
               "footprint": {
                 "$ref": "#/$defs/Footprint"
               },
@@ -19364,6 +19419,24 @@
             ],
             "type": "object"
           },
+          "EditedFrom": {
+            "additionalProperties": false,
+            "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
+            "properties": {
+              "hash": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash"
+            ],
+            "type": "object"
+          },
           "ErcSeverities": {
             "additionalProperties": false,
             "description": "The severity of every ERC check, stored in the Project. A check left out has its\ndefault.",
@@ -20107,6 +20180,17 @@
           "InDocument11": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "edited_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EditedFrom"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "On a PCB's Locally Edited Footprint: the copy it was edited from. Never on a sheet."
+              },
               "footprint": {
                 "$ref": "#/$defs/Footprint"
               },
@@ -27134,6 +27218,52 @@
     },
     {
       "category": "pcb",
+      "description": "Returns Locally Edited Footprints to the copy their `edited_from` names, not to the Library: the board then matches the schematic's copy again. Instances without local edits are left alone. Entries no instance uses any more leave the part table.",
+      "icon": "undo",
+      "id": "pcb.footprint.revert_local_edits",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "instances": {
+            "description": "The placed Footprint instances. Those without local edits are left alone.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "instances"
+        ],
+        "title": "RevertLocalEditsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "reverted": {
+            "description": "The instances that had local edits and are back on their `edited_from` copy.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "reverted"
+        ],
+        "title": "RevertLocalEditsResult",
+        "type": "object"
+      },
+      "title": "Revert Local Edits"
+    },
+    {
+      "category": "pcb",
       "description": "Sets the Designator, value, fields, In BOM, In CPL, Not Fitted or Footprint of Footprints from the PCB side. A Footprint synced from the schematic writes through: every Unit of its Component changes too, and the board takes the change as Sync would (a new Footprint is swapped in place and its Pads rejoin their Nets), with one undo entry in each Document and nothing left pending. Mechanical Parts placed only on the PCB are edited there.",
       "icon": "properties",
       "id": "pcb.footprint.set",
@@ -29953,6 +30083,625 @@
         "type": "object"
       },
       "title": "Set Output Origin"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes one Pad of one placed Footprint: any of its kind, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection, as `library.footprint.pad.edit` does, but never its number. Pads can't be added or removed on the board. The instance gets a Locally Edited Footprint: its own part-table entry, keyed by the new content hash, with `edited_from` naming the copy it came from. Instances with identical edits share one entry, and an edit that undoes every change returns the instance to that copy. Sync keeps local edits.",
+      "icon": "pad",
+      "id": "pcb.pad.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
+          "Corner": {
+            "description": "A corner of a Pad, in its own frame (+y up).",
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "A drilled hole param.",
+            "properties": {
+              "height": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Left out, the same as `width`: a round hole. Otherwise a slot along the longer side."
+              },
+              "rotation": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Angle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Turns a slot in the Pad's frame. Left out, 0."
+              },
+              "tolerance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HoleToleranceParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "How far the finished hole may come out larger or smaller. Stored and shown only."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "The finished diameter, or a slot's width."
+              }
+            },
+            "required": [
+              "width"
+            ],
+            "type": "object"
+          },
+          "HoleToleranceParam": {
+            "additionalProperties": false,
+            "properties": {
+              "minus": {
+                "$ref": "#/$defs/Length"
+              },
+              "plus": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "plus",
+              "minus"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "OpeningPointParam": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "oneOf": [
+              {
+                "enum": [
+                  "circle",
+                  "rect",
+                  "oval"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "rounded_rect",
+                "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+                "type": "string"
+              },
+              {
+                "const": "chamfered_rect",
+                "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+                "type": "string"
+              }
+            ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/OpeningPointParam"
+              },
+              "corner_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "$ref": "#/$defs/Length"
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
+          },
+          "ZoneConnectionParam": {
+            "additionalProperties": false,
+            "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
+            "properties": {
+              "angle": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Angle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "0, 45 or 90 degrees in the Pad's frame."
+              },
+              "gap": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The clear ring around a relieved or unconnected Pad."
+              },
+              "spoke_width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "spokes": {
+                "default": null,
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "`relief`, `solid` or `none`."
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In the Footprint's own frame."
+          },
+          "chamfer_ratio": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RatioParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`null` removes it."
+          },
+          "corner_ratio": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RatioParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`null` returns a rounded rectangle to the default ratio."
+          },
+          "corners": {
+            "default": null,
+            "description": "`null` returns to all four corners.",
+            "items": {
+              "$ref": "#/$defs/Corner"
+            },
+            "type": [
+              "array",
+              "null"
+            ],
+            "uniqueItems": true
+          },
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hole": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/HoleParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` removes the hole."
+          },
+          "instance": {
+            "description": "The placed Footprint instance.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mask": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Mask"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`null` inherits the board's rule."
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` puts the copper back on the anchor."
+          },
+          "pad": {
+            "description": "The Pad, by its UUID in the Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "paste": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Paste"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` inherits the board's rule."
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In the Footprint's own frame."
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadShape"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Side"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`null` returns an SMD Pad to the Footprint's top."
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "zone_connection": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoneConnectionParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the whole Zone connection; `null` inherits every value."
+          }
+        },
+        "required": [
+          "instance",
+          "pad"
+        ],
+        "title": "PcbPadEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Placed Pad"
     },
     {
       "category": "pcb",
@@ -36541,6 +37290,13 @@
               "library_hash": {
                 "type": "string"
               },
+              "lost_local_edits": {
+                "description": "The local Pad and graphics edits of its Locally Edited Footprint on the board that\nthe update removes, because it changes that Footprint's hash. Omitted when none.",
+                "items": {
+                  "$ref": "#/$defs/LocalEdit"
+                },
+                "type": "array"
+              },
               "part": {
                 "description": "The Library Part, by UUID.",
                 "format": "uuid",
@@ -36567,6 +37323,48 @@
               "modified"
             ],
             "type": "string"
+          },
+          "LocalEdit": {
+            "description": "One property of one Pad or graphic that differs from the copy it came from.",
+            "properties": {
+              "edited": {
+                "description": "The edited value; left out when it isn't set."
+              },
+              "graphic": {
+                "description": "The graphic, for a graphic edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "number": {
+                "description": "The Pad's number, for a Pad edit.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "original": {
+                "description": "The original value; left out when it wasn't set."
+              },
+              "pad": {
+                "description": "The Pad, for a Pad edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "property": {
+                "description": "The property, as the file names it; `graphic` for a graphic added or deleted whole.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "property"
+            ],
+            "type": "object"
           },
           "PartChange": {
             "description": "One difference between the placed copy and the Library Part.",
@@ -36852,6 +37650,13 @@
               "library_hash": {
                 "type": "string"
               },
+              "lost_local_edits": {
+                "description": "The local Pad and graphics edits of its Locally Edited Footprint on the board that\nthe update removes, because it changes that Footprint's hash. Omitted when none.",
+                "items": {
+                  "$ref": "#/$defs/LocalEdit"
+                },
+                "type": "array"
+              },
               "part": {
                 "description": "The Library Part, by UUID.",
                 "format": "uuid",
@@ -36878,6 +37683,48 @@
               "modified"
             ],
             "type": "string"
+          },
+          "LocalEdit": {
+            "description": "One property of one Pad or graphic that differs from the copy it came from.",
+            "properties": {
+              "edited": {
+                "description": "The edited value; left out when it isn't set."
+              },
+              "graphic": {
+                "description": "The graphic, for a graphic edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "number": {
+                "description": "The Pad's number, for a Pad edit.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "original": {
+                "description": "The original value; left out when it wasn't set."
+              },
+              "pad": {
+                "description": "The Pad, for a Pad edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "property": {
+                "description": "The property, as the file names it; `graphic` for a graphic added or deleted whole.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "property"
+            ],
+            "type": "object"
           },
           "PartChange": {
             "description": "One difference between the placed copy and the Library Part.",
@@ -37191,6 +38038,24 @@
             ],
             "type": "string"
           },
+          "EditedFrom": {
+            "additionalProperties": false,
+            "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
+            "properties": {
+              "hash": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash"
+            ],
+            "type": "object"
+          },
           "Field": {
             "additionalProperties": false,
             "description": "One free-form field.",
@@ -37346,6 +38211,17 @@
             "additionalProperties": false,
             "description": "A copy of a Library Footprint on a sheet, shared by every part-table entry that lists\nit. Keyed by the Footprint's UUID plus [`FootprintCopy::hash`].",
             "properties": {
+              "edited_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EditedFrom"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "On a PCB's Locally Edited Footprint: the copy it was edited from. Never on a sheet."
+              },
               "footprint": {
                 "$ref": "#/$defs/Footprint"
               },
@@ -39241,6 +40117,24 @@
             ],
             "type": "string"
           },
+          "EditedFrom": {
+            "additionalProperties": false,
+            "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
+            "properties": {
+              "hash": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash"
+            ],
+            "type": "object"
+          },
           "Field": {
             "additionalProperties": false,
             "description": "One free-form field.",
@@ -39396,6 +40290,17 @@
             "additionalProperties": false,
             "description": "A copy of a Library Footprint on a sheet, shared by every part-table entry that lists\nit. Keyed by the Footprint's UUID plus [`FootprintCopy::hash`].",
             "properties": {
+              "edited_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EditedFrom"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "On a PCB's Locally Edited Footprint: the copy it was edited from. Never on a sheet."
+              },
               "footprint": {
                 "$ref": "#/$defs/Footprint"
               },
@@ -43511,6 +44416,24 @@
             ],
             "type": "string"
           },
+          "EditedFrom": {
+            "additionalProperties": false,
+            "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
+            "properties": {
+              "hash": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "hash"
+            ],
+            "type": "object"
+          },
           "Field": {
             "additionalProperties": false,
             "description": "One free-form field.",
@@ -43666,6 +44589,17 @@
             "additionalProperties": false,
             "description": "A copy of a Library Footprint on a sheet, shared by every part-table entry that lists\nit. Keyed by the Footprint's UUID plus [`FootprintCopy::hash`].",
             "properties": {
+              "edited_from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EditedFrom"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "On a PCB's Locally Edited Footprint: the copy it was edited from. Never on a sheet."
+              },
               "footprint": {
                 "$ref": "#/$defs/Footprint"
               },
@@ -48994,6 +49928,13 @@
                     "const": "change_footprint",
                     "type": "string"
                   },
+                  "lost_local_edits": {
+                    "description": "The local Pad and graphics edits the swap removes, when the instance is a\nLocally Edited Footprint; left out when there are none.",
+                    "items": {
+                      "$ref": "#/$defs/LocalEdit"
+                    },
+                    "type": "array"
+                  },
                   "to": {
                     "$ref": "#/$defs/FootprintRef"
                   }
@@ -49519,6 +50460,48 @@
                 "type": "string"
               }
             ]
+          },
+          "LocalEdit": {
+            "description": "One property of one Pad or graphic that differs from the copy it came from.",
+            "properties": {
+              "edited": {
+                "description": "The edited value; left out when it isn't set."
+              },
+              "graphic": {
+                "description": "The graphic, for a graphic edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "number": {
+                "description": "The Pad's number, for a Pad edit.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "original": {
+                "description": "The original value; left out when it wasn't set."
+              },
+              "pad": {
+                "description": "The Pad, for a Pad edit.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "property": {
+                "description": "The property, as the file names it; `graphic` for a graphic added or deleted whole.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "property"
+            ],
+            "type": "object"
           },
           "NetRef": {
             "description": "A PCB Net a Pad is or will be on: its UUID once it exists, and its name.",

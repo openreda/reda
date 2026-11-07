@@ -211,6 +211,7 @@ impl Command for FootprintAdd {
         let copy = FootprintCopy {
             uuid: copy_uuid,
             hash: footprint.uuid.to_string(),
+            edited_from: None,
             footprint,
         };
         let instance = FootprintInstance {

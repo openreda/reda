@@ -44,7 +44,30 @@ pub struct FootprintCopy {
     pub uuid: Uuid,
     /// The content hash of the Footprint, as copied.
     pub hash: String,
+    /// On a PCB's Locally Edited Footprint: the copy it was edited from. Never on a sheet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edited_from: Option<EditedFrom>,
     pub footprint: Footprint,
+}
+
+/// The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same
+/// part table and its content hash, which Sync compares with the schematic's copy.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EditedFrom {
+    pub uuid: Uuid,
+    pub hash: String,
+}
+
+impl FootprintCopy {
+    /// The hash Sync compares: the `edited_from` copy's for a locally edited one.
+    pub fn sync_hash(&self) -> &str {
+        self.edited_from.as_ref().map_or(&self.hash, |e| &e.hash)
+    }
+
+    pub fn is_locally_edited(&self) -> bool {
+        self.edited_from.is_some()
+    }
 }
 
 /// Which Component an object refers to: its UUID, after the Sheet Instance path that
@@ -744,6 +767,13 @@ impl SchematicSheet {
         }
         let mut keys = BTreeSet::new();
         for copy in self.footprints.values() {
+            if copy.edited_from.is_some() {
+                return Err(format!(
+                    "Footprint copy {} on sheet {sheet} has `edited_from`; only a PCB's copies \
+                     can be locally edited",
+                    copy.uuid
+                ));
+            }
             if !keys.insert((copy.footprint.uuid, copy.hash.as_str())) {
                 return Err(format!(
                     "sheet {sheet} holds Footprint {} with hash {} twice",

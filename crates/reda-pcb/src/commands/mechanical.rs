@@ -158,6 +158,7 @@ impl Command for MechanicalPlace {
                 let copy = FootprintCopy {
                     uuid,
                     hash: chosen.hash.clone(),
+                    edited_from: None,
                     footprint: chosen.footprint.clone(),
                 };
                 cx.tx()?

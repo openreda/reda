@@ -123,6 +123,36 @@ pub struct DrcRunResult {
     /// A fingerprint of the board the run checked. Pass it to `drc.stale` to learn
     /// whether the board was edited since.
     pub design: String,
+    /// The Locally Edited Footprints: placed Footprints whose Pads or graphics were
+    /// changed on the board, by Designator.
+    pub locally_edited: Vec<LocallyEdited>,
+}
+
+/// A placed Footprint with local edits, as the DRC report lists it.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct LocallyEdited {
+    /// The Footprint instance.
+    pub instance: Uuid,
+    pub designator: String,
+}
+
+/// Every Locally Edited Footprint of the board, by Designator in natural order.
+pub fn locally_edited(pcb: &reda_model::PcbDocument) -> Vec<LocallyEdited> {
+    let mut out: Vec<LocallyEdited> = pcb
+        .footprints()
+        .filter(|i| {
+            pcb.footprint_copy(i.footprint)
+                .is_some_and(reda_model::FootprintCopy::is_locally_edited)
+        })
+        .map(|i| LocallyEdited {
+            instance: i.uuid,
+            designator: i.designator.clone(),
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        crate::natural_cmp(&a.designator, &b.designator).then(a.instance.cmp(&b.instance))
+    });
+    out
 }
 
 impl Command for DrcRun {
@@ -133,7 +163,8 @@ impl Command for DrcRun {
                       stale Zones, and returns the Violations: each with its check id, \
                       severity, message arguments and the UUIDs of the objects involved \
                       (a Pad as its Footprint then the Pad). Waived Violations are left out \
-                      unless `include_waived`.",
+                      unless `include_waived`. `locally_edited` lists the Locally Edited \
+                      Footprints.",
         category: "pcb",
         icon: "drc",
         kind: Kind::Query,
@@ -159,6 +190,7 @@ impl Command for DrcRun {
             unmatched_waivers: waived.unmatched,
             refilled: checked.refilled,
             design: checked.design,
+            locally_edited: locally_edited(pcb),
         })
     }
 }

@@ -311,65 +311,112 @@ impl Command for PadEdit {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: PadEditParams) -> Result<(), CommandError> {
+        let patch = PadPatch {
+            kind: p.kind,
+            shape: p.shape,
+            at: p.at,
+            rotation: p.rotation,
+            width: p.width,
+            height: p.height,
+            corner_ratio: p.corner_ratio,
+            chamfer_ratio: p.chamfer_ratio,
+            corners: p.corners,
+            offset: p.offset,
+            hole: p.hole,
+            side: p.side,
+            mask: p.mask,
+            paste: p.paste,
+            zone_connection: p.zone_connection,
+        };
         edit_footprint(cx, p.footprint, |f| {
             let mut pad = find_mut(&mut f.pads, p.pad, |pad| pad.uuid, "Pad")?.clone();
             if let Some(number) = p.number {
                 pad.number = number;
             }
-            if let Some(kind) = p.kind {
-                pad.kind = kind;
-            }
-            if let Some(shape) = p.shape {
-                pad.shape = shape;
-            }
-            if let Some(at) = p.at {
-                pad.at = at.point();
-            }
-            if let Some(rotation) = p.rotation {
-                pad.rotation = rotation.millideg();
-            }
-            if let Some(width) = p.width {
-                pad.width = width.nm();
-            }
-            if let Some(height) = p.height {
-                pad.height = height.nm();
-            }
-            let explicit = Explicit {
-                corner_ratio: matches!(p.corner_ratio, Some(Some(_))),
-                chamfer_ratio: matches!(p.chamfer_ratio, Some(Some(_))),
-                corners: matches!(p.corners, Some(Some(_))),
-            };
-            if let Some(ratio) = p.corner_ratio {
-                pad.corner_ratio = ratio.map(RatioParam::ratio);
-            }
-            if let Some(ratio) = p.chamfer_ratio {
-                pad.chamfer_ratio = ratio.map(RatioParam::ratio);
-            }
-            if let Some(corners) = p.corners {
-                pad.corners = corners;
-            }
-            if let Some(offset) = p.offset {
-                pad.offset = offset.map(PointParam::point);
-            }
-            if let Some(hole) = p.hole {
-                pad.hole = hole.map(HoleParam::hole);
-            }
-            if let Some(side) = p.side {
-                pad.side = side;
-            }
-            if let Some(margin) = p.mask {
-                pad.mask = reda_command::mask(margin);
-            }
-            if let Some(margin) = p.paste {
-                pad.paste = reda_command::paste(margin);
-            }
-            if let Some(connection) = p.zone_connection {
-                pad.zone_connection = zone_connection(connection);
-            }
-            let pad = finish_pad(pad, explicit)?;
+            let pad = patch.apply(pad)?;
             *find_mut(&mut f.pads, p.pad, |pad| pad.uuid, "Pad")? = pad;
             Ok(())
         })
+    }
+}
+
+/// Changes to every Pad property but its number, as `library.footprint.pad.edit` and
+/// `pcb.pad.edit` take them: `None` keeps a value, `Some(None)` clears an optional one.
+#[derive(Default)]
+pub struct PadPatch {
+    pub kind: Option<PadKind>,
+    pub shape: Option<PadShape>,
+    pub at: Option<PointParam>,
+    pub rotation: Option<Angle>,
+    pub width: Option<Length>,
+    pub height: Option<Length>,
+    pub corner_ratio: Option<Option<RatioParam>>,
+    pub chamfer_ratio: Option<Option<RatioParam>>,
+    pub corners: Option<Option<Corners>>,
+    pub offset: Option<Option<PointParam>>,
+    pub hole: Option<Option<HoleParam>>,
+    pub side: Option<Option<Side>>,
+    pub mask: Option<Option<reda_command::MaskParam>>,
+    pub paste: Option<Option<reda_command::PasteParam>>,
+    pub zone_connection: Option<Option<ZoneConnectionParam>>,
+}
+
+impl PadPatch {
+    /// `pad` with these changes, checked, with what follows from its shape filled in. A
+    /// resized Pad keeps its ratios.
+    pub fn apply(self, mut pad: Pad) -> Result<Pad, CommandError> {
+        let p = self;
+        if let Some(kind) = p.kind {
+            pad.kind = kind;
+        }
+        if let Some(shape) = p.shape {
+            pad.shape = shape;
+        }
+        if let Some(at) = p.at {
+            pad.at = at.point();
+        }
+        if let Some(rotation) = p.rotation {
+            pad.rotation = rotation.millideg();
+        }
+        if let Some(width) = p.width {
+            pad.width = width.nm();
+        }
+        if let Some(height) = p.height {
+            pad.height = height.nm();
+        }
+        let explicit = Explicit {
+            corner_ratio: matches!(p.corner_ratio, Some(Some(_))),
+            chamfer_ratio: matches!(p.chamfer_ratio, Some(Some(_))),
+            corners: matches!(p.corners, Some(Some(_))),
+        };
+        if let Some(ratio) = p.corner_ratio {
+            pad.corner_ratio = ratio.map(RatioParam::ratio);
+        }
+        if let Some(ratio) = p.chamfer_ratio {
+            pad.chamfer_ratio = ratio.map(RatioParam::ratio);
+        }
+        if let Some(corners) = p.corners {
+            pad.corners = corners;
+        }
+        if let Some(offset) = p.offset {
+            pad.offset = offset.map(PointParam::point);
+        }
+        if let Some(hole) = p.hole {
+            pad.hole = hole.map(HoleParam::hole);
+        }
+        if let Some(side) = p.side {
+            pad.side = side;
+        }
+        if let Some(margin) = p.mask {
+            pad.mask = reda_command::mask(margin);
+        }
+        if let Some(margin) = p.paste {
+            pad.paste = reda_command::paste(margin);
+        }
+        if let Some(connection) = p.zone_connection {
+            pad.zone_connection = zone_connection(connection);
+        }
+        finish_pad(pad, explicit)
     }
 }
 

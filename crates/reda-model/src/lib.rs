@@ -11,6 +11,7 @@ mod derived;
 mod document;
 pub mod footprint_copper;
 mod library;
+pub mod local_edit;
 pub mod net_name;
 mod openings;
 mod output;
@@ -66,10 +67,10 @@ pub use project::{
     SchematicOptions, SheetStyle,
 };
 pub use schematic::{
-    BorderZones, ComponentRef, FieldText, FootprintCopy, FrameSize, Justify, JustifyAxis, NetLabel,
-    NoConnect, Orientation, PartEntry, Port, PortDirection, PowerPort, PowerPortStyle,
-    SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, UnitInstance,
-    UnitSuffix, Wire,
+    BorderZones, ComponentRef, EditedFrom, FieldText, FootprintCopy, FrameSize, Justify,
+    JustifyAxis, NetLabel, NoConnect, Orientation, PartEntry, Port, PortDirection, PowerPort,
+    PowerPortStyle, SchematicSheet, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText,
+    UnitInstance, UnitSuffix, Wire,
 };
 pub use transaction::{Transaction, TxError};
 pub use uuid::{ParseUuidError, Uuid};

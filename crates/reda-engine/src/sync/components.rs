@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 
+use reda_model::local_edit::{LocalEdit, local_edits};
 use reda_model::{
     ComponentRef, ComponentType, DocumentKind, Fields, FootprintCopy, FootprintInstance,
     PcbDocument, PinMap, Project, Uuid,
@@ -37,8 +38,10 @@ impl SchComponent {
     }
 
     /// Whether the PCB copy `copy` is a different Footprint (or a different copy of it).
+    /// A Locally Edited Footprint compares the copy it was edited from, so local edits
+    /// are neither out of sync nor reverted.
     pub(crate) fn footprint_differs(&self, copy: &FootprintCopy) -> bool {
-        copy.footprint.uuid != self.copy.footprint.uuid || copy.hash != self.copy.hash
+        copy.footprint.uuid != self.copy.footprint.uuid || copy.sync_hash() != self.copy.hash
     }
 }
 
@@ -160,6 +163,7 @@ impl Components {
                         designator: c.designator.clone(),
                         from: footprint_ref(current),
                         to: c.footprint_ref(),
+                        lost_local_edits: lost_local_edits(pcb, current),
                     },
                 });
             }
@@ -270,4 +274,14 @@ pub(crate) fn linked_instances(pcb: &PcbDocument) -> BTreeMap<ComponentRef, &Foo
     pcb.footprints()
         .filter_map(|i| Some((i.component.clone()?, i)))
         .collect()
+}
+
+/// The local edits a Footprint change would remove from an instance on PCB copy `copy`.
+pub(crate) fn lost_local_edits(pcb: &PcbDocument, copy: &FootprintCopy) -> Vec<LocalEdit> {
+    copy.edited_from
+        .as_ref()
+        .and_then(|from| pcb.footprint_copy(from.uuid))
+        .map_or_else(Vec::new, |origin| {
+            local_edits(&origin.footprint, &copy.footprint)
+        })
 }
