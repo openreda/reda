@@ -4,6 +4,7 @@
 //! `zone_connection` values win over the Zone's; its spoke count and angle wait for the
 //! `zone_connection` rule.
 
+use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Millideg, Nm};
 use reda_model::{
     ConnectionStyle, FillShape, PadConnection, PadKind, PcbDocument, Uuid, Zone, ZoneConnection,

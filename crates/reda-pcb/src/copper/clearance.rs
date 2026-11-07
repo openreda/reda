@@ -4,6 +4,7 @@
 //! clearances (the board-wide rule where a class sets none). Copper on no Net keeps its
 //! clearance from everything, other unassigned copper included.
 
+use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Nm, Point};
 use reda_model::{PcbDocument, TrackGeometry, Uuid};
 use rstar::AABB;

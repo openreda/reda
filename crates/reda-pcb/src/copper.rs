@@ -15,6 +15,7 @@
 //!   ([`Copper::ratsnest`]),
 //! - whether proposed copper keeps its clearance ([`Copper::clearance`]).
 
+use shape::BoardShape as _;
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Point;

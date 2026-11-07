@@ -2,6 +2,7 @@
 //! more specific location (a contact or dangling end); these defaults use its objects.
 use super::Board;
 use crate::copper::Item;
+use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Nm, Point};
 use reda_model::{GraphicShape, LayerKind, Violation, ViolationArg};
 

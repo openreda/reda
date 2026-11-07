@@ -1,6 +1,6 @@
 //! Closest boundary points for check markers, using the same primitives as distance.
 use super::{Core, P, Shape, edges, poly_contains, segments_cross};
-use reda_model::geom::{Nm, Point};
+use crate::{Nm, Point};
 
 type F = [f64; 2];
 fn fp(p: P) -> F {
@@ -79,7 +79,7 @@ fn cores(a: &Core, b: &Core) -> (F, F) {
 
 impl Shape {
     /// The nearest points on the two shapes. Overlap returns one shared point.
-    pub(crate) fn closest_points(&self, other: &Self) -> [Point; 2] {
+    pub fn closest_points(&self, other: &Self) -> [Point; 2] {
         let mut best = (f64::INFINITY, [0.0, 0.0], [0.0, 0.0]);
         for a in &self.prims {
             for b in &other.prims {

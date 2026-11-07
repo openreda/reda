@@ -7,6 +7,7 @@ mod angle;
 mod bounds;
 mod contour;
 mod corner_rect;
+pub mod grown;
 mod length;
 mod units;
 

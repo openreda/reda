@@ -7,6 +7,7 @@
 //! ([`reda_model::Project::zone_fills`]) together with the hash of the inputs they came
 //! from ([`inputs_hash`]), so an edit that changes any input makes them stale.
 
+use crate::copper::shape::BoardShape as _;
 use std::collections::BTreeMap;
 
 use reda_model::{PcbDocument, Uuid, Zone, ZoneFills};
