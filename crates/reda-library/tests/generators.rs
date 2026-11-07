@@ -122,8 +122,9 @@ fn a_soic_8_has_pin_1_at_the_upper_left_and_counts_counter_clockwise() {
     let file = read_json(&footprint_file(&dir, "SOIC127P600X175-8N"));
     // By hand, MS-012: E 5.80–6.20, L 0.40–1.27, b 0.31–0.51 mm; toe 0.35, heel 0.35,
     // side 0.03, F 0.10, P 0.05, to the nearest 0.05 mm: Z 6.915 → 6.90, G 2.978 → 3.00,
-    // X 0.599 → 0.60.
-    let (x, y1, y2) = (2_475_000, 1_905_000, 635_000);
+    // X 0.599 → 0.60. G would run each Pad 0.50 mm under the body (E1 max 4.00), so the
+    // heels are trimmed back to it: G 4.00, Pads 1.45 long at ±2.725.
+    let (x, y1, y2) = (2_725_000, 1_905_000, 635_000);
     assert_eq!(
         pad_centres(&file),
         [
@@ -140,7 +141,7 @@ fn a_soic_8_has_pin_1_at_the_upper_left_and_counts_counter_clockwise() {
     for pad in file["pads"].as_array().unwrap() {
         assert_eq!(
             (pad["width"].as_i64(), pad["height"].as_i64()),
-            (Some(1_950_000), Some(600_000))
+            (Some(1_450_000), Some(600_000))
         );
     }
 }
@@ -488,96 +489,6 @@ fn pad_boxes(file: &Value) -> Vec<(String, i64, i64, i64, i64)> {
 }
 
 #[test]
-fn sot_23_3_lands_stop_short_of_the_middle_of_the_body() {
-    let dir = TempDir::new("gen-sot23-3");
-    let mut e = engine_with_library(&dir);
-    let out = e.run_ok(
-        "library.footprint.generate.sot",
-        json!({"library": LIBRARY, "package": "sot23_3"}),
-    );
-    let file = read_json(Path::new(out["file"].as_str().unwrap()));
-    // TO-236: E 2.10–2.64, L 0.40–0.60, b 0.30–0.50, E1 1.20–1.40 mm. IPC-7351 gives
-    // Z 3.35 and G 0.35, which would put 0.525 mm of each Pad under a 0.70 mm half-body;
-    // the heel edge is held back to a quarter of E1 max from the body edge: G 0.70.
-    let (x, y, w, h) = (1_012_500, 950_000, 1_325_000, 600_000);
-    assert_eq!(
-        pad_boxes(&file),
-        [
-            ("1".into(), -x, y, w, h),
-            ("2".into(), -x, -y, w, h),
-            ("3".into(), x, 0, w, h),
-        ]
-    );
-}
-
-#[test]
-fn gull_wing_lands_reach_under_the_body_by_at_most_a_quarter_of_its_width() {
-    let dir = TempDir::new("gen-under-body");
-    let mut e = engine_with_library(&dir);
-    // Each package with its greatest body width between the lead rows (E1).
-    let cases = [
-        (
-            "library.footprint.generate.sot",
-            json!({"package": "sot23_3"}),
-            1_400_000,
-        ),
-        (
-            "library.footprint.generate.sot",
-            json!({"package": "sot23_5"}),
-            1_700_000,
-        ),
-        (
-            "library.footprint.generate.sot",
-            json!({"package": "sot223"}),
-            3_700_000,
-        ),
-        (
-            "library.footprint.generate.soic",
-            json!({"pins": 8}),
-            4_000_000,
-        ),
-        (
-            "library.footprint.generate.ssop",
-            json!({"pins": 20}),
-            5_600_000,
-        ),
-        (
-            "library.footprint.generate.tssop",
-            json!({"pins": 14}),
-            4_500_000,
-        ),
-        (
-            "library.footprint.generate.qfp",
-            json!({"pins": 32}),
-            7_100_000,
-        ),
-        (
-            "library.footprint.generate.qfp",
-            json!({"pins": 100}),
-            14_100_000,
-        ),
-    ];
-    for (id, mut params, body) in cases {
-        params["library"] = json!(LIBRARY);
-        let out = e.run_ok(id, params);
-        let file = read_json(Path::new(out["file"].as_str().unwrap()));
-        for (number, x, y, w, h) in pad_boxes(&file) {
-            // Measured towards the body's centre from the side the Pad is on.
-            let reach = if x.abs() >= y.abs() {
-                body / 2 - (x.abs() - w / 2)
-            } else {
-                body / 2 - (y.abs() - h / 2)
-            };
-            assert!(
-                reach <= body / 4,
-                "{}: spec {number} reaches {reach} nm under the body",
-                out["name"]
-            );
-        }
-    }
-}
-
-#[test]
 fn a_dfn_10_gets_no_lead_lands_and_an_exposed_pad() {
     let dir = TempDir::new("gen-dfn-10");
     let mut e = engine_with_library(&dir);
@@ -590,9 +501,10 @@ fn a_dfn_10_gets_no_lead_lands_and_an_exposed_pad() {
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
     // By hand, 3 × 3 mm body: D and E 2.90–3.10, L 0.30–0.50, b 0.18–0.30 mm, exposed
     // pad 2.30–2.50 × 1.55–1.75; no-lead toe 0.30, heel 0, side −0.04:
-    // Z 3.729 → 3.75, G 2.009 → 2.00, X 0.264 → 0.25. The exposed pad keeps 0.2 mm from
-    // the Pads, so it narrows from 1.65 to 1.60.
-    let (x, w, h) = (1_437_500, 875_000, 250_000);
+    // Z 3.729 → 3.75, G 2.009 → 2.00, X 0.264 → 0.25. Keeping
+    // the exposed pad 0.20 mm clear of its 1.65 mm nominal width needs G 2.05, so the
+    // heels are trimmed: Pads 0.85 long at ±1.45.
+    let (x, w, h) = (1_450_000, 850_000, 250_000);
     let mut expected: Vec<(String, i64, i64, i64, i64)> = vec![];
     for (i, y) in [1_000_000, 500_000, 0, -500_000, -1_000_000]
         .iter()
@@ -606,7 +518,7 @@ fn a_dfn_10_gets_no_lead_lands_and_an_exposed_pad() {
     {
         expected.push(((i + 6).to_string(), x, *y, w, h));
     }
-    expected.push(("11".into(), 0, 0, 1_600_000, 2_400_000));
+    expected.push(("11".into(), 0, 0, 1_650_000, 2_400_000));
     assert_eq!(pad_boxes(&file), expected);
 }
 
@@ -659,8 +571,9 @@ fn an_lqfp_48_gets_gull_wing_lands_on_four_sides() {
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
     // By hand, MS-026 7 × 7 mm: E 8.80–9.20, L 0.45–0.75, b 0.17–0.27 mm; toe 0.35,
     // heel 0.35, side −0.02, F 0.10, P 0.05: Z 9.915 → 9.90, G 6.798 → 6.80,
-    // X 0.280 → 0.30.
-    let (c, end, long, short) = (4_175_000, 2_750_000, 1_550_000, 300_000);
+    // X 0.280 → 0.30. The heels are trimmed back to the 7.10 mm body: G 7.10, Pads 1.40
+    // long at ±4.25.
+    let (c, end, long, short) = (4_250_000, 2_750_000, 1_400_000, 300_000);
     let pads = pad_boxes(&file);
     assert_eq!(pads.len(), 48);
     let pick: Vec<_> = [0, 11, 12, 23, 24, 35, 36, 47]
@@ -817,7 +730,11 @@ fn a_generated_footprint_records_its_generator_height_and_texts() {
     fields.sort();
     assert_eq!(
         fields,
-        [("Designator", "silkscreen_top"), ("Value", "assembly_top")]
+        [
+            ("Designator", "assembly_top"),
+            ("Designator", "silkscreen_top"),
+            ("Value", "assembly_top")
+        ]
     );
 
     // Running the recorded params again gives the same Footprint.
@@ -968,11 +885,13 @@ fn density_sets_the_fillet_goals_the_courtyard_and_the_last_letter_of_the_name()
         )
     );
 
-    // A gull-wing part: SOIC-8 (E 5.80–6.20, L 0.40–1.27, b 0.31–0.51 mm).
+    // A gull-wing part: SOIC-8 (E 5.80–6.20, L 0.40–1.27, b 0.31–0.51 mm), untrimmed so
+    // the heel goal shows.
     let mut soic = |density: &str| {
         let out = e.run_ok(
             "library.footprint.generate.soic",
-            json!({"library": LIBRARY, "pins": 8, "goals": {"density": density}}),
+            json!({"library": LIBRARY, "pins": 8, "goals": {"density": density},
+                   "pads": {"trim": false}}),
         );
         let file = read_json(Path::new(out["file"].as_str().unwrap()));
         let (_, x, _, w, h) = pad_boxes(&file)[0].clone();
@@ -1012,7 +931,7 @@ fn density_sets_the_fillet_goals_the_courtyard_and_the_last_letter_of_the_name()
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
     assert_eq!(
         file["generator"]["params"]["goals"],
-        json!({"density": "nominal"})
+        json!({"density": "nominal", "fillet": {"toe": null, "heel": null, "side": null}})
     );
 }
 

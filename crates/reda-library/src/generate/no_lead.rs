@@ -12,10 +12,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing};
-use super::ipc::{self, Density, Termination, Tol};
-use super::pattern::PadSpec;
+use super::ipc::{self, Density, Goals, Termination, Tol};
+use super::pattern::{GeneratorWarning, LandKind, PadSpec};
 use super::quad::{self, Quad};
-use super::{FootprintFamily, FootprintPlan, GoalsParams, Target, TolParam, hundredths};
+use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, Smd, TolerancesParams};
+use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 
 /// The least gap kept between the exposed pad's Pad and the lead Pads.
 pub const EXPOSED_PAD_CLEARANCE: Nm = Nm(200_000);
@@ -89,16 +90,33 @@ impl NoLead {
         )
     }
 
-    /// The exposed pad's Pad, numbered `number`, no larger than `room` along x and y.
-    fn exposed_pad_spec(&self, number: usize, room: (Nm, Nm)) -> Option<PadSpec> {
+    /// The dimensions with the exposed pad sized as `pads` overrides it.
+    fn with_exposed_pad(self, pads: &PadsParams) -> NoLead {
+        let Some(size) = pads.exposed_pad else {
+            return self;
+        };
+        let exact = |v: Length| Tol {
+            min: v.nm(),
+            max: v.nm(),
+        };
+        NoLead {
+            exposed_pad: Some((exact(size.length), exact(size.width))),
+            ..self
+        }
+    }
+
+    /// The exposed pad's Pad, numbered `number`, at its nominal size.
+    fn exposed_pad_spec(&self, number: usize) -> Option<PadSpec> {
         let (length, width) = self.exposed_pad?;
-        let fit = |nominal: Nm, room: Nm| Nm(nominal.0.min(room.0 - 2 * EXPOSED_PAD_CLEARANCE.0));
-        Some(PadSpec::smd(
-            number.to_string(),
-            Point::new(Nm(0), Nm(0)),
-            fit(width.nominal(), room.0),
-            fit(length.nominal(), room.1),
-        ))
+        Some(PadSpec {
+            kind: LandKind::Exposed,
+            ..PadSpec::smd(
+                number.to_string(),
+                Point::new(Nm(0), Nm(0)),
+                width.nominal(),
+                length.nominal(),
+            )
+        })
     }
 }
 
@@ -174,6 +192,9 @@ pub struct NoLeadParams {
     /// `QFN50P500X500X100-33N`.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     /// The number of terminals, not counting the exposed pad: one of the standard counts,
     /// or any count that fits the package with `dimensions`.
     pub pins: usize,
@@ -182,6 +203,12 @@ pub struct NoLeadParams {
     pub dimensions: Option<NoLeadDimensions>,
     #[serde(default)]
     pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 /// The dimensions for `pins`: the datasheet's, or the standard body from `table`.
@@ -271,6 +298,7 @@ impl FootprintFamily for Dfn {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
@@ -281,7 +309,12 @@ impl FootprintFamily for Dfn {
                 "a DFN needs an even number of at least 2 terminals",
             ));
         }
-        let dims = standard_or("DFN", DFN, p.pins, p.dimensions)?;
+        let smd = p.smd();
+        smd.check(Applies {
+            quad: false,
+            exposed_pad: true,
+        })?;
+        let dims = standard_or("DFN", DFN, p.pins, p.dimensions)?.with_exposed_pad(&p.pads);
         let rows = GullWing {
             pitch: dims.pitch,
             body_length: dims.body_length,
@@ -297,11 +330,11 @@ impl FootprintFamily for Dfn {
             &rows,
             &leads,
             Termination::NoLead,
-            density,
+            smd,
             dims.ipc_name("SON", p.pins, density),
             dims.description("DFN", p.pins, density),
         )?;
-        add_exposed_pad(&mut pattern, &dims, p.pins + 1)?;
+        add_exposed_pad(&mut pattern, &dims, p.pins + 1, &smd)?;
         Ok(pattern)
     }
 }
@@ -427,6 +460,7 @@ impl FootprintFamily for Qfn {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
@@ -437,7 +471,12 @@ impl FootprintFamily for Qfn {
                 "a QFN needs the same number of terminals on each side: a multiple of 4",
             ));
         }
-        let dims = standard_or("QFN", QFN, p.pins, p.dimensions)?;
+        let smd = p.smd();
+        smd.check(Applies {
+            quad: true,
+            exposed_pad: true,
+        })?;
+        let dims = standard_or("QFN", QFN, p.pins, p.dimensions)?.with_exposed_pad(&p.pads);
         let quad = Quad {
             pitch: dims.pitch,
             rows: p.pins / 4,
@@ -454,40 +493,87 @@ impl FootprintFamily for Qfn {
         let mut pattern = quad::plan(
             &quad,
             Termination::NoLead,
-            density,
+            smd,
             dims.ipc_name("QFN", p.pins, density),
             dims.description("QFN", p.pins, density),
         )?;
-        add_exposed_pad(&mut pattern, &dims, p.pins + 1)?;
+        add_exposed_pad(&mut pattern, &dims, p.pins + 1, &smd)?;
         Ok(pattern)
     }
 }
 
-/// Adds the exposed pad's Pad, if the package has one, between the lead Pads.
+/// Adds the exposed pad's Pad, if the package has one, and trims the lead Pads' heels
+/// where they come closer to it than [`EXPOSED_PAD_CLEARANCE`], with a warning for each
+/// pair of opposite sides trimmed.
 fn add_exposed_pad(
     pattern: &mut FootprintPlan,
     dims: &NoLead,
     number: usize,
+    smd: &Smd<'_>,
 ) -> Result<(), CommandError> {
-    // The room left between the Pads on opposite sides, along x and along y.
-    let mut room = (dims.body_width.max, dims.body_length.max);
-    for spec in &pattern.pad_specs {
-        let (x, y) = (spec.at.x.0.abs(), spec.at.y.0.abs());
-        if x - spec.width.0 / 2 > 0 && spec.height.0 < spec.width.0 {
-            room.0 = room.0.min(Nm(2 * (x - spec.width.0 / 2)));
-        }
-        if y - spec.height.0 / 2 > 0 && spec.width.0 < spec.height.0 {
-            room.1 = room.1.min(Nm(2 * (y - spec.height.0 / 2)));
-        }
+    let Some(exposed) = dims.exposed_pad_spec(number) else {
+        return Ok(());
+    };
+    if !smd.pads.trim {
+        pattern.pad_specs.push(exposed);
+        return Ok(());
     }
-    if let Some(pad) = dims.exposed_pad_spec(number, room) {
-        if pad.width.0 <= 0 || pad.height.0 <= 0 {
-            return Err(CommandError::invalid_params(
-                "/dimensions/exposed_pad",
-                "the Pads leave no room for the exposed pad",
+    let grid = smd.goals(Goals::no_lead(smd.goals.density)).place;
+    // Along x (the left and right sides) and then along y (top and bottom).
+    for along_x in [true, false] {
+        let size = if along_x {
+            exposed.width
+        } else {
+            exposed.height
+        };
+        let edge = Nm(ipc::round_up_to(Nm(size.0 + 2 * EXPOSED_PAD_CLEARANCE.0), grid).0 / 2);
+        let mut trimmed = vec![];
+        let mut by = Nm(0);
+        for spec in &mut pattern.pad_specs {
+            let (at, length) = if along_x {
+                (spec.at.x.0, &mut spec.width)
+            } else {
+                (spec.at.y.0, &mut spec.height)
+            };
+            let (across, other) = if along_x {
+                (spec.at.y.0.abs(), at.abs())
+            } else {
+                (spec.at.x.0.abs(), at.abs())
+            };
+            if other <= across {
+                continue;
+            }
+            let (outer, inner) = (at.abs() + length.0 / 2, at.abs() - length.0 / 2);
+            if inner >= edge.0 {
+                continue;
+            }
+            if outer <= edge.0 {
+                return Err(CommandError::invalid_params(
+                    "/dimensions/exposed_pad",
+                    "the exposed pad leaves no room for the lead Pads",
+                ));
+            }
+            by = by.max(Nm(edge.0 - inner));
+            *length = Nm(outer - edge.0);
+            let centre = Nm(at.signum() * (outer + edge.0) / 2);
+            if along_x {
+                spec.at.x = centre;
+            } else {
+                spec.at.y = centre;
+            }
+            trimmed.push(spec.number.clone());
+        }
+        if !trimmed.is_empty() {
+            pattern.warnings.push(GeneratorWarning::trimmed(
+                trimmed,
+                format!(
+                    "the Pads are trimmed by {} mm at the heel to keep {} mm from the exposed pad",
+                    by.0 as f64 / 1e6,
+                    EXPOSED_PAD_CLEARANCE.0 as f64 / 1e6
+                ),
             ));
         }
-        pattern.pad_specs.push(pad);
     }
+    pattern.pad_specs.push(exposed);
     Ok(())
 }

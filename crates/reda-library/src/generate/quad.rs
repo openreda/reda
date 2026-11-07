@@ -7,9 +7,10 @@
 use reda_command::CommandError;
 use reda_model::geom::{Nm, Point};
 
-use super::gull_wing::keep_body_middle_clear;
-use super::ipc::{self, Density, Termination, Tol};
-use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_WIDTH, clip_silkscreen, rectangle};
+use super::gull_wing::{body_trim_warning, trim_to_body};
+use super::ipc::{self, Termination, Tol};
+use super::pattern::{Body, FootprintPlan, PadSpec, clip_silkscreen, rectangle};
+use super::sections::Smd;
 
 /// A four-sided package's dimensions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,28 +42,37 @@ fn centres(n: usize, pitch: Nm) -> impl DoubleEndedIterator<Item = Nm> {
     (0..n).map(move |i| Nm((2 * i as i64 - (n as i64 - 1)) * pitch.0 / 2))
 }
 
-/// The Footprint of a four-sided package terminated as `termination`, at `density`. Silkscreen
+/// The Footprint of a four-sided package terminated as `termination`, with the sections `smd`. Silkscreen
 /// marks the body's corners where they clear the copper, all but the upper-left one,
 /// whose absence marks pin 1.
 pub fn plan(
     q: &Quad,
     termination: Termination,
-    density: Density,
+    smd: Smd<'_>,
     name: String,
     description: String,
 ) -> Result<FootprintPlan, CommandError> {
-    let goals = termination.goals(q.pitch, density);
-    let span = |tips: Tol, body: Tol| {
-        let span = ipc::span(tips, q.lead_length, goals)
-            .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
-        match termination {
-            Termination::GullWing => keep_body_middle_clear(span, body.max),
-            Termination::NoLead => Ok(span),
-        }
-    };
-    let (sx, sy) = (span(q.span_x, q.body_x)?, span(q.span_y, q.body_y)?);
+    let goals = smd.goals(termination.goals(q.pitch, smd.goals.density));
+    // Each span, and how far its heels were trimmed back to keep out from under the body.
+    let span =
+        |tips: Tol, body: Tol, along_y: bool| -> Result<(ipc::Span, Option<Nm>), CommandError> {
+            let span = ipc::span(tips, q.lead_length, goals)
+                .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
+            let span = smd.span(span, along_y)?;
+            if termination == Termination::NoLead || !smd.pads.trim {
+                return Ok((span, None));
+            }
+            Ok(match trim_to_body(span, body.max, goals.place)? {
+                Some(trimmed) => (trimmed, Some(Nm((trimmed.inner.0 - span.inner.0) / 2))),
+                None => (span, None),
+            })
+        };
+    let ((sx, trim_x), (sy, trim_y)) = (
+        span(q.span_x, q.body_x, false)?,
+        span(q.span_y, q.body_y, true)?,
+    );
     let (ox, oy) = (sx.pad_offset().0, sy.pad_offset().0);
-    let x = ipc::pad_width(q.lead_width, goals);
+    let x = smd.pad_width(ipc::pad_width(q.lead_width, goals));
     let reach = |n: usize| Nm((n as i64 - 1) * q.pitch.0 / 2 + x.0 / 2);
     if reach(q.rows).0 * 2 >= sy.inner.0 || reach(q.columns).0 * 2 >= sx.inner.0 {
         return Err(CommandError::invalid_params(
@@ -89,12 +99,31 @@ pub fn plan(
     for x_at in centres(q.columns, q.pitch).rev() {
         add(p(x_at.0, oy), x, sy.pad_length());
     }
+    let mut warnings = vec![];
+    // Pads 1..rows and the third side run along x; the other two sides along y.
+    let numbers = |sides: [usize; 2]| -> Vec<String> {
+        let (r, c) = (q.rows, q.columns);
+        let starts = [0, r, r + c, 2 * r + c];
+        let lengths = [r, c, r, c];
+        sides
+            .iter()
+            .flat_map(|&s| (starts[s]..starts[s] + lengths[s]).map(|i| (i + 1).to_string()))
+            .collect()
+    };
+    if let Some(by) = trim_x {
+        warnings.push(body_trim_warning(numbers([0, 2]), by));
+    }
+    if let Some(by) = trim_y {
+        warnings.push(body_trim_warning(numbers([1, 3]), by));
+    }
+    let finish = smd.finish();
+    let silk = finish.silkscreen_width;
     let corner = p(
-        q.body_x.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2,
-        q.body_y.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2,
+        q.body_x.max.0 / 2 + silk.0 / 2,
+        q.body_y.max.0 / 2 + silk.0 / 2,
     );
     let pin_1 = p(-corner.x.0, corner.y.0);
-    let silkscreen = clip_silkscreen(&rectangle(corner.x, corner.y), &pad_specs)
+    let silkscreen = clip_silkscreen(&rectangle(corner.x, corner.y), &pad_specs, silk)
         .into_iter()
         .filter(|(start, end)| *start != pin_1 && *end != pin_1)
         .collect();
@@ -110,5 +139,7 @@ pub fn plan(
         silkscreen,
         courtyard_excess: goals.courtyard,
         height: Some(q.height),
+        warnings,
+        finish,
     })
 }

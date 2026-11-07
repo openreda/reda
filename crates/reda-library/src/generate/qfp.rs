@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Termination, Tol};
 use super::quad::{self, Quad};
-use super::{FootprintFamily, FootprintPlan, GoalsParams, Target, TolParam, hundredths};
+use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, TolerancesParams};
+use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 
 pub struct Qfp;
 
@@ -21,6 +22,9 @@ pub struct QfpParams {
     /// `QFP50P900X900X160-48N`.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     /// The number of leads, the same on each side: 32 or 44 (0.8 mm pitch), 48, 64, 80,
     /// 100 or 144 (0.5 mm pitch) for the standard LQFP bodies, or any multiple of 4 with
     /// `dimensions`.
@@ -30,6 +34,12 @@ pub struct QfpParams {
     pub dimensions: Option<QfpDimensions>,
     #[serde(default)]
     pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 /// A QFP's dimensions from a datasheet, with the JEDEC letters in brackets.
@@ -173,6 +183,7 @@ impl FootprintFamily for Qfp {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
@@ -183,6 +194,11 @@ impl FootprintFamily for Qfp {
                 "a QFP needs the same number of leads on each side: a multiple of 4, at least 8",
             ));
         }
+        let smd = p.smd();
+        smd.check(Applies {
+            quad: true,
+            exposed_pad: false,
+        })?;
         let dims = match p.dimensions {
             Some(d) => d.dims()?,
             None => match LQFP.iter().find(|(n, _)| *n == p.pins) {
@@ -231,6 +247,6 @@ impl FootprintFamily for Qfp {
             dims.pitch.0 as f64 / 1e6,
             density.title()
         );
-        quad::plan(&quad, Termination::GullWing, density, name, description)
+        quad::plan(&quad, Termination::GullWing, smd, name, description)
     }
 }

@@ -4301,6 +4301,49 @@
             ],
             "type": "string"
           },
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -4321,6 +4364,68 @@
               }
             ]
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -4329,9 +4434,33 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
             "type": "object"
+          },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -4346,6 +4475,219 @@
                 "type": "string"
               }
             ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
           },
           "TolParam": {
             "additionalProperties": false,
@@ -4363,6 +4705,51 @@
               "max"
             ],
             "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -4372,6 +4759,14 @@
             "$ref": "#/$defs/ChipClass",
             "default": "resistor",
             "description": "What the chip is, which sets the name prefix (`RESC`, `CAPC`, `INDC`)."
+          },
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "dimensions": {
             "anyOf": [
@@ -4388,7 +4783,12 @@
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -4404,6 +4804,33 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
           "size": {
             "anyOf": [
               {
@@ -4415,6 +4842,23 @@
             ],
             "default": null,
             "description": "A standard EIA size, with typical body dimensions. Give `size` or `dimensions`."
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           }
         },
         "required": [
@@ -4426,6 +4870,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -4626,6 +5100,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -4654,6 +5142,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -4661,7 +5156,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -4676,6 +5172,49 @@
       "kind": "file",
       "params": {
         "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -4715,6 +5254,68 @@
             ],
             "type": "object"
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -4723,9 +5324,33 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
             "type": "object"
+          },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -4792,6 +5417,219 @@
             ],
             "type": "object"
           },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
+          },
           "TolParam": {
             "additionalProperties": false,
             "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
@@ -4808,11 +5646,64 @@
               "max"
             ],
             "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "dimensions": {
             "anyOf": [
               {
@@ -4828,7 +5719,12 @@
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -4844,11 +5740,55 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
           "pins": {
             "description": "The number of terminals, not counting the exposed pad: one of the standard counts,\nor any count that fits the package with `dimensions`.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           }
         },
         "required": [
@@ -4861,6 +5801,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -5061,6 +6031,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5089,6 +6073,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -5096,7 +6087,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -5110,9 +6102,120 @@
       "id": "library.footprint.generate.dip",
       "kind": "file",
       "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "ThPadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a through-hole family's params.",
+            "properties": {
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The Pad diameter. Left out, the hole plus 0.50 mm, less where neighbours are\nclose."
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The finished hole diameter. Left out, the lead's greatest diagonal plus 0.20 mm."
+              }
+            },
+            "type": "object"
+          },
+          "ThTolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a through-hole family's params.",
+            "properties": {
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, 0.25 mm."
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "library": {
             "description": "The registered Library to write the Footprint into.",
             "format": "uuid",
@@ -5126,11 +6229,35 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/ThPadsParams",
+            "default": {
+              "diameter": null,
+              "hole": null
+            }
+          },
           "pins": {
             "description": "The number of leads: even, 4 to 64.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/ThTolerancesParams",
+            "default": {
+              "courtyard_excess": null
+            }
           },
           "wide": {
             "default": false,
@@ -5148,6 +6275,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -5348,6 +6505,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5376,6 +6547,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -5383,7 +6561,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -5411,11 +6590,120 @@
                 "type": "string"
               }
             ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "ThPadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a through-hole family's params.",
+            "properties": {
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The Pad diameter. Left out, the hole plus 0.50 mm, less where neighbours are\nclose."
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The finished hole diameter. Left out, the lead's greatest diagonal plus 0.20 mm."
+              }
+            },
+            "type": "object"
+          },
+          "ThTolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a through-hole family's params.",
+            "properties": {
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, 0.25 mm."
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "library": {
             "description": "The registered Library to write the Footprint into.",
             "format": "uuid",
@@ -5428,6 +6716,24 @@
               "string",
               "null"
             ]
+          },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/ThPadsParams",
+            "default": {
+              "diameter": null,
+              "hole": null
+            }
           },
           "pins_per_row": {
             "description": "The pins in each row, 1 to 50.",
@@ -5448,6 +6754,12 @@
             "default": false,
             "description": "A socket (female) rather than a pin header (male). The Footprint is the same.",
             "type": "boolean"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/ThTolerancesParams",
+            "default": {
+              "courtyard_excess": null
+            }
           }
         },
         "required": [
@@ -5462,6 +6774,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -5662,6 +7004,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5690,6 +7046,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -5697,7 +7060,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -5712,6 +7076,49 @@
       "kind": "file",
       "params": {
         "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -5751,6 +7158,68 @@
             ],
             "type": "object"
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -5759,9 +7228,33 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
             "type": "object"
+          },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -5828,6 +7321,219 @@
             ],
             "type": "object"
           },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
+          },
           "TolParam": {
             "additionalProperties": false,
             "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
@@ -5844,11 +7550,64 @@
               "max"
             ],
             "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "dimensions": {
             "anyOf": [
               {
@@ -5864,7 +7623,12 @@
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -5880,11 +7644,55 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
           "pins": {
             "description": "The number of terminals, not counting the exposed pad: one of the standard counts,\nor any count that fits the package with `dimensions`.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           }
         },
         "required": [
@@ -5897,6 +7705,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -6097,6 +7935,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6125,6 +7977,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -6132,7 +7991,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -6147,6 +8007,49 @@
       "kind": "file",
       "params": {
         "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -6167,6 +8070,68 @@
               }
             ]
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -6175,9 +8140,33 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
             "type": "object"
+          },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -6192,6 +8181,172 @@
                 "type": "string"
               }
             ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
           },
           "QfpDimensions": {
             "additionalProperties": false,
@@ -6242,6 +8397,53 @@
             ],
             "type": "object"
           },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
+          },
           "TolParam": {
             "additionalProperties": false,
             "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
@@ -6258,11 +8460,64 @@
               "max"
             ],
             "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "dimensions": {
             "anyOf": [
               {
@@ -6278,7 +8533,12 @@
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -6294,11 +8554,55 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
           "pins": {
             "description": "The number of leads, the same on each side: 32 or 44 (0.8 mm pitch), 48, 64, 80,\n100 or 144 (0.5 mm pitch) for the standard LQFP bodies, or any multiple of 4 with\n`dimensions`.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           }
         },
         "required": [
@@ -6311,6 +8615,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -6511,6 +8845,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6539,6 +8887,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -6546,7 +8901,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -6561,6 +8917,49 @@
       "kind": "file",
       "params": {
         "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -6581,6 +8980,68 @@
               }
             ]
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -6589,6 +9050,15 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
             "type": "object"
@@ -6637,6 +9107,21 @@
             ],
             "type": "object"
           },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -6650,6 +9135,219 @@
                 "type": "string"
               }
             ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
           },
           "TolParam": {
             "additionalProperties": false,
@@ -6667,11 +9365,64 @@
               "max"
             ],
             "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "dimensions": {
             "anyOf": [
               {
@@ -6687,7 +9438,12 @@
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -6703,11 +9459,55 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
           "pins": {
             "description": "The number of leads: 8, 14 or 16 for the narrow (3.9 mm) body; 16, 18, 20, 24 or 28\nfor the wide (7.5 mm) one. Any even number of at least 4 with `dimensions`.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           },
           "wide": {
             "default": false,
@@ -6725,6 +9525,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -6925,6 +9755,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6953,6 +9797,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -6960,7 +9811,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -6975,6 +9827,49 @@
       "kind": "file",
       "params": {
         "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -6995,6 +9890,68 @@
               }
             ]
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -7003,6 +9960,257 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
+              }
+            },
+            "type": "object"
+          },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
               }
             },
             "type": "object"
@@ -7030,15 +10238,73 @@
                 "type": "string"
               }
             ]
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -7054,8 +10320,52 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
           "package": {
             "$ref": "#/$defs/SotPackage"
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           }
         },
         "required": [
@@ -7068,6 +10378,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -7268,6 +10608,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7296,6 +10650,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -7303,7 +10664,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -7318,6 +10680,49 @@
       "kind": "file",
       "params": {
         "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -7338,6 +10743,68 @@
               }
             ]
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -7346,6 +10813,15 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
             "type": "object"
@@ -7394,6 +10870,21 @@
             ],
             "type": "object"
           },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -7407,6 +10898,219 @@
                 "type": "string"
               }
             ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
           },
           "TolParam": {
             "additionalProperties": false,
@@ -7424,11 +11128,64 @@
               "max"
             ],
             "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "dimensions": {
             "anyOf": [
               {
@@ -7444,7 +11201,12 @@
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -7460,11 +11222,55 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
           "pins": {
             "description": "The number of leads: one of the standard counts, or any even number of at least 4\nwith `dimensions`.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           }
         },
         "required": [
@@ -7477,6 +11283,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -7677,6 +11513,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7705,6 +11555,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -7712,7 +11569,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"
@@ -7727,6 +11585,49 @@
       "kind": "file",
       "params": {
         "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The span over the terminals (CL)."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
           "Density": {
             "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
             "oneOf": [
@@ -7747,6 +11648,68 @@
               }
             ]
           },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
           "GoalsParams": {
             "additionalProperties": false,
             "description": "The `goals` section of a surface-mount family's params.",
@@ -7755,6 +11718,15 @@
                 "$ref": "#/$defs/Density",
                 "default": "nominal",
                 "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {
+                  "heel": null,
+                  "side": null,
+                  "toe": null
+                },
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
             "type": "object"
@@ -7803,6 +11775,21 @@
             ],
             "type": "object"
           },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -7816,6 +11803,219 @@
                 "type": "string"
               }
             ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteArray"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
           },
           "TolParam": {
             "additionalProperties": false,
@@ -7833,11 +12033,64 @@
               "max"
             ],
             "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {
+                  "inner": null,
+                  "span": null,
+                  "width": null
+                },
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {
+                  "place": null,
+                  "size": null
+                }
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "default": null,
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "dimensions": {
             "anyOf": [
               {
@@ -7853,7 +12106,12 @@
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
-              "density": "nominal"
+              "density": "nominal",
+              "fillet": {
+                "heel": null,
+                "side": null,
+                "toe": null
+              }
             }
           },
           "library": {
@@ -7869,11 +12127,55 @@
               "null"
             ]
           },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "exposed_pad": null,
+              "length": null,
+              "max_corner_radius": 250000,
+              "paste_array": null,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "spacing": null,
+              "spacing_y": null,
+              "trim": true,
+              "width": null
+            }
+          },
           "pins": {
             "description": "The number of leads: one of the standard counts, or any even number of at least 4\nwith `dimensions`.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {
+                "inner": null,
+                "span": null,
+                "width": null
+              },
+              "courtyard_excess": null,
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {
+                "place": null,
+                "size": null
+              }
+            }
           }
         },
         "required": [
@@ -7886,6 +12188,36 @@
       "presets": [],
       "result": {
         "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
           "Limit": {
             "description": "Which limit the measured value violates.",
             "enum": [
@@ -8086,6 +12418,20 @@
               }
             ],
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8114,6 +12460,13 @@
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -8121,7 +12474,8 @@
           "name",
           "library",
           "file",
-          "violations"
+          "violations",
+          "warnings"
         ],
         "title": "Generated",
         "type": "object"

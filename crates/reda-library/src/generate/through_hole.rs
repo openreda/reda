@@ -12,7 +12,7 @@
 //!
 //! Zero orientation: pin 1 at the upper left.
 
-use reda_command::{CommandError, Kind, Meta};
+use reda_command::{CommandError, Kind, Length, Meta};
 use reda_model::Uuid;
 use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
@@ -21,9 +21,10 @@ use serde::{Deserialize, Serialize};
 use super::gull_wing::{self, Side};
 use super::ipc::{self, Tol};
 use super::pattern::{
-    Body, FootprintPlan, LandKind, PadSpec, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH,
-    clip_silkscreen, rectangle,
+    Body, Finish, FootprintPlan, LandKind, PadSpec, SILKSCREEN_CLEARANCE, clip_silkscreen,
+    rectangle,
 };
+use super::sections::{OutputsParams, ThPadsParams, ThTolerancesParams, check_outputs};
 use super::{FootprintFamily, Target, hundredths};
 
 /// Added to the lead's greatest diagonal for the hole.
@@ -52,13 +53,36 @@ impl LeadSection {
         }
     }
 
-    /// The hole and Pad diameters for this lead with neighbours `pitch` away.
-    fn hole_and_pad(self, pitch: Nm) -> Result<(Nm, Nm), CommandError> {
+    /// The hole and Pad diameters for this lead with neighbours `pitch` away, or as
+    /// `pads` overrides them.
+    fn hole_and_pad(self, pitch: Nm, pads: &ThPadsParams) -> Result<(Nm, Nm), CommandError> {
+        for (field, value) in [("/pads/hole", pads.hole), ("/pads/diameter", pads.diameter)] {
+            if value.is_some_and(|v| v.nm().0 <= 0) {
+                return Err(CommandError::invalid_params(
+                    field,
+                    "the value must be greater than zero",
+                ));
+            }
+        }
         let (w, t) = (self.width.max.0 as f64, self.thickness.max.0 as f64);
         let diagonal = (w * w + t * t).sqrt().ceil() as i64;
-        let hole = ipc::round_up(Nm(diagonal + HOLE_ALLOWANCE.0));
-        let spec = ipc::round_up(Nm(hole.0 + LAND_ALLOWANCE.0))
-            .min(ipc::round_down(Nm(pitch.0 - MIN_LAND_GAP.0)));
+        let hole = pads.hole.map_or_else(
+            || ipc::round_up(Nm(diagonal + HOLE_ALLOWANCE.0)),
+            Length::nm,
+        );
+        let spec = match pads.diameter {
+            Some(diameter) => {
+                if diameter.nm() <= hole {
+                    return Err(CommandError::invalid_params(
+                        "/pads/diameter",
+                        "the Pad must be larger than its hole",
+                    ));
+                }
+                return Ok((hole, diameter.nm()));
+            }
+            None => ipc::round_up(Nm(hole.0 + LAND_ALLOWANCE.0))
+                .min(ipc::round_down(Nm(pitch.0 - MIN_LAND_GAP.0))),
+        };
         if spec.0 < hole.0 + 2 * MIN_ANNULAR_RING.0 {
             return Err(CommandError::invalid_params(
                 "/pitch",
@@ -83,9 +107,22 @@ fn spec(number: usize, at: Point, diameter: Nm, drill: Nm) -> PadSpec {
     }
 }
 
-/// The distance from a Pad's centre at which Silkscreen centre lines may run.
-fn silkscreen_offset(diameter: Nm) -> i64 {
-    diameter.0 / 2 + SILKSCREEN_CLEARANCE.0 + SILKSCREEN_WIDTH.0 / 2
+/// The distance from a Pad's centre at which Silkscreen centre lines `width` wide may
+/// run.
+fn silkscreen_offset(diameter: Nm, width: Nm) -> i64 {
+    diameter.0 / 2 + SILKSCREEN_CLEARANCE.0 + width.0 / 2
+}
+
+/// The courtyard excess, or its override.
+fn courtyard_excess(tolerances: &ThTolerancesParams) -> Result<Nm, CommandError> {
+    match tolerances.courtyard_excess {
+        Some(excess) if excess.nm().0 < 0 => Err(CommandError::invalid_params(
+            "/tolerances/courtyard_excess",
+            "the value must not be negative",
+        )),
+        Some(excess) => Ok(excess.nm()),
+        None => Ok(COURTYARD_EXCESS),
+    }
 }
 
 /// MS-001 / MS-011 DIP leads.
@@ -106,11 +143,20 @@ pub struct DipParams {
     /// `DIP762W46P254L1016H533Q8B`.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     /// The number of leads: even, 4 to 64.
     pub pins: usize,
     /// Rows 15.24 mm (600 mil, JEDEC MS-011) apart instead of 7.62 mm (300 mil, MS-001).
     #[serde(default)]
     pub wide: bool,
+    #[serde(default)]
+    pub tolerances: ThTolerancesParams,
+    #[serde(default)]
+    pub pads: ThPadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 impl FootprintFamily for Dip {
@@ -130,6 +176,7 @@ impl FootprintFamily for Dip {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
@@ -147,7 +194,10 @@ impl FootprintFamily for Dip {
         };
         // A typical body is as long as its leads take: half the count times the pitch.
         let length = Nm(p.pins as i64 / 2 * DIP_PITCH.0);
-        let (hole, diameter) = DIP_LEAD.hole_and_pad(DIP_PITCH)?;
+        check_outputs(&p.outputs)?;
+        let finish = Finish::outputs(&p.outputs);
+        let silk = finish.silkscreen_width;
+        let (hole, diameter) = DIP_LEAD.hole_and_pad(DIP_PITCH, &p.pads)?;
         let x = row_spacing.0 / 2;
         let pad_specs: Vec<PadSpec> = gull_wing::dual_row(p.pins, DIP_PITCH, DIP_LEAD.width)
             .iter()
@@ -161,10 +211,10 @@ impl FootprintFamily for Dip {
             })
             .collect();
         let outline = rectangle(
-            Nm(x - silkscreen_offset(diameter)),
-            Nm(length.0 / 2 + SILKSCREEN_WIDTH.0 / 2),
+            Nm(x - silkscreen_offset(diameter, silk)),
+            Nm(length.0 / 2 + silk.0 / 2),
         );
-        let silkscreen = clip_silkscreen(&outline, &pad_specs);
+        let silkscreen = clip_silkscreen(&outline, &pad_specs, silk);
         Ok(FootprintPlan {
             name: format!(
                 "DIP{}W{}P{}L{}H{}Q{}B",
@@ -187,8 +237,10 @@ impl FootprintFamily for Dip {
                 polarised: true,
             },
             silkscreen,
-            courtyard_excess: COURTYARD_EXCESS,
+            courtyard_excess: courtyard_excess(&p.tolerances)?,
             height: Some(DIP_HEIGHT),
+            warnings: vec![],
+            finish,
         })
     }
 }
@@ -239,6 +291,9 @@ pub struct HeaderParams {
     /// `HDRV254W64P254R2L1270T508H850B`, or `SKTV…` for a socket.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     /// 1 or 2 rows.
     pub rows: usize,
     /// The pins in each row, 1 to 50.
@@ -247,6 +302,12 @@ pub struct HeaderParams {
     /// A socket (female) rather than a pin header (male). The Footprint is the same.
     #[serde(default)]
     pub socket: bool,
+    #[serde(default)]
+    pub tolerances: ThTolerancesParams,
+    #[serde(default)]
+    pub pads: ThPadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 impl FootprintFamily for Header {
@@ -266,6 +327,7 @@ impl FootprintFamily for Header {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
@@ -283,7 +345,10 @@ impl FootprintFamily for Header {
             ));
         }
         let pitch = p.pitch.pitch();
-        let (hole, diameter) = p.pitch.post().hole_and_pad(pitch)?;
+        check_outputs(&p.outputs)?;
+        let finish = Finish::outputs(&p.outputs);
+        let silk = finish.silkscreen_width;
+        let (hole, diameter) = p.pitch.post().hole_and_pad(pitch, &p.pads)?;
         let (rows, count) = (p.rows as i64, p.pins_per_row as i64);
         // Pins count across the rows first: 1 and 2 side by side at the top.
         let mut pad_specs = vec![];
@@ -299,7 +364,7 @@ impl FootprintFamily for Header {
         // The body's outline, pushed out where it would come too close to the outer Pads,
         // whose centres are `outer` from the middle.
         let outline = |outer: i64, side: Nm| {
-            Nm((side.0 / 2 + SILKSCREEN_WIDTH.0 / 2).max(outer + silkscreen_offset(diameter)))
+            Nm((side.0 / 2 + silk.0 / 2).max(outer + silkscreen_offset(diameter, silk)))
         };
         let silkscreen = clip_silkscreen(
             &rectangle(
@@ -307,6 +372,7 @@ impl FootprintFamily for Header {
                 outline((count - 1) * pitch.0 / 2, body.1),
             ),
             &pad_specs,
+            silk,
         );
         let (prefix, noun) = if p.socket {
             ("SKTV", "Socket")
@@ -334,8 +400,10 @@ impl FootprintFamily for Header {
                 polarised: true,
             },
             silkscreen,
-            courtyard_excess: COURTYARD_EXCESS,
+            courtyard_excess: courtyard_excess(&p.tolerances)?,
             height: Some(p.pitch.height()),
+            warnings: vec![],
+            finish,
         })
     }
 }

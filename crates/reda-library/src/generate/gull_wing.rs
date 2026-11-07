@@ -10,7 +10,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Density, Termination, Tol};
-use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_CLEARANCE, SILKSCREEN_WIDTH};
+use super::pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, SILKSCREEN_CLEARANCE};
+use super::sections::Smd;
 use super::{TolParam, hundredths};
 
 /// A gull-wing package's dimensions, with the JEDEC letters in brackets.
@@ -157,40 +158,62 @@ pub fn dual_row(pins: usize, pitch: Nm, width: Tol) -> Vec<Lead> {
         .collect()
 }
 
-/// `span` with its heel edges held back so that each Pad reaches under the body by at
-/// most a quarter of the body's greatest width `body`.
-///
-/// IPC-7351 sizes the heel from the lead's foot alone. Where the span tolerance is wide
-/// next to a narrow body, as on SOT-23 (TO-236), that runs most of each Pad under the
-/// body, where no heel fillet forms; the middle half of the body is kept free of copper
-/// instead.
-pub(crate) fn keep_body_middle_clear(span: ipc::Span, body: Nm) -> Result<ipc::Span, CommandError> {
-    let inner = ipc::round_up(Nm(body.0 / 2)).max(span.inner);
+/// `span` with its heel edges cut back to `body`, the body's greatest size between the
+/// lead rows, rounded up to `grid`, so that gull-wing Pads don't run under the body,
+/// where no heel fillet forms; `None` when they already keep clear of it.
+pub(crate) fn trim_to_body(
+    span: ipc::Span,
+    body: Nm,
+    grid: Nm,
+) -> Result<Option<ipc::Span>, CommandError> {
+    if span.inner >= body {
+        return Ok(None);
+    }
+    let inner = ipc::round_up_to(body, grid);
     if inner >= span.outer {
         return Err(CommandError::invalid_params(
             "/dimensions/lead_span",
             "the lead span leaves no room for Pads outside the body",
         ));
     }
-    Ok(ipc::Span { inner, ..span })
+    Ok(Some(ipc::Span { inner, ..span }))
+}
+
+/// The warning for Pads `pads` trimmed by `by` so they don't run under the body.
+pub(crate) fn body_trim_warning(pads: Vec<String>, by: Nm) -> GeneratorWarning {
+    GeneratorWarning::trimmed(
+        pads,
+        format!(
+            "the Pads are trimmed by {} mm at the heel so they don't run under the body",
+            by.0 as f64 / 1e6
+        ),
+    )
 }
 
 /// The Footprint for `leads` of a package with dimensions `dims`, terminated as
-/// `termination`, at `density`. Silkscreen lines run along the body's top and bottom edges; the top one
-/// reaches out over pin 1 when it clears the copper.
+/// `termination`, with the sections `smd`. Silkscreen lines run along the body's top and
+/// bottom edges; the top one reaches out over pin 1 when it clears the copper.
 pub fn plan(
     dims: &GullWing,
     leads: &[Lead],
     termination: Termination,
-    density: Density,
+    smd: Smd<'_>,
     name: String,
     description: String,
 ) -> Result<FootprintPlan, CommandError> {
-    let goals = termination.goals(dims.pitch, density);
-    let mut span = ipc::span(dims.lead_span, dims.lead_length, goals)
+    let goals = smd.goals(termination.goals(dims.pitch, smd.goals.density));
+    let span = ipc::span(dims.lead_span, dims.lead_length, goals)
         .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
-    if termination == Termination::GullWing {
-        span = keep_body_middle_clear(span, dims.body_width.max)?;
+    let mut span = smd.span(span, false)?;
+    let mut warnings = vec![];
+    if termination == Termination::GullWing
+        && smd.pads.trim
+        && let Some(trimmed) = trim_to_body(span, dims.body_width.max, goals.place)?
+    {
+        let by = Nm((trimmed.inner.0 - span.inner.0) / 2);
+        let numbers = leads.iter().map(|l| l.number.clone()).collect();
+        warnings.push(body_trim_warning(numbers, by));
+        span = trimmed;
     }
     let offset = span.pad_offset();
     let pad_specs: Vec<PadSpec> = leads
@@ -200,17 +223,27 @@ pub fn plan(
                 Side::Left => Nm(-offset.0),
                 Side::Right => offset,
             };
+            // A lead of the package's own width takes the width override; a tab (the
+            // SOT-223's pin 4) keeps its own.
+            let ipc_width = ipc::pad_width(lead.width, goals);
+            let width = if lead.width == dims.lead_width {
+                smd.pad_width(ipc_width)
+            } else {
+                ipc_width
+            };
             PadSpec::smd(
                 lead.number.clone(),
                 Point::new(x, lead.y),
                 span.pad_length(),
-                ipc::pad_width(lead.width, goals),
+                width,
             )
         })
         .collect();
-    let line_y = dims.body_length.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2;
+    let finish = smd.finish();
+    let silk = finish.silkscreen_width.0;
+    let line_y = dims.body_length.max.0 / 2 + silk / 2;
     let copper_top = pad_specs.iter().map(|l| l.top().0).max().unwrap_or(0);
-    let clear = line_y - SILKSCREEN_WIDTH.0 / 2 - SILKSCREEN_CLEARANCE.0 >= copper_top;
+    let clear = line_y - silk / 2 - SILKSCREEN_CLEARANCE.0 >= copper_top;
     let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
     let silkscreen = if clear {
         let x = dims.body_width.max.0 / 2;
@@ -219,7 +252,7 @@ pub fn plan(
             (p(-x, -line_y), p(x, -line_y)),
         ]
     } else {
-        let x = span.inner.0 / 2 - SILKSCREEN_CLEARANCE.0 - SILKSCREEN_WIDTH.0 / 2;
+        let x = span.inner.0 / 2 - SILKSCREEN_CLEARANCE.0 - silk / 2;
         if x > 0 {
             vec![
                 (p(-x, line_y), p(x, line_y)),
@@ -241,5 +274,7 @@ pub fn plan(
         silkscreen,
         courtyard_excess: goals.courtyard,
         height: Some(dims.height),
+        warnings,
+        finish,
     })
 }
