@@ -387,14 +387,37 @@ pub enum InactiveLayerMode {
 }
 
 /// The user's Libraries.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Libraries {
     /// Folders of user Libraries.
     pub paths: Vec<String>,
+    /// User Library folders, as listed in `paths`, whose Active checkbox is off: they are
+    /// not scanned or searched, so Components placed from them read Source Missing.
+    pub inactive: Vec<String>,
+    /// Whether the Starter Library is active: scanned and searched.
+    pub starter_active: bool,
     /// How the Library check reports each of its checks: Error, Warning or Off. It never
     /// blocks a save.
     pub severities: reda_model::LibrarySeverities,
+}
+
+impl Default for Libraries {
+    fn default() -> Libraries {
+        Libraries {
+            paths: vec![],
+            inactive: vec![],
+            starter_active: true,
+            severities: reda_model::LibrarySeverities::default(),
+        }
+    }
+}
+
+impl Libraries {
+    /// The user Library folders whose Active checkbox is on, in the listed order.
+    pub fn active_paths(&self) -> impl Iterator<Item = &String> {
+        self.paths.iter().filter(|p| !self.inactive.contains(p))
+    }
 }
 
 /// The agent bridge.

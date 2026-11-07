@@ -473,3 +473,49 @@ fn the_libraries_page_has_a_grid_of_library_check_severities_with_reset() {
         severities()
     );
 }
+
+#[test]
+fn the_libraries_page_has_an_active_checkbox_for_each_user_library_and_the_starter() {
+    let home = TempDir::new("pref-dialog-library-active");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Libraries");
+    for path in ["/libs/a", "/libs/b"] {
+        h.get_by_role_and_label(Role::TextInput, "Library folder")
+            .click();
+        h.run();
+        h.get_by_role_and_label(Role::TextInput, "Library folder")
+            .type_text(path);
+        h.run();
+        h.get_by_role_and_label(Role::Button, "Add").click();
+        h.run();
+    }
+    let libraries = |h: &Harness<'static, App>| h.state().shell().preferences().libraries.clone();
+    assert!(libraries(&h).starter_active);
+    assert!(libraries(&h).inactive.is_empty());
+
+    h.get_by_role_and_label(Role::CheckBox, "Active: /libs/b")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.set");
+    assert_eq!(libraries(&h).inactive, ["/libs/b"]);
+    h.get_by_role_and_label(Role::CheckBox, "Active: Starter Library")
+        .click();
+    h.run();
+    assert!(!libraries(&h).starter_active);
+
+    // Turning it back on, and removing an inactive folder, leave no stale entry.
+    h.get_by_role_and_label(Role::CheckBox, "Active: /libs/b")
+        .click();
+    h.run();
+    assert!(libraries(&h).inactive.is_empty());
+    h.get_by_role_and_label(Role::CheckBox, "Active: /libs/a")
+        .click();
+    h.run();
+    assert_eq!(libraries(&h).inactive, ["/libs/a"]);
+    h.get_by_role_and_label(Role::Button, "Remove /libs/a")
+        .click();
+    h.run();
+    assert_eq!(libraries(&h).paths, ["/libs/b"]);
+    assert!(libraries(&h).inactive.is_empty());
+}

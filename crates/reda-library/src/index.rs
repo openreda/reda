@@ -21,6 +21,17 @@ pub enum Origin {
     Project,
 }
 
+impl Origin {
+    /// Where Libraries of this origin come in the resolution order: Project, user, Starter.
+    pub const fn resolution_rank(self) -> u8 {
+        match self {
+            Origin::Project => 0,
+            Origin::User => 1,
+            Origin::Starter => 2,
+        }
+    }
+}
+
 /// One scanned Library and its elements.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Library {
@@ -56,7 +67,7 @@ impl Element {
     }
 }
 
-/// Every scanned Library, in registration order, with lookups by UUID across them all.
+/// Every scanned Library, in resolution order, with lookups by UUID across them all.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LibraryIndex {
     libraries: Vec<Library>,
@@ -66,7 +77,7 @@ pub struct LibraryIndex {
 }
 
 impl LibraryIndex {
-    /// The Libraries in the order they were registered.
+    /// The Libraries in resolution order: Project, user, then Starter.
     pub fn libraries(&self) -> impl Iterator<Item = &Library> {
         self.libraries.iter()
     }

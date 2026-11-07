@@ -453,8 +453,29 @@ impl PreferencesDialog {
                 "no Library folder {index}"
             )));
         }
-        paths.remove(index);
-        self.set(shell, LIBRARY_PATHS, json!(paths))
+        let removed = paths.remove(index);
+        let result = self.set(shell, LIBRARY_PATHS, json!(paths))?;
+        let mut inactive = shell.preferences().libraries.inactive.clone();
+        if inactive.contains(&removed) {
+            inactive.retain(|p| *p != removed);
+            self.set(shell, LIBRARY_INACTIVE, json!(inactive))?;
+        }
+        Ok(result)
+    }
+
+    /// Turns the Active checkbox of the user Library folder `path` on or off.
+    pub fn toggle_library_active(
+        &mut self,
+        shell: &mut Shell,
+        path: &str,
+    ) -> Result<Value, CommandError> {
+        let mut inactive = shell.preferences().libraries.inactive.clone();
+        if inactive.iter().any(|p| p == path) {
+            inactive.retain(|p| p != path);
+        } else {
+            inactive.push(path.to_owned());
+        }
+        self.set(shell, LIBRARY_INACTIVE, json!(inactive))
     }
 
     /// A folder picked for the Libraries page.
@@ -466,6 +487,12 @@ impl PreferencesDialog {
 
 /// The user Library folders' key.
 pub const LIBRARY_PATHS: &str = "libraries.paths";
+
+/// The key listing the user Library folders whose Active checkbox is off.
+pub const LIBRARY_INACTIVE: &str = "libraries.inactive";
+
+/// The Starter Library's Active checkbox.
+pub const LIBRARY_STARTER_ACTIVE: &str = "libraries.starter_active";
 
 /// The prefix of the Library check severity keys, one per check.
 pub const LIBRARY_SEVERITIES: &str = "libraries.severities.";
