@@ -12,6 +12,11 @@ use super::{needs_pcb, pcb};
 use crate::drc::{check_only, design_fingerprint};
 use crate::zone;
 
+mod scope;
+
+pub use scope::AreaParam;
+use scope::Scope;
+
 pub(super) fn register_all(
     registry: &mut Registry,
     sync: SyncCheck,
@@ -42,12 +47,14 @@ pub type SyncCheck = fn(&Project) -> SyncState;
 /// The board's Violations now, ignoring Waivers, whether the Zones had to be refilled for
 /// them, and the fingerprint of what was checked.
 fn current(
-    cx: &Context<'_>,
+    project: &Project,
+    fonts: &reda_command::Fonts,
     sync: SyncCheck,
     only: Option<&[DrcCheck]>,
 ) -> Result<Checked, CommandError> {
-    let pcb = pcb(cx)?;
-    let project = cx.project()?;
+    let pcb = project
+        .pcb()
+        .ok_or_else(|| CommandError::unavailable(super::NO_PCB))?;
     let state = sync(project);
     let wanted = |check: DrcCheck| only.is_none_or(|only| only.contains(&check));
     if only.is_some_and(|only| only.iter().all(|c| c.is_health())) {
@@ -61,7 +68,7 @@ fn current(
     let stored = project.zone_fills(pcb.uuid);
     let refilled = zone::status(pcb, stored).needs_refill;
     let fills = zone::current(pcb, stored);
-    let mut violations = check_only(pcb, &fills, cx.fonts(), only);
+    let mut violations = check_only(pcb, &fills, fonts, only);
     // `out_of_sync` is the last check of the DRC table.
     let sync_violation = state.violation.filter(|_| wanted(DrcCheck::OutOfSync));
     violations.extend(sync_violation.map(|v| {
@@ -120,6 +127,16 @@ pub struct DrcRun {
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DrcRunParams {
+    /// Only report Violations involving one of these objects. The whole board is still
+    /// checked, then the result is filtered.
+    #[serde(default)]
+    pub objects: Option<Vec<Uuid>>,
+    /// Only report Violations with an object touching this box.
+    #[serde(default)]
+    pub area: Option<AreaParam>,
+    /// Only report Violations on one of these Layers.
+    #[serde(default)]
+    pub layers: Option<Vec<super::layer::LayerRef>>,
     /// Also list the Violations that Waivers waive, each naming its Waiver.
     #[serde(default)]
     pub include_waived: bool,
@@ -136,8 +153,12 @@ pub struct DrcRunResult {
     /// How many Violations Waivers waived.
     pub waived: usize,
     /// Waivers that match no Violation any more, because their objects no longer break
-    /// the check.
+    /// the check. Only checks that ran across the whole board report them, so a
+    /// `partial` run reports none.
     pub unmatched_waivers: Vec<Uuid>,
+    /// The run was narrowed by `objects`, `area` or `layers`, so it lists only the
+    /// Violations in that scope and marks no Waiver stale.
+    pub partial: bool,
     /// Whether some Zone was unfilled or stale, so the run checked a fresh fill. The fill
     /// is not stored: run `pcb.zone.fill` to keep it.
     pub refilled: bool,
@@ -198,24 +219,45 @@ impl Command for DrcRun {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: DrcRunParams) -> Result<DrcRunResult, CommandError> {
-        let checked = current(cx, self.sync, p.checks.as_deref())?;
-        let pcb = pcb(cx)?;
-        let waived = apply_waivers(checked.violations, pcb.waivers(), p.include_waived, |id| {
-            DrcCheck::ALL.iter().any(|c| {
+        run(cx.project()?, cx.fonts(), self.sync, &p)
+    }
+}
+
+/// What `drc.run` returns for `p`: the board checked with the checks asked for, narrowed
+/// to the scope asked for, with its Waivers laid over it. `checks.report` writes the same
+/// result.
+pub fn run(
+    project: &Project,
+    fonts: &reda_command::Fonts,
+    sync: SyncCheck,
+    p: &DrcRunParams,
+) -> Result<DrcRunResult, CommandError> {
+    let pcb = project
+        .pcb()
+        .ok_or_else(|| CommandError::unavailable(super::NO_PCB))?;
+    let scope = Scope::resolve(pcb, p)?;
+    let checked = current(project, fonts, sync, p.checks.as_deref())?;
+    let partial = scope.is_narrowed();
+    let found = (checked.violations.into_iter())
+        .filter(|v| scope.contains(pcb, v))
+        .collect();
+    let waived = apply_waivers(found, pcb.waivers(), p.include_waived, |id| {
+        !partial
+            && DrcCheck::ALL.iter().any(|c| {
                 c.id() == id
                     && pcb.setup().severities.get(*c) != Severity::Off
                     && p.checks.as_ref().is_none_or(|only| only.contains(c))
             })
-        });
-        Ok(DrcRunResult {
-            violations: waived.violations,
-            waived: waived.waived,
-            unmatched_waivers: waived.unmatched,
-            refilled: checked.refilled,
-            design: checked.design,
-            locally_edited: locally_edited(pcb),
-        })
-    }
+    });
+    Ok(DrcRunResult {
+        violations: waived.violations,
+        waived: waived.waived,
+        unmatched_waivers: waived.unmatched,
+        partial,
+        refilled: checked.refilled,
+        design: checked.design,
+        locally_edited: locally_edited(pcb),
+    })
 }
 
 pub struct DrcStale {
@@ -352,7 +394,7 @@ impl Command for DrcWaive {
                 "select at least one Violation",
             ));
         }
-        let violations = current(cx, self.sync, None)?.violations;
+        let violations = current(cx.project()?, cx.fonts(), self.sync, None)?.violations;
         let board = pcb(cx)?;
         let selected = reda_command::select_waivers(
             p.violations

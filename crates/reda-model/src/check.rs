@@ -30,6 +30,19 @@ pub enum Severity {
     Off,
 }
 
+/// The Violation arguments that are lengths in nm, which front ends show as lengths.
+pub const LENGTH_ARGS: &[&str] = &[
+    "x",
+    "y",
+    "actual",
+    "required",
+    "minimum",
+    "grid",
+    "board",
+    "length",
+    "max_length",
+];
+
 /// One breach of a rule found by a check, naming the objects involved.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

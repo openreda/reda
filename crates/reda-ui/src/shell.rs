@@ -85,8 +85,11 @@ pub struct DocumentTab {
     pub center_on: Option<Point>,
     /// The selected objects the canvas marks.
     pub selection: SelectionHandle,
-    /// The Violation markers the canvas draws over the Document.
+    /// The Violation markers the canvas draws over the Document, at most the
+    /// `checks.max_markers` Preference.
     pub markers: Arc<[Marker]>,
+    /// How many of the Document's Violations have no marker drawn because of that cap.
+    pub markers_not_shown: usize,
     /// The snap grid the canvas draws and Tools snap to.
     pub grid: Nm,
     /// The Document point the visible grid runs through.
@@ -122,6 +125,7 @@ impl DocumentTab {
             center_on: None,
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
+            markers_not_shown: 0,
             grid: grid::SCHEMATIC_DEFAULT,
             grid_origin: Point::default(),
             interaction: Interaction::Idle,
@@ -193,6 +197,8 @@ pub struct Shell {
     /// Counts the Commands that may have changed the registered Libraries, so the
     /// Library panel knows when to scan them again.
     library_generation: u64,
+    /// The `view.checks.clear` count last followed.
+    checks_cleared: u64,
     /// The Library panel's filters, chosen Part and scan.
     library_panel: crate::panels::library::LibraryPanel,
     /// The registered Libraries as last scanned, and the library generation of the scan.
@@ -263,6 +269,7 @@ impl Shell {
         engine.view_mut().set(WorkingState::default());
         engine.view_mut().set(CrossProbe::default());
         engine.view_mut().set(messages::ShowWaived::default());
+        engine.view_mut().set(messages::ChecksCleared::default());
         engine
             .view_mut()
             .set(crate::footprint_editor::FootprintEditorState::default());
@@ -299,6 +306,7 @@ impl Shell {
             view_saves: Debounce::default(),
             recorder: Recorder::new(),
             library_generation: 0,
+            checks_cleared: 0,
             library_panel: Default::default(),
             library_index: None,
             notice: None,
@@ -1298,6 +1306,7 @@ impl Shell {
         }
         self.sync_selection();
         self.sync_show_waived();
+        self.sync_checks_cleared();
         self.sync_board_view();
         if base.starts_with("app.preferences.") {
             self.follow_grid_preferences();
@@ -1640,6 +1649,27 @@ impl Shell {
             .unwrap_or_else(|| Arc::from([]))
     }
 
+    /// How many of `document`'s Violations have no marker because of the
+    /// `checks.max_markers` cap; 0 when it is not open.
+    pub fn markers_not_shown(&self, document: Uuid) -> usize {
+        self.document_tab(document)
+            .map_or(0, |t| t.markers_not_shown)
+    }
+
+    /// Follows `view.checks.clear`: forgets the check results and their markers.
+    fn sync_checks_cleared(&mut self) {
+        let cleared = self
+            .engine
+            .view()
+            .get::<messages::ChecksCleared>()
+            .map_or(0, |c| c.0);
+        if cleared != self.checks_cleared {
+            self.checks_cleared = cleared;
+            self.messages.clear_runs();
+            self.update_markers();
+        }
+    }
+
     /// Marks check results stale once the design differs from the run's.
     fn mark_stale_runs(&mut self) {
         let Some(project) = self.engine.project() else {
@@ -1661,8 +1691,9 @@ impl Shell {
             return;
         };
         let current = self.messages.current();
+        let cap = self.preferences.values().checks.max_markers as usize;
         for tab in &mut self.documents {
-            let markers: Vec<Marker> = self
+            let mut markers: Vec<Marker> = self
                 .messages
                 .listed()
                 .filter(|(_, e)| e.document == Some(tab.document))
@@ -1677,6 +1708,18 @@ impl Shell {
                     })
                 })
                 .collect();
+            tab.markers_not_shown = markers.len().saturating_sub(cap);
+            if markers.len() > cap {
+                // The Violation last gone to keeps its marker.
+                let kept = markers.iter().position(|m| m.current);
+                let current = kept.filter(|i| *i >= cap).map(|i| markers[i]);
+                markers.truncate(cap);
+                if let Some(current) = current
+                    && let Some(last) = markers.last_mut()
+                {
+                    *last = current;
+                }
+            }
             tab.markers = Arc::from(markers);
         }
     }
@@ -1768,6 +1811,9 @@ impl Shell {
         self.generation += 1;
         self.palette = pcb::view::palette_handle(&now, self.generation);
         self.set_preference_warnings(reloaded.warnings);
+        if now.checks != reloaded.before.checks {
+            self.update_markers();
+        }
         true
     }
 

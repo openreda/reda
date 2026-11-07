@@ -315,6 +315,16 @@ fn markers(ui: &Ui, input: &CanvasInputs, tab: &DocumentTab) {
         );
         painter.circle_filled(at + egui::vec2(0.0, radius * 0.4), 1.2, color);
     }
+    if tab.markers_not_shown > 0 {
+        // Above the Status Bar, clear of the Active Bar at the top.
+        painter.text(
+            rect.left_bottom() + egui::vec2(8.0, -8.0),
+            egui::Align2::LEFT_BOTTOM,
+            tr!("markers-not-shown", count = tab.markers_not_shown),
+            egui::FontId::proportional(12.0),
+            visuals.warn_fg_color,
+        );
+    }
 }
 
 /// The id a tab's canvas keeps its GPU state under.

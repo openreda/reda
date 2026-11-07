@@ -500,6 +500,7 @@ violation-opening-collapsed =
 ## Messages panel
 
 messages-general = General
+markers-not-shown = { $count } not shown
 message-preferences = Preferences: { $warning }
 message-missing-font = Font “{ $font }” is not installed; its text is drawn in Noto Sans
 
@@ -787,6 +788,7 @@ pref-pcb-default-units-mil = mil
 pref-pcb-repeat-placement = Repeat placement
 pref-pcb-electrical-snap = Electrical snap
 pref-pcb-auto-pan = Auto-pan at the canvas edge
+pref-checks-max-markers = Most Violation markers drawn
 pref-display-cursor = Cursor
 pref-display-cursor-small = Small crosshair
 pref-display-cursor-full-screen = Full-screen crosshair

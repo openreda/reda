@@ -84,6 +84,7 @@ pub fn page_of(key: &str) -> &'static str {
         ) => "schematic.names_units",
         ("schematic", _) => "schematic",
         ("pcb", _) => "pcb",
+        ("checks", _) => "checks",
         ("display", _) => "display",
         ("libraries", _) => "libraries",
         ("agents", _) => "agents",
