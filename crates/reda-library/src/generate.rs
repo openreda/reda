@@ -18,6 +18,7 @@ mod no_lead;
 mod pattern;
 mod qfp;
 mod quad;
+pub mod sections;
 mod small_outline;
 mod sot;
 mod through_hole;
@@ -35,13 +36,71 @@ pub use chip::{Chip, ChipClass, ChipDimensions, ChipParams, ChipSize};
 pub use gull_wing::GullWingDimensions;
 pub use ipc::Density;
 pub use no_lead::{Dfn, ExposedPadDimensions, NoLeadDimensions, NoLeadParams, Qfn};
-pub use pattern::{Body, FootprintPlan, PadSpec};
+pub use pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, WarningCode};
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
 pub use through_hole::{Dip, DipParams, Header, HeaderParams, HeaderPitch};
 
 use crate::{Elements, check, check_element_name};
+use sections::{Sections, smd_compliant, smd_overrides, th_overrides};
+
+/// The [`Sections`] of a surface-mount family's params, and its [`sections::Smd`] view.
+macro_rules! smd_sections {
+    ($($params:ty),*) => {$(
+        impl $params {
+            pub(crate) fn smd(&self) -> sections::Smd<'_> {
+                sections::Smd {
+                    goals: &self.goals,
+                    tolerances: &self.tolerances,
+                    pads: &self.pads,
+                    outputs: &self.outputs,
+                }
+            }
+        }
+
+        impl Sections for $params {
+            fn overrides(&self) -> Vec<String> {
+                smd_overrides(&self.goals, &self.tolerances, &self.pads)
+            }
+
+            fn compliant(&self) -> Self {
+                let (goals, tolerances, pads) =
+                    smd_compliant(&self.goals, &self.pads);
+                Self { goals, tolerances, pads, ..self.clone() }
+            }
+        }
+    )*};
+}
+
+/// The [`Sections`] of a through-hole family's params.
+macro_rules! th_sections {
+    ($($params:ty),*) => {$(
+        impl Sections for $params {
+            fn overrides(&self) -> Vec<String> {
+                th_overrides(&self.tolerances, &self.pads)
+            }
+
+            fn compliant(&self) -> Self {
+                Self {
+                    tolerances: Default::default(),
+                    pads: Default::default(),
+                    ..self.clone()
+                }
+            }
+        }
+    )*};
+}
+
+smd_sections!(
+    ChipParams,
+    SotParams,
+    SoicParams,
+    SmallOutlineParams,
+    NoLeadParams,
+    QfpParams
+);
+th_sections!(DipParams, HeaderParams);
 
 /// Writes a generated Footprint into the registered Library `library` and returns its
 /// file. It refuses a Library that is not registered or is read-only, and a file that
@@ -109,23 +168,52 @@ pub fn preview(
 fn preview_of<F: FootprintFamily>(params: &serde_json::Value) -> Result<Footprint, CommandError> {
     let p: F::Params = serde_json::from_value(params.clone())
         .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
-    let target = F::target(&p);
-    let pattern = F::plan(&p)?;
-    let name = target.name.unwrap_or_else(|| pattern.name.clone());
     let mut next = 0;
-    let mut footprint = pattern.into_footprint(name, || {
+    let (footprint, _) = build::<F>(&p, || {
         next += 1;
         Uuid::from_u128(next)
-    });
-    footprint.generator = Some(Box::new(generator_of::<F>(&p)?));
+    })?;
     Ok(footprint)
+}
+
+/// The Footprint family `F` makes from `p`, taking UUIDs from `new_id`, and the warnings
+/// that go with it.
+fn build<F: FootprintFamily>(
+    p: &F::Params,
+    new_id: impl FnMut() -> Uuid,
+) -> Result<(Footprint, Vec<GeneratorWarning>), CommandError> {
+    let target = F::target(p);
+    let pattern = F::plan(p)?;
+    let mut warnings = pattern.warnings.clone();
+    let overrides = p.overrides();
+    if !overrides.is_empty() {
+        let ipc = F::plan(&p.compliant())?;
+        if !pattern.same_land_pattern(&ipc) {
+            warnings.push(GeneratorWarning {
+                code: WarningCode::NotIpcCompliant,
+                message: "the overridden values give a land pattern other than IPC-7351's; \
+                          the name still reads as IPC-7351's"
+                    .into(),
+                pads: vec![],
+                params: overrides,
+            });
+        }
+    }
+    let name = target.name.unwrap_or_else(|| pattern.name.clone());
+    let description = target.description;
+    let mut footprint = pattern.into_footprint(name, new_id);
+    if let Some(description) = description {
+        footprint.description = description;
+    }
+    footprint.generator = Some(Box::new(generator_of::<F>(p)?));
+    Ok((footprint, warnings))
 }
 
 /// One package family.
 pub trait FootprintFamily: Send + Sync + 'static {
     /// The Command's metadata; its kind must be `Kind::File`, since it writes a file.
     const META: Meta;
-    type Params: DeserializeOwned + Serialize + JsonSchema;
+    type Params: DeserializeOwned + Serialize + JsonSchema + Sections;
 
     /// Where the Footprint goes and what it is called.
     fn target(params: &Self::Params) -> Target;
@@ -134,11 +222,12 @@ pub trait FootprintFamily: Send + Sync + 'static {
     fn plan(params: &Self::Params) -> Result<FootprintPlan, CommandError>;
 }
 
-/// The Library a generated Footprint is written into, and its name if the caller gave one
-/// in place of the IPC-7351 name.
+/// The Library a generated Footprint is written into, and its name and description if
+/// the caller gave them in place of the suggested ones.
 pub struct Target {
     pub library: Uuid,
     pub name: Option<String>,
+    pub description: Option<String>,
 }
 
 /// The Command for family `F`.
@@ -168,6 +257,8 @@ pub struct Generated {
     pub file: PathBuf,
     /// What the Library check found in the new Footprint.
     pub violations: Vec<Violation>,
+    /// Where the Footprint departs from IPC-7351, and Pads the generator trimmed.
+    pub warnings: Vec<GeneratorWarning>,
 }
 
 /// A Footprint references no other element, so the check needs no lookups.
@@ -190,11 +281,10 @@ impl<F: FootprintFamily> Command for Generator<F> {
 
     fn run(&self, cx: &mut Context<'_>, p: F::Params) -> Result<Generated, CommandError> {
         let target = F::target(&p);
-        let pattern = F::plan(&p)?;
-        let name = target.name.unwrap_or_else(|| pattern.name.clone());
-        check_element_name(&name).map_err(|why| CommandError::invalid_params("/name", why))?;
-        let mut footprint = pattern.into_footprint(name, || cx.new_id());
-        footprint.generator = Some(Box::new(generator_of::<F>(&p)?));
+        if let Some(name) = &target.name {
+            check_element_name(name).map_err(|why| CommandError::invalid_params("/name", why))?;
+        }
+        let (footprint, warnings) = build::<F>(&p, || cx.new_id())?;
         let file = (self.store)(cx.session()?, target.library, &footprint)?;
         let violations = check(&NoElements, &LibraryElement::Footprint(footprint.clone()));
         Ok(Generated {
@@ -203,6 +293,7 @@ impl<F: FootprintFamily> Command for Generator<F> {
             library: target.library,
             file,
             violations,
+            warnings,
         })
     }
 }
@@ -217,17 +308,6 @@ fn generator_of<F: FootprintFamily>(
         command: F::META.id.to_owned(),
         params,
     })
-}
-
-/// The `goals` section of a surface-mount family's params.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct GoalsParams {
-    /// The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger
-    /// Pads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,
-    /// `M` or `L`).
-    #[serde(default)]
-    pub density: ipc::Density,
 }
 
 /// A dimension param: its least and greatest value, each an integer in nanometres or a

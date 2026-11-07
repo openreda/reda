@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, Lead, Side};
 use super::ipc::{Termination, Tol};
-use super::{FootprintFamily, FootprintPlan, GoalsParams, Target};
+use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, TolerancesParams};
+use super::{FootprintFamily, FootprintPlan, Target};
 
 pub struct Sot;
 
@@ -21,9 +22,18 @@ pub struct SotParams {
     /// `SOT95P237X112-3N`.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     pub package: SotPackage,
     #[serde(default)]
     pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
@@ -101,11 +111,14 @@ impl FootprintFamily for Sot {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
     fn plan(p: &SotParams) -> Result<FootprintPlan, CommandError> {
         use Side::{Left, Right};
+        let smd = p.smd();
+        smd.check(Applies::default())?;
         let (dims, title) = match p.package {
             SotPackage::Sot23_3 => (TO_236, "SOT-23-3"),
             SotPackage::Sot23_5 => (MO_178, "SOT-23-5"),
@@ -137,13 +150,6 @@ impl FootprintFamily for Sot {
         let density = p.goals.density;
         let name = dims.ipc_name("SOT", leads.len(), density);
         let description = format!("{title}, IPC-7351 {}", density.title());
-        gull_wing::plan(
-            &dims,
-            &leads,
-            Termination::GullWing,
-            density,
-            name,
-            description,
-        )
+        gull_wing::plan(&dims, &leads, Termination::GullWing, smd, name, description)
     }
 }

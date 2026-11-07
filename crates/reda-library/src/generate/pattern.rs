@@ -4,22 +4,97 @@
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad, PadKind, PadShape,
-    Ratio, Shape, TextStyle, Uuid,
+    ConnectionStyle, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad,
+    PadKind, PadShape, Paste, PasteWindow, Ratio, Shape, TextStyle, Uuid, ZoneConnection,
 };
 
-use super::ipc::courtyard_round;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-/// Courtyard outlines are drawn this wide.
-pub const COURTYARD_WIDTH: Nm = Nm(50_000);
-/// Assembly outlines are drawn this wide.
-pub const ASSEMBLY_WIDTH: Nm = Nm(100_000);
-/// Silkscreen lines are drawn this wide.
-pub const SILKSCREEN_WIDTH: Nm = Nm(120_000);
+use super::ipc::courtyard_round;
+use super::sections::{OutputsParams, PadsParams};
+
 /// The gap kept between Silkscreen lines and copper.
 pub const SILKSCREEN_CLEARANCE: Nm = Nm(200_000);
-/// The largest corner radius of a Pad.
-const MAX_CORNER_RADIUS: Nm = Nm(250_000);
+/// An exposed pad at least this long and this wide gets an array of paste windows.
+const PASTE_SPLIT: (Nm, Nm) = (Nm(2_100_000), Nm(1_600_000));
+/// The largest cell of a paste array, along each axis.
+const PASTE_CELL: Nm = Nm(1_500_000);
+/// Paste windows are sized down to this grid.
+const PASTE_GRID: Nm = Nm(10_000);
+
+/// The shape of a surface-mount generator's Pads.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LeadShape {
+    /// A rounded rectangle.
+    #[default]
+    RoundedRect,
+    /// A plain rectangle.
+    Rect,
+}
+
+/// How the Pads look and which outlines are drawn: what a family's `pads` and `outputs`
+/// sections set beyond the land pattern itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Finish {
+    pub shape: LeadShape,
+    pub corner_ratio: Ratio,
+    pub max_corner_radius: Nm,
+    /// Paste windows' share of an exposed pad's area, in percent.
+    pub paste_coverage: u32,
+    /// The exposed pad's paste windows as columns and rows, when given.
+    pub paste_array: Option<(u32, u32)>,
+    /// The Silkscreen lines' width; Silkscreen lines are drawn when `silkscreen`.
+    pub silkscreen_width: Nm,
+    pub silkscreen: bool,
+    /// The courtyard's width, `None` when it is not drawn.
+    pub courtyard: Option<Nm>,
+    /// The Assembly outline's width, `None` when it is not drawn.
+    pub assembly: Option<Nm>,
+}
+
+impl Finish {
+    /// The outputs `outputs`, with the default Pads.
+    pub fn outputs(outputs: &OutputsParams) -> Finish {
+        let pads = PadsParams::default();
+        Finish {
+            shape: pads.shape,
+            corner_ratio: pads.corner_ratio.ratio(),
+            max_corner_radius: pads.max_corner_radius.nm(),
+            paste_coverage: pads.paste_coverage,
+            paste_array: None,
+            silkscreen_width: outputs.silkscreen_width.nm(),
+            silkscreen: outputs.silkscreen,
+            courtyard: outputs.courtyard.then_some(outputs.courtyard_width.nm()),
+            assembly: outputs.assembly.then_some(outputs.assembly_width.nm()),
+        }
+    }
+
+    /// The corner ratio of a rounded `width` × `height` Pad or window: `corner_ratio`,
+    /// lowered where that would make a radius over `max_corner_radius`.
+    fn corner_ratio(&self, width: Nm, height: Nm) -> Ratio {
+        self.corner_ratio
+            .min(Ratio::from_length(self.max_corner_radius, width, height))
+    }
+
+    /// The shape and corner ratio of an SMD Pad or window `width` × `height`.
+    fn smd_shape(&self, width: Nm, height: Nm) -> (PadShape, Option<Ratio>) {
+        match self.shape {
+            LeadShape::RoundedRect => (
+                PadShape::RoundedRect,
+                Some(self.corner_ratio(width, height)),
+            ),
+            LeadShape::Rect => (PadShape::Rect, None),
+        }
+    }
+}
+
+impl Default for Finish {
+    fn default() -> Self {
+        Finish::outputs(&OutputsParams::default())
+    }
+}
 
 /// One Pad at rotation 0.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,8 +111,11 @@ pub struct PadSpec {
 /// What kind of Pad a Pad becomes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LandKind {
-    /// An SMD Pad, a rounded rectangle.
+    /// An SMD lead Pad.
     Smd,
+    /// An exposed (thermal) pad under the body: an SMD Pad the Zone fill runs straight
+    /// into.
+    Exposed,
     /// A plated through-hole Pad with a round hole `drill` across: square when `square`
     /// (pin 1), otherwise round or oval.
     ThroughHole { drill: Nm, square: bool },
@@ -67,18 +145,12 @@ impl PadSpec {
         (x - w, y - h, x + w, y + h)
     }
 
-    fn pad(&self, uuid: Uuid) -> Pad {
+    fn pad(&self, uuid: Uuid, finish: &Finish) -> Pad {
         let (kind, shape, corner_ratio, hole) = match self.kind {
-            LandKind::Smd => (
-                PadKind::Smd,
-                PadShape::RoundedRect,
-                Some(Ratio::from_length(
-                    corner_radius(self),
-                    self.width,
-                    self.height,
-                )),
-                None,
-            ),
+            LandKind::Smd | LandKind::Exposed => {
+                let (shape, ratio) = finish.smd_shape(self.width, self.height);
+                (PadKind::Smd, shape, ratio, None)
+            }
             LandKind::ThroughHole { drill, square } => {
                 let shape = if square {
                     PadShape::Rect
@@ -107,17 +179,27 @@ impl PadSpec {
             hole,
             side: None,
             mask: None,
-            paste: None,
-            zone_connection: None,
+            paste: match self.kind {
+                LandKind::Exposed => paste_windows(self.width, self.height, finish),
+                _ => None,
+            },
+            zone_connection: (self.kind == LandKind::Exposed).then(|| ZoneConnection {
+                style: Some(ConnectionStyle::Solid),
+                ..ZoneConnection::default()
+            }),
         }
     }
 }
 
-/// The parts of the axis-parallel Silkscreen `lines` that keep [`SILKSCREEN_CLEARANCE`]
-/// from every Pad's copper, measured from the line's edge; pieces no longer than the
-/// line width are dropped.
-pub fn clip_silkscreen(lines: &[(Point, Point)], pad_specs: &[PadSpec]) -> Vec<(Point, Point)> {
-    let keep = SILKSCREEN_CLEARANCE.0 + SILKSCREEN_WIDTH.0 / 2;
+/// The parts of the axis-parallel Silkscreen `lines`, `width` wide, that keep
+/// [`SILKSCREEN_CLEARANCE`] from every Pad's copper, measured from the line's edge;
+/// pieces no longer than the line width are dropped.
+pub fn clip_silkscreen(
+    lines: &[(Point, Point)],
+    pad_specs: &[PadSpec],
+    width: Nm,
+) -> Vec<(Point, Point)> {
+    let keep = SILKSCREEN_CLEARANCE.0 + width.0 / 2;
     let mut out = vec![];
     for (start, end) in lines {
         let horizontal = start.y == end.y;
@@ -153,7 +235,7 @@ pub fn clip_silkscreen(lines: &[(Point, Point)], pad_specs: &[PadSpec]) -> Vec<(
                 .collect();
         }
         for (a, b) in pieces {
-            if b - a <= SILKSCREEN_WIDTH.0 {
+            if b - a <= width.0 {
                 continue;
             }
             out.push(if horizontal {
@@ -205,9 +287,61 @@ pub struct FootprintPlan {
     pub courtyard_excess: Nm,
     /// The package's greatest height, when the family knows it.
     pub height: Option<Nm>,
+    /// What the generator changed from the IPC-7351 land pattern, or why the land
+    /// pattern may not be what the caller expects.
+    pub warnings: Vec<GeneratorWarning>,
+    pub finish: Finish,
+}
+
+/// Something a generator reports about the Footprint it made.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct GeneratorWarning {
+    pub code: WarningCode,
+    pub message: String,
+    /// The Pads it concerns, by number.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pads: Vec<String>,
+    /// The params it concerns, as JSON pointers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WarningCode {
+    /// Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads
+    /// so they keep clear of the exposed pad.
+    Trimmed,
+    /// An overridden value gives a land pattern other than IPC-7351's.
+    NotIpcCompliant,
+}
+
+impl GeneratorWarning {
+    /// A [`WarningCode::Trimmed`] warning for `pads`.
+    pub fn trimmed(pads: Vec<String>, message: String) -> GeneratorWarning {
+        GeneratorWarning {
+            code: WarningCode::Trimmed,
+            message,
+            pads,
+            params: vec![],
+        }
+    }
 }
 
 impl FootprintPlan {
+    /// Whether `other` has the same lead Pads and courtyard excess: the land pattern
+    /// IPC-7351 governs. The exposed pad is the package's own size, not an IPC value.
+    pub fn same_land_pattern(&self, other: &FootprintPlan) -> bool {
+        let leads = |plan: &FootprintPlan| -> Vec<PadSpec> {
+            plan.pad_specs
+                .iter()
+                .filter(|s| s.kind != LandKind::Exposed)
+                .cloned()
+                .collect()
+        };
+        leads(self) == leads(other) && self.courtyard_excess == other.courtyard_excess
+    }
+
     /// The courtyard rectangle's upper-right corner; it is symmetric about the origin.
     fn courtyard_corner(&self) -> Point {
         let (mut x, mut y) = (self.body.max.0.0 / 2, self.body.max.1.0 / 2);
@@ -228,37 +362,44 @@ impl FootprintPlan {
         let pads: Vec<Pad> = self
             .pad_specs
             .iter()
-            .map(|spec| spec.pad(new_id()))
+            .map(|spec| spec.pad(new_id(), &self.finish))
             .collect();
         let corner = self.courtyard_corner();
-        let mut graphics = vec![FootprintGraphic {
-            uuid: new_id(),
-            layer: FootprintLayer::CourtyardTop,
-            shape: Shape::Rect {
-                start: Point::new(Nm(-corner.x.0), Nm(-corner.y.0)),
-                end: corner,
-            },
-            width: COURTYARD_WIDTH,
-            fill: false,
-        }];
-        graphics.push(FootprintGraphic {
-            uuid: new_id(),
-            layer: FootprintLayer::AssemblyTop,
-            shape: assembly_outline(self.body),
-            width: ASSEMBLY_WIDTH,
-            fill: false,
-        });
-        for (start, end) in &self.silkscreen {
+        let mut graphics = vec![];
+        if let Some(width) = self.finish.courtyard {
             graphics.push(FootprintGraphic {
                 uuid: new_id(),
-                layer: FootprintLayer::SilkscreenTop,
-                shape: Shape::Line {
-                    start: *start,
-                    end: *end,
+                layer: FootprintLayer::CourtyardTop,
+                shape: Shape::Rect {
+                    start: Point::new(Nm(-corner.x.0), Nm(-corner.y.0)),
+                    end: corner,
                 },
-                width: SILKSCREEN_WIDTH,
+                width,
                 fill: false,
             });
+        }
+        if let Some(width) = self.finish.assembly {
+            graphics.push(FootprintGraphic {
+                uuid: new_id(),
+                layer: FootprintLayer::AssemblyTop,
+                shape: assembly_outline(self.body),
+                width,
+                fill: false,
+            });
+        }
+        if self.finish.silkscreen {
+            for (start, end) in &self.silkscreen {
+                graphics.push(FootprintGraphic {
+                    uuid: new_id(),
+                    layer: FootprintLayer::SilkscreenTop,
+                    shape: Shape::Line {
+                        start: *start,
+                        end: *end,
+                    },
+                    width: self.finish.silkscreen_width,
+                    fill: false,
+                });
+            }
         }
         // The texts take their UUIDs last, after the Pads and graphics.
         let mut designator = FootprintText::designator(new_id());
@@ -266,8 +407,14 @@ impl FootprintPlan {
             Nm(0),
             Nm(corner.y.0 + SILKSCREEN_CLEARANCE.0 + designator.style.height.0 / 2),
         );
+        let size = value_size(self.body, designator.style.height);
         let mut value = FootprintText::value(new_id());
-        value.style = TextStyle::of_height(value_size(self.body, value.style.height));
+        value.style = TextStyle::of_height(size);
+        value.at = Point::new(Nm(0), Nm(-corner.y.0 - SILKSCREEN_CLEARANCE.0 - size.0 / 2));
+        // The Assembly Designator, in the middle of the body.
+        let mut assembly = FootprintText::designator(new_id());
+        assembly.layer = FootprintLayer::AssemblyTop;
+        assembly.style = TextStyle::of_height(size);
         let mut footprint = Footprint {
             uuid,
             name,
@@ -275,7 +422,7 @@ impl FootprintPlan {
             height: self.height,
             pads,
             graphics,
-            texts: vec![designator, value],
+            texts: vec![designator, value, assembly],
             generator: None,
             provenance: None,
         };
@@ -286,9 +433,40 @@ impl FootprintPlan {
     }
 }
 
-/// A quarter of the Pad's shorter side, at most 0.25 mm.
-fn corner_radius(spec: &PadSpec) -> Nm {
-    Nm((spec.width.0.min(spec.height.0) / 4).min(MAX_CORNER_RADIUS.0))
+/// The split paste of an exposed pad `width` × `height`: an array of windows covering
+/// about `finish.paste_coverage` of its area, each centred in an equal cell and scaled by
+/// the same factor along both axes. Unless `finish` gives the array, a pad of at least
+/// [`PASTE_SPLIT`] either way gets cells no larger than [`PASTE_CELL`], and a smaller pad
+/// `None`, so it inherits.
+fn paste_windows(width: Nm, height: Nm, finish: &Finish) -> Option<Paste> {
+    let (columns, rows) = match finish.paste_array {
+        Some((columns, rows)) => (i64::from(columns), i64::from(rows)),
+        None => {
+            let (long, short) = (width.max(height), width.min(height));
+            if long < PASTE_SPLIT.0 || short < PASTE_SPLIT.1 {
+                return None;
+            }
+            let count = |side: Nm| ((side.0 + PASTE_CELL.0 - 1) / PASTE_CELL.0).max(1);
+            (count(width), count(height))
+        }
+    };
+    let (cell_x, cell_y) = (width.0 / columns, height.0 / rows);
+    let scale = (f64::from(finish.paste_coverage) / 100.0).sqrt();
+    let side = |cell: i64| Nm((cell as f64 * scale) as i64 / PASTE_GRID.0 * PASTE_GRID.0);
+    let (w, h) = (side(cell_x), side(cell_y));
+    let centre = |i: i64, n: i64, cell: i64| Nm((2 * i - (n - 1)) * cell / 2);
+    let mut windows = vec![];
+    for row in 0..rows {
+        for column in 0..columns {
+            windows.push(PasteWindow {
+                at: Point::new(centre(column, columns, cell_x), centre(row, rows, cell_y)),
+                width: w,
+                height: h,
+                corner_ratio: finish.smd_shape(w, h).1,
+            });
+        }
+    }
+    Some(Paste::Windows { windows })
 }
 
 /// The nominal body outline; a polarised body has its upper-left corner chamfered by a

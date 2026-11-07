@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"3263ae6a-aa3a-46d1-85dc-a0ee9f6af763","name":"SKTV0W40P127R1L635T127H400B","description":"Socket, 1 × 5, 1.27 mm pitch","height":4000000},
-  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":5,"pitch":"1.27","rows":1,"socket":true}},
+  "generator": {"command":"library.footprint.generate.header","params":{"description":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"diameter":null,"hole":null},"pins_per_row":5,"pitch":"1.27","rows":1,"socket":true,"tolerances":{"courtyard_excess":null}}},
   "pads": [
     {"uuid":"04d0262f-31eb-4ccd-a275-9eef42371771","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
     {"uuid":"62ad94e7-6f01-4722-b3c5-92a0b08edae1","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":2540000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
@@ -18,7 +18,8 @@
     {"uuid":"d1281354-eddd-4435-8836-1fdab85f385c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":3300000},"end":{"x":760000,"y":3300000}},"width":120000}
   ],
   "texts": [
-    {"uuid":"10c779ee-f171-4dd7-8e56-38718aca5d95","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"10c779ee-f171-4dd7-8e56-38718aca5d95","field":"Value","at":{"x":0,"y":-3965000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"3f15d551-3f16-40ca-9b2e-6705a8e8fced","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"dfb7fbec-ce16-4faa-b24a-b47005153520","field":"Designator","at":{"x":0,"y":4150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

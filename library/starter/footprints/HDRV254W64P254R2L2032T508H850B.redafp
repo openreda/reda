@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"ab94a12b-0b7e-4db7-accd-6c4e0f2e111e","name":"HDRV254W64P254R2L2032T508H850B","description":"Pin header, 2 × 8, 2.54 mm pitch","height":8500000},
-  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":8,"pitch":"2.54","rows":2,"socket":false}},
+  "generator": {"command":"library.footprint.generate.header","params":{"description":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"diameter":null,"hole":null},"pins_per_row":8,"pitch":"2.54","rows":2,"socket":false,"tolerances":{"courtyard_excess":null}}},
   "pads": [
     {"uuid":"0fc1970e-49da-4945-b66c-53595f6ec400","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
     {"uuid":"16b21ab7-e39f-44c3-8b7c-9f71ff005dd0","number":"15","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -29,7 +29,8 @@
     {"uuid":"ffc88736-ffc1-4924-83bc-1b1c4b08c61e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2600000,"y":-10220000},"end":{"x":2600000,"y":10220000}},"width":120000}
   ],
   "texts": [
+    {"uuid":"11b19993-3728-498f-b6f6-6a0eb261deb2","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"dfd9a8f7-d7e0-4bd6-bda5-8c681ebd332a","field":"Designator","at":{"x":0,"y":11150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-    {"uuid":"e4c63406-b5fa-40fa-8da6-88fa4d8428fe","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    {"uuid":"e4c63406-b5fa-40fa-8da6-88fa4d8428fe","field":"Value","at":{"x":0,"y":-11150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

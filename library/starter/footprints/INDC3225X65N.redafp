@@ -1,17 +1,18 @@
 {
   "format": 1,
   "footprint": {"uuid":"638110c3-5661-4ecf-ae38-b1969913715a","name":"INDC3225X65N","description":"Chip inductor, 1210 (3225 metric), IPC-7351 Nominal","height":650000},
-  "generator": {"command":"library.footprint.generate.chip","params":{"class":"inductor","dimensions":null,"goals":{"density":"nominal"},"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"size":"1210"}},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"inductor","description":null,"dimensions":null,"goals":{"density":"nominal","fillet":{"heel":null,"side":null,"toe":null}},"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"corner_ratio":25000,"exposed_pad":null,"length":null,"max_corner_radius":250000,"paste_array":null,"paste_coverage":50,"shape":"rounded_rect","spacing":null,"spacing_y":null,"trim":true,"width":null},"size":"1210","tolerances":{"component":{"inner":null,"span":null,"width":null},"courtyard_excess":null,"fabrication":100000,"placement":50000,"round_off":{"place":null,"size":null}}}},
   "pads": [
-    {"uuid":"8a95631c-9e65-4ee2-9b50-2533c86df066","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1150000,"height":2700000,"corner_ratio":43478},
-    {"uuid":"d88c6c41-d706-476e-9903-34e2078c537b","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1150000,"height":2700000,"corner_ratio":43478}
+    {"uuid":"8a95631c-9e65-4ee2-9b50-2533c86df066","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1150000,"height":2700000,"corner_ratio":25000},
+    {"uuid":"d88c6c41-d706-476e-9903-34e2078c537b","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1150000,"height":2700000,"corner_ratio":25000}
   ],
   "graphics": [
     {"uuid":"8a83cb2e-2029-4afd-a518-54e0e6e37395","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-1250000},"end":{"x":1600000,"y":1250000}},"width":100000},
     {"uuid":"fff5c4f9-fe29-4643-b4e1-2257607b9e31","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1600000},"end":{"x":2300000,"y":1600000}},"width":50000}
   ],
   "texts": [
+    {"uuid":"57f51df3-7784-4319-b78a-f73e4006ea4c","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"6a1d0a03-d44f-4bab-a5be-fb0cef6f19e6","field":"Designator","at":{"x":0,"y":2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-    {"uuid":"746e5481-b7c1-41f8-8153-8d00e0af31d8","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    {"uuid":"746e5481-b7c1-41f8-8153-8d00e0af31d8","field":"Value","at":{"x":0,"y":-2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

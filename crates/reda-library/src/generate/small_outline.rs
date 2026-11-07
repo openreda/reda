@@ -8,8 +8,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, GullWingDimensions};
-use super::ipc::{Density, Termination, Tol};
-use super::{FootprintFamily, FootprintPlan, GoalsParams, Target};
+use super::ipc::{Termination, Tol};
+use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, Smd, TolerancesParams};
+use super::{FootprintFamily, FootprintPlan, Target};
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +21,9 @@ pub struct SoicParams {
     /// `SOIC127P600X175-8N`.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     /// The number of leads: 8, 14 or 16 for the narrow (3.9 mm) body; 16, 18, 20, 24 or 28
     /// for the wide (7.5 mm) one. Any even number of at least 4 with `dimensions`.
     pub pins: usize,
@@ -31,6 +35,12 @@ pub struct SoicParams {
     pub dimensions: Option<GullWingDimensions>,
     #[serde(default)]
     pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -42,6 +52,9 @@ pub struct SmallOutlineParams {
     /// `SOP65P640X120-14N`.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     /// The number of leads: one of the standard counts, or any even number of at least 4
     /// with `dimensions`.
     pub pins: usize,
@@ -50,6 +63,12 @@ pub struct SmallOutlineParams {
     pub dimensions: Option<GullWingDimensions>,
     #[serde(default)]
     pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 /// A standard body: its lead geometry, and its length (D) for each lead count.
@@ -137,8 +156,10 @@ fn small_outline(
     prefix: &str,
     pins: usize,
     dimensions: Option<GullWingDimensions>,
-    density: Density,
+    smd: Smd<'_>,
 ) -> Result<FootprintPlan, CommandError> {
+    smd.check(Applies::default())?;
+    let density = smd.goals.density;
     if pins < 4 || !pins.is_multiple_of(2) {
         return Err(CommandError::invalid_params(
             "/pins",
@@ -177,14 +198,7 @@ fn small_outline(
         dims.pitch.0 as f64 / 1e6,
         density.title()
     );
-    gull_wing::plan(
-        &dims,
-        &leads,
-        Termination::GullWing,
-        density,
-        name,
-        description,
-    )
+    gull_wing::plan(&dims, &leads, Termination::GullWing, smd, name, description)
 }
 
 pub struct Soic;
@@ -207,12 +221,13 @@ impl FootprintFamily for Soic {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
     fn plan(p: &SoicParams) -> Result<FootprintPlan, CommandError> {
         let standard = if p.wide { &SOIC_WIDE } else { &SOIC_NARROW };
-        small_outline(standard, "SOIC", p.pins, p.dimensions, p.goals.density)
+        small_outline(standard, "SOIC", p.pins, p.dimensions, p.smd())
     }
 }
 
@@ -236,11 +251,12 @@ impl FootprintFamily for Ssop {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
     fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
-        small_outline(&SSOP, "SOP", p.pins, p.dimensions, p.goals.density)
+        small_outline(&SSOP, "SOP", p.pins, p.dimensions, p.smd())
     }
 }
 
@@ -264,10 +280,11 @@ impl FootprintFamily for Tssop {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
     fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
-        small_outline(&TSSOP, "SOP", p.pins, p.dimensions, p.goals.density)
+        small_outline(&TSSOP, "SOP", p.pins, p.dimensions, p.smd())
     }
 }

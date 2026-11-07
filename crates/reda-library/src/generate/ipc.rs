@@ -104,14 +104,27 @@ impl Tol {
 }
 
 /// The solder-fillet goals of a package family at one density level, the courtyard excess
-/// around it, and the grid its Pads are rounded to.
+/// around it, the grids its Pads are rounded to and the tolerances the equations take.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Goals {
     pub toe: Nm,
     pub heel: Nm,
     pub side: Nm,
     pub courtyard: Nm,
+    /// The grid the Pad width (X) is rounded to.
     pub round_off: Nm,
+    /// The grid the outer and inner Pad edges (Z, G) are rounded to.
+    pub place: Nm,
+    /// `F`.
+    pub fabrication: Nm,
+    /// `P`.
+    pub placement: Nm,
+    /// `CL`, when given rather than calculated from the span's range.
+    pub span_tolerance: Option<Nm>,
+    /// `CS`, when given rather than calculated.
+    pub inner_tolerance: Option<Nm>,
+    /// `CW`, when given rather than calculated from the width's range.
+    pub width_tolerance: Option<Nm>,
 }
 
 /// One family's row of IPC-7351B's goal tables: toe, heel, side and courtyard excess as
@@ -170,6 +183,12 @@ impl Table {
             side: mm(density.pick(self.side)),
             courtyard: mm(density.pick(self.courtyard)),
             round_off: self.round_off,
+            place: self.round_off,
+            fabrication: FABRICATION,
+            placement: PLACEMENT,
+            span_tolerance: None,
+            inner_tolerance: None,
+            width_tolerance: None,
         }
     }
 }
@@ -245,9 +264,15 @@ impl Span {
     }
 }
 
-fn rss(tolerance: f64) -> f64 {
-    let (f, p) = (FABRICATION.0 as f64, PLACEMENT.0 as f64);
+/// `√(C² + F² + P²)`.
+fn rss(tolerance: f64, goals: Goals) -> f64 {
+    let (f, p) = (goals.fabrication.0 as f64, goals.placement.0 as f64);
     (tolerance * tolerance + f * f + p * p).sqrt()
+}
+
+/// A tolerance as given, or as calculated.
+fn given_or(given: Option<Nm>, calculated: f64) -> f64 {
+    given.map_or(calculated, |t| t.0 as f64)
 }
 
 /// Rounds `value` (in nm) up or down to the grid, allowing for float noise.
@@ -274,13 +299,17 @@ fn round_nearest(value: f64, grid: Nm) -> Nm {
 pub fn span(span: Tol, terminal: Tol, goals: Goals) -> Result<Span, String> {
     let s_min = (span.min.0 - 2 * terminal.max.0) as f64;
     let s_max = (span.max.0 - 2 * terminal.min.0) as f64;
-    let s_rms = (span.tolerance().powi(2) + 2.0 * terminal.tolerance().powi(2)).sqrt();
+    let s_rms = given_or(
+        goals.inner_tolerance,
+        (span.tolerance().powi(2) + 2.0 * terminal.tolerance().powi(2)).sqrt(),
+    );
     let s_max = s_max - ((s_max - s_min) - s_rms) / 2.0;
-    let outer = span.min.0 as f64 + 2.0 * goals.toe.0 as f64 + rss(span.tolerance());
-    let inner = s_max - 2.0 * goals.heel.0 as f64 - rss(s_rms);
+    let c_l = given_or(goals.span_tolerance, span.tolerance());
+    let outer = span.min.0 as f64 + 2.0 * goals.toe.0 as f64 + rss(c_l, goals);
+    let inner = s_max - 2.0 * goals.heel.0 as f64 - rss(s_rms, goals);
     let span = Span {
-        outer: round_nearest(outer, goals.round_off),
-        inner: round_nearest(inner, goals.round_off),
+        outer: round_nearest(outer, goals.place),
+        inner: round_nearest(inner, goals.place),
     };
     if span.inner.0 <= 0 {
         return Err("the terminals are too long for the span: the Pads would meet".into());
@@ -293,6 +322,11 @@ pub fn round_up(value: Nm) -> Nm {
     round(value.0 as f64, ROUND_OFF, true)
 }
 
+/// `value` rounded up to `grid`.
+pub fn round_up_to(value: Nm, grid: Nm) -> Nm {
+    round(value.0 as f64, grid, true)
+}
+
 /// `value` rounded down to the 0.05 mm round-off grid.
 pub fn round_down(value: Nm) -> Nm {
     round(value.0 as f64, ROUND_OFF, false)
@@ -300,7 +334,8 @@ pub fn round_down(value: Nm) -> Nm {
 
 /// `X` for a termination `width` wide.
 pub fn pad_width(width: Tol, goals: Goals) -> Nm {
-    let x = width.min.0 as f64 + 2.0 * goals.side.0 as f64 + rss(width.tolerance());
+    let c_w = given_or(goals.width_tolerance, width.tolerance());
+    let x = width.min.0 as f64 + 2.0 * goals.side.0 as f64 + rss(c_w, goals);
     round_nearest(x, goals.round_off)
 }
 

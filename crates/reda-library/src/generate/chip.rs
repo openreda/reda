@@ -9,7 +9,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Goals, Tol};
-use super::{FootprintFamily, FootprintPlan, GoalsParams, Target, TolParam, hundredths};
+use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, TolerancesParams};
+use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 use crate::generate::pattern::{Body, PadSpec};
 
 pub struct Chip;
@@ -22,6 +23,9 @@ pub struct ChipParams {
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as `RESC1608X55N`.
     #[serde(default)]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default)]
+    pub description: Option<String>,
     /// A standard EIA size, with typical body dimensions. Give `size` or `dimensions`.
     #[serde(default)]
     pub size: Option<ChipSize>,
@@ -33,6 +37,12 @@ pub struct ChipParams {
     pub class: ChipClass,
     #[serde(default)]
     pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 /// A chip's body dimensions.
@@ -227,6 +237,7 @@ impl FootprintFamily for Chip {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
@@ -256,11 +267,14 @@ impl FootprintFamily for Chip {
                 ));
             }
         };
+        let smd = p.smd();
+        smd.check(Applies::default())?;
         let density = p.goals.density;
-        let goals = Goals::chip(length, width, density);
+        let goals = smd.goals(Goals::chip(length, width, density));
         let span = ipc::span(length, terminal, goals)
             .map_err(|why| CommandError::invalid_params("/dimensions/terminal", why))?;
-        let pad_width = ipc::pad_width(width, goals);
+        let span = smd.span(span, false)?;
+        let pad_width = smd.pad_width(ipc::pad_width(width, goals));
         let offset = span.pad_offset();
         let spec = |number: &str, x: i64| {
             PadSpec::smd(
@@ -310,6 +324,8 @@ impl FootprintFamily for Chip {
             silkscreen: vec![],
             courtyard_excess: goals.courtyard,
             height: Some(height),
+            warnings: vec![],
+            finish: smd.finish(),
         })
     }
 }

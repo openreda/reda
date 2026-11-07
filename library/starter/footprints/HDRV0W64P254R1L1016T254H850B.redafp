@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"c239ed4d-de6f-416c-9865-3fb339411b89","name":"HDRV0W64P254R1L1016T254H850B","description":"Pin header, 1 × 4, 2.54 mm pitch","height":8500000},
-  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":4,"pitch":"2.54","rows":1,"socket":false}},
+  "generator": {"command":"library.footprint.generate.header","params":{"description":null,"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"diameter":null,"hole":null},"pins_per_row":4,"pitch":"2.54","rows":1,"socket":false,"tolerances":{"courtyard_excess":null}}},
   "pads": [
     {"uuid":"2aa58479-d4ef-4600-aa4b-1e6ceaa05122","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
     {"uuid":"630b4687-6797-44b1-ace2-7cbafe731de5","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -17,7 +17,8 @@
     {"uuid":"d188695b-b3d6-4679-9e6f-bb9c3a39f41e","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":5080000},{"x":1270000,"y":5080000},{"x":1270000,"y":-5080000},{"x":-1270000,"y":-5080000},{"x":-1270000,"y":4445000}]},"width":100000}
   ],
   "texts": [
-    {"uuid":"130b568c-4604-4610-a12d-3788769f787e","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-    {"uuid":"26e91e5a-9ef8-450d-8590-e2c32c4e8279","field":"Designator","at":{"x":0,"y":6050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    {"uuid":"130b568c-4604-4610-a12d-3788769f787e","field":"Value","at":{"x":0,"y":-6050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"26e91e5a-9ef8-450d-8590-e2c32c4e8279","field":"Designator","at":{"x":0,"y":6050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"9f705613-80f9-4372-86e0-ea8569ce70d6","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }
