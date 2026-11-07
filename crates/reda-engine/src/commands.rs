@@ -20,6 +20,7 @@ pub mod reannotate;
 pub mod recovery;
 pub mod rules_file;
 pub mod similar;
+pub mod symbol_wizard;
 pub mod sync;
 pub mod write_through;
 pub mod zone_fill;
@@ -48,6 +49,7 @@ pub fn register_all(registry: &mut Registry) {
     reannotate::register_all(registry);
     rules_file::register_all(registry);
     similar::register_all(registry);
+    symbol_wizard::register_all(registry);
     recovery::register_all(registry);
     sync::register_all(registry);
     zone_fill::register_all(registry);

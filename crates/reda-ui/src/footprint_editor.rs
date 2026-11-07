@@ -24,7 +24,7 @@ use std::collections::BTreeMap;
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{
-    Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Ratio, Uuid,
+    Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Ratio, Uuid, auto_increment,
 };
 use serde_json::{Value, json};
 
@@ -171,6 +171,9 @@ pub enum Interaction {
 pub struct FootprintEditorState {
     pub settings: ToolSettings,
     pub canvases: BTreeMap<Uuid, Interaction>,
+    /// The number of the last Pad the Pad Tool placed in each Footprint tab, which the
+    /// next one auto-increments from.
+    pub last_pads: BTreeMap<Uuid, String>,
 }
 
 fn state(shell: &Shell) -> FootprintEditorState {
@@ -257,15 +260,26 @@ pub fn selectable(footprint: &Footprint) -> Vec<Uuid> {
     out
 }
 
-/// The number one past the highest numeric Pad number, 1 on an empty Footprint.
-pub fn next_number(footprint: &Footprint) -> u64 {
-    let highest = footprint
-        .pads
-        .iter()
-        .filter_map(|p| p.number.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0);
-    highest + 1
+/// The number for the next Pad the Pad Tool places in `footprint`: `last` (the one it
+/// placed before, if any) stepped by `primary` (letters too, A → B), skipping numbers
+/// taken; with nothing to step from, one past the highest numeric number, 1 on an empty
+/// Footprint.
+pub fn next_number(footprint: &Footprint, last: Option<&str>, primary: i64) -> String {
+    let taken = |n: &str| footprint.pads.iter().any(|p| p.number == n);
+    last.and_then(|last| auto_increment::next_number(last, primary, |n| !taken(n)))
+        .unwrap_or_else(|| {
+            let highest = footprint
+                .pads
+                .iter()
+                .filter_map(|p| p.number.parse::<u64>().ok())
+                .max()
+                .unwrap_or(0);
+            let mut n = highest + 1;
+            while taken(&n.to_string()) {
+                n += 1;
+            }
+            n.to_string()
+        })
 }
 
 /// Runs the active Tool on a frame's pointer `events` over the Footprint `element`'s
@@ -299,7 +313,6 @@ pub fn pointer(
         pick: PICK_POINTS * nm_per_point,
         read_only,
         commands: Vec::new(),
-        pads_added: 0,
     };
     let mut state = cx.sync_tool(state);
     for &event in events {
@@ -439,8 +452,6 @@ struct Cx<'a> {
     pick: f64,
     read_only: bool,
     commands: Vec<Invocation>,
-    /// Pads this frame's clicks already asked for, so each gets its own number.
-    pads_added: u64,
 }
 
 impl Cx<'_> {
@@ -498,9 +509,12 @@ impl Cx<'_> {
         let at = self.snap(at);
         match self.shell.tool() {
             Tool::Pad => {
-                let number = next_number(self.footprint) + self.pads_added;
-                self.pads_added += 1;
-                let number = number.to_string();
+                let primary = self.shell.preferences().schematic.auto_increment.primary;
+                let last = state(self.shell).last_pads.get(&self.element).cloned();
+                let number = next_number(self.footprint, last.as_deref(), primary);
+                state_mut(self.shell)
+                    .last_pads
+                    .insert(self.element, number.clone());
                 let params = tool_settings(self.shell)
                     .pad
                     .params(self.element, &number, at);

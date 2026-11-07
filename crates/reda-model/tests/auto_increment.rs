@@ -49,3 +49,51 @@ fn a_designator_with_nowhere_left_to_go_has_no_next() {
     assert_eq!(step_designator("R", 1, |_| true), None);
     assert_eq!(step_designator("R1", 0, |_| true), None);
 }
+
+#[test]
+fn a_pin_or_pad_number_made_only_of_letters_steps_through_the_alphabet() {
+    use reda_model::auto_increment::step_number;
+    assert_eq!(step_number("A", 1), "B");
+    assert_eq!(step_number("Y", 1), "Z");
+    assert_eq!(step_number("Z", 1), "AA");
+    assert_eq!(step_number("AZ", 1), "BA");
+    assert_eq!(step_number("ZZ", 1), "AAA");
+    assert_eq!(step_number("A", 3), "D");
+    assert_eq!(step_number("b", 1), "c", "case is kept");
+    assert_eq!(step_number("z", 1), "aa");
+}
+
+#[test]
+fn letter_numbers_count_down_and_stop_at_a() {
+    use reda_model::auto_increment::step_number;
+    assert_eq!(step_number("B", -1), "A");
+    assert_eq!(step_number("AA", -1), "Z");
+    assert_eq!(step_number("C", -5), "A");
+}
+
+#[test]
+fn other_pin_and_pad_numbers_keep_the_trailing_number_rule() {
+    use reda_model::auto_increment::step_number;
+    assert_eq!(step_number("7", 1), "8");
+    assert_eq!(step_number("A9", 1), "A10");
+    assert_eq!(step_number("EP", 0), "EP");
+    assert_eq!(step_number("+", 1), "+");
+    assert_eq!(step_number("Ab", 1), "Ac", "mixed case letters still step");
+}
+
+#[test]
+fn the_next_number_skips_ones_taken_and_has_none_when_it_cannot_step() {
+    use reda_model::auto_increment::next_number;
+    let taken = ["2", "3", "C"];
+    let free = |n: &str| !taken.contains(&n);
+    assert_eq!(next_number("1", 1, free).as_deref(), Some("4"));
+    assert_eq!(next_number("B", 1, free).as_deref(), Some("D"));
+    assert_eq!(next_number("A1", 2, free).as_deref(), Some("A3"));
+    assert_eq!(next_number("+", 1, free), None);
+    assert_eq!(next_number("1", 0, free), None);
+    assert_eq!(
+        next_number("A", -1, |_| true),
+        None,
+        "nothing comes before A"
+    );
+}
