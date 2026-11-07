@@ -357,3 +357,57 @@ fn selected_only_takes_the_next_free_number_past_an_unselected_one() {
     );
     assert_eq!(designators(&mut engine, &[&a, &b, &c]), ["R2", "R1", "R3"]);
 }
+
+const R_0805: &str = "a0000000-0000-4000-8000-000000000050";
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+#[test]
+fn a_courtyard_beats_the_pads_box() {
+    let dir = TempDir::new("reannotate-board-courtyard");
+    // The test Library, with a Courtyard on the 0805 that reaches 8 mm left of its
+    // origin, while its Pads reach only 1.5 mm.
+    let copy = dir.path().join("Test");
+    copy_dir(&library(), &copy);
+    let file = copy.join("footprints/R_0805.redafp");
+    let text = std::fs::read_to_string(&file).unwrap();
+    let courtyard = r#"  "graphics": [
+    {"uuid":"a0000000-0000-4000-8000-00000000005d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-8000000,"y":-1000000},"end":{"x":1500000,"y":1000000}},"width":50000}
+  ],
+  "texts": ["#;
+    assert!(text.contains(r#"  "texts": ["#));
+    std::fs::write(&file, text.replacen(r#"  "texts": ["#, courtyard, 1)).unwrap();
+    let mut engine = test_engine_with_library(&copy);
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+
+    let small = place(&mut engine, R_10K, 0, 0); // R1, the 0603: Pads ±1.2 mm
+    let wide = place_with(
+        &mut engine,
+        json!({"part": R_10K, "footprint": R_0805}),
+        10,
+        0,
+    ); // R2
+    sync(&mut engine);
+    // The 0603's left edge is at -1.2 mm. The 0805's origin (5 mm) and Pads (3.5 mm) are
+    // right of it, but its Courtyard starts at -3 mm.
+    move_to(&mut engine, &small, 0, 10);
+    move_to(&mut engine, &wide, 5, 0);
+
+    engine.run_ok(
+        "schematic.reannotate",
+        json!({"source": "board", "scope": "project", "threshold": "0mm",
+               "order": "ascending_x_then_ascending_y"}),
+    );
+    assert_eq!(designators(&mut engine, &[&wide, &small]), ["R1", "R2"]);
+}
