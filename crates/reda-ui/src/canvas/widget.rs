@@ -85,7 +85,13 @@ fn selected_on_canvas(tab: &DocumentTab) -> usize {
         return 0;
     }
     let mut drawn: Vec<_> = (tab.scene.scene.items.iter())
-        .map(|item| item.object)
+        .map(|item| {
+            item.child
+                .as_ref()
+                .map(|c| c.id())
+                .filter(|id| selected.contains(id))
+                .unwrap_or(item.object)
+        })
         .filter(|object| selected.contains(object))
         .collect();
     drawn.sort_unstable();
@@ -135,6 +141,7 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
         node.set_description(description);
     });
 
+    let mirrored = tab.mirrored();
     if let Some((lo, hi)) = tab.zoom_to.take() {
         tab.camera = Some(Camera::fit(lo, hi, rect.size()));
     }
@@ -148,8 +155,10 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
         });
         Camera::fit(lo, hi, rect.size())
     });
+    if let Some(at) = tab.center_on.take() {
+        camera.center = (at.x.0 as f64, at.y.0 as f64);
+    }
 
-    let mirrored = tab.layers.from_bottom && tab.scene.layers.is_some();
     let mut input = CanvasInput::default();
     if response.hovered() {
         input.pointer = response.hover_pos().map(|p| mirror(rect, p, mirrored));
@@ -184,10 +193,20 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     view.mirrored = input.mirrored;
     let palette = tab.palette.palette(theme);
     let grid = grid_pitch(tab.grid.0 as f64, view.nm_per_px).map(|pitch| GridSpec {
-        origin: (0.0, 0.0),
+        origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),
         pitch,
         radius_px: GRID_DOT_RADIUS * ppp,
         color: palette.grid(),
+        // Only a sheet has paper; a board's Scene is not searched for one every frame.
+        paper: matches!(tab.scene.scene.source, SceneSource::Schematic(_))
+            .then(|| tab.scene.scene.paper())
+            .flatten()
+            .map(|(lo, hi)| {
+                (
+                    (lo.x.0 as f64, lo.y.0 as f64),
+                    (hi.x.0 as f64, hi.y.0 as f64),
+                )
+            }),
     });
     let frame = CanvasFrame {
         canvas: canvas_id(tab),
@@ -206,7 +225,7 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
 }
 
 /// Draws a Tool's overlay: rubber-banded Wires, the snap cursor and a selection box (solid
-/// when it encloses, dashed when it touches).
+/// in the accent when it encloses, dashed in green when it touches).
 fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) {
     let (rect, camera) = (input.rect, &input.camera);
     let painter = ui.painter_at(rect);
@@ -232,8 +251,9 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
     }) = overlay.rubber_band
     {
         let band = Rect::from_two_pos(input.screen_point(a), input.screen_point(b));
-        painter.rect_filled(band, 0.0, accent.gamma_multiply(0.12));
-        let stroke = Stroke::new(1.0, accent);
+        let color = crate::theme::selection_box(ui.ctx().theme(), mode == BoxMode::Touch);
+        painter.rect_filled(band, 0.0, color.gamma_multiply(0.12));
+        let stroke = Stroke::new(1.0, color);
         match mode {
             BoxMode::Enclose => {
                 painter.rect_stroke(band, 0.0, stroke, egui::StrokeKind::Inside);

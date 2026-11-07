@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 use reda_testkit::{TempDir, read_tree, test_engine_with_library};
 use serde_json::{Value, json};
 
-use script::{LIBRARY, Script, Uuids};
+use script::{Kind, LIBRARY, Script, Uuids};
 
 /// The checked-in starter Library.
 fn starter() -> PathBuf {
@@ -105,7 +105,7 @@ fn symbol_and_part(s: &mut Script, name: &str) -> [String; 3] {
         footprints: vec![],
         fields: json!({"value": name}),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
     [symbol, unit, part]
 }
@@ -396,7 +396,7 @@ fn headers_sockets_and_screw_terminals_come_in_both_pitches() {
 }
 
 #[test]
-fn mounting_holes_and_fiducials_are_mechanical_with_no_symbol() {
+fn mounting_holes_and_fiducials_are_mechanical_with_no_symbol_out_of_the_bom_and_cpl() {
     let parts = parts();
     for name in [
         "MountingHole_M2",
@@ -407,6 +407,8 @@ fn mounting_holes_and_fiducials_are_mechanical_with_no_symbol() {
     ] {
         let part = &parts[name];
         assert_eq!(part["component_type"], "mechanical", "{name}");
+        assert_eq!(part["in_bom"], false, "{name}");
+        assert_eq!(part["in_cpl"], false, "{name}");
         assert!(part["symbol"].is_null(), "{name}");
         assert_eq!(part["footprints"].as_array().unwrap().len(), 1, "{name}");
     }
@@ -439,4 +441,75 @@ fn starter_parts_place_on_a_sheet_with_every_unit() {
     }
     let ldo = place(&mut e, "LDO_SOT-223", "80mm");
     assert_eq!(ldo["designator"], "U2");
+}
+
+/// The checked-in Footprint called `name`.
+fn footprint_file(name: &str) -> Value {
+    let bytes = std::fs::read(starter().join(format!("footprints/{name}.redafp")))
+        .unwrap_or_else(|e| panic!("{name}: {e}"));
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+#[test]
+fn the_net_tie_comes_in_two_sizes_with_tented_pads_and_no_paste() {
+    let parts = parts();
+    let part = &parts["NetTie"];
+    assert_eq!(part["component_type"], "net_tie");
+    assert_eq!(part["in_bom"], false);
+    assert_eq!(part["in_cpl"], false);
+    let mut e = test_engine_with_library(&starter());
+    let dir = TempDir::new("starter-tie");
+    e.run_ok("project.new", json!({"path": dir.path(), "name": "Tie"}));
+    let footprints = footprint_names(&mut e, part);
+    assert_eq!(
+        footprints,
+        ["NetTie_2_SMD_Pad0.5mm", "NetTie_2_SMD_Pad2.0mm"]
+    );
+    for name in &footprints {
+        let pads = footprint_file(name)["pads"].as_array().unwrap().clone();
+        assert_eq!(pads.len(), 2, "{name}");
+        for pad in &pads {
+            assert_eq!(pad["kind"], "smd", "{name}");
+            assert_eq!(pad["mask"], json!({"top": "tent"}), "{name}");
+            assert_eq!(pad["paste"], "none", "{name}");
+        }
+    }
+    let symbol = e.run_ok("library.element.open", json!({"element": part["symbol"]}));
+    assert_eq!(symbol["name"], "NetTie_2");
+}
+
+#[test]
+fn the_test_point_is_standard_out_of_the_bom_and_cpl_with_one_pad_and_no_paste() {
+    let parts = parts();
+    let part = &parts["TestPoint"];
+    assert_eq!(part["component_type"], "standard");
+    assert_eq!(part["in_bom"], false);
+    assert_eq!(part["in_cpl"], false);
+    let mut e = test_engine_with_library(&starter());
+    let dir = TempDir::new("starter-tp");
+    e.run_ok("project.new", json!({"path": dir.path(), "name": "Tp"}));
+    for name in footprint_names(&mut e, part) {
+        let pads = footprint_file(&name)["pads"].as_array().unwrap().clone();
+        assert_eq!(pads.len(), 1, "{name}");
+        assert_eq!(pads[0]["paste"], "none", "{name}");
+    }
+}
+
+#[test]
+fn every_part_has_its_types_flags_and_fiducials_have_no_paste() {
+    for (name, part) in parts() {
+        let expected = match (part["component_type"].as_str().unwrap(), name.as_str()) {
+            ("standard", "TestPoint") => (false, false),
+            ("standard", _) => (true, true),
+            ("mechanical", _) | ("net_tie", _) => (false, false),
+            (other, _) => panic!("{name}: {other}"),
+        };
+        assert_eq!(
+            (part["in_bom"].as_bool(), part["in_cpl"].as_bool()),
+            (Some(expected.0), Some(expected.1)),
+            "{name}"
+        );
+    }
+    let fiducial = footprint_file("Fiducial_1mm_Mask2mm");
+    assert_eq!(fiducial["pads"][0]["paste"], "none");
 }

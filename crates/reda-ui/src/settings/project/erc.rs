@@ -2,7 +2,7 @@
 //! matrix shown read-only beside the Pin conflict checks.
 
 use egui::{Button, RichText, Role, Ui, WidgetInfo};
-use reda_engine::model::{ErcCheck, PinType, Project, Severity, pin_conflict};
+use reda_engine::model::{ErcCheck, ErcSeverities, PinType, Project, Severity, pin_conflict};
 use serde_json::json;
 
 use crate::settings::{Draft, Page, PageCx, Problem, Step};
@@ -63,11 +63,15 @@ pub fn check_name(check: ErcCheck) -> String {
         ErcCheck::DanglingWire => tr!("check-dangling-wire"),
         ErcCheck::UnattachedLabel => tr!("check-unattached-label"),
         ErcCheck::NoConnectConnected => tr!("check-no-connect-connected"),
-        ErcCheck::MultipleNetNames => tr!("check-multiple-net-names"),
+        ErcCheck::NetNamesOnSheet => tr!("check-net-names-on-sheet"),
+        ErcCheck::NetNamesAcrossSheets => tr!("check-net-names-across-sheets"),
+        ErcCheck::DuplicateNets => tr!("check-duplicate-nets"),
         ErcCheck::SingleSheetPort => tr!("check-single-sheet-port"),
         ErcCheck::DuplicateDesignator => tr!("check-duplicate-designator"),
         ErcCheck::UnplacedUnits => tr!("check-unplaced-units"),
+        ErcCheck::NetTieOneNet => tr!("check-net-tie-one-net"),
         ErcCheck::UnitDataMismatch => tr!("check-unit-data-mismatch"),
+        ErcCheck::LibraryOutOfDate => tr!("check-library-out-of-date"),
     }
 }
 
@@ -122,6 +126,16 @@ impl Page for ErcPage {
                 )
             })
             .collect()
+    }
+
+    fn has_defaults(&self) -> bool {
+        true
+    }
+
+    fn reset_to_defaults(&mut self, _shell: &mut crate::shell::Shell) {
+        for (check, draft) in &mut self.severities {
+            draft.set(ErcSeverities::DEFAULT.get(*check));
+        }
     }
 
     fn problems(&self) -> Vec<Problem> {

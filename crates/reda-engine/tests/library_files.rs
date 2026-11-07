@@ -9,9 +9,9 @@ use reda_engine::format::library::{
 };
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{
-    ComponentType, Field, Fields, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole,
-    LibraryInfo, Pad, PadKind, PadShape, Part, Pin, PinMap, PinPads, PinType, Provenance, Shape,
-    Symbol, SymbolGraphic, Unit, Uuid,
+    ComponentType, Field, Fields, Footprint, FootprintGenerator, FootprintGraphic, FootprintLayer,
+    FootprintText, Hole, InsideEdge, LibraryInfo, OutsideEdge, Pad, PadKind, PadShape, Part, Pin,
+    PinMap, PinPads, PinType, Provenance, Shape, Symbol, SymbolGraphic, TextStyle, Unit, Uuid,
 };
 use reda_testkit::assert_golden;
 
@@ -47,7 +47,16 @@ fn opamp() -> Symbol {
         length: Nm::from_mil(100),
         name_visible: true,
         number_visible: true,
+        description: String::new(),
+        inside_edge: None,
+        outside_edge: None,
     };
+    let mut out = pin(0x2a, a, "OUT", "1", PinType::Output, 300, 0, 180_000);
+    out.description = "Output of amplifier A".into();
+    out.outside_edge = Some(OutsideEdge::Dot);
+    let mut minus = pin(0x2b, a, "-", "2", PinType::Input, -300, 100, 0);
+    minus.inside_edge = Some(InsideEdge::Clock);
+    minus.outside_edge = Some(OutsideEdge::ActiveLowInput);
     Symbol {
         uuid: id(0x10),
         name: "OpAmp_Dual".into(),
@@ -68,8 +77,8 @@ fn opamp() -> Symbol {
             },
         ],
         pins: vec![
-            pin(0x2a, a, "OUT", "1", PinType::Output, 300, 0, 180_000),
-            pin(0x2b, a, "-", "2", PinType::Input, -300, 100, 0),
+            out,
+            minus,
             pin(0x2c, a, "+", "3", PinType::Input, -300, -100, 0),
             pin(0x2d, power, "V-", "4", PinType::PowerIn, 0, -300, 90_000),
             pin(0x25, b, "+", "5", PinType::Input, -300, -100, 0),
@@ -119,14 +128,22 @@ fn soic() -> Footprint {
         rotation: Millideg(0),
         width: Nm::from_um(600),
         height: Nm::from_um(1550),
-        corner_radius: None,
+        corner_ratio: Some(reda_engine::model::Ratio::percent(50)),
+        chamfer_ratio: None,
+        corners: None,
+        offset: None,
         hole: None,
-        mask_margin: None,
-        paste_margin: None,
+        mask: None,
+        paste: None,
+        side: None,
+        zone_connection: None,
     };
     let mut exposed = pad(0x33, "4", 0);
     exposed.shape = PadShape::Rect;
-    exposed.paste_margin = Some(Nm::from_um(-100));
+    exposed.corner_ratio = None;
+    exposed.paste = Some(reda_engine::model::Paste::Expansion {
+        expansion: Nm::from_um(-100),
+    });
     Footprint {
         uuid: id(0x30),
         name: "SOIC-8".into(),
@@ -155,14 +172,33 @@ fn soic() -> Footprint {
                 fill: false,
             },
         ],
-        designator: FootprintText {
-            at: Point::new(Nm(0), Nm::from_um(-3500)),
-            ..FootprintText::DESIGNATOR
-        },
-        value: FootprintText {
-            visible: false,
-            ..FootprintText::VALUE
-        },
+        height: Some(Nm::from_um(1750)),
+        texts: vec![
+            FootprintText {
+                at: Point::new(Nm(0), Nm::from_um(-3500)),
+                ..FootprintText::designator(id(0x36))
+            },
+            FootprintText {
+                visible: false,
+                ..FootprintText::value(id(0x37))
+            },
+            FootprintText {
+                field: "MPN".into(),
+                style: TextStyle {
+                    justify: reda_model::TextJustify::CENTER,
+                    knockout: None,
+                    font: "Noto Sans".into(),
+                    height: Nm::from_um(600),
+                    thickness: Nm::from_um(90),
+                },
+                layer: FootprintLayer::AssemblyBottom,
+                ..FootprintText::value(id(0x38))
+            },
+        ],
+        generator: Some(Box::new(FootprintGenerator {
+            command: "library.footprint.generate.soic".into(),
+            params: serde_json::json!({"library": id(1), "pins": 8}),
+        })),
         provenance: None,
     }
 }
@@ -181,13 +217,23 @@ fn hole() -> Footprint {
             rotation: Millideg(0),
             width: Nm::from_um(3200),
             height: Nm::from_um(3200),
-            corner_radius: None,
-            hole: Some(Hole {
-                width: Nm::from_um(3200),
-                height: Nm::from_um(3200),
+            corner_ratio: None,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
+            hole: Some(Hole::new(Nm::from_um(3200), Nm::from_um(3200))),
+            mask: Some(reda_engine::model::Mask {
+                top: Some(reda_engine::model::MaskSide::Expansion {
+                    expansion: Nm::from_um(50),
+                }),
+                bottom: Some(reda_engine::model::MaskSide::Expansion {
+                    expansion: Nm::from_um(50),
+                }),
+                from_hole_edge: None,
             }),
-            mask_margin: Some(Nm::from_um(50)),
-            paste_margin: None,
+            paste: None,
+            side: None,
+            zone_connection: None,
         }],
         graphics: vec![FootprintGraphic {
             uuid: id(0x42),
@@ -199,8 +245,9 @@ fn hole() -> Footprint {
             width: Nm::from_um(100),
             fill: false,
         }],
-        designator: FootprintText::DESIGNATOR,
-        value: FootprintText::VALUE,
+        height: None,
+        texts: vec![FootprintText::designator(id(0x43))],
+        generator: None,
         provenance: None,
     }
 }
@@ -210,6 +257,8 @@ fn lm358() -> Part {
         uuid: id(0x50),
         name: "LM358".into(),
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some(id(0x10)),
         footprints: vec![id(0x30), id(0x60)],
         fields: Fields {
@@ -246,6 +295,8 @@ fn mounting_hole() -> Part {
         uuid: id(0x70),
         name: "MountingHole_M3".into(),
         component_type: ComponentType::Mechanical,
+        in_bom: ComponentType::Mechanical.default_in_bom(),
+        in_cpl: ComponentType::Mechanical.default_in_cpl(),
         symbol: None,
         footprints: vec![id(0x40)],
         fields: Fields::default(),
@@ -436,4 +487,83 @@ fn provenance_is_written_on_its_own_line_and_read_back() {
 
     let plain = String::from_utf8(write_part(&lm358()).unwrap()).unwrap();
     assert!(!plain.contains("provenance"));
+}
+
+/// A Footprint's `generator` stays in its `.redafp`: the copy a Document takes leaves it
+/// out, and so does the hash, so regenerating to the same geometry changes nothing placed.
+#[test]
+fn the_generator_stays_out_of_the_copy_and_its_hash() {
+    use reda_engine::library::{DiskLibraryFiles, copy_part};
+    use reda_library::{LibraryRoot, Origin, scan};
+
+    let dir = reda_testkit::TempDir::new("generator-hash");
+    let write = |rel: &str, bytes: Vec<u8>| {
+        let path = dir.path().join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    };
+    write("Demo.redalib", write_library_info(&info()).unwrap());
+    write(
+        "symbols/OpAmp_Dual.redasym",
+        write_symbol(&opamp()).unwrap(),
+    );
+    let part = Part {
+        footprints: vec![id(0x30)],
+        ..lm358()
+    };
+    write("parts/LM358.redapart", write_part(&part).unwrap());
+    let copied = |footprint: &Footprint| {
+        write(
+            "footprints/SOIC-8.redafp",
+            write_footprint(footprint).unwrap(),
+        );
+        let read = std::fs::read(dir.path().join("footprints/SOIC-8.redafp")).unwrap();
+        let read = read_footprint(Path::new("SOIC-8.redafp"), &read).unwrap();
+        assert_eq!(read.generator, footprint.generator, "the file keeps it");
+        let roots = [LibraryRoot::new(dir.path(), Origin::User)];
+        copy_part(&scan(&roots, &mut DiskLibraryFiles), part.uuid).unwrap()
+    };
+
+    let generated = soic();
+    assert!(generated.generator.is_some());
+    let copy = copied(&generated);
+    assert_eq!(copy.footprints[0].footprint.generator, None);
+    assert_eq!(
+        copy.footprints[0].footprint,
+        Footprint {
+            generator: None,
+            ..soic()
+        }
+    );
+
+    let mut other_params = soic();
+    other_params.generator.as_mut().unwrap().params = serde_json::json!({"pins": 14});
+    let hand_made = Footprint {
+        generator: None,
+        ..soic()
+    };
+    for footprint in [other_params, hand_made] {
+        let again = copied(&footprint);
+        assert_eq!(again.footprints[0].hash, copy.footprints[0].hash);
+        assert_eq!(again.hash, copy.hash);
+    }
+}
+
+#[test]
+fn footprint_text_defaults_to_center_when_justification_is_omitted() {
+    let mut file: serde_json::Value =
+        serde_json::from_slice(&write_footprint(&soic()).unwrap()).unwrap();
+    for text in file["texts"].as_array_mut().unwrap() {
+        text["style"].as_object_mut().unwrap().remove("justify");
+    }
+    let read = read_footprint(
+        Path::new("default.redafp"),
+        &serde_json::to_vec(&file).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        read.texts
+            .iter()
+            .all(|text| text.style.justify == reda_model::TextJustify::CENTER)
+    );
 }

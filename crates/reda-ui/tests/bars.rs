@@ -160,13 +160,8 @@ fn the_bars_follow_the_document_type() {
     let ids = |bars: &Bars| -> Vec<String> { actions(bars).iter().map(|a| a.id.clone()).collect() };
     assert!(ids(schematic).contains(&"design.erc".to_owned()));
     assert!(!ids(pcb).contains(&"design.erc".to_owned()));
-    assert!(ids(pcb).contains(&"design.zone_fill".to_owned()));
+    assert!(ids(pcb).contains(&"route.zone_fill".to_owned()));
     assert!(!ids(none).iter().any(|id| id.starts_with("design.")));
-    // The common menus come first and stay in every context.
-    for bars in [schematic, pcb, none] {
-        let menus: Vec<&str> = bars.menus.iter().map(|m| m.id.as_str()).collect();
-        assert_eq!(&menus[..3], ["file", "edit", "view"]);
-    }
     assert!(
         none.active_bar.is_empty(),
         "with no Document there is no canvas"
@@ -174,10 +169,95 @@ fn the_bars_follow_the_document_type() {
     assert!(!schematic.active_bar.is_empty());
 }
 
+fn menu_ids(bars: &Bars) -> Vec<&str> {
+    bars.menus.iter().map(|m| m.id.as_str()).collect()
+}
+
+#[test]
+fn the_menus_are_the_leading_suites_in_its_order_with_route_only_on_a_board() {
+    let all = [
+        "file", "edit", "view", "project", "place", "design", "route", "tools", "window", "help",
+    ];
+    let pcb = bars::for_document(Some(DocumentType::Pcb));
+    assert_eq!(menu_ids(pcb), all);
+    let sheet = bars::for_document(Some(DocumentType::Schematic));
+    let without_route: Vec<&str> = all.into_iter().filter(|m| *m != "route").collect();
+    assert_eq!(menu_ids(sheet), without_route);
+    // With no Document, or in a Library editor, a menu with nothing in it is left out;
+    // the rest keep the same order, and there is no menu of any other name (Reports folds
+    // into Tools, the Library editors' own items into File and Tools).
+    for context in every_context() {
+        let menus = menu_ids(bars::for_document(context));
+        let mut order = menus.iter().map(|m| all.iter().position(|a| a == m));
+        assert!(
+            order.clone().all(|i| i.is_some()) && order.clone().is_sorted(),
+            "{context:?}: {menus:?}"
+        );
+        assert!(order.all(|i| i != Some(6)) || context == Some(DocumentType::Pcb));
+        for always in ["file", "edit", "view", "project", "tools", "window", "help"] {
+            assert!(menus.contains(&always), "{context:?} has no {always}");
+        }
+    }
+    let menu = |bars: &'static Bars, id: &str| -> Vec<String> {
+        let menu = bars.menus.iter().find(|m| m.id == id).unwrap();
+        let mut out = Vec::new();
+        for item in &menu.items {
+            if let Item::Action(a) = item {
+                out.push(a.id.clone());
+            }
+        }
+        out
+    };
+    assert_eq!(
+        menu(pcb, "project"),
+        [
+            "project.settings",
+            "project.board_setup",
+            "project.sync",
+            "project.save"
+        ]
+    );
+    assert_eq!(
+        menu(pcb, "route"),
+        [
+            "route.track",
+            "route.via",
+            "route.zone_fill",
+            "route.ratsnest"
+        ]
+    );
+    let tools = menu(pcb, "tools");
+    assert!(tools.contains(&"tools.measure".to_owned()), "{tools:?}");
+    assert!(
+        tools.contains(&"tools.keyboard_shortcuts".to_owned()),
+        "{tools:?}"
+    );
+    let window = menu(pcb, "window");
+    for panel in [
+        "projects",
+        "properties",
+        "messages",
+        "library",
+        "layers",
+        "journal",
+    ] {
+        assert!(
+            window.contains(&format!("window.panel.{panel}")),
+            "{window:?}"
+        );
+    }
+    for side in ["left", "right", "bottom"] {
+        assert!(
+            window.contains(&format!("window.collapse.{side}")),
+            "{window:?}"
+        );
+    }
+}
+
 #[test]
 fn a_data_file_takes_only_bindings_separators_and_submenus() {
     let ok = bars::parse(
-        r#"{"menus": [{"id": "m", "title": "menu-file", "items": [
+        r#"{"menus": [{"id": "file", "title": "menu-file", "items": [
             {"id": "a", "command": "project.save"},
             {"id": "b", "command": "panel.show:layers"},
             {"id": "c", "command": "app.preferences.set", "params": {"key": "general.theme", "value": "dark"}},
@@ -201,10 +281,10 @@ fn a_data_file_takes_only_bindings_separators_and_submenus() {
     // No callbacks or anything else: unknown fields, unknown item shapes and Presets with
     // params are refused.
     for bad in [
-        r#"{"menus": [{"id": "m", "title": "t", "items": [{"id": "a", "command": "x", "on_click": "quit"}]}]}"#,
-        r#"{"menus": [{"id": "m", "title": "t", "items": [{"id": "a", "callback": "quit"}]}]}"#,
-        r#"{"menus": [{"id": "m", "title": "t", "items": ["spacer"]}]}"#,
-        r#"{"menus": [{"id": "m", "title": "t", "items": [{"id": "a", "command": "panel.show:layers", "params": {}}]}]}"#,
+        r#"{"menus": [{"id": "file", "title": "t", "items": [{"id": "a", "command": "x", "on_click": "quit"}]}]}"#,
+        r#"{"menus": [{"id": "file", "title": "t", "items": [{"id": "a", "callback": "quit"}]}]}"#,
+        r#"{"menus": [{"id": "file", "title": "t", "items": ["spacer"]}]}"#,
+        r#"{"menus": [{"id": "file", "title": "t", "items": [{"id": "a", "command": "panel.show:layers", "params": {}}]}]}"#,
         r#"{"menus": [], "callbacks": {}}"#,
     ] {
         assert!(bars::parse(bad).is_err(), "accepted {bad}");
@@ -266,9 +346,10 @@ fn every_binding_names_a_command_or_preset_and_fits_its_params() {
             let Ok((id, params)) = item.run else {
                 continue;
             };
-            // Not run: one ends the app, the other (offered on macOS only) links the CLI
-            // into the real /usr/local/bin.
-            if id == "app.quit" || id == "app.cli.install" {
+            // Not run: one ends the app, one (offered on macOS only) links the CLI into
+            // the real /usr/local/bin, and closing the element would leave the bindings
+            // after it nothing to act on.
+            if id == "app.quit" || id == "app.cli.install" || id == "library.element.close" {
                 continue;
             }
             if let Err(e) = shell.run(&id, params.clone()) {
@@ -331,7 +412,7 @@ fn raw_bindings_name_the_active_document_and_summarise_their_params() {
     );
     // A raw binding without a title of its own shows the Command title and its params.
     let raw = bars::parse(
-        r#"{"menus": [{"id": "m", "title": "menu-file", "items": [
+        r#"{"menus": [{"id": "file", "title": "menu-file", "items": [
             {"id": "a", "command": "app.preferences.set", "params": {"key": "general.theme", "value": "dark"}}
         ]}]}"#,
     )
@@ -468,7 +549,9 @@ fn menu_items_run_their_commands() {
 
     h.get_by_role_and_label(Role::Button, "File").click();
     h.run();
-    h.get_all_by_label("New Project…").next().unwrap().click();
+    // The menu item reads with its shortcut, which tells it from the Start page's button.
+    let shortcut = Chord::parse("Mod+N").unwrap().label(h.ctx.os().is_mac());
+    h.get_by_label(&format!("New Project… {shortcut}")).click();
     h.run();
     // The dialog then lists the Fab Presets to offer.
     let ids = journal_ids(&h);
@@ -477,7 +560,7 @@ fn menu_items_run_their_commands() {
 }
 
 #[test]
-fn toolbar_and_active_bar_buttons_run_their_commands() {
+fn quick_strip_and_active_bar_buttons_run_their_commands() {
     let home = TempDir::new("bars-home");
     let work = TempDir::new("bars-work");
     let file = make_project(work.path(), "Bars");
@@ -485,9 +568,15 @@ fn toolbar_and_active_bar_buttons_run_their_commands() {
     h.run();
     h.state_mut().shell_mut().open_project(&file).unwrap();
     h.run();
-    h.get_by_label("Zoom to Fit").click();
+    h.get_by_role_and_label(Role::Button, "View").click();
+    h.run();
+    h.get_by_label_contains("Zoom to Fit").click();
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "view.zoom_fit");
+    // The quick strip's Save writes the active Document.
+    h.get_by_role_and_label(Role::Button, "Save").click();
+    h.run();
+    assert_eq!(journal_ids(&h).last().unwrap(), "project.save");
     // The sheet's Active Bar holds its Tools.
     h.get_by_label("Select").click();
     h.run();
@@ -511,7 +600,12 @@ fn toolbar_and_active_bar_buttons_run_their_commands() {
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "tool.activate:drag");
     assert_eq!(h.state().shell().tool(), reda_ui::tools::Tool::Drag);
-    h.get_all_by_label("Run ERC").next().unwrap().click();
+    h.get_by_role_and_label(Role::Button, "Design").click();
+    h.run();
+    h.get_all_by_label_contains("Run ERC")
+        .next()
+        .unwrap()
+        .click();
     h.run();
     assert_eq!(journal_ids(&h).last().unwrap(), "erc.run");
 }
@@ -529,13 +623,46 @@ fn the_tools_that_do_not_fit_a_narrow_canvas_are_in_the_more_tools_menu() {
     h.state_mut().shell_mut().open_project(&file).unwrap();
     h.run();
     // Power Port, last on the sheet's Active Bar, has no room on the bar.
-    assert!(h.query_by_label_contains("Power Port").is_none());
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Power Port")
+            .is_none()
+    );
     h.get_by_role_and_label(Role::Button, "More Tools").click();
     h.run();
-    // The menu item reads with its shortcut.
-    h.get_by_label_contains("Power Port").click();
+    // Its menu, with the Tool and the Power Port Presets, is a submenu there.
+    h.get_by_label("Power Port").click();
     h.run();
-    assert_eq!(journal_ids(&h).last().unwrap(), "tool.activate:power_port");
+    h.get_by_label_contains("5V Power Port").click();
+    h.run();
+    assert_eq!(
+        journal_ids(&h).last().unwrap(),
+        "tool.activate:power_port_5v"
+    );
+}
+
+#[test]
+fn the_active_bars_power_port_button_offers_the_tool_and_the_presets() {
+    let home = TempDir::new("bars-home");
+    let work = TempDir::new("bars-work");
+    let file = make_project(work.path(), "Presets");
+    let mut h = harness(home.path());
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Power Port").click();
+    h.run();
+    for preset in ["GND", "3V3", "5V", "VCC"] {
+        assert!(
+            h.query_by_label_contains(&format!("{preset} Power Port"))
+                .is_some()
+        );
+    }
+    h.get_by_label_contains("VCC Power Port").click();
+    h.run();
+    assert_eq!(
+        journal_ids(&h).last().unwrap(),
+        "tool.activate:power_port_vcc"
+    );
 }
 
 #[test]
@@ -623,4 +750,113 @@ fn home_zooms_the_canvas_to_the_selection() {
         std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("keymap/reda.toml"))
             .unwrap();
     assert_eq!(keymap.matches("key = \"Home\"").count(), 4);
+}
+
+#[test]
+fn the_top_row_holds_the_quick_strip_menus_command_field_and_gear_at_their_sizes() {
+    let home = TempDir::new("bars-home");
+    let work = TempDir::new("bars-work");
+    let file = make_project(work.path(), "Row");
+    let mut h = harness(home.path());
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.run();
+    let rect =
+        |h: &Harness<'_, App>, label: &str| h.get_by_role_and_label(Role::Button, label).rect();
+    // Quick strip buttons are 30 px squares.
+    let save_all = rect(&h, "Save All");
+    assert_eq!((save_all.width(), save_all.height()), (30.0, 30.0));
+    let save = rect(&h, "Save");
+    assert!(save.right() <= save_all.left(), "Save comes first");
+    // Menu titles are 14.5 text with 8 × 4 padding.
+    let text = h.ctx.fonts_mut(|f| {
+        f.layout_no_wrap(
+            "File".to_owned(),
+            egui::FontId::proportional(14.5),
+            egui::Color32::WHITE,
+        )
+        .size()
+    });
+    let menu = rect(&h, "File");
+    assert_eq!(menu.width(), text.x + 16.0);
+    // A title is as tall as the row, so it is padded at least 4 above and below.
+    assert!(text.y + 8.0 <= 30.0);
+    assert_eq!(menu.height(), 30.0);
+    // One row: the quick strip, then the menus, the command field and the gear.
+    let field = h
+        .get_by_label_contains("Search Documents, Components, Nets")
+        .rect();
+    let gear = rect(&h, "Preferences…");
+    let help = rect(&h, "Help");
+    for r in [menu, field, gear, help] {
+        assert!((r.center().y - save_all.center().y).abs() < 1.0, "{r:?}");
+    }
+    assert!(save_all.right() < menu.left());
+    assert!(help.right() < field.left() && field.right() < gear.left());
+    // The gear is at the far right, as far in as Save is at the left.
+    assert_eq!(1000.0 - gear.right(), save.left(), "{gear:?}");
+    assert_eq!((gear.width(), gear.height()), (30.0, 30.0));
+    // No second row: the docking layer starts right under it.
+    assert!(h.query_by_label("Zoom to Fit").is_none());
+    // Menu items are as large as the titles.
+    h.get_by_role_and_label(Role::Button, "File").click();
+    h.run();
+    let item = h.get_by_label_contains("Open Project…").rect();
+    let row = h
+        .ctx
+        .fonts_mut(|f| f.row_height(&egui::FontId::proportional(14.5)));
+    assert_eq!(item.height(), row.max(reda_ui::icons::MENU) + 8.0);
+}
+
+#[test]
+fn the_gear_opens_preferences_and_the_command_field_the_palette() {
+    let home = TempDir::new("bars-home");
+    let mut h = harness(home.path());
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Preferences…")
+        .click();
+    h.run();
+    assert_eq!(
+        journal_ids(&h).last().unwrap(),
+        "app.dialog.open:preferences"
+    );
+    let mut h = harness(home.path());
+    h.run();
+    h.get_by_label_contains("Search Documents, Components, Nets")
+        .click();
+    h.run();
+    assert_eq!(
+        journal_ids(&h).last().unwrap(),
+        "app.dialog.open:command_palette"
+    );
+}
+
+#[test]
+fn project_settings_need_a_project_and_board_setup_a_board() {
+    let home = TempDir::new("bars-home");
+    let work = TempDir::new("bars-work");
+    let file = make_project(work.path(), "Settings");
+    let mut shell = Shell::new(engine_in(home.path()));
+    let bars = bars::for_document(None);
+    let settings = bars::resolve(&shell, action(bars, "project.settings"));
+    assert_eq!(settings.title, "Project Settings…");
+    assert_eq!(settings.run, Err("no Project is open".to_owned()));
+    shell.open_project(&file).unwrap();
+    shell
+        .run("app.settings.open:project_settings", json!({}))
+        .unwrap();
+    shell
+        .run("app.settings.open:board_setup", json!({}))
+        .unwrap();
+    shell
+        .run("app.dialog.open:keyboard_shortcuts", json!({}))
+        .unwrap();
+    assert_eq!(
+        bars::take_requests(shell.engine()),
+        [
+            Request::ProjectSettings,
+            Request::BoardSetup,
+            Request::KeyboardShortcuts
+        ]
+    );
 }

@@ -45,7 +45,7 @@ pub enum AlignTo {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AlignParams {
-    /// The Footprints, Free Pads and Placement Origin to align, by UUID. A Footprint's
+    /// The Footprints, Free Pads and Output Origin to align, by UUID. A Footprint's
     /// extent is its Pads and drawing.
     pub objects: Vec<Uuid>,
     pub to: AlignTo,
@@ -107,7 +107,7 @@ pub enum Direction {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DistributeParams {
-    /// The Footprints, Free Pads and Placement Origin to space out, by UUID.
+    /// The Footprints, Free Pads and Output Origin to space out, by UUID.
     pub objects: Vec<Uuid>,
     pub direction: Direction,
 }
@@ -231,7 +231,7 @@ impl Command for ArrangeInRect {
 }
 
 /// Footprints by Designator in natural order (R2 before R10), then Free Pads and the
-/// Placement Origin by UUID.
+/// Output Origin by UUID.
 fn designator_order(a: &Item, b: &Item) -> Ordering {
     match (a, b) {
         (Item::Footprint(a), Item::Footprint(b)) => {

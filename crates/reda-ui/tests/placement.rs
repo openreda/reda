@@ -348,3 +348,30 @@ fn a_part_that_does_not_fit_the_document_is_refused() {
     assert_eq!(no_symbol.unwrap_err().code, ErrorCode::Rejected);
     assert_eq!(shell.tool(), Tool::Select);
 }
+
+#[test]
+fn mechanical_part_placement_uses_the_output_origins_grid_phase() {
+    let Fixture { mut shell, .. } = fixture("place-board-origin");
+    let board = pcb(&shell);
+    run(&mut shell, "document.open", json!({"document":board}));
+    run(
+        &mut shell,
+        "view.grid.set",
+        json!({"document":board,"grid":"0.5mm"}),
+    );
+    run(
+        &mut shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    run(
+        &mut shell,
+        "tool.place",
+        json!({"document":board,"part":MOUNTING_HOLE_M3}),
+    );
+    placement::click(&mut shell, board, Point::new(Nm(5_100_000), Nm(5_100_000)));
+    assert_eq!(
+        footprints(&shell)[0].at,
+        Point::new(Nm(5_200_000), Nm(5_300_000))
+    );
+}

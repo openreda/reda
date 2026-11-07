@@ -15,47 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::pcb::InDocument;
 use crate::{ComponentType, Fields, Footprint, Object, Part, Symbol, Uuid, Waiver};
 
-/// A sheet's paper size. Sheets are landscape.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum SheetSize {
-    #[default]
-    A4,
-    A3,
-    A2,
-    A1,
-    A0,
-    Letter,
-    Legal,
-    Tabloid,
-}
+mod frame;
 
-impl SheetSize {
-    /// The landscape width and height.
-    pub const fn dimensions(self) -> (Nm, Nm) {
-        const MM: i64 = 1_000_000;
-        const IN: i64 = 25_400_000;
-        let (w, h) = match self {
-            SheetSize::A4 => (297 * MM, 210 * MM),
-            SheetSize::A3 => (420 * MM, 297 * MM),
-            SheetSize::A2 => (594 * MM, 420 * MM),
-            SheetSize::A1 => (841 * MM, 594 * MM),
-            SheetSize::A0 => (1189 * MM, 841 * MM),
-            SheetSize::Letter => (11 * IN, IN * 17 / 2),
-            SheetSize::Legal => (14 * IN, IN * 17 / 2),
-            SheetSize::Tabloid => (17 * IN, 11 * IN),
-        };
-        (Nm(w), Nm(h))
-    }
-}
-
-/// A sheet's frame settings. A sheet has at most one; with none it uses the defaults.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SheetFrame {
-    pub uuid: Uuid,
-    pub size: SheetSize,
-}
+pub use frame::{BorderZones, FrameSize, Orientation, SheetFrame, SheetSize};
 
 /// One entry of a sheet's part table: a literal copy of a Library Part with its Symbol,
 /// placed once per sheet and shared by every Unit placed from it. It is keyed by the
@@ -82,7 +44,30 @@ pub struct FootprintCopy {
     pub uuid: Uuid,
     /// The content hash of the Footprint, as copied.
     pub hash: String,
+    /// On a PCB's Locally Edited Footprint: the copy it was edited from. Never on a sheet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edited_from: Option<EditedFrom>,
     pub footprint: Footprint,
+}
+
+/// The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same
+/// part table and its content hash, which Sync compares with the schematic's copy.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EditedFrom {
+    pub uuid: Uuid,
+    pub hash: String,
+}
+
+impl FootprintCopy {
+    /// The hash Sync compares: the `edited_from` copy's for a locally edited one.
+    pub fn sync_hash(&self) -> &str {
+        self.edited_from.as_ref().map_or(&self.hash, |e| &e.hash)
+    }
+
+    pub fn is_locally_edited(&self) -> bool {
+        self.edited_from.is_some()
+    }
 }
 
 /// Which Component an object refers to: its UUID, after the Sheet Instance path that
@@ -132,6 +117,10 @@ pub struct UnitInstance {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub footprint: Option<Uuid>,
     pub component_type: ComponentType,
+    /// Whether the Component goes into the BOM; copied from the Part, then editable.
+    pub in_bom: bool,
+    /// Whether the Component goes into the CPL; copied from the Part, then editable.
+    pub in_cpl: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub not_fitted: bool,
     /// The fields drawn on the sheet, by name: `designator`, a built-in field's stored name
@@ -141,6 +130,71 @@ pub struct UnitInstance {
         skip_serializing_if = "UnitInstance::shows_default_fields"
     )]
     pub visible_fields: BTreeSet<String>,
+    /// The fields moved by hand on this Unit, one entry per field, sorted by field name
+    /// (the names of `visible_fields`). A field with no entry is autopositioned. Each
+    /// Unit has its own.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub field_text: Vec<FieldText>,
+    /// The Locked Fields, by name: Update from Library leaves them as they are, though
+    /// they can still be edited by hand. Every Unit of a Component carries the same set.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub locked_fields: BTreeSet<String>,
+}
+
+/// Where a field moved by hand sits: an offset from the Symbol origin in the Symbol's
+/// own frame (so rotating or mirroring the Unit carries it along), and its text height
+/// when it is not the default.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FieldText {
+    /// The field, by name.
+    pub field: String,
+    pub offset: Point,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<Nm>,
+}
+
+/// How a Unit's suffix is written after the Designator: `alpha` (`U1A`) or `numeric`
+/// (`U1:1`). It comes from the Unit's position in the Symbol, never its name, and never
+/// reaches the Designator itself.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UnitSuffix {
+    #[default]
+    Alpha,
+    Numeric,
+}
+
+impl UnitSuffix {
+    /// The suffix of the Unit at `index` (from 0) of a Symbol with `count` Units: `A`,
+    /// `B`, … `Z`, `AA`, … or `:1`, `:2`, …; empty for a Symbol with one Unit.
+    pub fn label(self, index: usize, count: usize) -> String {
+        if count <= 1 {
+            return String::new();
+        }
+        match self {
+            UnitSuffix::Numeric => format!(":{}", index + 1),
+            UnitSuffix::Alpha => {
+                let mut letters = Vec::new();
+                let mut n = index + 1;
+                while n > 0 {
+                    n -= 1;
+                    letters.push(char::from(b'A' + (n % 26) as u8));
+                    n /= 26;
+                }
+                letters.iter().rev().collect()
+            }
+        }
+    }
+
+    /// The suffix of `symbol`'s Unit `unit`; empty when the Symbol has one Unit or no
+    /// such Unit.
+    pub fn of(self, symbol: &Symbol, unit: Uuid) -> String {
+        match symbol.units.iter().position(|u| u.uuid == unit) {
+            Some(index) => self.label(index, symbol.units.len()),
+            None => String::new(),
+        }
+    }
 }
 
 impl UnitInstance {
@@ -158,22 +212,72 @@ impl UnitInstance {
     fn shows_default_fields(fields: &BTreeSet<String>) -> bool {
         *fields == Self::default_visible_fields()
     }
+
+    /// Where field `name` was moved by hand; `None` when it is autopositioned.
+    pub fn field_text(&self, name: &str) -> Option<&FieldText> {
+        self.field_text.iter().find(|t| t.field == name)
+    }
+
+    /// Stores `text` for its field, replacing any entry it had, keeping the entries
+    /// sorted by field name.
+    pub fn set_field_text(&mut self, text: FieldText) {
+        self.remove_field_text(&text.field);
+        let at = self.field_text.partition_point(|t| t.field < text.field);
+        self.field_text.insert(at, text);
+    }
+
+    /// Removes field `name`'s entry, putting it back on Autoposition; returns whether it
+    /// had one.
+    pub fn remove_field_text(&mut self, name: &str) -> bool {
+        let before = self.field_text.len();
+        self.field_text.retain(|t| t.field != name);
+        self.field_text.len() != before
+    }
 }
 
-/// One straight, orthogonal segment of a Wire run. It connects only where one of its ends
-/// touches a Pin or another Wire exactly.
+/// A Wire: a polyline at any angle through its `vertices`, in order, at least two. It
+/// connects where an end touches a Pin's connection point or any point of another Wire,
+/// and anywhere along it that it passes over a Pin's connection point, a Port, a Power
+/// Port or a Net Label. Two Wires crossing mid-span never connect.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Wire {
     pub uuid: Uuid,
-    pub from: Point,
-    pub to: Point,
+    pub vertices: Vec<Point>,
 }
 
 impl Wire {
-    /// Whether the segment is horizontal or vertical and not a single point.
-    pub fn is_orthogonal(&self) -> bool {
-        self.from != self.to && (self.from.x == self.to.x || self.from.y == self.to.y)
+    /// The Wire through `vertices` with its zero-length segments dropped (repeated
+    /// vertices merged). `None` when fewer than two distinct vertices are left.
+    pub fn through(uuid: Uuid, mut vertices: Vec<Point>) -> Option<Wire> {
+        vertices.dedup();
+        (vertices.len() >= 2).then_some(Wire { uuid, vertices })
+    }
+
+    /// Its first and last vertex.
+    pub fn ends(&self) -> [Point; 2] {
+        [self.vertices[0], self.vertices[self.vertices.len() - 1]]
+    }
+
+    /// Its segments in order, as (from, to).
+    pub fn segments(&self) -> impl Iterator<Item = (Point, Point)> + '_ {
+        self.vertices.windows(2).map(|pair| (pair[0], pair[1]))
+    }
+
+    /// Whether `p` lies on the Wire, ends included.
+    pub fn contains(&self, p: Point) -> bool {
+        self.segments().any(|(a, b)| p.on_segment(a, b))
+    }
+
+    /// Whether the Wire passes over `p`: `p` lies on it but is not one of its ends.
+    pub fn passes_over(&self, p: Point) -> bool {
+        !self.ends().contains(&p) && self.contains(p)
+    }
+
+    /// Whether it has at least two vertices and some length. A zero-length segment
+    /// inside it is harmless (edit Commands drop them, but a hand-edited file may keep one).
+    pub fn has_length(&self) -> bool {
+        self.segments().any(|(a, b)| a != b)
     }
 }
 
@@ -213,6 +317,9 @@ pub struct Port {
     pub at: Point,
     /// Counter-clockwise; only how the Port is drawn.
     pub rotation: Millideg,
+    /// Hides the Port's cross-reference note, when the Project shows them.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub hide_cross_reference: bool,
 }
 
 /// The fixed, built-in look of a Power Port.
@@ -245,6 +352,9 @@ pub struct PowerPort {
     pub at: Point,
     /// Counter-clockwise; only how the symbol is drawn.
     pub rotation: Millideg,
+    /// Draws the symbol without its name. The name still joins the Net.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub hide_name: bool,
 }
 
 /// Free text drawn on a sheet. It has no electrical meaning.
@@ -254,12 +364,67 @@ pub struct SheetText {
     pub uuid: Uuid,
     /// The text; `\n` starts a new line.
     pub text: String,
-    /// The left end of the first baseline.
+    /// The anchor point, which [`SheetText::justify`] places on the text block.
     pub at: Point,
     /// The capital height.
     pub height: Nm,
     /// Counter-clockwise about `at`.
     pub rotation: Millideg,
+    /// Which of the block's nine points sits on `at`; `bottom_left` by default.
+    #[serde(default, skip_serializing_if = "Justify::is_default")]
+    pub justify: Justify,
+}
+
+/// One of the nine anchor points of a text block: its corners, the middles of its sides
+/// and its centre. Top is the first line's capital height, bottom the last line's
+/// baseline, and middle halfway between them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Justify {
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    Center,
+    Right,
+    #[default]
+    BottomLeft,
+    Bottom,
+    BottomRight,
+}
+
+/// Where along one axis of a text block a [`Justify`] point sits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum JustifyAxis {
+    Start,
+    Middle,
+    End,
+}
+
+impl Justify {
+    fn is_default(&self) -> bool {
+        *self == Justify::default()
+    }
+
+    /// Across, from left (`Start`) to right (`End`).
+    pub fn horizontal(self) -> JustifyAxis {
+        use Justify::*;
+        match self {
+            TopLeft | Left | BottomLeft => JustifyAxis::Start,
+            Top | Center | Bottom => JustifyAxis::Middle,
+            TopRight | Right | BottomRight => JustifyAxis::End,
+        }
+    }
+
+    /// Up the block, from the bottom (`Start`) to the top (`End`).
+    pub fn vertical(self) -> JustifyAxis {
+        use Justify::*;
+        match self {
+            BottomLeft | Bottom | BottomRight => JustifyAxis::Start,
+            Left | Center | Right => JustifyAxis::Middle,
+            TopLeft | Top | TopRight => JustifyAxis::End,
+        }
+    }
 }
 
 /// A free line or rectangle drawn on a sheet. It has no electrical meaning.
@@ -370,9 +535,21 @@ impl SchematicSheet {
         self.frames.values().next()
     }
 
-    /// The sheet's paper size.
-    pub fn size(&self) -> SheetSize {
-        self.frame().map(|f| f.size).unwrap_or_default()
+    /// The sheet's frame settings: its own, or the defaults for a sheet with none.
+    pub fn frame_settings(&self) -> SheetFrame {
+        self.frame()
+            .cloned()
+            .unwrap_or_else(|| SheetFrame::defaults(self.uuid))
+    }
+
+    /// The paper's width and height as drawn.
+    pub fn dimensions(&self) -> (Nm, Nm) {
+        self.frame_settings().dimensions()
+    }
+
+    /// The sheet's Border Zones, unless its frame switches them off.
+    pub fn zones(&self) -> Option<BorderZones> {
+        self.frame_settings().zones()
     }
 
     /// The part table, sorted by entry UUID.
@@ -516,7 +693,7 @@ impl SchematicSheet {
     }
 
     /// Every object this sheet holds, cloned.
-    pub(crate) fn objects(&self) -> Vec<Object> {
+    pub fn objects(&self) -> Vec<Object> {
         let doc = self.uuid;
         let mut out = Vec::new();
         macro_rules! all {
@@ -582,8 +759,21 @@ impl SchematicSheet {
         if self.frames.len() > 1 {
             return Err(format!("sheet {sheet} has more than one frame"));
         }
+        if let Some(frame) = self.frame() {
+            let (_, short) = frame.size.sides();
+            if short <= Nm::ZERO {
+                return Err(format!("sheet {sheet} has a paper size without area"));
+            }
+        }
         let mut keys = BTreeSet::new();
         for copy in self.footprints.values() {
+            if copy.edited_from.is_some() {
+                return Err(format!(
+                    "Footprint copy {} on sheet {sheet} has `edited_from`; only a PCB's copies \
+                     can be locally edited",
+                    copy.uuid
+                ));
+            }
             if !keys.insert((copy.footprint.uuid, copy.hash.as_str())) {
                 return Err(format!(
                     "sheet {sheet} holds Footprint {} with hash {} twice",
@@ -650,9 +840,9 @@ impl SchematicSheet {
             }
         }
         for wire in self.wires.values() {
-            if !wire.is_orthogonal() {
+            if !wire.has_length() {
                 return Err(format!(
-                    "Wire {} is not a horizontal or vertical segment",
+                    "Wire {} needs at least two vertices, not all at one point",
                     wire.uuid
                 ));
             }
@@ -661,15 +851,30 @@ impl SchematicSheet {
             if label.name.trim().is_empty() {
                 return Err(format!("Net Label {} has no name", label.uuid));
             }
+            if let Some(problem) = crate::net_name::name_problem(&label.name) {
+                return Err(format!(
+                    "Net Label {} {:?}: {problem}",
+                    label.uuid, label.name
+                ));
+            }
         }
         for port in self.ports.values() {
             if port.name.trim().is_empty() {
                 return Err(format!("Port {} has no name", port.uuid));
             }
+            if let Some(problem) = crate::net_name::name_problem(&port.name) {
+                return Err(format!("Port {} {:?}: {problem}", port.uuid, port.name));
+            }
         }
         for port in self.power_ports.values() {
             if port.name.trim().is_empty() {
                 return Err(format!("Power Port {} has no name", port.uuid));
+            }
+            if let Some(problem) = crate::net_name::name_problem(&port.name) {
+                return Err(format!(
+                    "Power Port {} {:?}: {problem}",
+                    port.uuid, port.name
+                ));
             }
         }
         for text in self.texts.values() {

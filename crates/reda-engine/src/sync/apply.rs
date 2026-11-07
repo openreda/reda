@@ -118,13 +118,6 @@ impl<'c, 'e> Applier<'c, 'e> {
         let list: &ChangeList = &plan.list;
         let included = || list.changes().filter(|c| !left_out.contains(&c.id));
         let doc = self.pcb;
-        let default_class = self
-            .cx
-            .project()?
-            .pcb()
-            .expect("a PCB")
-            .setup()
-            .default_net_class;
 
         // Nets first, so Pads can point at new ones.
         let mut new_nets: BTreeMap<String, Uuid> = BTreeMap::new();
@@ -134,7 +127,7 @@ impl<'c, 'e> Applier<'c, 'e> {
                     let net = Net {
                         uuid: self.cx.new_id(),
                         name: name.clone(),
-                        class: default_class,
+                        classes: Vec::new(),
                     };
                     new_nets.insert(change.id.clone(), net.uuid);
                     created.nets.push((name.clone(), net.uuid));
@@ -171,6 +164,14 @@ impl<'c, 'e> Applier<'c, 'e> {
                         .instances
                         .get_mut(instance)
                         .expect("a planned instance");
+                    if let Some(old) = self
+                        .cx
+                        .project()?
+                        .pcb_document(self.pcb)
+                        .and_then(|p| p.footprint_copy(i.footprint))
+                    {
+                        reda_pcb::placed::remap_text_overrides(i, &old.footprint, &copy.footprint);
+                    }
                     i.footprint = copy.uuid;
                     i.pads = blank_pads(&copy);
                 }
@@ -179,6 +180,15 @@ impl<'c, 'e> Applier<'c, 'e> {
                 }
                 ChangeKind::Fields { instance, to, .. } => {
                     self.instance(*instance).fields = to.clone();
+                }
+                ChangeKind::ComponentType { instance, to, .. } => {
+                    self.instance(*instance).component_type = *to;
+                }
+                ChangeKind::InBom { instance, to, .. } => {
+                    self.instance(*instance).in_bom = *to;
+                }
+                ChangeKind::InCpl { instance, to, .. } => {
+                    self.instance(*instance).in_cpl = *to;
                 }
                 ChangeKind::NotFitted { instance, to, .. } => {
                     self.instance(*instance).not_fitted = *to;
@@ -241,7 +251,7 @@ impl<'c, 'e> Applier<'c, 'e> {
         for &net in merges.0.keys() {
             self.cx.tx()?.remove(net)?;
         }
-        self.prune_copies()?;
+        crate::commands::local_edits::prune_copies(self.cx)?;
         Ok(created)
     }
 
@@ -316,6 +326,7 @@ impl<'c, 'e> Applier<'c, 'e> {
         let copy = FootprintCopy {
             uuid: self.cx.new_id(),
             hash: from.hash.clone(),
+            edited_from: None,
             footprint: from.footprint.clone(),
         };
         self.cx.tx()?.insert(Object::FootprintCopy(InDocument::new(
@@ -337,8 +348,11 @@ impl<'c, 'e> Applier<'c, 'e> {
             locked: false,
             designator: c.designator.clone(),
             fields: c.fields.clone(),
+            component_type: c.component_type,
+            in_bom: c.in_bom,
+            in_cpl: c.in_cpl,
             not_fitted: c.not_fitted,
-            designator_text: None,
+            text_overrides: Vec::new(),
             pads: blank_pads(&copy),
         };
         let uuid = instance.uuid;
@@ -360,21 +374,6 @@ impl<'c, 'e> Applier<'c, 'e> {
                 Some(_) => self.cx.tx()?.replace(object)?,
                 None => self.cx.tx()?.insert(object)?,
             }
-        }
-        Ok(())
-    }
-
-    /// Removes the PCB's Footprint copies no instance uses any more.
-    fn prune_copies(&mut self) -> Result<(), CommandError> {
-        let pcb = self.cx.project()?.pcb().expect("a PCB");
-        let used: BTreeSet<Uuid> = pcb.footprints().map(|i| i.footprint).collect();
-        let unused: Vec<Uuid> = pcb
-            .footprint_copies()
-            .map(|c| c.uuid)
-            .filter(|u| !used.contains(u))
-            .collect();
-        for uuid in unused {
-            self.cx.tx()?.remove(uuid)?;
         }
         Ok(())
     }

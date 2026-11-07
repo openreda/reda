@@ -46,7 +46,8 @@ impl TrackGeometry {
 }
 
 /// The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.
-/// A through Via spans the outermost copper Layers.
+/// `from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the
+/// side it is drilled from, which matters only once blind Vias come.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LayerSpan {
@@ -70,4 +71,6 @@ pub struct Via {
     pub hole: Nm,
     /// The copper Layers it joins.
     pub span: LayerSpan,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<crate::Mask>,
 }

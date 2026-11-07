@@ -1,15 +1,17 @@
 //! The copper checks: clearance, short circuits, Track width and Keepouts.
 
-use reda_model::DrcCheck;
+use reda_model::{ComponentType, DrcCheck, Limit, RuleField, RuleKind, footprint_copper};
 
 use super::{Board, Report, item_objects};
 use crate::copper::Item;
-use crate::net_rules::net_rules;
+use crate::copper::shape::{BoardShape as _, Shape};
+use crate::rules::{net_rules, resolve, resolve_pair};
 use crate::zone::keepouts_entered;
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     clearance(board, report);
     short_circuit(board, report);
+    footprint_copper(board, report);
     track_width(board, report);
     keepout(board, report);
 }
@@ -21,8 +23,38 @@ fn clearance(board: &Board<'_>, report: &mut Report) {
         return;
     }
     for gap in board.copper.gaps(board.pcb) {
+        let source = resolve_pair(
+            board.pcb,
+            board.copper.net(gap.a),
+            board.copper.net(gap.b),
+            RuleKind::Clearance,
+            RuleField::Value,
+        )
+        .expect("gap has a limit");
+        let pairs: Vec<_> = board
+            .copper
+            .item_pieces(gap.a)
+            .into_iter()
+            .flat_map(|(layer, a)| {
+                board
+                    .copper
+                    .item_pieces(gap.b)
+                    .into_iter()
+                    .filter(move |(l, _)| *l == layer)
+                    .map(move |(_, b)| (layer, a, b))
+            })
+            .filter(|(_, a, b)| a.distance(b) < gap.required.0 as f64)
+            .collect();
+        let pair = pairs
+            .iter()
+            .min_by(|(_, a, b), (_, c, d)| a.distance(b).total_cmp(&c.distance(d)))
+            .expect("gap shares a Layer");
+        let [a, b] = pair.1.closest_points(pair.2);
         report.add(DrcCheck::Clearance, |v| {
-            v.arg("required", gap.required)
+            v.length(gap.actual, gap.required, Limit::Min, source.rule)
+                .distance_points(a, b)
+                .on_layers(pairs.iter().map(|(layer, _, _)| *layer))
+                .arg("required", gap.required)
                 .arg("actual", gap.actual)
                 .objects(item_objects(gap.a))
                 .objects(item_objects(gap.b))
@@ -38,34 +70,115 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
         return;
     }
     let copper = board.copper;
+    let ties = crate::copper::ties::Ties::of(board.pcb);
     let mut seen = std::collections::BTreeSet::new();
     for (a, b) in copper.touching_pairs() {
         let (na, nb) = (copper.net(a), copper.net(b));
         let objects = [item_objects(a), item_objects(b)].concat();
-        if na.is_none() || nb.is_none() || na == nb || !seen.insert(objects.clone()) {
+        if na.is_none()
+            || nb.is_none()
+            || na == nb
+            || ties.same_tie(a, b)
+            || !seen.insert(objects.clone())
+        {
             continue;
         }
+        let touching: Vec<_> = copper
+            .item_pieces(a)
+            .into_iter()
+            .flat_map(|(layer, a)| {
+                copper
+                    .item_pieces(b)
+                    .into_iter()
+                    .filter(move |(l, b)| *l == layer && a.touches(b))
+                    .map(move |(_, b)| (layer, a, b))
+            })
+            .collect();
+        let contact = touching.first().expect("touching pair shares copper");
+        let at = contact.1.closest_points(contact.2)[0];
         report.add(DrcCheck::ShortCircuit, |v| {
-            v.arg("net_a", board.net_name(na))
+            v.located(board.pcb.uuid, at)
+                .on_layers(touching.iter().map(|(l, _, _)| *l))
+                .arg("net_a", board.net_name(na))
                 .arg("net_b", board.net_name(nb))
                 .objects(objects)
         });
     }
 }
 
-/// Tracks narrower than their Net Class's Track width (the board rule where the class
-/// sets none).
-fn track_width(board: &Board<'_>, report: &mut Report) {
-    for track in board.pcb.tracks() {
-        let minimum = net_rules(board.pcb, track.net).track_width;
-        if track.width < minimum {
-            report.add(DrcCheck::TrackWidth, |v| {
-                v.arg("minimum", minimum)
-                    .arg("actual", track.width)
-                    .object(track.uuid)
+/// `shorted_copper` and `net_tie_not_joined` on each placed Footprint, read from its copy
+/// with the same geometry as the Library check, so a Footprint swap or a type change is
+/// caught. One `shorted_copper` per touching pair, objects as for a short.
+fn footprint_copper(board: &Board<'_>, report: &mut Report) {
+    let pcb = board.pcb;
+    for instance in pcb.footprints() {
+        let Some(copy) = pcb.footprint_copy(instance.footprint) else {
+            continue;
+        };
+        let footprint = &copy.footprint;
+        if instance.component_type == ComponentType::NetTie {
+            if let Some(problem) = footprint_copper::tie_problem(footprint) {
+                report.add(DrcCheck::NetTieNotJoined, |v| {
+                    v.arg("footprint", footprint.name.as_str())
+                        .arg("reason", problem.id())
+                        .object(instance.uuid)
+                });
+            }
+            continue;
+        }
+        if report.is_off(DrcCheck::ShortedCopper) {
+            continue;
+        }
+        for (a, b) in footprint_copper::shorted_pads(footprint) {
+            let (a, b) = (&footprint.pads[a], &footprint.pads[b]);
+            let [at, _] = Shape::pad(instance, a).closest_points(&Shape::pad(instance, b));
+            report.add(DrcCheck::ShortedCopper, |v| {
+                v.located(pcb.uuid, at)
+                    .arg("pad_a", a.number.as_str())
+                    .arg("pad_b", b.number.as_str())
+                    .arg("footprint", footprint.name.as_str())
+                    .objects([instance.uuid, a.uuid, instance.uuid, b.uuid])
             });
         }
     }
+}
+
+/// Tracks narrower than the `track_width` minimum or wider than the maximum that applies
+/// to their Net.
+fn track_width(board: &Board<'_>, report: &mut Report) {
+    for track in board.pcb.tracks() {
+        let range = net_rules(board.pcb, track.net).track_width;
+        let Some(found) = range.breach(track.width) else {
+            continue;
+        };
+        let field = match found.0 {
+            Limit::Min => RuleField::Min,
+            Limit::Max => RuleField::Max,
+        };
+        let source = resolve(board.pcb, track.net, RuleKind::TrackWidth, field)
+            .expect("a breached limit applies");
+        report.add(DrcCheck::TrackWidth, |v| {
+            breach(v, track.width, found, source.rule).object(track.uuid)
+        });
+    }
+}
+
+/// A Violation of a size `actual` beyond a `(limit, bound)`: its measurement and the
+/// `actual`, `limit` and `minimum` or `maximum` arguments.
+pub(super) fn breach(
+    v: reda_model::Violation,
+    actual: reda_model::geom::Nm,
+    (limit, bound): (Limit, reda_model::geom::Nm),
+    rule: reda_model::Uuid,
+) -> reda_model::Violation {
+    let (name, word) = match limit {
+        Limit::Min => ("minimum", "min"),
+        Limit::Max => ("maximum", "max"),
+    };
+    v.length(actual, bound, limit, rule)
+        .arg(name, bound)
+        .arg("actual", actual)
+        .arg("limit", word)
 }
 
 /// Pads, Free Pads, Tracks and Vias inside a Keepout that forbids them on one of their
@@ -87,8 +200,18 @@ fn keepout(board: &Board<'_>, report: &mut Report) {
         let layers: Vec<_> = pieces.iter().map(|(l, _)| *l).collect();
         let is_via = matches!(item, Item::Via { .. });
         for keepout in keepouts_entered(board.pcb, shape, &layers, is_via) {
+            let restricted = &board
+                .pcb
+                .keepout(keepout)
+                .expect("entered Keepout exists")
+                .layers;
             report.add(DrcCheck::Keepout, |v| {
-                v.objects(item_objects(item)).object(keepout)
+                v.objects(item_objects(item)).object(keepout).on_layers(
+                    layers
+                        .iter()
+                        .copied()
+                        .filter(|layer| restricted.contains(layer)),
+                )
             });
         }
     }

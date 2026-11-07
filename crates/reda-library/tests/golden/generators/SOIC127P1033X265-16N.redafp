@@ -1,29 +1,34 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOIC127P1033X265-16N","description":"SOIC wide-16, 1.27 mm pitch, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":6200000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOIC127P1033X265-16N","description":"SOIC wide-16, 1.27 mm pitch, IPC-7351 Nominal","height":2650000},
+  "generator": {"command":"library.footprint.generate.soic","params":{"absent_pins":[],"chamfer":true,"description":"SOIC wide-16, 1.27 mm pitch, IPC-7351 Nominal","dimensions":{"body_length":{"max":10500000,"min":10100000},"body_width":{"max":7600000,"min":7400000},"height":2650000,"lead_length":{"max":1270000,"min":400000},"lead_span":{"max":10650000,"min":10000000},"lead_width":{"max":510000,"min":310000},"pitch":1270000},"goals":{"density":"nominal","fillet":{"heel":350000,"side":30000,"toe":350000}},"library":"000000aa-0000-4000-8000-000000000000","name":"SOIC127P1033X265-16N","outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"corner_ratio":25000,"length":2050000,"max_corner_radius":250000,"paste_coverage":50,"shape":"rounded_rect","spacing":9300000,"trim":true,"width":600000},"pins":16,"tolerances":{"component":{"inner":1391510,"span":650000,"width":200000},"courtyard_excess":250000,"fabrication":100000,"placement":50000,"round_off":{"place":50000,"size":50000}},"wide":true}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-4662500,"y":-4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-00000000000c","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-00000000000d","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":-635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-00000000000e","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":635000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-00000000000f","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":1905000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000010","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":3175000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000011","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":4662500,"y":4445000},"rotation":0,"width":2075000,"height":600000,"corner_radius":150000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":4445000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":3175000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":1905000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":635000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":-635000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":-1905000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":-3175000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":-4737500,"y":-4445000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":-4445000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":-3175000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000c","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":-1905000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":-635000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":635000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":1905000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000010","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":3175000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000011","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":4737500,"y":4445000},"rotation":0,"width":1875000,"height":600000,"corner_ratio":25000}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000012","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-5950000,"y":-5500000},"end":{"x":5950000,"y":5500000}},"width":50000},
     {"uuid":"00000000-0000-4000-8000-000000000013","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-2750000,"y":5150000},{"x":3750000,"y":5150000},{"x":3750000,"y":-5150000},{"x":-3750000,"y":-5150000},{"x":-3750000,"y":4150000}]},"width":100000},
-    {"uuid":"00000000-0000-4000-8000-000000000014","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-5700000,"y":5310000},"end":{"x":3800000,"y":5310000}},"width":120000},
+    {"uuid":"00000000-0000-4000-8000-000000000014","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-5675000,"y":5310000},"end":{"x":3800000,"y":5310000}},"width":120000},
     {"uuid":"00000000-0000-4000-8000-000000000015","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3800000,"y":-5310000},"end":{"x":3800000,"y":-5310000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-000000000016","field":"Designator","at":{"x":0,"y":6200000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000017","field":"Value","at":{"x":0,"y":-6200000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000018","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

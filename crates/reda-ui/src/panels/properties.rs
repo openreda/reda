@@ -16,6 +16,13 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
     if let Some(placing) = crate::placement::placing(shell) {
         return placing_section(ui, placing);
     }
+    if shell.selection().is_empty()
+        && shell
+            .active_document()
+            .is_some_and(|d| crate::bars::document_type(shell, d.document).is_some())
+    {
+        return crate::selection::filter_ui::properties(ui, shell);
+    }
     let Some(project) = shell.engine().project() else {
         ui.weak(tr!("properties-nothing-selected"));
         return Vec::new();
@@ -28,6 +35,18 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
     let mut edits = Vec::new();
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.label(tr!("properties-selected", count = properties.count));
+        for uuid in &shell.selection().objects {
+            if let Some(reda_engine::model::Object::PcbText(text)) = project.object(*uuid) {
+                let omitted =
+                    reda_engine::pcb::text_geometry(&text, shell.engine().fonts()).dropped_lines;
+                if omitted > 0 {
+                    ui.colored_label(
+                        ui.visuals().warn_fg_color,
+                        tr!("properties-text-frame-omitted", count = omitted),
+                    );
+                }
+            }
+        }
         for (kind, n) in &properties.kinds {
             ui.weak(format!("{kind} × {n}"));
         }
@@ -166,15 +185,47 @@ fn component_section(ui: &mut Ui, component: &ComponentProperties, edits: &mut V
             ui.end_row();
         });
 
-    let mixed = component.not_fitted == Shared::Mixed;
-    let mut not_fitted = component.not_fitted.same().copied().unwrap_or(false);
-    let response =
-        ui.add(Checkbox::new(&mut not_fitted, tr!("properties-not-fitted")).indeterminate(mixed));
-    if response.clicked() {
-        edits.push(Edit::NotFitted(not_fitted));
-    }
+    flag(
+        ui,
+        &component.in_bom,
+        tr!("properties-in-bom"),
+        Edit::InBom,
+        edits,
+    );
+    flag(
+        ui,
+        &component.in_cpl,
+        tr!("properties-in-cpl"),
+        Edit::InCpl,
+        edits,
+    );
+    flag(
+        ui,
+        &component.not_fitted,
+        tr!("properties-not-fitted"),
+        Edit::NotFitted,
+        edits,
+    );
 
     new_field(ui, edits);
+}
+
+/// A Component flag's tick box, indeterminate while the selection is mixed.
+fn flag(
+    ui: &mut Ui,
+    value: &Shared<bool>,
+    label: String,
+    edit: fn(bool) -> Edit,
+    edits: &mut Vec<Edit>,
+) {
+    let mixed = *value == Shared::Mixed;
+    let mut on = value.same().copied().unwrap_or(false);
+    if ui
+        .add(Checkbox::new(&mut on, label).indeterminate(mixed))
+        .clicked()
+    {
+        edits.push(edit(on));
+    }
 }
 
 fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec<Edit>) {
@@ -212,13 +263,17 @@ fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec
 }
 
 fn net_class_row(ui: &mut Ui, class: &NetClassProperty, edits: &mut Vec<Edit>) {
-    let selected = match &class.class {
-        Shared::Mixed => MIXED.to_owned(),
-        Shared::Same(uuid) => class
+    let name_of = |uuid: &Uuid| {
+        class
             .classes
             .iter()
             .find(|(u, _)| u == uuid)
-            .map_or_else(|| uuid.to_string(), |(_, name)| name.clone()),
+            .map_or_else(|| uuid.to_string(), |(_, name)| name.clone())
+    };
+    let selected = match &class.class {
+        Shared::Mixed => MIXED.to_owned(),
+        Shared::Same(list) if list.is_empty() => tr!("properties-default-net-class"),
+        Shared::Same(list) => list.iter().map(name_of).collect::<Vec<_>>().join(", "),
     };
     Grid::new("properties-net-class")
         .num_columns(2)
@@ -228,8 +283,8 @@ fn net_class_row(ui: &mut Ui, class: &NetClassProperty, edits: &mut Vec<Edit>) {
                 .selected_text(selected)
                 .show_ui(ui, |ui| {
                     for (uuid, name) in &class.classes {
-                        let current = class.class.same() == Some(uuid);
-                        if ui.selectable_label(current, name).clicked() && !current {
+                        let member = class.class.same().is_some_and(|c| c.contains(uuid));
+                        if ui.selectable_label(member, name).clicked() {
                             edits.push(Edit::NetClass(*uuid));
                         }
                     }

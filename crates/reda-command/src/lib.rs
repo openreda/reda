@@ -13,6 +13,7 @@ mod fonts;
 mod history;
 mod inputs;
 mod library;
+mod pad;
 mod registry;
 mod schema;
 mod signals;
@@ -20,6 +21,7 @@ mod trash;
 mod units;
 mod user;
 mod view;
+mod waivers;
 
 pub use command::{
     AvailabilityContext, Command, Kind, Meta, NO_ELEMENTS, NO_PROJECT, NoParams, Preset,
@@ -34,9 +36,15 @@ pub use history::{Entry, History};
 pub use inputs::SystemClock;
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, Timestamp};
 pub use library::{ElementLocation, FootprintCopyData, NoLibraries, PartCopy, PartSource};
+pub use pad::{
+    HoleParam, HoleToleranceParam, MaskParam, PasteParam, RatioParam, ZoneConnectionParam, mask,
+    paste, zone_connection,
+};
 pub use registry::{Registry, scope_key};
 pub use signals::{CancelToken, Progress, Signals};
 pub use trash::Trash;
-pub use units::{Angle, Length};
-pub use user::UserDirs;
+pub use units::{Angle, CopperThickness, Length};
+pub use user::{UserDirs, UserName, os_user_name};
 pub use view::ViewState;
+
+pub use waivers::{insert_waivers, select_waivers};

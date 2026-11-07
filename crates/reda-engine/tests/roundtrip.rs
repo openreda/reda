@@ -10,15 +10,16 @@ use reda_engine::format::library::{read_footprint, read_part, read_symbol};
 use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
-    DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck, ErcSeverities, FabPreset,
-    FileNaming, FootprintCopy, FootprintInstance, FootprintText, FreePad, GerberSettings,
-    GraphicShape, Hole, InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass,
-    NetLabel, NoConnect, Object, OutputJob, Outputs, PadConnection, PadKind, PadNet, PadShape,
-    PartEntry, PcbGraphic, PcbText, PlacementOrigin, Port, PortDirection, PowerPort,
-    PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, ProjectProps, Rules, Severity,
-    SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side, Track, TrackGeometry,
-    UnitInstance, Uuid, Via, Waiver, Wire, Zone,
+    CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck,
+    ErcSeverities, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
+    GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer, LayerKind, LayerSet,
+    LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation, OutputJob, OutputOrigin,
+    Outputs, PadConnection, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, Port,
+    PortDirection, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
+    ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side,
+    Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
 };
+use reda_engine::model::{DesignRule, FabRules, PreferredSeeds, RuleKind, RuleScope, RuleValues};
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
 
@@ -26,6 +27,11 @@ use serde_json::Value;
 /// Windows device names such as `CON`.
 fn stem(first: &'static str) -> impl Strategy<Value = String> {
     "[a-z0-9_ -]{0,10}".prop_map(move |rest| format!("{first}{rest}"))
+}
+
+/// Any stored text: any string, escaped, since an unescaped `${` is refused.
+fn stored_text() -> impl Strategy<Value = String> {
+    any::<String>().prop_map(|s| reda_engine::model::text::escape(&s).into_owned())
 }
 
 fn uuid() -> impl Strategy<Value = Uuid> {
@@ -74,6 +80,8 @@ struct PcbSeed {
     /// A Track and a Via: ends, an arc's sweep (0 for a line), width, Net index (None for
     /// no Net), bottom Layer.
     copper: Option<(Point, Point, i64, Nm, Option<usize>, bool)>,
+    /// The Stackup: copper per Layer, the dielectric (None for blank), finish and colours.
+    stackup: ([Nm; 2], Option<Nm>, [Option<String>; 3]),
 }
 
 /// A text object; the Layer is an index into the seed's Layers.
@@ -95,7 +103,7 @@ fn point() -> impl Strategy<Value = Point> {
 fn text_seed() -> impl Strategy<Value = TextSeed> {
     (
         any::<usize>(),
-        any::<String>(),
+        stored_text(),
         any::<String>(),
         point(),
         length(),
@@ -152,10 +160,15 @@ prop_compose! {
             point(), point(), prop_oneof![Just(0i64), -359_999i64..360_000],
             (1i64..10_000_000).prop_map(Nm), prop::option::of(any::<usize>()), any::<bool>(),
         )),
+        stackup in (
+            prop::array::uniform2((1i64..200_000).prop_map(Nm)),
+            prop::option::of((1i64..5_000_000).prop_map(Nm)),
+            prop::array::uniform3(prop::option::of(any::<String>())),
+        ),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
-            graphics, footprint, copper,
+            graphics, footprint, copper, stackup,
         }
     }
 }
@@ -194,41 +207,52 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         })
         .collect(),
     };
-    let default = NetClass {
-        uuid: id(),
-        name: "Default".into(),
-        clearance: None,
-        track_width: None,
-        via_diameter: None,
-        via_hole: None,
-    };
-    let mut classes = vec![default.clone()];
+    let mut classes: Vec<NetClass> = Vec::new();
+    let mut rules: Vec<DesignRule> = Vec::new();
     for (name, clearance, track_width) in seed.classes {
         if classes
             .iter()
             .any(|c| c.name.to_lowercase() == name.to_lowercase())
             || name.trim().is_empty()
+            || name.trim().eq_ignore_ascii_case("default")
         {
             continue;
         }
-        classes.push(NetClass {
+        let class = NetClass {
             uuid: id(),
             name,
-            clearance,
-            track_width,
-            via_diameter: None,
-            via_hole: None,
-        });
+            rank: classes.len() as u32 + 1,
+        };
+        let records = [
+            (
+                RuleKind::Clearance,
+                clearance.map(|value| RuleValues {
+                    value: Some(value),
+                    ..RuleValues::default()
+                }),
+            ),
+            (
+                RuleKind::TrackWidth,
+                track_width.map(|preferred| RuleValues {
+                    preferred: Some(preferred),
+                    ..RuleValues::default()
+                }),
+            ),
+        ];
+        for (kind, values) in records {
+            if let Some(values) = values {
+                rules.push(DesignRule {
+                    uuid: id(),
+                    kind,
+                    scope: RuleScope::class(class.uuid),
+                    values,
+                    enabled: track_width.is_some(),
+                    comment: clearance.map(|c| format!("{c:?}")),
+                });
+            }
+        }
+        classes.push(class);
     }
-    let [
-        clearance,
-        track_width,
-        via_diameter,
-        via_hole,
-        annular_ring,
-        hole_to_hole,
-        edge_clearance,
-    ] = seed.rules;
     let mut severities = DrcSeverities::DEFAULT;
     for (check, s) in DrcCheck::ALL.iter().zip(seed.severities) {
         severities.set(
@@ -238,20 +262,43 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     }
     let setup = BoardSetup {
         uuid: id(),
-        default_net_class: default.uuid,
-        rules: Rules {
-            clearance,
-            track_width,
-            via_diameter,
-            via_hole,
-            annular_ring,
-            hole_to_hole,
-            edge_clearance,
-        },
         severities,
+    };
+    for (kind, values) in reda_engine::pcb::seed_rules(&fab_rules(seed.rules)) {
+        rules.push(DesignRule {
+            uuid: id(),
+            kind,
+            scope: RuleScope::BOARD,
+            values,
+            enabled: true,
+            comment: None,
+        });
+    }
+    let ([top, bottom], dielectric, [finish, mask_color, silk_color]) = seed.stackup;
+    let stackup = Stackup {
+        uuid: id(),
+        thickness: Nm(top.0 + bottom.0 + 1_000_000),
+        entries: vec![
+            StackupEntry::Copper(CopperEntry {
+                layer: layers.layers[0].uuid,
+                thickness: top,
+            }),
+            StackupEntry::Dielectric(DielectricEntry {
+                uuid: id(),
+                thickness: dielectric,
+            }),
+            StackupEntry::Copper(CopperEntry {
+                layer: layers.layers[1].uuid,
+                thickness: bottom,
+            }),
+        ],
+        finish,
+        mask_color,
+        silk_color,
     };
     let mut objects = vec![
         Object::LayerSet(InDocument::new(doc, layers)),
+        Object::Stackup(InDocument::new(doc, stackup)),
         Object::BoardSetup(InDocument::new(doc, setup)),
     ];
     if let Some(vertices) = seed.outline {
@@ -272,18 +319,35 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             },
         )));
     }
+    objects.extend(
+        rules
+            .into_iter()
+            .map(|r| Object::DesignRule(InDocument::new(doc, r))),
+    );
     let mut nets = vec![];
     for (name, class) in seed.nets {
-        let class = classes[class % classes.len()].uuid;
+        // 0 is the Default Net Class only.
+        let classes = match class % (classes.len() + 1) {
+            0 => vec![],
+            n => vec![classes[n - 1].uuid],
+        };
         let uuid = id();
         nets.push(uuid);
-        objects.push(Object::Net(InDocument::new(doc, Net { uuid, name, class })));
+        objects.push(Object::Net(InDocument::new(
+            doc,
+            Net {
+                uuid,
+                name,
+                classes,
+            },
+        )));
     }
     if let Some((designator, at, flag, net)) = seed.footprint {
         let footprint = read_footprint(Path::new("x"), FOOTPRINT.as_bytes()).unwrap();
         let copy = FootprintCopy {
             uuid: id(),
             hash: "e".repeat(32),
+            edited_from: None,
             footprint,
         };
         let mut pads: Vec<PadNet> = copy
@@ -309,18 +373,31 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             locked: flag,
             designator,
             fields: Default::default(),
+            component_type: if flag {
+                ComponentType::NetTie
+            } else {
+                ComponentType::Mechanical
+            },
+            in_bom: flag,
+            in_cpl: !flag,
             not_fitted: !flag,
-            designator_text: flag.then_some(FootprintText {
-                rotation: Millideg(270_000),
-                visible: false,
-                ..FootprintText::DESIGNATOR
-            }),
+            text_overrides: if flag {
+                vec![reda_model::TextOverride {
+                    rotation: Some(Millideg(270_000)),
+                    visible: Some(false),
+                    ..reda_model::TextOverride::new(Uuid::v4_from_bits(seed.base ^ 11))
+                }]
+            } else {
+                vec![]
+            },
             pads,
         };
         objects.push(Object::FootprintCopy(InDocument::new(doc, copy)));
         objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
-        // A Free Pad and the Placement Origin come with it: through-hole on a Net, or SMD.
+        // A Free Pad and the Output Origin come with it: through-hole on a Net, or SMD.
         let free_pad = FreePad {
+            mask: None,
+            paste: None,
             uuid: id(),
             kind: if flag {
                 PadKind::PlatedThroughHole
@@ -332,18 +409,19 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             rotation: Millideg(if flag { 45_000 } else { 0 }),
             width: Nm(3_000_000),
             height: Nm(3_000_000),
-            corner_radius: None,
-            hole: flag.then_some(Hole {
-                width: Nm(1_000_000),
-                height: Nm(1_000_000),
-            }),
+            corner_ratio: None,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
+            hole: flag.then_some(Hole::new(Nm(1_000_000), Nm(1_000_000))),
             side: (!flag).then_some(Side::Bottom),
             net: if flag { nets.first().copied() } else { None },
+            zone_connection: None,
         };
         objects.push(Object::FreePad(InDocument::new(doc, free_pad)));
-        objects.push(Object::PlacementOrigin(InDocument::new(
+        objects.push(Object::OutputOrigin(InDocument::new(
             doc,
-            PlacementOrigin { uuid: id(), at },
+            OutputOrigin { uuid: id(), at },
         )));
     }
     let layer_ids: Vec<Uuid> = layers_of(&objects);
@@ -354,10 +432,15 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 uuid: id(),
                 layer: layer_ids[t.layer % layer_ids.len()],
                 text: t.text,
-                font: t.font,
+                style: reda_model::TextStyle {
+                    justify: Default::default(),
+                    knockout: None,
+                    font: t.font,
+                    height: t.height,
+                    thickness: t.height,
+                },
+                frame: None,
                 position: t.position,
-                height: t.height,
-                thickness: t.height,
                 rotation: t.rotation,
                 mirrored: t.mirrored,
             },
@@ -391,14 +474,15 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Via(InDocument::new(
             doc,
             Via {
+                mask: None,
                 uuid: id(),
                 at: from,
                 net,
                 diameter: Nm(width.0 + 1),
                 hole: width,
                 span: LayerSpan {
-                    from: layer_ids[1],
-                    to: layer_ids[0],
+                    from: layer_ids[0],
+                    to: layer_ids[1],
                 },
             },
         )));
@@ -447,7 +531,9 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                     uuid: id(),
                     check: "keepout".into(),
                     objects: waived,
-                    comment: if bottom {
+                    author: "Ada".into(),
+                    created: 1_767_225_600_000,
+                    reason: if bottom {
                         "fixture".into()
                     } else {
                         String::new()
@@ -484,7 +570,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
 fn column() -> impl Strategy<Value = Column> {
     let source = prop_oneof![
         Just(ColumnSource::Designator),
-        Just(ColumnSource::MidX),
+        Just(ColumnSource::CentreX),
         any::<String>().prop_map(ColumnSource::Field),
     ];
     (any::<String>(), source).prop_map(|(header, source)| Column { header, source })
@@ -505,17 +591,19 @@ prop_compose! {
         outputs in prop::array::uniform4(any::<bool>()),
         destination in prop::option::of(stem("d")),
     ) -> (ProjectFabPreset, OutputJob) {
-        let [clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance] = lengths;
-        let rules = Rules { clearance, track_width, via_diameter, via_hole, annular_ring, hole_to_hole, edge_clearance };
-        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Protel };
-        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, gerber, bom, cpl });
+        let rules = fab_rules(lengths);
+        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Classic, ..Default::default() };
+        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, stackup: Default::default(), stackup_suggestions: Default::default(), zip_assembly: false, gerber, bom: reda_engine::model::BomSettings { columns: bom, ..Default::default() }, cpl: reda_engine::model::CplSettings { columns: cpl, ..Default::default() } });
         let [gerber, drill, bom, cpl] = outputs;
         let job = OutputJob {
             uuid: job,
             name: job_name,
             pcb,
             fab_preset: preset,
-            outputs: Outputs { gerber, drill, bom, cpl },
+            outputs: Outputs { gerber, drill, bom, cpl, ..Outputs::ALL },
+            name_template: reda_model::NameTemplate::default(),
+            not_fitted_paste: Default::default(),
+            schematic_pdf_colour: Default::default(),
             destination,
         };
         (copy, job)
@@ -524,7 +612,7 @@ prop_compose! {
 
 const SYMBOL: &str = r#"{"format":1,"symbol":{"uuid":"a0000000-0000-4000-8000-000000000010","name":"R","designator_prefix":"R"},"units":[{"uuid":"a0000000-0000-4000-8000-000000000011","name":"A"}],"pins":[{"uuid":"a0000000-0000-4000-8000-000000000012","unit":"a0000000-0000-4000-8000-000000000011","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000}]}"#;
 const FOOTPRINT: &str = r#"{"format":1,"footprint":{"uuid":"a0000000-0000-4000-8000-000000000040","name":"R_0603"},"pads":[{"uuid":"a0000000-0000-4000-8000-000000000041","number":"1","kind":"smd","shape":"rect","at":{"x":-800000,"y":0},"rotation":0,"width":800000,"height":950000}]}"#;
-const PART: &str = r#"{"format":1,"part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040"],"fields":{"value":"10k"},"pin_map":{"unconnected":["2"]}}"#;
+const PART: &str = r#"{"format":1,"part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040"],"fields":{"value":"10k"},"pin_map":{"unconnected":["2"]}}"#;
 
 /// What a Schematic Sheet holds besides its entry: an optional frame and an optional
 /// placed Component. Its UUIDs are `base`, `base + 1`, …
@@ -539,9 +627,9 @@ struct SheetSeed {
 prop_compose! {
     fn sheet_seed()(
         base in any::<u128>(),
-        size in prop::option::of(0usize..3),
+        size in prop::option::of(0usize..4),
         component in prop::option::of(
-            (any::<String>(), any::<String>(), length(), length(), any::<bool>())
+            (stored_text(), any::<String>(), length(), length(), any::<bool>())
         ),
         drawing in prop::option::of((any::<String>(), length(), length(), length())),
     ) -> SheetSeed {
@@ -553,11 +641,26 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
     let id = |k: u128| Uuid::v4_from_bits(seed.base.wrapping_add(k));
     let mut objects = vec![];
     if let Some(size) = seed.size {
-        let size = [SheetSize::A4, SheetSize::Letter, SheetSize::A0][size];
-        objects.push(Object::SheetFrame(InDocument::new(
-            sheet,
-            SheetFrame { uuid: id(0), size },
-        )));
+        let mut frame = SheetFrame::defaults(id(0));
+        match size {
+            0 => frame.size = FrameSize::Standard(SheetSize::A4),
+            1 => {
+                frame.size = FrameSize::Standard(SheetSize::Letter);
+                frame.orientation = Orientation::Portrait;
+                frame.border_zones = false;
+            }
+            2 => frame.size = FrameSize::Standard(SheetSize::A0),
+            _ => {
+                frame.size = FrameSize::Custom {
+                    width: Nm(123_456_789),
+                    height: Nm(98_765_432),
+                };
+                frame.title_block = false;
+                frame.drawing_number = "DWG-1\u{e9}".into();
+                frame.revision = "C".into();
+            }
+        }
+        objects.push(Object::SheetFrame(InDocument::new(sheet, frame)));
     }
     if let Some((value, designator, x, y, mirror)) = seed.component {
         let path = Path::new("x");
@@ -568,6 +671,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
         let copy = FootprintCopy {
             uuid: id(1),
             hash: "f".repeat(32),
+            edited_from: None,
             footprint,
         };
         let entry = PartEntry {
@@ -590,11 +694,27 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             fields: entry.part.fields.clone(),
             footprint: entry.part.footprints.first().copied(),
             component_type: ComponentType::Standard,
+            in_bom: !mirror,
+            in_cpl: mirror,
             not_fitted: mirror,
             visible_fields: if mirror {
                 ["designator".to_owned(), "LCSC".to_owned()].into()
             } else {
                 UnitInstance::default_visible_fields()
+            },
+            field_text: if mirror {
+                vec![reda_engine::model::FieldText {
+                    field: "value".to_owned(),
+                    offset: Point::new(y, x),
+                    size: Some(Nm(1_524_000)),
+                }]
+            } else {
+                Default::default()
+            },
+            locked_fields: if mirror {
+                ["LCSC".to_owned()].into()
+            } else {
+                Default::default()
             },
         };
         objects.push(Object::FootprintCopy(InDocument::new(sheet, copy)));
@@ -604,6 +724,8 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
     if let Some((name, x, y, len)) = seed.drawing {
         let from = Point::new(x, y);
         let to = Point::new(x, y + Nm(len.0.abs() + 1));
+        // Net names refuse `[ ] { } , ..` and control characters.
+        let name = reda_model::net_name::sanitize(&name);
         let name = if name.trim().is_empty() {
             "N".into()
         } else {
@@ -613,8 +735,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
             sheet,
             Wire {
                 uuid: id(5),
-                from,
-                to,
+                vertices: vec![from, to],
             },
         )));
         objects.push(Object::NetLabel(InDocument::new(
@@ -641,6 +762,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 direction: PortDirection::In,
                 at: to,
                 rotation: Millideg(90_000),
+                hide_cross_reference: len.0 % 2 == 0,
             },
         )));
         objects.push(Object::PowerPort(InDocument::new(
@@ -651,6 +773,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 style: PowerPortStyle::Ground,
                 at: from,
                 rotation: Millideg(0),
+                hide_name: len.0 % 2 != 0,
             },
         )));
         objects.push(Object::SheetText(InDocument::new(
@@ -661,6 +784,11 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                 at: to,
                 height: Nm(len.0.abs() + 1),
                 rotation: Millideg(90_000),
+                justify: if len.0 % 2 == 0 {
+                    Justify::TopRight
+                } else {
+                    Justify::default()
+                },
             },
         )));
         objects.push(Object::SheetGraphic(InDocument::new(
@@ -694,7 +822,9 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                     o.sort();
                     o
                 },
-                comment: if len.0 % 2 == 0 {
+                author: "Ada".into(),
+                created: 1_767_225_600_000,
+                reason: if len.0 % 2 == 0 {
                     String::new()
                 } else {
                     format!("{name} \"ok\"")
@@ -713,8 +843,7 @@ prop_compose! {
         pcb in prop::option::of(pcb_seed()),
         libraries in prop::collection::vec(any::<String>(), 0..3),
         settings in prop::option::of(settings()),
-        properties in prop::collection::vec(any::<String>(), 6),
-        board_thickness in prop::option::of(1i64..10_000_000),
+        properties in prop::collection::vec(stored_text(), 5),
         erc in prop::collection::vec((0..ErcCheck::ALL.len(), 0..3u8), 0..4),
     ) -> Project {
         let mut severities = ErcSeverities::DEFAULT;
@@ -722,13 +851,10 @@ prop_compose! {
             let severity = [Severity::Error, Severity::Warning, Severity::Off][severity as usize];
             severities.set(ErcCheck::ALL[check], severity);
         }
-        let [title, revision, date, author, company, copper_weight] =
-            <[String; 6]>::try_from(properties).unwrap();
-        let board_thickness = board_thickness.map(Nm);
-        let properties = ProjectProperties {
-            title, revision, date, author, company, board_thickness, copper_weight,
-        };
-        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities });
+        let [title, revision, date, author, company] =
+            <[String; 5]>::try_from(properties).unwrap();
+        let properties = ProjectProperties { title, revision, date, author, company };
+        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities, schematic: Default::default(), reannotate: None, library_update: None });
         let mut tx = project.transaction();
         let mut order = vec![];
         let mut names = std::collections::BTreeSet::new();
@@ -847,6 +973,41 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         libraries: vec![],
         properties: Default::default(),
         erc: Default::default(),
+        schematic: Default::default(),
+        reannotate: None,
+        library_update: None,
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
+}
+
+/// Fab Preset rules from seven lengths: the flat limits, reused for the hole range and the
+/// preferred seeds.
+fn fab_rules(lengths: [Nm; 7]) -> FabRules {
+    let [
+        clearance,
+        track_width,
+        via_diameter,
+        via_hole,
+        annular_ring,
+        hole_to_hole,
+        edge_clearance,
+    ] = lengths;
+    FabRules {
+        mask_expansion: Default::default(),
+        paste_expansion: Default::default(),
+        clearance,
+        track_width,
+        via_diameter,
+        via_hole,
+        hole_min: annular_ring,
+        hole_max: hole_to_hole,
+        annular_ring,
+        hole_to_hole,
+        edge_clearance,
+        preferred: PreferredSeeds {
+            track_width,
+            via_diameter,
+            via_hole,
+        },
+    }
 }

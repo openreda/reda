@@ -15,7 +15,7 @@ fn mm(x: i64, y: i64) -> Point {
 }
 
 fn designator(engine: &TestEngine, uuid: reda_model::Uuid) -> reda_model::FootprintText {
-    placed_designator(pcb(engine), footprint(engine, uuid)).unwrap()
+    placed_designator(pcb(engine), footprint(engine, uuid), &Default::default()).unwrap()
 }
 
 #[test]
@@ -43,9 +43,9 @@ fn the_designator_text_moves_and_turns_in_board_coordinates() {
     assert_eq!(text.rotation, Millideg::ZERO);
     assert_eq!(text.layer, FootprintLayer::SilkscreenTop);
     // Stored in the Footprint's own frame, so it follows the Footprint.
-    let stored = footprint(&engine, r1).designator_text.unwrap();
-    assert_eq!(stored.at, Point::new(Nm(0), Nm::from_mm(-2)));
-    assert_eq!(stored.rotation, Millideg::from_deg(270));
+    let stored = footprint(&engine, r1).text_overrides[0].clone();
+    assert_eq!(stored.at, Some(Point::new(Nm(0), Nm::from_mm(-2))));
+    assert_eq!(stored.rotation, Some(Millideg::from_deg(270)));
 
     engine.run_ok(
         "pcb.move",
@@ -66,7 +66,7 @@ fn the_designator_text_can_be_resized_hidden_and_reset() {
         json!({"footprint": r1, "size": "0.8mm", "visible": false}),
     );
     let text = designator(&engine, r1);
-    assert_eq!(text.size, Nm::from_um(800));
+    assert_eq!(text.style.height, Nm::from_um(800));
     assert!(!text.visible);
     assert_eq!(text.at, original.at);
 
@@ -74,7 +74,7 @@ fn the_designator_text_can_be_resized_hidden_and_reset() {
         "pcb.designator_text.set",
         json!({"footprint": r1, "reset": true}),
     );
-    assert_eq!(footprint(&engine, r1).designator_text, None);
+    assert!(footprint(&engine, r1).text_overrides.is_empty());
     assert_eq!(designator(&engine, r1), original);
 }
 

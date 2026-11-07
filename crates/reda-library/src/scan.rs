@@ -12,7 +12,17 @@ pub const LIBRARY_EXTENSION: &str = "redalib";
 
 /// The kinds of element a Library holds, each in its own sub-folder.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, JsonSchema,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ElementKind {
@@ -83,7 +93,10 @@ impl LibraryRoot {
     }
 }
 
-/// Scans every root in order and indexes what it finds.
+/// Scans every root in resolution order and indexes what it finds: Project Libraries,
+/// then user Libraries, then the Starter Library, each group in the order given. When two
+/// Libraries hold the same UUID, the first in that order wins, so a Project Library can
+/// deliberately hold its own copy of an element.
 ///
 /// A folder with no `.redalib` (or several), an unreadable file, a second Library with
 /// the same UUID and an element whose UUID was already found are each reported as a
@@ -91,6 +104,8 @@ impl LibraryRoot {
 /// first of two clashing elements is predictable.
 pub fn scan(roots: &[LibraryRoot], files: &mut dyn LibraryFiles) -> LibraryIndex {
     let mut index = LibraryIndex::default();
+    let mut roots: Vec<&LibraryRoot> = roots.iter().collect();
+    roots.sort_by_key(|root| root.origin.resolution_rank());
     for root in roots {
         scan_root(root, files, &mut index);
     }

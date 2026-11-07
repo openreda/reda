@@ -69,7 +69,7 @@ fn zone_fills_are_drawn_filled_stale_or_not_at_all() {
 }
 
 #[test]
-fn keepouts_are_outlined_on_each_of_their_layers_and_the_placement_origin_is_marked() {
+fn keepouts_are_outlined_on_each_of_their_layers_and_the_output_origin_is_marked() {
     let dir = TempDir::new("pcb-keepouts");
     let mut engine = demo(&dir);
     let board = sample_board(&mut engine);
@@ -79,7 +79,7 @@ fn keepouts_are_outlined_on_each_of_their_layers_and_the_placement_origin_is_mar
     );
     let keepout = uuid(&keepout["result"]["uuid"]);
     let origin = engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "1mm", "y": "1mm"}}),
     );
     let origin = uuid(&origin["result"]["uuid"]);

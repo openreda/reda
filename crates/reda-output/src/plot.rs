@@ -8,29 +8,29 @@ mod openings;
 use reda_command::{Fonts, Timestamp};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    GerberSettings, LayerKind, PadKind, PadShape, PcbDocument, Project, Side, TrackGeometry, Uuid,
-    ZoneFills,
+    GerberSettings, LayerKind, PadKind, PcbDocument, Project, Side, TrackGeometry, Uuid, ZoneFills,
 };
 use reda_pcb::placed::{self, PlacedPad};
 
-use crate::gerber::{Gerber, NO_FUNCTION, Template, escape};
+use crate::gerber::{Gerber, MacroShape, NO_FUNCTION, Template, escape};
 
 /// The pen the Profile is drawn with.
 const PROFILE_PEN: Nm = Nm(100_000);
 
-/// What a job plots.
+/// What a job plots. All geometry writers consume the same board instances.
 pub struct Plot<'a> {
-    /// The Project, for its name, UUID and revision.
     pub project: &'a Project,
-    pub pcb: &'a PcbDocument,
-    /// The board's current Zone fills ([`reda_pcb::zone::current`]).
-    pub fills: &'a ZoneFills,
-    /// The Fab Preset's Gerber switches.
-    pub gerber: GerberSettings,
-    /// The fonts installed on this machine, for text in fonts other than the built-in ones.
+    pub instances: &'a [crate::BoardInstance<'a>],
+    pub gerber: &'a GerberSettings,
     pub fonts: &'a Fonts,
-    /// The creation time stamped into the files, from the injected `Clock`.
     pub created: Timestamp,
+}
+
+/// Per-board geometry context; the writer owns the instance transform.
+pub(crate) struct BoardPlot<'a> {
+    pub pcb: &'a PcbDocument,
+    pub fills: &'a ZoneFills,
+    pub fonts: &'a Fonts,
 }
 
 /// One written file.
@@ -43,52 +43,114 @@ pub struct OutputFile {
     pub bytes: Vec<u8>,
 }
 
-/// The Gerber files of `plot`: top and bottom copper, Solder Mask, Paste and Silkscreen,
+/// The Gerber files of `plot`: every copper Layer top to bottom, Solder Mask, Paste and Silkscreen,
 /// then the Profile.
 pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
+    let Some(first) = plot.instances.first() else {
+        return Vec::new();
+    };
     let name = &plot.project.props().name;
     let file = |extension: &str, function, bytes| OutputFile {
         name: format!("{name}.{extension}"),
         function,
         bytes,
     };
-    let copper: Vec<Uuid> = plot.pcb.copper_layers().map(|l| l.uuid).collect();
     let mut files = Vec::new();
-    if let (Some(&top), Some(&bottom)) = (copper.first(), copper.last()) {
-        files.push(file(
-            "GTL",
-            "copper_top",
-            copper_layer(plot, top, "Copper,L1,Top".into()),
-        ));
-        files.push(file(
-            "GBL",
-            "copper_bottom",
-            copper_layer(plot, bottom, format!("Copper,L{},Bot", copper.len())),
-        ));
+    let copper = first.pcb.copper_layers().count();
+    for i in 0..copper {
+        let number = i + 1;
+        let (extension, function, attribute) = match i {
+            0 => ("GTL".to_owned(), "copper_top", "Top"),
+            i if i + 1 == copper => ("GBL".to_owned(), "copper_bottom", "Bot"),
+            i => (format!("G{i}"), "copper_inner", "Inr"),
+        };
+        let bytes = render(
+            plot,
+            format!("Copper,L{number},{attribute}"),
+            "Positive",
+            |board, g| {
+                if let Some(layer) = board.pcb.copper_layers().nth(i) {
+                    copper_layer(board, layer.uuid, g);
+                }
+            },
+        );
+        files.push(file(&extension, function, bytes));
     }
     for (extension, function, side) in [
         ("GTS", "solder_mask_top", Side::Top),
         ("GBS", "solder_mask_bottom", Side::Bottom),
     ] {
-        files.push(file(extension, function, openings::mask(plot, side)));
+        let bytes = render(
+            plot,
+            format!("Soldermask,{}", openings::side_name(side)),
+            "Negative",
+            |board, g| openings::mask(board, side, g),
+        );
+        files.push(file(extension, function, bytes));
     }
     for (extension, function, side) in [
         ("GTP", "paste_top", Side::Top),
         ("GBP", "paste_bottom", Side::Bottom),
     ] {
-        files.push(file(extension, function, openings::paste(plot, side)));
+        let bytes = render(
+            plot,
+            format!("Paste,{}", openings::side_name(side)),
+            "Positive",
+            |board, g| openings::paste(board, side, g),
+        );
+        files.push(file(extension, function, bytes));
     }
     for (extension, function, side) in [
         ("GTO", "silkscreen_top", Side::Top),
         ("GBO", "silkscreen_bottom", Side::Bottom),
     ] {
-        if let Some(layer) = plot.pcb.layers().find(LayerKind::Silkscreen, Some(side)) {
-            let bytes = artwork::silkscreen(plot, layer.uuid, side);
+        if first
+            .pcb
+            .layers()
+            .find(LayerKind::Silkscreen, Some(side))
+            .is_some()
+        {
+            let bytes = render(
+                plot,
+                format!("Legend,{}", openings::side_name(side)),
+                "Positive",
+                |board, g| {
+                    if let Some(layer) = board.pcb.layers().find(LayerKind::Silkscreen, Some(side))
+                    {
+                        artwork::silkscreen(board, layer.uuid, side, g);
+                    }
+                },
+            );
             files.push(file(extension, function, bytes));
         }
     }
-    files.push(file("GKO", "profile", profile(plot)));
+    files.push(file(
+        "GKO",
+        "profile",
+        render(plot, "Profile,NP".into(), "Positive", profile),
+    ));
     files
+}
+
+fn render(
+    plot: &Plot<'_>,
+    function: String,
+    polarity: &str,
+    draw: impl Fn(&BoardPlot<'_>, &mut Gerber),
+) -> Vec<u8> {
+    let mut g = Gerber::new(plot.gerber.x2_attributes);
+    for instance in plot.instances {
+        g.set_transform(instance.transform);
+        draw(
+            &BoardPlot {
+                pcb: instance.pcb,
+                fills: instance.fills,
+                fonts: plot.fonts,
+            },
+            &mut g,
+        );
+    }
+    g.finish(&file_attributes_with(plot, function, polarity))
 }
 
 /// The file attributes of a positive image: what every file starts with, then `function`
@@ -120,7 +182,10 @@ fn file_attributes_with(
                 escape(revision)
             ),
         ),
-        (".SameCoordinates", plot.pcb.uuid.to_string()),
+        (
+            ".SameCoordinates",
+            crate::instance::coordinates_id(plot.instances).to_string(),
+        ),
         (".FileFunction", function),
         (".FilePolarity", polarity.into()),
     ]
@@ -156,10 +221,8 @@ fn twice_area(ring: &[Point]) -> i128 {
         .sum()
 }
 
-fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
+fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
     let pcb = plot.pcb;
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
-
     // Zone fills first, biggest outline first, each shape's holes cleared right after it:
     // copper inside a hole is smaller than the hole, so it is drawn after the clearing.
     let mut shapes: Vec<(i128, Option<String>, &reda_model::FillShape)> = Vec::new();
@@ -225,7 +288,7 @@ fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
                 let net = net_name(pcb, pad.net);
                 let mut attrs = vec![(".P", pin.as_str())];
                 attrs.extend(net_attribute(&net));
-                flash_pad(&mut g, &pad, &attrs);
+                flash_pad(g, &pad, &attrs);
             }
         }
     }
@@ -233,40 +296,47 @@ fn copper_layer(plot: &Plot<'_>, layer: Uuid, function: String) -> Vec<u8> {
         let pad = placed::placed_free_pad(free);
         if on_layer(&pad) {
             let net = net_name(pcb, pad.net);
-            flash_pad(&mut g, &pad, &net_attribute(&net));
+            flash_pad(g, &pad, &net_attribute(&net));
         }
     }
 
     // Copper text and drawing carry no current.
-    artwork::draw_layer(&mut g, plot, layer, "NonConductor");
-
-    g.finish(&file_attributes(plot, function))
+    artwork::draw_layer(g, plot, layer, "NonConductor");
 }
 
-/// The aperture of a Pad: a standard one when the turn allows, otherwise a macro.
-fn pad_template(pad: &PlacedPad) -> Template {
+/// The aperture of a Pad and where it is flashed: a standard aperture at the copper's
+/// centre when the turn allows, a fixed macro when the corners are all alike, and
+/// otherwise one generated macro flashed at the anchor.
+fn pad_template(pad: &PlacedPad) -> (Template, Point) {
+    let o = &pad.outline;
     let rot = Millideg(pad.rotation.0.rem_euclid(360_000));
     let quarter = rot.0 % 90_000 == 0;
-    let (w, h) = if rot.0 % 180_000 == 0 {
-        (pad.width, pad.height)
-    } else {
-        (pad.height, pad.width)
+    let (w, h) = (o.width, o.height);
+    let (tw, th) = if rot.0 % 180_000 == 0 { (w, h) } else { (h, w) };
+    let centre = pad.copper_center();
+    let Some(radius) = o.uniform_radius() else {
+        let shape = MacroShape {
+            outline: o.contour().iter().map(|v| v.point()).collect(),
+            discs: o
+                .round_corners()
+                .into_iter()
+                .map(|(c, r)| (c, Nm(2 * r.0)))
+                .collect(),
+            rotation: rot,
+        };
+        return (Template::Shape(shape), pad.at);
     };
-    let radius = pad.corner_radius.unwrap_or(Nm::ZERO);
-    match pad.shape {
-        PadShape::Circle => Template::Circle(pad.width),
-        PadShape::Oval if pad.width == pad.height => Template::Circle(pad.width),
-        PadShape::Rect if quarter => Template::Rect(w, h),
-        PadShape::RoundedRect if quarter && radius == Nm::ZERO => Template::Rect(w, h),
-        PadShape::Oval if quarter => Template::Oval(w, h),
-        PadShape::Rect => Template::RotRect(pad.width, pad.height, rot),
-        PadShape::RoundedRect if radius == Nm::ZERO => {
-            Template::RotRect(pad.width, pad.height, rot)
-        }
-        PadShape::RoundedRect => Template::RoundRect(pad.width, pad.height, radius, rot),
-        PadShape::Oval if pad.width > pad.height => Template::RotOval(pad.width, pad.height, rot),
-        PadShape::Oval => Template::RotOval(pad.height, pad.width, Millideg(rot.0 + 90_000)),
-    }
+    let oval = radius == Nm(w.0.min(h.0) / 2);
+    let template = match () {
+        _ if o.is_circle() => Template::Circle(w),
+        _ if radius == Nm::ZERO && quarter => Template::Rect(tw, th),
+        _ if radius == Nm::ZERO => Template::RotRect(w, h, rot),
+        _ if oval && quarter => Template::Oval(tw, th),
+        _ if oval && w > h => Template::RotOval(w, h, rot),
+        _ if oval => Template::RotOval(h, w, Millideg(rot.0 + 90_000)),
+        _ => Template::RoundRect(w, h, radius, rot),
+    };
+    (template, centre)
 }
 
 fn flash_pad(g: &mut Gerber, pad: &PlacedPad, attrs: &[(&str, &str)]) {
@@ -276,13 +346,13 @@ fn flash_pad(g: &mut Gerber, pad: &PlacedPad, attrs: &[(&str, &str)]) {
         // Only the Solder Mask opens over a non-plated hole; no pad function fits it.
         PadKind::NonPlated => NO_FUNCTION,
     };
-    g.flash(pad_template(pad), function, pad.at, attrs);
+    let (template, at) = pad_template(pad);
+    g.flash(template, function, at, attrs);
 }
 
 /// The Board Outline and the Board Cutouts drawn with a thin pen.
-fn profile(plot: &Plot<'_>) -> Vec<u8> {
+fn profile(plot: &BoardPlot<'_>, g: &mut Gerber) {
     let pcb = plot.pcb;
-    let mut g = Gerber::new(plot.gerber.x2_attributes);
     let contours = pcb
         .outline()
         .map(|o| &o.vertices)
@@ -301,5 +371,4 @@ fn profile(plot: &Plot<'_>) -> Vec<u8> {
             );
         }
     }
-    g.finish(&file_attributes(plot, "Profile,NP".into()))
 }

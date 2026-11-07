@@ -1,7 +1,7 @@
 //! The Board Outline, Board Cutouts, design rules and DRC severities, through Commands.
 
 use reda_model::geom::{Millideg, Nm, Point, Vertex};
-use reda_model::{DrcCheck, PcbDocument, Severity};
+use reda_model::{DrcCheck, PcbDocument, RuleKind, Severity};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::json;
 
@@ -177,28 +177,49 @@ fn board_cutouts_are_separate_objects() {
     assert_eq!(err.code, reda_command::ErrorCode::NotFound);
 }
 
+fn board_value(engine: &TestEngine, kind: RuleKind) -> Option<Nm> {
+    let values = pcb(engine).board_rule(kind).values;
+    values.value.or(values.min)
+}
+
 #[test]
-fn board_wide_rules_change_one_at_a_time() {
+fn board_wide_rules_change_one_record_at_a_time() {
     let dir = TempDir::new("rules");
     let mut engine = engine_with_pcb(&dir);
     let out = engine.run_ok(
         "pcb.rules.set",
-        json!({"clearance": "0.1mm", "edge_clearance": "8mil"}),
+        json!({"kind": "clearance", "values": {"value": "0.1mm"}}),
     );
-    assert_eq!(out["result"]["clearance"], 100_000);
-    let rules = pcb(&engine).setup().rules;
-    assert_eq!(rules.clearance, Nm::from_um(100));
-    assert_eq!(rules.edge_clearance, Nm::from_mil(8));
-    assert_eq!(rules.track_width, Nm::from_um(200), "unchanged");
+    assert_eq!(out["result"]["rule"]["values"]["value"], 100_000);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "edge_clearance", "values": {"value": "8mil"}}),
+    );
+    assert_eq!(
+        board_value(&engine, RuleKind::Clearance),
+        Some(Nm::from_um(100))
+    );
+    assert_eq!(
+        board_value(&engine, RuleKind::EdgeClearance),
+        Some(Nm::from_mil(8))
+    );
+    assert_eq!(
+        board_value(&engine, RuleKind::TrackWidth),
+        Some(Nm::from_um(200)),
+        "unchanged"
+    );
 }
 
 #[test]
 fn a_negative_rule_is_refused_with_its_pointer() {
     let dir = TempDir::new("rules-negative");
     let mut engine = engine_with_pcb(&dir);
-    let err = engine.run_err("pcb.rules.set", json!({"track_width": "-0.1mm"}));
+    let err = engine.run_err(
+        "pcb.rules.set",
+        json!({"kind": "track_width", "values": {"min": "-0.1mm"}}),
+    );
     assert_eq!(err.code, reda_command::ErrorCode::InvalidParams);
-    assert_eq!(err.details.as_ref().unwrap()["pointer"], "/track_width");
+    assert_eq!(err.details.as_ref().unwrap()["pointer"], "/values/min");
 }
 
 #[test]
@@ -229,9 +250,15 @@ fn board_setup_edits_undo_on_the_pcb_stack() {
     let dir = TempDir::new("setup-undo");
     let mut engine = engine_with_pcb(&dir);
     let document = pcb(&engine).uuid;
-    engine.run_ok("pcb.rules.set", json!({"clearance": "0.3mm"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"value": "0.3mm"}}),
+    );
     engine.run_ok("edit.undo", json!({"document": document}));
-    assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(160));
+    assert_eq!(
+        board_value(&engine, RuleKind::Clearance),
+        Some(Nm::from_um(160))
+    );
 }
 
 #[test]
@@ -242,22 +269,37 @@ fn fab_preset_rules_are_previewed_then_reseed_the_board() {
         "project.new",
         json!({"path": dir.path(), "name": "Demo", "fab_preset": "PCBWay"}),
     );
-    engine.run_ok("pcb.rules.set", json!({"clearance": "0.3mm"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"value": "0.3mm"}}),
+    );
     let preset = engine.project().unwrap().fab_presets().next().unwrap().uuid;
 
     let preview = engine.run_ok("pcb.rules.fab_preset_diff", json!({"preset": preset}));
     assert_eq!(
         preview,
-        json!({"changes": [{"rule": "clearance", "board": 300000, "preset": 100000}]})
+        json!({"changes": [
+            {"kind": "clearance", "field": "value", "board": 300000, "preset": 100000,
+             "limit": true, "ticked": true}
+        ], "class_problems": []})
     );
-    assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(300));
+    assert_eq!(
+        board_value(&engine, RuleKind::Clearance),
+        Some(Nm::from_um(300))
+    );
 
     let out = engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset": preset}));
     assert_eq!(out["result"]["changes"], preview["changes"]);
-    assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(100));
+    assert_eq!(
+        board_value(&engine, RuleKind::Clearance),
+        Some(Nm::from_um(100))
+    );
     let document = pcb(&engine).uuid;
     engine.run_ok("edit.undo", json!({"document": document}));
-    assert_eq!(pcb(&engine).setup().rules.clearance, Nm::from_um(300));
+    assert_eq!(
+        board_value(&engine, RuleKind::Clearance),
+        Some(Nm::from_um(300))
+    );
 
     let err = engine.run_err(
         "pcb.rules.apply_fab_preset",

@@ -6,10 +6,13 @@
 
 use reda_command::CommandError;
 use reda_model::geom::{Nm, Point};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-use super::gull_wing::keep_body_middle_clear;
+use super::gull_wing::{body_trim_warning, trim_to_body};
 use super::ipc::{self, Termination, Tol};
-use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_WIDTH, clip_silkscreen, rectangle};
+use super::pattern::{Body, FootprintPlan, PadSpec, Resolved, clip_silkscreen, rectangle};
+use super::sections::{Smd, SmdResolved};
 
 /// A four-sided package's dimensions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,6 +35,22 @@ pub struct Quad {
     pub lead_width: Tol,
     /// The length of the lead's foot or terminal (L).
     pub lead_length: Tol,
+    /// The greatest height (A).
+    pub height: Nm,
+    /// Where pin 1 is.
+    pub pin1: Pin1Location,
+}
+
+/// Where a four-sided package's pin 1 is; the numbering runs counter-clockwise from it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Pin1Location {
+    /// At the top of the left side, the IPC-7351 zero orientation.
+    #[default]
+    Corner,
+    /// In the middle of the top side (left of the middle on an even count), as on a
+    /// PLCC.
+    TopCentre,
 }
 
 /// Centres of `n` leads at `pitch`, symmetric about zero, in increasing order.
@@ -39,27 +58,46 @@ fn centres(n: usize, pitch: Nm) -> impl DoubleEndedIterator<Item = Nm> {
     (0..n).map(move |i| Nm((2 * i as i64 - (n as i64 - 1)) * pitch.0 / 2))
 }
 
-/// The Footprint of a four-sided package terminated as `termination`. Silkscreen
+/// The Footprint of a four-sided package terminated as `termination`, with the sections `smd`. Silkscreen
 /// marks the body's corners where they clear the copper, all but the upper-left one,
 /// whose absence marks pin 1.
 pub fn plan(
     q: &Quad,
     termination: Termination,
+    smd: Smd<'_>,
     name: String,
     description: String,
 ) -> Result<FootprintPlan, CommandError> {
-    let goals = termination.goals(q.pitch);
-    let span = |tips: Tol, body: Tol| {
+    let table = termination.goals(q.pitch, smd.goals.density);
+    let goals = smd.goals(table);
+    let goals_y = smd.goals_y(table);
+    // Each span before and after its heels were trimmed back to keep out from under the
+    // body, and how far.
+    type Trimmed = (ipc::Span, ipc::Span, Option<Nm>);
+    let span = |tips: Tol, body: Tol, along_y: bool| -> Result<Trimmed, CommandError> {
+        let goals = if along_y { goals_y } else { goals };
         let span = ipc::span(tips, q.lead_length, goals)
             .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
-        match termination {
-            Termination::GullWing => keep_body_middle_clear(span, body.max),
-            Termination::NoLead => Ok(span),
+        let span = smd.span(span, along_y)?;
+        if termination == Termination::NoLead || !smd.pads.trim {
+            return Ok((span, span, None));
         }
+        Ok(match trim_to_body(span, body.max, goals.place)? {
+            Some(trimmed) => (
+                span,
+                trimmed,
+                Some(Nm((trimmed.inner.0 - span.inner.0) / 2)),
+            ),
+            None => (span, span, None),
+        })
     };
-    let (sx, sy) = (span(q.span_x, q.body_x)?, span(q.span_y, q.body_y)?);
+    let ((ix, sx, trim_x), (iy, sy, trim_y)) = (
+        span(q.span_x, q.body_x, false)?,
+        span(q.span_y, q.body_y, true)?,
+    );
+    let (cl, cs) = ipc::tolerances(q.span_x, q.lead_length, goals);
     let (ox, oy) = (sx.pad_offset().0, sy.pad_offset().0);
-    let x = ipc::pad_width(q.lead_width, goals);
+    let x = smd.pad_width(ipc::pad_width(q.lead_width, goals));
     let reach = |n: usize| Nm((n as i64 - 1) * q.pitch.0 / 2 + x.0 / 2);
     if reach(q.rows).0 * 2 >= sy.inner.0 || reach(q.columns).0 * 2 >= sx.inner.0 {
         return Err(CommandError::invalid_params(
@@ -86,12 +124,49 @@ pub fn plan(
     for x_at in centres(q.columns, q.pitch).rev() {
         add(p(x_at.0, oy), x, sy.pad_length());
     }
+    let mut warnings = vec![];
+    // Pads 1..rows and the third side run along x; the other two sides along y.
+    let numbers = |sides: [usize; 2]| -> Vec<String> {
+        let (r, c) = (q.rows, q.columns);
+        let starts = [0, r, r + c, 2 * r + c];
+        let lengths = [r, c, r, c];
+        sides
+            .iter()
+            .flat_map(|&s| (starts[s]..starts[s] + lengths[s]).map(|i| (i + 1).to_string()))
+            .collect()
+    };
+    if let Some(by) = trim_x {
+        warnings.push(body_trim_warning(numbers([0, 2]), by));
+    }
+    if let Some(by) = trim_y {
+        warnings.push(body_trim_warning(numbers([1, 3]), by));
+    }
+    if q.pin1 == Pin1Location::TopCentre {
+        // Position k, counted from the corner, takes the number counted from the middle
+        // of the top side, which starts at 2·rows + columns + columns / 2.
+        let count = pad_specs.len();
+        let start = 2 * q.rows + q.columns + q.columns / 2;
+        let renumber = |number: &str| -> String {
+            let k = number.parse::<usize>().expect("numbered by position") - 1;
+            ((k + count - start) % count + 1).to_string()
+        };
+        for spec in &mut pad_specs {
+            spec.number = renumber(&spec.number);
+        }
+        for warning in &mut warnings {
+            for number in &mut warning.pads {
+                *number = renumber(number);
+            }
+        }
+    }
+    let finish = smd.finish();
+    let silk = finish.silkscreen_width;
     let corner = p(
-        q.body_x.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2,
-        q.body_y.max.0 / 2 + SILKSCREEN_WIDTH.0 / 2,
+        q.body_x.max.0 / 2 + silk.0 / 2,
+        q.body_y.max.0 / 2 + silk.0 / 2,
     );
     let pin_1 = p(-corner.x.0, corner.y.0);
-    let silkscreen = clip_silkscreen(&rectangle(corner.x, corner.y), &pad_specs)
+    let silkscreen = clip_silkscreen(&rectangle(corner.x, corner.y), &pad_specs, silk)
         .into_iter()
         .filter(|(start, end)| *start != pin_1 && *end != pin_1)
         .collect();
@@ -102,9 +177,20 @@ pub fn plan(
         body: Body {
             nominal: (q.body_x.nominal(), q.body_y.nominal()),
             max: (q.body_x.max, q.body_y.max),
-            polarised: true,
+            chamfered: true,
         },
         silkscreen,
         courtyard_excess: goals.courtyard,
+        height: Some(q.height),
+        warnings,
+        finish,
+        resolved: Resolved::Smd(SmdResolved {
+            goals,
+            tolerances: (cl, cs, ipc::width_tolerance(q.lead_width, goals)),
+            span: ix,
+            y: Some((ipc::tolerances(q.span_y, q.lead_length, goals_y), iy)),
+            pad_width: x,
+            exposed_pad: None,
+        }),
     })
 }

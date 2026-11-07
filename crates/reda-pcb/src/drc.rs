@@ -12,13 +12,16 @@
 
 mod connections;
 mod copper;
+mod details;
 mod edge;
 mod holes;
 mod placement;
 mod silkscreen;
 
 use reda_command::Fonts;
-use reda_model::{DrcCheck, DrcSeverities, PcbDocument, Severity, Uuid, Violation, ZoneFills};
+use reda_model::{
+    DrcCheck, DrcSeverities, LayerKind, PcbDocument, Severity, Uuid, Violation, ZoneFills,
+};
 
 use crate::Copper;
 use crate::copper::Item;
@@ -43,9 +46,82 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
     placement::check(&board, &mut report);
     silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
+    rule_invalid(pcb, &mut report);
+    for opening in crate::openings::resolve(pcb)
+        .into_iter()
+        .filter(|o| o.geometry.is_none())
+    {
+        report.add(DrcCheck::OpeningCollapsed, |v| {
+            v.objects(opening.objects)
+                .located(pcb.uuid, opening.at)
+                .on_layers(
+                    pcb.layers()
+                        .find(
+                            match opening.kind {
+                                crate::openings::Kind::Mask => LayerKind::SolderMask,
+                                crate::openings::Kind::Paste => LayerKind::Paste,
+                            },
+                            Some(opening.side),
+                        )
+                        .map(|layer| layer.uuid),
+                )
+                .arg(
+                    "kind",
+                    match opening.kind {
+                        crate::openings::Kind::Mask => "mask",
+                        crate::openings::Kind::Paste => "paste",
+                    },
+                )
+                .arg(
+                    "side",
+                    match opening.side {
+                        reda_model::Side::Top => "top",
+                        reda_model::Side::Bottom => "bottom",
+                    },
+                )
+        });
+    }
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
-    found.into_iter().map(|(_, v)| v).collect()
+    found
+        .into_iter()
+        .map(|(_, mut v)| {
+            details::complete(&board, &mut v);
+            v
+        })
+        .collect()
+}
+
+/// One `rule_invalid` per rule record with a blocking problem: its first, with the
+/// arguments `rule` (the kind), `value`, `problem` and, for a class record, `net_class`.
+/// Its objects are the class, if any, then the record.
+fn rule_invalid(pcb: &PcbDocument, report: &mut Report) {
+    let mut seen = Vec::new();
+    for problem in crate::rules::validation::problems(pcb) {
+        if seen.contains(&problem.rule) {
+            continue;
+        }
+        seen.push(problem.rule);
+        let class = problem.net_class.and_then(|c| pcb.net_class(c));
+        report.add(DrcCheck::RuleInvalid, |mut v| {
+            v = v
+                .with_rule(problem.rule)
+                .arg("rule", problem.kind.id())
+                .arg("value", problem.value.as_str())
+                .arg(
+                    "problem",
+                    match problem.problem {
+                        crate::rules::ProblemKind::Negative => "negative",
+                        crate::rules::ProblemKind::MinAboveMax => "min_above_max",
+                        crate::rules::ProblemKind::PreferredOutside => "preferred_outside",
+                    },
+                );
+            if let Some(class) = class {
+                v = v.arg("net_class", class.name.as_str()).object(class.uuid);
+            }
+            v.object(problem.rule)
+        });
+    }
 }
 
 /// The fingerprint of everything DRC reads: the PCB Document, its rules, severities and

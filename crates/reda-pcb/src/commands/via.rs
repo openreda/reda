@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::outline::PointParam;
 use super::track::existing_net;
 use super::{needs_pcb, pcb, positive};
-use crate::net_rules::net_rules;
+use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(ViaAdd);
@@ -39,6 +39,7 @@ pub struct ViaAdd;
 pub struct ViaAddParams {
     /// The centre.
     pub at: PointParam,
+    pub mask: Option<reda_command::MaskParam>,
     /// The Net's UUID. Left out, the Via takes the Net of the copper under its centre on
     /// any copper Layer, or else no Net.
     #[serde(default)]
@@ -94,10 +95,12 @@ impl Command for ViaAdd {
         let rules = net_rules(pcb, net);
         let diameter = p
             .diameter
-            .map_or(Ok(rules.via_diameter), |d| positive("/diameter", d))?;
+            .map_or(Ok(rules.via_diameter.default_size()), |d| {
+                positive("/diameter", d)
+            })?;
         let hole = p
             .hole
-            .map_or(Ok(rules.via_hole), |h| positive("/hole", h))?;
+            .map_or(Ok(rules.via_hole.default_size()), |h| positive("/hole", h))?;
         if diameter <= hole {
             return Err(CommandError::invalid_params(
                 "/diameter",
@@ -112,6 +115,7 @@ impl Command for ViaAdd {
             diameter,
             hole,
             span,
+            mask: reda_command::mask(p.mask),
         };
         cx.tx()?
             .insert(Object::Via(InDocument::new(document, via)))?;

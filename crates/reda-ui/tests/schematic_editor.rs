@@ -137,7 +137,8 @@ fn wire_ends(shell: &Shell, wire: Uuid) -> ((i64, i64), (i64, i64)) {
         .unwrap();
     let w = sheet.wire(wire).unwrap();
     let mil = |p: reda_ui::engine::model::geom::Point| (p.x.0 / 25_400, p.y.0 / 25_400);
-    (mil(w.from), mil(w.to))
+    let [first, last] = w.ends();
+    (mil(first), mil(last))
 }
 
 fn wire_count(shell: &Shell) -> usize {
@@ -146,7 +147,7 @@ fn wire_count(shell: &Shell) -> usize {
 }
 
 #[test]
-fn click_selects_shift_adds_mod_toggles_and_empty_clears() {
+fn click_selects_shift_toggles_mod_replaces_and_empty_clears() {
     let dir = TempDir::new("editor-click");
     let mut shell = shell(&dir);
     let r1 = place(&mut shell, 0, 0);
@@ -159,10 +160,16 @@ fn click_selects_shift_adds_mod_toggles_and_empty_clears() {
     assert_eq!(selected(&shell), [r1]);
     click(&mut shell, at(1200.0, 2.0), Modifiers::SHIFT);
     assert_eq!(selected(&shell), [r1, w]);
-    click(&mut shell, at(0.0, 120.0), Modifiers::COMMAND);
+    click(&mut shell, at(0.0, 120.0), Modifiers::SHIFT);
     assert_eq!(selected(&shell), [w]);
-    // Clicking the same again changes nothing, so it runs nothing.
-    assert!(click(&mut shell, at(1200.0, 0.0), Modifiers::NONE).is_empty());
+    click(&mut shell, at(0.0, 120.0), Modifiers::COMMAND);
+    assert_eq!(selected(&shell), [r1]);
+    click(&mut shell, at(0.0, 120.0), Modifiers::NONE);
+    assert!(
+        selected(&shell).is_empty(),
+        "the only selected object deselects"
+    );
+    click(&mut shell, at(1200.0, 0.0), Modifiers::NONE);
     // A Shift-click on nothing keeps the selection; a plain one clears it.
     click(&mut shell, at(3000.0, 3000.0), Modifiers::SHIFT);
     assert_eq!(selected(&shell), [w]);
@@ -245,9 +252,9 @@ fn a_plain_drag_previews_then_commits_one_drag_that_keeps_connections() {
         journal_since(&shell, before),
         ["selection.set", "schematic.drag"]
     );
-    // The Wire stayed and a new one turns the corner to the moved Pin.
-    assert_eq!(wire_ends(&shell, up), ((0, 150), (0, 500)));
-    assert_eq!(wire_count(&shell), 2);
+    // The Wire's far end stayed, and it turns a corner to the moved Pin.
+    assert_eq!(wire_ends(&shell, up), ((300, 150), (0, 500)));
+    assert_eq!(wire_count(&shell), 1);
     let tab = shell.document_tab(sheet()).unwrap();
     assert_eq!(tab.interaction, Interaction::Idle);
     assert!(tab.live.moving.is_empty() && tab.overlay.wires.is_empty());

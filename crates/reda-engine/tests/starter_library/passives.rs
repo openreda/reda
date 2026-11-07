@@ -3,7 +3,8 @@
 use serde_json::{Value, json};
 
 use crate::script::{
-    PartSpec, Pin, Script, Sym, arc, bottom, circle, left, line, mil, mm, polygon, rect, right, top,
+    Kind, PartSpec, Pin, Script, Sym, arc, bottom, circle, left, line, mil, mm, polygon, rect,
+    right, top,
 };
 
 pub fn build(s: &mut Script) {
@@ -162,7 +163,7 @@ fn resistors(s: &mut Script) -> Vec<String> {
         footprints,
         fields: fields("10k", "Resistor", "R resistor"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
     chips
 }
@@ -210,7 +211,7 @@ fn capacitors(s: &mut Script) {
         footprints,
         fields: fields("100n", "Unpolarised capacitor", "C capacitor ceramic"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 
     let sym = two_pin(
@@ -230,11 +231,17 @@ fn capacitors(s: &mut Script) {
         ("CAPMP3216X180N", (3.0, 3.4), (1.4, 1.8), "1.8mm"),
         ("CAPMP3528X210N", (3.3, 3.7), (2.6, 3.0), "2.1mm"),
     ] {
+        let description = format!(
+            "Moulded polarised chip capacitor, {} metric, IPC-7351 Nominal",
+            &name[5..9]
+        );
         let fp = s.generate(
             "chip",
             json!({
                 "class": "capacitor",
                 "name": name,
+                "description": description,
+                "polarity_mark": true,
                 "dimensions": {
                     "length": {"min": mm(length.0), "max": mm(length.1)},
                     "width": {"min": mm(width.0), "max": mm(width.1)},
@@ -243,11 +250,6 @@ fn capacitors(s: &mut Script) {
                 },
             }),
         );
-        let description = format!(
-            "Moulded polarised chip capacitor, {} metric, IPC-7351 Nominal",
-            &name[5..9]
-        );
-        s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
     for (diameter, pitch, pad, drill) in [(5.0, 2.0, 1.4, 0.8), (6.3, 2.5, 1.6, 0.8)] {
@@ -295,7 +297,7 @@ fn capacitors(s: &mut Script) {
             "C capacitor polarised electrolytic tantalum",
         ),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -315,7 +317,7 @@ fn inductors(s: &mut Script) {
         footprints: footprints.clone(),
         fields: fields("10u", "Inductor", "L inductor choke"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 
     let sym = two_pin(s, "Ferrite_Bead", "FB", "Ferrite bead", 70);
@@ -338,7 +340,7 @@ fn inductors(s: &mut Script) {
         footprints: beads,
         fields: fields("600R@100MHz", "Ferrite bead", "FB ferrite bead EMI"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -358,7 +360,7 @@ fn fuse(s: &mut Script, resistor_chips: &[String]) {
         ],
         fields: fields("500mA", "Fuse", "F fuse polyfuse PTC"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -446,7 +448,7 @@ fn crystals(s: &mut Script) {
             "Y crystal quartz",
         ),
         pin_map: Some(json!({"pins": [{"pin": "2", "pads": ["3"]}], "unconnected": ["2", "4"]})),
-        mechanical: false,
+        kind: Kind::Standard,
     });
 
     // Abracon ABL series datasheet (HC49/US (AT49) crystal), Mechanical Dimensions:
@@ -484,7 +486,7 @@ fn crystals(s: &mut Script) {
         footprints: vec![hc49],
         fields: fields("16MHz", "Quartz crystal, HC-49/US", "Y crystal quartz"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -587,6 +589,6 @@ fn button(s: &mut Script) {
             "SW switch button tactile",
         ),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }

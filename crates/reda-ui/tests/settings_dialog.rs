@@ -4,7 +4,6 @@
 
 use std::path::Path;
 
-use egui::Key;
 use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
@@ -84,13 +83,15 @@ fn an_invalid_value_is_flagged_and_disables_ok_and_apply_until_fixed() {
     let mut h = harness(home.path(), work.path(), "Dlg");
     open_settings(&mut h, "Dlg");
     type_into(&mut h, "Title", "Motor driver");
-    type_into(&mut h, "Board thickness (mm)", "1.6x");
-    h.get_by_label("Not a length. Give mm, such as 1.6, or a unit, such as 63mil.");
-    h.get_by_role_and_label(Role::TreeItem, "Properties (has invalid values)");
+    h.get_by_role_and_label(Role::TreeItem, "Libraries").click();
+    h.run();
+    h.get_by_label("Add Path").click();
+    h.run();
+    h.get_by_label("Give a folder.");
+    h.get_by_role_and_label(Role::TreeItem, "Libraries (has invalid values)");
     assert!(disabled(&h, "OK") && disabled(&h, "Apply"));
 
-    h.key_press(Key::Backspace);
-    h.run();
+    type_into(&mut h, "Library folder 1", "parts");
     assert!(!disabled(&h, "OK") && !disabled(&h, "Apply"));
     let journal = h.state().shell().engine().journal().len();
     h.get_by_label("OK").click();
@@ -107,10 +108,7 @@ fn an_invalid_value_is_flagged_and_disables_ok_and_apply_until_fixed() {
         .props()
         .clone();
     assert_eq!(props.properties.title, "Motor driver");
-    assert_eq!(
-        props.properties.board_thickness.map(|t| t.0),
-        Some(1_600_000)
-    );
+    assert_eq!(props.libraries, ["parts"]);
 }
 
 #[test]
@@ -130,4 +128,35 @@ fn apply_on_the_erc_page_commits_and_keeps_the_dialog_open() {
     assert_eq!(erc.get(ErcCheck::SinglePinNet), Severity::Off);
     h.get_by_label("Project Settings");
     assert!(disabled(&h, "Apply"), "nothing left to apply");
+}
+
+/// How far `label`'s text starts from the left edge of its page tree row, in points.
+fn tree_label_indent(h: &Harness<'static, App>, label: &str) -> f32 {
+    let row = h.get_by_role_and_label(Role::TreeItem, label).rect();
+    let mut found = None;
+    for clipped in &h.output().shapes {
+        let mut shapes = vec![&clipped.shape];
+        while let Some(shape) = shapes.pop() {
+            match shape {
+                egui::Shape::Vec(inner) => shapes.extend(inner),
+                egui::Shape::Text(text)
+                    if text.galley.text() == label && row.contains(text.pos) =>
+                {
+                    found = Some(text.pos.x - row.left());
+                }
+                _ => {}
+            }
+        }
+    }
+    found.unwrap_or_else(|| panic!("no text {label:?} in its row {row:?}"))
+}
+#[test]
+fn page_tree_labels_are_left_aligned() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dlg");
+    open_settings(&mut h, "Dlg");
+    for page in ["Properties", "ERC", "Fab Presets", "Libraries"] {
+        let indent = tree_label_indent(&h, page);
+        assert!(indent < 10.0, "{page:?} starts {indent} pt into its row");
+    }
 }

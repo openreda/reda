@@ -8,6 +8,7 @@ mod fab_file;
 pub mod library;
 mod pcb_file;
 mod project_file;
+mod rules_file;
 mod schema;
 mod sheet_file;
 
@@ -21,6 +22,7 @@ use serde_json::Value;
 pub(crate) use fab_file::{read_fab_file, write_fab_file};
 pub(crate) use pcb_file::{read_pcb_file, write_pcb_file};
 pub(crate) use project_file::{ProjectFile, write_project_file};
+pub(crate) use rules_file::{read_rules_file, write_rules_file};
 pub use schema::schema;
 pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
 
@@ -50,10 +52,12 @@ pub enum FileKind {
     Part,
     /// `<name>.redafab`: one user Fab Preset.
     FabPreset,
+    /// `<name>.redarules`: a board's design rules, to move between boards.
+    Rules,
 }
 
 impl FileKind {
-    pub const ALL: [FileKind; 8] = [
+    pub const ALL: [FileKind; 9] = [
         FileKind::Project,
         FileKind::Sheet,
         FileKind::Pcb,
@@ -62,6 +66,7 @@ impl FileKind {
         FileKind::Footprint,
         FileKind::Part,
         FileKind::FabPreset,
+        FileKind::Rules,
     ];
 
     /// The file extension, without the dot.
@@ -75,6 +80,7 @@ impl FileKind {
             FileKind::Footprint => "redafp",
             FileKind::Part => "redapart",
             FileKind::FabPreset => "redafab",
+            FileKind::Rules => "redarules",
         }
     }
 }

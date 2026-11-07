@@ -4,9 +4,7 @@
 use std::collections::BTreeMap;
 
 use reda_command::Fonts;
-use reda_model::{
-    ComponentType, FabPreset, PcbDocument, Project, Severity, Uuid, Violation, apply_waivers,
-};
+use reda_model::{FabPreset, PcbDocument, Project, Severity, Uuid, Violation, apply_waivers};
 
 /// The problems that stop a run, in a fixed order: duplicate Designators, an open Board
 /// Outline, then Footprints the PCB cannot resolve. All read only the job's PCB, which is
@@ -67,9 +65,10 @@ fn missing_footprints(pcb: &PcbDocument) -> Vec<Violation> {
         .collect()
 }
 
-/// One `unassigned_footprint` per fitted Standard Component on a sheet with no Footprint
-/// chosen: it never reaches the PCB, so no output shows it; objects are its Units. The fix
-/// is to assign a Footprint and Sync. Mechanical and Not Fitted Components need none.
+/// One `unassigned_footprint` per fitted Standard or Net Tie Component on a sheet with no
+/// Footprint chosen: it never reaches the PCB, so no output shows it; objects are its
+/// Units. The fix is to assign a Footprint and Sync. Mechanical and Not Fitted Components
+/// need none.
 fn unassigned_footprints(project: &Project) -> Vec<Violation> {
     let mut by_component: BTreeMap<Uuid, (&str, Vec<Uuid>)> = BTreeMap::new();
     for document in project.documents() {
@@ -77,7 +76,7 @@ fn unassigned_footprints(project: &Project) -> Vec<Violation> {
             for unit in sheet.units() {
                 if unit.footprint.is_none()
                     && !unit.not_fitted
-                    && unit.component_type == ComponentType::Standard
+                    && unit.component_type.needs_symbol_and_footprint()
                 {
                     by_component
                         .entry(unit.component.uuid)
@@ -101,7 +100,8 @@ fn unassigned_footprints(project: &Project) -> Vec<Violation> {
 }
 
 /// The warnings of a run, in a fixed order: out of sync, Components without a Footprint,
-/// ERC errors, DRC errors, rules looser than the preset's minimums, missing fonts.
+/// ERC errors, DRC errors, rules outside the preset's limits (`rule_outside_preset`, as
+/// DRC reports it for this preset), missing fonts.
 pub(crate) fn warnings(
     project: &Project,
     pcb: &PcbDocument,
@@ -121,7 +121,19 @@ pub(crate) fn warnings(
         .documents()
         .filter_map(|d| project.schematic_sheet(d.uuid))
         .flat_map(|s| s.waivers());
-    let erc = apply_waivers(reda_schematic::erc::check(project), waivers, false);
+    // Library Status needs the Libraries, which a run does not read: it is left out here.
+    let no_library = |uuids: &[reda_model::Uuid]| {
+        uuids
+            .iter()
+            .map(|u| Err(reda_command::CommandError::not_found(u.to_string())))
+            .collect()
+    };
+    let erc = apply_waivers(
+        reda_schematic::erc::check(project, &no_library),
+        waivers,
+        false,
+        |_| false,
+    );
     let errors = erc
         .violations
         .iter()
@@ -138,6 +150,7 @@ pub(crate) fn warnings(
         reda_pcb::drc::check(pcb, &fills, fonts),
         pcb.waivers(),
         false,
+        |_| false,
     );
     let errors = drc
         .violations
@@ -150,54 +163,16 @@ pub(crate) fn warnings(
                 .arg("count", i64::try_from(errors).unwrap_or(i64::MAX)),
         );
     }
-    found.extend(loose_rules(pcb, preset));
+    found.extend(reda_pcb::rules::presets::outside_preset_violations(
+        pcb,
+        &[reda_pcb::rules::presets::PresetRules {
+            name: preset.name.clone(),
+            rules: preset.rules,
+        }],
+        Severity::Warning,
+    ));
     for font in reda_pcb::missing_fonts(pcb, fonts) {
         found.push(Violation::new("missing_font", Severity::Warning).arg("font", font));
-    }
-    found
-}
-
-/// A `rule_below_preset` for each board rule, and each Net Class override, that allows
-/// less than the preset: `rule`, `board` (the value), `minimum` (the preset's), `preset`
-/// (its name) and, for an override, `net_class`.
-fn loose_rules(pcb: &PcbDocument, preset: &FabPreset) -> Vec<Violation> {
-    let (board, min) = (pcb.setup().rules, preset.rules);
-    let warn = |rule: &str, value: reda_model::geom::Nm, minimum: reda_model::geom::Nm| {
-        (value < minimum).then(|| {
-            Violation::new("rule_below_preset", Severity::Warning)
-                .arg("rule", rule)
-                .arg("board", value)
-                .arg("minimum", minimum)
-                .arg("preset", preset.name.as_str())
-        })
-    };
-    let mut found: Vec<Violation> = [
-        ("clearance", board.clearance, min.clearance),
-        ("track_width", board.track_width, min.track_width),
-        ("via_diameter", board.via_diameter, min.via_diameter),
-        ("via_hole", board.via_hole, min.via_hole),
-        ("annular_ring", board.annular_ring, min.annular_ring),
-        ("hole_to_hole", board.hole_to_hole, min.hole_to_hole),
-        ("edge_clearance", board.edge_clearance, min.edge_clearance),
-    ]
-    .into_iter()
-    .filter_map(|(rule, value, minimum)| warn(rule, value, minimum))
-    .collect();
-    for class in pcb.net_classes() {
-        let overrides = [
-            ("clearance", class.clearance, min.clearance),
-            ("track_width", class.track_width, min.track_width),
-            ("via_diameter", class.via_diameter, min.via_diameter),
-            ("via_hole", class.via_hole, min.via_hole),
-        ];
-        for (rule, value, minimum) in overrides {
-            if let Some(v) = value.and_then(|v| warn(rule, v, minimum)) {
-                found.push(
-                    v.arg("net_class", class.name.as_str())
-                        .objects([class.uuid]),
-                );
-            }
-        }
     }
     found
 }

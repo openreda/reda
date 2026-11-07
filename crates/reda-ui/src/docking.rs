@@ -30,8 +30,8 @@ use crate::chrome;
 use crate::icons;
 use crate::journal_panel::{self, JournalAction};
 use crate::layout::{
-    Area, Axis, DockSide, FloatingWindow, Group, Layout, Node, PanelId, SplitSide, TabKey,
-    WindowId, WindowRect,
+    Area, Axis, DockSide, FloatingWindow, Group, Layout, Node, PanelId, SettingsWindow, SplitSide,
+    TabKey, WindowId, WindowRect,
 };
 use crate::panels;
 use crate::projects_panel::{self, ProjectsAction};
@@ -76,6 +76,38 @@ const PANEL_MARGIN: i8 = 6;
 const FLYOUT: Vec2 = Vec2::new(280.0, 320.0);
 /// The size a floating window opens at.
 const WINDOW: Vec2 = Vec2::new(640.0, 420.0);
+/// The size a settings window opens at, the first time.
+pub const SETTINGS_WINDOW: Vec2 = Vec2::new(1000.0, 680.0);
+
+/// Draws a settings window's content into a tab.
+pub type SettingsContent<'a> = dyn FnMut(&mut Ui, &mut Shell, SettingsWindow) + 'a;
+
+/// The size the floating window `window` opens at when it has no place yet: a settings
+/// window's when it holds only settings windows, else a plain floating window's.
+pub fn opening_size(layout: &Layout, window: WindowId) -> Vec2 {
+    let tabs = layout.tabs_in_window(window);
+    if !tabs.is_empty() && tabs.iter().all(|t| matches!(t, TabKey::Settings(_))) {
+        SETTINGS_WINDOW
+    } else {
+        WINDOW
+    }
+}
+
+/// The OS window (viewport) that shows the floating window `window`.
+pub fn viewport_of(window: WindowId) -> ViewportId {
+    drag::viewport_id(window)
+}
+
+/// The title of a settings window's tab when the window has not named it.
+pub fn settings_title(window: SettingsWindow) -> String {
+    match window {
+        SettingsWindow::Preferences => tr!("pref-title"),
+        SettingsWindow::ProjectSettings => tr!("project-settings-title"),
+        SettingsWindow::BoardSetup => tr!("board-setup-title"),
+        SettingsWindow::OutputJob => tr!("output-job-window-title"),
+        SettingsWindow::ChangeList => tr!("change-list-title"),
+    }
+}
 
 /// The title of a Panel, for its tab, its Dock icon and the Panels button.
 pub fn panel_title(panel: PanelId) -> String {
@@ -103,6 +135,7 @@ fn tab_icon_key(shell: &Shell, tab: &TabKey) -> Option<&'static str> {
     Some(match tab {
         TabKey::Start => icons::START_PAGE,
         TabKey::Panel(panel) => icons::panel_icon(*panel),
+        TabKey::Settings(_) => return None,
         TabKey::Document(uuid) => {
             let kind = shell
                 .engine()
@@ -133,12 +166,17 @@ pub(crate) fn tab_title(shell: &Shell, tab: &TabKey) -> String {
         TabKey::Start => tr!("start-page-title"),
         TabKey::Panel(panel) => panel_title(*panel),
         TabKey::Document(_) => shell.document_title(tab).unwrap_or_default().to_owned(),
+        TabKey::Settings(window) => match shell.settings_title(*window) {
+            Some(title) => title.to_owned(),
+            None => settings_title(*window),
+        },
     }
 }
 
 /// Draws the whole layout into `ui`, which fills the window below the menu bar and above
 /// the status bar.
-pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
+/// `settings` draws the settings windows' tabs.
+pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) -> Frame {
     let layout = shell.layout().clone();
     let recent = if layout.place(&TabKey::Start).is_some() {
         shell.recent_projects()
@@ -158,6 +196,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
             dock_edges: true,
         },
         focus_request,
+        settings,
     };
     // What no group covers shows as the gaps between them.
     let gap = theme::gap(ui.ctx().theme());
@@ -192,9 +231,23 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
     let embedded = ctx.embed_viewports();
     if embedded {
         for window in &layout.windows {
-            egui::Window::new(window_title(cx.shell, &layout, window.id))
+            // A settings window opens centred, as large as it opens natively where the main
+            // window has room for that.
+            let screen = ctx.content_rect();
+            let (size, at) = match opening_size(&layout, window.id) {
+                size if size == SETTINGS_WINDOW => (
+                    size.min(screen.size() - Vec2::splat(40.0)),
+                    Some(screen.center()),
+                ),
+                _ => (Vec2::new(480.0, 320.0), None),
+            };
+            let mut floating = egui::Window::new(window_title(cx.shell, &layout, window.id));
+            if let Some(at) = at {
+                floating = floating.pivot(Align2::CENTER_CENTER).default_pos(at);
+            }
+            floating
                 .id(Id::NULL.with(("floating-window", window.id.0)))
-                .default_size([480.0, 320.0])
+                .default_size(size)
                 .show(&ctx, |ui| {
                     cx.node(ui, &window.root, Area::Window(window.id));
                 });
@@ -237,7 +290,7 @@ fn first_group(layout: &Layout, window: WindowId) -> Option<&Group> {
         .map(|(_, g)| g)
 }
 
-struct Cx<'a> {
+struct Cx<'a, 'b> {
     shell: &'a mut Shell,
     layout: &'a Layout,
     recent: &'a [RecentProject],
@@ -247,6 +300,7 @@ struct Cx<'a> {
     /// The tab whose button takes the keyboard focus this frame, after F6 or the tab
     /// switcher moved focus to it.
     focus_request: Option<TabKey>,
+    settings: &'a mut SettingsContent<'b>,
 }
 
 /// Sets aside all the space left in `ui` for contents drawn later; returns it. A Dock
@@ -257,7 +311,7 @@ fn reserve(ui: &mut Ui) -> Rect {
     rect
 }
 
-impl Cx<'_> {
+impl Cx<'_, '_> {
     fn run(&mut self, id: &'static str, params: Value) {
         self.frame.commands.push((id.to_owned(), params));
     }
@@ -268,7 +322,9 @@ impl Cx<'_> {
         let viewport = drag::viewport_id(window.id);
         let size = window
             .rect
-            .map_or(WINDOW, |r| egui::vec2(r.width as f32, r.height as f32));
+            .map_or(opening_size(self.layout, window.id), |r| {
+                egui::vec2(r.width as f32, r.height as f32)
+            });
         let mut builder = ViewportBuilder::default()
             .with_title(window_title(self.shell, self.layout, window.id))
             .with_inner_size(size)
@@ -480,6 +536,33 @@ impl Cx<'_> {
             .project()
             .and_then(|p| p.document(document))
             .map(|d| d.kind);
+        self.shell
+            .selection_picking_mut()
+            .set_time(input.response.ctx.input(|i| i.time));
+        if self.shell.tool() == crate::tools::Tool::Select
+            && input.response.double_clicked()
+            && let Some(screen) = input.response.interact_pointer_pos()
+        {
+            crate::selection::picking::double_click(
+                self.shell,
+                document,
+                input.document_point(screen),
+                5.0 * input.camera.nm_per_point,
+                screen,
+            );
+            return Vec::new();
+        }
+        for event in &input.events {
+            match event {
+                crate::canvas::interact::Pointer::DragStart { .. } => {
+                    self.shell.selection_picking_mut().set_idle(false)
+                }
+                crate::canvas::interact::Pointer::DragEnd(_) => {
+                    self.shell.selection_picking_mut().set_idle(true)
+                }
+                _ => {}
+            }
+        }
         // A Part from the Library panel in flight takes the pointer on any canvas.
         if self.shell.tool() == crate::tools::Tool::Place {
             crate::placement::canvas(self.shell, document, input);
@@ -592,7 +675,7 @@ impl Cx<'_> {
             ui.set_clip_rect(body.intersect(clip));
             match group.active_tab() {
                 // Panels and the Start page keep a margin; Documents fill the group.
-                Some(tab @ (TabKey::Panel(_) | TabKey::Start)) => {
+                Some(tab @ (TabKey::Panel(_) | TabKey::Start | TabKey::Settings(_))) => {
                     egui::Frame::new()
                         .inner_margin(PANEL_MARGIN)
                         .show(ui, |ui| self.content(ui, tab));
@@ -868,6 +951,7 @@ impl Cx<'_> {
                 if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                     self.frame.commands.push(clicked);
                 }
+                crate::selection::picking::show(ui, self.shell, *uuid);
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {
@@ -910,6 +994,11 @@ impl Cx<'_> {
             TabKey::Panel(PanelId::Messages) => {
                 let actions = panels::messages::show(ui, self.shell);
                 self.frame.messages.extend(actions);
+            }
+            TabKey::Settings(window) => {
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
+                (self.settings)(ui, self.shell, *window);
+                self.focus_on_press(ui, rect, tab, start);
             }
         }
     }

@@ -631,3 +631,15 @@ context = "part"
 key = "Mod+S"
 command = "library.element.save"
 params = { element = "$active_document" }
+
+# Cycle the idle canvas stack.
+[[bind]]
+key = "Shift+Tab"
+command = "selection.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }

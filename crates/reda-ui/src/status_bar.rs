@@ -23,7 +23,7 @@ pub struct Readout {
 }
 
 /// The readout of the active Document. A board reads where the cursor last snapped,
-/// from its Placement Origin, in the board's units; a sheet or Library element reads the
+/// from its Output Origin, in the board's units; a sheet or Library element reads the
 /// pointer's last position in its grid's units.
 pub fn readout(shell: &Shell) -> Readout {
     let Some(tab) = shell.active_document() else {

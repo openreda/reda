@@ -4,14 +4,15 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Length, Meta, Registry, Unavailable,
 };
+use reda_model::geom::Nm;
 use reda_model::{InDocument, Keepout, Object, PadConnection, PcbDocument, Uuid, Zone};
 use schemars::JsonSchema;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use super::layer::LayerRef;
 use super::outline::{VertexParam, contour};
 use super::track::{copper_layer, existing_net};
-use super::{Created, needs_pcb, non_negative, pcb, positive};
+use super::{Created, needs_pcb, non_negative, nullable, pcb, positive};
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(ZoneAdd);
@@ -20,13 +21,6 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(KeepoutAdd);
     registry.add(KeepoutSet);
     registry.add(KeepoutDelete);
-}
-
-/// Reads a field that may be given as `null`: missing is `None`, `null` is `Some(None)`.
-fn nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
-    d: D,
-) -> Result<Option<Option<T>>, D::Error> {
-    Option::<T>::deserialize(d).map(Some)
 }
 
 pub struct ZoneAdd;
@@ -88,14 +82,14 @@ impl Command for ZoneAdd {
         let layer = copper_layer(pcb, p.layer, "/layer")?;
         let vertices = contour(&p.vertices)?;
         let net = existing_net(pcb, p.net, "/net")?;
-        let rules = pcb.setup().rules;
+        let rules = crate::rules::net_rules(pcb, net);
         let clearance = match p.clearance {
             Some(c) => non_negative("/clearance", c)?,
-            None => rules.clearance,
+            None => rules.clearance.unwrap_or(Nm::ZERO),
         };
         let min_width = match p.min_width {
             Some(w) => positive("/min_width", w)?,
-            None => rules.track_width,
+            None => rules.track_width.min.unwrap_or(rules.track_width.preferred),
         };
         let thermal_gap = match p.thermal_gap {
             Some(g) => non_negative("/thermal_gap", g)?,

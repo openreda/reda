@@ -22,7 +22,7 @@ pub(super) fn register_all(registry: &mut Registry) {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MoveParams {
-    /// The Footprints, Free Pads and Placement Origin to move, by UUID.
+    /// The Footprints, Free Pads and Output Origin to move, by UUID.
     pub objects: Vec<Uuid>,
     /// How far to move them.
     pub by: PointParam,
@@ -34,7 +34,7 @@ impl Command for Move {
     const META: Meta = Meta {
         id: "pcb.move",
         title: "Move",
-        description: "Moves Footprints, Free Pads and the Placement Origin by an offset. \
+        description: "Moves Footprints, Free Pads and the Output Origin by an offset. \
                       Refused when any of them is a locked Footprint.",
         category: "pcb",
         icon: "move",
@@ -58,7 +58,7 @@ impl Command for Move {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RotateParams {
-    /// The Footprints, Free Pads and Placement Origin to turn, by UUID.
+    /// The Footprints, Free Pads and Output Origin to turn, by UUID.
     pub objects: Vec<Uuid>,
     /// Counter-clockwise; 90° when left out. Any angle is allowed.
     #[serde(default)]
@@ -75,7 +75,7 @@ impl Command for Rotate {
     const META: Meta = Meta {
         id: "pcb.rotate",
         title: "Rotate",
-        description: "Turns Footprints, Free Pads and the Placement Origin counter-clockwise \
+        description: "Turns Footprints, Free Pads and the Output Origin counter-clockwise \
                       (90° by default) about a point: a lone object turns in place, a \
                       selection about the middle of its extent. Refused when any of them is \
                       a locked Footprint.",
@@ -105,7 +105,7 @@ impl Command for Rotate {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FlipParams {
-    /// The Footprints, Free Pads and Placement Origin to flip, by UUID.
+    /// The Footprints, Free Pads and Output Origin to flip, by UUID.
     pub objects: Vec<Uuid>,
     /// A point on the vertical line to mirror about: by default a lone object's own
     /// position, else the middle of the selection's extent. Only its x counts.

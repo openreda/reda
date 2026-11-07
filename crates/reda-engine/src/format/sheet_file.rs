@@ -21,7 +21,7 @@
 //!     {"uuid":"…","component":{"uuid":"…"},"part":"…","unit":"…","at":{…},"rotation":0,"designator":"U1",…}
 //!   ],
 //!   "wires": [
-//!     {"uuid":"…","from":{"x":0,"y":0},"to":{"x":2540000,"y":0}}
+//!     {"uuid":"…","vertices":[{"x":0,"y":0},{"x":2540000,"y":0},{"x":2540000,"y":2540000}]}
 //!   ],
 //!   "net_labels": [
 //!     {"uuid":"…","name":"SDA","at":{…},"rotation":0}
@@ -42,7 +42,7 @@
 //!     {"uuid":"…","shape":{"kind":"rect","from":{…},"to":{…}}}
 //!   ],
 //!   "waivers": [
-//!     {"uuid":"…","check":"unconnected_pin","objects":["…","…"],"comment":"test point"}
+//!     {"uuid":"…","check":"unconnected_pin","objects":["…","…"],"author":"Ada","created":1767225600000,"reason":"test point"}
 //!   ]
 //! }
 //! ```
@@ -61,14 +61,14 @@
 use std::path::Path;
 
 use reda_model::{
-    Fields, FootprintCopy, FootprintGraphic, InDocument, NetLabel, NoConnect, Object, Pad,
-    PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet, SheetFrame, SheetGraphic,
-    SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Waiver, Wire,
+    EditedFrom, Fields, FootprintCopy, FootprintGraphic, FootprintText, InDocument, NetLabel,
+    NoConnect, Object, Pad, PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet,
+    SheetFrame, SheetGraphic, SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Waiver, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::library::{FootprintRow, FootprintTexts, PartRow, SymbolRow, sorted};
+use super::library::{FootprintRow, PartRow, SymbolRow, sorted};
 use super::{FORMAT, FileKind, LoadError, parse};
 use crate::canonical::{CanonicalError, CanonicalWriter};
 
@@ -163,13 +163,16 @@ pub(crate) struct FootprintCopyRow {
     uuid: Uuid,
     /// The content hash of the Footprint, as copied.
     hash: String,
+    /// On a PCB's Locally Edited Footprint: the copy it was edited from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    edited_from: Option<EditedFrom>,
     footprint: FootprintRow,
     /// Where the Footprint was imported from, as in a `.redafp` file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     provenance: Option<Box<Provenance>>,
-    text: FootprintTexts,
     pads: Vec<Pad>,
     graphics: Vec<FootprintGraphic>,
+    texts: Vec<FootprintText>,
 }
 
 impl FootprintCopyRow {
@@ -177,11 +180,12 @@ impl FootprintCopyRow {
         FootprintCopyRow {
             uuid: c.uuid,
             hash: c.hash.clone(),
+            edited_from: c.edited_from.clone(),
             footprint: FootprintRow::of(&c.footprint),
             provenance: c.footprint.provenance.clone(),
-            text: FootprintTexts::of(&c.footprint),
             pads: c.footprint.pads.clone(),
             graphics: c.footprint.graphics.clone(),
+            texts: c.footprint.texts.clone(),
         }
     }
 
@@ -194,11 +198,12 @@ impl FootprintCopyRow {
         let uuid = self.uuid;
         let footprint = self
             .footprint
-            .into_footprint(self.text, self.pads, self.graphics, self.provenance)
+            .into_footprint(self.pads, self.graphics, self.texts, self.provenance)
             .map_err(|e| format!("Footprint copy {uuid}: {e}"))?;
         Ok(FootprintCopy {
             uuid,
             hash: self.hash,
+            edited_from: self.edited_from,
             footprint,
         })
     }
@@ -229,7 +234,12 @@ pub(crate) fn write_sheet_file(sheet: &SchematicSheet) -> Result<Vec<u8>, Canoni
     // A sheet with no Components keeps the short form of an empty sheet.
     if sheet.parts().next().is_some() || sheet.units().next().is_some() {
         w.containers_spread("parts", parts, |r| r.uuid, &["units", "pins", "graphics"])?;
-        w.containers_spread("footprints", footprints, |r| r.uuid, &["pads", "graphics"])?;
+        w.containers_spread(
+            "footprints",
+            footprints,
+            |r| r.uuid,
+            &["pads", "graphics", "texts"],
+        )?;
         w.table("units", sheet.units(), |u| u.uuid)?;
     }
     if sheet.wires().next().is_some() {
@@ -327,6 +337,9 @@ pub(crate) fn read_sheet_file(
     }
     for waiver in file.waivers {
         objects.push(Object::Waiver(InDocument::new(sheet, waiver)));
+    }
+    for object in &objects {
+        reda_model::text::check_object(object).map_err(invalid)?;
     }
     Ok(objects)
 }

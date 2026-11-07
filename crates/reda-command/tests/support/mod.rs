@@ -238,6 +238,9 @@ impl Command for Create {
             libraries: vec![],
             properties: Default::default(),
             erc: Default::default(),
+            schematic: Default::default(),
+            reannotate: None,
+            library_update: None,
         }));
         Ok(uuid)
     }

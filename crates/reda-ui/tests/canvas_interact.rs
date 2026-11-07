@@ -27,6 +27,7 @@ fn id(n: u128) -> Uuid {
 
 fn push(scene: &mut Scene, object: Uuid, primitive: Primitive) {
     scene.items.push(Item {
+        child: None,
         object,
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(SchematicColor::Wire),
@@ -145,7 +146,38 @@ fn a_box_dragged_left_to_right_encloses_and_right_to_left_touches() {
 }
 
 #[test]
-fn shift_adds_to_the_selection_and_mod_toggles() {
+fn a_wire_is_picked_on_any_of_its_segments_and_enclosed_only_whole() {
+    // A Wire through (0, 0), (10, 0) and (15, 5) mm draws one capsule per segment.
+    let mut scene = Scene::new(SceneSource::None);
+    for (a, b) in [(p(0.0, 0.0), p(10.0, 0.0)), (p(10.0, 0.0), p(15.0, 5.0))] {
+        push(
+            &mut scene,
+            id(7),
+            Primitive::Capsule {
+                a,
+                b,
+                width: mm(0.2),
+            },
+        );
+    }
+    let tol = 0.5e6;
+    assert_eq!(hit_test(&scene, at(12.5, 2.6), tol, pickable), Some(id(7)));
+    assert_eq!(hit_test(&scene, at(12.5, -2.0), tol, pickable), None);
+    let (lo, hi) = (at(-1.0, -1.0), at(11.0, 1.0));
+    assert!(box_select(&scene, lo, hi, BoxMode::Enclose, pickable).is_empty());
+    assert_eq!(
+        box_select(&scene, lo, hi, BoxMode::Touch, pickable),
+        [id(7)]
+    );
+    let (lo, hi) = (at(-1.0, -1.0), at(16.0, 6.0));
+    assert_eq!(
+        box_select(&scene, lo, hi, BoxMode::Enclose, pickable),
+        [id(7)]
+    );
+}
+
+#[test]
+fn shift_toggles_the_selection_and_mod_replaces() {
     let current = [id(2), id(3)];
     assert_eq!(combine(&current, &[id(4)], Combine::Replace), [id(4)]);
     assert_eq!(
@@ -162,8 +194,8 @@ fn shift_adds_to_the_selection_and_mod_toggles() {
         ..egui::Modifiers::NONE
     };
     assert_eq!(Combine::of(mods(false, false)), Combine::Replace);
-    assert_eq!(Combine::of(mods(true, false)), Combine::Add);
-    assert_eq!(Combine::of(mods(false, true)), Combine::Toggle);
+    assert_eq!(Combine::of(mods(true, false)), Combine::Toggle);
+    assert_eq!(Combine::of(mods(false, true)), Combine::Replace);
 }
 
 #[test]

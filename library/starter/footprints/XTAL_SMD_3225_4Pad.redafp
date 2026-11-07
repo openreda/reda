@@ -1,17 +1,20 @@
 {
   "format": 1,
   "footprint": {"uuid":"595b8b5e-8c78-4efa-b9ad-91bead0c60bf","name":"XTAL_SMD_3225_4Pad","description":"SMD crystal, 3.2 × 2.5 mm ceramic package, 4 pads. Lands per Abracon ABM8 datasheet, Recommended land pattern"},
-  "text": {"designator":{"at":{"x":0,"y":2550000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"60ec9f5d-fba4-44d6-8b9b-e81f0a6c4855","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":1150000,"y":875000},"rotation":0,"width":1300000,"height":1050000,"corner_radius":262500},
-    {"uuid":"a2594d3f-d7e5-443c-9389-bf2e01d940d1","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1150000,"y":-875000},"rotation":0,"width":1300000,"height":1050000,"corner_radius":262500},
-    {"uuid":"c90b0205-adf2-4564-bdbe-ced9e9265530","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1150000,"y":875000},"rotation":0,"width":1300000,"height":1050000,"corner_radius":262500},
-    {"uuid":"e2a39415-082f-41e9-9ad4-92afaa4cdf5a","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1150000,"y":-875000},"rotation":0,"width":1300000,"height":1050000,"corner_radius":262500}
+    {"uuid":"60ec9f5d-fba4-44d6-8b9b-e81f0a6c4855","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1150000,"y":-875000},"rotation":0,"width":1300000,"height":1050000,"corner_ratio":50000},
+    {"uuid":"c90b0205-adf2-4564-bdbe-ced9e9265530","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":1150000,"y":875000},"rotation":0,"width":1300000,"height":1050000,"corner_ratio":50000},
+    {"uuid":"d34ad0a6-2fd1-45fc-86f1-082179f6b03e","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1150000,"y":875000},"rotation":0,"width":1300000,"height":1050000,"corner_ratio":50000},
+    {"uuid":"e2a39415-082f-41e9-9ad4-92afaa4cdf5a","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1150000,"y":-875000},"rotation":0,"width":1300000,"height":1050000,"corner_ratio":50000}
   ],
   "graphics": [
-    {"uuid":"99adf142-5d80-46e7-ba43-52a268684d47","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2060000,"y":200000},"end":{"x":-2060000,"y":-1660000}},"width":120000},
-    {"uuid":"cf38f301-418c-4507-bc13-6b0a713875ab","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2060000,"y":-1660000},"end":{"x":-200000,"y":-1660000}},"width":120000},
-    {"uuid":"d34ad0a6-2fd1-45fc-86f1-082179f6b03e","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-1250000},"end":{"x":1600000,"y":1250000}},"width":100000},
-    {"uuid":"e3870bc4-a0ac-4965-9e2b-04ec25072404","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2150000,"y":-1750000},"end":{"x":2150000,"y":1750000}},"width":50000}
+    {"uuid":"161e503d-7326-4c4a-a2fa-02ad8d23132c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2150000,"y":-1750000},"end":{"x":2150000,"y":1750000}},"width":50000},
+    {"uuid":"99adf142-5d80-46e7-ba43-52a268684d47","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-1250000},"end":{"x":1600000,"y":1250000}},"width":100000},
+    {"uuid":"cf38f301-418c-4507-bc13-6b0a713875ab","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2060000,"y":200000},"end":{"x":-2060000,"y":-1660000}},"width":120000},
+    {"uuid":"e3870bc4-a0ac-4965-9e2b-04ec25072404","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2060000,"y":-1660000},"end":{"x":-200000,"y":-1660000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"a2594d3f-d7e5-443c-9389-bf2e01d940d1","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"c81ae152-d5dc-450f-9e96-7927363fda9e","field":"Designator","at":{"x":0,"y":2550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

@@ -4,6 +4,7 @@
 #   REDA_BLESS=1 cargo test -p reda-testkit --test dependency_edges
 # and check that the new edge follows the layering in docs/spec/v0.1/architecture.md#crates.
 reda-app -> reda-ui
+reda-app -> winit
 reda-cli -> reda-control
 reda-cli -> reda-engine
 reda-cli -> reda-testkit [dev]
@@ -47,6 +48,7 @@ reda-import-kicad -> reda-library
 reda-import-kicad -> reda-model
 reda-import-kicad -> schemars
 reda-import-kicad -> serde
+reda-import-kicad -> serde_json
 reda-library -> reda-command
 reda-library -> reda-model
 reda-library -> reda-testkit [dev]
@@ -56,7 +58,7 @@ reda-library -> serde_json
 reda-model -> reda-geom
 reda-model -> schemars
 reda-model -> serde
-reda-model -> serde_json [dev]
+reda-model -> serde_json
 reda-output -> reda-command
 reda-output -> reda-model
 reda-output -> reda-pcb

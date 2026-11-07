@@ -1,14 +1,14 @@
-//! Placement objects that are not Footprints: Free Pads and the Placement Origin.
+//! Placement objects that are not Footprints: Free Pads and the Output Origin.
 
-use reda_geom::{Millideg, Nm, Point};
+use reda_geom::{CornerRect, Millideg, Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::Side;
-use crate::{Hole, PadKind, PadShape, Uuid};
+use crate::{Corners, Hole, PadForm, PadKind, PadShape, Ratio, Uuid, ZoneConnection};
 
 /// A Pad placed directly on the board, belonging to no Footprint: a mounting hole, a
-/// fiducial or a test point.
+/// fiducial or a test point. It has the whole Pad model, in board coordinates.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FreePad {
@@ -16,60 +16,95 @@ pub struct FreePad {
     /// SMD (plated, no hole), plated through-hole, or non-plated (a bare hole).
     pub kind: PadKind,
     pub shape: PadShape,
-    /// The Pad centre.
+    /// The Pad's anchor: the hole sits there, Tracks connect there and it turns about it.
     pub at: Point,
     /// Counter-clockwise.
     pub rotation: Millideg,
     pub width: Nm,
     pub height: Nm,
-    /// The corner radius of a rounded-rectangle Pad.
+    /// How round the corners of a `rounded_rect`, or the uncut corners of a
+    /// `chamfered_rect`, are.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub corner_radius: Option<Nm>,
+    pub corner_ratio: Option<Ratio>,
+    /// How deep the chamfers of a `chamfered_rect` are.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chamfer_ratio: Option<Ratio>,
+    /// Which corners are rounded or chamfered, in the Pad's frame. Left out, all four.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corners: Option<Corners>,
+    /// Where the copper sits relative to `at`, in the Pad's frame. Left out, on it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<Point>,
     /// The drilled hole; SMD Pads have none, the others must.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hole: Option<Hole>,
-    /// The copper side of an SMD Pad; left out for Pads with a hole.
+    /// The board side of an SMD Pad. Left out, the top. Pads with a hole have none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub side: Option<Side>,
     /// Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no
     /// Net.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<crate::Mask>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paste: Option<crate::Paste>,
+    /// How Zone fills of its Net join it. Each value left out inherits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zone_connection: Option<ZoneConnection>,
 }
 
 impl FreePad {
-    /// What is wrong with this Pad's shape, if anything.
-    pub fn problem(&self) -> Option<String> {
-        if self.width <= Nm::ZERO || self.height <= Nm::ZERO {
-            return Some("the Pad size must be positive".into());
+    /// Its shape fields, for the geometry and the checks every Pad shares.
+    pub fn form(&self) -> PadForm {
+        PadForm {
+            kind: self.kind,
+            shape: self.shape,
+            width: self.width,
+            height: self.height,
+            corner_ratio: self.corner_ratio,
+            chamfer_ratio: self.chamfer_ratio,
+            corners: self.corners,
+            offset: self.offset,
+            hole: self.hole,
+            side: self.side,
+            zone_connection: self.zone_connection,
         }
-        match (self.kind, self.hole, self.side) {
-            (PadKind::Smd, Some(_), _) => Some("an SMD Pad has no hole".into()),
-            (PadKind::Smd, None, None) => Some("an SMD Pad needs a side".into()),
-            (PadKind::Smd, None, Some(_)) => None,
-            (_, None, _) => Some("a plated through-hole or non-plated Pad needs a hole".into()),
-            (_, Some(_), Some(_)) => Some("a Pad with a hole is on both sides".into()),
-            (kind, Some(hole), None) => {
-                if hole.width <= Nm::ZERO || hole.height <= Nm::ZERO {
-                    Some("the hole size must be positive".into())
-                } else if hole.width > self.width || hole.height > self.height {
-                    Some("the hole is larger than the Pad".into())
-                } else if kind == PadKind::NonPlated && self.net.is_some() {
-                    Some("a non-plated Pad has no copper and cannot be on a Net".into())
-                } else {
-                    None
-                }
-            }
+    }
+
+    /// Its copper outline in its own frame, the anchor at the origin.
+    pub fn outline(&self) -> CornerRect {
+        self.form().outline()
+    }
+
+    /// What is wrong with this Pad, if anything: a JSON pointer to the field and a message.
+    pub fn problem(&self) -> Option<(String, String)> {
+        if let Some(problem) = self.form().problem() {
+            return Some(problem);
         }
+        if let Some(problem) = crate::opening_problem(
+            self.kind,
+            self.side,
+            self.mask.as_ref(),
+            self.paste.as_ref(),
+        ) {
+            return Some(problem);
+        }
+        if self.kind == PadKind::NonPlated && self.net.is_some() {
+            return Some((
+                "/net".into(),
+                "a non-plated Pad has no copper and cannot be on a Net".into(),
+            ));
+        }
+        None
     }
 }
 
-/// The point from which Footprint positions are measured in the manufacturing outputs
-/// (CPL). A PCB Document has at most one; without it the outputs measure from the
-/// lower-left corner of the Board Outline's bounding box.
+/// The point the editor measures coordinates and grid from, and manufacturing files use
+/// when a Fab Preset requests a relative origin. A PCB Document has at most one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct PlacementOrigin {
+pub struct OutputOrigin {
     pub uuid: Uuid,
     pub at: Point,
 }

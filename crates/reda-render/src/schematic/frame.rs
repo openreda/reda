@@ -1,6 +1,7 @@
 //! The sheet's paper, frame border and built-in title block.
 
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::text::display;
 use reda_model::{DocumentKind, Project, SchematicSheet, Uuid};
 
 use super::Builder;
@@ -57,7 +58,7 @@ impl TitleBlock {
 
 pub(super) fn build(b: &mut Builder, project: &Project, sheet: &SchematicSheet) {
     let object = sheet.frame().map_or(sheet.uuid, |f| f.uuid);
-    let (w, h) = sheet.size().dimensions();
+    let (w, h) = sheet.dimensions();
     b.push(
         object,
         C::Paper,
@@ -94,11 +95,22 @@ pub(super) fn build(b: &mut Builder, project: &Project, sheet: &SchematicSheet) 
     }
     line(b, object, (mid, bottom), (mid, rows[3]));
 
+    let shown = |raw: &str| display(raw).into_owned();
     let cells = [
-        (left, rows[0], ROW, format!("Author: {}", tb.author)),
-        (mid, rows[0], ROW, format!("Company: {}", tb.company)),
-        (left, rows[1], ROW, format!("Revision: {}", tb.revision)),
-        (mid, rows[1], ROW, format!("Date: {}", tb.date)),
+        (left, rows[0], ROW, format!("Author: {}", shown(&tb.author))),
+        (
+            mid,
+            rows[0],
+            ROW,
+            format!("Company: {}", shown(&tb.company)),
+        ),
+        (
+            left,
+            rows[1],
+            ROW,
+            format!("Revision: {}", shown(&tb.revision)),
+        ),
+        (mid, rows[1], ROW, format!("Date: {}", shown(&tb.date))),
         (left, rows[2], ROW, tb.sheet_title.clone()),
         (
             mid,
@@ -106,7 +118,12 @@ pub(super) fn build(b: &mut Builder, project: &Project, sheet: &SchematicSheet) 
             ROW,
             format!("Sheet {} of {}", tb.sheet_number, tb.sheet_count),
         ),
-        (left, rows[3], TITLE_ROW, format!("Title: {}", tb.title)),
+        (
+            left,
+            rows[3],
+            TITLE_ROW,
+            format!("Title: {}", shown(&tb.title)),
+        ),
     ];
     for (x, y, height, text) in cells {
         let size = if height == TITLE_ROW {

@@ -29,6 +29,7 @@ document-kind-symbol = Symbol
 document-kind-footprint = Footprint
 document-kind-part = Part
 active-bar-more = More Tools
+active-bar-power-port = Power Port
 panels-reopen = { $panel } (closed)
 floating-window-title = REDA
 floating-window-title-tab = { $tab } – REDA
@@ -126,6 +127,7 @@ projects-move-down = Move Down
 projects-cannot-move = It cannot move further.
 projects-delete = Delete
 projects-delete-sheet = Delete Sheet
+projects-confirm-delete-title = Confirm Delete
 projects-confirm-delete = Delete { $name }? It holds { $count } { $count ->
     [one] Component, which is
    *[other] Components, which are
@@ -153,13 +155,16 @@ projects-remove = Remove
 menu-file = File
 menu-edit = Edit
 menu-view = View
-menu-view-panels = Panels
-menu-view-docks = Docks
 menu-view-theme = Theme
+menu-project = Project
 menu-design = Design
+menu-route = Route
+menu-tools = Tools
+menu-window = Window
+toolbar-save = Save
+command-field-placeholder = Search Documents, Components, Nets
 menu-place = Place
-pcb-user-origin-reset = Reset User Origin
-menu-library = Library
+menu-place-power-port-presets = Power Port Presets
 menu-help = Help
 bars-no-active-document = no Document is active
 bars-nothing-selected = nothing is selected
@@ -255,8 +260,11 @@ properties-show-field-hint = Show on the sheet
 properties-footprint = Footprint
 properties-no-footprint = None
 properties-footprint-different-parts = The selected Components are different Parts, with different Footprints to choose from
+properties-in-bom = In BOM
+properties-in-cpl = In CPL
 properties-not-fitted = Not Fitted
 properties-net-class = Net Class
+properties-default-net-class = Default
 properties-new-field-name = New field
 properties-new-field-value = Value of the new field
 properties-add-field = Add Field
@@ -270,6 +278,7 @@ library-all-libraries = All Libraries
 library-all-types = All Types
 library-type-standard = Standard
 library-type-mechanical = Mechanical
+library-type-net-tie = Net Tie
 library-sheet-parts = Parts with a Symbol, to place on the sheet
 library-board-parts = Mechanical Parts, to place on the board
 library-no-document = Open a sheet or the PCB to place Parts.
@@ -338,6 +347,7 @@ layers-grid = Snap grid
 layer-top = Top { $kind }
 layer-bottom = Bottom { $kind }
 layer-copper = Copper
+layer-inner-copper = Inner Copper L{ $number }
 layer-silkscreen = Silkscreen
 layer-solder-mask = Solder Mask
 layer-paste = Paste
@@ -394,15 +404,65 @@ violation-single-pin-net = Net { $net } connects only Pin { $pin }
 violation-dangling-wire = Wire end at ({ $x }, { $y }) touches nothing
 violation-unattached-label = { $name } is attached to nothing
 violation-no-connect-connected = No-Connect Marker on connected Pin { $pin }
-violation-multiple-net-names = Net { $net } has several names: { $names }
+violation-net-names-on-sheet = Net { $net } has several names on one sheet: { $names }. { $net } wins { $reason ->
+        [code_point] as the lowest by code point of the { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names
+       *[priority] because { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names take priority
+    }.
+violation-net-names-across-sheets = Net { $net } has different names on different sheets: { $names }. { $net } wins { $reason ->
+        [code_point] as the lowest by code point of the { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names
+       *[priority] because { $kind ->
+            [net_label] Net Label
+            [power_port] Power Port
+           *[port] Port
+        } names take priority
+    }.
+violation-duplicate-nets = { $count } different Nets have the board name { $name }
 violation-single-sheet-port = Port { $name } is on only one sheet
 violation-duplicate-designator = Designator { $designator } is used more than once
 violation-unplaced-units = { $designator } has unplaced Units: { $units }
+violation-net-tie-one-net = All the Pins of Net Tie { $designator } are on { $net }, so it ties nothing
 violation-unit-data-mismatch = The Units of { $designator } differ in: { $differs }
+violation-library-out-of-date = { $designator } differs from its Library Part: { $aspects }
 violation-clearance = Clearance { $actual } is below { $required }
 violation-short-circuit = Short circuit between { $net_a } and { $net_b }
-violation-track-width = Track width { $actual } is below { $minimum }
-violation-hole-size = Hole size { $actual } is below { $minimum }
+violation-shorted-copper = Pads { $pad_a } and { $pad_b } of { $footprint } touch, but it isn't a Net Tie
+violation-net-tie-not-joined = Net Tie Footprint { $footprint } { $reason ->
+        [not_smd_one_side] needs all its Pads SMD on one side
+        [too_few_numbers] needs Pads with at least two different numbers
+       *[not_joined] has Pads that don't touch as one copper group
+    }
+violation-track-width = Track width { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-via-size = Via { $part ->
+        [hole] hole
+       *[diameter] diameter
+    } { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-hole-size = Hole size { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-rule-invalid = The { $rule } rule is invalid: { $problem ->
+        [negative] `{ $value }` is negative
+        [min_above_max] `{ $value }` is above the maximum
+       *[preferred_outside] `{ $value }` is outside the range
+    }
 violation-annular-ring = Annular ring { $actual } is below { $minimum }
 violation-hole-to-hole = Holes { $actual } apart, below { $required }
 violation-edge-clearance = Copper { $actual } from the board edge, below { $required }
@@ -414,6 +474,14 @@ violation-dangling = Unconnected end at ({ $x }, { $y })
 violation-courtyard-overlap = Courtyards overlap
 violation-silkscreen-over-pads = Silkscreen over exposed Pads
 violation-out-of-sync = The PCB is out of sync with the schematic
+violation-opening-collapsed =
+    The { $side ->
+        [top] top
+       *[bottom] bottom
+    } { $kind ->
+        [mask] mask
+       *[paste] paste
+    } opening has collapsed
 
 ## Messages panel
 
@@ -463,13 +531,19 @@ check-single-pin-net = Single-Pin Net
 check-dangling-wire = Dangling Wire
 check-unattached-label = Unattached Label
 check-no-connect-connected = No-Connect on a Connected Pin
-check-multiple-net-names = Several Net Names
+check-net-names-on-sheet = Several Net Names on a Sheet
+check-net-names-across-sheets = Several Net Names Across Sheets
+check-duplicate-nets = Duplicate Nets
 check-single-sheet-port = Port on One Sheet
 check-duplicate-designator = Duplicate Designator
 check-unplaced-units = Unplaced Units
+check-net-tie-one-net = Net Tie on One Net
 check-unit-data-mismatch = Unit Data Mismatch
+check-library-out-of-date = Library Out of Date
 check-clearance = Clearance
 check-short-circuit = Short Circuit
+check-shorted-copper = Shorted Copper
+check-net-tie-not-joined = Net Tie Not Joined
 check-track-width = Track Width
 check-hole-size = Hole Size
 check-annular-ring = Annular Ring
@@ -504,10 +578,27 @@ crash-report-github = Report on GitHub…
 crash-report-github-hint = Opens a pre-filled issue in your browser for you to review before sending.
 crash-dismiss = Close
 
+## Closing and quitting
+
+closing-title = Unsaved Changes
+closing-tab-intro = Save the changes to { $document } before closing it?
+closing-list-intro = These files have unsaved changes. Save the ticked ones?
+closing-save = Save
+closing-save-selected = Save Selected
+closing-dont-save = Don't Save
+closing-cancel = Cancel
+closing-save-failed = { $file } could not be saved: { $error }
+closing-settings-intro = Apply the changes in { $window } before closing it?
+closing-settings-row = { $window } (changes not applied)
+closing-apply = Apply
+closing-discard = Discard
+
 ## Settings dialogs
 
 settings-ok = OK
 settings-apply = Apply
+settings-close = Close
+settings-reset-defaults = Reset to Defaults
 settings-invalid = Fix the flagged values first.
 settings-page-invalid = { $page } (has invalid values)
 project-settings-title = Project Settings
@@ -520,11 +611,6 @@ settings-revision = Revision
 settings-date = Date
 settings-author = Author
 settings-company = Company
-settings-board-thickness = Board thickness (mm)
-settings-copper-weight = Copper weight
-settings-fab-notes = The board thickness and copper weight are used only in fab notes. Give the copper weight as text, such as 1 oz.
-settings-thickness-invalid = Not a length. Give mm, such as 1.6, or a unit, such as 63mil.
-settings-thickness-positive = The board thickness must be more than zero.
 settings-erc-choice = { $check }: { $severity }
 settings-erc-matrix = Pin-type matrix (fixed): E is a Pin Conflict, W is Mixed Pin Types.
 pin-type-input = Input
@@ -606,6 +692,33 @@ pref-page-libraries = Libraries
 pref-page-fab-presets = Fab Presets
 pref-page-agents = Agents
 pref-page-keyboard-shortcuts = Keyboard Shortcuts
+pref-page-window = Window & Layouts
+pref-page-editing = Editing
+pref-page-editing-snap = Snap
+pref-page-editing-grid = Grid
+pref-page-editing-auto-pan = Auto-pan
+pref-page-editing-highlight = Highlight
+pref-page-editing-hud = HUD
+pref-page-schematic-wires = Wires
+pref-page-schematic-names-units = Names & Units
+pref-page-pcb-routing = Interactive Routing
+pref-page-pcb-placement = Placement
+pref-page-pcb-zones = Zones
+pref-page-pcb-view = View
+pref-page-cross-select = Cross-select
+pref-page-checks = Checks
+pref-page-all = All settings
+pref-page-modified = { $page }, { $count } changed
+pref-modified-only = Modified only
+pref-reset-all = Reset all
+pref-reset-page = Reset page
+pref-reset-branch = Reset branch
+pref-reset-dot = Changed from the default; click to reset it.
+pref-none-modified = No setting on this page is changed.
+pref-all-key = Key
+pref-all-value = Value
+pref-all-default = Default
+pref-all-description = Description
 pref-general-theme = Theme
 pref-general-theme-follow-os = Follow the system
 pref-general-theme-dark = Dark
@@ -614,12 +727,26 @@ pref-general-ui-scale = UI scale
 pref-general-reopen-last-project = Reopen the last Project on start
 pref-general-undo-depth = Undo depth
 pref-general-default-layout = Default Saved Layout for new Projects
+pref-user-name = User name
 pref-schematic-default-units = Default units
 pref-schematic-default-units-mm = mm
 pref-schematic-default-units-mil = mil
 pref-schematic-repeat-placement = Repeat placement
 pref-schematic-electrical-snap = Electrical snap
 pref-schematic-auto-pan = Auto-pan at the canvas edge
+pref-schematic-default-grid = Default grid
+pref-schematic-single-negation = Single '\' Negation
+pref-schematic-cross-reference-sheet-style = Port Cross References Sheet Style
+pref-schematic-cross-reference-location-style = Port Cross References Location Style
+pref-schematic-optimize-wires = Optimize Wires
+pref-schematic-components-cut-wires = Components Cut Wires
+pref-schematic-break-wires-at-autojunctions = Break Wires At Autojunctions
+pref-schematic-convert-cross-junctions = Convert Cross-Junctions
+pref-schematic-unit-suffix = Unit Suffix
+pref-schematic-auto-increment = Auto-increment
+pref-schematic-auto-increment-primary = Primary step
+pref-schematic-auto-increment-secondary = Secondary step
+pref-pcb-default-grid = Default grid
 pref-pcb-default-units = Default units
 pref-pcb-default-units-mm = mm
 pref-pcb-default-units-mil = mil
@@ -639,6 +766,14 @@ pref-libraries-paths = User Library folders
 pref-libraries-intro = Folders of your own Libraries, searched in every Project.
 pref-libraries-none = No folders yet.
 pref-library-path = Library folder
+pref-libraries-starter = Starter Library
+pref-library-active-named = Active: { $library }
+pref-library-active-tip = An inactive Library is not scanned or searched; Components placed from it read Source Missing.
+pref-libraries-inactive = Inactive user Libraries
+pref-libraries-starter-active = Starter Library active
+pref-libraries-severities = Library check severities
+pref-libraries-severities-intro = How the Library check reports each finding. It runs after saving, generating and importing, and never blocks a save.
+pref-libraries-severities-reset = Reset severities
 pref-agents-bridge = Let agents connect
 pref-agents-none-connected = None
 pref-forget-named = Forget { $agent }
@@ -692,7 +827,43 @@ violation-duplicate-pin-number = Pin number { $number } is used more than once
 violation-pin-without-pad = Pin { $pin } has no Pad in { $footprint }
 violation-unmapped-pad = Pad { $pad } of { $footprint } is mapped to no Pin
 violation-missing-courtyard = The Footprint has no courtyard
+violation-hole-outside-copper = The hole of Pad { $pad } reaches outside its copper
 violation-broken-reference = Broken { $kind } reference { $reference }
+violation-paste-window-outside-copper = Paste window { $window } of Pad { $pad } is not fully on its copper
+violation-missing-pad-number = A Pad of { $footprint } has no number
+violation-mirrored-footprint = The Footprint's SMD copper is all on the bottom
+violation-origin-outside-body = The origin is outside the body
+violation-origin-off-centroid = The origin is off the body centre at ({ $x }, { $y })
+violation-missing-designator-prefix = The Symbol has no Designator prefix
+violation-missing-pin-number = Pin { $name } has no number
+violation-duplicate-primitives = The same graphic is drawn twice on one Layer
+violation-missing-description = It has no description
+violation-missing-pins-in-sequence = Pin numbers { $missing } are missing
+violation-duplicate-part-name = Another Part is also named { $name }
+violation-duplicate-mpn = Another Part also has MPN { $mpn }
+violation-generator-out-of-date = The Footprint differs from what its stored generator params make: edited by hand, or made by an older generator
+violation-missing-pin-name = Pin { $pin } has no name
+check-duplicate-pin-number = Duplicate Pin Number
+check-pin-without-pad = Pin Without Pad
+check-broken-reference = Broken Reference
+check-missing-pad-number = Missing Pad Number
+check-mirrored-footprint = Mirrored Footprint
+check-origin-outside-body = Origin Outside Body
+check-missing-designator-prefix = Missing Designator Prefix
+check-missing-pin-number = Missing Pin Number
+check-hole-outside-copper = Hole Outside Copper
+check-off-grid-pin = Off-Grid Pin
+check-unmapped-pad = Unmapped Pad
+check-missing-courtyard = Missing Courtyard
+check-paste-window-outside-copper = Paste Window Outside Copper
+check-duplicate-primitives = Duplicate Primitives
+check-origin-off-centroid = Origin Off Centroid
+check-missing-description = Missing Description
+check-missing-pins-in-sequence = Missing Pins in Sequence
+check-duplicate-part-name = Duplicate Part Name
+check-duplicate-mpn = Duplicate MPN
+check-generator-out-of-date = Generator Out of Date
+check-missing-pin-name = Missing Pin Name
 
 # Import part and the Footprint generators.
 library-target = Library
@@ -725,13 +896,15 @@ generate-run = Generate
 part-read-only = Read-only: this Part is in the starter Library.
 part-imported-from = Imported from { $service }; it stays under that service's terms.
 part-name = Name
+part-in-bom = In BOM
+part-in-cpl = In CPL
 part-symbol = Symbol
 part-footprints = Alternate Footprints
 part-default-footprint = { $name } (default)
 part-none = None
 part-missing = Not found
 part-not-found = { $uuid } is in no registered Library.
-part-needs-symbol = A Standard Part needs a Symbol.
+part-needs-symbol = A Standard or Net Tie Part needs a Symbol.
 part-filter = Filter
 part-edit-symbol = Edit Symbol
 part-edit = Edit
@@ -740,7 +913,7 @@ part-move-up = Up
 part-move-down = Down
 part-remove = Remove
 part-add-footprint = Add Footprint…
-part-no-footprints = No Footprints yet: a Standard Part needs at least one.
+part-no-footprints = No Footprints yet: a Standard or Net Tie Part needs at least one.
 part-pin-map = Pin-Pad Map
 part-pin-map-empty = Pick a Symbol to map its Pins to Pads.
 part-pin-map-hint = Each Pin connects to the Pads with its own number unless you list others.
@@ -797,8 +970,8 @@ footprint-pad-width = Width
 footprint-pad-height = Height
 footprint-hole-width = Hole width
 footprint-hole-height = Hole height
-footprint-mask-margin = Mask margin
-footprint-paste-margin = Paste margin
+footprint-mask-margin = Mask expansion
+footprint-paste-margin = Paste expansion
 footprint-rotation = Rotation
 footprint-stroke-width = Stroke width
 footprint-text-size = Size
@@ -807,12 +980,14 @@ footprint-selected-pad = Pad
 footprint-selected-graphic = Graphic
 footprint-designator-text = Designator text
 footprint-value-text = Value text
+footprint-field-text = { $field } text
 footprint-pad-smd = SMD
 footprint-pad-pth = Plated through-hole
 footprint-pad-npth = Non-plated hole
 footprint-shape-circle = Circle
 footprint-shape-rect = Rectangle
 footprint-shape-rounded-rect = Rounded rectangle
+footprint-shape-chamfered-rect = Chamfered rectangle
 footprint-shape-oval = Oval
 footprint-layer-silkscreen-top = Silkscreen top
 footprint-layer-silkscreen-bottom = Silkscreen bottom
@@ -828,6 +1003,7 @@ board-setup-rules = Rules
 board-setup-page-clearance = Clearance
 board-setup-page-track-width = Track Width
 board-setup-page-via = Via
+board-setup-page-hole-size = Hole Size
 board-setup-page-annular-ring = Annular Ring
 board-setup-page-hole-spacing = Hole Spacing
 board-setup-page-edge-clearance = Edge Clearance
@@ -837,13 +1013,18 @@ board-setup-clearance = Clearance
 board-setup-track-width = Track width
 board-setup-via-diameter = Via diameter
 board-setup-via-hole = Via hole
+board-setup-pad-hole = Pad hole
 board-setup-annular-ring = Annular ring
 board-setup-hole-to-hole = Hole-to-hole spacing
 board-setup-edge-clearance = Edge clearance
+board-setup-preferred = Preferred { $rule }
+board-setup-maximum = Maximum { $rule }
 board-setup-board-wide = Board-wide minimum { $rule } (mm)
+board-setup-board-wide-preferred = Board-wide preferred { $rule } (mm)
+board-setup-board-wide-maximum = Board-wide maximum { $rule } (mm)
 board-setup-overrides = Net Class overrides (mm)
 board-setup-override = { $class }: { $rule }
-board-setup-overrides-note = Leave an override empty to use the board-wide value. Where two Net Classes meet, the larger clearance applies.
+board-setup-overrides-note = Leave an override empty to use the board-wide value. Where a Net is in several Net Classes, the highest-ranked one that sets a value wins, and where two Nets meet, the larger clearance applies.
 board-setup-no-overrides = Net Classes do not override this rule.
 board-setup-net-class = Net Class
 board-setup-severity = DRC severity of { $check }:
@@ -873,10 +1054,12 @@ board-setup-nets = Nets
 board-setup-filter = Filter Nets
 board-setup-no-nets = The board has no Nets yet.
 board-setup-class-of = Net Class of { $net }
+board-setup-default-class-name = Default
 
 ## Output Job dialog and job runs
 
 output-job-title = Output Job: { $job }
+output-job-window-title = Output Job
 output-job-page = Job
 output-job-name = Name
 output-job-pcb = PCB Document
@@ -927,7 +1110,10 @@ violation-drc-errors = DRC finds { $count } { $count ->
     [one] error
    *[other] errors
 }
-violation-rule-below-preset = Board { $rule } { $board } is below { $preset }'s minimum { $minimum }
+violation-rule-outside-preset = The { $rule } rule's `{ $value }` { $board } is { $limit ->
+        [max] above { $preset }'s maximum
+       *[min] below { $preset }'s minimum
+    } { $preset_limit }
 violation-missing-font = Font “{ $font }” is not installed
 
 # Schematic: Net highlighting, graphics Tools and dialogs (Find, Select Similar,
@@ -983,6 +1169,7 @@ reannotate-apply = Re-annotate
 library-update-title = Update from Library
 library-update-none = Every Component is up to date with its Library Part.
 library-update-blocked = A placed Unit is gone from the Symbol: delete it to update this Component.
+library-update-source-missing = Source Missing: { $reason }
 library-update-apply = Update
 library-update-none-ticked = Tick the Components to update.
 library-update-kept = { " " }(this Component's own value is kept)
@@ -992,9 +1179,13 @@ library-update-field = { $name }: “{ $from }” » “{ $to }”{ $kept }
 library-update-pin-map = Pin-pad map changed
 library-update-symbol = Symbol { $name } changed
 library-update-unit-removed = Unit { $unit } is gone from the Symbol
+library-update-unit-added = Unit { $unit } is new in the Symbol (unplaced)
+library-update-pin = Pin { $number } of Unit { $unit } changed{ $nets }
+library-update-pin-nets = { " " }(leaves “{ $leaves }”, joins “{ $joins }”)
+library-update-pin-without-pad = Pin { $number } of Unit { $unit } reaches no Pad
 library-update-footprint = Footprint { $name }: { $change }
 library-update-footprint-order = Footprint alternates reordered
-library-update-footprint-choice = The chosen Footprint is no longer an alternate: it moves to the new default
+library-update-footprint-choice = The chosen Footprint changes
 export-pdf-title = Export Schematic PDF
 export-pdf-filter = PDF
 export-pdf-done = Exported { $pages ->
@@ -1019,6 +1210,11 @@ change-remove-component = Remove { $designator }
 change-footprint = { $designator }: Footprint { $from } to { $to }
 change-designator = Designator { $from } to { $to }
 change-fields = { $designator }: { $fields }
+change-component-type = { $designator }: { $from } → { $to }
+change-in-bom-on = { $designator }: In BOM
+change-in-bom-off = { $designator }: not In BOM
+change-in-cpl-on = { $designator }: In CPL
+change-in-cpl-off = { $designator }: not In CPL
 change-not-fitted-on = { $designator }: Not Fitted
 change-not-fitted-off = { $designator }: Fitted
 change-add-net = Add Net { $net }
@@ -1037,3 +1233,57 @@ tab-out-of-sync = { $tab }, out of sync: { $count ->
     [one] 1 change
    *[other] { $count } changes
 }
+
+# Shared canvas selection.
+pref-editing-click-clears-selection = Click Clears Selection
+pref-editing-directional-rectangle = Directional Rectangle
+pref-editing-protect-locked-objects = Protect Locked Objects
+check-opening-collapsed = Mask or paste opening collapsed
+check-via-size = Via Size
+check-rule-invalid = Invalid Rule
+check-rule-outside-preset = Rule Outside Fab Preset
+
+# Canvas selection and stack picking.
+selection-filter-title = Selection Filter
+selection-filter-all = All
+selection-filter-none = None
+selection-filter-kind = Select { $kind }
+selection-pick-title = Pick Object
+selection-pick-locked = Locked
+selection-pick-sheet = Sheet
+selection-pick-drill = Through hole
+selection-pick-layer = Layer
+selection-kind-unit = Component
+selection-kind-field-text = Field text
+selection-kind-wire = Wire
+selection-kind-net-label = Net Label
+selection-kind-port = Port
+selection-kind-power-port = Power Port
+selection-kind-no-connect = No-Connect Marker
+selection-kind-sheet-text = Text
+selection-kind-sheet-graphic = Graphic
+selection-kind-footprint-instance = Footprint
+selection-kind-pad = Pad
+selection-kind-track = Track
+selection-kind-via = Via
+selection-kind-zone = Zone
+selection-kind-keepout = Keepout
+selection-kind-free-pad = Free Pad
+selection-kind-pcb-text = Text
+selection-kind-footprint-text = Footprint text
+selection-kind-pcb-graphic = Graphic
+selection-kind-board-outline = Board Outline
+selection-kind-board-cutout = Board Cutout
+selection-kind-output-origin = Output Origin
+selection-kind-pin = Pin
+selection-kind-graphic = Graphic
+selection-kind-text = Text
+properties-text-frame-omitted = Text Frame: { $count ->
+    [one] 1 line omitted
+   *[other] { $count } lines omitted
+    }
+
+selection-pick-length = { $length } mm
+selection-pick-size = { $width } × { $height } mm
+selection-pick-entry = { $kind } · { $detail }
+selection-pick-pad = { $kind } { $number } · { $designator }

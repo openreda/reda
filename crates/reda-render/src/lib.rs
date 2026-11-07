@@ -38,8 +38,10 @@ pub use pcb::{
 };
 pub use pdf::{PdfInfo, to_pdf};
 pub use reda_text::{Mesh, Segment};
-pub use scene::{Align, GlyphRun, HAlign, Item, Primitive, Scene, SceneLayer, SceneSource, VAlign};
-pub use schematic::{schematic_scene, symbol_scene};
+pub use scene::{
+    Align, Child, GlyphRun, HAlign, Item, Primitive, Scene, SceneLayer, SceneSource, VAlign,
+};
+pub use schematic::{SchematicStyle, schematic_scene, schematic_scene_styled, symbol_scene};
 pub use svg::{to_svg, to_svg_layers};
 pub use view::View;
 pub use viewport::Viewport;

@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_library::{ElementKind, Elements, LibraryIndex, ScanProblem, check};
-use reda_model::{Footprint, LibraryElement, Project, Symbol, Uuid, Violation};
+use reda_model::{Footprint, LibraryElement, Part, Project, Symbol, Uuid, Violation};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -92,6 +92,20 @@ impl Elements for Overlay<'_> {
             None => self.index.footprint(uuid),
         }
     }
+
+    fn parts(&self) -> Vec<&Part> {
+        let open = self.project.iter().flat_map(|p| p.elements());
+        let mut parts: BTreeMap<Uuid, &Part> = BTreeMap::new();
+        for (_, part) in self.index.parts() {
+            parts.insert(part.uuid, part);
+        }
+        for (_, element) in open {
+            if let LibraryElement::Part(part) = element {
+                parts.insert(part.uuid, part);
+            }
+        }
+        parts.into_values().collect()
+    }
 }
 
 impl Command for LibraryCheck {
@@ -99,11 +113,13 @@ impl Command for LibraryCheck {
         id: "library.check",
         title: "Check Library",
         description: "Runs the Library check on one element, one Library or every registered \
-                      Library, and returns its Violations: off-grid Pins, duplicate Pin \
-                      numbers, Pins with no Pad in some alternate Footprint, Pads mapped to \
-                      no Pin and not marked unconnected, missing courtyards and broken \
-                      references. Open elements are checked with their unsaved changes. It \
-                      never blocks saving.",
+                      Library, and returns its Violations, each at the severity the user set \
+                      in Preferences (`libraries.severities`; checks set to off do not run): \
+                      Pin, Pad and pin-map mistakes, shorted copper, Footprint origin and \
+                      courtyard problems, duplicate primitives, Part names and MPNs, missing \
+                      descriptions, and generated Footprints their stored params no longer \
+                      make. Open elements are checked with their unsaved changes. It never \
+                      blocks saving.",
         category: "library",
         icon: "rule",
         kind: Kind::File,
@@ -153,7 +169,11 @@ impl Command for LibraryCheck {
                     .collect()
             }
         };
-        let violations = elements.iter().flat_map(|e| check(&overlay, e)).collect();
+        let severities = crate::preferences::library_severities(session);
+        let violations = elements
+            .iter()
+            .flat_map(|e| check(&overlay, e, &severities))
+            .collect();
         Ok(LibraryCheckResult {
             violations,
             problems: index.problems().to_vec(),

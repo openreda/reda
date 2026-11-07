@@ -7,7 +7,7 @@ use super::{BoardGraphic, BoardText, Builder, RatsnestLine, capsule};
 use crate::arc;
 use crate::color::BoardColor;
 use crate::polygon::triangulate;
-use crate::scene::{Align, GlyphRun, Primitive, SceneLayer};
+use crate::scene::{GlyphRun, Primitive, SceneLayer};
 
 /// The width of the Board Outline and cutouts.
 pub(super) const OUTLINE_WIDTH: Nm = Nm(150_000);
@@ -111,13 +111,17 @@ pub(super) fn texts(b: &mut Builder, texts: &[BoardText]) {
             at: t.at,
             height: t.height,
             rotation: t.rotation,
-            align: Align::default(),
+            align: t.align,
             view_label: false,
             strokes: t.strokes.clone(),
             stroke_width: t.stroke_width,
             fill: t.fill.clone(),
         };
+        let before = b.scene.items.len();
         b.on_layer(t.object, t.layer, Primitive::Glyphs(run));
+        if let Some(item) = b.scene.items.get_mut(before) {
+            item.child = t.child.clone();
+        }
     }
 }
 
@@ -136,14 +140,14 @@ pub(super) fn outline(b: &mut Builder) {
         let points = arc::contour(vertices);
         b.polyline(object, layer, &points, OUTLINE_WIDTH, true);
     }
-    if let Some(origin) = pcb.placement_origin() {
-        placement_origin(b, layer, origin.uuid, origin.at);
+    if let Some(origin) = pcb.output_origin() {
+        output_origin(b, layer, origin.uuid, origin.at);
     }
 }
 
-/// The Placement Origin's mark, on the Board Outline Layer: a ring with a cross through
+/// The Output Origin's mark, on the Board Outline Layer: a ring with a cross through
 /// it, 2 mm across.
-fn placement_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
+fn output_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
     let r = Nm(1_000_000);
     b.on_layer(
         object,

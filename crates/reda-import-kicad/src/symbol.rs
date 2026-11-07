@@ -5,7 +5,9 @@
 //! REDA does not have, so it is skipped.
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{Pin, PinType, Provenance, Shape, Symbol, SymbolGraphic, Unit, Uuid};
+use reda_model::{
+    InsideEdge, OutsideEdge, Pin, PinType, Provenance, Shape, Symbol, SymbolGraphic, Unit, Uuid,
+};
 
 use crate::node::{self, Read, fail};
 use crate::sexpr::Sexp;
@@ -28,6 +30,8 @@ pub struct PinSource {
     pub length: Nm,
     pub name_visible: bool,
     pub number_visible: bool,
+    pub inside_edge: Option<InsideEdge>,
+    pub outside_edge: Option<OutsideEdge>,
 }
 
 #[derive(Clone, Debug)]
@@ -48,6 +52,8 @@ pub struct SymbolSource {
     pub unit_count: u32,
     pub pins: Vec<PinSource>,
     pub graphics: Vec<GraphicSource>,
+    /// False for `(in_bom no)`.
+    pub in_bom: bool,
     pub warnings: Vec<String>,
 }
 
@@ -125,6 +131,7 @@ pub fn read(root: &Sexp, pick: Option<&str>) -> Read<SymbolSource> {
         unit_count: 1,
         pins: vec![],
         graphics: vec![],
+        in_bom: true,
         warnings: vec![],
     };
     // A derived symbol draws with its parent's body and overrides its properties.
@@ -146,6 +153,19 @@ pub fn read(root: &Sexp, pick: Option<&str>) -> Read<SymbolSource> {
         None => chosen,
     };
     read_properties(chosen, &mut source.properties)?;
+    // A derived symbol's own flags win over its parent's.
+    let says_no = |name: &str| {
+        let flag = |s: &Sexp| s.child(name).and_then(|f| f.arg(0)).map(|v| v == "no");
+        flag(chosen).or_else(|| flag(body)).unwrap_or(false)
+    };
+    source.in_bom = !says_no("in_bom");
+    if says_no("on_board") {
+        source.warnings.push(
+            "the symbol is marked not on the board, which was ignored: an import always \
+             makes a Symbol and Footprint pair"
+                .into(),
+        );
+    }
 
     let names_hidden = body.child("pin_names").is_some_and(|p| p.flag("hide"));
     let numbers_hidden = body.child("pin_numbers").is_some_and(|p| p.flag("hide"));
@@ -167,9 +187,14 @@ pub fn read(root: &Sexp, pick: Option<&str>) -> Read<SymbolSource> {
         for item in sub.args() {
             match item.head() {
                 Some("pin") => {
-                    source
-                        .pins
-                        .push(read_pin(item, unit, names_hidden, numbers_hidden)?)
+                    let pin = read_pin(
+                        item,
+                        unit,
+                        names_hidden,
+                        numbers_hidden,
+                        &mut source.warnings,
+                    )?;
+                    source.pins.push(pin)
                 }
                 Some(_) => read_graphic(item, unit, &mut source)?,
                 None => {}
@@ -216,7 +241,30 @@ fn pin_type(word: &str) -> Option<PinType> {
     })
 }
 
-fn read_pin(pin: &Sexp, unit: u32, names_hidden: bool, numbers_hidden: bool) -> Read<PinSource> {
+/// The decorations for a KiCad pin style, or `None` for a style v0.1 cannot draw.
+fn decorations(style: &str) -> Option<(Option<InsideEdge>, Option<OutsideEdge>)> {
+    let clock = Some(InsideEdge::Clock);
+    Some(match style {
+        "line" => (None, None),
+        "inverted" => (None, Some(OutsideEdge::Dot)),
+        "clock" => (clock, None),
+        "inverted_clock" => (clock, Some(OutsideEdge::Dot)),
+        "input_low" => (None, Some(OutsideEdge::ActiveLowInput)),
+        "clock_low" => (clock, Some(OutsideEdge::ActiveLowInput)),
+        "output_low" => (None, Some(OutsideEdge::ActiveLowOutput)),
+        _ => return None,
+    })
+}
+
+/// REDA has no hidden Pins, so a hidden one comes in with its name and number visible,
+/// and its alternates are dropped because `alt_names` is reserved.
+fn read_pin(
+    pin: &Sexp,
+    unit: u32,
+    names_hidden: bool,
+    numbers_hidden: bool,
+    warnings: &mut Vec<String>,
+) -> Read<PinSource> {
     let word = node::text(pin, 0)?;
     let Some(electrical_type) = pin_type(word) else {
         return fail(pin, format!("unknown pin type {word:?}"));
@@ -224,22 +272,63 @@ fn read_pin(pin: &Sexp, unit: u32, names_hidden: bool, numbers_hidden: bool) -> 
     let at = node::need(pin, "at")?;
     let name = node::text(node::need(pin, "name")?, 0)?;
     let number = node::text(node::need(pin, "number")?, 0)?;
-    let hidden = pin.flag("hide");
+    let style = pin.arg(1);
+    let (inside_edge, outside_edge) = match style {
+        None => (None, None),
+        Some(style) => decorations(style).unwrap_or_else(|| {
+            warnings.push(format!(
+                "pin {number:?}: the {style} style has no REDA decoration and is not drawn"
+            ));
+            (None, None)
+        }),
+    };
+    if pin.flag("hide") {
+        warnings.push(format!(
+            "pin {number:?} was hidden; REDA has no hidden Pins, so its name and number show"
+        ));
+    }
+    if pin.child("alternate").is_some() {
+        warnings.push(format!(
+            "pin {number:?}: dropped its alternate functions, which REDA does not have yet"
+        ));
+    }
     Ok(PinSource {
         unit,
         name: if name == "~" {
             String::new()
         } else {
-            name.into()
+            overbar_markup(name)
         },
         number: number.into(),
         electrical_type,
         at: node::point(at)?,
         rotation: node::degrees_or_zero(at, 2)?,
         length: node::mm(node::need(pin, "length")?, 0)?,
-        name_visible: !hidden && !names_hidden,
-        number_visible: !hidden && !numbers_hidden,
+        name_visible: !names_hidden,
+        number_visible: !numbers_hidden,
+        inside_edge,
+        outside_edge,
     })
+}
+
+/// A KiCad name with its overbar form `~{X}` turned into REDA's, a backslash after each
+/// negated character: `~{CS}/~{WR}` becomes `C\S\/W\R\`. Anything else is kept.
+fn overbar_markup(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut rest = name;
+    while let Some(start) = rest.find("~{") {
+        let Some(len) = rest[start + 2..].find('}') else {
+            break;
+        };
+        out.push_str(&rest[..start]);
+        for c in rest[start + 2..start + 2 + len].chars() {
+            out.push(c);
+            out.push('\\');
+        }
+        rest = &rest[start + 2 + len + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 fn read_graphic(item: &Sexp, unit: u32, source: &mut SymbolSource) -> Read<()> {
@@ -269,7 +358,7 @@ fn read_graphic(item: &Sexp, unit: u32, source: &mut SymbolSource) -> Read<()> {
             let tenths = node::degrees_or_zero(at, 2)?;
             vec![Shape::Text {
                 at: node::point(at)?,
-                text: node::text(item, 0)?.to_owned(),
+                text: reda_model::text::escape(node::text(item, 0)?).into_owned(),
                 size: node::font_size(item)?.unwrap_or(Nm(1_270_000)),
                 rotation: Millideg(tenths.0 / 10),
             }]
@@ -363,6 +452,9 @@ pub fn build(
             length: p.length,
             name_visible: p.name_visible,
             number_visible: p.number_visible,
+            description: String::new(),
+            inside_edge: p.inside_edge,
+            outside_edge: p.outside_edge,
         })
         .collect();
     pins.sort_by_key(|p| p.uuid);
@@ -398,5 +490,19 @@ pub fn build(
         pins,
         graphics,
         provenance: Some(Box::new(provenance)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::overbar_markup;
+
+    #[test]
+    fn kicad_overbars_become_a_backslash_after_each_character() {
+        assert_eq!(overbar_markup("~{RESET}"), "R\\E\\S\\E\\T\\");
+        assert_eq!(overbar_markup("~{CS}/~{WR}"), "C\\S\\/W\\R\\");
+        assert_eq!(overbar_markup("A~{B}C"), "AB\\C");
+        assert_eq!(overbar_markup("VCC"), "VCC");
+        assert_eq!(overbar_markup("~{open"), "~{open");
     }
 }

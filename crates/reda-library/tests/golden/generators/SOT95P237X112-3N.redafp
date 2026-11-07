@@ -1,16 +1,21 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOT95P237X112-3N","description":"SOT-23-3, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":2500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":650000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"SOT95P237X112-3N","description":"SOT-23-3, IPC-7351 Nominal","height":1120000},
+  "generator": {"command":"library.footprint.generate.sot","params":{"chamfer":true,"description":"SOT-23-3, IPC-7351 Nominal","goals":{"density":"nominal","fillet":{"heel":350000,"side":30000,"toe":350000}},"library":"000000aa-0000-4000-8000-000000000000","name":"SOT95P237X112-3N","outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"package":"sot23_3","pads":{"corner_ratio":25000,"length":1500000,"max_corner_radius":250000,"paste_coverage":50,"shape":"rounded_rect","spacing":1850000,"trim":true,"width":600000},"tolerances":{"component":{"inner":609590,"span":540000,"width":200000},"courtyard_excess":250000,"fabrication":100000,"placement":50000,"round_off":{"place":50000,"size":50000}}}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1012500,"y":950000},"rotation":0,"width":1325000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1012500,"y":-950000},"rotation":0,"width":1325000,"height":600000,"corner_radius":150000},
-    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":1012500,"y":0},"rotation":0,"width":1325000,"height":600000,"corner_radius":150000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1187500,"y":950000},"rotation":0,"width":975000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1187500,"y":-950000},"rotation":0,"width":975000,"height":600000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":1187500,"y":0},"rotation":0,"width":975000,"height":600000,"corner_ratio":25000}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000005","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1950000,"y":-1800000},"end":{"x":1950000,"y":1800000}},"width":50000},
     {"uuid":"00000000-0000-4000-8000-000000000006","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-325000,"y":1460000},{"x":650000,"y":1460000},{"x":650000,"y":-1460000},{"x":-650000,"y":-1460000},{"x":-650000,"y":1135000}]},"width":100000},
     {"uuid":"00000000-0000-4000-8000-000000000007","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1675000,"y":1580000},"end":{"x":700000,"y":1580000}},"width":120000},
     {"uuid":"00000000-0000-4000-8000-000000000008","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-700000,"y":-1580000},"end":{"x":700000,"y":-1580000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-000000000009","field":"Designator","at":{"x":0,"y":2500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","field":"Value","at":{"x":0,"y":-2325000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":650000,"thickness":97500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":650000,"thickness":97500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

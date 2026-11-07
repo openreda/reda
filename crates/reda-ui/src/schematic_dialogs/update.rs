@@ -1,8 +1,9 @@
-//! Update from Library: previews what updating each outdated Component to its Library
-//! Part would change (`schematic.component.update_preview`), then updates the ticked ones
-//! (`schematic.component.update_from_library`). Nothing updates without the preview.
+//! Update from Library: previews what updating each Component that is not Up to Date
+//! would change (`schematic.component.update_preview`, Full Replace), then updates the
+//! ticked ones (`schematic.component.update_from_library` with the preview's hash,
+//! excluding the others). Nothing updates without the preview.
 
-use egui::{Id, Modal};
+use egui::Id;
 use reda_engine::command::CommandError;
 use reda_engine::model::Uuid;
 use serde_json::{Value, json};
@@ -18,8 +19,11 @@ pub struct UpdateRow {
     pub designator: String,
     /// The changes, in words.
     pub changes: Vec<String>,
-    /// A change stops the update (a placed Unit is gone from the Symbol).
+    /// A change stops the update (a placed Unit is gone from the Symbol), or the row is
+    /// Source Missing.
     pub blocked: bool,
+    /// No registered Library holds its Part or an element it references.
+    pub source_missing: bool,
     /// Whether Apply updates it.
     pub checked: bool,
 }
@@ -28,6 +32,7 @@ pub struct UpdateRow {
 #[derive(Clone, Debug, Default)]
 pub struct UpdateDialog {
     rows: Vec<UpdateRow>,
+    preview_hash: String,
     error: Option<String>,
 }
 
@@ -38,22 +43,50 @@ impl UpdateDialog {
         let mut dialog = UpdateDialog::default();
         match shell.run("schematic.component.update_preview", json!({})) {
             Ok(out) => {
+                dialog.preview_hash = out["preview_hash"].as_str().unwrap_or_default().to_owned();
                 for c in out["components"].as_array().into_iter().flatten() {
                     let Some(component) = c["component"].as_str().and_then(|u| u.parse().ok())
                     else {
                         continue;
                     };
-                    let blocked = c["blocked"].as_bool().unwrap_or(false);
-                    dialog.rows.push(UpdateRow {
-                        component,
-                        designator: c["designator"].as_str().unwrap_or_default().to_owned(),
-                        changes: c["changes"]
+                    let missing = c["status"] == "source_missing";
+                    let blocked = missing || c["blocked"].as_bool().unwrap_or(false);
+                    let mut changes: Vec<String> = c["changes"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(describe)
+                        .collect();
+                    changes.extend(
+                        c["cells"]
                             .as_array()
                             .into_iter()
                             .flatten()
-                            .map(describe)
-                            .collect(),
+                            .map(describe_cell),
+                    );
+                    changes.extend(
+                        (c["problems"].as_array().into_iter().flatten())
+                            .filter(|p| p["kind"] == "pin_without_pad")
+                            .map(|p| {
+                                tr!(
+                                    "library-update-pin-without-pad",
+                                    unit = p["unit"].as_str().unwrap_or_default(),
+                                    number = p["number"].as_str().unwrap_or_default()
+                                )
+                            }),
+                    );
+                    if missing {
+                        changes.push(tr!(
+                            "library-update-source-missing",
+                            reason = c["reason"].as_str().unwrap_or_default()
+                        ));
+                    }
+                    dialog.rows.push(UpdateRow {
+                        component,
+                        designator: c["designator"].as_str().unwrap_or_default().to_owned(),
+                        changes,
                         blocked,
+                        source_missing: missing,
                         checked: !blocked,
                     });
                 }
@@ -85,12 +118,15 @@ impl UpdateDialog {
             .collect()
     }
 
-    /// Updates the ticked Components.
+    /// Updates the ticked Components, as previewed.
     pub fn apply(&mut self, shell: &mut Shell) -> Result<(), CommandError> {
-        let components = self.ticked();
+        let excluded: Vec<Uuid> = (self.rows.iter())
+            .filter(|r| !r.checked)
+            .map(|r| r.component)
+            .collect();
         shell.run_reporting(
             "schematic.component.update_from_library",
-            json!({ "components": components }),
+            json!({ "preview_hash": self.preview_hash, "excluded_components": excluded }),
         )?;
         Ok(())
     }
@@ -98,9 +134,12 @@ impl UpdateDialog {
     /// Draws the dialog. Returns whether it is still open.
     pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> bool {
         let mut result = (false, false);
-        let modal = Modal::new(Id::NULL.with("schematic-update-from-library")).show(ctx, |ui| {
-            ui.set_width(520.0);
-            ui.heading(tr!("library-update-title"));
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("schematic-update-from-library"),
+            tr!("library-update-title"),
+        )
+        .width(520.0)
+        .show(ctx, |ui| {
             if self.rows.is_empty() && self.error.is_none() {
                 ui.label(tr!("library-update-none"));
             }
@@ -117,7 +156,7 @@ impl UpdateDialog {
                             for change in &row.changes {
                                 ui.label(change);
                             }
-                            if row.blocked {
+                            if row.blocked && !row.source_missing {
                                 ui.colored_label(
                                     ui.visuals().warn_fg_color,
                                     tr!("library-update-blocked"),
@@ -150,29 +189,29 @@ impl UpdateDialog {
 /// One `PartChange` of the preview, in words.
 fn describe(change: &Value) -> String {
     let s = |key: &str| change[key].as_str().unwrap_or_default().to_owned();
-    let kept = if change["edited"].as_bool().unwrap_or(false) {
-        tr!("library-update-kept")
-    } else {
-        String::new()
-    };
     match change["kind"].as_str().unwrap_or_default() {
         "name" => tr!("library-update-name", from = s("from"), to = s("to")),
-        "component_type" => tr!(
-            "library-update-component-type",
-            from = s("from"),
-            to = s("to"),
-            kept = kept
-        ),
-        "field" => tr!(
-            "library-update-field",
-            name = s("name"),
-            from = s("from"),
-            to = s("to"),
-            kept = kept
-        ),
         "pin_map" => tr!("library-update-pin-map"),
         "symbol" => tr!("library-update-symbol", name = s("name")),
         "unit_removed" => tr!("library-update-unit-removed", unit = s("unit")),
+        "unit_added" => tr!("library-update-unit-added", unit = s("unit")),
+        "pin" => {
+            let nets = if change.get("leaves").is_some() || change.get("joins").is_some() {
+                tr!(
+                    "library-update-pin-nets",
+                    leaves = s("leaves"),
+                    joins = s("joins")
+                )
+            } else {
+                String::new()
+            };
+            tr!(
+                "library-update-pin",
+                unit = s("unit"),
+                number = s("number"),
+                nets = nets
+            )
+        }
         "footprint" => tr!(
             "library-update-footprint",
             name = s("name"),
@@ -181,5 +220,30 @@ fn describe(change: &Value) -> String {
         "footprint_order" => tr!("library-update-footprint-order"),
         "footprint_choice" => tr!("library-update-footprint-choice"),
         other => other.to_owned(),
+    }
+}
+
+/// One field cell of the preview, in words.
+fn describe_cell(cell: &Value) -> String {
+    let s = |key: &str| cell[key].as_str().unwrap_or_default().to_owned();
+    let kept = if cell["action"] == "update" {
+        String::new()
+    } else {
+        tr!("library-update-kept")
+    };
+    match s("cell").as_str() {
+        "component_type" => tr!(
+            "library-update-component-type",
+            from = s("old"),
+            to = s("new"),
+            kept = kept
+        ),
+        name => tr!(
+            "library-update-field",
+            name = name.to_owned(),
+            from = s("old"),
+            to = s("new"),
+            kept = kept
+        ),
     }
 }

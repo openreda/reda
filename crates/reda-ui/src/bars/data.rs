@@ -1,11 +1,12 @@
 //! Reading the bar data files. The format allows only what the spec allows: items that bind
-//! to a Command, a Preset or a raw `{command, params}`, separators and submenus. Anything
-//! else, such as a callback field, is refused.
+//! to a Command, a Preset or a raw `{command, params}`, separators and submenus. An item
+//! may name a `title` (a catalogue key) or an `icon` to show instead of its Command's.
+//! Anything else, such as a callback field, is refused.
 //!
 //! ```json
 //! { "menus": [{ "id": "file", "title": "menu-file", "items": [
 //!       { "id": "file.save_all", "command": "project.save" },
-//!       { "id": "view.panels.layers", "command": "panel.show:layers" },
+//!       { "id": "window.panel.layers", "command": "panel.show:layers" },
 //!       { "id": "edit.undo", "command": "edit.undo", "params": { "document": "$active_document" } },
 //!       "separator",
 //!       { "id": "view.theme", "title": "menu-view-theme", "items": [ … ] } ] }],
@@ -29,7 +30,11 @@ pub fn parse(text: &str) -> Result<Bars, String> {
             .map(|m| {
                 let map = object(m, "a menu")?;
                 only(map, &["id", "title", "items"], "a menu")?;
-                menu(map)
+                let menu = menu(map)?;
+                if menu_rank(&menu.id) == MENU_ORDER.len() {
+                    return Err(format!("{}: not a menu of the menu bar", menu.id));
+                }
+                Ok(menu)
             })
             .collect::<Result<_, _>>()?,
     };
@@ -44,39 +49,67 @@ pub fn parse(text: &str) -> Result<Bars, String> {
     })
 }
 
-/// The common bars with one Document type's: a menu with the id of a common menu adds its
-/// items to that menu, other menus follow the common ones, and the toolbar's own items
-/// follow the common toolbar after a separator.
+/// The menus in the order the menu bar shows them, the leading suite's. A data file may
+/// name no other menu.
+pub const MENU_ORDER: [&str; 10] = [
+    "file", "edit", "view", "project", "place", "design", "route", "tools", "window", "help",
+];
+
+/// The common bars with one Document type's. A menu with the id of a common menu adds its
+/// items to that menu, after the common menu's first group; the menus then stand in
+/// [`MENU_ORDER`]. A toolbar item with the id of a common one takes its place (a Library
+/// editor's Save saves the element); the type's other toolbar items follow the common ones.
 pub fn merge(mut common: Bars, own: Bars) -> Bars {
     for menu in own.menus {
         match common.menus.iter_mut().find(|m| m.id == menu.id) {
             Some(existing) => {
-                existing.items.push(Item::Separator);
-                existing.items.extend(menu.items);
-            }
-            // Help stays last, as on every platform.
-            None => {
-                let at = common
-                    .menus
+                let at = existing
+                    .items
                     .iter()
-                    .position(|m| m.id == "help")
-                    .unwrap_or(common.menus.len());
-                common.menus.insert(at, menu);
+                    .position(|i| matches!(i, Item::Separator))
+                    .unwrap_or(existing.items.len());
+                let mut added = vec![Item::Separator];
+                added.extend(menu.items);
+                existing.items.splice(at..at, added);
             }
+            None => common.menus.push(menu),
         }
     }
-    if !own.toolbar.is_empty() {
-        common.toolbar.push(Item::Separator);
-        common.toolbar.extend(own.toolbar);
+    common.menus.sort_by_key(|m| menu_rank(&m.id));
+    for item in own.toolbar {
+        let id = |i: &Item| match i {
+            Item::Action(a) => Some(a.id.clone()),
+            _ => None,
+        };
+        let mine = id(&item);
+        match common
+            .toolbar
+            .iter_mut()
+            .find(|i| mine.is_some() && id(i) == mine)
+        {
+            Some(slot) => *slot = item,
+            None => common.toolbar.push(item),
+        }
     }
     common.active_bar.extend(own.active_bar);
     common
+}
+
+fn menu_rank(id: &str) -> usize {
+    MENU_ORDER
+        .iter()
+        .position(|m| *m == id)
+        .unwrap_or(MENU_ORDER.len())
 }
 
 fn menu(map: &Map<String, Value>) -> Result<Menu, String> {
     let id = string(map, "id", "a menu")?;
     Ok(Menu {
         title: string(map, "title", &id)?,
+        icon: match map.get("icon") {
+            Some(_) => Some(string(map, "icon", &id)?),
+            None => None,
+        },
         items: items(map.get("items").ok_or(format!("{id} has no items"))?, &id)?,
         id,
     })
@@ -97,11 +130,11 @@ fn item(value: &Value) -> Result<Item, String> {
     }
     let map = object(value, "an item")?;
     if map.contains_key("items") {
-        only(map, &["id", "title", "items"], "a submenu")?;
+        only(map, &["id", "title", "icon", "items"], "a submenu")?;
         return Ok(Item::Submenu(menu(map)?));
     }
     let id = string(map, "id", "an item")?;
-    only(map, &["id", "command", "params", "title"], &id)?;
+    only(map, &["id", "command", "params", "title", "icon"], &id)?;
     let command = string(map, "command", &id)?;
     let binding = match (map.get("params"), command.contains(':')) {
         (Some(_), true) => return Err(format!("{id}: a Preset has fixed params; give none")),
@@ -116,7 +149,16 @@ fn item(value: &Value) -> Result<Item, String> {
         .get("title")
         .map(|_| string(map, "title", &id))
         .transpose()?;
-    Ok(Item::Action(Action { id, binding, title }))
+    let icon = map
+        .get("icon")
+        .map(|_| string(map, "icon", &id))
+        .transpose()?;
+    Ok(Item::Action(Action {
+        id,
+        binding,
+        title,
+        icon,
+    }))
 }
 
 fn object<'v>(value: &'v Value, what: &str) -> Result<&'v Map<String, Value>, String> {

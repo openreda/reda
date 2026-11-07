@@ -25,7 +25,10 @@ pub fn check_name(check: DrcCheck) -> String {
     match check {
         DrcCheck::Clearance => tr!("check-clearance"),
         DrcCheck::ShortCircuit => tr!("check-short-circuit"),
+        DrcCheck::ShortedCopper => tr!("check-shorted-copper"),
+        DrcCheck::NetTieNotJoined => tr!("check-net-tie-not-joined"),
         DrcCheck::TrackWidth => tr!("check-track-width"),
+        DrcCheck::ViaSize => tr!("check-via-size"),
         DrcCheck::HoleSize => tr!("check-hole-size"),
         DrcCheck::AnnularRing => tr!("check-annular-ring"),
         DrcCheck::HoleToHole => tr!("check-hole-to-hole"),
@@ -38,6 +41,9 @@ pub fn check_name(check: DrcCheck) -> String {
         DrcCheck::CourtyardOverlap => tr!("check-courtyard-overlap"),
         DrcCheck::SilkscreenOverPads => tr!("check-silkscreen-over-pads"),
         DrcCheck::OutOfSync => tr!("check-out-of-sync"),
+        DrcCheck::OpeningCollapsed => tr!("check-opening-collapsed"),
+        DrcCheck::RuleInvalid => tr!("check-rule-invalid"),
+        DrcCheck::RuleOutsidePreset => tr!("check-rule-outside-preset"),
     }
 }
 
@@ -84,7 +90,7 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
         .spacing([12.0, 8.0])
         .show(ui, |ui| {
             for &f in rule.fields() {
-                let label = tr!("board-setup-board-wide", rule = f.name());
+                let label = f.board_wide_label();
                 ui.label(&label);
                 let problem = cx.problem(&f.problem_field());
                 field(ui, &label, board.rule_mut(f), LENGTH_WIDTH, problem);
@@ -119,7 +125,7 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
                             class = name.as_str(),
                             rule = f.name()
                         );
-                        let problem = cx.problem(&class_field(key, f.id()));
+                        let problem = cx.problem(&class_field(key, &f.id()));
                         if let Some(value) = board.class_override_mut(key, f) {
                             field(ui, &label, value, LENGTH_WIDTH, problem);
                         }
@@ -254,13 +260,25 @@ pub fn net_classes_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetup
         ui.weak(tr!("board-setup-no-nets"));
         return;
     }
-    let classes: Vec<(ClassKey, String)> = board
-        .live_classes()
-        .map(|c| (c.key(), c.name().to_owned()))
-        .collect();
-    let nets: Vec<(Uuid, String, ClassKey)> = board
+    let classes: Vec<(ClassKey, String)> =
+        std::iter::once((ClassKey::Default, tr!("board-setup-default-class-name")))
+            .chain(board.live_classes().map(|c| (c.key(), c.name().to_owned())))
+            .collect();
+    let nets: Vec<(Uuid, String, ClassKey, String)> = board
         .filtered_nets()
-        .map(|n| (n.uuid, n.name.clone(), n.class()))
+        .map(|n| {
+            let names: Vec<&str> = classes
+                .iter()
+                .filter(|(k, _)| n.classes().contains(k))
+                .map(|(_, name)| name.as_str())
+                .collect();
+            let shown = if names.is_empty() {
+                classes[0].1.clone()
+            } else {
+                names.join(", ")
+            };
+            (n.uuid, n.name.clone(), n.class(), shown)
+        })
         .collect();
     let mut moves = Vec::new();
     egui::Grid::new("board-setup-nets")
@@ -268,12 +286,8 @@ pub fn net_classes_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetup
         .striped(true)
         .spacing([12.0, 4.0])
         .show(ui, |ui| {
-            for (uuid, name, class) in nets {
+            for (uuid, name, class, current) in nets {
                 ui.label(&name);
-                let current = classes
-                    .iter()
-                    .find(|(k, _)| *k == class)
-                    .map_or("", |(_, n)| n.as_str());
                 let label = tr!("board-setup-class-of", net = name.as_str());
                 let combo = ComboBox::from_id_salt(("board-setup-net", uuid))
                     .selected_text(current)

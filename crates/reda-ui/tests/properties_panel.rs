@@ -78,7 +78,8 @@ fn the_panel_follows_the_selection_and_edits_all_selected_components() {
     let r1 = placed(&mut h, R_10K, 0);
     let r2 = placed(&mut h, R_10K, 1000);
     h.run();
-    h.get_by_label("Nothing selected");
+    h.get_by_role_and_label(Role::Label, "Selection Filter");
+    h.get_by_role_and_label(Role::CheckBox, "Select Component");
 
     run(
         &mut h,
@@ -179,6 +180,21 @@ fn the_net_class_is_set_for_the_selected_copper() {
     h.get_by_label("Power").click();
     h.run();
     let (id, params) = last_entry(&h);
-    assert_eq!(id, "pcb.net.set_class");
+    assert_eq!(id, "pcb.net.add_to_class");
     assert_eq!(params["nets"], json!([gnd]));
+}
+
+#[test]
+fn properties_reports_lines_omitted_by_a_text_frame() {
+    let dir = TempDir::new("properties-text-frame");
+    let mut h = harness(&dir);
+    let text=run(&mut h,"pcb.text.add",json!({"layer":"silkscreen_top","text":"A\nA","x":0,"y":0,"height":"1mm","frame":{"width":"5mm","height":"1mm"}}))["result"]["uuid"].clone();
+    run(
+        &mut h,
+        "document.open",
+        json!({"document":"00000000-0000-4000-8000-000000000003"}),
+    );
+    run(&mut h, "selection.set", json!({"objects":[text]}));
+    h.run();
+    h.get_by_label("Text Frame: 1 line omitted");
 }

@@ -19,13 +19,11 @@ use std::collections::BTreeSet;
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{SchematicSheet, Uuid};
-use reda_engine::schematic::connectivity::{net_at, on_segment, placed_pins};
+use reda_engine::schematic::connectivity::{net_at, placed_pins};
 use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{
-    BoxMode, Combine, Pointer, SnapTargets, box_select, combine, hit_test,
-};
+use crate::canvas::interact::{BoxMode, Pointer, SnapTargets};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::shell::{Shell, ToolPreview};
 use crate::tools::Tool;
@@ -164,6 +162,11 @@ pub fn pointer(
     events: &[Pointer],
     scale: Scale,
 ) -> Vec<Invocation> {
+    if let Some(commands) =
+        crate::selection::picking::text_pointer(shell, document, events, scale.pick)
+    {
+        return commands;
+    }
     let Some(tab) = shell.document_tab_mut(document) else {
         return Vec::new();
     };
@@ -356,6 +359,12 @@ fn show(
 ) {
     preview_run(shell, document, &mut state);
     preview_scene(shell, document, &mut state, previewed);
+    let mode = match &state {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, document, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
     let Some(tab) = shell.document_tab_mut(document) else {
         return;
     };
@@ -369,7 +378,7 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -388,7 +397,12 @@ fn show(
             f.preview.hidden.clone(),
             (f.offset.x.0 as f64, f.offset.y.0 as f64),
             Overlay {
-                wires: f.preview.wires.clone().into(),
+                wires: f
+                    .preview
+                    .wires
+                    .iter()
+                    .flat_map(|v| v.windows(2).map(|pair| (pair[0], pair[1])))
+                    .collect(),
                 cursor: Some(f.anchor + f.offset),
                 ..Overlay::default()
             },
@@ -454,12 +468,7 @@ fn preview_run(shell: &mut Shell, document: Uuid, state: &mut Interaction) {
                 .project()
                 .and_then(|p| p.schematic_sheet(document))
             {
-                objects.extend(
-                    sheet
-                        .wires()
-                        .filter(|w| on_segment(w, start))
-                        .map(|w| w.uuid),
-                );
+                objects.extend(sheet.wires().filter(|w| w.contains(start)).map(|w| w.uuid));
                 objects.extend(
                     placed_pins(sheet)
                         .into_iter()
@@ -542,7 +551,7 @@ fn preview_scene(shell: &mut Shell, document: Uuid, state: &mut Interaction, pre
 const PREVIEW_UUID: u128 = 0x0000_0000_0000_4000_8000_7072_6576_6965;
 
 struct Cx<'a> {
-    shell: &'a Shell,
+    shell: &'a mut Shell,
     document: Uuid,
     scale: Scale,
     commands: Vec<Invocation>,
@@ -568,23 +577,15 @@ impl Cx<'_> {
             .objects
             .iter()
             .copied()
-            .filter(|o| on_sheet.contains(o))
+            .filter(|o| {
+                on_sheet.contains(o)
+                    && crate::selection::rules::allowed(self.shell, self.document, *o)
+            })
             .collect()
     }
 
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
-    }
-
     fn hit(&self, at: P) -> Option<Uuid> {
-        let tab = self.shell.document_tab(self.document)?;
-        let pickable = self.sheet().map(selectable).unwrap_or_default();
-        hit_test(&tab.scene.scene, at, self.scale.pick, |o| {
-            pickable.contains(&o)
-        })
+        crate::selection::picking::hit(self.shell, self.document, at, self.scale.pick)
     }
 
     /// Ends a Tool flight once its Tool is no longer active, and a committed flight's
@@ -790,6 +791,7 @@ impl Cx<'_> {
                 modifiers,
             },
             (Interaction::Idle, Pointer::Hover(at)) => {
+                crate::selection::picking::hover(self.shell, self.document, at, self.scale.pick);
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
@@ -798,13 +800,15 @@ impl Cx<'_> {
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                let how = Combine::of(modifiers);
-                let current = self.shell.selection().objects.clone();
-                let picked: Vec<Uuid> = self.hit(at).into_iter().collect();
-                if picked.is_empty() && how != Combine::Replace {
-                    return Interaction::Idle;
+                if let Some(command) = crate::selection::picking::click(
+                    self.shell,
+                    self.document,
+                    at,
+                    self.scale.pick,
+                    modifiers,
+                ) {
+                    self.commands.push(command);
                 }
-                self.select(combine(&current, &picked, how));
                 Interaction::Idle
             }
             (
@@ -816,22 +820,28 @@ impl Cx<'_> {
                 },
             ) => {
                 *hovered = None;
-                let Some(hit) = self.hit(from) else {
+                let Some(hit) = crate::selection::picking::movement_hit(
+                    self.shell,
+                    self.document,
+                    from,
+                    self.scale.pick,
+                ) else {
                     return Interaction::Boxing {
                         from,
                         to: at,
                         modifiers,
                     };
                 };
-                let selected = self.selected();
-                let objects = if selected.contains(&hit) {
-                    selected
-                } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                self.select(objects.clone());
+                let on_sheet = self.sheet().map(selectable).unwrap_or_default();
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.document,
+                    hit,
+                    modifiers,
+                    |id| on_sheet.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 // Mod+drag detaches; a plain drag keeps connections.
                 self.start_flight(objects, !modifiers.command, false, from, at)
             }
@@ -854,19 +864,11 @@ impl Cx<'_> {
     }
 
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        let Some(tab) = self.shell.document_tab(self.document) else {
-            return;
-        };
-        let pickable = self.sheet().map(selectable).unwrap_or_default();
-        let picked = box_select(
-            &tab.scene.scene,
-            from,
-            to,
-            BoxMode::of_drag(from, to),
-            |o| pickable.contains(&o),
-        );
-        let current = self.shell.selection().objects.clone();
-        self.select(combine(&current, &picked, Combine::of(modifiers)));
+        if let Some(command) =
+            crate::selection::picking::box_selection(self.shell, self.document, from, to, modifiers)
+        {
+            self.commands.push(command);
+        }
     }
 }
 
@@ -899,8 +901,8 @@ fn snap_targets(sheet: &SchematicSheet, moving: &BTreeSet<Uuid>) -> SnapTargets 
         }
     }
     for wire in sheet.wires().filter(|w| !moving.contains(&w.uuid)) {
-        targets.points.extend([wire.from, wire.to]);
-        targets.segments.push((wire.from, wire.to));
+        targets.points.extend(wire.vertices.iter().copied());
+        targets.segments.extend(wire.segments());
     }
     targets
 }

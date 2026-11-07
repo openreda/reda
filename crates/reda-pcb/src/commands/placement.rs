@@ -1,4 +1,4 @@
-//! Arranging what is placed on the board: Footprints, Free Pads and the Placement Origin.
+//! Arranging what is placed on the board: Footprints, Free Pads and the Output Origin.
 //!
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
 //! and writes the results back in one transaction. Locked Footprints refuse every Op.
@@ -10,7 +10,7 @@ mod turn;
 use reda_command::{CommandError, Context, Registry};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    FootprintInstance, FreePad, InDocument, Object, PcbDocument, PlacementOrigin, Side, Uuid,
+    Corners, FootprintInstance, FreePad, InDocument, Object, OutputOrigin, PcbDocument, Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -35,8 +35,8 @@ pub struct Placed {
 #[derive(Clone, Debug)]
 pub(super) enum Item {
     Footprint(Box<FootprintInstance>),
-    FreePad(FreePad),
-    Origin(PlacementOrigin),
+    FreePad(Box<FreePad>),
+    Origin(OutputOrigin),
 }
 
 /// A change of position applied to placed objects: what `pcb.move`, `pcb.rotate` and
@@ -78,7 +78,12 @@ impl Item {
     fn apply(&mut self, op: Op) {
         let (at, rotation, side) = match self {
             Item::Footprint(f) => (&mut f.at, Some(&mut f.rotation), Some(&mut f.side)),
-            Item::FreePad(p) => (&mut p.at, Some(&mut p.rotation), p.side.as_mut()),
+            Item::FreePad(p) => {
+                if let Op::Flip(_) = op {
+                    mirror_free_pad(p);
+                }
+                (&mut p.at, Some(&mut p.rotation), None)
+            }
             Item::Origin(o) => (&mut o.at, None, None),
         };
         match op {
@@ -107,14 +112,31 @@ impl Item {
     fn into_object(self, document: Uuid) -> Object {
         match self {
             Item::Footprint(f) => Object::FootprintInstance(InDocument::new(document, *f)),
-            Item::FreePad(p) => Object::FreePad(InDocument::new(document, p)),
-            Item::Origin(o) => Object::PlacementOrigin(InDocument::new(document, o)),
+            Item::FreePad(p) => Object::FreePad(InDocument::new(document, *p)),
+            Item::Origin(o) => Object::OutputOrigin(InDocument::new(document, o)),
         }
     }
 }
 
+/// Mirrors a Free Pad's own frame left-right, as flipping it does: its corners, offset
+/// and slot turn over, and an SMD Pad moves to the other side. The caller mirrors its
+/// position and rotation.
+fn mirror_free_pad(pad: &mut FreePad) {
+    pad.corners = pad.corners.map(Corners::mirrored);
+    pad.offset = pad.offset.map(|o| Point::new(-o.x, o.y));
+    if let Some(hole) = &mut pad.hole {
+        hole.rotation = Millideg((-hole.rotation.0).rem_euclid(180_000));
+    }
+    if let Some(side) = pad.form().copper_side() {
+        pad.side = match side {
+            Side::Top => Some(Side::Bottom),
+            Side::Bottom => None,
+        };
+    }
+}
+
 /// The placeable objects named by `uuids` (each once, in order), or `invalid_params` at
-/// `/objects/i` for one that is not a Footprint, Free Pad or the Placement Origin.
+/// `/objects/i` for one that is not a Footprint, Free Pad or the Output Origin.
 pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, CommandError> {
     if uuids.is_empty() {
         return Err(CommandError::invalid_params(
@@ -130,13 +152,13 @@ pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, Co
         let item = if let Some(f) = pcb.footprint(uuid) {
             Item::Footprint(Box::new(f.clone()))
         } else if let Some(p) = pcb.free_pad(uuid) {
-            Item::FreePad(p.clone())
-        } else if let Some(o) = pcb.placement_origin().filter(|o| o.uuid == uuid) {
+            Item::FreePad(Box::new(p.clone()))
+        } else if let Some(o) = pcb.output_origin().filter(|o| o.uuid == uuid) {
             Item::Origin(o.clone())
         } else {
             return Err(CommandError::invalid_params(
                 &format!("/objects/{i}"),
-                format!("{uuid} is not a Footprint, Free Pad or Placement Origin on the board"),
+                format!("{uuid} is not a Footprint, Free Pad or Output Origin on the board"),
             ));
         };
         items.push(item);

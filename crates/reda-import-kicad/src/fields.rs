@@ -5,6 +5,7 @@
 //! under one name each (`LCSC`, `Mouser`, `DigiKey`…); everything else stays a free-form
 //! field under its own name. KiCad's bookkeeping properties are dropped.
 
+use reda_model::text;
 use reda_model::{Field, Fields};
 
 use crate::provenance::is_copyright;
@@ -83,9 +84,13 @@ pub fn map(properties: &[(String, String)]) -> Mapped {
         if value.is_empty() || value == "~" {
             continue;
         }
-        if is_copyright(name) || is_copyright(value) {
-            if !copyright.iter().any(|c: &String| c == value) {
-                copyright.push(value.to_owned());
+        let raw = value;
+        // `${` is reserved in stored text, so the value is kept escaped.
+        let escaped = text::escape(raw);
+        let value = escaped.as_ref();
+        if is_copyright(name) || is_copyright(raw) {
+            if !copyright.iter().any(|c: &String| c == raw) {
+                copyright.push(raw.to_owned());
             }
             custom(&mut fields, name, value);
             continue;

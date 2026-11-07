@@ -1,5 +1,51 @@
 {
   "$defs": {
+    "ConnectionStyle": {
+      "description": "How a fill meets a Pad or Via.",
+      "oneOf": [
+        {
+          "const": "relief",
+          "description": "Through spokes across a clear ring, so the Pad solders easily.",
+          "type": "string"
+        },
+        {
+          "const": "solid",
+          "description": "The fill runs straight into it.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "The fill keeps the gap clear and doesn't connect.",
+          "type": "string"
+        }
+      ]
+    },
+    "Corner": {
+      "description": "A corner of a Pad, in its own frame (+y up).",
+      "enum": [
+        "top_left",
+        "top_right",
+        "bottom_left",
+        "bottom_right"
+      ],
+      "type": "string"
+    },
+    "FootprintGenerator": {
+      "additionalProperties": false,
+      "description": "The command and params that generated a Footprint, every value resolved, so running\nthem again gives the same Footprint unless the generator itself changed.",
+      "properties": {
+        "command": {
+          "description": "The generator Command, such as `library.footprint.generate.chip`.",
+          "type": "string"
+        },
+        "params": true
+      },
+      "required": [
+        "command",
+        "params"
+      ],
+      "type": "object"
+    },
     "FootprintGraphic": {
       "additionalProperties": false,
       "description": "One shape a Footprint draws on a non-copper Layer.",
@@ -50,6 +96,14 @@
         "description": {
           "type": "string"
         },
+        "height": {
+          "description": "The part's greatest height above the board, when known.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "name": {
           "type": "string"
         },
@@ -66,11 +120,15 @@
     },
     "FootprintText": {
       "additionalProperties": false,
-      "description": "The placement of a Footprint's Designator or value text.",
+      "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
-          "description": "The text centre, relative to the Footprint origin."
+          "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
+        },
+        "field": {
+          "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+          "type": "string"
         },
         "layer": {
           "$ref": "#/$defs/FootprintLayer"
@@ -80,47 +138,51 @@
           "format": "int64",
           "type": "integer"
         },
-        "size": {
-          "description": "The text height.",
-          "format": "int64",
-          "type": "integer"
+        "style": {
+          "$ref": "#/$defs/TextStyle"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
         },
         "visible": {
           "type": "boolean"
         }
       },
       "required": [
+        "uuid",
+        "field",
         "at",
         "rotation",
-        "size",
+        "style",
         "layer"
-      ],
-      "type": "object"
-    },
-    "FootprintTexts": {
-      "additionalProperties": false,
-      "properties": {
-        "designator": {
-          "$ref": "#/$defs/FootprintText"
-        },
-        "value": {
-          "$ref": "#/$defs/FootprintText"
-        }
-      },
-      "required": [
-        "designator",
-        "value"
       ],
       "type": "object"
     },
     "Hole": {
       "additionalProperties": false,
-      "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.",
+      "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
       "properties": {
         "height": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
+        },
+        "rotation": {
+          "description": "Turns a slot in the Pad's frame, counter-clockwise.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HoleTolerance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The allowed deviation from the finished size. Stored and shown; it changes no\ngeometry."
         },
         "width": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -134,21 +196,116 @@
       ],
       "type": "object"
     },
+    "HoleTolerance": {
+      "additionalProperties": false,
+      "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
+      "properties": {
+        "minus": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "plus": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plus",
+        "minus"
+      ],
+      "type": "object"
+    },
+    "Mask": {
+      "additionalProperties": false,
+      "properties": {
+        "bottom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MaskSide"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_hole_edge": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MaskSide"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "MaskSide": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expansion": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expansion"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/Tenting"
+        }
+      ]
+    },
     "Pad": {
       "additionalProperties": false,
       "description": "A copper area, with or without a hole, of a Footprint.",
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
-          "description": "The Pad centre, relative to the Footprint origin."
+          "description": "The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks\nconnect there and the Pad turns about it."
         },
-        "corner_radius": {
-          "description": "The corner radius of a rounded-rectangle Pad.",
-          "format": "int64",
+        "chamfer_ratio": {
+          "description": "How deep the chamfers of a `chamfered_rect` are.",
+          "maximum": 100000,
+          "minimum": 0,
           "type": [
             "integer",
             "null"
           ]
+        },
+        "corner_ratio": {
+          "description": "How round the corners of a `rounded_rect`, or the uncut corners of a\n`chamfered_rect`, are.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corners": {
+          "description": "Which corners are rounded (`rounded_rect`) or chamfered (`chamfered_rect`), in the\nPad's frame. Left out, all four.",
+          "items": {
+            "$ref": "#/$defs/Corner"
+          },
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true
         },
         "height": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -169,24 +326,41 @@
         "kind": {
           "$ref": "#/$defs/PadKind"
         },
-        "mask_margin": {
-          "description": "Overrides the board's solder-mask margin for this Pad.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
+        "mask": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Mask"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
         },
         "number": {
           "type": "string"
         },
-        "paste_margin": {
-          "description": "Overrides the board's solder-paste margin for this Pad.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
+        "offset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+        },
+        "paste": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Paste"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
         },
         "rotation": {
           "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -196,6 +370,17 @@
         "shape": {
           "$ref": "#/$defs/PadShape"
         },
+        "side": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
@@ -204,6 +389,17 @@
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How Zone fills of its Net join it. Each value left out inherits."
         }
       },
       "required": [
@@ -227,13 +423,114 @@
       "type": "string"
     },
     "PadShape": {
+      "oneOf": [
+        {
+          "enum": [
+            "circle",
+            "rect",
+            "oval"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "rounded_rect",
+          "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+          "type": "string"
+        },
+        {
+          "const": "chamfered_rect",
+          "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+          "type": "string"
+        }
+      ]
+    },
+    "Paste": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expansion": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expansion"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "percent": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "percent"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/PasteMode"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "windows": {
+              "items": {
+                "$ref": "#/$defs/PasteWindow"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "windows"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PasteMode": {
       "enum": [
-        "circle",
-        "rect",
-        "rounded_rect",
-        "oval"
+        "none"
       ],
       "type": "string"
+    },
+    "PasteWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "corner_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "at",
+        "width",
+        "height"
+      ],
+      "type": "object"
     },
     "Point": {
       "additionalProperties": false,
@@ -434,6 +731,161 @@
           "type": "object"
         }
       ]
+    },
+    "Side": {
+      "description": "Which face of the board a sided Layer is on.",
+      "enum": [
+        "top",
+        "bottom"
+      ],
+      "type": "string"
+    },
+    "Tenting": {
+      "enum": [
+        "tent"
+      ],
+      "type": "string"
+    },
+    "TextHJustify": {
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "type": "string"
+    },
+    "TextJustify": {
+      "additionalProperties": false,
+      "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+      "properties": {
+        "h": {
+          "$ref": "#/$defs/TextHJustify"
+        },
+        "v": {
+          "$ref": "#/$defs/TextVJustify"
+        }
+      },
+      "required": [
+        "h",
+        "v"
+      ],
+      "type": "object"
+    },
+    "TextKnockout": {
+      "additionalProperties": false,
+      "properties": {
+        "margin": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "margin"
+      ],
+      "type": "object"
+    },
+    "TextStyle": {
+      "additionalProperties": false,
+      "description": "The shared style of free PCB text and Footprint field text.",
+      "properties": {
+        "font": {
+          "description": "The named family. A missing family draws as bundled Noto Sans.",
+          "type": "string"
+        },
+        "height": {
+          "description": "Capital height.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "justify": {
+          "$ref": "#/$defs/TextJustify",
+          "default": {
+            "h": "left",
+            "v": "bottom"
+          }
+        },
+        "knockout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextKnockout"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thickness": {
+          "description": "Stroke-font pen width; outline fonts ignore it.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "font",
+        "height",
+        "thickness"
+      ],
+      "type": "object"
+    },
+    "TextVJustify": {
+      "enum": [
+        "top",
+        "center",
+        "bottom"
+      ],
+      "type": "string"
+    },
+    "ZoneConnection": {
+      "additionalProperties": false,
+      "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+      "properties": {
+        "angle": {
+          "description": "0, 45 or 90 degrees in the Pad's frame.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "gap": {
+          "description": "The clear ring around a relieved or unconnected Pad.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spoke_width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spokes": {
+          "description": "2 or 4.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConnectionStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -447,6 +899,18 @@
       "const": 1,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
+    },
+    "generator": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FootprintGenerator"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The generator Command and resolved params that made the Footprint. Only the\nLibrary file holds it: Document copies and their hashes leave it out."
     },
     "graphics": {
       "default": [],
@@ -475,29 +939,13 @@
       "default": null,
       "description": "Where an imported element came from: the service, its terms and any copyright\nlines. Elements made in REDA have none."
     },
-    "text": {
-      "$ref": "#/$defs/FootprintTexts",
-      "default": {
-        "designator": {
-          "at": {
-            "x": 0,
-            "y": 0
-          },
-          "layer": "silkscreen_top",
-          "rotation": 0,
-          "size": 1000000
-        },
-        "value": {
-          "at": {
-            "x": 0,
-            "y": 0
-          },
-          "layer": "assembly_top",
-          "rotation": 0,
-          "size": 1000000
-        }
+    "texts": {
+      "default": [],
+      "description": "The field texts, such as the Designator and value, sorted by UUID.",
+      "items": {
+        "$ref": "#/$defs/FootprintText"
       },
-      "description": "Where the Designator and value text go."
+      "type": "array"
     }
   },
   "required": [

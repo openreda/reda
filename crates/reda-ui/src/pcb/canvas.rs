@@ -4,21 +4,21 @@
 //! canvas: the snap marker, the cursor position, the context menu and the "No Board
 //! Outline" hint. Its keys are Keymap bindings in the `pcb` context (`keymap/reda.toml`).
 
-use egui::{Align2, Color32, FontId, Id, Modal, Rect, Role, Stroke, Ui, WidgetInfo, pos2, vec2};
+use egui::{Align2, Color32, FontId, Id, Rect, Role, Stroke, Ui, WidgetInfo, pos2, vec2};
 use reda_engine::model::Uuid;
 use reda_engine::model::geom::{Nm, Point};
 use serde_json::{Value, json};
 
 use super::snap::SnapKind;
 use super::view::format_length;
-use crate::canvas::interact::{BoxMode, Pointer};
+use crate::canvas::interact::Pointer;
 use crate::canvas::{CanvasInputs, RubberBand};
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
 
 /// How near a click counts as on an object, in points.
-const PICK_POINTS: f64 = 4.0;
+const PICK_POINTS: f64 = 5.0;
 /// How near electrical points catch the cursor, in points.
 const SNAP_POINTS: f64 = 10.0;
 
@@ -49,13 +49,27 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
         return;
     }
     let tolerance = Nm((PICK_POINTS * nm_per_point) as i64);
+    if shell.tool() == Tool::Select
+        && let Some(commands) = crate::selection::picking::text_pointer(
+            shell,
+            document,
+            &input.events,
+            tolerance.0 as f64,
+        )
+    {
+        for (id, params) in commands {
+            let _ = shell.run_reporting(&id, params);
+        }
+        return;
+    }
     for &event in &input.events {
         match event {
             Pointer::Hover(at) => {
+                crate::selection::picking::hover(shell, document, at, tolerance.0 as f64);
                 shell.pcb_hover(board_point(at));
             }
             Pointer::Click { at, modifiers } => {
-                shell.pcb_press(board_point(at), modifiers.command, tolerance);
+                shell.pcb_press_with_modifiers(board_point(at), modifiers, tolerance);
                 shell.pcb_release();
             }
             Pointer::DragStart {
@@ -63,7 +77,7 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
                 at,
                 modifiers,
             } => {
-                shell.pcb_press(board_point(from), modifiers.command, tolerance);
+                shell.pcb_press_with_modifiers(board_point(from), modifiers, tolerance);
                 shell.pcb_drag(board_point(at));
             }
             Pointer::Drag(at) => shell.pcb_drag(board_point(at)),
@@ -76,7 +90,12 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
     let band = shell.pcb_band().map(|(a, b)| RubberBand {
         from: (a.x.0 as f64, a.y.0 as f64),
         to: (b.x.0 as f64, b.y.0 as f64),
-        mode: BoxMode::Enclose,
+        mode: crate::selection::rules::box_mode(
+            shell,
+            document,
+            (a.x.0 as f64, a.y.0 as f64),
+            (b.x.0 as f64, b.y.0 as f64),
+        ),
     });
     if let Some(tab) = shell.document_tab_mut(document) {
         tab.overlay.rubber_band = band;
@@ -95,7 +114,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) {
 }
 
 /// What the drawing Tools show over the canvas: the shape in progress, a measurement,
-/// the Mechanical Part being placed, and the user origin.
+/// and the Mechanical Part being placed. (The Output Origin is in the Scene.)
 fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     let painter = ui.painter_at(shown.rect);
     let accent = ui.visuals().selection.stroke.color;
@@ -136,19 +155,6 @@ fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
             accent,
         );
     }
-    if let Some(origin) = shell.board_view().origin {
-        let c = screen(origin);
-        let r = 7.0;
-        painter.circle_stroke(c, r * 0.6, Stroke::new(1.0, accent));
-        painter.line_segment(
-            [c - vec2(r, 0.0), c + vec2(r, 0.0)],
-            Stroke::new(1.0, accent),
-        );
-        painter.line_segment(
-            [c - vec2(0.0, r), c + vec2(0.0, r)],
-            Stroke::new(1.0, accent),
-        );
-    }
 }
 
 /// While text waits for its words: a small form that places it.
@@ -159,23 +165,23 @@ fn text_form(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     let id = Id::NULL.with(("pcb-text-form", shown.response.id));
     let mut words = ui.data(|d| d.get_temp::<String>(id)).unwrap_or_default();
     let (mut place, mut cancel) = (false, false);
-    let modal = Modal::new(id.with("modal")).show(ui.ctx(), |ui| {
-        ui.heading(tr!("pcb-text-title"));
-        let field = ui.text_edit_singleline(&mut words);
-        field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-text-words")));
-        field.request_focus();
-        if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            place = true;
-        }
-        ui.horizontal(|ui| {
-            if ui.button(tr!("pcb-text-place")).clicked() {
+    let modal =
+        crate::modal::Dialog::new(id.with("modal"), tr!("pcb-text-title")).show(ui.ctx(), |ui| {
+            let field = ui.text_edit_singleline(&mut words);
+            field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-text-words")));
+            field.request_focus();
+            if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 place = true;
             }
-            if ui.button(tr!("pcb-text-cancel")).clicked() {
-                cancel = true;
-            }
+            ui.horizontal(|ui| {
+                if ui.button(tr!("pcb-text-place")).clicked() {
+                    place = true;
+                }
+                if ui.button(tr!("pcb-text-cancel")).clicked() {
+                    cancel = true;
+                }
+            });
         });
-    });
     if modal.should_close() {
         cancel = true;
     }
@@ -403,37 +409,39 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     };
     let mut close = false;
     let mut create: Option<Value> = None;
-    let modal = Modal::new(form_id.with("modal")).show(ui.ctx(), |ui| {
-        ui.heading(tr!("pcb-outline-title"));
-        egui::Grid::new(form_id.with("grid"))
-            .num_columns(2)
-            .show(ui, |ui| {
-                ui.label(tr!("pcb-outline-width"));
-                let w = ui.text_edit_singleline(&mut form.width);
-                w.widget_info(|| {
-                    WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-width"))
+    let modal = crate::modal::Dialog::new(form_id.with("modal"), tr!("pcb-outline-title")).show(
+        ui.ctx(),
+        |ui| {
+            egui::Grid::new(form_id.with("grid"))
+                .num_columns(2)
+                .show(ui, |ui| {
+                    ui.label(tr!("pcb-outline-width"));
+                    let w = ui.text_edit_singleline(&mut form.width);
+                    w.widget_info(|| {
+                        WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-width"))
+                    });
+                    ui.end_row();
+                    ui.label(tr!("pcb-outline-height"));
+                    let h = ui.text_edit_singleline(&mut form.height);
+                    h.widget_info(|| {
+                        WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-height"))
+                    });
+                    ui.end_row();
                 });
-                ui.end_row();
-                ui.label(tr!("pcb-outline-height"));
-                let h = ui.text_edit_singleline(&mut form.height);
-                h.widget_info(|| {
-                    WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-height"))
-                });
-                ui.end_row();
+            ui.horizontal(|ui| {
+                if ui.button(tr!("pcb-outline-create")).clicked() {
+                    let units = shell.board_view().units;
+                    create = Some(json!({
+                        "width": with_unit(&form.width, units),
+                        "height": with_unit(&form.height, units),
+                    }));
+                }
+                if ui.button(tr!("pcb-outline-cancel")).clicked() {
+                    close = true;
+                }
             });
-        ui.horizontal(|ui| {
-            if ui.button(tr!("pcb-outline-create")).clicked() {
-                let units = shell.board_view().units;
-                create = Some(json!({
-                    "width": with_unit(&form.width, units),
-                    "height": with_unit(&form.height, units),
-                }));
-            }
-            if ui.button(tr!("pcb-outline-cancel")).clicked() {
-                close = true;
-            }
-        });
-    });
+        },
+    );
     if modal.should_close() {
         close = true;
     }

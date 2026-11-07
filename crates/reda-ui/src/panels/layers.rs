@@ -6,7 +6,7 @@
 
 use egui::color_picker::{Alpha, color_edit_button_srgba};
 use egui::{Color32, ComboBox, Id, RadioButton, Role, ScrollArea, Ui, WidgetInfo};
-use reda_engine::model::{Layer, LayerKind, ObjectType, Side, Uuid};
+use reda_engine::model::{Layer, LayerKind, ObjectType, PcbDocument, Side, Uuid};
 use reda_engine::preferences::{InactiveLayerMode, Units};
 use reda_engine::render::{BoardColor, ColorKey, Rgba};
 use serde_json::{Value, json};
@@ -67,7 +67,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         for layer in &pcb.layers().layers {
             ui.horizontal(|ui| {
                 let mut visible = !layers.hidden.contains(&layer.uuid);
-                let name = layer_name(layer);
+                let name = layer_name(pcb, layer);
                 let check = ui.checkbox(&mut visible, "");
                 let label = tr!("layers-show", layer = name.as_str());
                 check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
@@ -78,7 +78,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     );
                 }
                 let key = ColorKey::Board(BoardColor::layer(layer.kind, layer.side));
-                if let Some(color) = colour_swatch(ui, layer, palette.color(key), canvas_theme) {
+                if let Some(color) =
+                    colour_swatch(ui, layer, &name, palette.color(key), canvas_theme)
+                {
                     run("app.preferences.set", color);
                 }
                 let radio = ui.add(RadioButton::new(active == Some(layer.uuid), name.as_str()));
@@ -155,6 +157,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
 fn colour_swatch(
     ui: &mut Ui,
     layer: &Layer,
+    name: &str,
     current: Rgba,
     theme: reda_engine::render::Theme,
 ) -> Option<Value> {
@@ -168,8 +171,7 @@ fn colour_swatch(
         .data(|d| d.get_temp(pending_id))
         .unwrap_or(Color32::from_rgb(r, g, b));
     let response = color_edit_button_srgba(ui, &mut color, Alpha::Opaque);
-    let name = layer_name(layer);
-    let label = tr!("layers-colour", layer = name.as_str());
+    let label = tr!("layers-colour", layer = name);
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
     if response.changed() {
         ui.data_mut(|d| d.insert_temp(pending_id, color));
@@ -190,8 +192,15 @@ fn colour_swatch(
     }
 }
 
-/// "Top Copper", "Bottom Silkscreen", "Board Outline"...
-pub fn layer_name(layer: &Layer) -> String {
+/// "Top Copper", "Bottom Silkscreen", "Board Outline"... Inner copper is named by its copper
+/// number, "Inner Copper L2", which comes from its position in `pcb`.
+pub fn layer_name(pcb: &PcbDocument, layer: &Layer) -> String {
+    if layer.kind == LayerKind::Copper
+        && layer.side.is_none()
+        && let Some(number) = pcb.copper_number(layer.uuid)
+    {
+        return tr!("layer-inner-copper", number = number);
+    }
     let kind = match layer.kind {
         LayerKind::Copper => tr!("layer-copper"),
         LayerKind::Silkscreen => tr!("layer-silkscreen"),

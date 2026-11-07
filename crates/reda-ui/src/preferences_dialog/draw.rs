@@ -1,15 +1,19 @@
-//! Drawing the Preferences dialog: the modal with the search box, the page list, the shown
-//! page (or the search results) and Close. Every change runs at once; there is no OK or
+//! Drawing the Preferences window into its tab: the search box with Modified only and
+//! Reset all, the page tree, the shown page (or the search results) and Close. Every change runs at once; there is no OK or
 //! Cancel.
 
 use std::path::PathBuf;
 
-use egui::{Button, ComboBox, Id, Key, Modal, RichText, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Button, ComboBox, Key, RichText, Role, TextEdit, Ui, WidgetInfo};
+use reda_engine::command::CommandError;
 use reda_engine::fab_presets;
 use serde_json::json;
 
 use super::shortcuts::Row;
-use super::{Kind, LIBRARY_PATHS, PageId, PreferencesDialog, Setting, schema};
+use super::{
+    Kind, LIBRARY_PATHS, LIBRARY_SEVERITIES, LIBRARY_STARTER_ACTIVE, PageId, PreferencesDialog,
+    Setting, schema,
+};
 use crate::bars::DocumentType;
 use crate::bridge::Bridge;
 use crate::keymap::{Chord, Context};
@@ -17,12 +21,14 @@ use crate::settings::{Problem, field};
 use crate::shell::Shell;
 use crate::tr;
 
-/// The dialog's size; pages scroll inside it.
-const SIZE: egui::Vec2 = egui::vec2(820.0, 480.0);
 /// The width of the page list.
 const LIST_WIDTH: f32 = 160.0;
 /// The width of the label column.
 const LABEL_WIDTH: f32 = 230.0;
+/// How far each level of the page tree is indented.
+const INDENT: f32 = 14.0;
+/// The width of the reset dot's column.
+const DOT_WIDTH: f32 = 14.0;
 
 /// The bridge setting, which turns the control port on and off as well as keeping the
 /// choice.
@@ -33,7 +39,7 @@ const BRIDGE: &str = "agents.bridge";
 pub enum Outcome {
     /// It stays open.
     Open,
-    /// It closed (Close or Escape).
+    /// It closed (Close).
     Closed,
     /// The Libraries page wants a folder picked; the answer goes to
     /// [`PreferencesDialog::picked_folder`].
@@ -50,51 +56,14 @@ struct Cx<'a> {
 }
 
 impl PreferencesDialog {
-    /// Draws the dialog as a modal for one frame.
-    pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell, bridge: &mut Bridge) -> Outcome {
+    /// Draws the window's content into `ui` (its tab) for one frame.
+    pub fn show(&mut self, ui: &mut Ui, shell: &mut Shell, bridge: &mut Bridge) -> Outcome {
         let mut cx = Cx {
             shell,
             bridge,
             outcome: Outcome::Open,
         };
-        Modal::new(Id::NULL.with("preferences-dialog")).show(ctx, |ui| {
-            ui.set_width(SIZE.x);
-            ui.set_max_width(SIZE.x);
-            ui.horizontal(|ui| {
-                ui.heading(tr!("pref-title"));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let search = ui.add(
-                        TextEdit::singleline(&mut self.query)
-                            .hint_text(tr!("pref-search-hint"))
-                            .desired_width(240.0),
-                    );
-                    search.widget_info(|| {
-                        WidgetInfo::labeled(Role::SearchInput, true, tr!("pref-search"))
-                    });
-                });
-            });
-            ui.separator();
-            ui.horizontal_top(|ui| {
-                ui.set_height(SIZE.y);
-                let found = schema::search(&self.query);
-                self.page_list(ui, &found);
-                ui.separator();
-                ui.vertical(|ui| {
-                    egui::ScrollArea::vertical()
-                        .id_salt("preferences-page")
-                        .auto_shrink(false)
-                        .show(ui, |ui| {
-                            if self.query.trim().is_empty() {
-                                ui.strong(self.page.title());
-                                ui.add_space(6.0);
-                                self.page_content(ui, &mut cx);
-                            } else {
-                                self.results(ui, &mut cx, found);
-                            }
-                        });
-                });
-            });
-            ui.separator();
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
             ui.horizontal(|ui| {
                 ui.weak(tr!("pref-live"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -103,39 +72,159 @@ impl PreferencesDialog {
                     }
                 });
             });
+            ui.separator();
+            ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                self.top_bar(ui, &mut cx);
+                ui.separator();
+                ui.horizontal_top(|ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt("preferences-tree")
+                        .max_width(LIST_WIDTH)
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| self.page_list(ui, cx.shell));
+                    ui.separator();
+                    ui.vertical(|ui| {
+                        egui::ScrollArea::both()
+                            .id_salt("preferences-page")
+                            .auto_shrink(false)
+                            .show(ui, |ui| {
+                                // All settings has the same search over its own table.
+                                if self.searching() {
+                                    let found = self.found(cx.shell);
+                                    self.results(ui, &mut cx, found);
+                                } else {
+                                    self.page_header(ui, &mut cx);
+                                    ui.add_space(6.0);
+                                    self.page_content(ui, &mut cx);
+                                }
+                            });
+                    });
+                });
+            });
         });
-        let recording = self.shortcuts.recording.is_some();
-        if !recording
-            && ctx.input(|i| i.key_pressed(Key::Escape))
-            && !ctx.egui_wants_keyboard_input()
-        {
-            cx.outcome = Outcome::Closed;
-        }
         cx.outcome
     }
 
-    /// The page list. While searching, pages without a match are dimmed.
-    fn page_list(&mut self, ui: &mut Ui, found: &[(PageId, Setting)]) {
-        let searching = !self.query.trim().is_empty();
+    /// Whether the search replaces the page with its results.
+    fn searching(&self) -> bool {
+        !self.query.trim().is_empty() && self.page != PageId::ALL_SETTINGS
+    }
+
+    /// The search box, Modified only and Reset all.
+    fn top_bar(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
+        ui.horizontal(|ui| {
+            let search = ui.add(
+                TextEdit::singleline(&mut self.query)
+                    .hint_text(tr!("pref-search-hint"))
+                    .desired_width(240.0),
+            );
+            search.widget_info(|| WidgetInfo::labeled(Role::SearchInput, true, tr!("pref-search")));
+            ui.checkbox(&mut self.modified_only, tr!("pref-modified-only"));
+            let any = self.modified_count(cx.shell, PageId::ALL_SETTINGS) > 0;
+            if ui
+                .add_enabled(any, Button::new(tr!("pref-reset-all")))
+                .clicked()
+            {
+                self.reset_with(cx, |d, shell| d.reset_all(shell));
+            }
+        });
+    }
+
+    /// The page tree: each page indented under its branch, with the count of its changed
+    /// settings. While searching, pages without a match are dimmed.
+    fn page_list(&mut self, ui: &mut Ui, shell: &Shell) {
+        let searching = self.searching();
+        let found = if searching {
+            self.found(shell)
+        } else {
+            Vec::new()
+        };
         ui.vertical(|ui| {
             ui.set_width(LIST_WIDTH);
-            for page in PageId::ALL {
+            for page in self.pages(shell) {
                 let title = page.title();
                 let mut text = RichText::new(title.clone());
                 if searching && !found.iter().any(|(p, _)| *p == page) {
                     text = text.weak();
                 }
-                let row = ui.add_sized(
-                    [ui.available_width(), 20.0],
-                    Button::selectable(page == self.page && !searching, text),
-                );
-                row.widget_info(|| WidgetInfo::labeled(Role::TreeItem, true, title.clone()));
+                let count = self.modified_count(shell, page);
+                let row = ui
+                    .horizontal(|ui| {
+                        ui.add_space(INDENT * page.depth() as f32);
+                        let height = ui.spacing().interact_size.y;
+                        let count = if count > 0 {
+                            count.to_string()
+                        } else {
+                            String::new()
+                        };
+                        ui.add(
+                            Button::selectable(page == self.page && !searching, text)
+                                .right_text(RichText::new(count).weak())
+                                .min_size(egui::vec2(ui.available_width(), height)),
+                        )
+                    })
+                    .inner;
+                let label = match count {
+                    0 => title.clone(),
+                    n => tr!("pref-page-modified", page = title.as_str(), count = n),
+                };
+                row.widget_info(|| WidgetInfo::labeled(Role::TreeItem, true, label.clone()));
                 if row.clicked() {
                     self.page = page;
-                    self.query.clear();
+                    if page != PageId::ALL_SETTINGS {
+                        self.query.clear();
+                    }
                 }
             }
         });
+    }
+
+    /// The page's title, with Reset page and, on a branch, Reset branch.
+    fn page_header(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
+        let page = self.page;
+        ui.horizontal(|ui| {
+            ui.strong(page.title());
+            if page == PageId::ALL_SETTINGS {
+                return;
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if page.has_children() {
+                    let changed = self
+                        .pages_in(page)
+                        .any(|p| self.modified_count(cx.shell, p) > 0);
+                    if ui
+                        .add_enabled(changed, Button::new(tr!("pref-reset-branch")).small())
+                        .clicked()
+                    {
+                        self.reset_with(cx, |d, shell| d.reset_page(shell, page, true));
+                    }
+                }
+                let changed = self.modified_count(cx.shell, page) > 0;
+                if ui
+                    .add_enabled(changed, Button::new(tr!("pref-reset-page")).small())
+                    .clicked()
+                {
+                    self.reset_with(cx, |d, shell| d.reset_page(shell, page, false));
+                }
+            });
+        });
+    }
+
+    fn pages_in(&self, branch: PageId) -> impl Iterator<Item = PageId> {
+        PageId::tree().into_iter().filter(move |p| p.is_in(branch))
+    }
+
+    /// Runs a reset, then turns the bridge back on when its switch was reset.
+    fn reset_with(
+        &mut self,
+        cx: &mut Cx<'_>,
+        reset: impl FnOnce(&mut Self, &mut Shell) -> Result<Vec<String>, CommandError>,
+    ) {
+        if let Ok(keys) = reset(self, cx.shell)
+            && keys.iter().any(|k| k == BRIDGE)
+        {
+            cx.bridge.set_enabled(cx.shell, true);
+        }
     }
 
     /// The settings the search found, under their pages' titles.
@@ -157,13 +246,18 @@ impl PreferencesDialog {
 
     fn page_content(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
         match self.page {
-            PageId::Libraries => self.libraries(ui, cx),
-            PageId::FabPresets => self.fab_presets(ui, cx),
-            PageId::Agents => self.agents(ui, cx),
-            PageId::KeyboardShortcuts => self.keyboard_shortcuts(ui, cx),
+            PageId::LIBRARIES => self.libraries(ui, cx),
+            PageId::FAB_PRESETS => self.fab_presets(ui, cx),
+            PageId::AGENTS => self.agents(ui, cx),
+            PageId::KEYBOARD_SHORTCUTS => self.keyboard_shortcuts(ui, cx),
+            PageId::ALL_SETTINGS => self.all_settings_table(ui, cx),
             page => {
+                let rows = self.rows(cx.shell, page);
+                if rows.is_empty() {
+                    ui.weak(tr!("pref-none-modified"));
+                }
                 let mut heading = None;
-                for setting in page.settings() {
+                for setting in rows {
                     if setting.heading != heading {
                         heading = setting.heading.clone();
                         if let Some(h) = &heading {
@@ -177,28 +271,68 @@ impl PreferencesDialog {
         }
     }
 
-    /// One setting: its label (described on hover), its editor and Reset.
+    /// All settings: key, value (editable), default, the reset dot and description, for
+    /// every key the search and Modified only leave.
+    fn all_settings_table(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
+        let rows = self.all_settings(cx.shell);
+        if rows.is_empty() {
+            ui.weak(tr!("pref-search-none"));
+            return;
+        }
+        egui::Grid::new("preferences-all-settings")
+            .striped(true)
+            .num_columns(5)
+            .show(ui, |ui| {
+                ui.strong(tr!("pref-all-key"));
+                ui.strong(tr!("pref-all-value"));
+                ui.strong(tr!("pref-all-default"));
+                ui.label("");
+                ui.strong(tr!("pref-all-description"));
+                ui.end_row();
+                for row in rows {
+                    ui.monospace(row.setting.key.as_str());
+                    ui.horizontal(|ui| self.editor(ui, cx, &row.setting));
+                    ui.weak(row.default.as_str());
+                    self.reset_dot(ui, cx, &row.setting);
+                    ui.add(egui::Label::new(row.setting.description.as_str()).wrap());
+                    ui.end_row();
+                }
+            });
+    }
+
+    /// The dot beside a changed setting, which puts it back to its default; an unchanged
+    /// setting keeps the space empty.
+    fn reset_dot(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, setting: &Setting) {
+        let key = setting.key.as_str();
+        let size = egui::vec2(DOT_WIDTH, ui.spacing().interact_size.y);
+        if !self.can_reset(cx.shell, key) {
+            ui.allocate_space(size);
+            return;
+        }
+        let (rect, dot) = ui.allocate_exact_size(size, egui::Sense::click());
+        let radius = if dot.hovered() { 4.5 } else { 3.5 };
+        let color = ui.visuals().selection.bg_fill;
+        ui.painter().circle_filled(rect.center(), radius, color);
+        let name = tr!("pref-reset-named", setting = setting.label.as_str());
+        dot.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
+        let dot = dot.on_hover_text(tr!("pref-reset-dot"));
+        if dot.clicked() {
+            let keys = [setting.key.clone()];
+            self.reset_with(cx, |d, shell| d.reset_keys(shell, &keys));
+        }
+    }
+
+    /// One setting: the reset dot when it is changed, its label (described on hover) and
+    /// its editor.
     fn setting_row(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, setting: &Setting) {
         let key = setting.key.as_str();
         ui.horizontal(|ui| {
+            self.reset_dot(ui, cx, setting);
             let label = fixed_label(ui, LABEL_WIDTH, RichText::new(setting.label.as_str()));
             if !setting.description.is_empty() {
                 label.on_hover_text(setting.description.as_str());
             }
             self.editor(ui, cx, setting);
-            let reset = ui.add_enabled(
-                self.can_reset(cx.shell, key),
-                Button::new(tr!("pref-reset")).small(),
-            );
-            let name = tr!("pref-reset-named", setting = setting.label.as_str());
-            reset.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
-            if reset.clicked() {
-                if key == BRIDGE {
-                    cx.bridge.set_enabled(cx.shell, true);
-                } else {
-                    let _ = self.reset(cx.shell, key);
-                }
-            }
         });
         if let Some(problem) = self.problem(key).filter(|_| setting.kind == Kind::List) {
             crate::settings::problem_label(ui, &Problem::new(key, problem));
@@ -286,9 +420,15 @@ impl PreferencesDialog {
         if paths.is_empty() {
             ui.weak(tr!("pref-libraries-none"));
         }
+        let libraries = cx.shell.preferences().libraries.clone();
         let mut remove = None;
+        let mut toggle = None;
         for (i, path) in paths.iter().enumerate() {
             ui.horizontal(|ui| {
+                let active = !libraries.inactive.contains(path);
+                if active_checkbox(ui, active, path) {
+                    toggle = Some(path.clone());
+                }
                 ui.label(path.as_str());
                 let button = ui.small_button(tr!("pref-remove"));
                 let name = tr!("pref-remove-named", item = path.as_str());
@@ -301,6 +441,17 @@ impl PreferencesDialog {
         if let Some(i) = remove {
             let _ = self.remove_library_path(cx.shell, i);
         }
+        if let Some(path) = toggle {
+            let _ = self.toggle_library_active(cx.shell, &path);
+        }
+        ui.horizontal(|ui| {
+            let starter = tr!("pref-libraries-starter");
+            if active_checkbox(ui, libraries.starter_active, &starter) {
+                let value = json!(!libraries.starter_active);
+                let _ = self.set(cx.shell, LIBRARY_STARTER_ACTIVE, value);
+            }
+            ui.label(starter);
+        });
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             let mut text = std::mem::take(&mut self.new_library_path);
@@ -326,12 +477,48 @@ impl PreferencesDialog {
                 cx.outcome = Outcome::PickFolder;
             }
         });
+        self.library_severities(ui, cx);
+    }
+
+    /// The Library check's severities: a grid of check, severity and the reset dot, in
+    /// the order of the check's table, with Reset severities.
+    fn library_severities(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
+        ui.add_space(12.0);
+        ui.strong(tr!("pref-libraries-severities"));
+        ui.label(tr!("pref-libraries-severities-intro"));
+        ui.add_space(4.0);
+        let settings: Vec<Setting> = PageId::LIBRARIES
+            .settings()
+            .into_iter()
+            .filter(|s| s.key.starts_with(LIBRARY_SEVERITIES))
+            .collect();
+        egui::Grid::new("preferences-library-severities")
+            .striped(true)
+            .num_columns(3)
+            .show(ui, |ui| {
+                for setting in &settings {
+                    let label = ui.label(setting.label.as_str());
+                    if !setting.description.is_empty() {
+                        label.on_hover_text(setting.description.as_str());
+                    }
+                    ui.horizontal(|ui| self.editor(ui, cx, setting));
+                    self.reset_dot(ui, cx, setting);
+                    ui.end_row();
+                }
+            });
+        ui.add_space(4.0);
+        let changed = settings.iter().any(|s| self.can_reset(cx.shell, &s.key));
+        let reset = ui.add_enabled(changed, Button::new(tr!("pref-libraries-severities-reset")));
+        if reset.clicked() {
+            let keys: Vec<String> = settings.iter().map(|s| s.key.clone()).collect();
+            self.reset_with(cx, |d, shell| d.reset_keys(shell, &keys));
+        }
     }
 
     /// The bridge switch, the agents connected now and the agents allowed in, each with
     /// Forget.
     fn agents(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
-        for setting in PageId::Agents.settings() {
+        for setting in PageId::AGENTS.settings() {
             self.setting_row(ui, cx, &setting);
         }
         if let Some(error) = cx.bridge.error() {
@@ -631,4 +818,14 @@ fn context_label(context: &Context) -> String {
         Context::Global => tr!("shortcuts-context-global"),
         other => other.to_string(),
     }
+}
+
+/// A Library's Active checkbox, named after the Library; true when it was clicked.
+fn active_checkbox(ui: &mut Ui, active: bool, library: &str) -> bool {
+    let mut checked = active;
+    let response = ui.checkbox(&mut checked, "");
+    let name = tr!("pref-library-active-named", library = library);
+    response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, active, name.clone()));
+    let tip = tr!("pref-library-active-tip");
+    response.on_hover_text(tip).changed()
 }

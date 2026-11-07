@@ -36,7 +36,7 @@ impl PartSource for ReadyParts {
     }
 }
 use reda_library::{ElementKind, LibraryFiles, LibraryRoot, Origin, scan};
-use reda_model::{Footprint, LibraryInfo, Part, Symbol, Uuid};
+use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
 
 use crate::format::library::{
     read_footprint, read_library_info, read_part, read_symbol, write_footprint, write_part,
@@ -96,9 +96,10 @@ fn reason(path: &Path, err: crate::format::LoadError) -> String {
         .unwrap_or(text)
 }
 
-/// The registered Library folders, in scan order: the starter Library, the user's from
-/// Preferences, then the open Project's from its `.reda` file. A Project not yet given a
-/// folder has no Project Libraries to find.
+/// The active registered Library folders, in resolution order: the open Project's from
+/// its `.reda` file, the user's from Preferences, then the Starter Library. A user Library
+/// or the Starter Library whose Active checkbox is off is left out. A Project not yet
+/// given a folder has no Project Libraries to find.
 pub fn registered_roots(session: &Session) -> Vec<LibraryRoot> {
     DiskParts::new(session).roots()
 }
@@ -145,6 +146,55 @@ pub fn store_footprint(
     Ok(path)
 }
 
+/// The file `element` gets in `library`: `<library>/<folder>/<name>.<extension>`.
+pub(crate) fn element_file(library: &Library, element: &LibraryElement) -> PathBuf {
+    let kind = ElementKind::of(element);
+    library
+        .root
+        .join(kind.folder())
+        .join(format!("{}.{}", element.name(), kind.extension()))
+}
+
+/// Writes a new element to its file in `library` (see [`element_file`]), refusing a file
+/// that exists already.
+pub(crate) fn write_new_element(
+    library: &Library,
+    element: &LibraryElement,
+) -> Result<PathBuf, CommandError> {
+    let path = element_file(library, element);
+    if path.exists() {
+        return Err(CommandError::rejected(format!(
+            "{} already exists and holds another element",
+            path.display()
+        )));
+    }
+    let bytes = match element {
+        LibraryElement::Symbol(s) => write_symbol(s),
+        LibraryElement::Footprint(f) => write_footprint(f),
+        LibraryElement::Part(p) => write_part(p),
+    }
+    .map_err(|e| CommandError::internal(e.to_string()))?;
+    let io = |e: std::io::Error| CommandError::internal(format!("writing {}: {e}", path.display()));
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(io)?;
+    }
+    write_atomic(&path, &bytes).map_err(io)?;
+    Ok(path)
+}
+
+/// The registered Library `uuid`, which must be writable: not the Starter Library.
+pub(crate) fn writable_library(index: &LibraryIndex, uuid: Uuid) -> Result<&Library, CommandError> {
+    let library = index
+        .library(uuid)
+        .ok_or_else(|| CommandError::not_found(format!("no registered Library has UUID {uuid}")))?;
+    if library.origin == Origin::Starter {
+        return Err(CommandError::rejected(
+            "the starter Library is read-only; choose your own Library",
+        ));
+    }
+    Ok(library)
+}
+
 /// The engine's [`PartSource`]: the registered Libraries on disk, as they were when the
 /// Command started. It scans only when a Command asks for a Part.
 pub struct DiskParts {
@@ -171,17 +221,17 @@ impl DiskParts {
 
     fn roots(&self) -> Vec<LibraryRoot> {
         let mut roots = vec![];
-        if let Some(starter) = &self.starter {
-            roots.push(LibraryRoot::new(starter, Origin::Starter));
-        }
-        let prefs = preferences::current(self.user_dirs.as_ref());
-        for path in prefs.libraries.paths {
-            roots.push(LibraryRoot::new(path, Origin::User));
-        }
         if let Some((folder, libraries)) = &self.project {
             for path in libraries {
                 roots.push(LibraryRoot::new(folder.join(path), Origin::Project));
             }
+        }
+        let prefs = preferences::current(self.user_dirs.as_ref()).libraries;
+        for path in prefs.active_paths() {
+            roots.push(LibraryRoot::new(path, Origin::User));
+        }
+        if let Some(starter) = self.starter.as_ref().filter(|_| prefs.starter_active) {
+            roots.push(LibraryRoot::new(starter, Origin::Starter));
         }
         roots
     }
@@ -198,6 +248,22 @@ impl PartSource for DiskParts {
         }
         let index = scan(&self.roots(), &mut DiskLibraryFiles);
         uuids.iter().map(|&uuid| copy_part(&index, uuid)).collect()
+    }
+
+    fn footprints(&self, uuids: &[Uuid]) -> Vec<Result<FootprintCopyData, CommandError>> {
+        if uuids.is_empty() {
+            return vec![];
+        }
+        let index = scan(&self.roots(), &mut DiskLibraryFiles);
+        uuids
+            .iter()
+            .map(|&uuid| {
+                let footprint = index.footprint(uuid).ok_or_else(|| {
+                    CommandError::not_found(format!("no registered Library holds Footprint {uuid}"))
+                })?;
+                copy_footprint(footprint)
+            })
+            .collect()
     }
 
     fn locate(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {
@@ -220,8 +286,8 @@ impl PartSource for DiskParts {
 }
 
 /// The Part `uuid` of the scanned Libraries, copied with its Symbol and Footprints and
-/// hashed: each Footprint over its canonical file bytes, the Part over its own file, its
-/// Symbol's file and its Footprints' hashes.
+/// hashed: each Footprint over its canonical file bytes without its `generator`, the Part
+/// over its own file, its Symbol's file and its Footprints' hashes.
 pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandError> {
     let internal = |e: crate::canonical::CanonicalError| CommandError::internal(e.to_string());
     let part = index.part(uuid).ok_or_else(|| {
@@ -251,20 +317,28 @@ pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandEr
         let footprint = index
             .footprint(footprint)
             .ok_or_else(|| missing("Footprint", footprint))?;
-        let mut fp_hasher = ContentHash::new();
-        fp_hasher.write(&write_footprint(footprint).map_err(internal)?);
-        let hash = fp_hasher.finish();
-        hasher.write(hash.as_bytes());
-        footprints.push(FootprintCopyData {
-            hash,
-            footprint: footprint.clone(),
-        });
+        let copy = copy_footprint(footprint)?;
+        hasher.write(copy.hash.as_bytes());
+        footprints.push(copy);
     }
     Ok(PartCopy {
         hash: hasher.finish(),
         part: part.clone(),
         symbol: symbol.cloned(),
         footprints,
+    })
+}
+
+/// A Library Footprint as a Document copies it, with its content hash: over its canonical
+/// file bytes, leaving out how it was generated, which a Document's copy doesn't hold.
+fn copy_footprint(footprint: &Footprint) -> Result<FootprintCopyData, CommandError> {
+    let footprint = footprint.without_generator();
+    let bytes = write_footprint(&footprint).map_err(|e| CommandError::internal(e.to_string()))?;
+    let mut hasher = ContentHash::new();
+    hasher.write(&bytes);
+    Ok(FootprintCopyData {
+        hash: hasher.finish(),
+        footprint,
     })
 }
 

@@ -2,7 +2,7 @@
 //! canvas Tools. Its keys are Keymap bindings in the `footprint` context
 //! (`keymap/reda.toml`).
 //!
-//! - Select picks Pads, graphics and the Designator and value text (click, Shift/Mod,
+//! - Select picks Pads, graphics and the Designator and value text (click, Shift+click,
 //!   box), and dragging moves them on the grid: one `library.footprint.move` on release.
 //! - Pad places a Pad per click from the Pad Tool's settings ([`PadTemplate`]: SMD,
 //!   plated or non-plated; circle, rectangle, rounded rectangle or oval; a round hole or a
@@ -22,14 +22,13 @@ pub mod inspector;
 use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Uuid};
+use reda_engine::model::{
+    Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Ratio, Uuid, auto_increment,
+};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{
-    BoxMode, Combine, Pointer, box_select, combine, hit_test, snap_to_grid,
-};
+use crate::canvas::interact::{BoxMode, Pointer, snap_to_grid};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
@@ -51,8 +50,12 @@ pub struct PadTemplate {
     pub shape: PadShape,
     pub width: Nm,
     pub height: Nm,
-    /// Only for a rounded rectangle; `None` is a quarter of the shorter side.
-    pub corner_radius: Option<Nm>,
+    /// For a rounded rectangle and the uncut corners of a chamfered one; `None` takes the
+    /// Command's default.
+    pub corner_ratio: Option<Ratio>,
+    /// For a chamfered rectangle; `None` is [`DEFAULT_CHAMFER_RATIO`].
+    #[serde(default)]
+    pub chamfer_ratio: Option<Ratio>,
     pub rotation: Millideg,
     /// The hole of a through-hole Pad, as (width, height): equal is round, else a slot.
     /// SMD Pads ignore it.
@@ -70,7 +73,8 @@ impl Default for PadTemplate {
             shape: PadShape::Rect,
             width: Nm(1_000_000),
             height: Nm(1_500_000),
-            corner_radius: None,
+            corner_ratio: None,
+            chamfer_ratio: None,
             rotation: Millideg(0),
             hole: None,
             mask_margin: None,
@@ -78,6 +82,9 @@ impl Default for PadTemplate {
         }
     }
 }
+
+/// The chamfer a chamfered Pad gets when its settings name none.
+pub const DEFAULT_CHAMFER_RATIO: Ratio = Ratio::percent(50);
 
 /// The hole a through-hole Pad gets when its settings name none: 0.8 mm round.
 const DEFAULT_HOLE: Nm = Nm(800_000);
@@ -95,20 +102,27 @@ impl PadTemplate {
             "width": self.width.0,
             "height": self.height.0,
         });
-        if self.shape == PadShape::RoundedRect
-            && let Some(r) = self.corner_radius
-        {
-            p["corner_radius"] = json!(r.0);
+        let cornered = matches!(self.shape, PadShape::RoundedRect | PadShape::ChamferedRect);
+        if cornered && let Some(r) = self.corner_ratio {
+            p["corner_ratio"] = json!(r.0);
+        }
+        if self.shape == PadShape::ChamferedRect {
+            p["chamfer_ratio"] = json!(self.chamfer_ratio.unwrap_or(DEFAULT_CHAMFER_RATIO).0);
         }
         if self.kind != PadKind::Smd {
             let (w, h) = self.hole.unwrap_or((DEFAULT_HOLE, DEFAULT_HOLE));
             p["hole"] = json!({"width": w.0, "height": h.0});
         }
         if let Some(m) = self.mask_margin {
-            p["mask_margin"] = json!(m.0);
+            p["mask"] = json!({"top": {"expansion": m.0}});
+            if self.kind != PadKind::Smd {
+                p["mask"]["bottom"] = json!({"expansion": m.0});
+            }
         }
-        if let Some(m) = self.paste_margin {
-            p["paste_margin"] = json!(m.0);
+        if self.kind == PadKind::Smd
+            && let Some(m) = self.paste_margin
+        {
+            p["paste"] = json!({"expansion": m.0});
         }
         p
     }
@@ -157,6 +171,9 @@ pub enum Interaction {
 pub struct FootprintEditorState {
     pub settings: ToolSettings,
     pub canvases: BTreeMap<Uuid, Interaction>,
+    /// The number of the last Pad the Pad Tool placed in each Footprint tab, which the
+    /// next one auto-increments from.
+    pub last_pads: BTreeMap<Uuid, String>,
 }
 
 fn state(shell: &Shell) -> FootprintEditorState {
@@ -239,19 +256,30 @@ impl Command for ToolSet {
 pub fn selectable(footprint: &Footprint) -> Vec<Uuid> {
     let mut out: Vec<Uuid> = footprint.pads.iter().map(|p| p.uuid).collect();
     out.extend(footprint.graphics.iter().map(|g| g.uuid));
-    out.extend([DESIGNATOR_TEXT, VALUE_TEXT]);
+    out.extend(footprint.texts.iter().map(|t| t.uuid));
     out
 }
 
-/// The number one past the highest numeric Pad number, 1 on an empty Footprint.
-pub fn next_number(footprint: &Footprint) -> u64 {
-    let highest = footprint
-        .pads
-        .iter()
-        .filter_map(|p| p.number.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0);
-    highest + 1
+/// The number for the next Pad the Pad Tool places in `footprint`: `last` (the one it
+/// placed before, if any) stepped by `primary` (letters too, A → B), skipping numbers
+/// taken; with nothing to step from, one past the highest numeric number, 1 on an empty
+/// Footprint.
+pub fn next_number(footprint: &Footprint, last: Option<&str>, primary: i64) -> String {
+    let taken = |n: &str| footprint.pads.iter().any(|p| p.number == n);
+    last.and_then(|last| auto_increment::next_number(last, primary, |n| !taken(n)))
+        .unwrap_or_else(|| {
+            let highest = footprint
+                .pads
+                .iter()
+                .filter_map(|p| p.number.parse::<u64>().ok())
+                .max()
+                .unwrap_or(0);
+            let mut n = highest + 1;
+            while taken(&n.to_string()) {
+                n += 1;
+            }
+            n.to_string()
+        })
 }
 
 /// Runs the active Tool on a frame's pointer `events` over the Footprint `element`'s
@@ -277,14 +305,14 @@ pub fn pointer(
         .get(&element)
         .cloned()
         .unwrap_or_default();
+    let read_only = element_editor::read_only(shell.engine(), element);
     let mut cx = Cx {
         shell,
         element,
         footprint: &footprint,
         pick: PICK_POINTS * nm_per_point,
-        read_only: element_editor::read_only(shell.engine(), element),
+        read_only,
         commands: Vec::new(),
-        pads_added: 0,
     };
     let mut state = cx.sync_tool(state);
     for &event in events {
@@ -355,6 +383,12 @@ fn show(
     cursor: Option<P>,
 ) {
     let grid = shell.grid(element);
+    let mode = match &state {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, element, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
     let Some(tab) = shell.document_tab_mut(element) else {
         return;
     };
@@ -375,7 +409,7 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -412,14 +446,12 @@ fn show(
 }
 
 struct Cx<'a> {
-    shell: &'a Shell,
+    shell: &'a mut Shell,
     element: Uuid,
     footprint: &'a Footprint,
     pick: f64,
     read_only: bool,
     commands: Vec<Invocation>,
-    /// Pads this frame's clicks already asked for, so each gets its own number.
-    pads_added: u64,
 }
 
 impl Cx<'_> {
@@ -431,25 +463,12 @@ impl Cx<'_> {
         snap_to_grid(at, self.grid())
     }
 
-    fn selected(&self) -> Vec<Uuid> {
-        element_editor::selected_on(self.shell, self.element)
-    }
-
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
-    }
-
     fn run(&mut self, id: &str, params: Value) {
         self.commands.push((id.to_owned(), params));
     }
 
     fn hit(&self, at: P) -> Option<Uuid> {
-        let tab = self.shell.document_tab(self.element)?;
-        let pickable = selectable(self.footprint);
-        hit_test(&tab.scene.scene, at, self.pick, |o| pickable.contains(&o))
+        crate::selection::picking::hit(self.shell, self.element, at, self.pick)
     }
 
     /// Drops a drawing whose Tool is no longer active.
@@ -490,9 +509,12 @@ impl Cx<'_> {
         let at = self.snap(at);
         match self.shell.tool() {
             Tool::Pad => {
-                let number = next_number(self.footprint) + self.pads_added;
-                self.pads_added += 1;
-                let number = number.to_string();
+                let primary = self.shell.preferences().schematic.auto_increment.primary;
+                let last = state(self.shell).last_pads.get(&self.element).cloned();
+                let number = next_number(self.footprint, last.as_deref(), primary);
+                state_mut(self.shell)
+                    .last_pads
+                    .insert(self.element, number.clone());
                 let params = tool_settings(self.shell)
                     .pad
                     .params(self.element, &number, at);
@@ -605,17 +627,20 @@ impl Cx<'_> {
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Hover(at)) => {
+                crate::selection::picking::hover(self.shell, self.element, at, self.pick);
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                let how = Combine::of(modifiers);
-                let current = self.shell.selection().objects.clone();
-                let picked: Vec<Uuid> = self.hit(at).into_iter().collect();
-                if picked.is_empty() && how != Combine::Replace {
-                    return Interaction::Idle;
+                if let Some(command) = crate::selection::picking::click(
+                    self.shell,
+                    self.element,
+                    at,
+                    self.pick,
+                    modifiers,
+                ) {
+                    self.commands.push(command);
                 }
-                self.select(combine(&current, &picked, how));
                 Interaction::Idle
             }
             (
@@ -627,22 +652,28 @@ impl Cx<'_> {
                 },
             ) => {
                 *hovered = None;
-                let Some(hit) = self.hit(from) else {
+                let Some(hit) = crate::selection::picking::movement_hit(
+                    self.shell,
+                    self.element,
+                    from,
+                    self.pick,
+                ) else {
                     return Interaction::Boxing {
                         from,
                         to: at,
                         modifiers,
                     };
                 };
-                let selected = self.selected();
-                let objects = if selected.contains(&hit) {
-                    selected
-                } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                self.select(objects.clone());
+                let parts = element_editor::parts(self.shell.engine(), self.element);
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.element,
+                    hit,
+                    modifiers,
+                    |id| parts.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 let anchor = self.snap(from);
                 Interaction::Moving {
                     offset: self.snap(at) - anchor,
@@ -655,18 +686,10 @@ impl Cx<'_> {
     }
 
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        let Some(tab) = self.shell.document_tab(self.element) else {
-            return;
-        };
-        let pickable = selectable(self.footprint);
-        let picked = box_select(
-            &tab.scene.scene,
-            from,
-            to,
-            BoxMode::of_drag(from, to),
-            |o| pickable.contains(&o),
-        );
-        let current = self.shell.selection().objects.clone();
-        self.select(combine(&current, &picked, Combine::of(modifiers)));
+        if let Some(command) =
+            crate::selection::picking::box_selection(self.shell, self.element, from, to, modifiers)
+        {
+            self.commands.push(command);
+        }
     }
 }

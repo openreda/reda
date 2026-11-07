@@ -1,16 +1,19 @@
 {
   "format": 1,
   "footprint": {"uuid":"7d6a13a1-5426-4600-ade9-fa7b906918e8","name":"CAPP_Radial_D5.0mm_P2.00mm","description":"Radial electrolytic capacitor, 5 mm across, leads 2 mm apart"},
-  "text": {"designator":{"at":{"x":0,"y":3550000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"5f6291dc-af34-4b6a-ad88-10ccbf65ba0f","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1000000,"y":0},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":800000,"height":800000}},
-    {"uuid":"8637a183-e190-417a-881f-867408cc7068","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1000000,"y":0},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":800000,"height":800000}}
+    {"uuid":"5f6291dc-af34-4b6a-ad88-10ccbf65ba0f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1000000,"y":0},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"f1294c8e-037c-4c98-8b9b-b879baf2f266","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1000000,"y":0},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":800000,"height":800000}}
   ],
   "graphics": [
-    {"uuid":"9d43b89c-37b8-41ba-aacf-1a3ce9a08289","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2620000},"width":120000},
-    {"uuid":"b01807be-087d-4af6-b89d-1c919fcd2395","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2750000,"y":-2750000},"end":{"x":2750000,"y":2750000}},"width":50000},
-    {"uuid":"b75e8054-1fe9-43c6-b9e0-76b97264a8cf","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1400000,"y":1450000},"end":{"x":-600000,"y":1450000}},"width":120000},
-    {"uuid":"e481498b-dbf1-4d04-bec2-eca61c979ff3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1000000,"y":1050000},"end":{"x":-1000000,"y":1850000}},"width":120000},
-    {"uuid":"f1294c8e-037c-4c98-8b9b-b879baf2f266","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":100000}
+    {"uuid":"9d43b89c-37b8-41ba-aacf-1a3ce9a08289","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":100000},
+    {"uuid":"b01807be-087d-4af6-b89d-1c919fcd2395","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1000000,"y":1050000},"end":{"x":-1000000,"y":1850000}},"width":120000},
+    {"uuid":"b75e8054-1fe9-43c6-b9e0-76b97264a8cf","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2620000},"width":120000},
+    {"uuid":"e4149877-7ccc-4a06-a8e3-c4182a9df793","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2750000,"y":-2750000},"end":{"x":2750000,"y":2750000}},"width":50000},
+    {"uuid":"e481498b-dbf1-4d04-bec2-eca61c979ff3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1400000,"y":1450000},"end":{"x":-600000,"y":1450000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"8637a183-e190-417a-881f-867408cc7068","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"b3f8076c-3d4e-443b-9d1c-7e0bdc93c9fa","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

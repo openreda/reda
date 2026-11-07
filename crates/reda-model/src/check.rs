@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use reda_geom::Nm;
+use reda_geom::{Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +49,26 @@ pub struct Violation {
     /// only when asked to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub waiver: Option<Uuid>,
+    /// A measured length in nm or area in square nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measured: Option<Measurement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required: Option<Measurement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<Limit>,
+    /// The check's marker point, retained even when an object is deleted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Point>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<Uuid>,
+    /// The closest points on a distance check's two objects, in object order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub points: Option<[Point; 2]>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<Uuid>,
+    /// The record that supplied the limit, including a board-wide record.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<Uuid>,
 }
 
 impl Violation {
@@ -60,7 +80,62 @@ impl Violation {
             args: BTreeMap::new(),
             objects: vec![],
             waiver: None,
+            measured: None,
+            required: None,
+            limit: None,
+            at: None,
+            document: None,
+            points: None,
+            layers: vec![],
+            rule: None,
         }
+    }
+
+    /// Records a length comparison and the rule record that supplied the limit.
+    pub fn length(mut self, measured: Nm, required: Nm, limit: Limit, rule: Uuid) -> Self {
+        self.measured = Some(Measurement::Length(measured));
+        self.required = Some(Measurement::Length(required));
+        self.limit = Some(limit);
+        self.rule = Some(rule);
+        self
+    }
+
+    /// Names the rule record the Violation is about, with no measurement.
+    pub fn with_rule(mut self, rule: Uuid) -> Self {
+        self.rule = Some(rule);
+        self
+    }
+
+    /// Records an area comparison in square nanometres.
+    pub fn area(mut self, measured: i64, required: i64, limit: Limit, rule: Uuid) -> Self {
+        self.measured = Some(Measurement::Area(measured));
+        self.required = Some(Measurement::Area(required));
+        self.limit = Some(limit);
+        self.rule = Some(rule);
+        self
+    }
+
+    pub fn located(mut self, document: Uuid, at: Point) -> Self {
+        self.document = Some(document);
+        self.at = Some(at);
+        self
+    }
+
+    pub fn on_layers(mut self, layers: impl IntoIterator<Item = Uuid>) -> Self {
+        self.layers.extend(layers);
+        self.layers.sort();
+        self.layers.dedup();
+        self
+    }
+
+    /// Records the closest points and places the marker midway between them.
+    pub fn distance_points(mut self, a: Point, b: Point) -> Self {
+        self.points = Some([a, b]);
+        self.at = Some(Point::new(
+            Nm(a.x.0 + (b.x.0 - a.x.0) / 2),
+            Nm(a.y.0 + (b.y.0 - a.y.0) / 2),
+        ));
+        self
     }
 
     /// Adds the message argument `name`.
@@ -80,6 +155,22 @@ impl Violation {
         self.objects.extend(uuids);
         self
     }
+}
+
+/// A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Measurement {
+    Length(Nm),
+    Area(i64),
+}
+
+/// Which limit the measured value violates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Limit {
+    Min,
+    Max,
 }
 
 /// One message argument: a string, or an integer (lengths in nanometres, angles in
@@ -219,14 +310,90 @@ severities! {
     unattached_label => UnattachedLabel = Warning,
     /// A No-Connect Marker on a Pin that is connected.
     no_connect_connected => NoConnectConnected = Warning,
-    /// One Net with several names.
-    multiple_net_names => MultipleNetNames = Warning,
+    /// One Net with different names on one sheet; names differing only in case are one
+    /// name.
+    net_names_on_sheet => NetNamesOnSheet = Error,
+    /// One Net with different names on different sheets.
+    net_names_across_sheets => NetNamesAcrossSheets = Warning,
+    /// Different Nets with the same board name, such as one Net Label on two sheets. It
+    /// blocks Sync.
+    duplicate_nets => DuplicateNets = Error,
     /// A Port whose name no other sheet has.
     single_sheet_port => SingleSheetPort = Warning,
     /// Several Components with the same Designator.
     duplicate_designator => DuplicateDesignator = Error,
     /// Units of a placed multi-unit Component left unplaced.
     unplaced_units => UnplacedUnits = Warning,
+    /// A Net Tie with all its Pins on one Net, so the tie does nothing.
+    net_tie_one_net => NetTieOneNet = Warning,
     /// Units of one Component whose Component data differ.
     unit_data_mismatch => UnitDataMismatch = Error,
+    /// A placed Component whose Library Status is Library Differs: its Part, Symbol or
+    /// Footprints in the Libraries no longer match the copy in the part table.
+    library_out_of_date => LibraryOutOfDate = Off,
+}
+
+severities! {
+    /// One Library check, named as in [`LibrarySeverities`].
+    enum LibraryCheck;
+    /// The severity of every Library check, set per user in Preferences. A check left out
+    /// has its default.
+    #[serde(default)]
+    struct LibrarySeverities;
+    /// Two Pins of a Symbol with one number.
+    duplicate_pin_number => DuplicatePinNumber = Error,
+    /// A Pin with no Pad in some alternate Footprint of its Part.
+    pin_without_pad => PinWithoutPad = Error,
+    /// A reference that resolves to nothing.
+    broken_reference => BrokenReference = Error,
+    /// Touching Pads with different numbers on a Part's Footprint.
+    shorted_copper => ShortedCopper = Error,
+    /// A Net Tie Part's Footprint that does not join its Pads.
+    net_tie_not_joined => NetTieNotJoined = Error,
+    /// A Pad with no number on a Part's Footprint. Non-plated Pads, and any Pad of a
+    /// Mechanical Part, are exempt.
+    missing_pad_number => MissingPadNumber = Error,
+    /// A Footprint with SMD copper only on the bottom and no through-hole Pads.
+    mirrored_footprint => MirroredFootprint = Error,
+    /// A Footprint origin outside its body box.
+    origin_outside_body => OriginOutsideBody = Error,
+    /// A Symbol with no Designator prefix.
+    missing_designator_prefix => MissingDesignatorPrefix = Error,
+    /// A Pin with no number.
+    missing_pin_number => MissingPinNumber = Error,
+    /// A plated Pad whose offset leaves its hole outside the copper.
+    hole_outside_copper => HoleOutsideCopper = Error,
+    /// A Pin off the 50 mil grid.
+    off_grid_pin => OffGridPin = Warning,
+    /// A Pad mapped to no Pin and not marked unconnected.
+    unmapped_pad => UnmappedPad = Warning,
+    /// A Footprint with no courtyard.
+    missing_courtyard => MissingCourtyard = Warning,
+    /// A paste window not fully on its Pad's copper.
+    paste_window_outside_copper => PasteWindowOutsideCopper = Warning,
+    /// The same graphic, place and Layer twice.
+    duplicate_primitives => DuplicatePrimitives = Warning,
+    /// A Footprint origin more than 0.1 mm from its body box's centre.
+    origin_off_centroid => OriginOffCentroid = Warning,
+    /// A Symbol, Footprint or Part with no description.
+    missing_description => MissingDescription = Warning,
+    /// A gap in a Symbol's numeric Pin numbers, not counting the absent pins of its Parts'
+    /// generated Footprints.
+    missing_pins_in_sequence => MissingPinsInSequence = Warning,
+    /// Two Parts with one name across the registered Libraries.
+    duplicate_part_name => DuplicatePartName = Warning,
+    /// Two Parts with one MPN across the registered Libraries.
+    duplicate_mpn => DuplicateMpn = Warning,
+    /// A generated Footprint whose stored parameters no longer produce it, from a hand edit
+    /// or a changed generator.
+    generator_out_of_date => GeneratorOutOfDate = Warning,
+    /// A Pin with no name.
+    missing_pin_name => MissingPinName = Off,
+}
+
+impl LibraryCheck {
+    /// The check whose id is `id`, such as `off_grid_pin`.
+    pub fn from_id(id: &str) -> Option<LibraryCheck> {
+        LibraryCheck::ALL.iter().copied().find(|c| c.id() == id)
+    }
 }

@@ -1,21 +1,25 @@
 //! The ERC checks of the drawing and its Nets: unconnected Pins, pin-type conflicts,
 //! undriven power, single-Pin Nets, dangling Wire ends, unattached Net Labels and Ports,
-//! No-Connect Markers on connected Pins, Nets with several names and Ports on one sheet.
+//! No-Connect Markers on connected Pins, Nets with several names on a sheet or across
+//! sheets, different Nets with one board name and Ports on one sheet.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Point;
-use reda_model::{ErcCheck, PinType, Project, SchematicSheet, Uuid};
+use reda_model::net_name::{name_key, same_name};
+use reda_model::{ErcCheck, PinType, Project, SchematicSheet, Uuid, Violation};
 
 use super::Report;
 use super::matrix::{conflict, type_name};
 use crate::connectivity::{
-    NetPin, SchematicNet, SheetConnectivity, joined, on_segment, placed_pins,
+    NameSource, Naming, NetPin, SchematicNet, SheetConnectivity, joined, name_priority, naming,
+    placed_pins, project_nets,
 };
 use crate::natural::natural_cmp;
 
 pub(super) fn check(project: &Project, report: &mut Report) {
     let (sheets, groups) = joined(project);
+    let mut ties = Ties::default();
     for conn in &sheets {
         let sheet = project
             .schematic_sheet(conn.document)
@@ -33,8 +37,70 @@ pub(super) fn check(project: &Project, report: &mut Report) {
             })
             .collect();
         project_net(&parts, report);
+        net_names(project, &parts, report);
+        ties.add(&parts);
     }
+    ties.report(report);
+    duplicate_nets(project, report);
     single_sheet_ports(project, report);
+}
+
+/// The Nets each Net Tie's Pins are on, gathered one Project-wide Net at a time.
+#[derive(Default)]
+struct Ties<'a> {
+    /// Each tie: its Designator, its Units, and the names of the Nets of its Pins, one per
+    /// Net in the order met (an unnamed Net as its index).
+    found: BTreeMap<&'a reda_model::ComponentRef, Tie<'a>>,
+    nets: usize,
+}
+
+#[derive(Default)]
+struct Tie<'a> {
+    designator: &'a str,
+    units: BTreeSet<Uuid>,
+    nets: BTreeMap<usize, String>,
+    pins: usize,
+}
+
+impl<'a> Ties<'a> {
+    fn add(&mut self, parts: &[(&'a SchematicSheet, &'a SchematicNet)]) {
+        let index = self.nets;
+        self.nets += 1;
+        let name = parts
+            .first()
+            .and_then(|(_, n)| n.name.clone())
+            .unwrap_or_default();
+        for &(sheet, net) in parts {
+            for pin in &net.pins {
+                let is_tie = sheet
+                    .unit(pin.unit)
+                    .is_some_and(|u| u.component_type == reda_model::ComponentType::NetTie);
+                if !is_tie {
+                    continue;
+                }
+                let tie = self.found.entry(&pin.component).or_default();
+                tie.designator = &pin.designator;
+                tie.units.insert(pin.unit);
+                tie.nets.entry(index).or_insert_with(|| name.clone());
+                tie.pins += 1;
+            }
+        }
+    }
+
+    /// `net_tie_one_net` for each tie with two or more Pins, all on one Net.
+    fn report(self, report: &mut Report) {
+        for tie in self.found.into_values() {
+            if tie.pins < 2 || tie.nets.len() != 1 {
+                continue;
+            }
+            let net = tie.nets.into_values().next().unwrap_or_default();
+            report.add(ErcCheck::NetTieOneNet, |v| {
+                v.arg("designator", tie.designator)
+                    .arg("net", net)
+                    .objects(tie.units)
+            });
+        }
+    }
 }
 
 /// `R1-2`: a Pin as the user names it.
@@ -94,7 +160,7 @@ fn drawing(sheet: &SchematicSheet, report: &mut Report) {
     let on_wire = |p: Point, except: Option<Uuid>| {
         sheet
             .wires()
-            .any(|w| Some(w.uuid) != except && on_segment(w, p))
+            .any(|w| Some(w.uuid) != except && w.contains(p))
     };
     if !report.is_off(ErcCheck::DanglingWire) {
         let attached: BTreeSet<Point> = (sheet.net_labels().map(|l| l.at))
@@ -102,7 +168,7 @@ fn drawing(sheet: &SchematicSheet, report: &mut Report) {
             .chain(sheet.power_ports().map(|p| p.at))
             .collect();
         for wire in sheet.wires() {
-            for end in [wire.from, wire.to] {
+            for end in wire.ends() {
                 if !pins.contains(&end)
                     && !attached.contains(&end)
                     && !on_wire(end, Some(wire.uuid))
@@ -185,33 +251,128 @@ fn project_net(parts: &[(&SchematicSheet, &SchematicNet)], report: &mut Report) 
                 .objects(power_in.iter().flat_map(|p| [p.unit, p.pin]))
         });
     }
+}
 
-    // Several names: Power Port, Port and Net Label names that differ.
-    let mut names: Vec<&String> = vec![];
-    let kinds: [fn(&SchematicNet) -> &Vec<String>; 3] =
-        [|n| &n.power_port_names, |n| &n.port_names, |n| &n.labels];
-    for pick in kinds {
-        let mut kind: Vec<&String> = parts.iter().flat_map(|(_, n)| pick(n)).collect();
-        kind.sort_by(|a, b| natural_cmp(a, b));
-        for name in kind {
-            if !names.contains(&name) {
-                names.push(name);
-            }
+/// A Project-wide Net with different names: `net_names_on_sheet` for each sheet whose part
+/// of it carries several, `net_names_across_sheets` when its sheets name it differently.
+/// Names differing only in case are one name.
+fn net_names(project: &Project, parts: &[(&SchematicSheet, &SchematicNet)], report: &mut Report) {
+    let options = project.props().schematic;
+    let whole = naming(parts.iter().map(|(_, n)| *n), &options);
+    if whole.names.len() < 2 {
+        return;
+    }
+    let reported = |v: Violation, names: &[String], objects: Vec<Uuid>| {
+        v.arg("net", whole.name.clone().unwrap_or_default())
+            .arg("names", names.join(", "))
+            .arg("kind", whole.source.map_or("", NameSource::id))
+            .arg(
+                "reason",
+                if whole.by_code_point {
+                    "code_point"
+                } else {
+                    "priority"
+                },
+            )
+            .objects(objects)
+    };
+    let kinds = name_priority(&options);
+    let naming_objects = |net: &SchematicNet| -> Vec<Uuid> {
+        kinds.iter().flat_map(|k| k.objects(net)).copied().collect()
+    };
+    let mut sheet_names: Vec<BTreeSet<String>> = vec![];
+    for &(_, net) in parts {
+        let on_sheet: Naming = naming(std::iter::once(net), &options);
+        if on_sheet.names.is_empty() {
+            continue;
+        }
+        sheet_names.push(on_sheet.names.iter().map(|n| name_key(n)).collect());
+        if on_sheet.names.len() > 1 {
+            report.add(ErcCheck::NetNamesOnSheet, |v| {
+                reported(v, &on_sheet.names, naming_objects(net))
+            });
         }
     }
-    if names.len() > 1 {
-        let objects: Vec<Uuid> = parts
-            .iter()
-            .flat_map(|(_, n)| n.power_ports.iter().chain(&n.ports).chain(&n.net_labels))
-            .copied()
-            .collect();
-        let list: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
-        report.add(ErcCheck::MultipleNetNames, |v| {
-            v.arg("net", net_name.as_str())
-                .arg("names", list.join(", "))
+    if sheet_names.windows(2).any(|w| w[0] != w[1]) {
+        report.add(ErcCheck::NetNamesAcrossSheets, |v| {
+            let objects = parts.iter().flat_map(|(_, n)| naming_objects(n)).collect();
+            reported(v, &whole.names, objects)
+        });
+    }
+}
+
+/// Different Nets with the same board name, ignoring case: one Violation per name.
+fn duplicate_nets(project: &Project, report: &mut Report) {
+    if report.is_off(ErcCheck::DuplicateNets) {
+        return;
+    }
+    let mut by_name: BTreeMap<String, Vec<_>> = BTreeMap::new();
+    let nets = project_nets(project);
+    for net in &nets {
+        if let Some(board) = &net.board_name {
+            by_name.entry(name_key(board)).or_default().push(net);
+        }
+    }
+    let mut found: Vec<(&str, Vec<Uuid>, usize)> = vec![];
+    for same in by_name.values().filter(|n| n.len() > 1) {
+        let mut objects = vec![];
+        for net in same {
+            objects.extend(winning_objects(project, net));
+        }
+        let name = same[0].board_name.as_deref().unwrap_or_default();
+        found.push((name, objects, same.len()));
+    }
+    found.sort_by(|a, b| natural_cmp(a.0, b.0));
+    for (name, objects, count) in found {
+        report.add(ErcCheck::DuplicateNets, |v| {
+            v.arg("name", name)
+                .arg("count", count as i64)
                 .objects(objects)
         });
     }
+}
+
+/// The objects that give a Project-wide Net its name: its Net Labels, Ports or Power Ports
+/// carrying the winning name, or for an auto-named Net its lowest Pin.
+fn winning_objects(project: &Project, net: &crate::connectivity::ProjectNet) -> Vec<Uuid> {
+    let Some(name) = net.name.as_deref() else {
+        return vec![];
+    };
+    let mut out = vec![];
+    for &document in &net.sheets {
+        let Some(sheet) = project.schematic_sheet(document) else {
+            continue;
+        };
+        let carries =
+            |uuid: &Uuid, of: &str| net.objects.binary_search(uuid).is_ok() && same_name(of, name);
+        match net.name_source {
+            Some(NameSource::NetLabel) => out.extend(
+                sheet
+                    .net_labels()
+                    .filter(|l| carries(&l.uuid, &l.name))
+                    .map(|l| l.uuid),
+            ),
+            Some(NameSource::PowerPort) => out.extend(
+                sheet
+                    .power_ports()
+                    .filter(|p| carries(&p.uuid, &p.name))
+                    .map(|p| p.uuid),
+            ),
+            Some(NameSource::Port) => out.extend(
+                sheet
+                    .ports()
+                    .filter(|p| carries(&p.uuid, &p.name))
+                    .map(|p| p.uuid),
+            ),
+            _ => {}
+        }
+    }
+    if out.is_empty()
+        && let Some(pin) = net.pins.first()
+    {
+        out.extend([pin.pin.unit, pin.pin.pin]);
+    }
+    out
 }
 
 /// Ports whose name appears on only one sheet.

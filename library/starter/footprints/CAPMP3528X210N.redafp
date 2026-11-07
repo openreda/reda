@@ -1,14 +1,19 @@
 {
   "format": 1,
-  "footprint": {"uuid":"2adccc08-5d68-4c21-a620-92fb92ec9033","name":"CAPMP3528X210N","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":2500000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"2adccc08-5d68-4c21-a620-92fb92ec9033","name":"CAPMP3528X210N","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal","height":2100000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal","dimensions":{"height":2100000,"length":{"max":3700000,"min":3300000},"terminal":{"max":1100000,"min":500000},"width":{"max":3000000,"min":2600000}},"goals":{"density":"nominal","fillet":{"heel":0,"side":0,"toe":350000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"CAPMP3528X210N","outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"corner_ratio":25000,"length":1500000,"max_corner_radius":250000,"paste_coverage":50,"shape":"rounded_rect","spacing":2900000,"trim":true,"width":3000000},"polarity_mark":true,"tolerances":{"component":{"inner":938083,"span":400000,"width":400000},"courtyard_excess":250000,"fabrication":100000,"placement":50000,"round_off":{"place":50000,"size":50000}}}},
   "pads": [
-    {"uuid":"665a48cc-84f5-414e-801d-cb3234894240","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_radius":250000},
-    {"uuid":"cfc412fd-6626-416e-a589-e25a52cbe4b6","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_radius":250000}
+    {"uuid":"665a48cc-84f5-414e-801d-cb3234894240","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1450000,"y":0},"rotation":0,"width":1500000,"height":3000000,"corner_ratio":25000},
+    {"uuid":"cfc412fd-6626-416e-a589-e25a52cbe4b6","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1450000,"y":0},"rotation":0,"width":1500000,"height":3000000,"corner_ratio":25000}
   ],
   "graphics": [
-    {"uuid":"09a74e66-b1e4-4243-b587-463c557d6df7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2500000,"y":-1800000},"end":{"x":2500000,"y":1800000}},"width":50000},
-    {"uuid":"8ba39dc9-1835-4595-9cf1-f8482bab5d24","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1400000},"end":{"x":1750000,"y":1400000}},"width":100000},
-    {"uuid":"8eb2d06a-58d1-45d8-85cb-f5b3c1ac2448","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2485000,"y":-1525000},"end":{"x":-2485000,"y":1525000}},"width":120000}
+    {"uuid":"09a74e66-b1e4-4243-b587-463c557d6df7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2450000,"y":-1750000},"end":{"x":2450000,"y":1750000}},"width":50000},
+    {"uuid":"75113202-f31d-4ad5-856a-0f5f9f808f69","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2460000,"y":1560000},"end":{"x":-2460000,"y":-1560000}},"width":120000},
+    {"uuid":"8ba39dc9-1835-4595-9cf1-f8482bab5d24","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1400000},"end":{"x":1750000,"y":1400000}},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"5cdbbc68-94b8-4fd4-b2f3-afe7b6dd2371","field":"Value","at":{"x":0,"y":-2450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"d4c9e7d3-81d5-43a7-a412-6ecfdd138873","field":"Designator","at":{"x":0,"y":2450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"d4f7328d-3d26-4ecd-bd2c-34d89faf2cf1","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

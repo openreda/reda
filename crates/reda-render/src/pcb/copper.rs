@@ -1,11 +1,12 @@
 //! Tracks, Pads, Vias and drilled holes.
 
-use reda_model::geom::{Millideg, Nm};
-use reda_model::{LayerKind, PadKind, PadShape, Side, TrackGeometry};
+use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::{LayerKind, PadKind, Side, TrackGeometry};
 
 use super::{BoardPad, Builder, capsule};
 use crate::arc;
 use crate::color::BoardColor;
+use crate::polygon::triangulate;
 use crate::scene::{Primitive, SceneLayer};
 
 pub(super) fn tracks(b: &mut Builder) {
@@ -46,30 +47,46 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad]) {
         };
         for layer in copper.into_iter().chain(mask).chain(paste).flatten() {
             b.on_layer(pad.object, layer, shape.clone());
+            if let Some(item) = b.scene.items.last_mut() {
+                item.child = pad.child.clone();
+            }
         }
     }
 }
 
-/// A Pad's copper as one primitive.
+/// A Pad's copper as one primitive: a disc, a rounded rectangle, or triangles when its
+/// corners differ.
 fn pad_shape(pad: &BoardPad) -> Primitive {
-    let rect = |corner_radius| Primitive::Rect {
-        center: pad.at,
-        size: (pad.width, pad.height),
-        rotation: pad.rotation.normalized(),
-        corner_radius,
-        stroke: None,
-    };
-    match pad.shape {
-        PadShape::Circle => Primitive::Ring {
-            center: pad.at,
-            outer: Nm(pad.width.0 / 2),
+    let o = &pad.outline;
+    let center = pad.copper_center();
+    if o.is_circle() {
+        return Primitive::Ring {
+            center,
+            outer: Nm(o.width.0 / 2),
             inner: Nm(0),
+        };
+    }
+    match o.uniform_radius() {
+        Some(corner_radius) => Primitive::Rect {
+            center,
+            size: (o.width, o.height),
+            rotation: pad.rotation.normalized(),
+            corner_radius,
+            stroke: None,
         },
-        PadShape::Rect => rect(Nm(0)),
-        PadShape::RoundedRect => rect(pad.corner_radius.unwrap_or(Nm(0))),
-        PadShape::Oval => rect(Nm(pad.width.0.min(pad.height.0) / 2)),
+        None => {
+            let points: Vec<Point> = o
+                .polygon(PAD_ARC_TOLERANCE)
+                .into_iter()
+                .map(|p| (p + pad.at).rotated_about(pad.at, pad.rotation))
+                .collect();
+            Primitive::Triangles(triangulate(&points))
+        }
     }
 }
+
+/// How far a drawn Pad's chords may stray from its rounded corners.
+const PAD_ARC_TOLERANCE: Nm = Nm(1_000);
 
 pub(super) fn vias(b: &mut Builder) {
     let pcb = b.pcb;
@@ -99,12 +116,15 @@ pub(super) fn holes(b: &mut Builder, pads: &[BoardPad]) {
             Primitive::Rect {
                 center: pad.at,
                 size: (hole.width, hole.height),
-                rotation: pad.rotation.normalized(),
+                rotation: (pad.rotation + hole.rotation).normalized(),
                 corner_radius: Nm(hole.width.0.min(hole.height.0) / 2),
                 stroke: None,
             }
         };
         b.push(pad.object, SceneLayer::Drill, BoardColor::Hole, primitive);
+        if let Some(item) = b.scene.items.last_mut() {
+            item.child = pad.child.clone();
+        }
     }
     let pcb = b.pcb;
     for via in pcb.vias() {

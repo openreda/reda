@@ -1,7 +1,7 @@
-//! `project.properties.set`: the Project properties that fill each sheet's title block,
-//! and the board thickness and copper weight for fab notes.
+//! `project.properties.set`: the Project properties that fill each sheet's title block.
+//! The board thickness and copper are the Stackup's, set with `pcb.stackup.set`.
 
-use reda_command::{Command, CommandError, Context, Kind, Length, Meta, Registry};
+use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{Object, ProjectProperties};
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -22,11 +22,6 @@ pub struct PropertiesSetParams {
     pub date: Option<String>,
     pub author: Option<String>,
     pub company: Option<String>,
-    /// The finished board thickness, for fab notes, such as `1.6mm`. Zero clears it; a
-    /// negative thickness is refused.
-    pub board_thickness: Option<Length>,
-    /// The copper weight, for fab notes, as free text such as `1 oz`.
-    pub copper_weight: Option<String>,
 }
 
 impl Command for ProjectPropertiesSet {
@@ -34,8 +29,7 @@ impl Command for ProjectPropertiesSet {
         id: "project.properties.set",
         title: "Set Project Properties",
         description: "Sets the Project properties: the title, revision, date, author and \
-                      company that fill every sheet's title block, and the board thickness \
-                      and copper weight that go into fab notes. Properties left out keep \
+                      company that fill every sheet's title block. Properties left out keep \
                       their value. Returns all of them.",
         category: "project",
         icon: "properties",
@@ -49,13 +43,16 @@ impl Command for ProjectPropertiesSet {
         cx: &mut Context<'_>,
         p: PropertiesSetParams,
     ) -> Result<ProjectProperties, CommandError> {
-        if let Some(thickness) = p.board_thickness
-            && thickness.nm().0 < 0
-        {
-            return Err(CommandError::invalid_params(
-                "/board_thickness",
-                "the board thickness cannot be negative",
-            ));
+        for (pointer, value) in [
+            ("/title", &p.title),
+            ("/revision", &p.revision),
+            ("/date", &p.date),
+            ("/author", &p.author),
+            ("/company", &p.company),
+        ] {
+            if let Some(value) = value {
+                CommandError::check_text(pointer, value)?;
+            }
         }
         let tx = cx.tx()?;
         let mut props = tx.project().props().clone();
@@ -66,14 +63,10 @@ impl Command for ProjectPropertiesSet {
             (p.date, &mut fields.date),
             (p.author, &mut fields.author),
             (p.company, &mut fields.company),
-            (p.copper_weight, &mut fields.copper_weight),
         ] {
             if let Some(new) = new {
                 *field = new;
             }
-        }
-        if let Some(thickness) = p.board_thickness {
-            fields.board_thickness = (thickness.nm().0 > 0).then_some(thickness.nm());
         }
         let out = props.properties.clone();
         tx.replace(Object::Project(props))?;

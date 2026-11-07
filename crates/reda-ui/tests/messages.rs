@@ -432,3 +432,106 @@ fn a_drc_run_lists_its_violations_under_the_pcb_and_goes_stale_after_an_edit() {
         .unwrap();
     assert!(shell.messages().run(CheckKind::Drc).unwrap().stale);
 }
+
+#[test]
+fn a_deleted_objects_stale_marker_keeps_the_location_returned_by_the_check() {
+    let mut d = demo();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    let sheet = d.sheet1.parse().unwrap();
+    let before = d.shell.markers(sheet)[0].at;
+    d.shell
+        .run("schematic.delete", json!({"objects":[d.label]}))
+        .unwrap();
+    assert_eq!(d.shell.markers(sheet).len(), 1);
+    assert_eq!(d.shell.markers(sheet)[0].at, before);
+    assert_eq!(before, Point::new(mil(500), mil(500)));
+}
+
+#[test]
+fn selected_violations_share_one_reason_and_each_sheet_gets_one_undo_entry() {
+    let mut d = demo();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    let keys: Vec<LineKey> = violation_lines(&d.shell).iter().map(|(k, _)| *k).collect();
+    d.shell
+        .waive_many(&keys, "intentional test wiring")
+        .unwrap();
+    let run = d.shell.messages().run(CheckKind::Erc).unwrap();
+    assert_eq!(
+        run.entries
+            .iter()
+            .filter(|e| e.violation.waiver.is_some())
+            .count(),
+        3
+    );
+    let waivers: std::collections::BTreeSet<_> = run
+        .entries
+        .iter()
+        .filter_map(|e| e.violation.waiver)
+        .collect();
+    assert_eq!(waivers.len(), 2);
+    for w in waivers {
+        let object = d.shell.run("object.get", json!({"uuid":w})).unwrap()["object"].clone();
+        assert_eq!(object["reason"], "intentional test wiring");
+    }
+    d.shell
+        .run("edit.undo", json!({"document":d.sheet2}))
+        .unwrap();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    assert_eq!(violation_lines(&d.shell).len(), 2);
+}
+
+#[test]
+fn collapsed_openings_translate_both_sides_and_kinds_without_changing_check_arguments() {
+    let home = TempDir::new("messages-opening-home");
+    let work = TempDir::new("messages-opening-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.new_project(work.path(), "Openings").unwrap();
+    for side in ["top", "bottom"] {
+        shell
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind":"smd","side":side,
+            "at":{"x":if side == "top" { "1mm" } else { "5mm" },"y":"1mm"},
+            "width":"1mm","mask":{side:{"expansion":"-0.5mm"}},
+            "paste":{"expansion":"-0.6mm"}}),
+            )
+            .unwrap();
+    }
+    shell.run_check(CheckKind::Drc).unwrap();
+    let text: Vec<_> = violation_lines(&shell)
+        .into_iter()
+        .map(|(_, t)| t)
+        .collect();
+    for expected in [
+        "The top mask opening has collapsed",
+        "The bottom mask opening has collapsed",
+        "The top paste opening has collapsed",
+        "The bottom paste opening has collapsed",
+    ] {
+        assert!(
+            text.iter().any(|t| t == expected),
+            "missing {expected}: {text:?}"
+        );
+    }
+    let report = shell.run("drc.run", json!({})).unwrap();
+    let arguments: Vec<_> = report["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "opening_collapsed")
+        .map(|v| {
+            (
+                v["args"]["side"].as_str().unwrap(),
+                v["args"]["kind"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    for expected in [
+        ("top", "mask"),
+        ("bottom", "mask"),
+        ("top", "paste"),
+        ("bottom", "paste"),
+    ] {
+        assert!(arguments.contains(&expected));
+    }
+}

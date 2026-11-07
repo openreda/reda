@@ -4,7 +4,7 @@
 //!
 //! - Units show as tabs over the canvas (`library.symbol.unit.show` switches); the canvas
 //!   draws the shown Unit ([`reda_engine::render::symbol_scene`]) and the Tools work on it.
-//! - Select picks Pins and graphics (click, Shift/Mod, box), and dragging moves them on
+//! - Select picks Pins and graphics (click, Shift+click, box), and dragging moves them on
 //!   the grid: one `library.symbol.move` on release.
 //! - Pin places a Pin per click on the 50 mil grid, numbered one past the highest; Space
 //!   (`tool.rotate`) turns the next one by 90°.
@@ -29,15 +29,13 @@ use std::collections::BTreeMap;
 use reda_engine::Engine;
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{LibraryElement, Pin, Symbol, Uuid};
+use reda_engine::model::{LibraryElement, Pin, Symbol, Uuid, auto_increment};
 use reda_engine::render::{Scene, symbol_scene};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{
-    BoxMode, Combine, Pointer, box_select, combine, hit_test, snap_to_grid,
-};
+use crate::canvas::interact::{BoxMode, Pointer, snap_to_grid};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
@@ -92,6 +90,9 @@ pub struct Canvas {
     pub interaction: Interaction,
     /// The Text Tool's text being typed, and where it goes.
     pub text: Option<(Point, String)>,
+    /// The number and name of the last Pin the Pin Tool placed here, which the next one
+    /// auto-increments from.
+    pub last_pin: Option<(String, String)>,
 }
 
 /// The Symbol editor's view state: each Symbol tab's canvas.
@@ -213,14 +214,14 @@ pub fn pointer(
     let mut hovered = tab.live.hovered;
     let mut cursor = tab.cursor;
     let mut state = canvas(shell, symbol);
+    let read_only = element_editor::read_only(shell.engine(), symbol);
     let mut cx = Cx {
         shell,
         symbol: &s,
         unit: unit_in(&s, state.unit),
         pick: PICK_POINTS * nm_per_point,
-        read_only: element_editor::read_only(shell.engine(), symbol),
+        read_only,
         commands: Vec::new(),
-        pins_added: 0,
     };
     state.interaction = cx.sync_tool(state.interaction);
     for &event in events {
@@ -266,6 +267,12 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
     let tool = shell.tool();
     let grid = snap_grid(shell, symbol, tool);
     let state = canvas(shell, symbol);
+    let mode = match &state.interaction {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, symbol, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
     let Some(tab) = shell.document_tab_mut(symbol) else {
         return;
     };
@@ -287,7 +294,7 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -324,14 +331,12 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
 }
 
 struct Cx<'a> {
-    shell: &'a Shell,
+    shell: &'a mut Shell,
     symbol: &'a Symbol,
     unit: Option<Uuid>,
     pick: f64,
     read_only: bool,
     commands: Vec<Invocation>,
-    /// Pins this frame's clicks already asked for, so each gets its own number.
-    pins_added: u64,
 }
 
 impl Cx<'_> {
@@ -344,34 +349,12 @@ impl Cx<'_> {
         snap_to_grid(at, snap_grid(self.shell, self.element(), tool))
     }
 
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
-    }
-
     fn run(&mut self, id: &str, params: Value) {
         self.commands.push((id.to_owned(), params));
     }
 
-    /// Pins and graphics of the shown Unit (other Units are not drawn).
-    fn pickable(&self, uuid: Uuid) -> bool {
-        let unit = self.unit;
-        self.symbol
-            .pins
-            .iter()
-            .any(|p| p.uuid == uuid && Some(p.unit) == unit)
-            || self
-                .symbol
-                .graphics
-                .iter()
-                .any(|g| g.uuid == uuid && Some(g.unit) == unit)
-    }
-
     fn hit(&self, at: P) -> Option<Uuid> {
-        let tab = self.shell.document_tab(self.element())?;
-        hit_test(&tab.scene.scene, at, self.pick, |o| self.pickable(o))
+        crate::selection::picking::hit(self.shell, self.element(), at, self.pick)
     }
 
     /// Drops what a Tool that is no longer active had in flight.
@@ -392,7 +375,7 @@ impl Cx<'_> {
         state.interaction = match self.shell.tool() {
             Tool::Pin => {
                 if let Pointer::Click { at, .. } = event {
-                    self.place_pin(at, state.pin_rotation);
+                    self.place_pin(at, state.pin_rotation, &mut state.last_pin);
                 }
                 Interaction::Idle
             }
@@ -412,16 +395,17 @@ impl Cx<'_> {
         };
     }
 
-    fn place_pin(&mut self, at: P, rotation: Millideg) {
+    fn place_pin(&mut self, at: P, rotation: Millideg, last: &mut Option<(String, String)>) {
         let Some(unit) = self.unit.filter(|_| !self.read_only) else {
             return;
         };
-        let number = next_number(self.symbol, self.pins_added);
-        self.pins_added += 1;
+        let steps = self.shell.preferences().schematic.auto_increment;
+        let (number, name) = next_pin(self.symbol, last.as_ref(), steps.primary, steps.secondary);
+        *last = Some((number.clone(), name.clone()));
         let at = self.snap(at);
         self.run(
             "library.symbol.pin.add",
-            json!({"symbol": self.element(), "unit": unit, "name": "", "number": number,
+            json!({"symbol": self.element(), "unit": unit, "name": name, "number": number,
                    "at": json_point(at), "rotation": rotation.0}),
         );
     }
@@ -518,17 +502,20 @@ impl Cx<'_> {
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Hover(at)) => {
+                crate::selection::picking::hover(self.shell, self.element(), at, self.pick);
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                let how = Combine::of(modifiers);
-                let current = self.shell.selection().objects.clone();
-                let picked: Vec<Uuid> = self.hit(at).into_iter().collect();
-                if picked.is_empty() && how != Combine::Replace {
-                    return Interaction::Idle;
+                if let Some(command) = crate::selection::picking::click(
+                    self.shell,
+                    self.element(),
+                    at,
+                    self.pick,
+                    modifiers,
+                ) {
+                    self.commands.push(command);
                 }
-                self.select(combine(&current, &picked, how));
                 Interaction::Idle
             }
             (
@@ -540,22 +527,28 @@ impl Cx<'_> {
                 },
             ) => {
                 *hovered = None;
-                let Some(hit) = self.hit(from) else {
+                let Some(hit) = crate::selection::picking::movement_hit(
+                    self.shell,
+                    self.element(),
+                    from,
+                    self.pick,
+                ) else {
                     return Interaction::Boxing {
                         from,
                         to: at,
                         modifiers,
                     };
                 };
-                let selected = element_editor::selected_on(self.shell, self.element());
-                let objects = if selected.contains(&hit) {
-                    selected
-                } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                self.select(objects.clone());
+                let parts = element_editor::parts(self.shell.engine(), self.element());
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.element(),
+                    hit,
+                    modifiers,
+                    |id| parts.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 if self.read_only {
                     return Interaction::Idle;
                 }
@@ -571,18 +564,15 @@ impl Cx<'_> {
     }
 
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        let Some(tab) = self.shell.document_tab(self.element()) else {
-            return;
-        };
-        let picked = box_select(
-            &tab.scene.scene,
+        if let Some(command) = crate::selection::picking::box_selection(
+            self.shell,
+            self.element(),
             from,
             to,
-            BoxMode::of_drag(from, to),
-            |o| self.pickable(o),
-        );
-        let current = self.shell.selection().objects.clone();
-        self.select(combine(&current, &picked, Combine::of(modifiers)));
+            modifiers,
+        ) {
+            self.commands.push(command);
+        }
     }
 }
 
@@ -731,20 +721,41 @@ fn paste_start(symbol: &Symbol, unit: Uuid) -> Point {
     Point::new(x, lowest - PASTE_PITCH)
 }
 
-/// The number for a new Pin: one more than the highest numeric number, `skip` further
-/// on for Pins already asked for.
-fn next_number(symbol: &Symbol, skip: u64) -> String {
-    let highest = symbol
-        .pins
-        .iter()
-        .filter_map(|p| p.number.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0);
-    let mut n = highest + 1 + skip;
-    while symbol.pins.iter().any(|p| p.number == n.to_string()) {
-        n += 1;
-    }
-    n.to_string()
+/// The number and name of the next Pin the Pin Tool places in `symbol`, after `last`
+/// (the number and name of the one it placed before, if any): the number steps by
+/// `primary` (letters too, A → B, skipping numbers taken) and the name by `secondary`
+/// (its trailing number only), as the Pin now is if it is still there under that number,
+/// so edits made to it carry on. With nothing to step from, the number is one past the
+/// highest numeric one and the name is empty.
+pub fn next_pin(
+    symbol: &Symbol,
+    last: Option<&(String, String)>,
+    primary: i64,
+    secondary: i64,
+) -> (String, String) {
+    let taken = |n: &str| symbol.pins.iter().any(|p| p.number == n);
+    let stepped = last.and_then(|(number, name)| {
+        let name = symbol
+            .pins
+            .iter()
+            .find(|p| p.number == *number)
+            .map_or(name.as_str(), |p| p.name.as_str());
+        let next = auto_increment::next_number(number, primary, |n| !taken(n))?;
+        Some((next, auto_increment::step(name, secondary)))
+    });
+    stepped.unwrap_or_else(|| {
+        let highest = symbol
+            .pins
+            .iter()
+            .filter_map(|p| p.number.parse::<u64>().ok())
+            .max()
+            .unwrap_or(0);
+        let mut n = highest + 1;
+        while taken(&n.to_string()) {
+            n += 1;
+        }
+        (n.to_string(), String::new())
+    })
 }
 
 fn json_point(p: Point) -> Value {

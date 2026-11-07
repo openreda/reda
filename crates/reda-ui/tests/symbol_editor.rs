@@ -161,7 +161,13 @@ fn a_new_symbol_opens_in_a_document_tab_with_no_project_open() {
         .iter()
         .map(|m| m.id.as_str())
         .collect();
-    assert!(menus.contains(&"library"), "{menus:?}");
+    // The element's own items fold into File and Tools.
+    assert_eq!(
+        menus,
+        [
+            "file", "edit", "view", "project", "place", "tools", "window", "help"
+        ]
+    );
 }
 
 #[test]
@@ -206,7 +212,100 @@ fn the_pin_tool_places_pins_on_the_50_mil_grid_with_rising_numbers() {
         .shell
         .run("library.check", json!({"element": symbol}))
         .unwrap();
-    assert_eq!(out["violations"], json!([]), "on grid, numbers unique");
+    // A new Symbol has no description yet; nothing else is found.
+    let checks: Vec<&str> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["check"].as_str().unwrap())
+        .collect();
+    assert_eq!(checks, ["missing_description"], "on grid, numbers unique");
+}
+
+#[test]
+fn the_pin_tool_steps_on_from_the_last_pin_it_placed_keeping_its_edited_name() {
+    let mut f = Fixture::new("sym-pin-increment");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, 0.0, 0.0);
+    // The user names the first Pin D0; placement carries on from it.
+    let first = f.symbol(symbol).pins[0].uuid;
+    f.shell
+        .run(
+            "library.symbol.pin.edit",
+            json!({"symbol": symbol, "pin": first, "name": "D0"}),
+        )
+        .unwrap();
+    f.click(symbol, 0.0, -100.0);
+    f.click(symbol, 0.0, -200.0);
+    let s = f.symbol(symbol);
+    let mut pins: Vec<(String, String)> = s
+        .pins
+        .iter()
+        .map(|p| (p.number.clone(), p.name.clone()))
+        .collect();
+    pins.sort();
+    assert_eq!(
+        pins,
+        [
+            ("1".to_owned(), "D0".to_owned()),
+            ("2".to_owned(), "D1".to_owned()),
+            ("3".to_owned(), "D2".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn the_next_pin_follows_the_auto_increment_preferences_and_skips_taken_numbers() {
+    let mut f = Fixture::new("sym-pin-next");
+    let symbol = f.new_symbol("Chip");
+    for (number, at) in [("3", 0), ("5", -100)] {
+        f.shell
+            .run(
+                "library.symbol.pin.add",
+                json!({"symbol": symbol, "name": "X", "number": number,
+                       "at": {"x": 0, "y": format!("{at}mil")}}),
+            )
+            .unwrap();
+    }
+    let s = f.symbol(symbol);
+    let last = ("1".to_owned(), "IN1".to_owned());
+    assert_eq!(
+        symbol_editor::next_pin(&s, Some(&last), 2, 3),
+        ("7".to_owned(), "IN4".to_owned()),
+        "1 + 2 is taken, so 5 + 2; the name steps by the secondary 3"
+    );
+    assert_eq!(
+        symbol_editor::next_pin(&s, None, 1, 1),
+        ("6".to_owned(), String::new()),
+        "nothing placed yet: one past the highest"
+    );
+    let plus = ("+".to_owned(), "V".to_owned());
+    assert_eq!(symbol_editor::next_pin(&s, Some(&plus), 1, 1).0, "6");
+    let row_a = ("A".to_owned(), "PA".to_owned());
+    assert_eq!(
+        symbol_editor::next_pin(&s, Some(&row_a), 1, 1),
+        ("B".to_owned(), "PA".to_owned()),
+        "letter numbers step; a name with no trailing number repeats"
+    );
+
+    f.shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "schematic.auto_increment.primary", "value": 2}),
+        )
+        .unwrap();
+    f.key("P");
+    f.click(symbol, 0.0, -300.0);
+    f.click(symbol, 0.0, -400.0);
+    let mut numbers: Vec<String> = f
+        .symbol(symbol)
+        .pins
+        .iter()
+        .map(|p| p.number.clone())
+        .collect();
+    numbers.sort();
+    assert_eq!(numbers, ["3", "5", "6", "8"]);
 }
 
 #[test]
@@ -452,7 +551,14 @@ fn pasted_pin_rows_add_and_update_pins_in_one_step() {
         .shell
         .run("library.check", json!({"element": symbol}))
         .unwrap();
-    assert_eq!(out["violations"], json!([]), "new Pins land on the grid");
+    // A new Symbol has no description yet; nothing else is found.
+    let checks: Vec<&str> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["check"].as_str().unwrap())
+        .collect();
+    assert_eq!(checks, ["missing_description"], "new Pins land on the grid");
     f.shell
         .run("edit.undo", json!({"document": symbol}))
         .unwrap();

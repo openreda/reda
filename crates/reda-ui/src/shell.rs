@@ -32,7 +32,7 @@ use crate::cross_probe::{self, CrossProbe};
 use crate::grid::{self, Grids};
 use crate::highlight::Highlight;
 use crate::keymap::{self, Keymap};
-use crate::layout::{self, Layout, TabKey, saved};
+use crate::layout::{self, Layout, SettingsWindow, TabKey, WindowRect, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
@@ -42,10 +42,11 @@ use crate::recovery::{self, Recorder};
 use crate::schematic_editor::{Interaction, Turn};
 use crate::selection::{self, Selection};
 pub use crate::tool_preview::ToolPreview;
-use crate::tools::{self, ActiveTool, Tool};
+use crate::tools::{self, ActiveTool, PowerPortName, Tool};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
+use crate::working_state::{self, SelectionFilter, SnapOptions, WorkingState};
 
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
 
@@ -79,12 +80,17 @@ pub struct DocumentTab {
     pub scene: SceneHandle,
     /// A box to zoom the camera to when the canvas next lays out, in Document nm.
     pub zoom_to: Option<(Point, Point)>,
+    /// A point to centre the camera on when the canvas next lays out, keeping the zoom
+    /// (`view.jump_to` before the canvas has a camera).
+    pub center_on: Option<Point>,
     /// The selected objects the canvas marks.
     pub selection: SelectionHandle,
     /// The Violation markers the canvas draws over the Document.
     pub markers: Arc<[Marker]>,
     /// The snap grid the canvas draws and Tools snap to.
     pub grid: Nm,
+    /// The Document point the visible grid runs through.
+    pub grid_origin: Point,
     /// What the editor has in flight on this canvas.
     pub interaction: Interaction,
     /// The hovered object and the objects in flight, as the canvas marks them.
@@ -100,6 +106,11 @@ pub struct DocumentTab {
 }
 
 impl DocumentTab {
+    /// The canvas shows a board from below, so Document x runs right to left on screen.
+    pub fn mirrored(&self) -> bool {
+        self.layers.from_bottom && self.scene.layers.is_some()
+    }
+
     fn new(document: Uuid, title: String, scene: SceneHandle) -> DocumentTab {
         DocumentTab {
             document,
@@ -108,9 +119,11 @@ impl DocumentTab {
             layers: LayerView::default(),
             scene,
             zoom_to: None,
+            center_on: None,
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
             grid: grid::SCHEMATIC_DEFAULT,
+            grid_origin: Point::default(),
             interaction: Interaction::Idle,
             live: LiveHandle::default(),
             moving_offset: (0.0, 0.0),
@@ -186,6 +199,8 @@ pub struct Shell {
     library_index: Option<(u64, Arc<LibraryIndex>)>,
     /// A notice for the window to show once, such as Import part's vendor-terms notice.
     notice: Option<String>,
+    /// The titles of the open settings windows' tabs, as the window sets them.
+    settings_titles: BTreeMap<SettingsWindow, String>,
 }
 
 impl Shell {
@@ -217,6 +232,9 @@ impl Shell {
         if engine.registry().get("view.grid.set").is_none() {
             engine.register(grid::register_all);
         }
+        if engine.registry().get("selection.filter.set").is_none() {
+            engine.register(working_state::register_all);
+        }
         if engine.registry().get("pcb.layer.show").is_none() {
             engine.register(pcb::register_all);
         }
@@ -232,12 +250,17 @@ impl Shell {
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
+        engine
+            .view_mut()
+            .set(selection::picking::Picking::default());
         engine.view_mut().set(Highlight::default());
         engine.view_mut().set(ActiveTool::default());
+        engine.view_mut().set(PowerPortName::default());
         engine
             .view_mut()
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
+        engine.view_mut().set(WorkingState::default());
         engine.view_mut().set(CrossProbe::default());
         engine.view_mut().set(messages::ShowWaived::default());
         engine
@@ -279,6 +302,7 @@ impl Shell {
             library_panel: Default::default(),
             library_index: None,
             notice: None,
+            settings_titles: BTreeMap::new(),
         };
         shell.load_preference_warnings();
         shell.reload_keymap();
@@ -373,6 +397,13 @@ impl Shell {
         self.focus_state().request.take()
     }
 
+    pub(crate) fn selection_picking_mut(&mut self) -> &mut selection::picking::Picking {
+        self.engine
+            .view_mut()
+            .get_mut::<selection::picking::Picking>()
+            .expect("installed picker")
+    }
+
     /// What is selected; it changes through `selection.set`.
     pub fn selection(&self) -> &Selection {
         self.engine
@@ -405,6 +436,70 @@ impl Shell {
             .get::<Grids>()
             .map(|g| g.of(self.engine.elements(), document))
             .unwrap_or(grid::SCHEMATIC_DEFAULT)
+    }
+
+    /// The origin the Document's grid runs through (the Output Origin on a board).
+    pub fn grid_origin(&self, document: Uuid) -> Point {
+        grid::origin(self.engine.elements(), document)
+    }
+
+    /// The open board's grid origin: its Output Origin, or zero while no board is open
+    /// or none is placed. The board tools snap, and the cursor readout measures, from it.
+    pub fn board_grid_origin(&self) -> Point {
+        self.engine
+            .project()
+            .and_then(|p| p.pcb())
+            .map_or_else(Point::default, |pcb| self.grid_origin(pcb.uuid))
+    }
+
+    /// A Document point on its current grid, including the board's Output Origin.
+    pub fn snap_to_grid(&self, document: Uuid, at: (f64, f64)) -> Point {
+        crate::canvas::interact::snap_to_grid_from(
+            at,
+            self.grid(document),
+            self.grid_origin(document),
+        )
+    }
+
+    /// `document`'s Selection Filter; it changes through `selection.filter.set`.
+    pub fn selection_filter(&self, document: Uuid) -> SelectionFilter {
+        self.engine
+            .view()
+            .get::<WorkingState>()
+            .map(|w| w.filter(document))
+            .unwrap_or_default()
+    }
+
+    /// Moves `document`'s canvas as `view.jump_to` asked, keeping the zoom.
+    pub fn jump(&mut self, document: Uuid, jump: crate::navigation::Jump) {
+        use crate::navigation::Jump;
+        let Some(tab) = self.document_tab_mut(document) else {
+            return;
+        };
+        let pending = tab.center_on.take();
+        let center = match (tab.camera.as_ref(), pending) {
+            (_, Some(p)) => (p.x.0 as f64, p.y.0 as f64),
+            (Some(camera), None) => camera.center,
+            (None, None) => {
+                // No camera yet: the fitted canvas centres on the Document's bounds.
+                let zero = Point::new(Nm(0), Nm(0));
+                let (lo, hi) = tab.scene.scene.bounds().unwrap_or((zero, zero));
+                (
+                    (lo.x.0 + hi.x.0) as f64 / 2.0,
+                    (lo.y.0 + hi.y.0) as f64 / 2.0,
+                )
+            }
+        };
+        let target = match jump {
+            Jump::To(p) => (p.x.0 as f64, p.y.0 as f64),
+            Jump::By(d) => (center.0 + d.x.0 as f64, center.1 + d.y.0 as f64),
+        };
+        match tab.camera.as_mut() {
+            Some(camera) => camera.center = target,
+            None => {
+                tab.center_on = Some(Point::new(Nm(target.0 as i64), Nm(target.1 as i64)));
+            }
+        }
     }
 
     /// What the last copy or cut put on the clipboard, for `schematic.paste`.
@@ -476,7 +571,31 @@ impl Shell {
             return;
         }
         let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.press(self, at, toggle, tolerance);
+        tool.press(
+            self,
+            at,
+            egui::Modifiers {
+                command: toggle,
+                ..egui::Modifiers::NONE
+            },
+            tolerance,
+        );
+        self.pcb_tool = tool;
+    }
+
+    /// The canvas passes actual modifiers: Shift toggles picks, while Mod detaches drags.
+    pub fn pcb_press_with_modifiers(
+        &mut self,
+        at: Point,
+        modifiers: egui::Modifiers,
+        tolerance: Nm,
+    ) {
+        if self.drawing() {
+            self.pcb_press(at, modifiers.command, tolerance);
+            return;
+        }
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.press(self, at, modifiers, tolerance);
         self.pcb_tool = tool;
     }
 
@@ -589,12 +708,10 @@ impl Shell {
         self.pcb_draw.cancel_text();
     }
 
-    /// Board point `at` as the cursor readout gives it: from the user origin, if set.
+    /// Board point `at` as the cursor readout gives it: from the Output Origin, if the
+    /// board has one.
     pub fn pcb_cursor_from_origin(&self, at: Point) -> Point {
-        match self.board_view().origin {
-            Some(origin) => at - origin,
-            None => at,
-        }
+        at - self.board_grid_origin()
     }
 
     /// Whether the board's Zone fills are out of date: the "Zones need refilling" note.
@@ -722,6 +839,28 @@ impl Shell {
     pub fn active_document_mut(&mut self) -> Option<&mut DocumentTab> {
         let document = self.layout().active_document()?;
         self.document_tab_mut(document)
+    }
+
+    /// Shows the settings window `window`: raises it where it is, or opens it in a window
+    /// of its own at `rect`. Returns whether it opened just now.
+    pub fn open_settings(&mut self, window: SettingsWindow, rect: Option<WindowRect>) -> bool {
+        self.layout_mut().open_settings(window, rect)
+    }
+
+    /// Closes the settings window `window`'s tab, as its own buttons do: a view change
+    /// with nothing to journal.
+    pub fn close_settings(&mut self, window: SettingsWindow) {
+        let _ = self.layout_mut().close(&TabKey::Settings(window));
+    }
+
+    /// Names the settings window `window`'s tab.
+    pub fn set_settings_title(&mut self, window: SettingsWindow, title: String) {
+        self.settings_titles.insert(window, title);
+    }
+
+    /// The title of the settings window `window`'s tab, once the window named it.
+    pub fn settings_title(&self, window: SettingsWindow) -> Option<&str> {
+        self.settings_titles.get(&window).map(String::as_str)
     }
 
     /// The title of `tab`'s Document, if it is an open Document.
@@ -924,16 +1063,37 @@ impl Shell {
                 DocumentView {
                     camera: tab.camera,
                     layers: tab.layers.clone(),
-                    user_origin: None,
+                    ..DocumentView::default()
                 },
             );
+        }
+        let grids = self.engine.view().get::<Grids>();
+        let working = self.engine.view().get::<WorkingState>();
+        for entry in project.documents() {
+            let grid = grids.and_then(|g| g.picked.get(&entry.uuid).copied());
+            let snap = working.and_then(|w| w.snap.get(&entry.uuid).copied());
+            let filter = working.map(|w| w.filter(entry.uuid)).unwrap_or_default();
+            let view = documents.get_mut(&entry.uuid);
+            let unchanged = grid.is_none() && snap.is_none() && filter.off.is_empty();
+            let view = match view {
+                Some(view) => view,
+                None if unchanged => continue,
+                None => documents.entry(entry.uuid).or_default(),
+            };
+            view.grid = grid;
+            view.snap_mode = snap.map(|s| s.mode);
+            view.gridless = snap.is_some_and(|s| s.gridless);
+            view.selection_filter_off = filter.off.iter().map(|k| k.name().to_owned()).collect();
         }
         if let Some(pcb) = project.pcb() {
             let view = documents.entry(pcb.uuid).or_default();
             view.layers = self.board_view().layers.clone();
-            view.user_origin = self.board_view().origin;
+            view.units = Some(self.board_view().units);
         }
-        let file = ViewFile::new(self.layout().clone(), documents);
+        // The settings windows are not kept: their edits do not outlive the window.
+        let mut layout = self.layout().clone();
+        layout.retain_tabs(|t| !matches!(t, TabKey::Settings(_)));
+        let file = ViewFile::new(layout, documents);
         Some((folder, file.encode()))
     }
 
@@ -1006,6 +1166,15 @@ impl Shell {
             self.save_view();
         }
         let kind = self.engine.registry().get(base).map(|meta| meta.kind);
+        let params = self.with_wiring(base, params);
+        if base == "selection.cycle"
+            && let Some(document) = params
+                .get("document")
+                .and_then(Value::as_str)
+                .and_then(|s| s.parse().ok())
+        {
+            selection::picking::prepare_cycle(self, document);
+        }
         let out = self.engine.run(id, params);
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.
@@ -1019,6 +1188,32 @@ impl Shell {
         }
         self.after_element_run(base, &out);
         Ok(out)
+    }
+
+    /// `params` for Command `id` with its `wiring` filled in from the wiring Preferences
+    /// and the sheet's snap grid, when `id` takes one and the caller gave none. Agents'
+    /// Commands keep the fixed defaults, so their results don't depend on this machine.
+    fn with_wiring(&self, id: &str, mut params: Value) -> Value {
+        if !reda_engine::schematic::WIRING_COMMANDS.contains(&id) {
+            return params;
+        }
+        let document = (params.get("document"))
+            .and_then(Value::as_str)
+            .and_then(|s| s.parse::<Uuid>().ok())
+            .or_else(|| self.active_document().map(|t| t.document));
+        let Some(map) = params.as_object_mut() else {
+            return params;
+        };
+        if map.contains_key("wiring") {
+            return params;
+        }
+        let grid = document.map_or(grid::SCHEMATIC_DEFAULT, |d| self.grid(d));
+        let wiring = self.preferences().schematic.wiring(grid);
+        map.insert(
+            "wiring".to_owned(),
+            serde_json::to_value(wiring).expect("wiring serialises"),
+        );
+        params
     }
 
     /// What the Library editors do once `id` ran (with result `out`) and the tabs are
@@ -1071,6 +1266,15 @@ impl Shell {
                 self.show_project();
                 self.recorder.opened(&self.engine);
             }
+            "project.close" => {
+                self.engine.view_mut().set(Selection::default());
+                self.closed_views.clear();
+                self.refresh();
+                self.layout_mut().open_start();
+                // The closed Project's recovery folder goes; open Library elements
+                // snapshot into the per-user one from now on.
+                self.recorder.opened(&self.engine);
+            }
             _ => match self.engine.registry().get(base).map(|meta| meta.kind) {
                 Some(Kind::Query) => {}
                 Some(Kind::View) => self.sync_document_tabs(),
@@ -1079,11 +1283,14 @@ impl Shell {
         }
         if base.starts_with("library.")
             || base.starts_with("project.")
-            || base == "app.preferences.set"
+            || matches!(base, "app.preferences.set" | "app.preferences.reset")
         {
             self.library_generation += 1;
         }
-        if matches!(base, "app.preferences.set" | "view.theme.set") {
+        if matches!(
+            base,
+            "app.preferences.set" | "app.preferences.reset" | "view.theme.set"
+        ) {
             self.reload_preferences();
         }
         self.sync_selection();
@@ -1128,6 +1335,11 @@ impl Shell {
         }
         match &self.layout().focus {
             Some(TabKey::Document(uuid)) => Some(Scope::Document(*uuid)),
+            // Board Setup's changes go on the PCB Document's stack.
+            Some(TabKey::Settings(SettingsWindow::BoardSetup)) => {
+                let pcb = self.engine.project().and_then(|p| p.pcb());
+                Some(pcb.map_or(Scope::Project, |pcb| Scope::Document(pcb.uuid)))
+            }
             _ => Some(Scope::Project),
         }
     }
@@ -1267,16 +1479,48 @@ impl Shell {
         self.update_markers();
     }
 
-    /// Waives a line's Violation (`erc.waive`/`drc.waive`) and runs the check again.
+    /// Waives a line's Violation and runs its check again.
     pub fn waive(&mut self, key: LineKey) -> Result<(), CommandError> {
-        let Some((kind, v)) = self.violation_of(key) else {
-            return Ok(());
-        };
-        self.run_reporting(
-            &format!("{}.waive", kind.id()),
-            json!({"check": v.check, "objects": v.objects}),
-        )?;
-        self.run_check(kind)
+        self.waive_many(&[key], "")
+    }
+
+    /// Waives a selection with one reason. A mixed ERC/DRC selection is one atomic
+    /// batch; normal per-Document history gives each affected Document one undo entry.
+    pub fn waive_many(&mut self, keys: &[LineKey], reason: &str) -> Result<(), CommandError> {
+        let mut groups: BTreeMap<CheckKind, Vec<Value>> = BTreeMap::new();
+        for key in keys {
+            if let Some((kind, v)) = self.violation_of(*key) {
+                groups
+                    .entry(kind)
+                    .or_default()
+                    .push(json!({"check":v.check,"objects":v.objects}));
+            }
+        }
+        let commands: Vec<Value> = groups
+            .iter()
+            .map(|(kind, violations)| {
+                json!({
+                    "id": format!("{}.waive", kind.id()),
+                    "params": {"violations": violations, "reason": reason},
+                })
+            })
+            .collect();
+        match commands.as_slice() {
+            [] => return Ok(()),
+            [one] => {
+                self.run_reporting(
+                    one["id"].as_str().expect("Command id"),
+                    one["params"].clone(),
+                )?;
+            }
+            _ => {
+                self.run_reporting("batch", json!({"commands":commands}))?;
+            }
+        }
+        for kind in groups.keys() {
+            self.run_check(*kind)?;
+        }
+        Ok(())
     }
 
     /// Deletes the Waiver waiving a line's Violation and runs the check again.
@@ -1545,7 +1789,7 @@ impl Shell {
                 let mut layout = file.layout;
                 layout.retain_tabs(|t| match t {
                     TabKey::Document(uuid) => titles.contains_key(uuid),
-                    TabKey::Start => false,
+                    TabKey::Start | TabKey::Settings(_) => false,
                     TabKey::Panel(_) => true,
                 });
                 (layout, file.documents)
@@ -1558,13 +1802,48 @@ impl Shell {
         let mut board = BoardView::new(units);
         if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
             board.layers = view.layers.clone();
-            board.origin = view.user_origin;
+            board.units = view.units.unwrap_or(units);
         }
         *self.board_view_mut() = board;
-        // Views start on the grids the Preferences pick.
+        // Views start on the grids the Preferences pick, unless view.json has their own.
+        let kinds: BTreeMap<Uuid, DocumentKind> = self
+            .engine
+            .project()
+            .map(|p| p.documents().map(|d| (d.uuid, d.kind)).collect())
+            .unwrap_or_default();
+        let mut working = WorkingState::default();
+        let mut picked = BTreeMap::new();
+        for (document, view) in &views {
+            let Some(kind) = kinds.get(document).copied() else {
+                continue;
+            };
+            if let Some(g) = view.grid.filter(|g| grid::presets(kind).contains(g)) {
+                picked.insert(*document, g);
+            }
+            let ty = kind.into();
+            let mode = view
+                .snap_mode
+                .filter(|m| working_state::SnapMode::offered(ty).contains(m));
+            if mode.is_some() || view.gridless {
+                let mut snap = SnapOptions::default_for(ty);
+                snap.mode = mode.unwrap_or(snap.mode);
+                snap.gridless = view.gridless;
+                working.snap.insert(*document, snap);
+            }
+            let list = working_state::filter_kinds(ty);
+            let off: BTreeSet<_> = (view.selection_filter_off.iter())
+                .filter_map(|name| working_state::FilterKind::parse(name))
+                .filter(|k| list.contains(k))
+                .collect();
+            if !off.is_empty() {
+                working.filters.insert(*document, SelectionFilter { off });
+            }
+        }
         if let Some(grids) = self.engine.view_mut().get_mut::<Grids>() {
             grids.follow(&prefs);
+            grids.picked = picked;
         }
+        self.engine.view_mut().set(working);
         self.documents.clear();
         let open: Vec<Uuid> = layout
             .groups()
@@ -1584,7 +1863,7 @@ impl Shell {
             self.documents.push(tab);
         }
         self.closed_views = views;
-        *self.layout_mut() = layout;
+        self.replace_layout(layout);
         // Library elements opened before the Project stay open in their tabs.
         for element in crate::element_editor::open_elements(&self.engine) {
             if self.layout().place(&TabKey::Document(element)).is_none() {
@@ -1625,6 +1904,24 @@ impl Shell {
         saved.unwrap_or(layout)
     }
 
+    /// Replaces the layout with `layout`. Preferences is per-user, so an open Preferences
+    /// window stays open, where it was.
+    fn replace_layout(&mut self, mut layout: Layout) {
+        let preferences = TabKey::Settings(SettingsWindow::Preferences);
+        let keep = self.layout().place(&preferences).map(|_| {
+            let window = self.layout().window_of(&preferences);
+            (self.layout().windows.iter())
+                .find(|w| Some(w.id) == window)
+                .and_then(|w| w.rect)
+        });
+        if let Some(rect) = keep
+            && layout.place(&preferences).is_none()
+        {
+            layout.open_settings(SettingsWindow::Preferences, rect);
+        }
+        *self.layout_mut() = layout;
+    }
+
     /// Rebuilds every tab's Scene and closes tabs whose Document is gone. With no
     /// Project open, the centre shows the Start page again.
     fn refresh(&mut self) {
@@ -1635,7 +1932,7 @@ impl Shell {
         let project = self.engine.project();
         if project.is_none() && elements.is_empty() {
             self.documents.clear();
-            *self.layout_mut() = Layout::default();
+            self.replace_layout(Layout::default());
             self.change_list = None;
             self.messages.clear_runs();
             self.messages.set_notes(FONTS, Vec::new());
@@ -1653,6 +1950,8 @@ impl Shell {
             TabKey::Start => no_project,
             TabKey::Document(uuid) => open.iter().any(|(u, _)| u == uuid),
             TabKey::Panel(_) => true,
+            // The Project's settings windows close with it.
+            TabKey::Settings(window) => !(window.of_project() && no_project),
         });
         self.forget_closed_documents();
         let mut documents = std::mem::take(&mut self.documents);
@@ -1721,6 +2020,7 @@ impl Shell {
             "schematic.cut" => self.clipboard = Some(out["result"].clone()),
             // Escape (and any Tool change) puts back what the canvases have in flight.
             "tool.activate" => {
+                selection::picking::cancel(self);
                 let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
                 for document in documents {
                     crate::schematic_editor::cancel(self, document);
@@ -1908,13 +2208,13 @@ impl Shell {
                 Some(project) => cross_probe::marks(project, &key.0, &key.1, switches),
                 None => key.1.objects.clone(),
             };
-            if self.marked.objects[..] != key.0.objects[..]
+            if self.marked.objects[..] != key.0.canvas_ids()[..]
                 || self.marked.highlighted[..] != highlighted[..]
             {
                 self.generation += 1;
                 self.marked = SelectionHandle {
                     generation: self.generation,
-                    objects: Arc::from(key.0.objects.as_slice()),
+                    objects: Arc::from(key.0.canvas_ids()),
                     highlighted: Arc::from(highlighted),
                 };
             }
@@ -1932,6 +2232,7 @@ impl Shell {
                 tab.selection = self.marked.clone();
             }
             tab.grid = grids.of(project, tab.document);
+            tab.grid_origin = grid::origin(project, tab.document);
             if tab.palette.generation != self.palette.generation {
                 tab.palette = self.palette.clone();
             }
@@ -1964,7 +2265,7 @@ impl Shell {
             let view = DocumentView {
                 camera: tab.camera,
                 layers: tab.layers,
-                user_origin: None,
+                ..DocumentView::default()
             };
             self.closed_views.insert(tab.document, view);
         }
@@ -2006,8 +2307,11 @@ impl Shell {
     /// The Scene of `document` in `project`, filtered and composited as the board view
     /// asks for a PCB. Its generation is left for the caller to set.
     fn build_scene(&self, project: &Project, document: Uuid) -> SceneHandle {
-        let mut scene =
-            reda_engine::document_scene(project, document, self.engine.fonts()).unwrap_or_default();
+        let style = reda_engine::render::SchematicStyle {
+            unit_suffix: self.preferences.values().schematic.unit_suffix,
+        };
+        let mut scene = reda_engine::document_scene(project, document, self.engine.fonts(), &style)
+            .unwrap_or_default();
         let board = self.board_view();
         let layers = project.pcb_document(document).map(|pcb| {
             board.filter_scene(project, &mut scene);

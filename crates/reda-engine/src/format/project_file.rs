@@ -17,7 +17,10 @@
 //!     {"uuid":"…","name":"JLCPCB","pcb":"…","fab_preset":"…","outputs":{…}}
 //!   ],
 //!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"},
-//!   "erc": {"unconnected_input":"error",…,"single_pin_net":"off",…}
+//!   "erc": {"unconnected_input":"error",…,"single_pin_net":"off",…},
+//!   "schematic": {"power_port_names_priority":false,"allow_ports_to_name_nets":true,…},
+//!   "reannotate": {"source":"schematic","mode":"renumber_all","scope":"project",…},
+//!   "library_update": {"library_field_missing":"add","locally_edited":"keep",…}
 //! }
 //! ```
 //!
@@ -28,9 +31,10 @@
 
 use std::path::Path;
 
+use reda_model::annotate::ReannotateSettings;
 use reda_model::{
     DocumentEntry, DocumentKind, ErcSeverities, OutputJob, Project, ProjectFabPreset,
-    ProjectProperties, Uuid,
+    ProjectProperties, SchematicOptions, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -70,6 +74,18 @@ pub(crate) struct ProjectFile {
     /// differs from its default; a check left out has its default.
     #[serde(default)]
     pub erc: ErcSeverities,
+    /// The schematic options: how Nets are named. Written only when any differs from its
+    /// default; an option left out has its default.
+    #[serde(default)]
+    pub schematic: SchematicOptions,
+    /// The last Re-annotate settings applied, which **Re-annotate (last settings)** and
+    /// `schematic.reannotate {saved: true}` run again. Written only once there are any.
+    #[serde(default)]
+    pub reannotate: Option<ReannotateSettings>,
+    /// The Update from Library settings page 1 of its dialog saved, which the update
+    /// Commands use unless their parameters say otherwise. Written only once there are any.
+    #[serde(default)]
+    pub library_update: Option<reda_model::library_update::LibraryUpdateSettings>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -155,6 +171,16 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     let erc = &project.props().erc;
     if !erc.is_default() {
         w.field("erc", erc)?;
+    }
+    let schematic = &project.props().schematic;
+    if !schematic.is_default() {
+        w.field("schematic", schematic)?;
+    }
+    if let Some(reannotate) = &project.props().reannotate {
+        w.field("reannotate", reannotate)?;
+    }
+    if let Some(settings) = &project.props().library_update {
+        w.field("library_update", settings)?;
     }
     Ok(w.finish())
 }

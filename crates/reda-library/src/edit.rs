@@ -133,6 +133,7 @@ impl ShapeParam {
                 if text.is_empty() {
                     return Err("a text shape needs some text".into());
                 }
+                reda_model::text::check(&text).map_err(|e| format!("the text: {e}"))?;
                 positive(size.nm(), "the text size")?;
                 Shape::Text {
                     at: at.point(),
@@ -154,7 +155,7 @@ pub struct GraphicResult {
 
 /// Deserialises a present field, `null` included, as `Some`, so an omitted field (left
 /// as `None` by `#[serde(default)]`) differs from one set to `null` to clear it.
-pub(crate) fn present<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+pub fn present<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: Deserializer<'de>,
     T: Deserialize<'de>,

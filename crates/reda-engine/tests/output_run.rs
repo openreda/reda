@@ -9,7 +9,7 @@ use reda_testkit::{TempDir, TestEngine, probe_engine, test_engine_with_library};
 use serde_json::{Value, json};
 
 /// The Output Job `project.new` makes, on seed 0.
-const JOB: &str = "00000000-0000-4000-8000-000000000017";
+const JOB: &str = "00000000-0000-4000-8000-000000000021";
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
 
 fn pt(x: f64, y: f64) -> Value {
@@ -359,6 +359,50 @@ fn a_component_without_a_footprint_only_warns_even_when_the_job_writes_a_bom_and
     assert!(erc["args"]["count"].as_i64().unwrap() >= 1);
 }
 
+/// [`footprintless`] with its Logic Part retyped `component_type`, from a copy of the
+/// Library.
+fn footprintless_of_type(dir: &TempDir, component_type: &str) -> TestEngine {
+    let library = dir.path().join("Erc");
+    for (rel, bytes) in reda_testkit::read_tree(&erc_library()) {
+        let path = library.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    }
+    let part = library.join("parts/Logic.redapart");
+    let text = std::fs::read_to_string(&part).unwrap().replace(
+        "\"component_type\":\"standard\"",
+        &format!("\"component_type\":\"{component_type}\""),
+    );
+    std::fs::write(&part, text).unwrap();
+    let mut engine = test_engine_with_library(&library);
+    new_project(&mut engine, dir);
+    engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": "a0000000-0000-4000-8000-000000000210",
+               "at": {"x": 0, "y": 0}}),
+    );
+    engine
+}
+
+#[test]
+fn a_net_tie_without_a_footprint_warns_and_a_mechanical_part_does_not() {
+    let unassigned = |engine: &mut TestEngine| {
+        run(engine)["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|w| w["check"] == "unassigned_footprint")
+            .count()
+    };
+    let dir = TempDir::new("output-net-tie-no-footprint");
+    assert_eq!(unassigned(&mut footprintless_of_type(&dir, "net_tie")), 1);
+    let dir = TempDir::new("output-mechanical-no-footprint");
+    assert_eq!(
+        unassigned(&mut footprintless_of_type(&dir, "mechanical")),
+        0
+    );
+}
+
 #[test]
 fn drc_errors_only_warn() {
     let dir = TempDir::new("output-drc");
@@ -386,7 +430,10 @@ fn drc_errors_only_warn() {
 fn rules_looser_than_the_preset_and_missing_fonts_only_warn() {
     let dir = TempDir::new("output-warnings");
     let mut engine = board(&dir);
-    engine.run_ok("pcb.rules.set", json!({"clearance": "0.1mm"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"value": "0.1mm"}}),
+    );
     engine.run_ok(
         "pcb.text.add",
         json!({"layer": "silkscreen_top", "text": "REDA", "x": "5mm", "y": "5mm",
@@ -398,12 +445,17 @@ fn rules_looser_than_the_preset_and_missing_fonts_only_warn() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|w| w["check"] == "rule_below_preset")
+        .find(|w| w["check"] == "rule_outside_preset")
         .unwrap_or_else(|| panic!("{warnings}"));
     assert_eq!(rule["args"]["rule"], "clearance");
+    assert_eq!(rule["args"]["value"], "value");
     assert_eq!(rule["args"]["board"], 100_000);
     assert_eq!(rule["args"]["preset"], "Generic");
-    assert!(rule["args"]["minimum"].as_i64().unwrap() > 100_000);
+    assert_eq!(rule["args"]["limit"], "min");
+    assert_eq!(rule["args"]["preset_limit"], 160_000);
+    assert_eq!(rule["measured"], json!({"length": 100_000}));
+    assert_eq!(rule["required"], json!({"length": 160_000}));
+    assert!(rule["rule"].is_string());
     let font = warnings
         .as_array()
         .unwrap()
@@ -466,4 +518,120 @@ fn a_designator_shared_only_between_a_sheet_and_the_board_does_not_block() {
     );
     let out = run(&mut engine);
     assert!(!checks(&out["warnings"]).contains(&"duplicate_designator".to_string()));
+}
+
+#[test]
+fn gerber_drill_and_cpl_share_the_presets_resolved_origin() {
+    for (preset, relative) in [("Generic", false), ("JLCPCB", false), ("PCBWay", true)] {
+        let dir = TempDir::new("output-common-origin");
+        let library = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter");
+        let mut engine = test_engine_with_library(&library);
+        engine.run_ok(
+            "project.new",
+            json!({"path": dir.path(), "name": "Demo", "fab_preset": preset}),
+        );
+        engine.run_ok(
+            "schematic.component.place",
+            json!({"document": SHEET,
+            "part": "84d5651a-bf4b-462e-9480-39e8f454a042",
+            "footprint": "0691e5e7-9eb6-49f3-9f3e-d4159258693e", "at": pt(20.0, 40.0)}),
+        );
+        let hash = engine.run_ok("sync.preview", json!({}))["hash"].clone();
+        engine.run_ok("sync.apply", json!({"hash": hash}));
+        let footprint = engine
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .footprints()
+            .next()
+            .unwrap()
+            .clone();
+        engine.run_ok(
+            "pcb.move",
+            json!({"objects": [footprint.uuid],
+            "by": {"x": 20_000_000 - footprint.at.x.0, "y": 15_000_000 - footprint.at.y.0}}),
+        );
+        engine.run_ok("pcb.free_pad.add", json!({"kind": "plated_through_hole", "shape": "circle",
+            "at": pt(20.0, 15.0), "width": "1mm", "height": "1mm", "hole": {"width": "0.5mm", "height": "0.5mm"}}));
+        engine.run_ok(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "width": "0.25mm",
+            "points": [pt(20.0, 15.0), pt(21.0, 15.0)]}),
+        );
+        // Curved left edge reaches x=0: the bounding box is not just its vertices.
+        engine.run_ok(
+            "pcb.board_outline.add",
+            json!({"vertices": [
+            {"x": "10mm", "y": "5mm"}, {"x": "40mm", "y": "5mm"},
+            {"x": "40mm", "y": "25mm"}, {"x": "10mm", "y": "25mm", "sweep": "180deg"}]}),
+        );
+        let job = engine.project().unwrap().output_jobs().next().unwrap().uuid;
+        let mut coordinates = None;
+        for (origin, x, y) in [
+            (false, 20, if relative { 10 } else { 15 }),
+            (
+                true,
+                if relative { 0 } else { 20 },
+                if relative { 5 } else { 15 },
+            ),
+        ] {
+            if origin {
+                engine.run_ok("pcb.output_origin.set", json!({"at": pt(20.0, 10.0)}));
+            }
+            let out = engine.run_ok("output.job.run", json!({"job": job}));
+            let destination = PathBuf::from(out["destination"].as_str().unwrap());
+            let read = |name: &str| std::fs::read_to_string(destination.join(name)).unwrap();
+            let copper = read("Demo.GTL");
+            assert!(
+                copper.contains(&format!("X{}Y{}D02*", x * 1_000_000, y * 1_000_000)),
+                "{preset}, origin={origin}: {copper}"
+            );
+            let id = |text: &str| {
+                text.lines()
+                    .find_map(|line| {
+                        line.split_once("TF.SameCoordinates,")
+                            .map(|(_, value)| value.trim_end_matches("*%").to_owned())
+                    })
+                    .unwrap()
+            };
+            let current = id(&copper);
+            if let Some(previous) = &coordinates {
+                if relative {
+                    assert_ne!(
+                        previous, &current,
+                        "moved relative origins cannot claim alignment"
+                    );
+                } else {
+                    assert_eq!(
+                        previous, &current,
+                        "absolute output ignores the placed origin"
+                    );
+                }
+            }
+            coordinates = Some(current.clone());
+            let drill = read("Demo-PTH.drl");
+            assert_eq!(
+                id(&drill),
+                current,
+                "Gerber and drill declare the same coordinate system"
+            );
+            assert!(
+                drill.contains(&format!("X{x}.0Y{y}.0\n")),
+                "{preset}, origin={origin}: {drill}"
+            );
+            let cpl = read("Demo-CPL.csv");
+            let mut lines = cpl.lines();
+            let headers: Vec<_> = lines.next().unwrap().split(',').collect();
+            let cells: Vec<_> = lines.next().unwrap().split(',').collect();
+            for (header, expected) in [("Mid X", x), ("Mid Y", y)] {
+                let i = headers.iter().position(|h| *h == header).unwrap();
+                assert_eq!(
+                    cells[i].trim_end_matches("mm").trim(),
+                    format!("{expected}.000000"),
+                    "{preset}, origin={origin}"
+                );
+            }
+        }
+    }
 }

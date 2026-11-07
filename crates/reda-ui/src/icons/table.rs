@@ -330,10 +330,6 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
         "update_check",
         egui::include_image!("../../icons/update_check.svg"),
     ),
-    (
-        "user_origin",
-        egui::include_image!("../../icons/user_origin.svg"),
-    ),
     ("via", egui::include_image!("../../icons/via.svg")),
     (
         "view_flip",

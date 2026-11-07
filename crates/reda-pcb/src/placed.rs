@@ -8,10 +8,10 @@
 //! here.
 
 pub use reda_model::geom::Bounds;
-use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{CornerRect, Millideg, Nm, Point};
 use reda_model::{
     FootprintInstance, FootprintLayer, FootprintText, FreePad, Hole, PadKind, PadShape,
-    PcbDocument, Shape, Side, Uuid,
+    PcbDocument, Shape, Side, Uuid, ZoneConnection,
 };
 
 /// `p` turned counter-clockwise by `angle` about `about`. Quarter turns are exact; other
@@ -155,14 +155,13 @@ impl Frame {
         }
     }
 
-    /// A Footprint text placement, on the board.
+    /// A Footprint text, on the board.
     pub fn text(&self, text: &FootprintText) -> FootprintText {
         FootprintText {
             at: self.point(text.at),
             rotation: self.angle(text.rotation),
-            size: text.size,
             layer: self.layer(text.layer),
-            visible: text.visible,
+            ..text.clone()
         }
     }
 }
@@ -175,33 +174,51 @@ pub struct PlacedPad {
     pub number: String,
     pub kind: PadKind,
     pub shape: PadShape,
+    /// The anchor on the board: the hole sits there and Tracks connect there.
     pub at: Point,
+    /// The turn of the Pad's frame on the board.
     pub rotation: Millideg,
-    pub width: Nm,
-    pub height: Nm,
-    pub corner_radius: Option<Nm>,
+    /// The copper outline in the Pad's frame on the board, about `at`: mirrored when its
+    /// Footprint is on the bottom.
+    pub outline: CornerRect,
+    /// The hole, its slot turned in the Pad's frame on the board.
     pub hole: Option<Hole>,
     /// The copper side of an SMD Pad; `None` for a Pad with a hole, which is on both.
     pub side: Option<Side>,
     pub net: Option<Uuid>,
-    /// The Pad's own solder-mask margin, overriding the board's; Free Pads have none.
-    pub mask_margin: Option<Nm>,
-    /// The Pad's own solder-paste margin, overriding the board's; Free Pads have none.
-    pub paste_margin: Option<Nm>,
+    /// Per-side mask overrides in board sides.
+    pub mask: Option<reda_model::Mask>,
+    /// Paste overrides, with windows in the placed Pad's frame.
+    pub paste: Option<reda_model::Paste>,
+    pub zone_connection: Option<ZoneConnection>,
 }
 
 impl PlacedPad {
+    /// A point of the Pad's frame, on the board.
+    pub fn point(&self, local: Point) -> Point {
+        rotate(local + self.at, self.at, self.rotation)
+    }
+
+    /// The centre of the copper on the board.
+    pub fn copper_center(&self) -> Point {
+        self.point(self.outline.center)
+    }
+
     /// A box around the Pad's copper.
     pub fn bounds(&self) -> Bounds {
-        pad_bounds(self.at, self.rotation, self.width, self.height)
+        outline_bounds(self.at, self.rotation, &self.outline)
+    }
+
+    /// The ends of the hole's centre line on the board, both at `at` for a round hole.
+    pub fn hole_ends(&self) -> Option<(Point, Point)> {
+        let (a, b) = self.hole?.ends();
+        Some((self.point(a), self.point(b)))
     }
 }
 
-/// The corners of a `width` × `height` Pad at `at`, turned by `rotation`, boxed.
-fn pad_bounds(at: Point, rotation: Millideg, width: Nm, height: Nm) -> Bounds {
-    let (w, h) = (Nm(width.0 / 2), Nm(height.0 / 2));
-    let corners = [(-w, -h), (w, -h), (w, h), (-w, h)]
-        .map(|(x, y)| rotate(Point::new(at.x + x, at.y + y), at, rotation));
+/// The corners of an outline of a Pad anchored at `at` and turned by `rotation`, boxed.
+fn outline_bounds(at: Point, rotation: Millideg, outline: &CornerRect) -> Bounds {
+    let corners = outline.box_corners().map(|p| rotate(p + at, at, rotation));
     Bounds::of_points(corners).expect("four corners")
 }
 
@@ -214,21 +231,44 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
     copy.footprint
         .pads
         .iter()
-        .map(|pad| PlacedPad {
-            pad: pad.uuid,
-            number: pad.number.clone(),
-            kind: pad.kind,
-            shape: pad.shape,
-            at: frame.point(pad.at),
-            rotation: frame.angle(pad.rotation),
-            width: pad.width,
-            height: pad.height,
-            corner_radius: pad.corner_radius,
-            hole: pad.hole,
-            side: (pad.kind == PadKind::Smd).then(|| frame.side(Side::Top)),
-            net: instance.pad_net(pad.uuid),
-            mask_margin: pad.mask_margin,
-            paste_margin: pad.paste_margin,
+        .map(|pad| {
+            let bottom = frame.side == Side::Bottom;
+            let outline = pad.outline();
+            let hole = pad.hole.map(|h| Hole {
+                rotation: if bottom { -h.rotation } else { h.rotation },
+                ..h
+            });
+            PlacedPad {
+                pad: pad.uuid,
+                number: pad.number.clone(),
+                kind: pad.kind,
+                shape: pad.shape,
+                at: frame.point(pad.at),
+                rotation: frame.angle(pad.rotation),
+                outline: if bottom { outline.mirrored() } else { outline },
+                hole,
+                side: pad.copper_side().map(|s| frame.side(s)),
+                net: instance.pad_net(pad.uuid),
+                mask: pad.mask.map(|m| {
+                    if bottom {
+                        reda_model::Mask {
+                            top: m.bottom,
+                            bottom: m.top,
+                            ..m
+                        }
+                    } else {
+                        m
+                    }
+                }),
+                paste: pad.paste.clone().map(|p| {
+                    p.map(
+                        |n| n,
+                        |p| if bottom { Point::new(-p.x, p.y) } else { p },
+                        |r| r,
+                    )
+                }),
+                zone_connection: pad.zone_connection,
+            }
         })
         .collect()
 }
@@ -242,14 +282,13 @@ pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
         shape: pad.shape,
         at: pad.at,
         rotation: pad.rotation,
-        width: pad.width,
-        height: pad.height,
-        corner_radius: pad.corner_radius,
+        outline: pad.outline(),
         hole: pad.hole,
-        side: pad.side,
+        side: pad.form().copper_side(),
         net: pad.net,
-        mask_margin: None,
-        paste_margin: None,
+        mask: pad.mask,
+        paste: pad.paste.clone(),
+        zone_connection: pad.zone_connection,
     }
 }
 
@@ -283,18 +322,52 @@ pub fn placed_graphics(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<P
         .collect()
 }
 
-/// The Designator text of a Footprint relative to its origin: the instance's own when it
-/// has been moved, else the Footprint's.
-pub fn designator_text(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<FootprintText> {
-    instance.designator_text.or_else(|| {
-        pcb.footprint_copy(instance.footprint)
-            .map(|c| c.footprint.designator)
-    })
+/// The UUID of the text entry drawing a placed Footprint's primary Designator.
+pub fn primary_designator(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<Uuid> {
+    Some(
+        pcb.footprint_copy(instance.footprint)?
+            .footprint
+            .designator_text()?
+            .uuid,
+    )
 }
 
-/// Where a Footprint's Designator text is drawn on the board.
-pub fn placed_designator(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<FootprintText> {
-    designator_text(pcb, instance).map(|t| Frame::of(instance).text(&t))
+/// All field text entries with the instance's sparse overrides applied.
+pub fn instance_texts(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<FootprintText> {
+    let mut texts = pcb
+        .footprint_copy(instance.footprint)
+        .map(|c| c.footprint.texts.clone())
+        .unwrap_or_default();
+    for text in &mut texts {
+        if let Some(change) = instance.text_override(text.uuid) {
+            if let Some(at) = change.at {
+                text.at = at;
+            }
+            if let Some(rotation) = change.rotation {
+                text.rotation = rotation;
+            }
+            if let Some(style) = &change.style {
+                text.style = style.clone();
+            }
+            if let Some(visible) = change.visible {
+                text.visible = visible;
+            }
+        }
+    }
+    texts
+}
+
+/// Where a Footprint's Designator text is drawn on the board. Automatic placements
+/// measure the text with `fonts`.
+pub fn placed_designator(
+    pcb: &PcbDocument,
+    instance: &FootprintInstance,
+    fonts: &reda_command::Fonts,
+) -> Option<FootprintText> {
+    let primary = primary_designator(pcb, instance)?;
+    crate::text::placed_field_texts(pcb, instance, fonts)
+        .into_iter()
+        .find(|t| t.uuid == primary)
 }
 
 /// A box around a placed Footprint's Pads and drawing (its origin when it has neither),
@@ -309,23 +382,64 @@ pub fn footprint_bounds(pcb: &PcbDocument, instance: &FootprintInstance) -> Boun
         .unwrap_or(Bounds::of_point(instance.at))
 }
 
+/// A box around a placed Footprint's Courtyard drawing, or around its Pads when it has no
+/// Courtyard (its origin when it has neither): the box a Footprint's body takes, since
+/// v0.1 has no separate body outline.
+pub fn courtyard_bounds(pcb: &PcbDocument, instance: &FootprintInstance) -> Bounds {
+    placed_graphics(pcb, instance)
+        .into_iter()
+        .filter(|g| g.layer.is_courtyard())
+        .filter_map(|g| shape_bounds(&g.shape))
+        .reduce(Bounds::union)
+        .or_else(|| {
+            placed_pads(pcb, instance)
+                .into_iter()
+                .map(|p| p.bounds())
+                .reduce(Bounds::union)
+        })
+        .unwrap_or(Bounds::of_point(instance.at))
+}
+
 /// A box around a Free Pad's copper (or hole).
 pub fn free_pad_bounds(pad: &FreePad) -> Bounds {
-    pad_bounds(pad.at, pad.rotation, pad.width, pad.height)
+    outline_bounds(pad.at, pad.rotation, &pad.outline())
 }
 
 /// A box around a shape's points (arcs and circles by their full circle).
-fn shape_bounds(shape: &Shape) -> Option<Bounds> {
-    match shape {
-        Shape::Line { start, end } | Shape::Rect { start, end } => {
-            Bounds::of_points([*start, *end])
+pub(crate) fn shape_bounds(shape: &Shape) -> Option<Bounds> {
+    shape.bounds()
+}
+
+/// Keep text edits when changing a Footprint: stable UUID first, then field and Layer.
+/// An entry without a matching destination is discarded; each destination is used once.
+pub fn remap_text_overrides(
+    instance: &mut FootprintInstance,
+    old: &reda_model::Footprint,
+    new: &reda_model::Footprint,
+) {
+    let mut claimed = std::collections::BTreeSet::new();
+    let mut kept = Vec::new();
+    let mut unmatched = Vec::new();
+    for change in std::mem::take(&mut instance.text_overrides) {
+        if new.texts.iter().any(|t| t.uuid == change.text) && claimed.insert(change.text) {
+            kept.push(change);
+        } else {
+            unmatched.push(change);
         }
-        Shape::Arc { center, start, .. } => {
-            let (dx, dy) = ((start.x - center.x).0 as f64, (start.y - center.y).0 as f64);
-            Some(Bounds::around(*center, Nm(dx.hypot(dy).ceil() as i64)))
-        }
-        Shape::Circle { center, radius } => Some(Bounds::around(*center, *radius)),
-        Shape::Polygon { points } => Bounds::of_points(points.iter().copied()),
-        Shape::Text { at, .. } => Some(Bounds::of_point(*at)),
     }
+    for mut change in unmatched {
+        let Some(source) = old.texts.iter().find(|t| t.uuid == change.text) else {
+            continue;
+        };
+        let Some(target) = new.texts.iter().find(|t| {
+            t.field == source.field && t.layer == source.layer && !claimed.contains(&t.uuid)
+        }) else {
+            continue;
+        };
+        change.text = target.uuid;
+        claimed.insert(target.uuid);
+        kept.push(change);
+    }
+    kept.sort_by_key(|o| o.text);
+    instance.text_overrides = kept;
 }

@@ -38,9 +38,12 @@ fn plot_with(engine: &TestEngine, x2_attributes: bool) -> Vec<OutputFile> {
     gerber.x2_attributes = x2_attributes;
     drill_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber,
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &gerber,
         fonts: &reda_command::Fonts::default(),
         created: Timestamp(1_767_225_600_000),
     })
@@ -251,6 +254,23 @@ fn slots_are_routed_along_their_long_side_turned_with_the_pad() {
         json!({"at": pt(20.0, 15.0), "side": "bottom",
                "pads": [oval(pt(1.0, 0.0), (1.6, 0.6))]}),
     );
+    // The slot's own rotation turns it in the Pad's frame: a quarter turn in a Pad turned a
+    // quarter brings it back along the board's x. Mirrored on the bottom, a slot turned
+    // +45° in the Footprint runs at -45° on the board.
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(30.0, 10.0), "rotation": "90deg", "pads": [{
+            "at": pt(0.0, 0.0), "width": "2.4mm", "height": "2.4mm", "shape": "circle",
+            "kind": "plated_through_hole",
+            "hole": {"width": mm(2.0), "height": mm(0.8), "rotation": 90_000}}]}),
+    );
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(40.0, 10.0), "side": "bottom", "pads": [{
+            "at": pt(0.0, 0.0), "width": "2.4mm", "height": "2.4mm", "shape": "circle",
+            "kind": "plated_through_hole",
+            "hole": {"width": mm(1.2), "height": mm(0.6), "rotation": 45_000}}]}),
+    );
     // Taller than wide: the slot runs along the Pad's y.
     engine.run_ok(
         "pcb.free_pad.add",
@@ -265,6 +285,13 @@ fn slots_are_routed_along_their_long_side_turned_with_the_pad() {
         sorted(vec![
             slot(0.8, (10.0, 9.4), (10.0, 10.6), component),
             slot(0.6, (18.5, 15.0), (19.5, 15.0), component),
+            slot(0.8, (30.6, 10.0), (29.4, 10.0), component),
+            slot(
+                0.6,
+                (39.787868, 10.212132),
+                (40.212132, 9.787868),
+                component
+            ),
         ])
     );
     let npth = read(&file(&files, "Demo-NPTH.drl").bytes);

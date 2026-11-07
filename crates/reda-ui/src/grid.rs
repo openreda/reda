@@ -12,13 +12,22 @@
 use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Length, Meta, Registry};
-use reda_engine::model::geom::Nm;
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{DocumentKind, Project, Uuid};
 use reda_engine::preferences::{Preferences, Units};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::pcb::BoardView;
+
+/// The board's Output Origin phases its grid; sheets and Library canvases use zero.
+pub fn origin(project: Option<&Project>, document: Uuid) -> Point {
+    project
+        .and_then(|p| p.pcb_document(document))
+        .and_then(|pcb| pcb.output_origin())
+        .map(|origin| origin.at)
+        .unwrap_or_default()
+}
 
 const MIL: i64 = 25_400;
 const MM: i64 = 1_000_000;
@@ -123,15 +132,18 @@ impl Default for Grids {
 /// is one of the type's presets, else the type's default (a board's in its default
 /// units).
 pub fn preferred(kind: DocumentKind, preferences: &Preferences) -> Nm {
-    let editing = match kind {
-        DocumentKind::Schematic => &preferences.schematic,
-        DocumentKind::Pcb => &preferences.pcb,
+    let (default_grid, units) = match kind {
+        DocumentKind::Schematic => (
+            preferences.schematic.default_grid,
+            preferences.schematic.default_units,
+        ),
+        DocumentKind::Pcb => (preferences.pcb.default_grid, preferences.pcb.default_units),
     };
-    match editing.default_grid {
+    match default_grid {
         Some(grid) if presets(kind).contains(&grid.nm()) => grid.nm(),
         _ => match kind {
             DocumentKind::Schematic => SCHEMATIC_DEFAULT,
-            DocumentKind::Pcb => pcb_default(editing.default_units),
+            DocumentKind::Pcb => pcb_default(units),
         },
     }
 }

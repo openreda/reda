@@ -90,6 +90,12 @@ fn an_unwired_passive_pin_is_an_unconnected_pin_warning() {
     assert_eq!(found[0]["objects"], json!([r, R_PIN_1]));
     assert_eq!(found[0]["args"]["pin"], "R1-1");
     assert_eq!(found[1]["objects"], json!([r, R_PIN_2]));
+    assert_eq!(found[0]["document"], SHEET);
+    assert_eq!(found[0]["at"], json!({"x": 0, "y": 3_810_000}));
+    assert_eq!(found[1]["at"], json!({"x": 0, "y": -3_810_000}));
+    assert!(found[0].get("measured").is_none());
+    assert!(found[0].get("layers").is_none());
+    assert!(found[0].get("rule").is_none());
 }
 
 /// Logic Pins, by number: 1 IN (input), 2 OUT (output), 3 TRI (tri-state), 4 OC (open
@@ -303,7 +309,7 @@ fn a_wire_end_touching_nothing_is_dangling() {
     let out = erc(&mut engine);
     let found = of(&out, "dangling_wire");
     assert_eq!(found.len(), 1, "{out}");
-    assert_eq!(found[0]["objects"], json!([wires[1]]));
+    assert_eq!(found[0]["objects"], json!([wires[0]]));
     assert_eq!(
         found[0]["args"],
         json!({"x": 200 * 25_400, "y": 300 * 25_400})
@@ -325,14 +331,14 @@ fn a_net_label_or_port_on_nothing_is_unattached() {
 }
 
 #[test]
-fn a_net_with_two_label_names_has_several_names() {
+fn a_net_with_two_label_names_has_several_names_on_its_sheet() {
     let dir = TempDir::new("erc-names");
     let mut engine = demo(&dir);
     wire(&mut engine, &[(0, 0), (100, 0)]);
     let b = label(&mut engine, "B", 0, 0);
     let a = label(&mut engine, "A", 100, 0);
     let out = erc(&mut engine);
-    let found = of(&out, "multiple_net_names");
+    let found = of(&out, "net_names_on_sheet");
     assert_eq!(found.len(), 1, "{out}");
     assert_eq!(found[0]["args"]["names"], "A, B");
     assert_eq!(found[0]["args"]["net"], "A");
@@ -417,6 +423,16 @@ fn units_of_one_component_with_differing_data_are_a_mismatch() {
     assert_eq!(found[0]["severity"], "error");
     assert_eq!(found[0]["args"]["differs"], "value");
     assert_eq!(sorted(strings(&found[0]["objects"])), sorted(vec![a, b]));
+
+    // In BOM and In CPL are Component data too.
+    let mut reopened = hand_edit(&mut engine, &dir, |text| {
+        let on = "\"in_bom\":true,\"in_cpl\":true";
+        let at = text.rfind(on).unwrap();
+        let off = "\"in_bom\":false,\"in_cpl\":false";
+        format!("{}{off}{}", &text[..at], &text[at + on.len()..])
+    });
+    let found = of(&erc(&mut reopened), "unit_data_mismatch");
+    assert_eq!(found[0]["args"]["differs"], "in_bom, in_cpl");
 }
 
 #[test]
@@ -465,10 +481,13 @@ fn a_waiver_hides_its_violation_until_the_objects_no_longer_break_the_check() {
     let r = place(&mut engine, R_10K, 0, 0);
     let waived = engine.run_ok(
         "erc.waive",
-        json!({"check": "unconnected_pin", "objects": [R_PIN_1, r], "comment": "test point"}),
+        json!({"violations": [{"check": "unconnected_pin", "objects": [R_PIN_1, r]}], "reason": "test point"}),
     );
-    let waiver = waived["result"]["waiver"].as_str().unwrap().to_owned();
-    assert_eq!(waived["result"]["document"], SHEET);
+    let waiver = waived["result"]["waivers"][0].as_str().unwrap().to_owned();
+    assert_eq!(
+        engine.run_ok("object.get", json!({"uuid": waiver}))["document"],
+        SHEET
+    );
     let stored = engine.run_ok("object.get", json!({"uuid": waiver}))["object"].clone();
     assert_eq!(stored["type"], "waiver");
     assert_eq!(stored["check"], "unconnected_pin");
@@ -476,7 +495,7 @@ fn a_waiver_hides_its_violation_until_the_objects_no_longer_break_the_check() {
         stored["objects"],
         json!(sorted(vec![r.clone(), R_PIN_1.into()]))
     );
-    assert_eq!(stored["comment"], "test point");
+    assert_eq!(stored["reason"], "test point");
 
     let out = erc(&mut engine);
     assert_eq!(out["waived"], 1);
@@ -493,12 +512,12 @@ fn a_waiver_hides_its_violation_until_the_objects_no_longer_break_the_check() {
     // Waiving it twice, or something that is not a current Violation, is refused.
     let again = engine.run_err(
         "erc.waive",
-        json!({"check": "unconnected_pin", "objects": [r, R_PIN_1]}),
+        json!({"violations": [{"check": "unconnected_pin", "objects": [r, R_PIN_1]}]}),
     );
     assert_eq!(again.code, ErrorCode::Rejected);
     let none = engine.run_err(
         "erc.waive",
-        json!({"check": "pin_conflict", "objects": [r, R_PIN_1]}),
+        json!({"violations": [{"check": "pin_conflict", "objects": [r, R_PIN_1]}]}),
     );
     assert_eq!(none.code, ErrorCode::Rejected);
 
@@ -517,9 +536,9 @@ fn deleting_a_waiver_reports_the_violation_again_and_waivers_are_saved() {
     let r = place(&mut engine, R_10K, 0, 0);
     let waived = engine.run_ok(
         "erc.waive",
-        json!({"check": "unconnected_pin", "objects": [r, R_PIN_2]}),
+        json!({"violations": [{"check": "unconnected_pin", "objects": [r, R_PIN_2]}]}),
     );
-    let waiver = waived["result"]["waiver"].clone();
+    let waiver = waived["result"]["waivers"][0].clone();
     engine.run_ok("project.save", json!({}));
     let (_, file) = saved(&dir, ".redasch");
     assert!(file.contains("\"waivers\""), "{file}");
@@ -554,4 +573,104 @@ fn results_are_stale_once_the_design_is_edited_after_the_run() {
         json!({"check": "dangling_wire", "severity": "off"}),
     );
     assert_eq!(stale(&mut engine), true);
+}
+
+#[test]
+fn batch_erc_waivers_validate_atomically_and_take_one_step_per_document() {
+    let dir = TempDir::new("erc-batch-waiver");
+    let mut e = demo(&dir);
+    place(&mut e, R_10K, 0, 0);
+    let second = e.run_ok("document.add", json!({"kind":"schematic"}))["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    place_on(&mut e, &second, R_10K, 0, 0);
+    let violations = of(&erc(&mut e), "unconnected_pin");
+    let targets: Vec<Value> = violations
+        .iter()
+        .map(|v| json!({"check":v["check"],"objects":v["objects"]}))
+        .collect();
+    let invalid = e.run_err(
+        "erc.waive",
+        json!({"violations":[targets[0],{"check":"pin_conflict","objects":[]}],"reason":"fixture"}),
+    );
+    assert_eq!(invalid.code, ErrorCode::Rejected);
+    assert_eq!(erc(&mut e)["waived"], 0);
+    let duplicate = e.run_ok("erc.waive", json!({"violations":[targets[0],targets[0]]}));
+    assert_eq!(duplicate["result"]["waivers"].as_array().unwrap().len(), 1);
+    assert_eq!(erc(&mut e)["waived"], 1);
+    e.run_ok("edit.undo", json!({"document":SHEET}));
+    assert_eq!(erc(&mut e)["waived"], 0);
+    let ids = e.run_ok(
+        "erc.waive",
+        json!({"violations":targets,"reason":"connector test pins"}),
+    )["result"]["waivers"]
+        .clone();
+    assert_eq!(ids.as_array().unwrap().len(), 4);
+    for id in ids.as_array().unwrap() {
+        let w = e.run_ok("object.get", json!({"uuid":id}))["object"].clone();
+        assert_eq!(w["reason"], "connector test pins");
+        assert!(w["author"].is_string());
+        assert_eq!(w["created"], 1_767_225_600_000_i64);
+        assert!(
+            w["objects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(Value::is_string)
+        );
+    }
+    assert_eq!(erc(&mut e)["waived"], 4);
+    e.run_ok("edit.undo", json!({"document":SHEET}));
+    assert_eq!(erc(&mut e)["waived"], 2);
+    e.run_ok("edit.undo", json!({"document":second}));
+    assert_eq!(erc(&mut e)["waived"], 0);
+    e.run_ok("edit.redo", json!({"document":SHEET}));
+    e.run_ok("edit.redo", json!({"document":second}));
+    assert_eq!(erc(&mut e)["waived"], 4);
+    e.run_ok(
+        "erc.set_severity",
+        json!({"check":"unconnected_pin","severity":"off"}),
+    );
+    assert_eq!(erc(&mut e)["unmatched_waivers"], json!([]));
+    e.run_ok("project.save", json!({}));
+    assert_eq!(erc(&mut reopen(&dir))["unmatched_waivers"], json!([]));
+}
+
+const NET_TIE: &str = "a0000000-0000-4000-8000-000000000170";
+
+/// A Net Tie at the origin whose Pin 1 is labelled `one` and Pin 2 `two`: its Unit.
+fn labelled_tie(engine: &mut TestEngine, one: &str, two: &str) -> String {
+    let tie = place(engine, NET_TIE, 0, 0);
+    wire(engine, &[(0, 150), (0, 300)]);
+    wire(engine, &[(0, -150), (0, -300)]);
+    label(engine, one, 0, 300);
+    label(engine, two, 0, -300);
+    tie
+}
+
+#[test]
+fn a_net_tie_with_all_its_pins_on_one_net_does_nothing_and_warns() {
+    let dir = TempDir::new("erc-net-tie");
+    let mut engine = demo(&dir);
+    labelled_tie(&mut engine, "A", "B");
+    let out = erc(&mut engine);
+    assert!(of(&out, "net_tie_one_net").is_empty(), "{out}");
+
+    let dir = TempDir::new("erc-net-tie-one");
+    let mut engine = demo(&dir);
+    let tie = labelled_tie(&mut engine, "A", "A");
+    let out = erc(&mut engine);
+    let found = of(&out, "net_tie_one_net");
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["args"]["designator"], "R1");
+    assert_eq!(found[0]["args"]["net"], "A");
+    assert_eq!(found[0]["objects"], json!([tie]));
+
+    // An unwired tie's Pins are each on a Net of their own.
+    let dir = TempDir::new("erc-net-tie-unwired");
+    let mut engine = demo(&dir);
+    place(&mut engine, NET_TIE, 0, 0);
+    assert!(of(&erc(&mut engine), "net_tie_one_net").is_empty());
 }

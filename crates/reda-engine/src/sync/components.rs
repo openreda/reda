@@ -3,9 +3,10 @@
 
 use std::collections::BTreeMap;
 
+use reda_model::local_edit::{LocalEdit, local_edits};
 use reda_model::{
-    ComponentRef, DocumentKind, Fields, FootprintCopy, FootprintInstance, PcbDocument, PinMap,
-    Project, Uuid,
+    ComponentRef, ComponentType, DocumentKind, Fields, FootprintCopy, FootprintInstance,
+    PcbDocument, PinMap, Project, Uuid,
 };
 use reda_schematic::natural_cmp;
 
@@ -21,6 +22,9 @@ pub(crate) struct SchComponent {
     pub(crate) sheet_index: usize,
     pub(crate) designator: String,
     pub(crate) fields: Fields,
+    pub(crate) component_type: ComponentType,
+    pub(crate) in_bom: bool,
+    pub(crate) in_cpl: bool,
     pub(crate) not_fitted: bool,
     /// The chosen Footprint, as its sheet copied it.
     pub(crate) copy: FootprintCopy,
@@ -34,8 +38,10 @@ impl SchComponent {
     }
 
     /// Whether the PCB copy `copy` is a different Footprint (or a different copy of it).
+    /// A Locally Edited Footprint compares the copy it was edited from, so local edits
+    /// are neither out of sync nor reverted.
     pub(crate) fn footprint_differs(&self, copy: &FootprintCopy) -> bool {
-        copy.footprint.uuid != self.copy.footprint.uuid || copy.hash != self.copy.hash
+        copy.footprint.uuid != self.copy.footprint.uuid || copy.sync_hash() != self.copy.hash
     }
 }
 
@@ -89,6 +95,9 @@ impl Components {
                     sheet_index,
                     designator: unit.designator.clone(),
                     fields: unit.fields.clone(),
+                    component_type: unit.component_type,
+                    in_bom: unit.in_bom,
+                    in_cpl: unit.in_cpl,
                     not_fitted: unit.not_fitted,
                     copy: copy.clone(),
                     pin_map: entry.part.pin_map.clone(),
@@ -154,6 +163,7 @@ impl Components {
                         designator: c.designator.clone(),
                         from: footprint_ref(current),
                         to: c.footprint_ref(),
+                        lost_local_edits: lost_local_edits(pcb, current),
                     },
                 });
             }
@@ -179,6 +189,45 @@ impl Components {
                         designator: c.designator.clone(),
                         from: instance.fields.clone(),
                         to: c.fields.clone(),
+                    },
+                });
+            }
+            if instance.component_type != c.component_type {
+                data.push(Change {
+                    id: change_id("component_type", &[&key]),
+                    requires: vec![],
+                    change: ChangeKind::ComponentType {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.component_type,
+                        to: c.component_type,
+                    },
+                });
+            }
+            if instance.in_bom != c.in_bom {
+                data.push(Change {
+                    id: change_id("in_bom", &[&key]),
+                    requires: vec![],
+                    change: ChangeKind::InBom {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.in_bom,
+                        to: c.in_bom,
+                    },
+                });
+            }
+            if instance.in_cpl != c.in_cpl {
+                data.push(Change {
+                    id: change_id("in_cpl", &[&key]),
+                    requires: vec![],
+                    change: ChangeKind::InCpl {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.in_cpl,
+                        to: c.in_cpl,
                     },
                 });
             }
@@ -225,4 +274,14 @@ pub(crate) fn linked_instances(pcb: &PcbDocument) -> BTreeMap<ComponentRef, &Foo
     pcb.footprints()
         .filter_map(|i| Some((i.component.clone()?, i)))
         .collect()
+}
+
+/// The local edits a Footprint change would remove from an instance on PCB copy `copy`.
+pub(crate) fn lost_local_edits(pcb: &PcbDocument, copy: &FootprintCopy) -> Vec<LocalEdit> {
+    copy.edited_from
+        .as_ref()
+        .and_then(|from| pcb.footprint_copy(from.uuid))
+        .map_or_else(Vec::new, |origin| {
+            local_edits(&origin.footprint, &copy.footprint)
+        })
 }

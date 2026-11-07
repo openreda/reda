@@ -212,7 +212,7 @@ fn the_schematic_pdf_has_every_sheet_in_document_order() {
         json!({"kind": "schematic", "title": "Power"}),
     );
     engine.run_ok(
-        "schematic.sheet.set_size",
+        "schematic.sheet.set_frame",
         json!({"document": SHEET, "size": "a3"}),
     );
     engine.run_ok(

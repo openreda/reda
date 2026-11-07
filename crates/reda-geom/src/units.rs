@@ -1,4 +1,4 @@
-//! Unit strings: `"1.27mm"`, `"10mil"`, `"0.5in"`, `"45deg"`.
+//! Unit strings: `"1.27mm"`, `"10mil"`, `"0.5in"`, `"45deg"`, and copper in `"1oz"`.
 //!
 //! Parsing is exact: the decimal is read as an integer mantissa and a power of ten, then
 //! scaled by an integer factor, so `"1.27mm"` is exactly 1,270,000 nm. A value that does not
@@ -26,10 +26,29 @@ const LENGTH_UNITS: &[(&str, i128)] = &[
     ("", 1),
     ("nm", 1),
     ("um", 1_000),
+    ("µm", 1_000),
+    ("μm", 1_000),
     ("mm", 1_000_000),
     ("mil", 25_400),
     ("in", 25_400_000),
 ];
+
+/// Copper thickness units: the length units and the copper weight in ounces, where 1 oz is
+/// exactly 35 µm.
+const COPPER_UNITS: &[(&str, i128)] = &[
+    ("", 1),
+    ("nm", 1),
+    ("um", 1_000),
+    ("µm", 1_000),
+    ("μm", 1_000),
+    ("mm", 1_000_000),
+    ("mil", 25_400),
+    ("in", 25_400_000),
+    ("oz", NM_PER_OZ as i128),
+];
+
+/// The copper thickness of one ounce of copper weight: exactly 35 µm.
+pub const NM_PER_OZ: i64 = 35_000;
 
 /// Angle units and how many millidegrees one of each is. A bare number means millidegrees.
 const ANGLE_UNITS: &[(&str, i128)] = &[("", 1), ("deg", 1_000)];
@@ -39,6 +58,12 @@ impl Nm {
     /// number is nanometres.
     pub fn parse(text: &str) -> Result<Nm, UnitError> {
         parse(text, LENGTH_UNITS, "length", "nanometre").map(Nm)
+    }
+
+    /// Parses a copper thickness: a length, or a copper weight such as `"1oz"` at exactly
+    /// 35 µm per ounce.
+    pub fn parse_copper(text: &str) -> Result<Nm, UnitError> {
+        parse(text, COPPER_UNITS, "copper thickness", "nanometre").map(Nm)
     }
 }
 
@@ -53,7 +78,7 @@ fn parse(text: &str, units: &[(&str, i128)], what: &str, base: &str) -> Result<i
     let refuse = |why: String| UnitError(format!("{text:?} is not a valid {what}: {why}"));
     let trimmed = text.trim();
     let split = trimmed
-        .find(|c: char| c.is_ascii_alphabetic())
+        .find(|c: char| c.is_alphabetic())
         .unwrap_or(trimmed.len());
     let (number, unit) = trimmed.split_at(split);
     let number = number.trim_end();

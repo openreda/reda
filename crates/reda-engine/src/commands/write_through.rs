@@ -40,7 +40,14 @@ pub struct FootprintSetParams {
     /// `null` clears a built-in field and removes a free-form one.
     #[serde(default)]
     pub fields: BTreeMap<String, Option<String>>,
-    /// Whether the Footprints are left off the board and out of the BOM.
+    /// Whether the Footprints go into the BOM.
+    #[serde(default)]
+    pub in_bom: Option<bool>,
+    /// Whether the Footprints go into the CPL.
+    #[serde(default)]
+    pub in_cpl: Option<bool>,
+    /// Whether this build leaves the Footprints off the board and out of the BOM and
+    /// CPL. A Net Tie refuses it.
     #[serde(default)]
     pub not_fitted: Option<bool>,
     /// The Footprint, by Library Footprint UUID: one of each Component's Part's
@@ -64,9 +71,9 @@ impl Command for FootprintSet {
     const META: Meta = Meta {
         id: "pcb.footprint.set",
         title: "Edit Footprint Properties",
-        description: "Sets the Designator, value, fields, Not Fitted or Footprint of \
-                      Footprints from the PCB side. A Footprint synced from the schematic \
-                      writes through: every Unit of its Component changes too, and the \
+        description: "Sets the Designator, value, fields, In BOM, In CPL, Not Fitted or \
+                      Footprint of Footprints from the PCB side. A Footprint synced from \
+                      the schematic writes through: every Unit of its Component changes too, and the \
                       board takes the change as Sync would (a new Footprint is swapped in \
                       place and its Pads rejoin their Nets), with one undo entry in each \
                       Document and nothing left pending. Mechanical Parts placed only on \
@@ -120,6 +127,8 @@ impl Command for FootprintSet {
                     designator: p.designator.clone(),
                     value: p.value.clone(),
                     fields: p.fields.clone(),
+                    in_bom: p.in_bom,
+                    in_cpl: p.in_cpl,
                     not_fitted: p.not_fitted,
                 },
             )?;
@@ -140,8 +149,11 @@ impl Command for FootprintSet {
                 value: p.value,
                 fields: p.fields,
                 footprint: p.footprint,
+                in_bom: p.in_bom,
+                in_cpl: p.in_cpl,
                 not_fitted: p.not_fitted,
                 visible: BTreeMap::new(),
+                locked: BTreeMap::new(),
             };
             units = sync::write_through(cx, |cx| ComponentSet.run(cx, params))?.units;
         }

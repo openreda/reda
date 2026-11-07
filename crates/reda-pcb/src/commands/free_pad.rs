@@ -1,40 +1,35 @@
-//! Free Pads and the Placement Origin: `pcb.free_pad.add`, `pcb.free_pad.set_net`,
-//! `pcb.free_pad.delete`, `pcb.placement_origin.set` and `pcb.placement_origin.delete`.
+//! Free Pads and the Output Origin: `pcb.free_pad.add`, `pcb.free_pad.set_net`,
+//! `pcb.free_pad.delete`, `pcb.output_origin.set` and `pcb.output_origin.delete`.
 //!
-//! Free Pads and the Placement Origin are moved, turned and flipped with the placement
+//! Free Pads and the Output Origin are moved, turned and flipped with the placement
 //! Commands (`pcb.move` and the rest).
 
 use reda_command::{
-    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams,
-    Registry, Unavailable,
+    Angle, AvailabilityContext, Command, CommandError, Context, HoleParam, Kind, Length, Meta,
+    NoParams, RatioParam, Registry, Unavailable, ZoneConnectionParam, zone_connection,
 };
-use reda_model::geom::Millideg;
+use reda_model::geom::{Millideg, Point};
 use reda_model::{
-    FreePad, Hole, InDocument, Object, PadKind, PadShape, PcbDocument, PlacementOrigin, Side, Uuid,
+    Corners, FreePad, InDocument, Object, OutputOrigin, PadKind, PadShape, PcbDocument, Ratio,
+    Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::outline::PointParam;
 use super::placement::Placed;
-use super::{Created, needs_pcb, non_negative, pcb, positive};
+use super::{Created, needs_pcb, pcb, positive};
+
+/// The corner ratio of a `rounded_rect` that gives none: a radius of a quarter of the
+/// shorter side.
+const DEFAULT_CORNER_RATIO: Ratio = Ratio::percent(50);
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FreePadAdd);
     registry.add(FreePadSetNet);
     registry.add(FreePadDelete);
-    registry.add(PlacementOriginSet);
-    registry.add(PlacementOriginDelete);
-}
-
-/// A drilled hole param.
-#[derive(Clone, Copy, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct HoleParam {
-    pub width: Length,
-    /// A slot when it differs from the width; round when left out.
-    #[serde(default)]
-    pub height: Option<Length>,
+    registry.add(OutputOriginSet);
+    registry.add(OutputOriginDelete);
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -46,15 +41,26 @@ pub struct FreePadAddParams {
     /// Circle when left out.
     #[serde(default)]
     pub shape: Option<PadShape>,
-    /// The Pad centre.
+    /// The Pad's anchor: the hole sits there and Tracks connect there.
     pub at: PointParam,
     pub width: Length,
     /// The width when left out.
     #[serde(default)]
     pub height: Option<Length>,
-    /// For a rounded rectangle.
+    /// For a `rounded_rect` (50% when left out) and the uncut corners of a
+    /// `chamfered_rect`.
     #[serde(default)]
-    pub corner_radius: Option<Length>,
+    pub corner_ratio: Option<RatioParam>,
+    /// For a `chamfered_rect`, which needs it.
+    #[serde(default)]
+    pub chamfer_ratio: Option<RatioParam>,
+    /// The corners a `rounded_rect` rounds or a `chamfered_rect` chamfers. All four when
+    /// left out.
+    #[serde(default)]
+    pub corners: Option<Corners>,
+    /// Moves the copper away from `at`, in the Pad's frame.
+    #[serde(default)]
+    pub offset: Option<PointParam>,
     /// Counter-clockwise; 0 when left out.
     #[serde(default)]
     pub rotation: Option<Angle>,
@@ -67,6 +73,11 @@ pub struct FreePadAddParams {
     /// The PCB Net, by UUID; non-plated Pads have none.
     #[serde(default)]
     pub net: Option<Uuid>,
+    pub mask: Option<reda_command::MaskParam>,
+    pub paste: Option<reda_command::PasteParam>,
+    /// How Zone fills of its Net join it; each value left out inherits.
+    #[serde(default)]
+    pub zone_connection: Option<ZoneConnectionParam>,
 }
 
 pub struct FreePadAdd;
@@ -92,48 +103,11 @@ impl Command for FreePadAdd {
     fn run(&self, cx: &mut Context<'_>, p: FreePadAddParams) -> Result<Created, CommandError> {
         let width = positive("/width", p.width)?;
         let height = p.height.map_or(Ok(width), |h| positive("/height", h))?;
-        let corner_radius = p
-            .corner_radius
-            .map(|r| non_negative("/corner_radius", r))
-            .transpose()?;
-        let hole = p
-            .hole
-            .map(|h| -> Result<Hole, CommandError> {
-                let width = positive("/hole/width", h.width)?;
-                let height = h
-                    .height
-                    .map_or(Ok(width), |l| positive("/hole/height", l))?;
-                Ok(Hole { width, height })
-            })
-            .transpose()?;
-        let smd = p.kind == PadKind::Smd;
-        match hole {
-            Some(_) if smd => {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "an SMD Pad has no hole",
-                ));
-            }
-            None if !smd => {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "a plated through-hole or non-plated Pad needs a hole",
-                ));
-            }
-            Some(h) if h.width > width || h.height > height => {
-                return Err(CommandError::invalid_params(
-                    "/hole",
-                    "the hole is larger than the Pad",
-                ));
-            }
-            _ => {}
-        }
-        if !smd && p.side.is_some() {
-            return Err(CommandError::invalid_params(
-                "/side",
-                "a Pad with a hole is on both sides",
-            ));
-        }
+        let shape = p.shape.unwrap_or(PadShape::Circle);
+        let corner_ratio = p
+            .corner_ratio
+            .map(RatioParam::ratio)
+            .or((shape == PadShape::RoundedRect).then_some(DEFAULT_CORNER_RATIO));
         let pcb = pcb(cx)?;
         if let Some(net) = p.net {
             check_net(pcb, p.kind, net, "/net")?;
@@ -143,20 +117,29 @@ impl Command for FreePadAdd {
         let pad = FreePad {
             uuid,
             kind: p.kind,
-            shape: p.shape.unwrap_or(PadShape::Circle),
+            shape,
             at: p.at.point(),
             rotation: p
                 .rotation
                 .map_or(Millideg::ZERO, |r| r.millideg().normalized()),
             width,
             height,
-            corner_radius,
-            hole,
-            side: smd.then(|| p.side.unwrap_or(Side::Top)),
+            corner_ratio,
+            chamfer_ratio: p.chamfer_ratio.map(RatioParam::ratio),
+            corners: p.corners.filter(|c| *c != Corners::ALL),
+            offset: p
+                .offset
+                .map(PointParam::point)
+                .filter(|o| *o != Point::default()),
+            hole: p.hole.map(HoleParam::hole),
+            side: p.side.filter(|s| *s != Side::Top || p.kind != PadKind::Smd),
             net: p.net,
+            mask: reda_command::mask(p.mask),
+            paste: reda_command::paste(p.paste),
+            zone_connection: zone_connection(p.zone_connection),
         };
-        if let Some(problem) = pad.problem() {
-            return Err(CommandError::invalid_params("", problem));
+        if let Some((pointer, problem)) = pad.problem() {
+            return Err(CommandError::invalid_params(&pointer, problem));
         }
         cx.tx()?
             .insert(Object::FreePad(InDocument::new(document, pad)))?;
@@ -298,56 +281,51 @@ impl Command for FreePadDelete {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct PlacementOriginSetParams {
-    /// Where Footprint positions are measured from in the manufacturing outputs.
+pub struct OutputOriginSetParams {
+    /// The point the editor, and relative manufacturing outputs, measure coordinates from.
     pub at: PointParam,
 }
 
-pub struct PlacementOriginSet;
+pub struct OutputOriginSet;
 
-impl Command for PlacementOriginSet {
+impl Command for OutputOriginSet {
     const META: Meta = Meta {
-        id: "pcb.placement_origin.set",
-        title: "Set Placement Origin",
-        description: "Sets the point the CPL measures Footprint positions from, creating the \
-                      Placement Origin or moving the existing one. Without it the outputs \
-                      measure from the lower-left corner of the Board Outline's bounding \
-                      box.",
+        id: "pcb.output_origin.set",
+        title: "Set Output Origin",
+        description: "Sets the Output Origin, which the editor measures coordinates and the grid \
+                      from. Gerber, drill and CPL use it together when the Fab Preset asks for \
+                      a relative file origin; without it they use the Board Outline's lower-left.",
         category: "pcb",
         icon: "origin",
         kind: Kind::Edit,
     };
-    type Params = PlacementOriginSetParams;
+    type Params = OutputOriginSetParams;
     type Output = Created;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(
-        &self,
-        cx: &mut Context<'_>,
-        p: PlacementOriginSetParams,
-    ) -> Result<Created, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, p: OutputOriginSetParams) -> Result<Created, CommandError> {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let at = p.at.point();
-        match pcb.placement_origin() {
+        match pcb.output_origin() {
             Some(origin) => {
-                let origin = PlacementOrigin {
+                let origin = OutputOrigin {
                     uuid: origin.uuid,
                     at,
                 };
                 let uuid = origin.uuid;
                 cx.tx()?
-                    .replace(Object::PlacementOrigin(InDocument::new(document, origin)))?;
+                    .replace(Object::OutputOrigin(InDocument::new(document, origin)))?;
                 Ok(Created { uuid })
             }
             None => {
                 let uuid = cx.new_id();
-                cx.tx()?.insert(Object::PlacementOrigin(InDocument::new(
+                cx.tx()?.insert(Object::OutputOrigin(InDocument::new(
                     document,
-                    PlacementOrigin { uuid, at },
+                    OutputOrigin { uuid, at },
                 )))?;
                 Ok(Created { uuid })
             }
@@ -355,14 +333,15 @@ impl Command for PlacementOriginSet {
     }
 }
 
-pub struct PlacementOriginDelete;
+pub struct OutputOriginDelete;
 
-impl Command for PlacementOriginDelete {
+impl Command for OutputOriginDelete {
     const META: Meta = Meta {
-        id: "pcb.placement_origin.delete",
-        title: "Remove Placement Origin",
-        description: "Removes the Placement Origin, so the outputs measure from the lower-left \
-                      corner of the Board Outline's bounding box again.",
+        id: "pcb.output_origin.delete",
+        title: "Remove Output Origin",
+        description: "Removes the Output Origin. The editor then measures from design \
+                      zero, and relative manufacturing outputs from the lower-left of the \
+                      Board Outline's bounding box.",
         category: "pcb",
         icon: "delete",
         kind: Kind::Edit,
@@ -375,8 +354,8 @@ impl Command for PlacementOriginDelete {
     }
 
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Placed, CommandError> {
-        let Some(origin) = pcb(cx)?.placement_origin() else {
-            return Err(CommandError::rejected("the board has no Placement Origin"));
+        let Some(origin) = pcb(cx)?.output_origin() else {
+            return Err(CommandError::rejected("the board has no Output Origin"));
         };
         let uuid = origin.uuid;
         cx.tx()?.remove(uuid)?;

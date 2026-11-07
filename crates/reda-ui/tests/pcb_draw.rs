@@ -1,8 +1,8 @@
 //! The PCB drawing Tools, through the Shell with no window: each previews while it is
 //! drawn, touches the Journal only when the shape is finished, and then runs one Command
 //! (Board Outline and Cutouts, Zones (Z) and Keepouts (K), text, lines, arcs and
-//! rectangles on the active Layer, Free Pads and the Placement Origin);
-//! the user origin and the measure Tool change only the view; and the Shell says when
+//! rectangles on the active Layer, Free Pads and the Output Origin); the cursor reads
+//! from the Output Origin; the measure Tool changes nothing; and the Shell says when
 //! Zones need refilling.
 
 use std::path::{Path, PathBuf};
@@ -293,34 +293,44 @@ fn text_asks_for_its_words_then_runs_one_command() {
 }
 
 #[test]
-fn free_pads_and_the_placement_origin_are_placed_by_a_click() {
+fn free_pads_and_the_output_origin_are_placed_by_a_click() {
     let mut b = board();
     let start = b.mark();
     b.tool("free_pad");
     b.click(mm(2.0, 2.0));
-    b.tool("placement_origin");
+    b.tool("output_origin");
     b.click(mm(1.0, 1.0));
     assert_eq!(
         b.edits_since(start),
-        ["pcb.free_pad.add", "pcb.placement_origin.set"]
+        ["pcb.free_pad.add", "pcb.output_origin.set"]
     );
     assert_eq!(b.pcb().free_pads().next().unwrap().at, mm(2.0, 2.0));
-    assert_eq!(b.pcb().placement_origin().unwrap().at, mm(1.0, 1.0));
+    assert_eq!(b.pcb().output_origin().unwrap().at, mm(1.0, 1.0));
 }
 
 #[test]
-fn the_user_origin_and_measure_change_only_the_view() {
+fn the_cursor_reads_from_the_output_origin() {
     let mut b = board();
-    let start = b.mark();
-    b.tool("user_origin");
+    assert_eq!(
+        b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)),
+        mm(12.0, 4.0),
+        "without an Output Origin the cursor reads from design zero"
+    );
+    b.tool("output_origin");
     b.click(mm(10.0, 5.0));
-    assert_eq!(b.shell.board_view().origin, Some(mm(10.0, 5.0)));
     assert_eq!(
         b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)),
         mm(2.0, -1.0),
-        "the cursor reads from the user origin"
+        "the cursor reads from the Output Origin"
     );
+    run(&mut b.shell, "pcb.output_origin.delete", json!({}));
+    assert_eq!(b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)), mm(12.0, 4.0));
+}
 
+#[test]
+fn measure_changes_nothing() {
+    let mut b = board();
+    let start = b.mark();
     b.tool("measure");
     b.click(mm(0.0, 0.0));
     b.shell.pcb_hover(mm(3.0, 4.0));
@@ -332,9 +342,6 @@ fn the_user_origin_and_measure_change_only_the_view() {
     let m = b.shell.pcb_draw().measurement().unwrap();
     assert_eq!(m.to, mm(3.0, 4.0), "a second click holds the measurement");
     assert!(b.edits_since(start).is_empty());
-
-    run(&mut b.shell, "pcb.view.origin.set", json!({}));
-    assert_eq!(b.shell.board_view().origin, None);
 }
 
 #[test]
@@ -364,4 +371,106 @@ fn the_shell_says_when_zones_need_refilling_until_they_are_refilled() {
     assert!(b.shell.zones_need_refill());
     run(&mut b.shell, "pcb.zone.fill", json!({}));
     assert!(!b.shell.zones_need_refill());
+}
+
+#[test]
+fn dragging_a_footprint_preserves_the_filtered_free_pad_selection_and_position() {
+    let mut b = board();
+    let footprint: Uuid = run(
+        &mut b.shell,
+        "test.footprint.add",
+        json!({"at":{"x":0,"y":0},"pads":[{"at":{"x":0,"y":0},"width":"2mm","height":"2mm"}]}),
+    )["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let pad: Uuid = run(
+        &mut b.shell,
+        "pcb.free_pad.add",
+        json!({"kind":"smd","at":{"x":"5mm","y":0},"width":"1mm"}),
+    )["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let locked: Uuid = run(
+        &mut b.shell,
+        "test.footprint.add",
+        json!({"at":{"x":"10mm","y":0},"pads":[{"at":{"x":0,"y":0},"width":"2mm","height":"2mm"}]}),
+    )["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    run(
+        &mut b.shell,
+        "pcb.lock",
+        json!({"footprints":[locked],"locked":true}),
+    );
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key":"editing.protect_locked_objects","value":true}),
+    );
+    run(
+        &mut b.shell,
+        "selection.set",
+        json!({"objects":[footprint,pad,locked]}),
+    );
+    let pcb = b.pcb().uuid;
+    run(
+        &mut b.shell,
+        "selection.filter.set",
+        json!({"document":pcb,"kinds":{"free_pad":false}}),
+    );
+    b.drag(mm(0.0, 0.0), mm(2.0, 0.0));
+    assert_eq!(b.shell.selection().objects, [footprint, pad, locked]);
+    assert_eq!(b.pcb().footprint(locked).unwrap().at, mm(10.0, 0.0));
+    assert_eq!(b.pcb().footprint(footprint).unwrap().at, mm(2.0, 0.0));
+    assert_eq!(b.pcb().free_pad(pad).unwrap().at, mm(5.0, 0.0));
+}
+
+#[test]
+fn output_origin_phases_the_board_grid_for_hover_drawing_and_electrical_snap() {
+    use reda_ui::pcb::snap::SnapKind;
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    assert_eq!(
+        b.shell.pcb_hover(mm(1.1, 1.1)),
+        (mm(1.2, 1.3), SnapKind::Grid)
+    );
+    b.tool("free_pad");
+    b.click(mm(2.1, 2.1));
+    let pad = b.pcb().free_pads().next().unwrap().clone();
+    assert_eq!(pad.at, mm(2.2, 2.3));
+    b.tool("select");
+    assert_eq!(
+        b.shell.pcb_hover(mm(2.21, 2.31)),
+        (pad.at, SnapKind::Pad),
+        "electrical targets still win"
+    );
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.1mm","y":"0.1mm"}}),
+    );
+    assert_eq!(
+        b.pcb().free_pad(pad.uuid).unwrap().at,
+        pad.at,
+        "moving the grid moves no objects"
+    );
+    assert_eq!(
+        b.shell.pcb_hover(mm(4.0, 4.0)),
+        (mm(4.1, 4.1), SnapKind::Grid)
+    );
+    run(&mut b.shell, "pcb.output_origin.delete", json!({}));
+    assert_eq!(
+        b.shell.pcb_hover(mm(4.0, 4.0)),
+        (mm(4.0, 4.0), SnapKind::Grid)
+    );
 }

@@ -94,15 +94,11 @@ fn icon_buttons_tabs_and_dock_icons_are_named_by_title_and_described_by_shortcut
 
 fn named_by_title_and_described_by_shortcut(os: OperatingSystem) {
     let mut h = harness_as(Shell::new(engine()), os);
-    // A toolbar icon: its Command's title, its key. (The toolbar's comes before the Start
-    // page's button of the same name.)
-    let toolbar = h
-        .get_all_by_role_and_label(Role::Button, "New Project…")
-        .next()
-        .unwrap()
-        .accesskit_node()
-        .description();
-    assert_eq!(toolbar, Some(shown(&h, "Mod+N")));
+    // A quick strip icon: its Command's title, its key.
+    assert_eq!(
+        description(&h, Role::Button, "Undo"),
+        Some(shown(&h, "Mod+Z"))
+    );
     assert_eq!(
         description(&h, Role::Button, "Save All"),
         Some(shown(&h, "Mod+S"))
@@ -157,9 +153,9 @@ fn tab_moves_focus_through_the_window_in_layout_order() {
             .position(|l| l == label)
             .unwrap_or_else(|| panic!("{label} never took focus: {order:?}"))
     };
-    // Toolbar, left Dock, centre, right Dock, bottom Dock, status bar.
+    // Top row, left Dock, centre, right Dock, bottom Dock, status bar.
     let sequence = [
-        at("New Project…"),
+        at("File"),
         at("Projects"),
         at("Start"),
         at("Properties"),

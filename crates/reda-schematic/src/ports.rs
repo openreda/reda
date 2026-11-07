@@ -1,5 +1,5 @@
-//! Connecting across sheets: `schematic.port.add`, `schematic.power_port.add` and the
-//! `schematic.project_nets` query.
+//! Connecting across sheets: `schematic.port.add` / `set`, `schematic.power_port.add` /
+//! `set`, the Power Port Presets and the `schematic.project_nets` query.
 
 use reda_command::{Angle, Command, CommandError, Context, Kind, Meta, NoParams};
 use reda_model::geom::Millideg;
@@ -11,14 +11,18 @@ use crate::component::At;
 use crate::connectivity::{self, ProjectNet};
 use crate::sheet;
 
-/// A trimmed, non-blank name, or `invalid_params` at `/name`.
-fn name(name: &str, what: &str) -> Result<String, CommandError> {
+/// A trimmed, non-blank Net name without reserved characters (`[ ] { } , ..` and
+/// control characters), or `invalid_params` at `/name`.
+pub(crate) fn net_name(name: &str, what: &str) -> Result<String, CommandError> {
     match name.trim() {
         "" => Err(CommandError::invalid_params(
             "/name",
             format!("a {what} needs a name"),
         )),
-        name => Ok(name.to_owned()),
+        name => match reda_model::net_name::name_problem(name) {
+            Some(problem) => Err(CommandError::invalid_params("/name", problem)),
+            None => Ok(name.to_owned()),
+        },
     }
 }
 
@@ -27,7 +31,8 @@ fn name(name: &str, what: &str) -> Result<String, CommandError> {
 pub struct PortAddParams {
     /// The Schematic Sheet to place on.
     pub document: Uuid,
-    /// The Net name; surrounding spaces are trimmed and a blank name is refused.
+    /// The Net name; surrounding spaces are trimmed, and a blank name or one holding
+    /// `[ ] { } , ..` or a control character is refused.
     pub name: String,
     /// The connection point: it joins the Wires through it and any Pin there.
     pub at: At,
@@ -53,7 +58,8 @@ impl Command for PortAdd {
         title: "Add Port",
         description: "Places a Port on a Schematic Sheet. It joins the Wires through its \
                       point (and any Pin there) to every Port with the same name on any \
-                      sheet of the Project, and names that Net unless a Power Port does.",
+                      sheet of the Project, and names that Net unless a Net Label or Power \
+                      Port does (or the Project stops Ports naming Nets).",
         category: "schematic",
         icon: "port",
         kind: Kind::Edit,
@@ -65,10 +71,11 @@ impl Command for PortAdd {
         sheet(cx.project()?, p.document)?;
         let port = Port {
             uuid: cx.new_id(),
-            name: name(&p.name, "Port")?,
+            name: net_name(&p.name, "Port")?,
             direction: p.direction,
             at: p.at.point(),
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
+            hide_cross_reference: false,
         };
         let uuid = port.uuid;
         cx.tx()?
@@ -82,8 +89,8 @@ impl Command for PortAdd {
 pub struct PowerPortAddParams {
     /// The Schematic Sheet to place on.
     pub document: Uuid,
-    /// The Net name, such as GND or 3V3; surrounding spaces are trimmed and a blank name
-    /// is refused.
+    /// The Net name, such as GND or 3V3; surrounding spaces are trimmed, and a blank name
+    /// or one holding `[ ] { } , ..` or a control character is refused.
     pub name: String,
     /// The connection point: it joins the Wires through it and any Pin there.
     pub at: At,
@@ -92,6 +99,9 @@ pub struct PowerPortAddParams {
     pub style: Option<PowerPortStyle>,
     /// Counter-clockwise; 0 by default. Only changes how the symbol is drawn.
     pub rotation: Option<Angle>,
+    /// Draws the symbol without its name; off by default. The name still joins the Net.
+    #[serde(default)]
+    pub hide_name: bool,
 }
 
 /// What `schematic.power_port.add` made.
@@ -109,7 +119,8 @@ impl Command for PowerPortAdd {
         description: "Places a Power Port (a built-in symbol in a fixed style, not a Library \
                       element) on a Schematic Sheet. It joins the Wires through its point \
                       (and any Pin there) to the Project-wide Net of its name, which it \
-                      names ahead of any Port or Net Label.",
+                      names ahead of any Port, and ahead of Net Labels when the Project's \
+                      Power Port Names Take Priority option is on.",
         category: "schematic",
         icon: "power_port",
         kind: Kind::Edit,
@@ -123,7 +134,7 @@ impl Command for PowerPortAdd {
         p: PowerPortAddParams,
     ) -> Result<PowerPortAddResult, CommandError> {
         sheet(cx.project()?, p.document)?;
-        let name = name(&p.name, "Power Port")?;
+        let name = net_name(&p.name, "Power Port")?;
         let style = p.style.unwrap_or_else(|| default_power_port_style(&name));
         let port = PowerPort {
             uuid: cx.new_id(),
@@ -131,6 +142,7 @@ impl Command for PowerPortAdd {
             style,
             at: p.at.point(),
             rotation: p.rotation.map_or(Millideg::ZERO, Angle::millideg),
+            hide_name: p.hide_name,
         };
         let uuid = port.uuid;
         cx.tx()?
@@ -138,6 +150,118 @@ impl Command for PowerPortAdd {
         Ok(PowerPortAddResult { power_port: uuid })
     }
 }
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PortSetParams {
+    /// The Port's UUID.
+    pub uuid: Uuid,
+    /// A new Net name, checked as `schematic.port.add` checks it.
+    pub name: Option<String>,
+    /// `in`, `out` or `bidirectional`.
+    pub direction: Option<PortDirection>,
+    /// Hides the Port's cross-reference note.
+    pub hide_cross_reference: Option<bool>,
+}
+
+/// The object a `set` Command changed.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SetResult {
+    pub uuid: Uuid,
+}
+
+pub struct PortSet;
+
+impl Command for PortSet {
+    const META: Meta = Meta {
+        id: "schematic.port.set",
+        title: "Edit Port",
+        description: "Changes a Port's name, direction or whether it hides its \
+                      cross-reference note; what is left out stays.",
+        category: "schematic",
+        icon: "port",
+        kind: Kind::Edit,
+    };
+    type Params = PortSetParams;
+    type Output = SetResult;
+
+    fn run(&self, cx: &mut Context<'_>, p: PortSetParams) -> Result<SetResult, CommandError> {
+        let Some(Object::Port(mut port)) = cx.project()?.object(p.uuid) else {
+            return Err(CommandError::not_found(format!(
+                "no Port has UUID {}",
+                p.uuid
+            )));
+        };
+        if let Some(name) = p.name {
+            port.object.name = net_name(&name, "Port")?;
+        }
+        if let Some(direction) = p.direction {
+            port.object.direction = direction;
+        }
+        if let Some(hide) = p.hide_cross_reference {
+            port.object.hide_cross_reference = hide;
+        }
+        cx.tx()?.replace(Object::Port(port))?;
+        Ok(SetResult { uuid: p.uuid })
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PowerPortSetParams {
+    /// The Power Port's UUID.
+    pub uuid: Uuid,
+    /// A new Net name, checked as `schematic.power_port.add` checks it.
+    pub name: Option<String>,
+    /// A new built-in look.
+    pub style: Option<PowerPortStyle>,
+    /// Draws the symbol without its name; the name still joins the Net.
+    pub hide_name: Option<bool>,
+}
+
+pub struct PowerPortSet;
+
+impl Command for PowerPortSet {
+    const META: Meta = Meta {
+        id: "schematic.power_port.set",
+        title: "Edit Power Port",
+        description: "Changes a Power Port's name, style or whether its name is hidden; \
+                      what is left out stays. A hidden name still joins the Net.",
+        category: "schematic",
+        icon: "power_port",
+        kind: Kind::Edit,
+    };
+    type Params = PowerPortSetParams;
+    type Output = SetResult;
+
+    fn run(&self, cx: &mut Context<'_>, p: PowerPortSetParams) -> Result<SetResult, CommandError> {
+        let Some(Object::PowerPort(mut port)) = cx.project()?.object(p.uuid) else {
+            return Err(CommandError::not_found(format!(
+                "no Power Port has UUID {}",
+                p.uuid
+            )));
+        };
+        if let Some(name) = p.name {
+            port.object.name = net_name(&name, "Power Port")?;
+        }
+        if let Some(style) = p.style {
+            port.object.style = style;
+        }
+        if let Some(hide) = p.hide_name {
+            port.object.hide_name = hide;
+        }
+        cx.tx()?.replace(Object::PowerPort(port))?;
+        Ok(SetResult { uuid: p.uuid })
+    }
+}
+
+/// The Power Port Presets the Active Bar offers: a name and the look it gets.
+pub const POWER_PORT_PRESETS: [(&str, PowerPortStyle); 4] = [
+    ("GND", PowerPortStyle::Ground),
+    ("3V3", PowerPortStyle::Bar),
+    ("5V", PowerPortStyle::Bar),
+    ("VCC", PowerPortStyle::Bar),
+];
 
 /// The look a Power Port named `name` gets when none is given: `ground` for ground-like
 /// names (GND, VSS), else `bar`.
@@ -164,9 +288,11 @@ impl Command for ProjectNets {
         id: "schematic.project_nets",
         title: "Project Nets",
         description: "Derives the Nets of the whole Project: each sheet's Nets joined \
-                      across sheets by Ports and Power Ports, with the winning name \
-                      (Power Port > Port > Net Label > auto-name), every name on the Net, \
-                      the sheets it is on and its Pins. Nothing is stored.",
+                      across sheets by Ports and Power Ports (names compare ignoring \
+                      case), with the winning name (Net Label > Power Port > Port > \
+                      auto-name, as the Project's options change it, then the lowest by \
+                      code point), the board name, every name on the Net, the sheets it \
+                      is on and its Pins. Nothing is stored.",
         category: "schematic",
         icon: "net",
         kind: Kind::Query,

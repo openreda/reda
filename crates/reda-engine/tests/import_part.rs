@@ -145,6 +145,39 @@ fn the_library_check_runs_on_what_was_imported() {
 }
 
 #[test]
+fn the_imports_check_uses_the_users_severities() {
+    let dir = TempDir::new("import-severities");
+    let mut e = engine(&dir);
+    e.run_ok(
+        "app.preferences.set",
+        json!({"key": "libraries.severities.unmapped_pad", "value": "error"}),
+    );
+    e.run_ok(
+        "app.preferences.set",
+        json!({"key": "libraries.severities.pin_without_pad", "value": "off"}),
+    );
+    let footprint = std::fs::read_to_string(fixture("divider.kicad_mod")).unwrap();
+    let path = dir.path().join("renumbered.kicad_mod");
+    std::fs::write(&path, footprint.replace("(pad \"2\"", "(pad \"3\"")).unwrap();
+    let out = e.run_ok(
+        "library.import_part",
+        params(&fixture("divider.kicad_sym"), &path),
+    );
+    let found: Vec<(&str, &str)> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| {
+            (
+                v["check"].as_str().unwrap(),
+                v["severity"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(found, [("unmapped_pad", "error")]);
+}
+
+#[test]
 fn the_vendor_terms_notice_comes_with_the_first_import_only() {
     let dir = TempDir::new("import-notice");
     let mut e = engine(&dir);

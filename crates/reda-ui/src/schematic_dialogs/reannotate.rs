@@ -2,7 +2,7 @@
 //! the selection, after an old → new preview (`schematic.reannotate.preview`). The lock
 //! of each Component in the scope can be switched here (`schematic.component.set`).
 
-use egui::{Id, Modal};
+use egui::Id;
 use reda_engine::command::CommandError;
 use reda_engine::model::{Project, Uuid};
 use reda_engine::schematic::natural_cmp;
@@ -37,14 +37,19 @@ impl ReannotateOrder {
         ReannotateOrder::BoardPosition,
     ];
 
-    fn id(self) -> &'static str {
-        match self {
+    /// The `source` and `order` params for this order.
+    fn params(self) -> Value {
+        let order = match self {
             ReannotateOrder::AcrossThenDown => "across_then_down",
             ReannotateOrder::AcrossThenUp => "across_then_up",
             ReannotateOrder::DownThenAcross => "down_then_across",
             ReannotateOrder::UpThenAcross => "up_then_across",
-            ReannotateOrder::BoardPosition => "board_position",
-        }
+            // Rows from the top, each left to right, as on the sheet.
+            ReannotateOrder::BoardPosition => {
+                return json!({"source": "board", "order": "descending_y_then_ascending_x"});
+            }
+        };
+        json!({"source": "schematic", "order": order})
     }
 
     fn label(self) -> String {
@@ -115,12 +120,12 @@ impl ReannotateDialog {
 
     /// The params `schematic.reannotate` takes for the dialog's choices.
     fn params(&self, shell: &Shell) -> Value {
-        let mut params = json!({"order": self.order.id()});
+        let mut params = self.order.params();
         match self.scope {
             ReannotateScope::Project => params["scope"] = json!("project"),
             ReannotateScope::Sheet => {
-                params["scope"] = json!("sheet");
-                params["document"] = json!(self.sheet);
+                params["scope"] = json!("sheets");
+                params["sheets"] = json!([self.sheet]);
             }
             ReannotateScope::Selection => {
                 params["scope"] = json!("selection");
@@ -244,9 +249,12 @@ impl ReannotateDialog {
         let (before_order, before_scope) = (self.order, self.scope);
         let mut lock = None;
         let mut result = (false, false);
-        let modal = Modal::new(Id::NULL.with("schematic-reannotate")).show(ctx, |ui| {
-            ui.set_width(460.0);
-            ui.heading(tr!("reannotate-title"));
+        let modal = crate::modal::Dialog::new(
+            Id::NULL.with("schematic-reannotate"),
+            tr!("reannotate-title"),
+        )
+        .width(460.0)
+        .show(ctx, |ui| {
             egui::Grid::new("reannotate-options")
                 .num_columns(2)
                 .show(ui, |ui| {

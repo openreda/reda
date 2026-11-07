@@ -12,15 +12,17 @@
 //! `app.preferences.set` Commands, or in-process through [`load`].
 
 mod file;
+pub mod pages;
 
 use std::num::NonZeroU32;
 
 use reda_command::{Length, UserDirs};
+use reda_model::{CrossReferenceStyles, LocationStyle, SheetStyle};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub use file::{Loaded, load, parse, set, value_of};
+pub use file::{Loaded, load, parse, reset, set, value_of};
 
 /// Renamed keys: `(old, new)`. A file that still uses an old key is read as the new one,
 /// and the next write of that key replaces the old spelling.
@@ -31,14 +33,65 @@ pub const ALIASES: &[(&str, &str)] = &[];
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
     pub general: General,
+    /// Selection behavior shared by every canvas.
+    pub editing: SelectionEditing,
+    pub user: User,
     /// Editing in Schematic Sheets.
-    pub schematic: Editing,
+    pub schematic: SchematicEditing,
     /// Editing in the PCB Document.
     pub pcb: Editing,
     pub display: Display,
     pub libraries: Libraries,
     pub agents: Agents,
     pub keymap: Keymap,
+}
+
+/// The identity recorded when a user accepts a Violation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct User {
+    /// The author of new Waivers; defaults to the OS user name.
+    pub name: String,
+}
+
+impl Default for User {
+    fn default() -> Self {
+        Self {
+            name: reda_command::os_user_name(None),
+        }
+    }
+}
+
+/// Resolves the author at the instant a Waiver is created.
+pub(crate) fn waiver_author(dirs: Option<&UserDirs>) -> String {
+    let name = current(dirs).user.name;
+    if name.trim().is_empty() {
+        reda_command::os_user_name(dirs)
+    } else {
+        name
+    }
+}
+
+/// Selection preferences apply equally to Documents and Library editors.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct SelectionEditing {
+    /// A click on empty canvas clears the selection.
+    pub click_clears_selection: bool,
+    /// A rectangle dragged right to left selects objects it touches.
+    pub directional_rectangle: bool,
+    /// Click and rectangle skip locked objects. Explicit picks can still select them.
+    pub protect_locked_objects: bool,
+}
+
+impl Default for SelectionEditing {
+    fn default() -> Self {
+        Self {
+            click_clears_selection: true,
+            directional_rectangle: true,
+            protect_locked_objects: true,
+        }
+    }
 }
 
 /// General settings.
@@ -102,6 +155,124 @@ impl Default for Editing {
             electrical_snap: true,
             auto_pan: true,
             default_grid: None,
+        }
+    }
+}
+
+/// Editing settings for Schematic Sheets: those of every Document type, and how names
+/// are drawn.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct SchematicEditing {
+    /// The units new values are shown and typed in.
+    pub default_units: Units,
+    /// Keep placing copies of an object until the placement is cancelled.
+    pub repeat_placement: bool,
+    /// Snap the cursor to nearby electrical points, such as pins and wire ends.
+    pub electrical_snap: bool,
+    /// Pan the view when the cursor reaches the canvas edge during an operation.
+    pub auto_pan: bool,
+    /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
+    /// not one of the presets, is the schematic default.
+    pub default_grid: Option<Length>,
+    /// Single '\' Negation: a leading backslash draws an overbar over a whole Net Label,
+    /// Port or Power Port name, as in `\RESET`. Off, a leading backslash has no effect and
+    /// isn't drawn. Only how names are drawn changes, never the names.
+    pub single_negation: bool,
+    /// Port Cross References Sheet Style (`none`, `name` or `number`), used by Projects
+    /// that follow the Preferences for cross-references.
+    pub cross_reference_sheet_style: SheetStyle,
+    /// Port Cross References Location Style (`none`, `zone` or `xy`), used by Projects
+    /// that follow the Preferences for cross-references.
+    pub cross_reference_location_style: LocationStyle,
+    /// Optimize Wires: overlapping collinear Wires merge, and so do collinear Wires
+    /// meeting end to end with nothing else at that point; collinear vertices inside a
+    /// Wire are removed. Off, Wires stay as drawn.
+    pub optimize_wires: bool,
+    /// Components Cut Wires (needs Optimize Wires): a Component dropped with two or more
+    /// Pins on one straight stretch of a Wire cuts out the pieces between them, so the
+    /// part isn't shorted. Off, the Pins connect and the part may be shorted.
+    pub components_cut_wires: bool,
+    /// Break Wires At Autojunctions: a Wire splits at each Junction on its interior. Off,
+    /// it stays one Wire through the Junction.
+    pub break_wires_at_autojunctions: bool,
+    /// Convert Cross-Junctions: a Wire that would make a 4-way is offset into two
+    /// adjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.
+    pub convert_cross_junctions: bool,
+    /// How a multi-Unit Component's Unit is written after its Designator, from the
+    /// Unit's position in the Symbol: `alpha` (`U1A`) or `numeric` (`U1:1`). Only the
+    /// drawing changes, never the Designator.
+    pub unit_suffix: reda_model::UnitSuffix,
+    /// How far repeat placement steps a trailing number in the next name.
+    pub auto_increment: AutoIncrement,
+}
+
+/// The steps of Auto-increment. Only a trailing number steps, keeping its padding; a
+/// negative step counts down and stops at 0.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct AutoIncrement {
+    /// The step for Designators, Net Labels and Ports.
+    pub primary: i64,
+    /// The step for Pin names in the Symbol editor.
+    pub secondary: i64,
+}
+
+impl Default for AutoIncrement {
+    fn default() -> AutoIncrement {
+        AutoIncrement {
+            primary: 1,
+            secondary: 1,
+        }
+    }
+}
+
+impl Default for SchematicEditing {
+    fn default() -> SchematicEditing {
+        let Editing {
+            default_units,
+            repeat_placement,
+            electrical_snap,
+            auto_pan,
+            default_grid,
+        } = Editing::default();
+        SchematicEditing {
+            default_units,
+            repeat_placement,
+            electrical_snap,
+            auto_pan,
+            default_grid,
+            single_negation: false,
+            cross_reference_sheet_style: CrossReferenceStyles::DEFAULT.sheet,
+            cross_reference_location_style: CrossReferenceStyles::DEFAULT.location,
+            optimize_wires: true,
+            components_cut_wires: true,
+            break_wires_at_autojunctions: true,
+            convert_cross_junctions: true,
+            unit_suffix: reda_model::UnitSuffix::Alpha,
+            auto_increment: AutoIncrement::default(),
+        }
+    }
+}
+
+impl SchematicEditing {
+    /// The cross-reference styles a Project that follows the Preferences uses.
+    pub fn cross_reference_styles(&self) -> CrossReferenceStyles {
+        CrossReferenceStyles {
+            sheet: self.cross_reference_sheet_style,
+            location: self.cross_reference_location_style,
+        }
+    }
+
+    /// The `wiring` parameter the app passes to schematic edit Commands: these four
+    /// Preferences, with the sheet's snap grid `snap_grid`.
+    pub fn wiring(&self, snap_grid: reda_model::geom::Nm) -> reda_schematic::Wiring {
+        reda_schematic::Wiring {
+            optimize_wires: self.optimize_wires,
+            components_cut_wires: self.components_cut_wires,
+            break_wires_at_autojunctions: self.break_wires_at_autojunctions,
+            convert_cross_junctions: self.convert_cross_junctions,
+            snap_grid: Length(snap_grid),
         }
     }
 }
@@ -216,11 +387,37 @@ pub enum InactiveLayerMode {
 }
 
 /// The user's Libraries.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Libraries {
     /// Folders of user Libraries.
     pub paths: Vec<String>,
+    /// User Library folders, as listed in `paths`, whose Active checkbox is off: they are
+    /// not scanned or searched, so Components placed from them read Source Missing.
+    pub inactive: Vec<String>,
+    /// Whether the Starter Library is active: scanned and searched.
+    pub starter_active: bool,
+    /// How the Library check reports each of its checks: Error, Warning or Off. It never
+    /// blocks a save.
+    pub severities: reda_model::LibrarySeverities,
+}
+
+impl Default for Libraries {
+    fn default() -> Libraries {
+        Libraries {
+            paths: vec![],
+            inactive: vec![],
+            starter_active: true,
+            severities: reda_model::LibrarySeverities::default(),
+        }
+    }
+}
+
+impl Libraries {
+    /// The user Library folders whose Active checkbox is on, in the listed order.
+    pub fn active_paths(&self) -> impl Iterator<Item = &String> {
+        self.paths.iter().filter(|p| !self.inactive.contains(p))
+    }
 }
 
 /// The agent bridge.
@@ -284,6 +481,29 @@ pub fn schema() -> Value {
     serde_json::to_value(schemars::schema_for!(Preferences)).expect("schemas are JSON")
 }
 
+/// Every Preference key, dotted (`schematic.repeat_placement`).
+pub fn keys() -> Vec<String> {
+    fn leaves(value: &Value, prefix: String, out: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => {
+                for (name, child) in map {
+                    let key = if prefix.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{prefix}.{name}")
+                    };
+                    leaves(child, key, out);
+                }
+            }
+            _ => out.push(prefix),
+        }
+    }
+    let defaults = serde_json::to_value(Preferences::default()).expect("Preferences serialise");
+    let mut keys = Vec::new();
+    leaves(&defaults, String::new(), &mut keys);
+    keys
+}
+
 /// The schema's description of one dotted key, if it has one.
 pub fn describe(key: &str) -> Option<String> {
     let schema = schema();
@@ -302,6 +522,12 @@ pub fn describe(key: &str) -> Option<String> {
     }
     let own = node["description"].as_str().map(str::to_owned);
     own.or_else(|| resolve(&node)["description"].as_str().map(str::to_owned))
+}
+
+/// The Library check severities of the session's user, reading the file now; the
+/// defaults with no per-user folder.
+pub fn library_severities(session: &reda_command::Session) -> reda_model::LibrarySeverities {
+    current(session.user_dirs.as_ref()).libraries.severities
 }
 
 /// The Preferences for `dirs`, reading the file now. A front end with no per-user folder

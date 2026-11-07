@@ -11,10 +11,8 @@ mod zones;
 
 use std::collections::BTreeMap;
 
-use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{
-    Hole, Layer, LayerKind, PadKind, PadShape, PcbDocument, Project, Shape, Side, Uuid,
-};
+use reda_model::geom::{CornerRect, Millideg, Nm, Point};
+use reda_model::{Hole, Layer, LayerKind, PadKind, PcbDocument, Project, Shape, Side, Uuid};
 use reda_text::{Mesh, Segment};
 
 use crate::color::{BoardColor, ColorKey};
@@ -38,20 +36,28 @@ pub struct BoardGeometry {
 /// A Pad placed on the board.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoardPad {
+    pub child: Option<crate::Child>,
     /// What selecting the Pad selects: its Footprint instance, or the Free Pad.
     pub object: Uuid,
     pub number: String,
     pub kind: PadKind,
-    pub shape: PadShape,
+    /// The anchor, where the hole is.
     pub at: Point,
     pub rotation: Millideg,
-    pub width: Nm,
-    pub height: Nm,
-    pub corner_radius: Option<Nm>,
+    /// The copper outline in the Pad's frame on the board, about `at`.
+    pub outline: CornerRect,
+    /// The hole, its slot turned in the Pad's frame.
     pub hole: Option<Hole>,
     /// The copper side of an SMD Pad; `None` for a Pad with a hole.
     pub side: Option<Side>,
     pub net: Option<Uuid>,
+}
+
+impl BoardPad {
+    /// The centre of the copper on the board.
+    pub fn copper_center(&self) -> Point {
+        (self.outline.center + self.at).rotated_about(self.at, self.rotation)
+    }
 }
 
 /// A Footprint's drawn shape, on a board Layer. Text shapes come as [`BoardText`]s.
@@ -68,6 +74,9 @@ pub struct BoardGraphic {
 /// Text laid out on the board.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoardText {
+    pub align: crate::Align,
+    /// Optional independent field text identity beneath its owning Footprint.
+    pub child: Option<crate::Child>,
     /// The text object, or the Footprint instance for its Designator and text.
     pub object: Uuid,
     pub layer: Uuid,

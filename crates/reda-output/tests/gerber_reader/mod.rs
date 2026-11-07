@@ -33,6 +33,33 @@ pub enum Primitive {
         y: f64,
         rot: f64,
     },
+    /// A filled polygon through `points` (the closing point left out).
+    Outline {
+        points: Vec<(f64, f64)>,
+        rot: f64,
+    },
+}
+
+/// Whether `p` is inside the polygon `points`, by the even-odd rule, its edge included.
+fn in_polygon(points: &[(f64, f64)], p: (f64, f64)) -> bool {
+    let n = points.len();
+    let mut inside = false;
+    for i in 0..n {
+        let (a, b) = (points[i], points[(i + 1) % n]);
+        // On the edge counts as inside.
+        let cross = (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0);
+        let within = p.0 >= a.0.min(b.0) - 0.5
+            && p.0 <= a.0.max(b.0) + 0.5
+            && p.1 >= a.1.min(b.1) - 0.5
+            && p.1 <= a.1.max(b.1) + 0.5;
+        if within && cross.abs() <= 0.5 * (b.0 - a.0).hypot(b.1 - a.1) {
+            return true;
+        }
+        if (a.1 > p.1) != (b.1 > p.1) && p.0 < a.0 + (p.1 - a.1) * (b.0 - a.0) / (b.1 - a.1) {
+            inside = !inside;
+        }
+    }
+    inside
 }
 
 fn rotated(p: (f64, f64), deg: f64) -> (f64, f64) {
@@ -62,6 +89,9 @@ impl Aperture {
                 Primitive::CenterLine { w, h, x, y, rot } => {
                     let (lx, ly) = rotated((dx, dy), -rot);
                     in_rect(w, h, lx - x, ly - y)
+                }
+                Primitive::Outline { ref points, rot } => {
+                    in_polygon(points, rotated((dx, dy), -rot))
                 }
             }),
         }
@@ -271,6 +301,18 @@ impl Reader {
                                 y: value(&p[5]) * unit,
                                 rot: value(&p[6]),
                             },
+                            "4" => {
+                                let n: usize = p[2].parse().unwrap();
+                                let points = (0..n)
+                                    .map(|i| {
+                                        (value(&p[3 + 2 * i]) * unit, value(&p[4 + 2 * i]) * unit)
+                                    })
+                                    .collect();
+                                Primitive::Outline {
+                                    points,
+                                    rot: value(&p[5 + 2 * n]),
+                                }
+                            }
                             other => panic!("macro primitive {other}"),
                         })
                         .collect();

@@ -115,17 +115,36 @@ fn preset_columns(engine: &TestEngine) -> (Vec<Column>, Vec<Column>) {
         .next()
         .unwrap()
         .preset();
-    (preset.bom, preset.cpl)
+    (preset.bom.columns, preset.cpl.columns)
 }
 
 fn bom_with(engine: &TestEngine, columns: &[Column]) -> String {
     let project = engine.project().unwrap();
-    text(bom_file(project, project.pcb().unwrap(), columns))
+    text(bom_file(
+        project,
+        project.pcb().unwrap(),
+        columns,
+        &default_mount(),
+    ))
 }
 
 fn cpl_with(engine: &TestEngine, columns: &[Column]) -> String {
     let project = engine.project().unwrap();
-    text(cpl_file(project, project.pcb().unwrap(), columns))
+    text(cpl_file(
+        project,
+        &[reda_output::BoardInstance::single(
+            project.pcb().unwrap(),
+            &Default::default(),
+            reda_model::FileOrigin::Absolute,
+        )],
+        columns,
+        &default_mount(),
+    ))
+}
+
+/// The default mount spellings, `SMT` and `THT`.
+fn default_mount() -> reda_model::MountValues {
+    reda_model::BomSettings::default().mount_values
 }
 
 fn bom(engine: &TestEngine) -> String {
@@ -157,9 +176,18 @@ fn the_files_are_named_after_the_project() {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let (b, c) = preset_columns(&engine);
-    let bom = bom_file(project, pcb, &b);
+    let bom = bom_file(project, pcb, &b, &default_mount());
     assert_eq!((bom.name.as_str(), bom.function), ("Demo-BOM.csv", "bom"));
-    let cpl = cpl_file(project, pcb, &c);
+    let cpl = cpl_file(
+        project,
+        &[reda_output::BoardInstance::single(
+            pcb,
+            &Default::default(),
+            reda_model::FileOrigin::Absolute,
+        )],
+        &c,
+        &default_mount(),
+    );
     assert_eq!((cpl.name.as_str(), cpl.function), ("Demo-CPL.csv", "cpl"));
     assert_eq!(
         String::from_utf8(cpl.bytes).unwrap(),
@@ -220,12 +248,15 @@ fn a_different_footprint_or_field_makes_its_own_row() {
 }
 
 #[test]
-fn mechanical_and_not_fitted_components_are_left_out() {
+fn the_bom_and_cpl_follow_in_bom_in_cpl_and_not_fitted() {
     let dir = TempDir::new("assembly-left-out");
     let mut engine = engine(&dir);
-    place(&mut engine, RESISTOR, Some(RESC1608), 3);
+    place(&mut engine, RESISTOR, Some(RESC1608), 4);
     set(&mut engine, &["R2"], json!({"not_fitted": true}));
+    set(&mut engine, &["R3"], json!({"in_cpl": false}));
+    set(&mut engine, &["R4"], json!({"in_bom": false}));
     sync(&mut engine);
+    // The starter mounting hole is Mechanical with both flags off.
     engine.run_ok(
         "pcb.mechanical.place",
         json!({"part": MOUNTING_HOLE_M3, "at": {"x": "3mm", "y": "3mm"}}),
@@ -237,17 +268,39 @@ fn mechanical_and_not_fitted_components_are_left_out() {
             "\"R1, R3\",2,10k,RESC1608X55N,,",
         ]
     );
-    let cpl = cpl(&engine);
-    let designators: Vec<&str> = lines(&cpl)[1..]
-        .iter()
-        .map(|l| l.split(',').next().unwrap())
-        .collect();
-    assert_eq!(designators, ["R1", "R3"]);
+    assert_eq!(designators(&cpl(&engine)), ["R1", "R4"]);
 }
 
-/// A copy of the starter Library whose Resistor is a Mechanical Part, so a Mechanical
-/// Component can sit on the schematic.
-fn mechanical_resistor_library(dir: &TempDir) -> PathBuf {
+#[test]
+fn a_mechanical_part_on_the_board_is_listed_by_its_flags_not_its_type() {
+    let dir = TempDir::new("assembly-mechanical-flags");
+    let mut engine = engine(&dir);
+    let placed = engine.run_ok(
+        "pcb.mechanical.place",
+        json!({"part": MOUNTING_HOLE_M3, "at": {"x": "3mm", "y": "3mm"}}),
+    );
+    engine.run_ok(
+        "pcb.mechanical.set",
+        json!({"footprints": [placed["result"]["footprint"]], "in_bom": true, "in_cpl": true}),
+    );
+    assert_eq!(designators(&bom(&engine)), ["H1"]);
+    assert_eq!(designators(&cpl(&engine)), ["H1"]);
+}
+
+/// The Designators a BOM or CPL lists, one per row (the first of a BOM row's).
+fn designators(text: &str) -> Vec<&str> {
+    lines(text)[1..]
+        .iter()
+        .map(|l| l.trim_start_matches('"').split([',', '"']).next().unwrap())
+        .collect()
+}
+
+/// A Mechanical Part with a Symbol and no Footprint, such as a screw.
+const SCREW: &str = "5c4e3a10-0000-4000-8000-000000000001";
+
+/// A copy of the starter Library whose Resistor is a Mechanical Part (In BOM, not In
+/// CPL), with a footprintless Mechanical [`SCREW`] beside it.
+fn mechanical_library(dir: &TempDir) -> PathBuf {
     fn copy(from: &Path, to: &Path) {
         std::fs::create_dir_all(to).unwrap();
         for entry in std::fs::read_dir(from).unwrap() {
@@ -263,35 +316,50 @@ fn mechanical_resistor_library(dir: &TempDir) -> PathBuf {
     let library = dir.path().join("library");
     copy(&starter_library(), &library);
     let part = library.join("parts/Resistor.redapart");
-    let text = std::fs::read_to_string(&part).unwrap();
-    std::fs::write(
-        &part,
-        text.replace(
-            "\"component_type\":\"standard\"",
-            "\"component_type\":\"mechanical\"",
-        ),
+    let text = std::fs::read_to_string(&part).unwrap().replace(
+        "\"component_type\":\"standard\",\"in_bom\":true,\"in_cpl\":true",
+        "\"component_type\":\"mechanical\",\"in_bom\":true,\"in_cpl\":false",
+    );
+    std::fs::write(&part, &text).unwrap();
+    let footprints = text.find("\"footprints\"").unwrap();
+    let fields = text.find("  \"fields\"").unwrap();
+    let screw = format!(
+        "{}\"footprints\": [],\n{}",
+        &text[..footprints],
+        &text[fields..]
     )
-    .unwrap();
+    .replace(RESISTOR, SCREW)
+    .replace("\"name\":\"Resistor\"", "\"name\":\"Screw\"")
+    .replace("\"value\":\"10k\"", "\"value\":\"M3 screw\"");
+    std::fs::write(library.join("parts/Screw.redapart"), screw).unwrap();
     library
 }
 
 #[test]
-fn mechanical_components_from_the_schematic_are_left_out_too() {
+fn a_mechanical_component_on_a_sheet_reaches_the_bom_with_or_without_a_footprint() {
     let dir = TempDir::new("assembly-mechanical-sheet");
-    let library = mechanical_resistor_library(&dir);
+    let library = mechanical_library(&dir);
     let mut engine = engine_on(&dir, &library);
     place(&mut engine, RESISTOR, Some(RESC1608), 1);
     place(&mut engine, HEADER_1X02, None, 1);
+    // The screw has no Footprint, so it stays on the schematic.
+    place(&mut engine, SCREW, None, 2);
+    set(&mut engine, &["R3"], json!({"not_fitted": true}));
     sync(&mut engine);
-    let bom = bom(&engine);
-    assert_eq!(lines(&bom).len(), 2, "{bom}");
-    assert!(bom.contains("J1") && !bom.contains("R1"), "{bom}");
-    let cpl = cpl(&engine);
-    assert!(cpl.contains("J1") && !cpl.contains("R1"), "{cpl}");
+    assert_eq!(
+        lines(&bom(&engine)),
+        [
+            "Designator,Quantity,Value,Footprint,Manufacturer,MPN",
+            "J1,1,Header 1x2,HDRV0W64P254R1L508T254H850B,,",
+            "R1,1,10k,RESC1608X55N,,",
+            "R2,1,M3 screw,,,",
+        ]
+    );
+    assert_eq!(designators(&cpl(&engine)), ["J1"]);
 }
 
 #[test]
-fn cpl_positions_are_from_the_board_outline_lower_left_without_a_placement_origin() {
+fn cpl_positions_are_from_the_board_outline_lower_left_without_an_output_origin() {
     let dir = TempDir::new("assembly-origin");
     let mut engine = engine(&dir);
     place(&mut engine, RESISTOR, Some(RESC1608), 2);
@@ -308,7 +376,7 @@ fn cpl_positions_are_from_the_board_outline_lower_left_without_a_placement_origi
     put(&mut engine, "R1", 20, 15, 0);
     put(&mut engine, "R2", 7, 6, 0);
     assert_eq!(
-        lines(&cpl(&engine))[1..],
+        lines(&relative_cpl(&engine))[1..],
         [
             "R1,20.000000,10.000000,Top,0.000",
             "R2,7.000000,1.000000,Top,0.000",
@@ -316,16 +384,16 @@ fn cpl_positions_are_from_the_board_outline_lower_left_without_a_placement_origi
     );
 
     engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "20mm", "y": "10mm"}}),
     );
     assert_eq!(
-        lines(&cpl(&engine))[1..],
+        lines(&relative_cpl(&engine))[1..],
         [
             "R1,0.000000,5.000000,Top,0.000",
             "R2,-13.000000,-4.000000,Top,0.000",
         ],
-        "a Placement Origin wins"
+        "a Output Origin wins"
     );
 }
 
@@ -350,7 +418,7 @@ fn cpl_rotation_is_the_footprint_turn_and_layer_its_side() {
 }
 
 #[test]
-fn every_column_source_is_filled_from_the_preset_mapping() {
+fn common_column_sources_follow_the_preset_mapping() {
     let dir = TempDir::new("assembly-columns");
     let mut engine = engine(&dir);
     place(&mut engine, RESISTOR, Some(RESC1608), 2);
@@ -373,9 +441,9 @@ fn every_column_source_is_filled_from_the_preset_mapping() {
         ("Val", ColumnSource::Value),
         ("Pkg", ColumnSource::Footprint),
         ("Type", ColumnSource::Mount),
-        ("X", ColumnSource::MidX),
-        ("Y", ColumnSource::MidY),
-        ("Side", ColumnSource::Layer),
+        ("X", ColumnSource::CentreX),
+        ("Y", ColumnSource::CentreY),
+        ("Side", ColumnSource::Side),
         ("Rot", ColumnSource::Rotation),
         ("Maker", ColumnSource::Field("Manufacturer".into())),
         ("Part Number", ColumnSource::Field("MPN".into())),
@@ -385,7 +453,7 @@ fn every_column_source_is_filled_from_the_preset_mapping() {
         lines(&bom_with(&engine, &all)),
         [
             "#,Ref,N,Val,Pkg,Type,X,Y,Side,Rot,Maker,Part Number,LCSC Part #",
-            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDR254P1X2,THT,,,,,,,",
+            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDRV0W64P254R1L508T254H850B,THT,,,,,,,",
             "2,\"R1, R2\",2,10k,RESC1608X55N,SMT,,,,,Yageo,RC0603FR-0710KL,C25804",
         ],
         "position columns are blank in a BOM"
@@ -393,7 +461,7 @@ fn every_column_source_is_filled_from_the_preset_mapping() {
     assert_eq!(
         lines(&cpl_with(&engine, &all))[1..],
         [
-            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDR254P1X2,THT,20.000000,10.000000,Top,0.000,,,",
+            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDRV0W64P254R1L508T254H850B,THT,20.000000,10.000000,Top,0.000,,,",
             "2,R1,1,10k,RESC1608X55N,SMT,5.000000,5.000000,Top,0.000,Yageo,RC0603FR-0710KL,C25804",
             "3,R2,1,10k,RESC1608X55N,SMT,10.000000,5.000000,Top,0.000,Yageo,RC0603FR-0710KL,C25804",
         ]
@@ -441,9 +509,34 @@ fn bom_and_cpl_match_their_goldens_for_every_shipped_preset() {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     for preset in reda_output::shipped() {
-        let bom = bom_file(project, pcb, &preset.bom);
+        let bom = bom_file(project, pcb, &preset.bom.columns, &preset.bom.mount_values);
         assert_golden(golden(&format!("{}-BOM.csv", preset.name)), &bom.bytes);
-        let cpl = cpl_file(project, pcb, &preset.cpl);
+        let cpl = cpl_file(
+            project,
+            &[reda_output::BoardInstance::single(
+                pcb,
+                &Default::default(),
+                preset.gerber.file_origin,
+            )],
+            &preset.cpl.columns,
+            &preset.bom.mount_values,
+        );
         assert_golden(golden(&format!("{}-CPL.csv", preset.name)), &cpl.bytes);
     }
+}
+
+fn relative_cpl(engine: &TestEngine) -> String {
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let preset = project.fab_presets().next().unwrap().preset();
+    text(cpl_file(
+        project,
+        &[reda_output::BoardInstance::single(
+            pcb,
+            &Default::default(),
+            reda_model::FileOrigin::Relative,
+        )],
+        &preset.cpl.columns,
+        &preset.bom.mount_values,
+    ))
 }

@@ -2,21 +2,30 @@
 //! work.
 
 pub mod document;
+pub mod element_copy;
 pub mod elements;
 pub mod export_pdf;
+pub mod extract;
 pub mod fab_preset;
 pub mod history;
 pub mod import_part;
 pub mod library;
 pub mod library_check;
+pub mod local_edits;
 pub mod output_run;
+pub mod pcb_update;
+pub mod port_partners;
 pub mod preferences;
 pub mod project;
 pub mod properties;
 pub mod query;
 pub mod reannotate;
 pub mod recovery;
+pub mod rules_file;
+pub mod similar;
+pub mod symbol_wizard;
 pub mod sync;
+pub mod where_used;
 pub mod write_through;
 pub mod zone_fill;
 
@@ -33,13 +42,22 @@ pub fn register_all(registry: &mut Registry) {
     history::register_all(registry);
     import_part::register_all(registry);
     library::register_all(registry);
+    where_used::register_all(registry);
+    element_copy::register_all(registry);
+    extract::register_all(registry);
     library_check::register_all(registry);
+    local_edits::register_all(registry);
     output_run::register_all(registry);
+    pcb_update::register_all(registry);
+    port_partners::register_all(registry);
     preferences::register_all(registry);
     project::register_all(registry);
     properties::register_all(registry);
     query::register_all(registry);
     reannotate::register_all(registry);
+    rules_file::register_all(registry);
+    similar::register_all(registry);
+    symbol_wizard::register_all(registry);
     recovery::register_all(registry);
     sync::register_all(registry);
     zone_fill::register_all(registry);

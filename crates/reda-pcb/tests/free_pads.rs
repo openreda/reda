@@ -1,11 +1,11 @@
-//! Free Pads (plated or non-plated, optionally on a Net) and the Placement Origin.
+//! Free Pads (plated or non-plated, optionally on a Net) and the Output Origin.
 
 mod common;
 
 use common::{PCB, SHEET, created, engine, pcb, synced};
 use reda_command::ErrorCode;
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{Hole, PadKind, PadShape, Side, Uuid};
+use reda_model::{ConnectionStyle, Corner, Hole, LayerKind, PadKind, PadShape, Ratio, Side, Uuid};
 use reda_testkit::{TempDir, TestEngine};
 use serde_json::json;
 
@@ -46,10 +46,7 @@ fn a_plated_free_pad_goes_on_a_net() {
     assert_eq!((pad.width, pad.height), (Nm::from_mm(6), Nm::from_mm(6)));
     assert_eq!(
         pad.hole,
-        Some(Hole {
-            width: Nm::from_um(3200),
-            height: Nm::from_um(3200)
-        })
+        Some(Hole::new(Nm::from_um(3200), Nm::from_um(3200)))
     );
     assert_eq!(pad.side, None);
     assert_eq!(pad.net, Some(sig));
@@ -74,7 +71,8 @@ fn smd_and_non_plated_free_pads() {
                "height": "1mm", "rotation": "45deg"}),
     );
     let smd_top = pcb(&engine).free_pad(created(&smd_top)).unwrap();
-    assert_eq!(smd_top.side, Some(Side::Top), "SMD Pads default to the top");
+    assert_eq!(smd_top.side, None, "SMD Pads default to the top, left out");
+    assert_eq!(smd_top.form().copper_side(), Some(Side::Top));
     assert_eq!(smd_top.rotation, Millideg::from_deg(45));
 
     let hole = engine.run_ok(
@@ -198,38 +196,94 @@ fn free_pads_move_turn_flip_and_delete() {
 }
 
 #[test]
-fn the_placement_origin_is_optional_and_single() {
+fn a_free_pad_has_the_whole_pad_model_and_flipping_mirrors_it() {
+    let dir = TempDir::new("free-pad-model");
+    let mut engine = engine(&dir);
+    let pad = created(&engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "plated_through_hole", "shape": "chamfered_rect",
+               "at": {"x": "10mm", "y": "0mm"}, "width": "3mm", "height": "2mm",
+               "chamfer_ratio": "50%", "corner_ratio": 20_000, "corners": ["top_right"],
+               "offset": {"x": "0.5mm", "y": 0},
+               "hole": {"width": "1.2mm", "height": "0.6mm", "rotation": "30deg",
+                        "tolerance": {"plus": "0.05mm", "minus": "0.05mm"}},
+               "zone_connection": {"style": "solid"}}),
+    ));
+    let stored = pcb(&engine).free_pad(pad).unwrap().clone();
+    assert_eq!(stored.chamfer_ratio, Some(Ratio::percent(50)));
+    assert_eq!(stored.corner_ratio, Some(Ratio::percent(20)));
+    assert_eq!(
+        stored.corners,
+        Some([Corner::TopRight].into_iter().collect())
+    );
+    assert_eq!(stored.offset, Some(Point::new(Nm::from_um(500), Nm(0))));
+    let hole = stored.hole.unwrap();
+    assert_eq!(hole.rotation, Millideg::from_deg(30));
+    assert_eq!(hole.tolerance.unwrap().plus, Nm::from_um(50));
+    assert_eq!(
+        stored.zone_connection.unwrap().style,
+        Some(ConnectionStyle::Solid)
+    );
+
+    engine.run_ok("pcb.flip", json!({"objects": [pad]}));
+    let flipped = pcb(&engine).free_pad(pad).unwrap();
+    assert_eq!(
+        flipped.corners,
+        Some([Corner::TopLeft].into_iter().collect())
+    );
+    assert_eq!(flipped.offset, Some(Point::new(Nm::from_um(-500), Nm(0))));
+    assert_eq!(flipped.hole.unwrap().rotation, Millideg::from_deg(150));
+
+    let smd = created(&engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "at": {"x": 0, "y": 0}, "width": "1mm"}),
+    ));
+    engine.run_ok("pcb.flip", json!({"objects": [smd]}));
+    assert_eq!(pcb(&engine).free_pad(smd).unwrap().side, Some(Side::Bottom));
+    engine.run_ok("pcb.flip", json!({"objects": [smd]}));
+    assert_eq!(pcb(&engine).free_pad(smd).unwrap().side, None);
+
+    let err = engine.run_err(
+        "pcb.free_pad.add",
+        json!({"kind": "smd", "shape": "chamfered_rect", "at": {"x": 0, "y": 0},
+               "width": "1mm"}),
+    );
+    assert_eq!(err.details.unwrap()["pointer"], "/chamfer_ratio");
+}
+
+#[test]
+fn the_output_origin_is_optional_and_single() {
     let dir = TempDir::new("placement-origin");
     let mut engine = engine(&dir);
-    assert!(pcb(&engine).placement_origin().is_none());
+    assert!(pcb(&engine).output_origin().is_none());
 
     let origin = created(&engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "2mm", "y": "3mm"}}),
     ));
-    assert_eq!(pcb(&engine).placement_origin().unwrap().at, mm(2, 3));
+    assert_eq!(pcb(&engine).output_origin().unwrap().at, mm(2, 3));
 
     let again = created(&engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "5mm", "y": "5mm"}}),
     ));
     assert_eq!(again, origin, "setting it again moves the one origin");
-    assert_eq!(pcb(&engine).placement_origin().unwrap().at, mm(5, 5));
+    assert_eq!(pcb(&engine).output_origin().unwrap().at, mm(5, 5));
 
     engine.run_ok(
         "pcb.move",
         json!({"objects": [origin], "by": {"x": "1mm", "y": 0}}),
     );
-    assert_eq!(pcb(&engine).placement_origin().unwrap().at, mm(6, 5));
+    assert_eq!(pcb(&engine).output_origin().unwrap().at, mm(6, 5));
 
-    engine.run_ok("pcb.placement_origin.delete", json!({}));
-    assert!(pcb(&engine).placement_origin().is_none());
-    let err = engine.run_err("pcb.placement_origin.delete", json!({}));
+    engine.run_ok("pcb.output_origin.delete", json!({}));
+    assert!(pcb(&engine).output_origin().is_none());
+    let err = engine.run_err("pcb.output_origin.delete", json!({}));
     assert_eq!(err.code, ErrorCode::Rejected);
 }
 
 #[test]
-fn free_pads_and_the_placement_origin_survive_save_and_open() {
+fn free_pads_and_the_output_origin_survive_save_and_open() {
     let dir = TempDir::new("free-pad-save");
     let mut engine = engine(&dir);
     let sig = net_sig(&mut engine);
@@ -237,22 +291,114 @@ fn free_pads_and_the_placement_origin_survive_save_and_open() {
         "pcb.free_pad.add",
         json!({"kind": "plated_through_hole", "shape": "rounded_rect",
                "at": {"x": "3mm", "y": "4mm"}, "width": "3mm", "height": "2mm",
-               "corner_radius": "0.5mm", "hole": {"width": "1mm", "height": "1.5mm"},
+               "corner_ratio": "50%", "hole": {"width": "1mm", "height": "1.5mm"},
                "rotation": "90deg", "net": sig}),
     ));
     engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "2mm", "y": "3mm"}}),
     );
     let before = pcb(&engine).clone();
     engine.run_ok("project.save", json!({}));
     let text = std::fs::read_to_string(dir.path().join("Demo/Demo.redapcb")).unwrap();
     assert!(text.contains("\"free_pads\""), "{text}");
-    assert!(text.contains("\"placement_origin\""), "{text}");
+    assert!(text.contains("\"output_origin\""), "{text}");
 
     let mut reopened = reda_testkit::test_engine();
     reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
     let after = reopened.project().unwrap().pcb().unwrap();
     assert_eq!(after.free_pad(pad), before.free_pad(pad));
-    assert_eq!(after.placement_origin(), before.placement_origin());
+    assert_eq!(after.output_origin(), before.output_origin());
+}
+
+#[test]
+fn mask_and_paste_overrides_roundtrip_and_validate_the_pad_side() {
+    let dir = TempDir::new("opening-overrides");
+    let mut engine = engine(&dir);
+    let out = engine.run_ok(
+        "pcb.free_pad.add",
+        json!({
+            "kind": "smd", "shape": "rect", "at": {"x": 0,"y": 0}, "width": "2mm", "height": "1mm",
+            "side": "bottom", "mask": {"bottom": "tent"}, "paste": {"percent": -10}
+        }),
+    );
+    let pad = created(&out);
+    let via = created(&engine.run_ok(
+        "pcb.via.add",
+        json!({"at": {"x": "5mm", "y": 0},
+        "mask": {"top": {"expansion": "0.1mm"}, "bottom": "tent", "from_hole_edge": true}}),
+    ));
+    for mask in [json!({"top": "tent"}), json!({"from_hole_edge": false})] {
+        let err = engine.run_err(
+            "pcb.free_pad.add",
+            json!({"kind": "smd", "side": "bottom",
+            "at": {"x": 0,"y": 0}, "width": "1mm", "mask": mask}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams);
+    }
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = reda_testkit::probe_engine();
+    reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    let pad = serde_json::to_value(pcb(&reopened).free_pad(pad).unwrap()).unwrap();
+    assert_eq!(pad["mask"], json!({"bottom": "tent"}));
+    assert_eq!(pad["paste"], json!({"percent": -10}));
+    let via = serde_json::to_value(pcb(&reopened).via(via).unwrap()).unwrap();
+    assert_eq!(via["mask"]["top"]["expansion"], 100_000);
+    assert_eq!(via["mask"]["from_hole_edge"], true);
+}
+
+#[test]
+fn drc_reports_collapsed_openings_but_ignores_intentional_tenting_and_none() {
+    let dir = TempDir::new("collapsed-openings");
+    let mut engine = engine(&dir);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","shape":"rect","at":{"x":"5mm","y":"5mm"},
+        "width":"1mm","mask":{"top":{"expansion":"-0.5mm"}},"paste":{"expansion":"-0.6mm"}}),
+    );
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","shape":"rect","at":{"x":"10mm","y":"5mm"},
+        "width":"1mm","mask":{"top":"tent"},"paste":"none"}),
+    );
+    let run = engine.run_ok("drc.run", json!({}));
+    let found: Vec<_> = run["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "opening_collapsed")
+        .collect();
+    assert_eq!(found.len(), 2, "{run}");
+    assert!(found.iter().all(|v| v["severity"] == "warning"));
+    for (kind, layer) in [("paste", LayerKind::Paste), ("mask", LayerKind::SolderMask)] {
+        let violation = found.iter().find(|v| v["args"]["kind"] == kind).unwrap();
+        assert_eq!(violation["args"]["side"], "top");
+        assert_eq!(violation["document"], PCB);
+        assert_eq!(violation["at"], json!({"x": 5_000_000, "y": 5_000_000}));
+        let layer = pcb(&engine).layers().find(layer, Some(Side::Top)).unwrap();
+        assert_eq!(violation["layers"], json!([layer.uuid]));
+    }
+}
+
+#[test]
+fn silkscreen_drc_uses_resolved_tenting_and_shrunken_openings() {
+    let dir = TempDir::new("silk-openings");
+    let mut engine = engine(&dir);
+    for (x, mask) in [
+        (5, json!({"top":"tent"})),
+        (10, json!({"top":{"expansion":"-0.4mm"}})),
+    ] {
+        engine.run_ok("pcb.free_pad.add",json!({"kind":"smd","shape":"rect","at":{"x":format!("{x}mm"),"y":"5mm"},"width":"1mm","mask":mask}));
+        engine.run_ok("pcb.graphic.add_line",json!({"layer":"silkscreen_top","width":"0.05mm",
+            "from":{"x":format!("{}mm",f64::from(x)+0.3),"y":"4mm"},"to":{"x":format!("{}mm",f64::from(x)+0.3),"y":"6mm"}}));
+    }
+    let run = engine.run_ok("drc.run", json!({}));
+    assert!(
+        !run["violations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["check"] == "silkscreen_over_pads"),
+        "{run}"
+    );
 }

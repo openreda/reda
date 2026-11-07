@@ -116,6 +116,49 @@ pub(super) fn set_with(
     Ok(new)
 }
 
+/// Puts `keys` back to their defaults in one write, keeping every other line, and returns
+/// the keys whose value changed, sorted. Every key must be a Preference (checked by the
+/// caller); an old spelling is removed too.
+pub fn reset(dirs: &UserDirs, keys: &[String]) -> Result<Vec<String>, CommandError> {
+    let path = dirs.preferences_file();
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => {
+            return Err(CommandError::internal(format!(
+                "reading {}: {e}",
+                path.display()
+            )));
+        }
+    };
+    let mut doc = text.parse::<DocumentMut>().map_err(|e| {
+        CommandError::rejected(format!(
+            "{} does not parse, so REDA will not overwrite it; fix it first: {e}",
+            path.display()
+        ))
+    })?;
+    let (current, _) = read_doc(&doc, ALIASES);
+    let defaults = defaults();
+    let mut changed: Vec<String> = Vec::new();
+    for key in keys {
+        let key = canonical(key, ALIASES);
+        if leaf(&current, key) != leaf(&defaults, key) && !changed.iter().any(|k| k == key) {
+            changed.push(key.to_owned());
+        }
+        for (old, _) in ALIASES.iter().filter(|(_, new)| *new == key) {
+            remove_leaf(doc.as_table_mut(), &segments(old));
+        }
+        remove_leaf(doc.as_table_mut(), &segments(key));
+    }
+    let after = doc.to_string();
+    if after != text {
+        crate::fs::write_atomic(&path, after.as_bytes())
+            .map_err(|e| CommandError::internal(format!("writing {}: {e}", path.display())))?;
+    }
+    changed.sort();
+    Ok(changed)
+}
+
 /// The value of a dotted key (or an old spelling of one) in `prefs`, with the current
 /// spelling of the key; `None` when the key is not a Preference.
 pub fn value_of<'k>(prefs: &Preferences, key: &'k str) -> Option<(&'k str, Value)> {
@@ -312,6 +355,26 @@ mod tests {
     fn an_old_key_is_read_as_its_new_name() {
         let loaded = parse_with("[schematic]\nrepeat = false\n", RENAMED);
         assert!(!loaded.values.schematic.repeat_placement);
+        assert_eq!(loaded.warnings, Vec::<String>::new());
+    }
+
+    #[test]
+    fn the_four_wiring_preferences_are_schematic_preferences_that_start_on() {
+        let schematic = parse_with("", &[]).values.schematic;
+        assert!(schematic.optimize_wires);
+        assert!(schematic.components_cut_wires);
+        assert!(schematic.break_wires_at_autojunctions);
+        assert!(schematic.convert_cross_junctions);
+        let loaded = parse_with("[schematic]\noptimize_wires = false\n", &[]);
+        assert!(!loaded.values.schematic.optimize_wires);
+        assert_eq!(loaded.warnings, Vec::<String>::new());
+    }
+
+    #[test]
+    fn single_negation_is_a_schematic_preference_that_starts_off() {
+        assert!(!parse_with("", &[]).values.schematic.single_negation);
+        let loaded = parse_with("[schematic]\nsingle_negation = true\n", &[]);
+        assert!(loaded.values.schematic.single_negation);
         assert_eq!(loaded.warnings, Vec::<String>::new());
     }
 

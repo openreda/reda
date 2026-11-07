@@ -265,7 +265,21 @@ pub struct PartSpec<'a> {
     pub fields: Value,
     /// `library.part.pin_map.set` params, without `part`; `None` keeps the implicit map.
     pub pin_map: Option<Value>,
-    pub mechanical: bool,
+    /// Its Component Type, In BOM and In CPL.
+    pub kind: Kind,
+}
+
+/// The Component Type of a Part, with the In BOM and In CPL it gets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// Standard, in the BOM and CPL.
+    Standard,
+    /// Mechanical, out of the BOM and CPL: a mounting hole or a fiducial.
+    Mechanical,
+    /// A Net Tie, out of the BOM and CPL.
+    NetTie,
+    /// Standard but out of the BOM and CPL, like a test point: copper only.
+    Unassembled,
 }
 
 /// The engine with a new, empty Library open for writing.
@@ -437,36 +451,6 @@ impl Script {
         out["footprint"].as_str().unwrap().to_owned()
     }
 
-    /// Adds a Silkscreen bar just outside Pad 1's outer edge, marking a cathode or the
-    /// positive end of a generated two-terminal Footprint, and gives it `description`
-    /// (the chip generator only knows resistors, capacitors and inductors).
-    pub fn mark_pad_one(&mut self, footprint: &str, description: &str) {
-        self.ids.set(&format!("mark/{footprint}"));
-        self.run("library.element.open", json!({ "element": footprint }));
-        self.edit(
-            "library.footprint.edit",
-            json!({"footprint": footprint, "description": description}),
-        );
-        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
-        let pad = object["pads"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|p| p["number"] == "1")
-            .unwrap()
-            .clone();
-        let int = |v: &Value| v.as_i64().unwrap();
-        let x = int(&pad["at"]["x"]) - int(&pad["width"]) / 2 - mm(0.26);
-        let half = int(&pad["height"]) / 2;
-        self.fp_draw(
-            footprint,
-            "silkscreen_top",
-            line(x, -half, x, half),
-            mm(0.12),
-        );
-        self.save(footprint);
-    }
-
     pub fn footprint(&mut self, name: &str, description: &str) -> String {
         let uuid = self.new_element("footprint", name);
         self.edit(
@@ -491,22 +475,81 @@ impl Script {
 
     /// Puts the Designator above the courtyard, whose top edge is at `top`.
     pub fn finish_footprint(&mut self, footprint: &str, top: i64) -> String {
+        let top = top - self.centre_on_courtyard(footprint);
+        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let designator = object["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == "Designator")
+            .unwrap()["uuid"]
+            .clone();
         self.edit(
-            "library.footprint.text.set",
-            json!({"footprint": footprint, "text": "designator", "at": pt(0, top + mm(0.8))}),
+            "library.footprint.text.edit",
+            json!({"footprint": footprint, "text": designator, "at": pt(0, top + mm(0.8))}),
         );
         self.save(footprint);
         footprint.to_owned()
+    }
+
+    /// Moves the origin of a Footprint whose courtyard box's centre is more than the
+    /// Library check's 0.1 mm off it (`origin_off_centroid`) to that centre, and returns
+    /// how far it moved in y. Rectangle, circle and polygon courtyards are read.
+    fn centre_on_courtyard(&mut self, footprint: &str) -> i64 {
+        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let mut xs = vec![];
+        let mut ys = vec![];
+        for g in object["graphics"].as_array().unwrap() {
+            if !g["layer"].as_str().unwrap().starts_with("courtyard") {
+                continue;
+            }
+            let shape = &g["shape"];
+            let at = |p: &Value| (p["x"].as_i64().unwrap(), p["y"].as_i64().unwrap());
+            let points: Vec<(i64, i64)> = match shape["kind"].as_str().unwrap() {
+                "rect" => vec![at(&shape["start"]), at(&shape["end"])],
+                "circle" => {
+                    let (x, y) = at(&shape["center"]);
+                    let r = shape["radius"].as_i64().unwrap();
+                    vec![(x - r, y - r), (x + r, y + r)]
+                }
+                "polygon" => shape["points"].as_array().unwrap().iter().map(at).collect(),
+                other => panic!("a {other} courtyard: {g}"),
+            };
+            for (x, y) in points {
+                xs.push(x);
+                ys.push(y);
+            }
+        }
+        let centre = |v: &[i64]| match (v.iter().min(), v.iter().max()) {
+            (Some(a), Some(b)) => (a + b) / 2,
+            _ => 0,
+        };
+        let (cx, cy) = (centre(&xs), centre(&ys));
+        if cx.abs() <= mm(0.1) && cy.abs() <= mm(0.1) {
+            return 0;
+        }
+        self.edit(
+            "library.footprint.origin.set",
+            json!({"footprint": footprint, "at": pt(cx, cy)}),
+        );
+        cy
     }
 
     // Parts.
 
     pub fn part(&mut self, spec: PartSpec<'_>) -> String {
         let uuid = self.new_element("part", spec.name);
-        if spec.mechanical {
+        let component_type = match spec.kind {
+            Kind::Standard => None,
+            Kind::Mechanical => Some("mechanical"),
+            Kind::NetTie => Some("net_tie"),
+            Kind::Unassembled => Some("standard"),
+        };
+        if let Some(component_type) = component_type {
             self.edit(
                 "library.part.edit",
-                json!({"part": uuid, "component_type": "mechanical"}),
+                json!({"part": uuid, "component_type": component_type,
+                       "in_bom": false, "in_cpl": false}),
             );
         }
         if let Some(symbol) = spec.symbol {

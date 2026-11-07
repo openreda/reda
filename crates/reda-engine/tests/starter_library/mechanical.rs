@@ -1,10 +1,10 @@
-//! Mechanical Parts, placed straight on the PCB with no Symbol: mounting holes and
-//! fiducials.
+//! Copper-only Parts: Mechanical mounting holes and fiducials, placed straight on the PCB
+//! with no Symbol, the Net Tie and the test point.
 
 use serde_json::json;
 
 use crate::passives::fields;
-use crate::script::{PartSpec, Script, circle, mm};
+use crate::script::{Kind, PartSpec, Script, bottom, circle, left, mil, mm, rect, right};
 
 pub fn build(s: &mut Script) {
     // Screw size, clearance hole, screw head diameter: the hole is ISO 273's fine
@@ -15,6 +15,8 @@ pub fn build(s: &mut Script) {
     }
     mounting_hole(s, "M3", 3.2, 5.5, true);
     fiducial(s);
+    net_tie(s);
+    test_point(s);
 }
 
 /// A clearance hole for `screw`: non-plated, or `plated` with a copper ring the size of
@@ -55,7 +57,7 @@ fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool
         footprints: vec![fp],
         fields: fields(screw, &description, "H mounting hole screw mechanical"),
         pin_map: None,
-        mechanical: true,
+        kind: Kind::Mechanical,
     });
 }
 
@@ -72,7 +74,8 @@ fn fiducial(s: &mut Script) {
             "at": {"x": 0, "y": 0},
             "width": mm(1.0),
             "height": mm(1.0),
-            "mask_margin": mm(0.5),
+            "mask": {"top": {"expansion": mm(0.5)}},
+            "paste": "none",
         }),
     );
     s.fp_draw(&fp, "courtyard_top", circle(0, 0, mm(1.25)), mm(0.05));
@@ -83,6 +86,98 @@ fn fiducial(s: &mut Script) {
         footprints: vec![fp],
         fields: fields("Fiducial", description, "FID fiducial mechanical"),
         pin_map: None,
-        mechanical: true,
+        kind: Kind::Mechanical,
+    });
+}
+
+/// A Net Tie between two Nets: two square SMD Pads `size` mm wide that touch edge to edge,
+/// so they form one copper group; the copper is the neck, as wide as a Pad. Tented, with
+/// no paste: nothing is soldered to it. Sizes follow the common 0.5 mm (signal) and
+/// 2.0 mm (power) ties.
+fn net_tie(s: &mut Script) {
+    let mut sym = s.symbol("NetTie_2", "NT", "Net Tie between two Nets");
+    sym.names = false;
+    sym.numbers = false;
+    s.pin(&sym, left("~", "1", "passive", -150, 0));
+    s.pin(&sym, right("~", "2", "passive", 150, 0));
+    s.draw(&sym, rect(mil(-50), mil(-25), mil(50), mil(25)), true);
+    let sym = s.finish_symbol(sym);
+    let footprints = [0.5, 2.0]
+        .into_iter()
+        .map(|size| tie_footprint(s, size))
+        .collect();
+    s.part(PartSpec {
+        name: "NetTie",
+        symbol: Some(&sym),
+        footprints,
+        fields: fields(
+            "NetTie",
+            "Net Tie: a deliberate short between two Nets",
+            "NT net tie short star ground",
+        ),
+        pin_map: None,
+        kind: Kind::NetTie,
+    });
+}
+
+fn tie_footprint(s: &mut Script, size: f64) -> String {
+    let name = format!("NetTie_2_SMD_Pad{size:.1}mm");
+    let description = format!("Net Tie, two touching {size} mm SMD Pads, tented, no paste");
+    let fp = s.footprint(&name, &description);
+    for (number, x) in [("1", -size / 2.0), ("2", size / 2.0)] {
+        s.pad(
+            &fp,
+            json!({
+                "number": number,
+                "kind": "smd",
+                "shape": "rect",
+                "at": {"x": mm(x), "y": 0},
+                "width": mm(size),
+                "height": mm(size),
+                "mask": {"top": "tent"},
+                "paste": "none",
+            }),
+        );
+    }
+    let (w, h) = (mm(size), mm(size / 2.0));
+    s.fp_draw(&fp, "assembly_top", rect(-w, -h, w, h), mm(0.1));
+    let (cw, ch) = (w + mm(0.25), h + mm(0.25));
+    s.fp_draw(&fp, "courtyard_top", rect(-cw, -ch, cw, ch), mm(0.05));
+    s.finish_footprint(&fp, ch)
+}
+
+/// A test point: one round SMD Pad to probe, with no paste so it stays bare copper. A
+/// Standard Part, but out of the BOM and CPL because nothing is placed on it.
+fn test_point(s: &mut Script) {
+    let mut sym = s.symbol("TestPoint", "TP", "Test point");
+    sym.names = false;
+    sym.numbers = false;
+    s.pin(&sym, bottom("~", "1", "passive", 0, -100));
+    s.draw(&sym, circle(0, mil(50), mil(50)), false);
+    let sym = s.finish_symbol(sym);
+    let description = "Test point, 1.5 mm round SMD Pad, no paste";
+    let fp = s.footprint("TestPoint_Pad_D1.5mm", description);
+    s.pad(
+        &fp,
+        json!({
+            "number": "1",
+            "kind": "smd",
+            "shape": "circle",
+            "at": {"x": 0, "y": 0},
+            "width": mm(1.5),
+            "height": mm(1.5),
+            "paste": "none",
+        }),
+    );
+    s.fp_draw(&fp, "assembly_top", circle(0, 0, mm(0.75)), mm(0.1));
+    s.fp_draw(&fp, "courtyard_top", circle(0, 0, mm(1.0)), mm(0.05));
+    let fp = s.finish_footprint(&fp, mm(1.0));
+    s.part(PartSpec {
+        name: "TestPoint",
+        symbol: Some(&sym),
+        footprints: vec![fp],
+        fields: fields("TestPoint", description, "TP test point probe"),
+        pin_map: None,
+        kind: Kind::Unassembled,
     });
 }

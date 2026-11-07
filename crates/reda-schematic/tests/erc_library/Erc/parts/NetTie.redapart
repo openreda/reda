@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "part": {"uuid":"a0000000-0000-4000-8000-000000000170","name":"NetTie","component_type":"net_tie","in_bom":false,"in_cpl":false,"symbol":"a0000000-0000-4000-8000-000000000010"},
+  "footprints": [],
+  "fields": {"value":"NetTie"},
+  "pin_map": {}
+}

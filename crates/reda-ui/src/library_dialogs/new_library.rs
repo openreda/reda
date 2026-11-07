@@ -5,7 +5,7 @@
 
 use std::any::Any;
 
-use egui::{Grid, Id, Modal, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Grid, Id, Role, TextEdit, Ui, WidgetInfo};
 use reda_engine::command::CommandError;
 use serde_json::{Value, json};
 
@@ -110,79 +110,89 @@ impl ParamsDialog for NewLibraryDialog {
             self.folder = path.display().to_string().replace('\\', "/");
         }
         let mut outcome = Outcome::Open;
-        let modal = Modal::new(Id::NULL.with("new-library")).show(ctx, |ui| {
-            ui.set_width(480.0);
-            ui.heading(tr!("new-library-title"));
-            ui.add_space(6.0);
-            Grid::new("new-library-fields")
-                .num_columns(2)
-                .spacing([8.0, 6.0])
-                .show(ui, |ui| {
-                    Self::text_row(ui, tr!("new-library-name"), String::new(), &mut self.name);
-                    ui.label(tr!("new-library-for"));
-                    ui.horizontal(|ui| {
-                        ui.add_enabled_ui(self.has_project, |ui| {
-                            ui.radio_value(
-                                &mut self.owner,
-                                For::Project,
-                                tr!("new-library-for-project"),
+        let modal =
+            crate::modal::Dialog::new(Id::NULL.with("new-library"), tr!("new-library-title"))
+                .width(480.0)
+                .show(ctx, |ui| {
+                    ui.add_space(6.0);
+                    Grid::new("new-library-fields")
+                        .num_columns(2)
+                        .spacing([8.0, 6.0])
+                        .show(ui, |ui| {
+                            Self::text_row(
+                                ui,
+                                tr!("new-library-name"),
+                                String::new(),
+                                &mut self.name,
+                            );
+                            ui.label(tr!("new-library-for"));
+                            ui.horizontal(|ui| {
+                                ui.add_enabled_ui(self.has_project, |ui| {
+                                    ui.radio_value(
+                                        &mut self.owner,
+                                        For::Project,
+                                        tr!("new-library-for-project"),
+                                    );
+                                });
+                                ui.radio_value(
+                                    &mut self.owner,
+                                    For::User,
+                                    tr!("new-library-for-user"),
+                                );
+                            });
+                            ui.end_row();
+                            let label = tr!("new-library-folder");
+                            ui.label(&label);
+                            ui.horizontal(|ui| {
+                                let hint = match self.owner {
+                                    For::Project => tr!("new-library-folder-project-hint"),
+                                    For::User => String::new(),
+                                };
+                                let response = ui.add(
+                                    TextEdit::singleline(&mut self.folder)
+                                        .hint_text(hint)
+                                        .desired_width(200.0),
+                                );
+                                let name = label.clone();
+                                response.widget_info(|| {
+                                    WidgetInfo::labeled(Role::TextInput, true, name.clone())
+                                });
+                                let browse = ui.add_enabled(
+                                    !self.files.busy(),
+                                    egui::Button::new(tr!("import-browse")),
+                                );
+                                if browse.clicked() {
+                                    self.files.start(ui.ctx(), Pick::LibraryFolder);
+                                }
+                            });
+                            ui.end_row();
+                            Self::text_row(
+                                ui,
+                                tr!("new-library-description"),
+                                String::new(),
+                                &mut self.description,
                             );
                         });
-                        ui.radio_value(&mut self.owner, For::User, tr!("new-library-for-user"));
-                    });
-                    ui.end_row();
-                    let label = tr!("new-library-folder");
-                    ui.label(&label);
+                    if let Some(error) = &self.error {
+                        ui.colored_label(ui.visuals().error_fg_color, error);
+                    }
+                    ui.add_space(8.0);
                     ui.horizontal(|ui| {
-                        let hint = match self.owner {
-                            For::Project => tr!("new-library-folder-project-hint"),
-                            For::User => String::new(),
-                        };
-                        let response = ui.add(
-                            TextEdit::singleline(&mut self.folder)
-                                .hint_text(hint)
-                                .desired_width(200.0),
+                        let params = self.params();
+                        let run = ui.add_enabled(
+                            params.is_some(),
+                            egui::Button::new(tr!("new-library-create")),
                         );
-                        let name = label.clone();
-                        response.widget_info(|| {
-                            WidgetInfo::labeled(Role::TextInput, true, name.clone())
-                        });
-                        let browse = ui.add_enabled(
-                            !self.files.busy(),
-                            egui::Button::new(tr!("import-browse")),
-                        );
-                        if browse.clicked() {
-                            self.files.start(ui.ctx(), Pick::LibraryFolder);
+                        if let Some(params) = params
+                            && run.clicked()
+                        {
+                            outcome = Outcome::Run(params);
+                        }
+                        if ui.button(tr!("dialog-cancel")).clicked() {
+                            outcome = Outcome::Cancel;
                         }
                     });
-                    ui.end_row();
-                    Self::text_row(
-                        ui,
-                        tr!("new-library-description"),
-                        String::new(),
-                        &mut self.description,
-                    );
                 });
-            if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
-            }
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                let params = self.params();
-                let run = ui.add_enabled(
-                    params.is_some(),
-                    egui::Button::new(tr!("new-library-create")),
-                );
-                if let Some(params) = params
-                    && run.clicked()
-                {
-                    outcome = Outcome::Run(params);
-                }
-                if ui.button(tr!("dialog-cancel")).clicked() {
-                    outcome = Outcome::Cancel;
-                }
-            });
-        });
         if modal.should_close() && outcome == Outcome::Open {
             outcome = Outcome::Cancel;
         }

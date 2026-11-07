@@ -1,58 +1,40 @@
-//! Net Classes and assigning Nets to them.
+//! Net Classes and assigning Nets to them. A class's values are rule records scoped to it,
+//! set with `pcb.rules.set` ([`super::rules`]).
 
 use reda_command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
-use reda_model::{InDocument, Net, NetClass, Object, PcbDocument, Uuid};
+use reda_model::net_name::name_key;
+use reda_model::{
+    DesignRule, InDocument, Net, NetClass, Object, PcbDocument, RuleKind, RuleScope, Uuid,
+};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use super::{Created, needs_pcb, optional_non_negative, pcb};
+use super::rules::{RecordEdit, ValuesParam, set_record};
+use super::{Created, needs_pcb, pcb};
+use crate::board::DEFAULT_NET_CLASS;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(NetClassAdd);
     registry.add(NetClassRename);
-    registry.add(NetClassSetOverrides);
     registry.add(NetClassDelete);
-    registry.add(NetSetClass);
+    registry.add(NetAddToClass);
+    registry.add(NetRemoveFromClass);
 }
 
-/// The rules a Net Class overrides; each one left out uses the board-wide rule.
-struct Overrides {
-    clearance: Option<Length>,
-    track_width: Option<Length>,
-    via_diameter: Option<Length>,
-    via_hole: Option<Length>,
-}
-
-/// The four override params of a Command's params struct.
-macro_rules! overrides {
-    ($p:expr) => {
-        Overrides {
-            clearance: $p.clearance,
-            track_width: $p.track_width,
-            via_diameter: $p.via_diameter,
-            via_hole: $p.via_hole,
-        }
-    };
-}
-
-impl Overrides {
-    /// Writes these overrides into `class`, replacing all four.
-    fn apply(&self, class: &mut NetClass) -> Result<(), CommandError> {
-        class.clearance = optional_non_negative("/clearance", self.clearance)?;
-        class.track_width = optional_non_negative("/track_width", self.track_width)?;
-        class.via_diameter = optional_non_negative("/via_diameter", self.via_diameter)?;
-        class.via_hole = optional_non_negative("/via_hole", self.via_hole)?;
-        Ok(())
-    }
-}
-
-/// A trimmed name no other Net Class (but `except`) has, compared case-insensitively.
+/// A trimmed name no other Net Class (but `except`) has, and not the Default Net Class's,
+/// compared case-insensitively.
 fn free_name(pcb: &PcbDocument, name: &str, except: Option<Uuid>) -> Result<String, CommandError> {
     let name = name.trim();
     if name.is_empty() {
         return Err(CommandError::invalid_params("/name", "the name is empty"));
+    }
+    if name.eq_ignore_ascii_case(DEFAULT_NET_CLASS) {
+        return Err(CommandError::invalid_params(
+            "/name",
+            format!("{DEFAULT_NET_CLASS:?} is the Default Net Class's name"),
+        ));
     }
     if let Some(other) = pcb.net_class_named(name)
         && Some(other.uuid) != except
@@ -66,15 +48,25 @@ fn free_name(pcb: &PcbDocument, name: &str, except: Option<Uuid>) -> Result<Stri
 }
 
 fn class(pcb: &PcbDocument, uuid: Uuid) -> Result<NetClass, CommandError> {
-    pcb.net_class(uuid)
-        .cloned()
-        .ok_or_else(|| CommandError::not_found(format!("no Net Class has UUID {uuid}")))
+    pcb.net_class(uuid).cloned().ok_or_else(|| {
+        CommandError::not_found(format!(
+            "no Net Class has UUID {uuid}; the Default Net Class is every Net's and is not \
+             assigned"
+        ))
+    })
 }
 
-fn put_class(cx: &mut Context<'_>, document: Uuid, class: NetClass) -> Result<(), CommandError> {
-    cx.tx()?
-        .replace(Object::NetClass(InDocument::new(document, class)))?;
-    Ok(())
+/// One rule record a new Net Class starts with.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ClassRuleParam {
+    pub kind: RuleKind,
+    /// The values it overrides, as `pcb.rules.set` takes them.
+    pub values: ValuesParam,
+    #[serde(default)]
+    pub enabled: Option<bool>,
+    #[serde(default)]
+    pub comment: Option<String>,
 }
 
 pub struct NetClassAdd;
@@ -82,32 +74,24 @@ pub struct NetClassAdd;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NetClassAddParams {
-    /// Unique among the board's Net Classes, ignoring case.
+    /// Unique among the board's Net Classes, ignoring case, and not "Default".
     pub name: String,
-    /// Clearance to copper of other Nets.
-    #[serde(default)]
-    pub clearance: Option<Length>,
-    /// Track width.
-    #[serde(default)]
-    pub track_width: Option<Length>,
-    /// Via diameter.
-    #[serde(default)]
-    pub via_diameter: Option<Length>,
-    /// Via hole.
-    #[serde(default)]
-    pub via_hole: Option<Length>,
-    /// Nets to move into the new class.
+    /// Nets to add to the new class.
     #[serde(default)]
     pub nets: Vec<Uuid>,
+    /// Rule records the class starts with, one per kind.
+    #[serde(default)]
+    pub rules: Vec<ClassRuleParam>,
 }
 
 impl Command for NetClassAdd {
     const META: Meta = Meta {
         id: "pcb.net_class.add",
         title: "Add Net Class",
-        description: "Adds a Net Class called `name`, optionally overriding the board-wide \
-                      `clearance`, `track_width`, `via_diameter` and `via_hole` for its Nets, \
-                      and moves `nets` into it.",
+        description: "Adds a Net Class called `name`, ranked below every other class but \
+                      above the Default Net Class, with optional rule records `rules` \
+                      (`{kind, values}`, as `pcb.rules.set` takes them), and adds `nets` to \
+                      it.",
         category: "pcb",
         icon: "net_class_add",
         kind: Kind::Edit,
@@ -123,27 +107,58 @@ impl Command for NetClassAdd {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let name = free_name(pcb, &p.name, None)?;
-        let mut nets = moved_nets(pcb, &p.nets, Uuid::default())?;
-        let mut class = NetClass {
-            uuid: cx.new_id(),
-            name,
-            clearance: None,
-            track_width: None,
-            via_diameter: None,
-            via_hole: None,
-        };
-        overrides!(p).apply(&mut class)?;
-        let uuid = class.uuid;
-        for net in &mut nets {
-            net.class = uuid;
+        let rank = pcb.net_classes().map(|c| c.rank).max().unwrap_or(0) + 1;
+        let uuid = cx.new_id();
+        let class = NetClass { uuid, name, rank };
+        let mut kinds = std::collections::BTreeSet::new();
+        let mut records = Vec::new();
+        for (i, r) in p.rules.iter().enumerate() {
+            if !kinds.insert(r.kind) {
+                return Err(CommandError::invalid_params(
+                    &format!("/rules/{i}/kind"),
+                    format!("two `{}` rules", r.kind.id()),
+                ));
+            }
+            let scope = RuleScope::class(uuid);
+            let base = DesignRule {
+                uuid: cx.new_id(),
+                kind: r.kind,
+                scope,
+                values: Default::default(),
+                enabled: true,
+                comment: None,
+            };
+            let edit = RecordEdit {
+                kind: r.kind,
+                scope,
+                values: &r.values,
+                enabled: r.enabled,
+                comment: r.comment.clone().map(Some),
+            };
+            let record = set_record(super::pcb(cx)?, base, edit).map_err(|e| under(e, i))?;
+            records.extend(record);
         }
+        let nets = with_class(super::pcb(cx)?, &p.nets, uuid, true)?;
         let tx = cx.tx()?;
         tx.insert(Object::NetClass(InDocument::new(document, class)))?;
+        for record in records {
+            tx.insert(Object::DesignRule(InDocument::new(document, record)))?;
+        }
         for net in nets {
             tx.replace(Object::Net(InDocument::new(document, net)))?;
         }
         Ok(Created { uuid })
     }
+}
+
+/// `error` about a `pcb.rules.set`-style param, re-pointed under `/rules/<i>`.
+fn under(mut error: CommandError, i: usize) -> CommandError {
+    if let Some(serde_json::Value::Object(details)) = &mut error.details
+        && let Some(serde_json::Value::String(pointer)) = details.get_mut("pointer")
+    {
+        *pointer = format!("/rules/{i}{pointer}");
+    }
+    error
 }
 
 pub struct NetClassRename;
@@ -161,7 +176,8 @@ impl Command for NetClassRename {
     const META: Meta = Meta {
         id: "pcb.net_class.rename",
         title: "Rename Net Class",
-        description: "Renames a Net Class. Its Nets stay in it.",
+        description: "Renames a Net Class. Its Nets stay in it. The Default Net Class cannot \
+                      be renamed.",
         category: "pcb",
         icon: "rename",
         kind: Kind::Edit,
@@ -178,54 +194,9 @@ impl Command for NetClassRename {
         let document = pcb.uuid;
         let mut class = class(pcb, p.class)?;
         class.name = free_name(pcb, &p.name, Some(p.class))?;
-        put_class(cx, document, class)
-    }
-}
-
-pub struct NetClassSetOverrides;
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct NetClassSetOverridesParams {
-    /// The Net Class's UUID.
-    pub class: Uuid,
-    /// Clearance to copper of other Nets.
-    #[serde(default)]
-    pub clearance: Option<Length>,
-    /// Track width.
-    #[serde(default)]
-    pub track_width: Option<Length>,
-    /// Via diameter.
-    #[serde(default)]
-    pub via_diameter: Option<Length>,
-    /// Via hole.
-    #[serde(default)]
-    pub via_hole: Option<Length>,
-}
-
-impl Command for NetClassSetOverrides {
-    const META: Meta = Meta {
-        id: "pcb.net_class.set_overrides",
-        title: "Set Net Class Rules",
-        description: "Replaces a Net Class's overrides of `clearance`, `track_width`, \
-                      `via_diameter` and `via_hole`. Any left out use the board-wide rule.",
-        category: "pcb",
-        icon: "net_class",
-        kind: Kind::Edit,
-    };
-    type Params = NetClassSetOverridesParams;
-    type Output = ();
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        needs_pcb(cx)
-    }
-
-    fn run(&self, cx: &mut Context<'_>, p: NetClassSetOverridesParams) -> Result<(), CommandError> {
-        let pcb = pcb(cx)?;
-        let document = pcb.uuid;
-        let mut class = class(pcb, p.class)?;
-        overrides!(p).apply(&mut class)?;
-        put_class(cx, document, class)
+        cx.tx()?
+            .replace(Object::NetClass(InDocument::new(document, class)))?;
+        Ok(())
     }
 }
 
@@ -242,8 +213,8 @@ impl Command for NetClassDelete {
     const META: Meta = Meta {
         id: "pcb.net_class.delete",
         title: "Delete Net Class",
-        description: "Deletes a Net Class; its Nets move to the Default Net Class, which \
-                      cannot be deleted.",
+        description: "Deletes a Net Class: it leaves its Nets and its rule records are \
+                      deleted. The Default Net Class cannot be deleted.",
         category: "pcb",
         icon: "delete",
         kind: Kind::Edit,
@@ -259,81 +230,209 @@ impl Command for NetClassDelete {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let class = class(pcb, p.class)?;
-        let default = pcb.setup().default_net_class;
-        if class.uuid == default {
-            return Err(CommandError::rejected(
-                "the Default Net Class cannot be deleted",
-            ));
-        }
-        let moved: Vec<Net> = pcb
+        let nets: Vec<Uuid> = pcb
             .nets()
-            .filter(|n| n.class == class.uuid)
-            .map(|n| Net {
-                class: default,
-                ..n.clone()
-            })
+            .filter(|n| n.classes.contains(&class.uuid))
+            .map(|n| n.uuid)
+            .collect();
+        let left = with_class(pcb, &nets, class.uuid, false)?;
+        let records: Vec<Uuid> = pcb
+            .rules()
+            .filter(|r| r.scope.net_class == Some(class.uuid))
+            .map(|r| r.uuid)
             .collect();
         let tx = cx.tx()?;
-        for net in moved {
+        for net in left {
             tx.replace(Object::Net(InDocument::new(document, net)))?;
+        }
+        for record in records {
+            tx.remove(record)?;
         }
         tx.remove(class.uuid)?;
         Ok(())
     }
 }
 
-pub struct NetSetClass;
-
+/// Which Nets to add to or remove from a class: a list, or a pattern.
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct NetSetClassParams {
+pub struct NetMembershipParams {
     /// The Nets' UUIDs.
-    pub nets: Vec<Uuid>,
+    #[serde(default)]
+    pub nets: Option<Vec<Uuid>>,
+    /// A glob over Net names, `*` for any run and `?` for one character, ignoring case. It
+    /// matches the Nets that exist now; nothing is stored.
+    #[serde(default)]
+    pub pattern: Option<String>,
     /// The Net Class's UUID.
     pub class: Uuid,
 }
 
-impl Command for NetSetClass {
+/// The Nets whose class list changed.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct MembershipResult {
+    pub nets: Vec<Uuid>,
+}
+
+fn membership(
+    cx: &mut Context<'_>,
+    p: NetMembershipParams,
+    add: bool,
+) -> Result<MembershipResult, CommandError> {
+    let pcb = pcb(cx)?;
+    let document = pcb.uuid;
+    class(pcb, p.class)?;
+    let nets = match (p.nets, p.pattern) {
+        (Some(nets), None) => nets,
+        (None, Some(pattern)) => pcb
+            .nets()
+            .filter(|n| glob_match(&name_key(&pattern), &name_key(&n.name)))
+            .map(|n| n.uuid)
+            .collect(),
+        _ => {
+            return Err(CommandError::invalid_params(
+                "/nets",
+                "give exactly one of `nets` and `pattern`",
+            ));
+        }
+    };
+    let changed = with_class(pcb, &nets, p.class, add)?;
+    let uuids = changed.iter().map(|n| n.uuid).collect();
+    let tx = cx.tx()?;
+    for net in changed {
+        tx.replace(Object::Net(InDocument::new(document, net)))?;
+    }
+    Ok(MembershipResult { nets: uuids })
+}
+
+pub struct NetAddToClass;
+
+impl Command for NetAddToClass {
     const META: Meta = Meta {
-        id: "pcb.net.set_class",
-        title: "Set Net Class",
-        description: "Assigns each of `nets` to the Net Class `class`.",
+        id: "pcb.net.add_to_class",
+        title: "Add Nets to Net Class",
+        description: "Adds Nets to the Net Class `class`: the `nets` listed, or those whose \
+                      names match the glob `pattern` now (`*` and `?`, ignoring case). Nets \
+                      already in it are left alone. Returns the Nets that changed.",
         category: "pcb",
         icon: "net_class",
         kind: Kind::Edit,
     };
-    type Params = NetSetClassParams;
-    type Output = ();
+    type Params = NetMembershipParams;
+    type Output = MembershipResult;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(&self, cx: &mut Context<'_>, p: NetSetClassParams) -> Result<(), CommandError> {
-        let pcb = pcb(cx)?;
-        let document = pcb.uuid;
-        class(pcb, p.class)?;
-        let nets = moved_nets(pcb, &p.nets, p.class)?;
-        let tx = cx.tx()?;
-        for net in nets {
-            tx.replace(Object::Net(InDocument::new(document, net)))?;
-        }
-        Ok(())
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: NetMembershipParams,
+    ) -> Result<MembershipResult, CommandError> {
+        membership(cx, p, true)
     }
 }
 
-/// `nets` as they are once moved into `class`; an unknown Net is `not_found`.
-fn moved_nets(pcb: &PcbDocument, nets: &[Uuid], class: Uuid) -> Result<Vec<Net>, CommandError> {
-    nets.iter()
-        .enumerate()
-        .map(|(i, uuid)| {
-            let net = pcb.net(*uuid).ok_or_else(|| {
-                CommandError::not_found(format!("no Net has UUID {uuid} (`nets[{i}]`)"))
-            })?;
-            Ok(Net {
-                class,
-                ..net.clone()
-            })
-        })
-        .collect()
+pub struct NetRemoveFromClass;
+
+impl Command for NetRemoveFromClass {
+    const META: Meta = Meta {
+        id: "pcb.net.remove_from_class",
+        title: "Remove Nets from Net Class",
+        description: "Removes Nets from the Net Class `class`: the `nets` listed, or those \
+                      whose names match the glob `pattern` (`*` and `?`, ignoring case). Every \
+                      Net stays in the Default Net Class. Returns the Nets that changed.",
+        category: "pcb",
+        icon: "net_class",
+        kind: Kind::Edit,
+    };
+    type Params = NetMembershipParams;
+    type Output = MembershipResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: NetMembershipParams,
+    ) -> Result<MembershipResult, CommandError> {
+        membership(cx, p, false)
+    }
+}
+
+/// `nets` with `class` added to (or removed from) their lists, leaving out those already
+/// so; an unknown Net is `not_found`.
+fn with_class(
+    pcb: &PcbDocument,
+    nets: &[Uuid],
+    class: Uuid,
+    add: bool,
+) -> Result<Vec<Net>, CommandError> {
+    let mut out: Vec<Net> = Vec::new();
+    for (i, uuid) in nets.iter().enumerate() {
+        let net = pcb.net(*uuid).ok_or_else(|| {
+            CommandError::not_found(format!("no Net has UUID {uuid} (`nets[{i}]`)"))
+        })?;
+        if net.classes.contains(&class) == add || out.iter().any(|n| n.uuid == *uuid) {
+            continue;
+        }
+        let mut net = net.clone();
+        if add {
+            net.classes.push(class);
+            net.classes.sort();
+        } else {
+            net.classes.retain(|c| *c != class);
+        }
+        out.push(net);
+    }
+    Ok(out)
+}
+
+/// Whether `name` matches the glob `pattern`: `*` any run, `?` one character, the rest
+/// literal. Callers compare Net names through [`name_key`], so case is ignored the way
+/// connectivity ignores it.
+pub fn glob_match(pattern: &str, name: &str) -> bool {
+    let p: Vec<char> = pattern.chars().collect();
+    let n: Vec<char> = name.chars().collect();
+    let (mut pi, mut ni) = (0, 0);
+    let mut star: Option<(usize, usize)> = None;
+    while ni < n.len() {
+        if pi < p.len() && (p[pi] == '?' || p[pi] == n[ni]) {
+            pi += 1;
+            ni += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star = Some((pi, ni));
+            pi += 1;
+        } else if let Some((sp, sn)) = star {
+            pi = sp + 1;
+            ni = sn + 1;
+            star = Some((sp, sn + 1));
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|c| *c == '*')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::glob_match;
+
+    #[test]
+    fn globs_match_runs_and_single_characters() {
+        assert!(glob_match("vcc*", "vcc_3v3"));
+        assert!(
+            !glob_match("VCC*", "vcc_3v3"),
+            "case is the caller's to fold"
+        );
+        assert!(glob_match("*", ""));
+        assert!(glob_match("D?", "D1"));
+        assert!(!glob_match("D?", "D10"));
+        assert!(glob_match("*_N", "USB_N"));
+        assert!(!glob_match("*_N", "USB_P"));
+        assert!(glob_match("a*b*c", "aXbYbZc"));
+    }
 }

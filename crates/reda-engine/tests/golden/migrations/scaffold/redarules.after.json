@@ -1,0 +1,27 @@
+{
+  "format": 2,
+  "net_classes": [
+    {
+      "name": "Power"
+    }
+  ],
+  "rules": [
+    {
+      "kind": "clearance",
+      "values": {
+        "value": 160000
+      }
+    },
+    {
+      "kind": "clearance",
+      "net_class": "Power",
+      "values": {
+        "value": 300000
+      }
+    }
+  ],
+  "severities": {
+    "clearance": "error",
+    "dangling": "off"
+  }
+}

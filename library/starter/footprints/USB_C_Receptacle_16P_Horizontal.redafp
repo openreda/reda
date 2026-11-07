@@ -1,33 +1,36 @@
 {
   "format": 1,
   "footprint": {"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout"},
-  "text": {"designator":{"at":{"x":0,"y":5350000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
   "pads": [
-    {"uuid":"0f8b3078-57ca-4e48-b465-770d7f72d774","number":"S2","kind":"plated_through_hole","shape":"oval","at":{"x":4320000,"y":3130000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},
-    {"uuid":"12ef56d9-c47e-41ae-8e4f-7dddcba6fe4c","number":"","kind":"non_plated","shape":"circle","at":{"x":-2890000,"y":2630000},"rotation":0,"width":650000,"height":650000,"hole":{"width":650000,"height":650000}},
-    {"uuid":"2b134d11-46f1-461b-bf65-95eab8e16666","number":"","kind":"non_plated","shape":"circle","at":{"x":2890000,"y":2630000},"rotation":0,"width":650000,"height":650000,"hole":{"width":650000,"height":650000}},
-    {"uuid":"3ebe6839-875d-48d5-96fc-a16740a3f123","number":"S3","kind":"plated_through_hole","shape":"oval","at":{"x":-4320000,"y":-1050000},"rotation":0,"width":1000000,"height":1800000,"hole":{"width":600000,"height":1400000}},
-    {"uuid":"480248ba-2b2a-44e8-9bbf-7504ae31c496","number":"S1","kind":"plated_through_hole","shape":"oval","at":{"x":-4320000,"y":3130000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},
-    {"uuid":"5d87ca38-4c74-4f3f-b51c-4dd268c23b0a","number":"S4","kind":"plated_through_hole","shape":"oval","at":{"x":4320000,"y":-1050000},"rotation":0,"width":1000000,"height":1800000,"hole":{"width":600000,"height":1400000}},
-    {"uuid":"959cf9da-73f5-4505-95bc-524e8aa4cc15","number":"A4","kind":"smd","shape":"rect","at":{"x":-2400000,"y":3705000},"rotation":0,"width":600000,"height":1150000},
-    {"uuid":"9fd229cb-bc36-4880-b94a-b3c245bdcfd7","number":"B1","kind":"smd","shape":"rect","at":{"x":3200000,"y":3705000},"rotation":0,"width":600000,"height":1150000},
-    {"uuid":"a684d67a-1917-4477-99f6-8fe997b03e02","number":"B7","kind":"smd","shape":"rect","at":{"x":-750000,"y":3705000},"rotation":0,"width":300000,"height":1150000},
-    {"uuid":"a6e25855-ee25-4f5c-88a6-1092116a72f0","number":"B6","kind":"smd","shape":"rect","at":{"x":750000,"y":3705000},"rotation":0,"width":300000,"height":1150000},
-    {"uuid":"a79404c9-16fc-4bba-a15e-46f2fb1266dd","number":"B4","kind":"smd","shape":"rect","at":{"x":2400000,"y":3705000},"rotation":0,"width":600000,"height":1150000},
-    {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","number":"A1","kind":"smd","shape":"rect","at":{"x":-3200000,"y":3705000},"rotation":0,"width":600000,"height":1150000},
-    {"uuid":"b52ed6ba-920a-4baf-b0dd-a24ef916b2bb","number":"A8","kind":"smd","shape":"rect","at":{"x":1250000,"y":3705000},"rotation":0,"width":300000,"height":1150000},
-    {"uuid":"c7268d07-41cc-4c44-90d9-a49b5fefcb14","number":"B5","kind":"smd","shape":"rect","at":{"x":1750000,"y":3705000},"rotation":0,"width":300000,"height":1150000},
-    {"uuid":"ca978112-ffce-433a-b27f-13752d9f4cae","number":"A6","kind":"smd","shape":"rect","at":{"x":-250000,"y":3705000},"rotation":0,"width":300000,"height":1150000},
-    {"uuid":"cadefa73-940e-4d82-a4b2-aa23c1836300","number":"A7","kind":"smd","shape":"rect","at":{"x":250000,"y":3705000},"rotation":0,"width":300000,"height":1150000},
-    {"uuid":"f97fe198-d740-4221-b408-2607a27853cd","number":"A5","kind":"smd","shape":"rect","at":{"x":-1250000,"y":3705000},"rotation":0,"width":300000,"height":1150000},
-    {"uuid":"faf92679-ae8c-4004-895d-9d762f37bca1","number":"B8","kind":"smd","shape":"rect","at":{"x":-1750000,"y":3705000},"rotation":0,"width":300000,"height":1150000}
+    {"uuid":"0f8b3078-57ca-4e48-b465-770d7f72d774","number":"S1","kind":"plated_through_hole","shape":"oval","at":{"x":-4320000,"y":2805000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},
+    {"uuid":"12ef56d9-c47e-41ae-8e4f-7dddcba6fe4c","number":"S4","kind":"plated_through_hole","shape":"oval","at":{"x":4320000,"y":-1375000},"rotation":0,"width":1000000,"height":1800000,"hole":{"width":600000,"height":1400000}},
+    {"uuid":"2137f401-4e41-4f86-b48d-1693c37f0401","number":"","kind":"non_plated","shape":"circle","at":{"x":2890000,"y":2305000},"rotation":0,"width":650000,"height":650000,"hole":{"width":650000,"height":650000}},
+    {"uuid":"2b134d11-46f1-461b-bf65-95eab8e16666","number":"","kind":"non_plated","shape":"circle","at":{"x":-2890000,"y":2305000},"rotation":0,"width":650000,"height":650000,"hole":{"width":650000,"height":650000}},
+    {"uuid":"3ebe6839-875d-48d5-96fc-a16740a3f123","number":"S2","kind":"plated_through_hole","shape":"oval","at":{"x":4320000,"y":2805000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},
+    {"uuid":"480248ba-2b2a-44e8-9bbf-7504ae31c496","number":"B1","kind":"smd","shape":"rect","at":{"x":3200000,"y":3380000},"rotation":0,"width":600000,"height":1150000},
+    {"uuid":"5d87ca38-4c74-4f3f-b51c-4dd268c23b0a","number":"S3","kind":"plated_through_hole","shape":"oval","at":{"x":-4320000,"y":-1375000},"rotation":0,"width":1000000,"height":1800000,"hole":{"width":600000,"height":1400000}},
+    {"uuid":"959cf9da-73f5-4505-95bc-524e8aa4cc15","number":"A1","kind":"smd","shape":"rect","at":{"x":-3200000,"y":3380000},"rotation":0,"width":600000,"height":1150000},
+    {"uuid":"9fd229cb-bc36-4880-b94a-b3c245bdcfd7","number":"B4","kind":"smd","shape":"rect","at":{"x":2400000,"y":3380000},"rotation":0,"width":600000,"height":1150000},
+    {"uuid":"a684d67a-1917-4477-99f6-8fe997b03e02","number":"A5","kind":"smd","shape":"rect","at":{"x":-1250000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"a6e25855-ee25-4f5c-88a6-1092116a72f0","number":"A7","kind":"smd","shape":"rect","at":{"x":250000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"a79404c9-16fc-4bba-a15e-46f2fb1266dd","number":"B5","kind":"smd","shape":"rect","at":{"x":1750000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"b52ed6ba-920a-4baf-b0dd-a24ef916b2bb","number":"B6","kind":"smd","shape":"rect","at":{"x":750000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"c7268d07-41cc-4c44-90d9-a49b5fefcb14","number":"A8","kind":"smd","shape":"rect","at":{"x":1250000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"ca978112-ffce-433a-b27f-13752d9f4cae","number":"B7","kind":"smd","shape":"rect","at":{"x":-750000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"cadefa73-940e-4d82-a4b2-aa23c1836300","number":"A6","kind":"smd","shape":"rect","at":{"x":-250000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"f97fe198-d740-4221-b408-2607a27853cd","number":"B8","kind":"smd","shape":"rect","at":{"x":-1750000,"y":3380000},"rotation":0,"width":300000,"height":1150000},
+    {"uuid":"faf92679-ae8c-4004-895d-9d762f37bca1","number":"A4","kind":"smd","shape":"rect","at":{"x":-2400000,"y":3380000},"rotation":0,"width":600000,"height":1150000}
   ],
   "graphics": [
-    {"uuid":"2137f401-4e41-4f86-b48d-1693c37f0401","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-4470000,"y":-3650000},"end":{"x":4470000,"y":3700000}},"width":100000},
-    {"uuid":"53a906fb-a23d-4d84-bebc-baa700119859","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4470000,"y":110000},"end":{"x":-4470000,"y":1820000}},"width":120000},
-    {"uuid":"7247852f-80f2-486a-901a-60d29a7a01b2","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4470000,"y":-3650000},"end":{"x":-4470000,"y":-2210000}},"width":120000},
-    {"uuid":"c2fa5e32-8674-48e0-a157-28c076f501ad","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-5100000,"y":-3900000},"end":{"x":5100000,"y":4550000}},"width":50000},
-    {"uuid":"c9a67e77-9a05-4045-8fad-2820487216b7","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":4470000,"y":110000},"end":{"x":4470000,"y":1820000}},"width":120000},
-    {"uuid":"d6fee22f-7de8-4f6b-90c9-cd0c068acbaa","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":4470000,"y":-3650000},"end":{"x":4470000,"y":-2210000}},"width":120000}
+    {"uuid":"0e6e3d35-0d25-47b2-ae8e-6ac09d89109a","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-5100000,"y":-4225000},"end":{"x":5100000,"y":4225000}},"width":50000},
+    {"uuid":"53a906fb-a23d-4d84-bebc-baa700119859","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4470000,"y":-3975000},"end":{"x":-4470000,"y":-2535000}},"width":120000},
+    {"uuid":"7247852f-80f2-486a-901a-60d29a7a01b2","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-4470000,"y":-3975000},"end":{"x":4470000,"y":3375000}},"width":100000},
+    {"uuid":"c2fa5e32-8674-48e0-a157-28c076f501ad","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":4470000,"y":-215000},"end":{"x":4470000,"y":1495000}},"width":120000},
+    {"uuid":"c9a67e77-9a05-4045-8fad-2820487216b7","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":4470000,"y":-3975000},"end":{"x":4470000,"y":-2535000}},"width":120000},
+    {"uuid":"d6fee22f-7de8-4f6b-90c9-cd0c068acbaa","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-4470000,"y":-215000},"end":{"x":-4470000,"y":1495000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"210590f8-c0cc-4dfb-b429-4245f9d06fa3","field":"Designator","at":{"x":0,"y":5025000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","field":"Value","at":{"x":0,"y":-325000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

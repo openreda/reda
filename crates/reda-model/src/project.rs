@@ -11,7 +11,6 @@ use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{PcbDocument, ZoneFills};
 use crate::schematic::SchematicSheet;
 use crate::{ElementSource, ErcSeverities, LibraryElement, Scope, TxError, Uuid};
-use reda_geom::Nm;
 
 /// Project-wide properties, stored in `<name>.reda`.
 ///
@@ -33,10 +32,128 @@ pub struct ProjectProps {
     /// The ERC severities.
     #[serde(default)]
     pub erc: ErcSeverities,
+    /// The schematic options.
+    #[serde(default)]
+    pub schematic: SchematicOptions,
+    /// The last Re-annotate settings applied, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reannotate: Option<crate::annotate::ReannotateSettings>,
+    /// The Update from Library settings page 1 saved, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_update: Option<crate::library_update::LibraryUpdateSettings>,
 }
 
-/// The Project properties: fixed free-text fields that fill each sheet's title block, and
-/// the board thickness and copper weight that go into fab notes.
+/// The Project's schematic options: how Nets are named and Ports cross-referenced.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct SchematicOptions {
+    /// Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving
+    /// Power Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >
+    /// Port > auto-name).
+    pub power_port_names_priority: bool,
+    /// Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never
+    /// names it.
+    pub allow_ports_to_name_nets: bool,
+    /// Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the
+    /// board name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain
+    /// name.
+    pub append_sheet_numbers: bool,
+    /// Automatic Cross References: each Port shows where its partners are, such as
+    /// `[2:B3]`. Off by default, so a Project opts in.
+    pub cross_references: bool,
+    /// The Project's cross-reference styles, unless it follows the Preferences.
+    pub cross_reference_styles: CrossReferenceStyles,
+    /// Follow Cross References settings in Preferences: the styles come from the
+    /// Preferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.
+    pub cross_references_follow_preferences: bool,
+}
+
+impl SchematicOptions {
+    pub const DEFAULT: SchematicOptions = SchematicOptions {
+        power_port_names_priority: false,
+        allow_ports_to_name_nets: true,
+        append_sheet_numbers: false,
+        cross_references: false,
+        cross_reference_styles: CrossReferenceStyles::DEFAULT,
+        cross_references_follow_preferences: false,
+    };
+
+    pub fn is_default(&self) -> bool {
+        *self == SchematicOptions::DEFAULT
+    }
+
+    /// The styles Port cross-references are drawn in, given the Preferences' styles, or
+    /// none when the Project shows no cross-references.
+    pub fn cross_reference_styles(
+        &self,
+        preferences: CrossReferenceStyles,
+    ) -> Option<CrossReferenceStyles> {
+        self.cross_references
+            .then_some(match self.cross_references_follow_preferences {
+                true => preferences,
+                false => self.cross_reference_styles,
+            })
+    }
+}
+
+/// How a Port cross-reference names its partners' places: by sheet, then by location on
+/// that sheet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct CrossReferenceStyles {
+    /// Sheet Style: `number` by default.
+    pub sheet: SheetStyle,
+    /// Location Style: `zone` by default.
+    pub location: LocationStyle,
+}
+
+impl CrossReferenceStyles {
+    pub const DEFAULT: CrossReferenceStyles = CrossReferenceStyles {
+        sheet: SheetStyle::Number,
+        location: LocationStyle::Zone,
+    };
+}
+
+impl Default for CrossReferenceStyles {
+    fn default() -> CrossReferenceStyles {
+        CrossReferenceStyles::DEFAULT
+    }
+}
+
+/// How a cross-reference names a partner's sheet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SheetStyle {
+    /// Not at all.
+    None,
+    /// By the sheet's title, as in the Projects panel.
+    Name,
+    /// By its number in the Projects panel, from 1.
+    #[default]
+    Number,
+}
+
+/// How a cross-reference names where on its sheet a partner is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LocationStyle {
+    /// Not at all.
+    None,
+    /// By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.
+    #[default]
+    Zone,
+    /// By its X,Y position on the sheet, in millimetres.
+    Xy,
+}
+
+impl Default for SchematicOptions {
+    fn default() -> SchematicOptions {
+        SchematicOptions::DEFAULT
+    }
+}
+
+/// The Project properties: fixed free-text fields that fill each sheet's title block. The
+/// board thickness and copper are the PCB Document's [`crate::Stackup`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct ProjectProperties {
@@ -46,12 +163,6 @@ pub struct ProjectProperties {
     pub date: String,
     pub author: String,
     pub company: String,
-    /// The finished board thickness, for fab notes; left out when not set.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub board_thickness: Option<Nm>,
-    /// The copper weight, for fab notes, as free text such as `1 oz`; left out when empty.
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub copper_weight: String,
 }
 
 impl ProjectProperties {
@@ -251,6 +362,8 @@ impl Project {
         let pcb = match object {
             Object::LayerSet(o) => o.document,
             Object::BoardSetup(o) => o.document,
+            Object::Stackup(o) => o.document,
+            Object::DesignRule(o) => o.document,
             Object::BoardOutline(o) => o.document,
             Object::BoardCutout(o) => o.document,
             Object::NetClass(o) => o.document,
@@ -283,7 +396,7 @@ impl Project {
             Object::Zone(o) => o.document,
             Object::Keepout(o) => o.document,
             Object::FreePad(o) => o.document,
-            Object::PlacementOrigin(o) => o.document,
+            Object::OutputOrigin(o) => o.document,
             _ => return Ok(()),
         };
         match self.pcb_documents.contains_key(&pcb) {
@@ -381,6 +494,12 @@ impl Project {
             Some(Object::BoardSetup(o)) => {
                 self.pcb_mut(o.document).setups.insert(uuid, o.object);
             }
+            Some(Object::Stackup(o)) => {
+                self.pcb_mut(o.document).stackups.insert(uuid, o.object);
+            }
+            Some(Object::DesignRule(o)) => {
+                self.pcb_mut(o.document).rules.insert(uuid, o.object);
+            }
             Some(Object::BoardOutline(o)) => {
                 self.pcb_mut(o.document).outlines.insert(uuid, o.object);
             }
@@ -467,9 +586,9 @@ impl Project {
             Some(Object::FreePad(o)) => {
                 self.pcb_mut(o.document).free_pads.insert(uuid, o.object);
             }
-            Some(Object::PlacementOrigin(o)) => {
+            Some(Object::OutputOrigin(o)) => {
                 self.pcb_mut(o.document)
-                    .placement_origins
+                    .output_origins
                     .insert(uuid, o.object);
             }
             #[cfg(feature = "test-objects")]

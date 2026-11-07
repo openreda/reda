@@ -9,15 +9,15 @@
 use std::collections::BTreeSet;
 
 use reda_command::Fonts;
-use reda_model::geom::Point;
+use reda_model::geom::{Nm, Point};
 use reda_model::{
-    DrcCheck, FootprintLayer, GraphicShape, LayerKind, PadKind, PcbDocument, Shape, Side, Uuid,
+    DrcCheck, FootprintLayer, GraphicShape, LayerKind, PcbDocument, Shape, Side, Uuid,
 };
 
 use super::placement::{corners, polyline};
 use super::{Board, Report};
 use crate::copper::shape::{Core, P, Prim, Shape as Copper, arc_points};
-use crate::placed::{Frame, placed_graphics};
+use crate::placed::placed_graphics;
 use crate::text::{PlacedText, footprint_texts, text_geometry};
 use crate::zone::poly::{self, Area, Contour, ip};
 
@@ -63,7 +63,20 @@ pub(super) fn check(board: &Board<'_>, fonts: &Fonts, report: &mut Report) {
                 }
             }
             if seen.insert(objects.clone()) {
-                report.add(DrcCheck::SilkscreenOverPads, |v| v.objects(objects));
+                let layer = pcb
+                    .layers()
+                    .find(LayerKind::Silkscreen, Some(silk.side))
+                    .expect("silk is on a board Layer")
+                    .uuid;
+                let overlap = poly::intersection(&silk.area, &opening.area);
+                let (lo, hi) = poly::bounds(&overlap).expect("overlapping shapes have bounds");
+                let at = Point::new(
+                    Nm(lo[0] + (hi[0] - lo[0]) / 2),
+                    Nm(lo[1] + (hi[1] - lo[1]) / 2),
+                );
+                report.add(DrcCheck::SilkscreenOverPads, |v| {
+                    v.objects(objects).located(pcb.uuid, at).on_layers([layer])
+                });
             }
         }
     }
@@ -75,38 +88,27 @@ fn boxes_meet(a: (P, P), b: (P, P)) -> bool {
 
 /// Every Pad and Free Pad, as the solder-mask opening over it.
 fn openings(pcb: &PcbDocument) -> Vec<Opening> {
-    let both = || vec![Side::Top, Side::Bottom];
-    let mut out = Vec::new();
-    for instance in pcb.footprints() {
-        let Some(copy) = pcb.footprint_copy(instance.footprint) else {
-            continue;
-        };
-        let frame = Frame::of(instance);
-        for pad in &copy.footprint.pads {
-            let sides = match pad.kind {
-                PadKind::Smd => vec![frame.side(Side::Top)],
-                _ => both(),
-            };
-            let margin = pad.mask_margin.map_or(0, |m| m.0.max(0));
-            out.push(Opening {
-                objects: vec![instance.uuid, pad.uuid],
-                sides,
-                area: poly::union(poly::grown(&Copper::pad(instance, pad), margin)),
-            });
-        }
-    }
-    for pad in pcb.free_pads() {
-        let sides = match (pad.kind, pad.side) {
-            (PadKind::Smd, Some(side)) => vec![side],
-            _ => both(),
-        };
-        out.push(Opening {
-            objects: vec![pad.uuid],
-            sides,
-            area: poly::union(poly::grown(&Copper::free_pad(pad), 0)),
-        });
-    }
-    out
+    crate::openings::resolve(pcb)
+        .into_iter()
+        .filter(|o| o.kind == crate::openings::Kind::Mask)
+        .filter_map(|o| {
+            let pad = o.geometry?;
+            let contour = pad
+                .outline
+                .polygon(reda_model::geom::Nm(1_000))
+                .into_iter()
+                .map(|p| {
+                    let p = pad.point(p);
+                    ip([p.x.0, p.y.0])
+                })
+                .collect();
+            Some(Opening {
+                objects: o.objects,
+                sides: vec![o.side],
+                area: vec![vec![contour]],
+            })
+        })
+        .collect()
 }
 
 /// The board side of a Footprint drawing Layer, for the silkscreen ones.

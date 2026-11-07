@@ -6,8 +6,8 @@ use serde_json::json;
 
 use crate::passives::{Tht, axial, fields, tht_two};
 use crate::script::{
-    PartSpec, Script, Sym, arc, arc_millideg, bottom, circle, left, line, mil, mm, polygon, rect,
-    top,
+    Kind, PartSpec, Script, Sym, arc, arc_millideg, bottom, circle, left, line, mil, mm, polygon,
+    rect, top,
 };
 
 pub fn build(s: &mut Script) {
@@ -233,7 +233,7 @@ fn diode(
         footprints,
         fields: fields(value, description, keywords),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -265,11 +265,16 @@ fn led(s: &mut Script) {
         ),
         ("LEDC3216X110N", (3.0, 3.4), (1.4, 1.8), (0.4, 0.6), "1.1mm"),
     ] {
+        // The chip generator knows resistors, capacitors and inductors: an LED takes the
+        // capacitor's fillets with its own description and a cathode mark.
+        let description = format!("Chip LED, {} metric, IPC-7351 Nominal", &name[4..8]);
         let fp = s.generate(
             "chip",
             json!({
                 "class": "capacitor",
                 "name": name,
+                "description": description,
+                "polarity_mark": true,
                 "dimensions": {
                     "length": {"min": mm(length.0), "max": mm(length.1)},
                     "width": {"min": mm(width.0), "max": mm(width.1)},
@@ -278,8 +283,6 @@ fn led(s: &mut Script) {
                 },
             }),
         );
-        let description = format!("Chip LED, {} metric, IPC-7351 Nominal", &name[4..8]);
-        s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
     // The 3 mm LED's pads are 1.6 mm (IPC-2222 Level B for its 0.9 mm hole is 1.5 mm) so
@@ -309,7 +312,7 @@ fn led(s: &mut Script) {
         footprints,
         fields: fields("LED", "Light-emitting diode", "D LED light emitting diode"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -425,7 +428,7 @@ fn bjt(s: &mut Script, npn: bool, sot23: &str, to92: &str) {
         footprints: vec![sot23.to_owned()],
         fields: fields(generic, description, "Q transistor BJT bipolar"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
     let through_hole = if npn { "2N3904" } else { "2N3906" };
     let to92_name = format!("{name}_TO-92");
@@ -442,7 +445,7 @@ fn bjt(s: &mut Script, npn: bool, sot23: &str, to92: &str) {
             {"pin": "1", "pads": ["2"]},
             {"pin": "2", "pads": ["1"]},
         ]})),
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -486,6 +489,6 @@ fn mosfet(s: &mut Script, n_channel: bool, sot23: &str) {
         footprints: vec![sot23.to_owned()],
         fields: fields(value, description, "Q transistor MOSFET FET"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }

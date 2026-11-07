@@ -34,7 +34,7 @@ fn overview_lists_the_project_and_its_documents_in_order() {
                 "kind": "pcb",
                 "name": "Demo",
                 "title": "Demo",
-                "objects": {"layer_set": 1, "board_setup": 1, "net_class": 1}
+                "objects": {"layer_set": 1, "stackup": 1, "board_setup": 1, "design_rule": 9}
             }]
         })
     );
@@ -55,6 +55,11 @@ fn object_get_returns_any_object_with_its_document() {
     // The ERC severities ride along; erc.rs in reda-schematic tests them.
     let erc = project["object"].as_object_mut().unwrap().remove("erc");
     assert_eq!(erc.unwrap()["unconnected_input"], "error");
+    let schematic = project["object"]
+        .as_object_mut()
+        .unwrap()
+        .remove("schematic");
+    assert_eq!(schematic.unwrap()["allow_ports_to_name_nets"], true);
     assert_eq!(
         project["object"],
         json!({"type": "project", "uuid": PROJECT, "name": "Demo", "documents": [SHEET, PCB],
@@ -84,7 +89,9 @@ fn objects_query_filters_by_type_and_document() {
         .iter()
         .map(|o| o["object"]["uuid"].as_str().unwrap())
         .collect();
-    assert_eq!(uuids.len(), 8, "{uuids:?}");
+    // The Project, its two Documents, the Layer set, the board setup, nine board-wide
+    // rule records, the Stackup, the Fab Preset copy and the Output Job.
+    assert_eq!(uuids.len(), 17, "{uuids:?}");
     assert_eq!(&uuids[..3], [PROJECT, SHEET, PCB]);
     let mut sorted = uuids.clone();
     sorted.sort();

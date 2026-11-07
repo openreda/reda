@@ -12,7 +12,7 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{SeededIds, Signals, UserDirs};
 use reda_ui::engine::journal::Source;
 use reda_ui::engine::model::geom::{Nm, Point};
-use reda_ui::engine::model::{LayerKind, Side, TrackGeometry, Uuid};
+use reda_ui::engine::model::{LayerKind, RuleKind, Side, TrackGeometry, Uuid};
 use reda_ui::pcb::route::Corner;
 use reda_ui::shell::Shell;
 use reda_ui::tools::Tool;
@@ -168,26 +168,16 @@ fn t_starts_routing_and_reaching_a_same_net_pad_commits_one_track_add() {
         .unwrap()
         .pcb()
         .unwrap()
-        .setup()
-        .rules;
+        .board_rule(RuleKind::TrackWidth)
+        .values
+        .preferred
+        .unwrap();
     let top = copper(&b, Side::Top);
     assert_eq!(
         tracks(&b),
         [
-            (
-                top,
-                Some(b.net),
-                rule.track_width,
-                mm(0.0, 0.0),
-                mm(5.0, 0.0)
-            ),
-            (
-                top,
-                Some(b.net),
-                rule.track_width,
-                mm(5.0, 0.0),
-                mm(10.0, 0.0)
-            ),
+            (top, Some(b.net), rule, mm(0.0, 0.0), mm(5.0, 0.0)),
+            (top, Some(b.net), rule, mm(5.0, 0.0), mm(10.0, 0.0)),
         ]
     );
     assert_eq!(
@@ -224,12 +214,12 @@ fn the_width_comes_from_the_net_class_and_changes_mid_route() {
     let class = run(
         &mut b.shell,
         "pcb.net_class.add",
-        json!({"name": "Power", "track_width": "0.5mm"}),
+        json!({"name": "Power", "rules": [{"kind": "track_width", "values": {"preferred": "0.5mm"}}]}),
     )["result"]["uuid"]
         .clone();
     run(
         &mut b.shell,
-        "pcb.net.set_class",
+        "pcb.net.add_to_class",
         json!({"nets": [b.net], "class": class}),
     );
     run(&mut b.shell, "tool.activate:route", json!({}));
@@ -258,7 +248,7 @@ fn the_width_steps_through_the_boards_widths() {
     run(
         &mut b.shell,
         "pcb.net_class.add",
-        json!({"name": "Power", "track_width": "1mm"}),
+        json!({"name": "Power", "rules": [{"kind": "track_width", "values": {"preferred": "1mm"}}]}),
     );
     run(&mut b.shell, "tool.activate:route", json!({}));
     route_to(&mut b, mm(0.0, 0.0));
@@ -269,13 +259,15 @@ fn the_width_steps_through_the_boards_widths() {
         .unwrap()
         .pcb()
         .unwrap()
-        .setup()
-        .rules;
-    assert_eq!(b.shell.route_preview().unwrap().width, rule.track_width);
+        .board_rule(RuleKind::TrackWidth)
+        .values
+        .preferred
+        .unwrap();
+    assert_eq!(b.shell.route_preview().unwrap().width, rule);
     run(&mut b.shell, "pcb.route.width:next", json!({}));
     assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_mm(1));
     run(&mut b.shell, "pcb.route.width:previous", json!({}));
-    assert_eq!(b.shell.route_preview().unwrap().width, rule.track_width);
+    assert_eq!(b.shell.route_preview().unwrap().width, rule);
 }
 
 #[test]
@@ -334,14 +326,14 @@ fn v_drops_a_via_mid_route_switches_layer_and_the_route_commits_as_one_batch() {
             (
                 copper(&b, Side::Top),
                 Some(b.net),
-                pcb.setup().rules.track_width,
+                Nm::from_um(250),
                 mm(0.0, 0.0),
                 mm(4.0, 0.0)
             ),
             (
                 bottom,
                 Some(b.net),
-                pcb.setup().rules.track_width,
+                Nm::from_um(250),
                 mm(4.0, 0.0),
                 mm(4.0, 5.0)
             ),
@@ -512,4 +504,29 @@ fn select_connected_and_delete_work_on_the_selection() {
     );
     assert_eq!(tracks(&b).len(), 1);
     assert!(!b.shell.selection().objects.contains(&t[1]));
+}
+
+#[test]
+fn via_placement_uses_the_output_origins_grid_phase() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    run(&mut b.shell, "tool.activate:via", json!({}));
+    route_to(&mut b, mm(5.1, 5.1));
+    assert_eq!(
+        b.shell
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .vias()
+            .next()
+            .unwrap()
+            .at,
+        mm(5.2, 5.3)
+    );
 }

@@ -174,11 +174,11 @@ fn a_larger_net_class_clearance_wins_over_the_zone_clearance() {
     let hv = add_net(&mut engine, "HV");
     let class = engine.run_ok(
         "pcb.net_class.add",
-        json!({"name": "HV", "clearance": "1mm"}),
+        json!({"name": "HV", "rules": [{"kind": "clearance", "values": {"value": "1mm"}}]}),
     )["result"]["uuid"]
         .clone();
     engine.run_ok(
-        "pcb.net.set_class",
+        "pcb.net.add_to_class",
         json!({"nets": [hv.to_string()], "class": class}),
     );
     let z = zone(
@@ -265,6 +265,63 @@ fn a_solid_connection_fills_right_up_to_the_pad() {
     assert!(filled(s, at(6.25, 5.5)));
     assert!(filled(s, at(6.3, 6.3)));
     assert!((area(s) - 100.0).abs() < 0.01);
+}
+
+#[test]
+fn a_pads_own_zone_connection_wins_over_the_zones() {
+    let dir = TempDir::new("fill-pad-connection");
+    let mut engine = engine_with_pcb(&dir);
+    let gnd = add_net(&mut engine, "GND");
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 20.0, 10.0),
+        json!({"thermal_gap": "0.5mm", "thermal_spoke_width": "0.3mm"}),
+    );
+    let pad_with = |engine: &mut TestEngine, x: f64, connection: Value| {
+        engine.run_ok(
+            "test.footprint.add",
+            json!({"at": {"x": mm(x), "y": mm(5.0)},
+                   "pads": [{"at": {"x": 0, "y": 0}, "width": mm(2.0), "height": mm(2.0),
+                             "net": gnd.to_string(), "zone_connection": connection}]}),
+        );
+    };
+    // Solid on a relieving Zone: the fill runs up to the Pad.
+    pad_with(&mut engine, 5.0, json!({"style": "solid"}));
+    // Relieved with its own 1 mm gap: the gap reaches 1 mm past the Pad's edge.
+    pad_with(&mut engine, 15.0, json!({"gap": 1_000_000}));
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(filled(s, at(6.25, 5.5)), "solid");
+    assert!(filled(s, at(6.3, 6.3)), "solid");
+    assert!(!filled(s, at(16.75, 5.5)), "inside the Pad's own gap");
+    assert!(filled(s, at(16.75, 5.0)), "a spoke");
+    assert!(filled(s, at(17.2, 7.2)), "past the gap");
+}
+
+#[test]
+fn a_pad_with_no_zone_connection_keeps_its_gap_and_is_not_joined() {
+    let dir = TempDir::new("fill-pad-none");
+    let mut engine = engine_with_pcb(&dir);
+    let gnd = add_net(&mut engine, "GND");
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 10.0, 10.0),
+        json!({"pad_connection": "solid", "thermal_gap": "0.5mm", "remove_islands": false}),
+    );
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": {"x": mm(5.0), "y": mm(5.0)},
+               "pads": [{"at": {"x": 0, "y": 0}, "width": mm(2.0), "height": mm(2.0),
+                         "net": gnd.to_string(), "zone_connection": {"style": "none"}}]}),
+    );
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    for p in [at(6.25, 5.0), at(6.25, 5.5), at(5.0, 3.75)] {
+        assert!(!filled(s, p), "gap at {p:?}");
+    }
+    assert!(filled(s, at(7.0, 7.0)));
 }
 
 #[test]
@@ -363,7 +420,10 @@ fn a_fill_stays_inside_the_board_by_the_edge_clearance() {
     let dir = TempDir::new("fill-edge");
     let mut engine = engine_with_pcb(&dir);
     let gnd = add_net(&mut engine, "GND");
-    engine.run_ok("pcb.rules.set", json!({"edge_clearance": "0.5mm"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "edge_clearance", "values": {"value": "0.5mm"}}),
+    );
     engine.run_ok(
         "pcb.board_outline.add_rect",
         json!({"width": "8mm", "height": "8mm"}),

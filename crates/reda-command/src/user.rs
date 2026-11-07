@@ -36,3 +36,13 @@ impl UserDirs {
         self.runtime.join("instances")
     }
 }
+
+/// Supplies the name recorded on new Waivers. The engine resolves Preferences; domain
+/// crates can also be registered alone, in which case they use the OS user name.
+pub type UserName = fn(Option<&UserDirs>) -> String;
+
+pub fn os_user_name(_dirs: Option<&UserDirs>) -> String {
+    std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_default()
+}

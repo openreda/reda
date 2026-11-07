@@ -21,11 +21,14 @@ mod write_through;
 
 use std::collections::BTreeSet;
 
-use reda_model::{ComponentRef, DrcCheck, Fields, Project, Severity, Uuid, Violation};
+use reda_model::{
+    ComponentRef, ComponentType, DrcCheck, Fields, Project, Severity, Uuid, Violation,
+};
 use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::library::ContentHash;
+use reda_model::local_edit::LocalEdit;
 
 pub use apply::{Applied, apply};
 pub use write_through::write_through;
@@ -82,7 +85,8 @@ pub enum GroupKind {
     Components,
     /// Changing a Footprint.
     Footprints,
-    /// Changing a Designator, the fields (value included) or Not Fitted.
+    /// Changing a Designator, the fields (value included), the Component Type, In BOM,
+    /// In CPL or Not Fitted.
     ComponentData,
     /// Adding, renaming or removing a Net.
     Nets,
@@ -133,6 +137,10 @@ pub enum ChangeKind {
         designator: String,
         from: FootprintRef,
         to: FootprintRef,
+        /// The local Pad and graphics edits the swap removes, when the instance is a
+        /// Locally Edited Footprint; left out when there are none.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        lost_local_edits: Vec<LocalEdit>,
     },
     /// Changes the Designator.
     Designator {
@@ -148,6 +156,30 @@ pub enum ChangeKind {
         designator: String,
         from: Fields,
         to: Fields,
+    },
+    /// Changes the Component Type.
+    ComponentType {
+        component: ComponentRef,
+        instance: Uuid,
+        designator: String,
+        from: ComponentType,
+        to: ComponentType,
+    },
+    /// Changes In BOM.
+    InBom {
+        component: ComponentRef,
+        instance: Uuid,
+        designator: String,
+        from: bool,
+        to: bool,
+    },
+    /// Changes In CPL.
+    InCpl {
+        component: ComponentRef,
+        instance: Uuid,
+        designator: String,
+        from: bool,
+        to: bool,
     },
     /// Changes Not Fitted.
     NotFitted {
@@ -195,6 +227,9 @@ impl ChangeKind {
             ChangeKind::ChangeFootprint { .. } => GroupKind::Footprints,
             ChangeKind::Designator { .. }
             | ChangeKind::Fields { .. }
+            | ChangeKind::ComponentType { .. }
+            | ChangeKind::InBom { .. }
+            | ChangeKind::InCpl { .. }
             | ChangeKind::NotFitted { .. } => GroupKind::ComponentData,
             ChangeKind::AddNet { .. }
             | ChangeKind::RenameNet { .. }
@@ -347,4 +382,39 @@ pub(crate) fn component_key(component: &ComponentRef) -> String {
     }
     key.push_str(&component.uuid.to_string());
     key
+}
+
+/// The local edits on the board that an Update from Library removes from `component`,
+/// whose Footprint becomes `after` (Footprint UUID and copy hash; `None` for none): those of
+/// its Locally Edited Footprint, when `after` is not the copy it was edited from.
+/// The local edits of PCB copy `copy` against the copy it was edited from: none when it
+/// isn't Locally Edited.
+pub(crate) use components::lost_local_edits as lost_local_edits_of;
+
+pub(crate) fn lost_local_edits(
+    project: &Project,
+    component: Uuid,
+    after: Option<(Uuid, &str)>,
+) -> Vec<reda_model::local_edit::LocalEdit> {
+    let Some(pcb) = project.pcb() else {
+        return Vec::new();
+    };
+    let Some(copy) = pcb
+        .footprints()
+        .find(|i| {
+            i.component
+                .as_ref()
+                .is_some_and(|c| c.path.is_empty() && c.uuid == component)
+        })
+        .and_then(|i| pcb.footprint_copy(i.footprint))
+    else {
+        return Vec::new();
+    };
+    let kept = after.is_some_and(|(footprint, hash)| {
+        copy.footprint.uuid == footprint && copy.sync_hash() == hash
+    });
+    if kept {
+        return Vec::new();
+    }
+    components::lost_local_edits(pcb, copy)
 }

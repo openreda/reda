@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "part": {"uuid":"b2eaac57-dbf1-4017-8726-6de7fa5a5f17","name":"NetTie","component_type":"net_tie","in_bom":false,"in_cpl":false,"symbol":"5a799ef7-6993-460c-a83a-6d77dbfaa5ff"},
+  "footprints": [
+    "12c5684d-d33c-4b0f-9976-eadf8448d148",
+    "9d14b16b-73a6-46e6-9c2f-1a1f99a7db71"
+  ],
+  "fields": {"value":"NetTie","description":"Net Tie: a deliberate short between two Nets","keywords":"NT net tie short star ground"},
+  "pin_map": {}
+}

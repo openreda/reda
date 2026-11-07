@@ -1,9 +1,14 @@
 //! Filling one Zone: its outline, cut back from the board edge, Keepouts, other Nets'
 //! copper and higher-priority fills, thinned to the minimum width, joined to its Pads by
-//! thermal spokes or solidly, with unconnected islands dropped.
+//! thermal spokes or solidly, with unconnected islands dropped. A Pad's own
+//! `zone_connection` values win over the Zone's; its spoke count and angle wait for the
+//! `zone_connection` rule.
 
-use reda_model::geom::Millideg;
-use reda_model::{FillShape, PadConnection, PadKind, PcbDocument, Side, Uuid, Zone};
+use crate::copper::shape::BoardShape as _;
+use reda_model::geom::{Millideg, Nm};
+use reda_model::{
+    ConnectionStyle, FillShape, PadConnection, PadKind, PcbDocument, Uuid, Zone, ZoneConnection,
+};
 
 use super::poly::{
     self, Area, Contour, bounds, difference, dilated, edge_band, grown, intersection, ip, opened,
@@ -11,7 +16,8 @@ use super::poly::{
 };
 use crate::copper::shape::{self as copper_shape, Core, P, Prim, Shape};
 use crate::copper::{Copper, Item};
-use crate::net_rules::clearance_between;
+use crate::placed;
+use crate::rules::{clearance_between, net_rules};
 
 /// A fill already made on the same Layer by a Zone of higher priority.
 pub(super) struct Filled<'a> {
@@ -28,7 +34,7 @@ pub(super) fn fill_zone(
 ) -> Area {
     let layer = zone.layer;
     let mut area = poly::polygon(poly::contour(&zone.vertices));
-    area = within_board(pcb, area);
+    area = within_board(pcb, zone, area);
     let keepouts: Vec<Vec<Contour>> = pcb
         .keepouts()
         .filter(|k| k.copper && k.layers.contains(&layer))
@@ -49,16 +55,27 @@ pub(super) fn fill_zone(
     for (item, shape) in copper.pieces_on(layer) {
         let net = copper.net(item);
         if same_net(net) {
-            connectors.push(shape);
-            if zone.pad_connection == PadConnection::Thermal
-                && let Some(frame) = pad_frame(pcb, item)
-            {
-                gaps.extend(grown(shape, zone.thermal_gap.0));
-                thermal_pads.push(frame);
+            let frame = pad_frame(pcb, item);
+            let connection = frame.as_ref().map(|f| f.connection).unwrap_or_default();
+            let style = connection.style.unwrap_or(match zone.pad_connection {
+                PadConnection::Thermal => ConnectionStyle::Relief,
+                PadConnection::Solid => ConnectionStyle::Solid,
+            });
+            let gap = connection.gap.unwrap_or(zone.thermal_gap);
+            match (style, frame) {
+                (ConnectionStyle::Relief, Some(frame)) => {
+                    connectors.push(shape);
+                    gaps.extend(grown(shape, gap.0));
+                    thermal_pads.push(frame);
+                }
+                (ConnectionStyle::None, Some(_)) => gaps.extend(grown(shape, gap.0)),
+                _ => connectors.push(shape),
             }
             continue;
         }
-        let clearance = zone.clearance.max(clearance_between(pcb, zone.net, net));
+        let clearance = zone
+            .clearance
+            .max(clearance_between(pcb, zone.net, net).unwrap_or(Nm::ZERO));
         if !near(shape, clearance.0, lo, hi) {
             continue;
         }
@@ -77,7 +94,7 @@ pub(super) fn fill_zone(
         let clearance = zone
             .clearance
             .max(prior.zone.clearance)
-            .max(clearance_between(pcb, zone.net, prior.zone.net));
+            .max(clearance_between(pcb, zone.net, prior.zone.net).unwrap_or(Nm::ZERO));
         others.extend(dilated(&prior.area, clearance.0));
     }
 
@@ -136,9 +153,13 @@ fn near(shape: &Shape, clearance: i64, lo: P, hi: P) -> bool {
 }
 
 /// `area` cut back to the board: inside the Board Outline and outside the Board Cutouts,
-/// keeping the edge clearance from both. Without an outline, only the cutouts cut.
-fn within_board(pcb: &PcbDocument, mut area: Area) -> Area {
-    let edge = pcb.setup().rules.edge_clearance.0;
+/// keeping the zone's Net's edge clearance from both. Without an outline, only the
+/// cutouts cut.
+fn within_board(pcb: &PcbDocument, zone: &Zone, mut area: Area) -> Area {
+    let edge = net_rules(pcb, zone.net)
+        .edge_clearance
+        .unwrap_or(Nm::ZERO)
+        .0;
     let mut cut: Vec<Vec<Contour>> = Vec::new();
     if let Some(outline) = pcb.outline() {
         let board = poly::polygon(poly::contour(&outline.vertices));
@@ -156,40 +177,34 @@ fn within_board(pcb: &PcbDocument, mut area: Area) -> Area {
     }
 }
 
-/// Where a Pad sits on the board: its centre, its turn and its half sizes.
+/// Where a Pad sits on the board: its copper's centre, its turn, its copper's half sizes
+/// and its own Zone connection values.
 struct PadFrame {
     centre: P,
     angle: Millideg,
     half: (i64, i64),
+    connection: ZoneConnection,
 }
 
 /// The frame of a Pad or Free Pad item; `None` for other copper.
 fn pad_frame(pcb: &PcbDocument, item: Item) -> Option<PadFrame> {
-    match item {
+    let placed = match item {
         Item::Pad { footprint, pad } => {
             let instance = pcb.footprint(footprint)?;
-            let copy = pcb.footprint_copy(instance.footprint)?;
-            let pad = copy.footprint.pads.iter().find(|p| p.uuid == pad)?;
-            let angle = match instance.side {
-                Side::Top => instance.rotation + pad.rotation,
-                Side::Bottom => instance.rotation + Millideg(-pad.rotation.0),
-            };
-            Some(PadFrame {
-                centre: copper_shape::board_point(instance, [pad.at.x.0, pad.at.y.0]),
-                angle,
-                half: (pad.width.0 / 2, pad.height.0 / 2),
-            })
+            placed::placed_pads(pcb, instance)
+                .into_iter()
+                .find(|p| p.pad == pad)?
         }
-        Item::FreePad { uuid } => {
-            let pad = pcb.free_pad(uuid)?;
-            Some(PadFrame {
-                centre: [pad.at.x.0, pad.at.y.0],
-                angle: pad.rotation,
-                half: (pad.width.0 / 2, pad.height.0 / 2),
-            })
-        }
-        _ => None,
-    }
+        Item::FreePad { uuid } => placed::placed_free_pad(pcb.free_pad(uuid)?),
+        _ => return None,
+    };
+    let centre = placed.copper_center();
+    Some(PadFrame {
+        centre: [centre.x.0, centre.y.0],
+        angle: placed.rotation,
+        half: (placed.outline.width.0 / 2, placed.outline.height.0 / 2),
+        connection: placed.zone_connection.unwrap_or_default(),
+    })
 }
 
 /// The outlines of the non-plated Pads (Footprint and Free), which have no copper.
@@ -217,8 +232,13 @@ fn bare_holes(pcb: &PcbDocument) -> Vec<Shape> {
 /// The four thermal spokes of a Pad: bars of the spoke width from its centre along its
 /// own axes, out past the thermal gap into the fill.
 fn spokes(zone: &Zone, frame: &PadFrame) -> Vec<Contour> {
-    let reach = zone.thermal_gap.0 + zone.min_width.0.max(zone.thermal_spoke_width.0);
-    let half = zone.thermal_spoke_width.0 / 2;
+    let gap = frame.connection.gap.unwrap_or(zone.thermal_gap);
+    let width = frame
+        .connection
+        .spoke_width
+        .unwrap_or(zone.thermal_spoke_width);
+    let reach = gap.0 + zone.min_width.0.max(width.0);
+    let half = width.0 / 2;
     let (hw, hh) = (frame.half.0 + reach, frame.half.1 + reach);
     let bars = [
         [[0, -half], [hw, -half], [hw, half], [0, half]],

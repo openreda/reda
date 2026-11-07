@@ -4,27 +4,42 @@ use reda_command::{CommandError, Kind, Meta};
 use reda_model::Uuid;
 use reda_model::geom::Nm;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, Lead, Side};
 use super::ipc::{Termination, Tol};
+use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, TolerancesParams};
 use super::{FootprintFamily, FootprintPlan, Target};
 
 pub struct Sot;
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SotParams {
     /// The registered Library to write the Footprint into.
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as
     /// `SOT95P237X112-3N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     pub package: SotPackage,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
+    #[serde(default)]
+    pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub enum SotPackage {
     /// SOT-23 with 3 leads (JEDEC TO-236): pins 1 and 2 on the left, 3 on the right.
     #[serde(rename = "sot23_3")]
@@ -85,9 +100,10 @@ impl FootprintFamily for Sot {
     const META: Meta = Meta {
         id: "library.footprint.generate.sot",
         title: "Generate SOT Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a SOT-23 with 3, 5 or 6 \
-                      leads or a SOT-223, writes it into a registered Library and runs the \
-                      Library check on it.",
+        description: "Generates an IPC-7351 Footprint for a SOT-23 with 3, 5 or 6 leads \
+                      or a SOT-223, writes it into a registered Library and runs the Library \
+                      check on it. `goals.density` picks the IPC density level, Nominal by \
+                      default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -98,11 +114,14 @@ impl FootprintFamily for Sot {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
     }
 
     fn plan(p: &SotParams) -> Result<FootprintPlan, CommandError> {
         use Side::{Left, Right};
+        let smd = p.smd();
+        smd.check(Applies::default())?;
         let (dims, title) = match p.package {
             SotPackage::Sot23_3 => (TO_236, "SOT-23-3"),
             SotPackage::Sot23_5 => (MO_178, "SOT-23-5"),
@@ -131,8 +150,12 @@ impl FootprintFamily for Sot {
                 lead(4, Right, 0, &dims, TO_261_TAB),
             ],
         };
-        let name = dims.ipc_name("SOT", leads.len());
-        let description = format!("{title}, IPC-7351 Nominal");
-        gull_wing::plan(&dims, &leads, Termination::GullWing, name, description)
+        let density = p.goals.density;
+        let name = dims.ipc_name("SOT", leads.len(), density);
+        let description = format!("{title}, IPC-7351 {}", density.title());
+        let mut plan =
+            gull_wing::plan(&dims, &leads, Termination::GullWing, smd, name, description)?;
+        plan.body.chamfered = p.chamfer;
+        Ok(plan)
     }
 }

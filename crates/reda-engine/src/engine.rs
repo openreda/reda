@@ -21,11 +21,23 @@ const PREVIEW_SEED: u64 = 0xf1e5;
 pub fn registry() -> Registry {
     let mut registry = Registry::new();
     crate::commands::register_all(&mut registry);
-    reda_pcb::register_all(&mut registry, crate::sync::drc_state);
+    reda_pcb::register_all_with_user(
+        &mut registry,
+        crate::sync::drc_state,
+        crate::preferences::waiver_author,
+    );
     reda_library::register_all(&mut registry);
-    reda_library::register_generators(&mut registry, crate::library::store_footprint);
+    let host = reda_library::GeneratorHost {
+        store: crate::library::store_footprint,
+        severities: crate::preferences::library_severities,
+    };
+    reda_library::register_generators(&mut registry, host);
     reda_output::register_all(&mut registry);
-    reda_schematic::register_all(&mut registry);
+    reda_schematic::register_all_with_user(
+        &mut registry,
+        crate::preferences::waiver_author,
+        crate::sync::lost_local_edits,
+    );
     reda_render::register_all(&mut registry, DERIVE);
     registry
 }
@@ -43,13 +55,14 @@ fn junctions(sheet: &reda_model::SchematicSheet) -> Vec<reda_model::geom::Point>
 
 /// The Scene the canvas draws for `document`, with the sheet's derived Junctions or the
 /// board's placed geometry (text in `fonts`): `not_found` for an unknown Document,
-/// `rejected` for a kind with no Scene yet.
+/// `rejected` for a kind with no Scene yet. A sheet is drawn in `style`.
 pub fn document_scene(
     project: &Project,
     document: reda_model::Uuid,
     fonts: &Fonts,
+    style: &reda_render::SchematicStyle,
 ) -> Result<reda_render::Scene, CommandError> {
-    reda_render::document_scene(project, document, &DERIVE, fonts)
+    reda_render::document_scene(project, document, &DERIVE, fonts, style)
 }
 
 /// One session: at most one open Project, changed only by running Commands.
@@ -249,7 +262,7 @@ impl Engine {
             .project
             .as_ref()
             .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
-        document_scene(project, document, &self.fonts)
+        document_scene(project, document, &self.fonts, &Default::default())
     }
 
     /// Scans the registered Libraries (the starter Library, the user's and the open

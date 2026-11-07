@@ -1,5 +1,169 @@
 {
   "$defs": {
+    "BomGroup": {
+      "description": "Sources shared by Components on a grouped BOM row.",
+      "oneOf": [
+        {
+          "const": "part",
+          "description": "The Component's Part.",
+          "type": "string"
+        },
+        {
+          "const": "footprint",
+          "description": "The chosen Footprint.",
+          "type": "string"
+        },
+        {
+          "const": "fields",
+          "description": "All Component value fields, including manufacturer and supplier numbers.",
+          "type": "string"
+        },
+        {
+          "const": "value",
+          "description": "The Component's value.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The Component field with this name.",
+          "properties": {
+            "field": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "BomLayout": {
+      "description": "One BOM row per group or per Component.",
+      "oneOf": [
+        {
+          "const": "grouped",
+          "description": "One row per group of Components sharing `group_by`.",
+          "type": "string"
+        },
+        {
+          "const": "flat",
+          "description": "One row per Component.",
+          "type": "string"
+        }
+      ]
+    },
+    "BomSettings": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's BOM: its columns and row conventions.",
+      "properties": {
+        "columns": {
+          "description": "The columns, Source → Header, in file order.",
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "type": "array"
+        },
+        "designator_separator": {
+          "description": "What joins a row's Designators, which are never written as ranges.",
+          "type": "string"
+        },
+        "group_by": {
+          "description": "What a grouped row's Components share.",
+          "items": {
+            "$ref": "#/$defs/BomGroup"
+          },
+          "type": "array"
+        },
+        "layout": {
+          "$ref": "#/$defs/BomLayout",
+          "description": "Grouped rows or one row per Component."
+        },
+        "line_numbers": {
+          "$ref": "#/$defs/LineNumbers",
+          "description": "The line-number column's start and step."
+        },
+        "list_unplaced": {
+          "description": "Whether footprintless Mechanical Components on a sheet are listed.",
+          "type": "boolean"
+        },
+        "mount_values": {
+          "$ref": "#/$defs/MountValues",
+          "description": "The spellings of the mount column."
+        },
+        "not_fitted": {
+          "$ref": "#/$defs/NotFittedBom",
+          "description": "Whether Not Fitted Components are listed."
+        },
+        "required_fields": {
+          "description": "Fields whose missing value warns; the row stays, and Mechanical rows are skipped.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sort": {
+          "description": "The row order, by these columns in turn.",
+          "items": {
+            "$ref": "#/$defs/ColumnSource"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "columns",
+        "layout",
+        "group_by",
+        "sort",
+        "line_numbers",
+        "designator_separator",
+        "not_fitted",
+        "required_fields",
+        "list_unplaced",
+        "mount_values"
+      ],
+      "type": "object"
+    },
+    "BottomPosition": {
+      "description": "How a bottom-side part's position is written.",
+      "oneOf": [
+        {
+          "const": "top_view",
+          "description": "Positions as seen from the top.",
+          "type": "string"
+        },
+        {
+          "const": "negate_x",
+          "description": "X negated.",
+          "type": "string"
+        },
+        {
+          "const": "negate_y",
+          "description": "Y negated.",
+          "type": "string"
+        }
+      ]
+    },
+    "BottomRotation": {
+      "description": "How a bottom-side part's stored rotation θ is written.",
+      "oneOf": [
+        {
+          "const": "stored",
+          "description": "θ as stored: a part at 30° flipped to the bottom writes 330.",
+          "type": "string"
+        },
+        {
+          "const": "plus_180",
+          "description": "θ + 180: writes 150.",
+          "type": "string"
+        },
+        {
+          "const": "negate",
+          "description": "360 − θ: writes 30.",
+          "type": "string"
+        }
+      ]
+    },
     "Column": {
       "additionalProperties": false,
       "description": "One column of a BOM or CPL file.",
@@ -9,7 +173,8 @@
           "type": "string"
         },
         "source": {
-          "$ref": "#/$defs/ColumnSource"
+          "$ref": "#/$defs/ColumnSource",
+          "description": "What fills the column."
         }
       },
       "required": [
@@ -48,22 +213,47 @@
         },
         {
           "const": "mount",
-          "description": "`SMT` or `THT`.",
+          "description": "The mount type, spelled with the BOM's `mount_values`.",
           "type": "string"
         },
         {
-          "const": "mid_x",
-          "description": "The Footprint's centre, X, in mm from the CPL origin.",
+          "const": "centre_x",
+          "description": "Footprint copper-Pad bounding box centre, X, from the output origin.",
           "type": "string"
         },
         {
-          "const": "mid_y",
-          "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+          "const": "centre_y",
+          "description": "Footprint copper-Pad bounding box centre, Y.",
           "type": "string"
         },
         {
-          "const": "layer",
-          "description": "`Top` or `Bottom`.",
+          "const": "origin_x",
+          "description": "Footprint origin, X.",
+          "type": "string"
+        },
+        {
+          "const": "origin_y",
+          "description": "Footprint origin, Y.",
+          "type": "string"
+        },
+        {
+          "const": "pad1_x",
+          "description": "Pad 1, X.",
+          "type": "string"
+        },
+        {
+          "const": "pad1_y",
+          "description": "Pad 1, Y.",
+          "type": "string"
+        },
+        {
+          "const": "fitted",
+          "description": "Whether the Component is fitted.",
+          "type": "string"
+        },
+        {
+          "const": "side",
+          "description": "`Top` or `Bottom`, or the spellings from `side_values`.",
           "type": "string"
         },
         {
@@ -85,6 +275,105 @@
           "type": "object"
         }
       ]
+    },
+    "ComponentFieldMissing": {
+      "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+      "oneOf": [
+        {
+          "const": "keep",
+          "description": "The cell starts as Reject: the Component keeps its value.",
+          "type": "string"
+        },
+        {
+          "const": "remove",
+          "description": "The cell starts as Update, which removes the field.",
+          "type": "string"
+        }
+      ]
+    },
+    "CplSettings": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's CPL: its columns and position conventions.",
+      "properties": {
+        "bottom_position": {
+          "$ref": "#/$defs/BottomPosition",
+          "description": "How a bottom-side part's position is written."
+        },
+        "bottom_rotation": {
+          "$ref": "#/$defs/BottomRotation",
+          "description": "How a bottom-side part's rotation is written."
+        },
+        "columns": {
+          "description": "The columns, Source → Header, in file order.",
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "type": "array"
+        },
+        "exclude_through_hole": {
+          "description": "Leaves out Footprints with a plated through-hole Pad.",
+          "type": "boolean"
+        },
+        "side_values": {
+          "$ref": "#/$defs/SideValues",
+          "description": "The spellings of the side column."
+        },
+        "unit_suffix": {
+          "description": "Whether the unit follows each position.",
+          "type": "boolean"
+        },
+        "units": {
+          "$ref": "#/$defs/CplUnits",
+          "description": "The unit positions are written in."
+        }
+      },
+      "required": [
+        "columns",
+        "side_values",
+        "units",
+        "unit_suffix",
+        "bottom_rotation",
+        "bottom_position",
+        "exclude_through_hole"
+      ],
+      "type": "object"
+    },
+    "CplUnits": {
+      "description": "The unit of CPL positions.",
+      "oneOf": [
+        {
+          "const": "mm",
+          "description": "Millimetres.",
+          "type": "string"
+        },
+        {
+          "const": "mil",
+          "description": "Thousandths of an inch.",
+          "type": "string"
+        },
+        {
+          "const": "in",
+          "description": "Inches.",
+          "type": "string"
+        }
+      ]
+    },
+    "CrossReferenceStyles": {
+      "additionalProperties": false,
+      "description": "How a Port cross-reference names its partners' places: by sheet, then by location on\nthat sheet.",
+      "properties": {
+        "location": {
+          "$ref": "#/$defs/LocationStyle",
+          "default": "zone",
+          "description": "Location Style: `zone` by default."
+        },
+        "sheet": {
+          "$ref": "#/$defs/SheetStyle",
+          "default": "number",
+          "description": "Sheet Style: `number` by default."
+        }
+      },
+      "type": "object"
     },
     "DocumentRow": {
       "additionalProperties": false,
@@ -124,10 +413,30 @@
           "default": "error",
           "description": "Several Components with the same Designator."
         },
-        "multiple_net_names": {
+        "duplicate_nets": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync."
+        },
+        "library_out_of_date": {
+          "$ref": "#/$defs/Severity",
+          "default": "off",
+          "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table."
+        },
+        "net_names_across_sheets": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
-          "description": "One Net with several names."
+          "description": "One Net with different names on different sheets."
+        },
+        "net_names_on_sheet": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "One Net with different names on one sheet; names differing only in case are one\nname."
+        },
+        "net_tie_one_net": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Net Tie with all its Pins on one Net, so the tie does nothing."
         },
         "no_connect_connected": {
           "$ref": "#/$defs/Severity",
@@ -187,12 +496,125 @@
       },
       "type": "object"
     },
+    "FabRules": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's design rules: flat limits with no scope, which a job compares the board\nwith, and the preferred values a new board's routing starts from.",
+      "properties": {
+        "annular_ring": {
+          "description": "Minimum annular ring of Vias and plated Pads.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "clearance": {
+          "description": "Minimum clearance between copper of different Nets.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_max": {
+          "description": "Maximum Pad, Free Pad and non-plated hole.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_min": {
+          "description": "Minimum Pad, Free Pad and non-plated hole.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_to_hole": {
+          "description": "Minimum spacing between hole edges.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "mask_expansion": {
+          "$ref": "#/$defs/MaskExpansion",
+          "description": "The Solder Mask expansion and Via tenting a new board starts with."
+        },
+        "paste_expansion": {
+          "$ref": "#/$defs/PasteExpansion",
+          "description": "The paste expansion a new board starts with."
+        },
+        "preferred": {
+          "$ref": "#/$defs/PreferredSeeds",
+          "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
+        },
+        "track_width": {
+          "description": "Minimum Track width.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_diameter": {
+          "description": "Minimum Via diameter.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_hole": {
+          "description": "Minimum Via hole.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "clearance",
+        "track_width",
+        "via_diameter",
+        "via_hole",
+        "hole_min",
+        "hole_max",
+        "annular_ring",
+        "hole_to_hole",
+        "edge_clearance",
+        "preferred",
+        "mask_expansion",
+        "paste_expansion"
+      ],
+      "type": "object"
+    },
     "FileNaming": {
       "description": "How the Gerber and drill files of a job are named.",
       "oneOf": [
         {
-          "const": "protel",
-          "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+          "const": "classic",
+          "description": "Classic extensions: `.gtl`, `.gbl`, `.gts`, … and `.gm1` for the Profile.",
+          "type": "string"
+        },
+        {
+          "const": "descriptive",
+          "description": "The project and Layer name, ending in `.gbr`.",
+          "type": "string"
+        }
+      ]
+    },
+    "FileOrigin": {
+      "description": "Where Gerber, drill and CPL coordinates are measured from, for all three together.",
+      "oneOf": [
+        {
+          "const": "absolute",
+          "description": "Design zero.",
+          "type": "string"
+        },
+        {
+          "const": "relative",
+          "description": "The Output Origin if one is placed on the PCB Document, otherwise the lower-left\ncorner of the Board Outline's bounding box.",
+          "type": "string"
+        }
+      ]
+    },
+    "FootprintChoice": {
+      "description": "Which Footprint a Component chooses after its alternates are updated.",
+      "oneOf": [
+        {
+          "const": "keep_if_present",
+          "description": "The current Footprint while it is still an alternate, else the new default.",
+          "type": "string"
+        },
+        {
+          "const": "default",
+          "description": "Always the new default.",
           "type": "string"
         }
       ]
@@ -201,9 +623,32 @@
       "additionalProperties": false,
       "description": "The Gerber and drill switches of a Fab Preset.",
       "properties": {
+        "file_names": {
+          "description": "Layer name to output file name; portable between boards and Projects.",
+          "items": {
+            "$ref": "#/$defs/LayerFileName"
+          },
+          "type": "array"
+        },
+        "file_origin": {
+          "$ref": "#/$defs/FileOrigin",
+          "description": "Where coordinates are measured from; shared by Gerber, drill and CPL."
+        },
+        "merge_drill": {
+          "description": "One drill file with plated and non-plated holes, instead of PTH and NPTH.",
+          "type": "boolean"
+        },
         "naming": {
           "$ref": "#/$defs/FileNaming",
           "description": "How the files are named."
+        },
+        "outline_on_every_plot": {
+          "description": "Adds the Board Outline to every Gerber plot.",
+          "type": "boolean"
+        },
+        "slot_command": {
+          "$ref": "#/$defs/SlotCommand",
+          "description": "How the drill file writes slots."
         },
         "x2_attributes": {
           "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
@@ -212,9 +657,330 @@
       },
       "required": [
         "x2_attributes",
-        "naming"
+        "naming",
+        "file_origin",
+        "slot_command",
+        "merge_drill",
+        "outline_on_every_plot",
+        "file_names"
       ],
       "type": "object"
+    },
+    "LayerFileName": {
+      "additionalProperties": false,
+      "description": "A Layer whose Gerber file gets its own name.",
+      "properties": {
+        "layer": {
+          "description": "The Layer's name, so the override carries between boards and Projects.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The file name to write that Layer's Gerber as.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "name"
+      ],
+      "type": "object"
+    },
+    "LibraryFieldMissing": {
+      "description": "A field the Library Part has and the Component has no value for.",
+      "oneOf": [
+        {
+          "const": "add",
+          "description": "The cell starts as Update: the Component takes the field.",
+          "type": "string"
+        },
+        {
+          "const": "add_if_not_blank",
+          "description": "Update when the Library value is not blank.",
+          "type": "string"
+        },
+        {
+          "const": "skip",
+          "description": "The cell starts as Reject.",
+          "type": "string"
+        }
+      ]
+    },
+    "LibraryUpdateSettings": {
+      "additionalProperties": false,
+      "description": "The Update from Library settings. A setting left out has its default.",
+      "properties": {
+        "add_new_footprints": {
+          "default": true,
+          "description": "Footprints new in the Library join the alternates.",
+          "type": "boolean"
+        },
+        "component_field_missing": {
+          "$ref": "#/$defs/ComponentFieldMissing",
+          "default": "keep",
+          "description": "A field on the Component and not in the Library."
+        },
+        "fields_to_update": {
+          "default": null,
+          "description": "The cells that may start as Update, by name: field names, `component_type`,\n`in_bom` and `in_cpl`. `null` (the default) is every one; a cell not listed starts\nas Reject.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "footprint_choice": {
+          "$ref": "#/$defs/FootprintChoice",
+          "default": "keep_if_present"
+        },
+        "library_field_missing": {
+          "$ref": "#/$defs/LibraryFieldMissing",
+          "default": "add",
+          "description": "A field in the Library and not on the Component."
+        },
+        "locally_edited": {
+          "$ref": "#/$defs/LocallyEdited",
+          "default": "keep",
+          "description": "A changed default the Component has its own value for."
+        },
+        "preserve_field_locations": {
+          "default": true,
+          "description": "Fields moved by hand stay where they are; off, they return to Autoposition.",
+          "type": "boolean"
+        },
+        "preserve_field_visibility": {
+          "default": true,
+          "description": "Which fields show stays as it is; off, the Designator and value show.",
+          "type": "boolean"
+        },
+        "remove_missing_footprints": {
+          "default": true,
+          "description": "Footprints gone from the Library leave the alternates.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "LineNumbers": {
+      "additionalProperties": false,
+      "description": "The BOM's line-number column.",
+      "properties": {
+        "enabled": {
+          "description": "Whether the line-number column counts.",
+          "type": "boolean"
+        },
+        "start": {
+          "description": "The first row's number.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "description": "The increase from one row to the next.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enabled",
+        "start",
+        "step"
+      ],
+      "type": "object"
+    },
+    "LocallyEdited": {
+      "description": "A changed default where the Component holds a value of its own.",
+      "oneOf": [
+        {
+          "const": "keep",
+          "description": "The cell starts as Reject: the Component keeps its value.",
+          "type": "string"
+        },
+        {
+          "const": "take_new",
+          "description": "The cell starts as Update: the Component takes the new default.",
+          "type": "string"
+        }
+      ]
+    },
+    "Location": {
+      "description": "Which point of a Unit the schematic orders sort by.",
+      "oneOf": [
+        {
+          "const": "part",
+          "description": "The centre of its body.",
+          "type": "string"
+        },
+        {
+          "const": "designator",
+          "description": "Where its Designator text sits, or the body centre when it is hidden.",
+          "type": "string"
+        }
+      ]
+    },
+    "LocationStyle": {
+      "description": "How a cross-reference names where on its sheet a partner is.",
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "Not at all.",
+          "type": "string"
+        },
+        {
+          "const": "zone",
+          "description": "By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.",
+          "type": "string"
+        },
+        {
+          "const": "xy",
+          "description": "By its X,Y position on the sheet, in millimetres.",
+          "type": "string"
+        }
+      ]
+    },
+    "MaskExpansion": {
+      "additionalProperties": false,
+      "description": "The board's solder-mask seed values. Tenting here applies only to Vias.",
+      "properties": {
+        "bottom": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "from_hole_edge": {
+          "type": "boolean"
+        },
+        "tent_vias_bottom": {
+          "type": "boolean"
+        },
+        "tent_vias_top": {
+          "type": "boolean"
+        },
+        "top": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "top",
+        "bottom",
+        "from_hole_edge",
+        "tent_vias_top",
+        "tent_vias_bottom"
+      ],
+      "type": "object"
+    },
+    "Mode": {
+      "description": "What Re-annotate renumbers.",
+      "oneOf": [
+        {
+          "const": "renumber_all",
+          "description": "Every unlocked Component in the scope.",
+          "type": "string"
+        },
+        {
+          "const": "fix_duplicates_only",
+          "description": "Only Components whose Designator another Component holds too: the first in\nprocessing order keeps it, unless a locked or out-of-scope Component holds it.",
+          "type": "string"
+        }
+      ]
+    },
+    "MountValues": {
+      "additionalProperties": false,
+      "description": "The spellings of the mount column.",
+      "properties": {
+        "smt": {
+          "description": "The mount column for a Footprint with no plated through-hole Pad.",
+          "type": "string"
+        },
+        "tht": {
+          "description": "The mount column for a Footprint with any plated through-hole Pad.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "smt",
+        "tht"
+      ],
+      "type": "object"
+    },
+    "NotFittedBom": {
+      "description": "Whether the BOM lists Not Fitted Components.",
+      "oneOf": [
+        {
+          "const": "omit",
+          "description": "Not Fitted Components are left out.",
+          "type": "string"
+        },
+        {
+          "const": "list",
+          "description": "Not Fitted Components get their own rows with quantity 0.",
+          "type": "string"
+        }
+      ]
+    },
+    "NotFittedPaste": {
+      "description": "Whether this build retains Not Fitted Components' paste openings.",
+      "oneOf": [
+        {
+          "const": "keep",
+          "description": "Not Fitted Pads keep their paste openings, so one stencil serves every build.",
+          "type": "string"
+        },
+        {
+          "const": "remove",
+          "description": "Not Fitted Pads lose their paste openings.",
+          "type": "string"
+        }
+      ]
+    },
+    "Order": {
+      "description": "The order Re-annotate numbers in. The first four walk the schematic: sheets go in\nProjects panel order, and sheet y grows upwards, so \"down\" starts at the top. The last\nfour walk the board, the bottom side mirrored in X (seen from below); board y grows\nupwards too, so \"descending Y\" starts at the top.",
+      "oneOf": [
+        {
+          "const": "across_then_down",
+          "description": "Rows from the top, each left to right.",
+          "type": "string"
+        },
+        {
+          "const": "across_then_up",
+          "description": "Rows from the bottom, each left to right.",
+          "type": "string"
+        },
+        {
+          "const": "down_then_across",
+          "description": "Columns from the left, each top to bottom.",
+          "type": "string"
+        },
+        {
+          "const": "up_then_across",
+          "description": "Columns from the left, each bottom to top.",
+          "type": "string"
+        },
+        {
+          "const": "ascending_x_then_ascending_y",
+          "description": "Columns from the left, each bottom to top.",
+          "type": "string"
+        },
+        {
+          "const": "ascending_x_then_descending_y",
+          "description": "Columns from the left, each top to bottom.",
+          "type": "string"
+        },
+        {
+          "const": "ascending_y_then_ascending_x",
+          "description": "Rows from the bottom, each left to right.",
+          "type": "string"
+        },
+        {
+          "const": "descending_y_then_ascending_x",
+          "description": "Rows from the top, each left to right.",
+          "type": "string"
+        }
+      ]
     },
     "OutputJob": {
       "additionalProperties": false,
@@ -235,13 +1001,26 @@
         "name": {
           "type": "string"
         },
+        "name_template": {
+          "description": "The zip and assembly files' stem, resolved with the shared text resolver. Checked\non load like on `output.job.add`/`set`.",
+          "type": "string"
+        },
+        "not_fitted_paste": {
+          "$ref": "#/$defs/NotFittedPaste",
+          "description": "Whether Not Fitted Pads keep their paste openings in this build."
+        },
         "outputs": {
-          "$ref": "#/$defs/Outputs"
+          "$ref": "#/$defs/Outputs",
+          "description": "Which files it writes."
         },
         "pcb": {
           "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
           "format": "uuid",
           "type": "string"
+        },
+        "schematic_pdf_colour": {
+          "$ref": "#/$defs/PdfColour",
+          "description": "The schematic PDF in colour or mono."
         },
         "uuid": {
           "format": "uuid",
@@ -253,7 +1032,10 @@
         "name",
         "pcb",
         "fab_preset",
-        "outputs"
+        "outputs",
+        "name_template",
+        "not_fitted_paste",
+        "schematic_pdf_colour"
       ],
       "type": "object"
     },
@@ -273,8 +1055,28 @@
           "description": "Excellon drill files, plated and non-plated.",
           "type": "boolean"
         },
+        "drill_report": {
+          "description": "The drill report.",
+          "type": "boolean"
+        },
+        "fab_notes": {
+          "description": "The Fab Notes.",
+          "type": "boolean"
+        },
         "gerber": {
           "description": "Gerber files for copper, mask, paste, silkscreen and the Board Outline.",
+          "type": "boolean"
+        },
+        "gerber_job": {
+          "description": "The Gerber job file.",
+          "type": "boolean"
+        },
+        "reports": {
+          "description": "The DRC, ERC and Change List reports.",
+          "type": "boolean"
+        },
+        "schematic_pdf": {
+          "description": "The schematic PDF.",
           "type": "boolean"
         }
       },
@@ -282,7 +1084,86 @@
         "gerber",
         "drill",
         "bom",
-        "cpl"
+        "cpl",
+        "fab_notes",
+        "drill_report",
+        "gerber_job",
+        "reports",
+        "schematic_pdf"
+      ],
+      "type": "object"
+    },
+    "PasteExpansion": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expansion": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expansion"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "percent": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "percent"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "The board's paste seed: length per edge or signed change in area in percent."
+    },
+    "PdfColour": {
+      "description": "The schematic PDF's paper colour mode.",
+      "oneOf": [
+        {
+          "const": "colour",
+          "description": "In colour.",
+          "type": "string"
+        },
+        {
+          "const": "mono",
+          "description": "In black.",
+          "type": "string"
+        }
+      ]
+    },
+    "PreferredSeeds": {
+      "additionalProperties": false,
+      "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
+      "properties": {
+        "track_width": {
+          "description": "The preferred Track width.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_diameter": {
+          "description": "The preferred Via diameter.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_hole": {
+          "description": "The preferred Via hole.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_width",
+        "via_diameter",
+        "via_hole"
       ],
       "type": "object"
     },
@@ -291,16 +1172,10 @@
       "description": "The Project's own copy of a Fab Preset, so outputs come out the same on any machine.\nIts fields are a [`FabPreset`]'s, after the UUID.",
       "properties": {
         "bom": {
-          "items": {
-            "$ref": "#/$defs/Column"
-          },
-          "type": "array"
+          "$ref": "#/$defs/BomSettings"
         },
         "cpl": {
-          "items": {
-            "$ref": "#/$defs/Column"
-          },
-          "type": "array"
+          "$ref": "#/$defs/CplSettings"
         },
         "gerber": {
           "$ref": "#/$defs/GerberSettings"
@@ -310,11 +1185,20 @@
           "type": "string"
         },
         "rules": {
-          "$ref": "#/$defs/Rules"
+          "$ref": "#/$defs/FabRules"
+        },
+        "stackup": {
+          "$ref": "#/$defs/StackupSeeds"
+        },
+        "stackup_suggestions": {
+          "$ref": "#/$defs/StackupSuggestions"
         },
         "uuid": {
           "format": "uuid",
           "type": "string"
+        },
+        "zip_assembly": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -322,6 +1206,8 @@
         "name",
         "rules",
         "gerber",
+        "stackup_suggestions",
+        "zip_assembly",
         "bom",
         "cpl"
       ],
@@ -329,26 +1215,14 @@
     },
     "ProjectProperties": {
       "additionalProperties": false,
-      "description": "The Project properties: fixed free-text fields that fill each sheet's title block, and\nthe board thickness and copper weight that go into fab notes.",
+      "description": "The Project properties: fixed free-text fields that fill each sheet's title block. The\nboard thickness and copper are the PCB Document's [`crate::Stackup`].",
       "properties": {
         "author": {
           "default": "",
           "type": "string"
         },
-        "board_thickness": {
-          "description": "The finished board thickness, for fab notes; left out when not set.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "company": {
           "default": "",
-          "type": "string"
-        },
-        "copper_weight": {
-          "description": "The copper weight, for fab notes, as free text such as `1 oz`; left out when empty.",
           "type": "string"
         },
         "date": {
@@ -381,56 +1255,128 @@
       ],
       "type": "object"
     },
-    "Rules": {
+    "ReannotateSettings": {
       "additionalProperties": false,
-      "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+      "description": "The settings of one Re-annotate, as stored for the next run. A `selection` scope is\nstored without the selection itself.",
       "properties": {
-        "annular_ring": {
-          "description": "Minimum annular ring of Vias and plated Pads.",
-          "format": "int64",
+        "location": {
+          "$ref": "#/$defs/Location",
+          "description": "Schematic only: the point of a Unit to sort by."
+        },
+        "mode": {
+          "$ref": "#/$defs/Mode"
+        },
+        "order": {
+          "$ref": "#/$defs/Order"
+        },
+        "per_sheet": {
+          "description": "Schematic only: where each listed sheet's numbering starts; 1 for the others.",
+          "items": {
+            "$ref": "#/$defs/SheetStart"
+          },
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/ScopeKind"
+        },
+        "sheets": {
+          "description": "The sheets, for scope `sheets`, in Projects panel order.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sides": {
+          "$ref": "#/$defs/Sides",
+          "description": "Board only: the sides to number."
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "start_index": {
+          "description": "Board only: where numbering starts.",
+          "format": "uint64",
+          "minimum": 0,
           "type": "integer"
         },
-        "clearance": {
-          "description": "Minimum clearance between copper of different Nets.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "edge_clearance": {
-          "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "hole_to_hole": {
-          "description": "Minimum spacing between hole edges.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "track_width": {
-          "description": "Minimum Track width.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "via_diameter": {
-          "description": "Minimum Via diameter.",
-          "format": "int64",
-          "type": "integer"
-        },
-        "via_hole": {
-          "description": "Minimum Via hole.",
+        "threshold": {
+          "description": "A part this close to the first part of a row (or column) joins it.",
           "format": "int64",
           "type": "integer"
         }
       },
       "required": [
-        "clearance",
-        "track_width",
-        "via_diameter",
-        "via_hole",
-        "annular_ring",
-        "hole_to_hole",
-        "edge_clearance"
+        "source",
+        "mode",
+        "scope",
+        "order",
+        "location",
+        "threshold",
+        "sides",
+        "start_index"
       ],
       "type": "object"
+    },
+    "SchematicOptions": {
+      "additionalProperties": false,
+      "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
+      "properties": {
+        "allow_ports_to_name_nets": {
+          "default": true,
+          "description": "Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never\nnames it.",
+          "type": "boolean"
+        },
+        "append_sheet_numbers": {
+          "default": false,
+          "description": "Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the\nboard name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain\nname.",
+          "type": "boolean"
+        },
+        "cross_reference_styles": {
+          "$ref": "#/$defs/CrossReferenceStyles",
+          "default": {
+            "location": "zone",
+            "sheet": "number"
+          },
+          "description": "The Project's cross-reference styles, unless it follows the Preferences."
+        },
+        "cross_references": {
+          "default": false,
+          "description": "Automatic Cross References: each Port shows where its partners are, such as\n`[2:B3]`. Off by default, so a Project opts in.",
+          "type": "boolean"
+        },
+        "cross_references_follow_preferences": {
+          "default": false,
+          "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
+          "type": "boolean"
+        },
+        "power_port_names_priority": {
+          "default": false,
+          "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ScopeKind": {
+      "description": "Which Components a Re-annotate takes.",
+      "oneOf": [
+        {
+          "const": "project",
+          "description": "Every Component in the Project.",
+          "type": "string"
+        },
+        {
+          "const": "sheets",
+          "description": "Every Component with a Unit on one of the listed sheets.",
+          "type": "string"
+        },
+        {
+          "const": "selection",
+          "description": "The selected Components (from the board: Selected Only).",
+          "type": "string"
+        }
+      ]
     },
     "Severity": {
       "description": "How a check's Violations are reported.",
@@ -440,6 +1386,191 @@
         "off"
       ],
       "type": "string"
+    },
+    "SheetStart": {
+      "additionalProperties": false,
+      "description": "Where one sheet's numbering starts.",
+      "properties": {
+        "sheet": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "start_index": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sheet",
+        "start_index"
+      ],
+      "type": "object"
+    },
+    "SheetStyle": {
+      "description": "How a cross-reference names a partner's sheet.",
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "Not at all.",
+          "type": "string"
+        },
+        {
+          "const": "name",
+          "description": "By the sheet's title, as in the Projects panel.",
+          "type": "string"
+        },
+        {
+          "const": "number",
+          "description": "By its number in the Projects panel, from 1.",
+          "type": "string"
+        }
+      ]
+    },
+    "SideValues": {
+      "additionalProperties": false,
+      "description": "The spellings of the CPL's side column.",
+      "properties": {
+        "bottom": {
+          "description": "The side column for a part on the bottom.",
+          "type": "string"
+        },
+        "top": {
+          "description": "The side column for a part on top.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "top",
+        "bottom"
+      ],
+      "type": "object"
+    },
+    "Sides": {
+      "description": "Which board sides the board orders number.",
+      "oneOf": [
+        {
+          "const": "top_then_bottom",
+          "description": "The top side, then the bottom, then Components with no Footprint on the board.",
+          "type": "string"
+        },
+        {
+          "const": "top",
+          "description": "Only Components whose Footprint is on the top.",
+          "type": "string"
+        },
+        {
+          "const": "bottom",
+          "description": "Only Components whose Footprint is on the bottom.",
+          "type": "string"
+        }
+      ]
+    },
+    "SlotCommand": {
+      "description": "How the drill file writes a slot.",
+      "oneOf": [
+        {
+          "const": "route",
+          "description": "Routed: `G00`, `M15`, `G01`, `M16`, `G05`.",
+          "type": "string"
+        },
+        {
+          "const": "g85",
+          "description": "The `G85` canned slot.",
+          "type": "string"
+        }
+      ]
+    },
+    "Source": {
+      "description": "Where Re-annotate takes the positions it numbers by.",
+      "oneOf": [
+        {
+          "const": "schematic",
+          "description": "Where the Units sit on their sheets.",
+          "type": "string"
+        },
+        {
+          "const": "board",
+          "description": "Where the Footprints sit on the board. The new Designators write through to it.",
+          "type": "string"
+        }
+      ]
+    },
+    "StackupSeeds": {
+      "additionalProperties": false,
+      "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
+      "properties": {
+        "copper": {
+          "description": "The copper thickness of every copper Layer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "thickness": {
+          "description": "The finished board thickness.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "StackupSuggestions": {
+      "additionalProperties": false,
+      "description": "Suggestions never validate the board or seed its finish or colours.",
+      "properties": {
+        "copper": {
+          "description": "Outer copper thicknesses the fab offers.",
+          "items": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "finish": {
+          "description": "Surface finishes the fab offers.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mask_color": {
+          "description": "Solder Mask colours the fab offers.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "silk_color": {
+          "description": "Silkscreen colours the fab offers.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "thickness": {
+          "description": "Board thicknesses the fab offers.",
+          "items": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "thickness",
+        "copper",
+        "finish",
+        "mask_color",
+        "silk_color"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -458,7 +1589,11 @@
       "default": {
         "dangling_wire": "warning",
         "duplicate_designator": "error",
-        "multiple_net_names": "warning",
+        "duplicate_nets": "error",
+        "library_out_of_date": "off",
+        "net_names_across_sheets": "warning",
+        "net_names_on_sheet": "error",
+        "net_tie_one_net": "warning",
         "no_connect_connected": "warning",
         "pin_conflict": "error",
         "pin_conflict_mixed": "warning",
@@ -494,6 +1629,18 @@
       },
       "type": "array"
     },
+    "library_update": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LibraryUpdateSettings"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The Update from Library settings page 1 of its dialog saved, which the update\nCommands use unless their parameters say otherwise. Written only once there are any."
+    },
     "output_jobs": {
       "default": [],
       "description": "The Output Jobs.",
@@ -516,6 +1663,33 @@
         "title": ""
       },
       "description": "The Project properties that fill the sheets' title blocks. Written only when any\nis set."
+    },
+    "reannotate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReannotateSettings"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The last Re-annotate settings applied, which **Re-annotate (last settings)** and\n`schematic.reannotate {saved: true}` run again. Written only once there are any."
+    },
+    "schematic": {
+      "$ref": "#/$defs/SchematicOptions",
+      "default": {
+        "allow_ports_to_name_nets": true,
+        "append_sheet_numbers": false,
+        "cross_reference_styles": {
+          "location": "zone",
+          "sheet": "number"
+        },
+        "cross_references": false,
+        "cross_references_follow_preferences": false,
+        "power_port_names_priority": false
+      },
+      "description": "The schematic options: how Nets are named. Written only when any differs from its\ndefault; an option left out has its default."
     }
   },
   "required": [

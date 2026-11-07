@@ -7,37 +7,60 @@
 //! can tell when results are stale.
 
 mod components;
+mod details;
 mod matrix;
 mod nets;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{
-    ErcCheck, ErcSeverities, InDocument, Object, Project, Scope, Severity, Uuid, Violation, Waiver,
-    apply_waivers,
+    ErcCheck, ErcSeverities, Object, Project, Severity, Uuid, Violation, Waiver, apply_waivers,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn register_all(registry: &mut Registry) {
+pub(crate) fn register_all(registry: &mut Registry, user_name: reda_command::UserName) {
     registry.add(ErcRun);
     registry.add(ErcStale);
     registry.add(ErcSetSeverity);
-    registry.add(ErcWaive);
+    registry.add(ErcWaive { user_name });
     registry.add(ErcUnwaive);
 }
 
 /// Runs every ERC check that is not Off over the Project's Schematic Sheets, ignoring
-/// Waivers. Violations come in the order of the ERC table.
-pub fn check(project: &Project) -> Vec<Violation> {
+/// Waivers. Violations come in the order of the ERC table. `library` reads the registered
+/// Libraries for `library_out_of_date`; it is only called when that check is not Off.
+pub fn check(project: &Project, library: crate::PartsOf<'_>) -> Vec<Violation> {
     let mut report = Report {
         severities: project.props().erc,
         found: vec![],
     };
     nets::check(project, &mut report);
     components::check(project, &mut report);
+    if !report.is_off(ErcCheck::LibraryOutOfDate) {
+        for found in crate::update::library_differs(project, library) {
+            let aspects: Vec<&str> = (found.aspects.iter())
+                .map(|a| match a {
+                    crate::Aspect::Symbol => "symbol",
+                    crate::Aspect::Fields => "fields",
+                    crate::Aspect::Footprints => "footprints",
+                })
+                .collect();
+            report.add(ErcCheck::LibraryOutOfDate, |v| {
+                v.arg("designator", found.designator.as_str())
+                    .arg("aspects", aspects.join(", "))
+                    .objects(found.units.iter().copied())
+            });
+        }
+    }
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
-    found.into_iter().map(|(_, v)| v).collect()
+    found
+        .into_iter()
+        .map(|(_, mut v)| {
+            details::complete(project, &mut v);
+            v
+        })
+        .collect()
 }
 
 /// The fingerprint of everything ERC reads: the Project properties (with the ERC
@@ -124,7 +147,17 @@ impl Command for ErcRun {
 
     fn run(&self, cx: &mut Context<'_>, p: ErcRunParams) -> Result<ErcRunResult, CommandError> {
         let project = cx.project()?;
-        let waived = apply_waivers(check(project), waivers(project), p.include_waived);
+        let library = |uuids: &[Uuid]| cx.library_parts(uuids);
+        let waived = apply_waivers(
+            check(project, &library),
+            waivers(project),
+            p.include_waived,
+            |id| {
+                ErcCheck::ALL
+                    .iter()
+                    .any(|c| c.id() == id && project.props().erc.get(*c) != Severity::Off)
+            },
+        );
         Ok(ErcRunResult {
             violations: waived.violations,
             waived: waived.waived,
@@ -201,36 +234,41 @@ impl Command for ErcSetSeverity {
     }
 }
 
-pub struct ErcWaive;
+pub struct ErcWaive {
+    user_name: reda_command::UserName,
+}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ErcWaiveParams {
-    /// The check id of the Violation, such as `unconnected_pin`.
-    pub check: ErcCheck,
-    /// Exactly the objects of the Violation, in any order.
-    pub objects: Vec<Uuid>,
-    /// Why it is waived.
+    /// The current Violations to waive together, each with exactly its objects.
+    pub violations: Vec<ErcWaiverTarget>,
+    /// One reason for every selected Violation.
     #[serde(default)]
-    pub comment: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ErcWaiverTarget {
+    pub check: ErcCheck,
+    pub objects: Vec<Uuid>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ErcWaiveResult {
-    /// The new Waiver.
-    pub waiver: Uuid,
-    /// The sheet that holds it: the one holding the Violation's first object.
-    pub document: Uuid,
+    /// The new Waivers, in the order of the selected Violations.
+    pub waivers: Vec<Uuid>,
 }
 
 impl Command for ErcWaive {
     const META: Meta = Meta {
         id: "erc.waive",
-        title: "Waive ERC Violation",
-        description: "Waives one current ERC Violation, named by its check and exactly its \
-                      objects, with an optional comment. The Waiver is stored in the sheet \
-                      holding the Violation's first object and stops matching once those \
-                      objects no longer break the check.",
+        title: "Waive ERC Violations",
+        description: "Waives the selected current ERC Violations with one reason, author \
+                      and creation time, as one undo step. Each Waiver is stored in the \
+                      Document holding its objects and stops matching once those objects \
+                      no longer break the check.",
         category: "schematic",
         icon: "waive",
         kind: Kind::Edit,
@@ -239,37 +277,29 @@ impl Command for ErcWaive {
     type Output = ErcWaiveResult;
 
     fn run(&self, cx: &mut Context<'_>, p: ErcWaiveParams) -> Result<ErcWaiveResult, CommandError> {
-        let project = cx.project()?;
-        let probe = Violation::new(p.check.id(), Severity::Error).objects(p.objects.clone());
-        let candidate = Waiver::of(Uuid::from_u128(0), &probe, "");
-        let Some(violation) = check(project).into_iter().find(|v| candidate.matches(v)) else {
-            return Err(CommandError::rejected(format!(
-                "no current {} Violation has exactly these objects",
-                p.check.id()
-            )));
-        };
-        if let Some(existing) = waivers(project).find(|w| w.matches(&violation)) {
-            return Err(CommandError::rejected(format!(
-                "Waiver {} already waives this Violation",
-                existing.uuid
-            )));
+        if p.violations.is_empty() {
+            return Err(CommandError::invalid_params(
+                "/violations",
+                "select at least one Violation",
+            ));
         }
-        let document = violation
-            .objects
-            .iter()
-            .find_map(|&uuid| match project.object(uuid)?.scope() {
-                Scope::Document(d) if project.schematic_sheet(d).is_some() => Some(d),
-                _ => None,
-            })
-            .ok_or_else(|| CommandError::rejected("no sheet holds this Violation's objects"))?;
-        let waiver = Waiver::of(cx.new_id(), &violation, p.comment);
-        let uuid = waiver.uuid;
-        cx.tx()?
-            .insert(Object::Waiver(InDocument::new(document, waiver)))?;
-        Ok(ErcWaiveResult {
-            waiver: uuid,
-            document,
-        })
+        let project = cx.project()?;
+        let library = |uuids: &[Uuid]| cx.library_parts(uuids);
+        let violations = check(project, &library);
+        let selected = reda_command::select_waivers(
+            p.violations
+                .iter()
+                .map(|t| (t.check.id(), t.objects.as_slice())),
+            &violations,
+            waivers(project),
+            |v| {
+                v.document.ok_or_else(|| {
+                    CommandError::rejected("no sheet holds this Violation's objects")
+                })
+            },
+        )?;
+        let waivers = reda_command::insert_waivers(cx, selected, p.reason, self.user_name)?;
+        Ok(ErcWaiveResult { waivers })
     }
 }
 

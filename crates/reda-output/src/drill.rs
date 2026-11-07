@@ -9,9 +9,9 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
+use reda_model::PadKind;
 use reda_model::geom::{Nm, Point};
-use reda_model::{Hole, PadKind};
-use reda_pcb::placed::{self, PlacedPad, rotate};
+use reda_pcb::placed::{self, PlacedPad};
 
 use crate::plot::{OutputFile, Plot, file_attributes};
 
@@ -19,9 +19,26 @@ use crate::plot::{OutputFile, Plot, file_attributes};
 /// always written, even when one has no holes, so a run's file list does not depend on
 /// the board.
 pub fn drill_files(plot: &Plot<'_>) -> Vec<OutputFile> {
+    if plot.instances.is_empty() {
+        return Vec::new();
+    }
     let name = &plot.project.props().name;
-    let layers = plot.pcb.copper_layers().count();
-    let holes = holes(plot);
+    let layers = plot
+        .instances
+        .first()
+        .map_or(0, |i| i.pcb.copper_layers().count());
+    let holes: Vec<_> = plot
+        .instances
+        .iter()
+        .flat_map(|instance| {
+            let mut holes = holes(instance.pcb);
+            for hole in &mut holes {
+                hole.at = instance.transform.point(hole.at);
+                hole.to = hole.to.map(|p| instance.transform.point(p));
+            }
+            holes
+        })
+        .collect();
     let (plated, non_plated): (Vec<DrillHole>, Vec<DrillHole>) =
         holes.into_iter().partition(|h| h.plated);
     vec![
@@ -51,8 +68,7 @@ struct DrillHole {
 }
 
 /// Every hole: Vias, then Footprint Pads, then Free Pads, each in UUID order.
-fn holes(plot: &Plot<'_>) -> Vec<DrillHole> {
-    let pcb = plot.pcb;
+fn holes(pcb: &reda_model::PcbDocument) -> Vec<DrillHole> {
     let mut holes: Vec<DrillHole> = pcb
         .vias()
         .map(|via| DrillHole {
@@ -81,7 +97,7 @@ fn holes(plot: &Plot<'_>) -> Vec<DrillHole> {
 /// The hole of a placed Pad, if it has one. A plated hole takes `plated_function`; a
 /// non-plated hole is a mechanical one.
 fn pad_hole(pad: &PlacedPad, plated_function: &'static str) -> Option<DrillHole> {
-    let Hole { width, height } = pad.hole?;
+    let hole = pad.hole?;
     let plated = match pad.kind {
         PadKind::Smd => return None,
         PadKind::PlatedThroughHole => true,
@@ -91,21 +107,13 @@ fn pad_hole(pad: &PlacedPad, plated_function: &'static str) -> Option<DrillHole>
         true => plated_function,
         false => "NonPlated,NPTH,MechanicalDrill",
     };
-    let diameter = width.min(height);
-    // A slot runs along its longer side, in the Pad's frame, turned with the Pad.
-    let half = Nm((width.0 - height.0).abs() / 2);
-    let (at, to) = if half == Nm::ZERO {
+    let diameter = hole.diameter();
+    // A slot runs along its longer side, turned by its own rotation and the Pad's.
+    let (from, to) = pad.hole_ends()?;
+    let (at, to) = if from == to {
         (pad.at, None)
     } else {
-        let along = match width > height {
-            true => Point::new(half, Nm::ZERO),
-            false => Point::new(Nm::ZERO, half),
-        };
-        let d = rotate(along, Point::new(Nm::ZERO, Nm::ZERO), pad.rotation);
-        (
-            Point::new(pad.at.x - d.x, pad.at.y - d.y),
-            Some(Point::new(pad.at.x + d.x, pad.at.y + d.y)),
-        )
+        (from, Some(to))
     };
     Some(DrillHole {
         plated,

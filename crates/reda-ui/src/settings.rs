@@ -1,6 +1,7 @@
-//! The settings dialogs: modal dialogs with a page tree on the left and OK, Cancel and
-//! Apply. Project Settings is the first ([`project`]); Board Setup and the Output Job
-//! dialog are built the same way.
+//! The settings windows: non-modal windows of their own from the docking layer, with a
+//! page tree on the left and OK, Cancel and Apply. Project Settings is the first
+//! ([`project`]); Board Setup, the Output Job window and the Change List are built the
+//! same way, and [`windows`] holds the open ones.
 //!
 //! Each page keeps a draft of the settings it edits ([`Draft`]) and turns the difference
 //! from the Project into Command steps. Apply runs every page's steps as one `batch`, so
@@ -8,8 +9,8 @@
 //! drops the drafts. A page reports invalid values as [`Problem`]s, which are flagged
 //! beside their field and disable OK and Apply.
 //!
-//! The model here has no drawing, so the dialogs can be tested without a window; the
-//! modal is drawn by [`SettingsDialog::show`] (in `settings/draw.rs`).
+//! The model here has no drawing, so the dialogs can be tested without a window; a
+//! window's tab is drawn by [`SettingsDialog::show`] (in `settings/draw.rs`).
 
 use std::any::Any;
 use std::path::Path;
@@ -25,8 +26,9 @@ pub mod change_list;
 mod draw;
 pub mod output_job;
 pub mod project;
+pub mod windows;
 
-pub use draw::{Outcome, PageCx, field, problem_label};
+pub use draw::{Outcome, PageCx, field, problem_label, tree_row};
 
 /// One Command a page wants run when the dialog applies.
 #[derive(Clone, Debug, PartialEq)]
@@ -47,7 +49,7 @@ impl Step {
 /// An invalid value on a page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Problem {
-    /// Which field it is on, as the page names its fields (such as `board_thickness` or
+    /// Which field it is on, as the page names its fields (such as `clearance` or
     /// `path/2` for a table's third row).
     pub field: String,
     /// What is wrong, for the user.
@@ -91,6 +93,22 @@ pub trait Page: Any {
     /// A folder the user picked after the page asked for one (relative to the Project
     /// folder when it can be).
     fn picked_folder(&mut self, _path: &Path) {}
+
+    /// Whether the page offers Reset to defaults.
+    fn has_defaults(&self) -> bool {
+        false
+    }
+
+    /// Puts the defaults in the drafts, as pending edits until Apply.
+    fn reset_to_defaults(&mut self, _shell: &mut Shell) {}
+}
+
+/// The buttons along a settings window's bottom.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Buttons {
+    OkCancelApply,
+    /// The Change List's.
+    ApplyClose,
 }
 
 /// A value being edited: what the Project has (`base`) and what the dialog shows.
@@ -153,6 +171,9 @@ pub struct SettingsDialog {
     selected: usize,
     error: Option<String>,
     undo_scope: Scope,
+    buttons: Buttons,
+    /// Whether the page tree shows.
+    tree: bool,
 }
 
 impl SettingsDialog {
@@ -167,6 +188,33 @@ impl SettingsDialog {
             selected: 0,
             error: None,
             undo_scope: Scope::Project,
+            buttons: Buttons::OkCancelApply,
+            tree: true,
+        }
+    }
+
+    /// The same dialog with Apply and Close, and no page tree: the Change List's. Its
+    /// changes are the design's, not edits, so closing it never asks.
+    pub fn apply_and_close(mut self) -> Self {
+        self.buttons = Buttons::ApplyClose;
+        self.tree = false;
+        self
+    }
+
+    pub fn buttons(&self) -> Buttons {
+        self.buttons
+    }
+
+    /// Whether closing the window would lose edits: something changed, and the window is
+    /// one with OK and Cancel.
+    pub fn unapplied(&self) -> bool {
+        self.buttons == Buttons::OkCancelApply && self.has_changes()
+    }
+
+    /// Reset to defaults on the shown page.
+    pub fn reset_page(&mut self, shell: &mut Shell) {
+        if let Some(page) = self.pages.get_mut(self.selected) {
+            page.reset_to_defaults(shell);
         }
     }
 

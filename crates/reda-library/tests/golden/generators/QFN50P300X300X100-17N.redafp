@@ -1,25 +1,25 @@
 {
   "format": 1,
-  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"QFN50P300X300X100-17N","description":"QFN-16, 3 × 3 mm body, 0.5 mm pitch, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":2850000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"QFN50P300X300X100-17N","description":"QFN-16, 3 × 3 mm body, 0.5 mm pitch, IPC-7351 Nominal","height":1000000},
+  "generator": {"command":"library.footprint.generate.qfn","params":{"absent_pins":[],"chamfer":true,"description":"QFN-16, 3 × 3 mm body, 0.5 mm pitch, IPC-7351 Nominal","dimensions":{"body_length":{"max":3100000,"min":2900000},"body_width":{"max":3100000,"min":2900000},"exposed_pad":{"length":{"max":1750000,"min":1550000},"width":{"max":1750000,"min":1550000}},"height":1000000,"lead_length":{"max":500000,"min":300000},"lead_width":{"max":300000,"min":180000},"pitch":500000},"goals":{"density":"nominal","fillet":{"heel":0,"side":-40000,"toe":300000}},"library":"000000aa-0000-4000-8000-000000000000","name":"QFN50P300X300X100-17N","outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"corner_ratio":25000,"exposed_pad":{"length":1650000,"width":1650000},"length":875000,"length_y":875000,"max_corner_radius":250000,"paste_array":"inherit","paste_coverage":50,"shape":"rounded_rect","spacing":2875000,"spacing_y":2875000,"trim":true,"width":250000},"pin1_location":"corner","pins":16,"tolerances":{"component":{"inner":346410,"inner_y":346410,"span":200000,"span_y":200000,"width":120000},"courtyard_excess":250000,"fabrication":100000,"placement":50000,"round_off":{"place":50000,"size":50000}}}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":750000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":250000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-250000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1437500,"y":-750000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-750000,"y":-1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-250000,"y":-1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":250000,"y":-1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":750000,"y":-1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-750000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":-250000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-00000000000c","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":250000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-00000000000d","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":1437500,"y":750000},"rotation":0,"width":875000,"height":250000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-00000000000e","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":750000,"y":1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-00000000000f","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":250000,"y":1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000010","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":-250000,"y":1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000011","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":-750000,"y":1437500},"rotation":0,"width":250000,"height":875000,"corner_radius":62500},
-    {"uuid":"00000000-0000-4000-8000-000000000012","number":"17","kind":"smd","shape":"rounded_rect","at":{"x":0,"y":0},"rotation":0,"width":1600000,"height":1600000,"corner_radius":250000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1450000,"y":750000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1450000,"y":250000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-1450000,"y":-250000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000005","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-1450000,"y":-750000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000006","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":-750000,"y":-1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000007","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":-250000,"y":-1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000008","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":250000,"y":-1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000009","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":750000,"y":-1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","number":"9","kind":"smd","shape":"rounded_rect","at":{"x":1450000,"y":-750000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","number":"10","kind":"smd","shape":"rounded_rect","at":{"x":1450000,"y":-250000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000c","number":"11","kind":"smd","shape":"rounded_rect","at":{"x":1450000,"y":250000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","number":"12","kind":"smd","shape":"rounded_rect","at":{"x":1450000,"y":750000},"rotation":0,"width":850000,"height":250000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","number":"13","kind":"smd","shape":"rounded_rect","at":{"x":750000,"y":1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","number":"14","kind":"smd","shape":"rounded_rect","at":{"x":250000,"y":1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000010","number":"15","kind":"smd","shape":"rounded_rect","at":{"x":-250000,"y":1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000011","number":"16","kind":"smd","shape":"rounded_rect","at":{"x":-750000,"y":1450000},"rotation":0,"width":250000,"height":850000,"corner_ratio":25000},
+    {"uuid":"00000000-0000-4000-8000-000000000012","number":"17","kind":"smd","shape":"rounded_rect","at":{"x":0,"y":0},"rotation":0,"width":1650000,"height":1650000,"corner_ratio":25000,"zone_connection":{"style":"solid"}}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000013","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2150000,"y":-2150000},"end":{"x":2150000,"y":2150000}},"width":50000},
@@ -30,5 +30,10 @@
     {"uuid":"00000000-0000-4000-8000-000000000018","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1610000,"y":-1610000},"end":{"x":-1135000,"y":-1610000}},"width":120000},
     {"uuid":"00000000-0000-4000-8000-000000000019","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1135000,"y":-1610000},"end":{"x":1610000,"y":-1610000}},"width":120000},
     {"uuid":"00000000-0000-4000-8000-00000000001a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1610000,"y":-1610000},"end":{"x":-1610000,"y":-1135000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-00000000001b","field":"Designator","at":{"x":0,"y":2850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-00000000001c","field":"Value","at":{"x":0,"y":-2850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"00000000-0000-4000-8000-00000000001d","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

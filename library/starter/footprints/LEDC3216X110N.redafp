@@ -1,14 +1,19 @@
 {
   "format": 1,
-  "footprint": {"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal"},
-  "text": {"designator":{"at":{"x":0,"y":1900000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":800000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","description":"Chip LED, 3216 metric, IPC-7351 Nominal","dimensions":{"height":1100000,"length":{"max":3400000,"min":3000000},"terminal":{"max":600000,"min":400000},"width":{"max":1800000,"min":1400000}},"goals":{"density":"nominal","fillet":{"heel":0,"side":0,"toe":350000}},"library":"5a7e0000-0000-4000-8000-000000000001","name":"LEDC3216X110N","outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"corner_ratio":25000,"length":1075000,"max_corner_radius":250000,"paste_coverage":50,"shape":"rounded_rect","spacing":3025000,"trim":true,"width":1800000},"polarity_mark":true,"tolerances":{"component":{"inner":489898,"span":400000,"width":400000},"courtyard_excess":250000,"fabrication":100000,"placement":50000,"round_off":{"place":50000,"size":50000}}}},
   "pads": [
-    {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000},
-    {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_radius":250000}
+    {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1512500,"y":0},"rotation":0,"width":1075000,"height":1800000,"corner_ratio":25000},
+    {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1512500,"y":0},"rotation":0,"width":1075000,"height":1800000,"corner_ratio":25000}
   ],
   "graphics": [
-    {"uuid":"87b32797-9ffe-4e67-a9f1-19b476028f28","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2335000,"y":-925000},"end":{"x":-2335000,"y":925000}},"width":120000},
-    {"uuid":"acbe1e68-5d92-4a59-84a6-d4ec3a923002","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000},
+    {"uuid":"59d44a1c-b042-46e4-9c50-3f7cf392f24a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2310000,"y":960000},"end":{"x":-2310000,"y":-960000}},"width":120000},
+    {"uuid":"acbe1e68-5d92-4a59-84a6-d4ec3a923002","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1150000},"end":{"x":2300000,"y":1150000}},"width":50000},
     {"uuid":"d0acbb24-93e9-4ed9-a3d6-97691f18cdc5","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"40a1b6d3-302c-46f1-a024-c737b3837536","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"4b6333a3-f466-4490-bcb8-326f7019c4e8","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"cbf150a1-56ab-45e8-8f1a-559d1a88b79f","field":"Value","at":{"x":0,"y":-1750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

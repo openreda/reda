@@ -15,6 +15,7 @@
 //!   ([`Copper::ratsnest`]),
 //! - whether proposed copper keeps its clearance ([`Copper::clearance`]).
 
+use shape::BoardShape as _;
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Point;
@@ -26,6 +27,7 @@ use serde::Serialize;
 mod clearance;
 mod ratsnest;
 pub(crate) mod shape;
+pub(crate) mod ties;
 
 pub use clearance::{ClearanceHit, Proposal};
 pub use ratsnest::{RatsnestLine, RatsnestVisibility};
@@ -426,7 +428,10 @@ impl Copper {
         };
         let mut items = Vec::new();
         for pad in &copy.footprint.pads {
-            let layers = pad_layers(pcb, pad.kind, instance.side);
+            let side = pad.copper_side().map_or(instance.side, |s| {
+                crate::placed::Frame::of(instance).side(s)
+            });
+            let layers = pad_layers(pcb, pad.kind, side);
             if layers.is_empty() {
                 continue;
             }
@@ -453,7 +458,7 @@ impl Copper {
         let Some(pad) = pcb.free_pad(uuid) else {
             return;
         };
-        let layers = pad_layers(pcb, pad.kind, pad.side.unwrap_or(Side::Top));
+        let layers = pad_layers(pcb, pad.kind, pad.form().copper_side().unwrap_or(Side::Top));
         if layers.is_empty() {
             return;
         }

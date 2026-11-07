@@ -40,8 +40,8 @@ pub struct JobRunParams {
 pub struct WrittenFile {
     /// The file name, such as `Demo.GTL`.
     pub name: String,
-    /// What it holds: `copper_top`, `copper_bottom`, `solder_mask_top`, `solder_mask_bottom`,
-    /// `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
+    /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
+    /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
     /// `drill_plated`, `drill_non_plated`, `bom` or `cpl`.
     pub function: &'static str,
 }
@@ -58,7 +58,8 @@ pub struct JobRunResult {
     /// What the run noticed but did not stop for, as Violations with severity `warning`:
     /// `out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet
     /// with no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,
-    /// `rule_below_preset {rule, board, minimum, preset, net_class?}`, `missing_font {font}`.
+    /// `rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`
+    /// (as DRC reports it), `missing_font {font}`.
     pub warnings: Vec<Violation>,
 }
 
@@ -70,10 +71,12 @@ impl Command for JobRun {
                       (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board \
                       Outline as the Profile) and the Excellon drill files (plated and \
                       non-plated) and writes them with the CSV BOM and CPL (columns from the \
-                      job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions \
-                      from the Placement Origin, else the Board Outline's lower-left) and their \
+                      job's Fab Preset; Not Fitted and Mechanical Parts left out) and their \
                       zip, `<project>-<job>.zip`, to the job's destination \
-                      (default `outputs/<job>/`), replacing the last run's files. The checks \
+                      (default `outputs/<job>/`), replacing the last run's files. Gerber, \
+                      drill and CPL share one origin: the board's own zero for an `absolute` \
+                      preset, and for a `relative` one the Output Origin, or the lower-left \
+                      of the Board Outline while none is placed. The checks \
                       that block read only the job's PCB: duplicate Designators, an open \
                       Board Outline and a Footprint the PCB cannot resolve block the run \
                       (`rejected`, `details.blockers`). Other problems, such as an \
@@ -157,16 +160,26 @@ impl Command for JobRun {
             .as_ref()
             .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
         let name = project.props().name.clone();
+        let instances = [reda_output::BoardInstance::single(
+            &pcb,
+            &fills,
+            preset.gerber.file_origin,
+        )];
         let plot = Plot {
             project,
-            pcb: &pcb,
-            fills: &fills,
-            gerber: preset.gerber,
+            instances: &instances,
+            gerber: &preset.gerber,
             fonts: &fonts,
             created,
         };
-        let bom = reda_output::bom_file(project, &pcb, &preset.bom);
-        let cpl = reda_output::cpl_file(project, &pcb, &preset.cpl);
+        let bom =
+            reda_output::bom_file(project, &pcb, &preset.bom.columns, &preset.bom.mount_values);
+        let cpl = reda_output::cpl_file(
+            project,
+            &instances,
+            &preset.cpl.columns,
+            &preset.bom.mount_values,
+        );
         let mut known: Vec<String> = Vec::new();
         let mut files: Vec<OutputFile> = Vec::new();
         for (on, every) in [

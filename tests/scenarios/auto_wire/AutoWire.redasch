@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
+  "parts": [
+    {"uuid":"00000000-0000-4000-8000-000000000027","hash":"e1bdbc777f2abee560a61821a9202df2","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-000000000022","00000000-0000-4000-8000-000000000023","00000000-0000-4000-8000-000000000024","00000000-0000-4000-8000-000000000025","00000000-0000-4000-8000-000000000026"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
+      {"uuid":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"A"}
+    ],"pins":[
+      {"uuid":"4d8013c9-7801-4d73-93ac-a5c047a300b5","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000,"name_visible":false,"number_visible":false},
+      {"uuid":"65cfd6a3-2cbb-4a0d-9649-483821136516","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":1270000,"name_visible":false,"number_visible":false}
+    ],"graphics":[
+      {"uuid":"0e65c72b-7ee9-49c4-94cc-ef11deea34c0","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","shape":{"kind":"rect","start":{"x":-1016000,"y":-2540000},"end":{"x":1016000,"y":2540000}},"width":254000}
+    ]}
+  ],
+  "footprints": [
+    {"uuid":"00000000-0000-4000-8000-000000000022","hash":"8510e0fb4886b8065ae842e8b39b7339","footprint":{"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},"pads":[
+      {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":25000},
+      {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":25000}
+    ],"graphics":[
+      {"uuid":"76d3f486-feab-4215-99a9-4ea1d56c579c","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
+      {"uuid":"832a282d-a408-4a5e-ad34-ce518f62238b","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000}
+    ],"texts":[
+      {"uuid":"ad5d3d0b-0bf2-4064-97a8-5b9fa9e30810","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"b7de30cc-6911-42ef-af7b-7178beafa8ad","field":"Value","at":{"x":0,"y":-775000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"de5dcc6d-625e-48ed-af87-d03436b3784d","field":"Designator","at":{"x":0,"y":1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"8663e2c08d4adca1947ea9e5cb2fda42","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000},
+      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000}
+    ],"graphics":[
+      {"uuid":"c40aeae4-dd1b-4c6b-bca1-573bf549d9e9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
+      {"uuid":"e47f7153-007a-4925-bff2-7afa18cc14f7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
+    ],"texts":[
+      {"uuid":"872e8870-86ef-4f11-a6f6-9cbcc7995c1d","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"c857cef7-4c11-4e1a-a3f0-cc25b527e5db","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000024","hash":"5e2cfab0cf09e258b184f0194f3a3297","footprint":{"uuid":"71936419-d9da-4a2b-8429-13c6a21ecace","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},"pads":[
+      {"uuid":"69d36719-97ac-43be-a0c6-d39c2b2ee7f5","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":25000},
+      {"uuid":"d8f3a9df-6725-4db0-9d8c-221acd8d66ae","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":25000}
+    ],"graphics":[
+      {"uuid":"1b556a87-5cdf-45c1-a13f-a5b14bd76ae1","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000},
+      {"uuid":"5797dfa9-0d27-4c46-98f9-8d101e340f22","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-1000000},"end":{"x":1700000,"y":1000000}},"width":50000}
+    ],"texts":[
+      {"uuid":"3741e149-09f6-4b5e-a1be-b23c21c48161","field":"Designator","at":{"x":0,"y":1700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"5e2ba022-e76c-4146-8142-bfea1f1f547b","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"ef217695-e8b4-4f9c-ae28-018ae8e6ef32","field":"Value","at":{"x":0,"y":-1510000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000025","hash":"12712526e3fd4ff314a7798cfad07b4e","footprint":{"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},"pads":[
+      {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1150000,"height":1800000,"corner_ratio":25000},
+      {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1150000,"height":1800000,"corner_ratio":25000}
+    ],"graphics":[
+      {"uuid":"44297572-5b1e-47bb-9e7a-f3198c88aa8b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000},
+      {"uuid":"6702b208-3d83-4920-a07a-7ff576d7b69d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1150000},"end":{"x":2300000,"y":1150000}},"width":50000}
+    ],"texts":[
+      {"uuid":"3d453632-f0a4-49a3-91b7-d08f2158c709","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"44f25427-334b-4b3d-a058-5711924b22fc","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"531eb07c-ec51-40a0-9a33-ad9123eca689","field":"Value","at":{"x":0,"y":-1750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000026","hash":"56e596c94888a4c5f9e8eae0e3d8dcbf","footprint":{"uuid":"afd4eee0-373d-4487-aade-3ad89f20f99d","name":"RES_Axial_L6.3mm_D2.5mm_P10.16mm","description":"Axial resistor, 0207 body (6.3 × 2.5 mm), leads 10.16 mm apart"},"pads":[
+      {"uuid":"670c3969-f1f4-4732-bbf4-a72a224e8ae3","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"af720601-71ec-427b-8d14-4e3ca21befab","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
+    ],"graphics":[
+      {"uuid":"11245a08-735a-4cb4-9618-d16e03d7d8e4","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-3210000,"y":-1310000},"end":{"x":3210000,"y":1310000}},"width":120000},
+      {"uuid":"575248fd-9f11-4e27-bc91-aa72e2b14ab1","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-6130000,"y":-1600000},"end":{"x":6130000,"y":1600000}},"width":50000},
+      {"uuid":"5ebe5c8f-97bb-4f8c-8a35-3aad0992c2f2","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-3150000,"y":-1250000},"end":{"x":3150000,"y":1250000}},"width":100000},
+      {"uuid":"a3451996-a692-4def-b945-a4889a6711ee","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3210000,"y":0},"end":{"x":-4020000,"y":0}},"width":120000},
+      {"uuid":"cb042bfe-c1e6-4836-a31e-831a7b9fc7a8","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":3210000,"y":0},"end":{"x":4020000,"y":0}},"width":120000}
+    ],"texts":[
+      {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"93505dbc-3734-4000-9025-215dbd4b74cb","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    ]}
+  ],
+  "units": [
+    {"uuid":"00000000-0000-4000-8000-000000000029","component":{"uuid":"00000000-0000-4000-8000-000000000028"},"part":"00000000-0000-4000-8000-000000000027","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":25400000,"y":25400000},"rotation":0,"designator":"R1","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"footprint":"cece716c-4fd0-42c8-900c-0f3bc3c14225","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-00000000002b","component":{"uuid":"00000000-0000-4000-8000-00000000002a"},"part":"00000000-0000-4000-8000-000000000027","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":38100000,"y":25400000},"rotation":0,"designator":"R2","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"footprint":"cece716c-4fd0-42c8-900c-0f3bc3c14225","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-00000000002d","component":{"uuid":"00000000-0000-4000-8000-00000000002c"},"part":"00000000-0000-4000-8000-000000000027","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":50800000,"y":25400000},"rotation":0,"designator":"R3","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"footprint":"cece716c-4fd0-42c8-900c-0f3bc3c14225","component_type":"standard","in_bom":true,"in_cpl":true}
+  ],
+  "wires": [
+    {"uuid":"00000000-0000-4000-8000-00000000002e","vertices":[{"x":31750000,"y":17780000},{"x":31750000,"y":35560000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000002f","vertices":[{"x":25400000,"y":29210000},{"x":25400000,"y":36830000},{"x":50800000,"y":36830000},{"x":50800000,"y":29210000}]}
+  ]
+}
