@@ -14,6 +14,7 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::model::Uuid;
 use reda_ui::shell::Shell;
+use reda_ui::working_state::FilterKind;
 use serde_json::{Value, json};
 
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
@@ -415,13 +416,23 @@ fn properties_and_active_bar_share_the_selection_filter() {
     h.run();
     h.get_by_label("Select Wire").click();
     h.run();
-    assert!(!h.state().shell().selection_filter(sheet()).allows("wire"));
+    assert!(
+        !h.state()
+            .shell()
+            .selection_filter(sheet())
+            .allows(FilterKind::Wire)
+    );
     h.get_by_role_and_label(Role::Button, "Selection Filter")
         .click();
     h.run();
     h.get_all_by_label("All").last().unwrap().click();
     h.run();
-    assert!(h.state().shell().selection_filter(sheet()).allows("wire"));
+    assert!(
+        h.state()
+            .shell()
+            .selection_filter(sheet())
+            .allows(FilterKind::Wire)
+    );
 }
 
 #[test]
@@ -851,5 +862,236 @@ fn component_body_ranks_after_larger_field_text_but_pins_keep_their_priority() {
         h.state().shell().selection().objects,
         [unit.as_str().unwrap().parse::<Uuid>().unwrap()],
         "an exact Pin hit still ranks by size with text"
+    );
+}
+
+/// The UUID of a Wire added along `points`.
+fn wire(h: &mut Harness<'_, App>, points: Value) -> Uuid {
+    run(
+        h,
+        "schematic.wire.add",
+        json!({"document": SHEET, "points": points}),
+    )["result"]["wires"][0]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap()
+}
+
+fn click_at(h: &mut Harness<'_, App>, at: Pos2) {
+    h.drag_at(at);
+    h.drop_at(at);
+    h.run();
+}
+
+#[test]
+fn shift_click_adds_to_the_selection_and_mod_click_replaces_it() {
+    let dir = TempDir::new("canvas-shift-add");
+    let mut h = harness(&dir);
+    let unit: Uuid = resistor_and_wire(&mut h).as_str().unwrap().parse().unwrap();
+    let wire = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .schematic_sheet(sheet())
+        .unwrap()
+        .wires()
+        .next()
+        .unwrap()
+        .uuid;
+    let body = screen(&h, 0.0, 120.0);
+    let on_wire = screen(&h, 0.0, 400.0);
+    click_at(&mut h, body);
+    assert_eq!(h.state().shell().selection().objects, [unit]);
+    h.event(egui::Event::ModifiersChanged(Modifiers::SHIFT));
+    click_at(&mut h, on_wire);
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [unit, wire],
+        "Shift+click adds an object to the selection"
+    );
+    h.event(egui::Event::ModifiersChanged(Modifiers::COMMAND));
+    click_at(&mut h, body);
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [unit],
+        "Mod+click no longer toggles: it selects just the object, as a click does"
+    );
+}
+
+#[test]
+fn left_to_right_rectangle_encloses_and_right_to_left_touches() {
+    let dir = TempDir::new("canvas-rectangle-direction");
+    let mut h = harness(&dir);
+    let wire = wire(&mut h, json!([{"x":"-100mil","y":0},{"x":"100mil","y":0}]));
+    h.run();
+    // A box over the Wire's right half only.
+    let (left, right) = (screen(&h, 0.0, 100.0), screen(&h, 400.0, -100.0));
+    let rectangle = |h: &mut Harness<'_, App>, from: Pos2, to: Pos2| {
+        h.drag_at(from);
+        h.run();
+        h.hover_at(to);
+        h.run();
+        let mode = h
+            .state()
+            .shell()
+            .document_tab(sheet())
+            .unwrap()
+            .overlay
+            .rubber_band
+            .map(|band| band.mode);
+        h.drop_at(to);
+        h.run();
+        mode
+    };
+    let mode = rectangle(&mut h, left, right);
+    assert_eq!(mode, Some(reda_ui::canvas::interact::BoxMode::Enclose));
+    assert!(
+        h.state().shell().selection().is_empty(),
+        "left to right selects only what it encloses"
+    );
+    let mode = rectangle(&mut h, right, left);
+    assert_eq!(mode, Some(reda_ui::canvas::interact::BoxMode::Touch));
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [wire],
+        "right to left selects what it touches"
+    );
+    for theme in [egui::Theme::Dark, egui::Theme::Light] {
+        assert_ne!(
+            reda_ui::theme::selection_box(theme, true),
+            reda_ui::theme::selection_box(theme, false),
+            "each direction has its own colour"
+        );
+    }
+}
+
+#[test]
+fn a_plain_click_after_a_shift_click_picks_the_top_of_the_stack() {
+    let dir = TempDir::new("canvas-shift-then-click");
+    let mut h = harness_with_step(&dir, 0.01);
+    let short = wire(&mut h, json!([{"x":"-100mil","y":0},{"x":"100mil","y":0}]));
+    wire(&mut h, json!([{"x":0,"y":"-500mil"},{"x":0,"y":"500mil"}]));
+    let other = wire(
+        &mut h,
+        json!([{"x":"-500mil","y":"300mil"},{"x":"-300mil","y":"300mil"}]),
+    );
+    run(&mut h, "selection.set", json!({"objects":[other]}));
+    h.run();
+    let at = screen(&h, 0.0, 0.0);
+    h.event(egui::Event::ModifiersChanged(Modifiers::SHIFT));
+    click_at(&mut h, at);
+    assert_eq!(h.state().shell().selection().objects, [other, short]);
+    h.event(egui::Event::ModifiersChanged(Modifiers::NONE));
+    // Inside the 600 ms repeat window, but past a double-click.
+    h.input_mut().time = Some(h.ctx.input(|i| i.time) + 0.45);
+    click_at(&mut h, at);
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [short],
+        "a click replaces the selection with the top object; a Shift+click doesn't start a cycle"
+    );
+}
+
+#[test]
+fn double_clicking_a_stack_keeps_the_selection_until_an_entry_is_chosen() {
+    let dir = TempDir::new("canvas-pick-list-selection");
+    let mut h = harness_with_step(&dir, 0.01);
+    wire(&mut h, json!([{"x":"-100mil","y":0},{"x":"100mil","y":0}]));
+    wire(&mut h, json!([{"x":0,"y":"-500mil"},{"x":0,"y":"500mil"}]));
+    let other = wire(
+        &mut h,
+        json!([{"x":"-500mil","y":"300mil"},{"x":"-300mil","y":"300mil"}]),
+    );
+    run(&mut h, "selection.set", json!({"objects":[other]}));
+    h.run();
+    let at = screen(&h, 0.0, 0.0);
+    for _ in 0..2 {
+        click_at(&mut h, at);
+    }
+    h.get_by_label("Pick Object");
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [other],
+        "the double-click's clicks don't change the selection the list opens over"
+    );
+}
+
+#[test]
+fn delete_with_objects_and_text_selected_deletes_the_objects() {
+    let dir = TempDir::new("canvas-mixed-delete");
+    let mut h = harness(&dir);
+    let unit: Uuid = resistor_and_wire(&mut h).as_str().unwrap().parse().unwrap();
+    let wire = wire(
+        &mut h,
+        json!([{"x":"-500mil","y":"-300mil"},{"x":"-300mil","y":"-300mil"}]),
+    );
+    run(
+        &mut h,
+        "selection.set",
+        json!({"objects":[wire],"fields":[{"unit":unit,"field":"designator"}]}),
+    );
+    h.run();
+    // Focus the sheet with a press on empty canvas, keeping the selection.
+    run(
+        &mut h,
+        "app.preferences.set",
+        json!({"key": "editing.click_clears_selection", "value": false}),
+    );
+    let empty = screen(&h, -900.0, -700.0);
+    click_at(&mut h, empty);
+    let before = h.state().shell().engine().journal().len();
+    h.key_press(Key::Delete);
+    h.run();
+    assert_eq!(journal_since(&h, before), ["schematic.delete"]);
+    let project = h.state().shell().engine().project().unwrap();
+    let sheet = project.schematic_sheet(sheet()).unwrap();
+    assert!(
+        project.object(wire).is_none(),
+        "the selected Wire is deleted"
+    );
+    assert!(
+        sheet.unit(unit).is_some(),
+        "the text, which can't be deleted alone, stays with its Component"
+    );
+}
+
+#[test]
+fn only_deletes_of_the_selection_are_refused_for_text_alone() {
+    use reda_ui::bars::{Action, Binding};
+    let dir = TempDir::new("canvas-delete-scope");
+    let mut h = harness(&dir);
+    let unit = resistor_and_wire(&mut h);
+    run(
+        &mut h,
+        "selection.set",
+        json!({"fields":[{"unit":unit,"field":"designator"}]}),
+    );
+    let action = |command: &str, params: Value| Action {
+        id: command.into(),
+        binding: Binding::Raw {
+            command: command.into(),
+            params,
+        },
+        title: None,
+        icon: None,
+    };
+    let shell = h.state().shell();
+    let of_selection = reda_ui::bars::resolve_for(
+        shell,
+        &action("schematic.delete", json!({"objects":"$selection"})),
+        Some(sheet()),
+    );
+    assert_eq!(of_selection.command, "selection.delete");
+    let unrelated = reda_ui::bars::resolve_for(
+        shell,
+        &action("output.job.delete", json!({"job": unit})),
+        Some(sheet()),
+    );
+    assert_eq!(
+        unrelated.command, "output.job.delete",
+        "a delete that doesn't act on the selection is left alone"
     );
 }

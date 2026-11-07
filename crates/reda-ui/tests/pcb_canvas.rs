@@ -668,3 +668,222 @@ fn output_origin_can_be_clicked_boxed_selected_all_dragged_and_filtered() {
         "Output Origin obeys its Filter"
     );
 }
+
+fn mm(x: f64) -> reda_ui::engine::model::geom::Nm {
+    reda_ui::engine::model::geom::Nm((x * 1e6) as i64)
+}
+
+/// Adds a 1 mm SMD Free Pad on top at (`x`, 0) mm, zooms to fit, and returns its UUID.
+fn free_pad(w: &mut Window, x: &str) -> Uuid {
+    let free: Uuid =
+        w.h.state_mut()
+            .shell_mut()
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind":"smd","side":"top","at":{"x":x,"y":0},"width":"1mm","height":"1mm"}),
+            )
+            .unwrap()["result"]["uuid"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+    let pcb = w.pcb;
+    w.h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({"document":pcb}))
+        .unwrap();
+    w.h.run();
+    w.h.run();
+    free
+}
+
+fn click(w: &mut Window, at: Pos2) {
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+}
+
+/// [`click`], `gap` seconds after the last input.
+fn click_after(w: &mut Window, at: Pos2, gap: f64) {
+    w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + gap);
+    click(w, at);
+}
+
+#[test]
+fn repeat_clicks_and_shift_tab_cycle_the_board_stack() {
+    let mut w = window_with_step(0.01);
+    w.h.run();
+    let at = on_screen(&w, Point::default());
+    click_after(&mut w, at, 1.0);
+    assert_eq!(shell(&w).selection().pads.len(), 1, "the Pad ranks first");
+    // Inside the 600 ms repeat window, but past a double-click.
+    click_after(&mut w, at + egui::vec2(1.0, 0.0), 0.45);
+    assert_eq!(
+        shell(&w).selection().texts.len(),
+        1,
+        "a repeat click picks the next tier: the Designator on silkscreen"
+    );
+    click_after(&mut w, at, 0.45);
+    assert_eq!(
+        shell(&w).selection().objects,
+        [w.footprint],
+        "and then the Footprint body"
+    );
+    w.h.key_press_modifiers(Modifiers::SHIFT, Key::Tab);
+    w.h.run();
+    assert_eq!(
+        shell(&w).selection().pads.len(),
+        1,
+        "Shift+Tab cycles back to the Pad"
+    );
+    click_after(&mut w, at, 1.0);
+    click_after(&mut w, at, 0.7);
+    assert!(
+        shell(&w).selection().objects.is_empty(),
+        "a click after 600 ms doesn't cycle"
+    );
+}
+
+#[test]
+fn shift_click_adds_on_the_board_and_mod_click_replaces() {
+    let mut w = window_with_step(0.01);
+    let free = free_pad(&mut w, "5mm");
+    let pad = on_screen(&w, Point::default());
+    let other = on_screen(&w, Point::new(mm(5.0), mm(0.0)));
+    click_after(&mut w, pad, 1.0);
+    assert_eq!(shell(&w).selection().pads.len(), 1);
+    w.h.event(egui::Event::ModifiersChanged(Modifiers::SHIFT));
+    click_after(&mut w, other, 1.0);
+    assert_eq!(
+        shell(&w).selection().pads.len(),
+        1,
+        "Shift+click keeps the Pad"
+    );
+    assert_eq!(
+        shell(&w).selection().objects,
+        [free],
+        "and adds the Free Pad"
+    );
+    w.h.event(egui::Event::ModifiersChanged(Modifiers::COMMAND));
+    click_after(&mut w, other, 1.0);
+    assert_eq!(shell(&w).selection().objects, [free]);
+    assert!(
+        shell(&w).selection().pads.is_empty(),
+        "Mod+click doesn't toggle; it selects just the object"
+    );
+}
+
+#[test]
+fn click_clears_selection_off_keeps_the_board_selection() {
+    let mut w = window();
+    let footprint = w.footprint;
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.click_clears_selection", "value": false}),
+        )
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("selection.set", json!({"objects":[footprint]}))
+        .unwrap();
+    w.h.run();
+    let empty = w.h.get_by_role(Role::Canvas).rect().left_bottom() + egui::vec2(30.0, -60.0);
+    click_after(&mut w, empty, 1.0);
+    assert_eq!(shell(&w).selection().objects, [footprint]);
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.click_clears_selection", "value": true}),
+        )
+        .unwrap();
+    click_after(&mut w, empty, 1.0);
+    assert!(shell(&w).selection().is_empty());
+}
+
+#[test]
+fn board_rectangle_direction_follows_the_screen_also_from_below() {
+    let mut w = window();
+    let free = free_pad(&mut w, "5mm");
+    // A second Pad far off widens the view, so the box below is well inside the canvas.
+    free_pad(&mut w, "15mm");
+    let pcb = w.pcb;
+    // A box over the first Free Pad's right half only (it spans 4.5 to 5.5 mm), its
+    // corners clear of the Pad so the drag draws a rectangle.
+    let corners = |w: &Window| {
+        let (a, b) = (
+            on_screen(w, Point::new(mm(5.0), mm(1.0))),
+            on_screen(w, Point::new(mm(6.0), mm(-1.0))),
+        );
+        let rect = w.h.get_by_role(Role::Canvas).rect();
+        let mirrored = shell(w).document_tab(pcb).unwrap().mirrored();
+        let mirror = |p: Pos2| {
+            if mirrored {
+                egui::pos2(2.0 * rect.center().x - p.x, p.y)
+            } else {
+                p
+            }
+        };
+        let (a, b) = (mirror(a), mirror(b));
+        // (left, right) as seen on screen.
+        if a.x < b.x { (a, b) } else { (b, a) }
+    };
+    let rectangle = |w: &mut Window, from: Pos2, to: Pos2| {
+        w.h.state_mut()
+            .shell_mut()
+            .run("selection.set", json!({}))
+            .unwrap();
+        w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + 1.0);
+        w.h.drag_at(from);
+        w.h.run();
+        w.h.hover_at(to);
+        w.h.run();
+        w.h.drop_at(to);
+        w.h.run();
+        shell(w).selection().objects.clone()
+    };
+    for from_bottom in [false, true] {
+        w.h.state_mut()
+            .shell_mut()
+            .run("pcb.view.from_bottom", json!({"from_bottom": from_bottom}))
+            .unwrap();
+        w.h.run();
+        w.h.run();
+        assert_eq!(
+            shell(&w).document_tab(pcb).unwrap().mirrored(),
+            from_bottom,
+            "the board is seen from below, mirrored"
+        );
+        let (left, right) = corners(&w);
+        assert!(
+            rectangle(&mut w, left, right).is_empty(),
+            "left to right on screen encloses (from below: {from_bottom})"
+        );
+        assert_eq!(
+            rectangle(&mut w, right, left),
+            [free],
+            "right to left on screen touches (from below: {from_bottom})"
+        );
+    }
+}
+
+#[test]
+fn double_clicking_a_single_board_object_selects_it_and_opens_properties() {
+    let mut w = window_with_step(0.01);
+    let free = free_pad(&mut w, "8mm");
+    let before = journal_len(&w);
+    let at = on_screen(&w, Point::new(mm(8.0), mm(0.0)));
+    w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + 1.0);
+    for _ in 0..2 {
+        click(&mut w, at);
+    }
+    assert_eq!(shell(&w).selection().objects, [free]);
+    assert!(
+        shell(&w).engine().journal()[before..]
+            .iter()
+            .any(|e| e.id == "panel.show" && e.outcome.is_ok()),
+        "a double-click on a single object opens Properties"
+    );
+}

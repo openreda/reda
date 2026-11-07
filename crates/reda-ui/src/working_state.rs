@@ -11,7 +11,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::model::{LibraryElement, Uuid};
+use reda_engine::model::{LibraryElement, ObjectType, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -23,44 +23,152 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(SnapSet);
 }
 
+/// One kind of object a Selection Filter toggles, named as `objects.find_similar` names
+/// it (`type`) on the wire.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FilterKind {
+    Unit,
+    FieldText,
+    Wire,
+    NetLabel,
+    Port,
+    PowerPort,
+    NoConnect,
+    SheetText,
+    SheetGraphic,
+    FootprintInstance,
+    Pad,
+    Track,
+    Via,
+    Zone,
+    Keepout,
+    FreePad,
+    PcbText,
+    FootprintText,
+    PcbGraphic,
+    BoardOutline,
+    BoardCutout,
+    OutputOrigin,
+    /// A Symbol's Pin.
+    Pin,
+    /// A Symbol's or Footprint's drawing.
+    Graphic,
+    /// A Footprint's own text.
+    Text,
+}
+
+impl FilterKind {
+    /// The kind's name, as Commands and `.reda/view.json` spell it.
+    pub fn name(self) -> &'static str {
+        use FilterKind::*;
+        match self {
+            Unit => "unit",
+            FieldText => "field_text",
+            Wire => "wire",
+            NetLabel => "net_label",
+            Port => "port",
+            PowerPort => "power_port",
+            NoConnect => "no_connect",
+            SheetText => "sheet_text",
+            SheetGraphic => "sheet_graphic",
+            FootprintInstance => "footprint_instance",
+            Pad => "pad",
+            Track => "track",
+            Via => "via",
+            Zone => "zone",
+            Keepout => "keepout",
+            FreePad => "free_pad",
+            PcbText => "pcb_text",
+            FootprintText => "footprint_text",
+            PcbGraphic => "pcb_graphic",
+            BoardOutline => "board_outline",
+            BoardCutout => "board_cutout",
+            OutputOrigin => "output_origin",
+            Pin => "pin",
+            Graphic => "graphic",
+            Text => "text",
+        }
+    }
+
+    /// The kind named `name`, if any Document type filters one by that name.
+    pub fn parse(name: &str) -> Option<FilterKind> {
+        [SCHEMATIC_KINDS, PCB_KINDS, SYMBOL_KINDS, FOOTPRINT_KINDS]
+            .into_iter()
+            .flatten()
+            .copied()
+            .find(|k| k.name() == name)
+    }
+
+    /// The kind of a persisted object of type `ty`; the Project's own records have none.
+    pub fn of_object(ty: ObjectType) -> Option<FilterKind> {
+        use FilterKind as K;
+        Some(match ty {
+            ObjectType::Unit => K::Unit,
+            ObjectType::Wire => K::Wire,
+            ObjectType::NetLabel => K::NetLabel,
+            ObjectType::Port => K::Port,
+            ObjectType::PowerPort => K::PowerPort,
+            ObjectType::NoConnect => K::NoConnect,
+            ObjectType::SheetText => K::SheetText,
+            ObjectType::SheetGraphic => K::SheetGraphic,
+            ObjectType::FootprintInstance => K::FootprintInstance,
+            ObjectType::Track => K::Track,
+            ObjectType::Via => K::Via,
+            ObjectType::Zone => K::Zone,
+            ObjectType::Keepout => K::Keepout,
+            ObjectType::FreePad => K::FreePad,
+            ObjectType::PcbText => K::PcbText,
+            ObjectType::PcbGraphic => K::PcbGraphic,
+            ObjectType::BoardOutline => K::BoardOutline,
+            ObjectType::BoardCutout => K::BoardCutout,
+            ObjectType::OutputOrigin => K::OutputOrigin,
+            _ => return None,
+        })
+    }
+}
+
 /// The kinds a sheet's Filter lists, in its order.
-pub const SCHEMATIC_KINDS: &[&str] = &[
-    "unit",
-    "field_text",
-    "wire",
-    "net_label",
-    "port",
-    "power_port",
-    "no_connect",
-    "sheet_text",
-    "sheet_graphic",
+pub const SCHEMATIC_KINDS: &[FilterKind] = &[
+    FilterKind::Unit,
+    FilterKind::FieldText,
+    FilterKind::Wire,
+    FilterKind::NetLabel,
+    FilterKind::Port,
+    FilterKind::PowerPort,
+    FilterKind::NoConnect,
+    FilterKind::SheetText,
+    FilterKind::SheetGraphic,
 ];
 
 /// The kinds a board's Filter lists, in its order.
-pub const PCB_KINDS: &[&str] = &[
-    "footprint_instance",
-    "pad",
-    "track",
-    "via",
-    "zone",
-    "keepout",
-    "free_pad",
-    "pcb_text",
-    "footprint_text",
-    "pcb_graphic",
-    "board_outline",
-    "board_cutout",
-    "output_origin",
+pub const PCB_KINDS: &[FilterKind] = &[
+    FilterKind::FootprintInstance,
+    FilterKind::Pad,
+    FilterKind::Track,
+    FilterKind::Via,
+    FilterKind::Zone,
+    FilterKind::Keepout,
+    FilterKind::FreePad,
+    FilterKind::PcbText,
+    FilterKind::FootprintText,
+    FilterKind::PcbGraphic,
+    FilterKind::BoardOutline,
+    FilterKind::BoardCutout,
+    FilterKind::OutputOrigin,
 ];
 
 /// The kinds the Symbol editor's Filter lists.
-pub const SYMBOL_KINDS: &[&str] = &["pin", "graphic"];
+pub const SYMBOL_KINDS: &[FilterKind] = &[FilterKind::Pin, FilterKind::Graphic];
 
 /// The kinds the Footprint editor's Filter lists.
-pub const FOOTPRINT_KINDS: &[&str] = &["pad", "graphic", "text"];
+pub const FOOTPRINT_KINDS: &[FilterKind] =
+    &[FilterKind::Pad, FilterKind::Graphic, FilterKind::Text];
 
 /// The Filter's kinds for a Document type.
-pub fn filter_kinds(ty: DocumentType) -> &'static [&'static str] {
+pub fn filter_kinds(ty: DocumentType) -> &'static [FilterKind] {
     match ty {
         DocumentType::Schematic => SCHEMATIC_KINDS,
         DocumentType::Pcb => PCB_KINDS,
@@ -72,13 +180,13 @@ pub fn filter_kinds(ty: DocumentType) -> &'static [&'static str] {
 /// One Document's Selection Filter: the kinds turned off. Everything starts on.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SelectionFilter {
-    pub off: BTreeSet<String>,
+    pub off: BTreeSet<FilterKind>,
 }
 
 impl SelectionFilter {
     /// Whether objects of `kind` can be picked.
-    pub fn allows(&self, kind: &str) -> bool {
-        !self.off.contains(kind)
+    pub fn allows(&self, kind: FilterKind) -> bool {
+        !self.off.contains(&kind)
     }
 }
 
@@ -182,8 +290,8 @@ pub struct FilterSetParams {
 
 /// One kind's toggle.
 #[derive(Serialize, JsonSchema)]
-pub struct FilterKind {
-    kind: &'static str,
+pub struct FilterToggle {
+    kind: FilterKind,
     /// Objects of this kind can be picked.
     on: bool,
 }
@@ -192,7 +300,7 @@ pub struct FilterKind {
 #[derive(Serialize, JsonSchema)]
 pub struct FilterResult {
     /// Every kind of the Document type, in the Filter's order.
-    kinds: Vec<FilterKind>,
+    kinds: Vec<FilterToggle>,
 }
 
 struct FilterSet;
@@ -215,25 +323,30 @@ impl Command for FilterSet {
     fn run(&self, cx: &mut Context<'_>, p: FilterSetParams) -> Result<FilterResult, CommandError> {
         let ty = document_type(cx, p.document)?;
         let list = filter_kinds(ty);
-        for kind in p.kinds.keys() {
-            if !list.contains(&kind.as_str()) {
-                return Err(CommandError::invalid_params(
-                    &format!("/kinds/{}", kind.replace('~', "~0").replace('/', "~1")),
-                    format!(
-                        "not a kind this Document type filters; pick one of {}",
-                        list.join(", ")
-                    ),
-                ));
+        let mut changes = Vec::new();
+        for (name, on) in &p.kinds {
+            match FilterKind::parse(name).filter(|k| list.contains(k)) {
+                Some(kind) => changes.push((kind, *on)),
+                None => {
+                    let names: Vec<_> = list.iter().map(|k| k.name()).collect();
+                    return Err(CommandError::invalid_params(
+                        &format!("/kinds/{}", name.replace('~', "~0").replace('/', "~1")),
+                        format!(
+                            "not a kind this Document type filters; pick one of {}",
+                            names.join(", ")
+                        ),
+                    ));
+                }
             }
         }
         let state = cx.view::<WorkingState>()?;
         let filter = state.filters.entry(p.document).or_default();
         match p.all {
             Some(true) => filter.off.clear(),
-            Some(false) => filter.off = list.iter().map(|k| (*k).to_owned()).collect(),
+            Some(false) => filter.off = list.iter().copied().collect(),
             None => {}
         }
-        for (kind, on) in p.kinds {
+        for (kind, on) in changes {
             match on {
                 true => filter.off.remove(&kind),
                 false => filter.off.insert(kind),
@@ -241,7 +354,7 @@ impl Command for FilterSet {
         }
         let kinds = list
             .iter()
-            .map(|kind| FilterKind {
+            .map(|&kind| FilterToggle {
                 kind,
                 on: filter.allows(kind),
             })

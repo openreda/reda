@@ -260,6 +260,25 @@ fn in_triangle(p: P, a: P, b: P, c: P) -> bool {
     !(neg && pos)
 }
 
+/// What [`hit_stack_on`] gathers about one object over all of its items.
+struct StackEntry {
+    /// The best tier among the items within tolerance.
+    tier: u8,
+    /// Every hit in that tier was only within tolerance, none on the ink itself.
+    near_only: bool,
+    /// Some item is within tolerance.
+    hit: bool,
+    /// The object's total drawn bounds.
+    lo: P,
+    hi: P,
+}
+
+impl StackEntry {
+    fn area(&self) -> f64 {
+        (self.hi.0 - self.lo.0).max(1.0) * (self.hi.1 - self.lo.1).max(1.0)
+    }
+}
+
 /// All eligible objects under a point, ordered by selection tier and then their total
 /// drawn bounds, smallest first. An object on several Layers appears only once.
 pub fn hit_stack_on(
@@ -279,46 +298,37 @@ pub fn hit_stack_on(
         let Some(tier) = rank(item) else {
             continue;
         };
-        let entry = objects.entry(item.object).or_insert((
-            u8::MAX,
-            true,
-            false,
-            (f64::INFINITY, f64::INFINITY),
-            (f64::NEG_INFINITY, f64::NEG_INFINITY),
-        ));
+        let entry = objects.entry(item.object).or_insert(StackEntry {
+            tier: u8::MAX,
+            near_only: true,
+            hit: false,
+            lo: (f64::INFINITY, f64::INFINITY),
+            hi: (f64::NEG_INFINITY, f64::NEG_INFINITY),
+        });
         if let Some((a, b)) = bounds(item) {
-            entry.3 = (entry.3.0.min(a.0), entry.3.1.min(a.1));
-            entry.4 = (entry.4.0.max(b.0), entry.4.1.max(b.1));
+            entry.lo = (entry.lo.0.min(a.0), entry.lo.1.min(a.1));
+            entry.hi = (entry.hi.0.max(b.0), entry.hi.1.max(b.1));
         }
         let d = distance(&item.primitive, at);
         if d <= tolerance {
             // Nearness belongs to the best hit tier. An exact body hit must not
             // turn a nearby Pin into an exact hit ahead of overlapping field text.
-            if tier < entry.0 {
-                entry.0 = tier;
-                entry.1 = d > 0.0;
-            } else if tier == entry.0 {
-                entry.1 &= d > 0.0;
+            if tier < entry.tier {
+                entry.tier = tier;
+                entry.near_only = d > 0.0;
+            } else if tier == entry.tier {
+                entry.near_only &= d > 0.0;
             }
-            entry.2 = true;
+            entry.hit = true;
         }
     }
-    let mut hits: Vec<_> = objects
-        .into_iter()
-        .filter_map(|(id, (tier, near, hit, lo, hi))| {
-            hit.then_some((
-                id,
-                tier,
-                near,
-                (hi.0 - lo.0).max(1.0) * (hi.1 - lo.1).max(1.0),
-            ))
-        })
-        .collect();
-    hits.sort_by(|a, b| {
-        a.1.cmp(&b.1)
-            .then(a.2.cmp(&b.2))
-            .then(a.3.total_cmp(&b.3))
-            .then(a.0.cmp(&b.0))
+    let mut hits: Vec<_> = objects.into_iter().filter(|(_, e)| e.hit).collect();
+    hits.sort_by(|(a_id, a), (b_id, b)| {
+        a.tier
+            .cmp(&b.tier)
+            .then(a.near_only.cmp(&b.near_only))
+            .then(a.area().total_cmp(&b.area()))
+            .then(a_id.cmp(b_id))
     });
-    hits.into_iter().map(|h| h.0).collect()
+    hits.into_iter().map(|(id, _)| id).collect()
 }

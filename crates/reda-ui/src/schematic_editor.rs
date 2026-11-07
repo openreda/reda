@@ -23,7 +23,7 @@ use reda_engine::schematic::connectivity::{net_at, placed_pins};
 use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{BoxMode, Combine, Pointer, SnapTargets, combine};
+use crate::canvas::interact::{BoxMode, Pointer, SnapTargets};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::shell::{Shell, ToolPreview};
 use crate::tools::Tool;
@@ -359,7 +359,12 @@ fn show(
 ) {
     preview_run(shell, document, &mut state);
     preview_scene(shell, document, &mut state, previewed);
-    let directional = shell.preferences().editing.directional_rectangle;
+    let mode = match &state {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, document, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
     let Some(tab) = shell.document_tab_mut(document) else {
         return;
     };
@@ -373,11 +378,7 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: if directional {
-                        BoxMode::of_drag(*from, *to)
-                    } else {
-                        BoxMode::Enclose
-                    },
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -581,13 +582,6 @@ impl Cx<'_> {
                     && crate::selection::rules::allowed(self.shell, self.document, *o)
             })
             .collect()
-    }
-
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
     }
 
     fn hit(&self, at: P) -> Option<Uuid> {
@@ -838,26 +832,16 @@ impl Cx<'_> {
                         modifiers,
                     };
                 };
-                let selected = &self.shell.selection().objects;
-                let already_selected = selected.contains(&hit);
-                let objects = if already_selected {
-                    selected.clone()
-                } else if modifiers.shift {
-                    combine(selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                if !already_selected {
-                    self.select(objects.clone());
-                }
                 let on_sheet = self.sheet().map(selectable).unwrap_or_default();
-                let objects = objects
-                    .into_iter()
-                    .filter(|id| {
-                        on_sheet.contains(id)
-                            && crate::selection::rules::allowed(self.shell, self.document, *id)
-                    })
-                    .collect();
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.document,
+                    hit,
+                    modifiers,
+                    |id| on_sheet.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 // Mod+drag detaches; a plain drag keeps connections.
                 self.start_flight(objects, !modifiers.command, false, from, at)
             }

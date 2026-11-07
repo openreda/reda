@@ -141,6 +141,7 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
         node.set_description(description);
     });
 
+    let mirrored = tab.mirrored();
     if let Some((lo, hi)) = tab.zoom_to.take() {
         tab.camera = Some(Camera::fit(lo, hi, rect.size()));
     }
@@ -158,7 +159,6 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
         camera.center = (at.x.0 as f64, at.y.0 as f64);
     }
 
-    let mirrored = tab.layers.from_bottom && tab.scene.layers.is_some();
     let mut input = CanvasInput::default();
     if response.hovered() {
         input.pointer = response.hover_pos().map(|p| mirror(rect, p, mirrored));
@@ -215,7 +215,7 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
 }
 
 /// Draws a Tool's overlay: rubber-banded Wires, the snap cursor and a selection box (solid
-/// when it encloses, dashed when it touches).
+/// in the accent when it encloses, dashed in green when it touches).
 fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) {
     let (rect, camera) = (input.rect, &input.camera);
     let painter = ui.painter_at(rect);
@@ -241,8 +241,9 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
     }) = overlay.rubber_band
     {
         let band = Rect::from_two_pos(input.screen_point(a), input.screen_point(b));
-        painter.rect_filled(band, 0.0, accent.gamma_multiply(0.12));
-        let stroke = Stroke::new(1.0, accent);
+        let color = crate::theme::selection_box(ui.ctx().theme(), mode == BoxMode::Touch);
+        painter.rect_filled(band, 0.0, color.gamma_multiply(0.12));
+        let stroke = Stroke::new(1.0, color);
         match mode {
             BoxMode::Enclose => {
                 painter.rect_stroke(band, 0.0, stroke, egui::StrokeKind::Inside);

@@ -232,9 +232,7 @@ pub fn resolve_in(
         }
         Binding::Raw { command, params } => (command.clone(), command.clone(), params.clone()),
     };
-    if command.ends_with(".delete")
-        && (!shell.selection().fields.is_empty() || !shell.selection().texts.is_empty())
-    {
+    if deletes_text_alone(shell, &command, &params) {
         run_id = "selection.delete".into();
         command = run_id.clone();
         params = json!({});
@@ -401,6 +399,27 @@ fn selectable_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
 }
 
 /// Removes every object field whose value is `placeholder`, for an optional one.
+/// A delete of the selection (`$selection`) when only Field or Designator text is
+/// selected: that text can't be deleted alone, so `selection.delete` refuses instead. With
+/// objects selected too, the delete goes ahead on them.
+fn deletes_text_alone(shell: &Shell, command: &str, params: &Value) -> bool {
+    let selection = shell.selection();
+    command.ends_with(".delete")
+        && mentions(params, SELECTION)
+        && selection.objects.is_empty()
+        && (!selection.fields.is_empty() || !selection.texts.is_empty())
+}
+
+/// Whether `placeholder` is one of `params`' values, at any depth.
+fn mentions(params: &Value, placeholder: &str) -> bool {
+    match params {
+        Value::String(s) => s == placeholder,
+        Value::Array(items) => items.iter().any(|v| mentions(v, placeholder)),
+        Value::Object(map) => map.values().any(|v| mentions(v, placeholder)),
+        _ => false,
+    }
+}
+
 fn drop_placeholder(params: &mut Value, placeholder: &str) {
     match params {
         Value::Array(items) => items
