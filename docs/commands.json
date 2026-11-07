@@ -1828,6 +1828,98 @@
     },
     {
       "category": "schematic",
+      "description": "Sets the severity of Pin Matrix cells, one, many or all, as one undo step. Each cell pairs two of the ten Pin types and Port `in`, `out` and `bidirectional`, or a Pin type with `unconnected`, and sets how `pin_conflict` or `unconnected_pin` reports that pairing. A null severity resets the cell. The Project stores only cells that differ from the default.",
+      "icon": "severity",
+      "id": "erc.set_pin_matrix",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "MatrixType": {
+            "description": "A Pin type, `port_in`, `port_out`, `port_bidirectional` or `unconnected`.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected",
+              "port_in",
+              "port_out",
+              "port_bidirectional",
+              "unconnected"
+            ],
+            "type": "string"
+          },
+          "PinMatrixCellParam": {
+            "additionalProperties": false,
+            "properties": {
+              "a": {
+                "$ref": "#/$defs/MatrixType",
+                "description": "One type of the pair: a Pin type, `port_in`, `port_out`, `port_bidirectional` or\n`unconnected`."
+              },
+              "b": {
+                "$ref": "#/$defs/MatrixType",
+                "description": "The other type, in either order."
+              },
+              "severity": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Severity"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The cell's new severity; null resets it to its default."
+              }
+            },
+            "required": [
+              "a",
+              "b"
+            ],
+            "type": "object"
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "description": "The cells to set, in any order; a later entry for the same cell wins.",
+            "items": {
+              "$ref": "#/$defs/PinMatrixCellParam"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "cells"
+        ],
+        "title": "ErcSetPinMatrixParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Pin Matrix Cells"
+    },
+    {
+      "category": "schematic",
       "description": "Sets how one ERC check reports its Violations: `error`, `warning` or `off`. Stored in the Project.",
       "icon": "severity",
       "id": "erc.set_severity",
@@ -1838,28 +1930,23 @@
             "description": "One ERC check, named as in [`ErcSeverities`].",
             "oneOf": [
               {
-                "const": "unconnected_input",
-                "description": "An Input or Power In Pin connected to nothing.",
-                "type": "string"
-              },
-              {
                 "const": "unconnected_pin",
-                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt.",
+                "description": "A Pin connected to nothing. Pins with a No-Connect Marker are exempt. Its\nseverity is the Pin Matrix cell of the Pin's type and Unconnected.",
                 "type": "string"
               },
               {
                 "const": "pin_conflict",
-                "description": "Drivers fighting on a Net: Output and Power Out Pins together.",
-                "type": "string"
-              },
-              {
-                "const": "pin_conflict_mixed",
-                "description": "Pin types that should not mix on a Net, such as Tri-state and Output.",
+                "description": "Two Pins or Ports on a Net whose types conflict. Its severity is the Pin\nMatrix cell of the two types.",
                 "type": "string"
               },
               {
                 "const": "undriven_power",
                 "description": "A Net with Power In Pins and no Power Out Pin or Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "no_driving_source",
+                "description": "A Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open\nEmitter or Power Out Pin, and no Power Port.",
                 "type": "string"
               },
               {
@@ -1874,7 +1961,7 @@
               },
               {
                 "const": "unattached_label",
-                "description": "A Net Label or Port attached to nothing.",
+                "description": "A Net Label, Port or Power Port attached to nothing.",
                 "type": "string"
               },
               {
@@ -1903,6 +1990,11 @@
                 "type": "string"
               },
               {
+                "const": "port_no_driver",
+                "description": "A Net whose Ports are all `in`, so nothing drives it.",
+                "type": "string"
+              },
+              {
                 "const": "duplicate_designator",
                 "description": "Several Components with the same Designator.",
                 "type": "string"
@@ -1913,6 +2005,16 @@
                 "type": "string"
               },
               {
+                "const": "unit_placed_twice",
+                "description": "One Unit of a Component placed more than once.",
+                "type": "string"
+              },
+              {
+                "const": "no_footprint_choice",
+                "description": "A Standard or Net Tie Component with no Footprint choice.",
+                "type": "string"
+              },
+              {
                 "const": "net_tie_one_net",
                 "description": "A Net Tie with all its Pins on one Net, so the tie does nothing.",
                 "type": "string"
@@ -1920,6 +2022,16 @@
               {
                 "const": "unit_data_mismatch",
                 "description": "Units of one Component whose Component data differ.",
+                "type": "string"
+              },
+              {
+                "const": "off_grid",
+                "description": "A Pin or Wire vertex off the 50 mil connection grid.",
+                "type": "string"
+              },
+              {
+                "const": "off_sheet",
+                "description": "An object outside the sheet border.",
                 "type": "string"
               },
               {
@@ -2061,28 +2173,23 @@
             "description": "One ERC check, named as in [`ErcSeverities`].",
             "oneOf": [
               {
-                "const": "unconnected_input",
-                "description": "An Input or Power In Pin connected to nothing.",
-                "type": "string"
-              },
-              {
                 "const": "unconnected_pin",
-                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt.",
+                "description": "A Pin connected to nothing. Pins with a No-Connect Marker are exempt. Its\nseverity is the Pin Matrix cell of the Pin's type and Unconnected.",
                 "type": "string"
               },
               {
                 "const": "pin_conflict",
-                "description": "Drivers fighting on a Net: Output and Power Out Pins together.",
-                "type": "string"
-              },
-              {
-                "const": "pin_conflict_mixed",
-                "description": "Pin types that should not mix on a Net, such as Tri-state and Output.",
+                "description": "Two Pins or Ports on a Net whose types conflict. Its severity is the Pin\nMatrix cell of the two types.",
                 "type": "string"
               },
               {
                 "const": "undriven_power",
                 "description": "A Net with Power In Pins and no Power Out Pin or Power Port.",
+                "type": "string"
+              },
+              {
+                "const": "no_driving_source",
+                "description": "A Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open\nEmitter or Power Out Pin, and no Power Port.",
                 "type": "string"
               },
               {
@@ -2097,7 +2204,7 @@
               },
               {
                 "const": "unattached_label",
-                "description": "A Net Label or Port attached to nothing.",
+                "description": "A Net Label, Port or Power Port attached to nothing.",
                 "type": "string"
               },
               {
@@ -2126,6 +2233,11 @@
                 "type": "string"
               },
               {
+                "const": "port_no_driver",
+                "description": "A Net whose Ports are all `in`, so nothing drives it.",
+                "type": "string"
+              },
+              {
                 "const": "duplicate_designator",
                 "description": "Several Components with the same Designator.",
                 "type": "string"
@@ -2136,6 +2248,16 @@
                 "type": "string"
               },
               {
+                "const": "unit_placed_twice",
+                "description": "One Unit of a Component placed more than once.",
+                "type": "string"
+              },
+              {
+                "const": "no_footprint_choice",
+                "description": "A Standard or Net Tie Component with no Footprint choice.",
+                "type": "string"
+              },
+              {
                 "const": "net_tie_one_net",
                 "description": "A Net Tie with all its Pins on one Net, so the tie does nothing.",
                 "type": "string"
@@ -2143,6 +2265,16 @@
               {
                 "const": "unit_data_mismatch",
                 "description": "Units of one Component whose Component data differ.",
+                "type": "string"
+              },
+              {
+                "const": "off_grid",
+                "description": "A Pin or Wire vertex off the 50 mil connection grid.",
+                "type": "string"
+              },
+              {
+                "const": "off_sheet",
+                "description": "An object outside the sheet border.",
                 "type": "string"
               },
               {
@@ -20561,9 +20693,9 @@
             ],
             "type": "object"
           },
-          "ErcSeverities": {
+          "ErcSettings": {
             "additionalProperties": false,
-            "description": "The severity of every ERC check, stored in the Project. A check left out has its\ndefault.",
+            "description": "The Project's ERC settings: each check's severity and the Pin Matrix, which sets\n`unconnected_pin` and `pin_conflict`.",
             "properties": {
               "dangling_wire": {
                 "$ref": "#/$defs/Severity",
@@ -20605,15 +20737,34 @@
                 "default": "warning",
                 "description": "A No-Connect Marker on a Pin that is connected."
               },
-              "pin_conflict": {
+              "no_driving_source": {
                 "$ref": "#/$defs/Severity",
-                "default": "error",
-                "description": "Drivers fighting on a Net: Output and Power Out Pins together."
+                "default": "off",
+                "description": "A Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open\nEmitter or Power Out Pin, and no Power Port."
               },
-              "pin_conflict_mixed": {
+              "no_footprint_choice": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Pin types that should not mix on a Net, such as Tri-state and Output."
+                "description": "A Standard or Net Tie Component with no Footprint choice."
+              },
+              "off_grid": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Pin or Wire vertex off the 50 mil connection grid."
+              },
+              "off_sheet": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "An object outside the sheet border."
+              },
+              "pin_matrix_overrides": {
+                "$ref": "#/$defs/PinMatrix",
+                "description": "The Pin Matrix cells that differ from the default."
+              },
+              "port_no_driver": {
+                "$ref": "#/$defs/Severity",
+                "default": "off",
+                "description": "A Net whose Ports are all `in`, so nothing drives it."
               },
               "single_pin_net": {
                 "$ref": "#/$defs/Severity",
@@ -20628,17 +20779,7 @@
               "unattached_label": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "A Net Label or Port attached to nothing."
-              },
-              "unconnected_input": {
-                "$ref": "#/$defs/Severity",
-                "default": "error",
-                "description": "An Input or Power In Pin connected to nothing."
-              },
-              "unconnected_pin": {
-                "$ref": "#/$defs/Severity",
-                "default": "warning",
-                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt."
+                "description": "A Net Label, Port or Power Port attached to nothing."
               },
               "undriven_power": {
                 "$ref": "#/$defs/Severity",
@@ -20650,6 +20791,11 @@
                 "default": "error",
                 "description": "Units of one Component whose Component data differ."
               },
+              "unit_placed_twice": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "One Unit of a Component placed more than once."
+              },
               "unplaced_units": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -20657,11 +20803,8 @@
               }
             },
             "required": [
-              "unconnected_input",
-              "unconnected_pin",
-              "pin_conflict",
-              "pin_conflict_mixed",
               "undriven_power",
+              "no_driving_source",
               "single_pin_net",
               "dangling_wire",
               "unattached_label",
@@ -20670,10 +20813,15 @@
               "net_names_across_sheets",
               "duplicate_nets",
               "single_sheet_port",
+              "port_no_driver",
               "duplicate_designator",
               "unplaced_units",
+              "unit_placed_twice",
+              "no_footprint_choice",
               "net_tie_one_net",
               "unit_data_mismatch",
+              "off_grid",
+              "off_sheet",
               "library_out_of_date"
             ],
             "type": "object"
@@ -22933,7 +23081,7 @@
                     "type": "array"
                   },
                   "erc": {
-                    "$ref": "#/$defs/ErcSeverities",
+                    "$ref": "#/$defs/ErcSettings",
                     "default": {
                       "dangling_wire": "warning",
                       "duplicate_designator": "error",
@@ -22943,18 +23091,20 @@
                       "net_names_on_sheet": "error",
                       "net_tie_one_net": "warning",
                       "no_connect_connected": "warning",
-                      "pin_conflict": "error",
-                      "pin_conflict_mixed": "warning",
+                      "no_driving_source": "off",
+                      "no_footprint_choice": "warning",
+                      "off_grid": "warning",
+                      "off_sheet": "warning",
+                      "port_no_driver": "off",
                       "single_pin_net": "warning",
                       "single_sheet_port": "warning",
                       "unattached_label": "warning",
-                      "unconnected_input": "error",
-                      "unconnected_pin": "warning",
                       "undriven_power": "warning",
                       "unit_data_mismatch": "error",
+                      "unit_placed_twice": "error",
                       "unplaced_units": "warning"
                     },
-                    "description": "The ERC severities."
+                    "description": "The ERC severities and Pin Matrix."
                   },
                   "libraries": {
                     "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.",
@@ -24432,6 +24582,316 @@
                   "type": "string"
                 },
                 "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinMatrix": {
+            "additionalProperties": false,
+            "description": "The Pin Matrix cells that differ from the default, keyed by the two types in matrix order.",
+            "properties": {
+              "bidirectional|bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|input": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|output": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|output": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_bidirectional|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_in|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_in|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_in|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_out|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_out|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|unconnected": {
+                "$ref": "#/$defs/Severity"
               }
             },
             "type": "object"
@@ -26901,9 +27361,9 @@
             ],
             "type": "object"
           },
-          "ErcSeverities": {
+          "ErcSettings": {
             "additionalProperties": false,
-            "description": "The severity of every ERC check, stored in the Project. A check left out has its\ndefault.",
+            "description": "The Project's ERC settings: each check's severity and the Pin Matrix, which sets\n`unconnected_pin` and `pin_conflict`.",
             "properties": {
               "dangling_wire": {
                 "$ref": "#/$defs/Severity",
@@ -26945,15 +27405,34 @@
                 "default": "warning",
                 "description": "A No-Connect Marker on a Pin that is connected."
               },
-              "pin_conflict": {
+              "no_driving_source": {
                 "$ref": "#/$defs/Severity",
-                "default": "error",
-                "description": "Drivers fighting on a Net: Output and Power Out Pins together."
+                "default": "off",
+                "description": "A Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open\nEmitter or Power Out Pin, and no Power Port."
               },
-              "pin_conflict_mixed": {
+              "no_footprint_choice": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Pin types that should not mix on a Net, such as Tri-state and Output."
+                "description": "A Standard or Net Tie Component with no Footprint choice."
+              },
+              "off_grid": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Pin or Wire vertex off the 50 mil connection grid."
+              },
+              "off_sheet": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "An object outside the sheet border."
+              },
+              "pin_matrix_overrides": {
+                "$ref": "#/$defs/PinMatrix",
+                "description": "The Pin Matrix cells that differ from the default."
+              },
+              "port_no_driver": {
+                "$ref": "#/$defs/Severity",
+                "default": "off",
+                "description": "A Net whose Ports are all `in`, so nothing drives it."
               },
               "single_pin_net": {
                 "$ref": "#/$defs/Severity",
@@ -26968,17 +27447,7 @@
               "unattached_label": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "A Net Label or Port attached to nothing."
-              },
-              "unconnected_input": {
-                "$ref": "#/$defs/Severity",
-                "default": "error",
-                "description": "An Input or Power In Pin connected to nothing."
-              },
-              "unconnected_pin": {
-                "$ref": "#/$defs/Severity",
-                "default": "warning",
-                "description": "A Pin of another type connected to nothing. Not Connected Pins and Pins with a\nNo-Connect Marker are exempt."
+                "description": "A Net Label, Port or Power Port attached to nothing."
               },
               "undriven_power": {
                 "$ref": "#/$defs/Severity",
@@ -26990,6 +27459,11 @@
                 "default": "error",
                 "description": "Units of one Component whose Component data differ."
               },
+              "unit_placed_twice": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "One Unit of a Component placed more than once."
+              },
               "unplaced_units": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -26997,11 +27471,8 @@
               }
             },
             "required": [
-              "unconnected_input",
-              "unconnected_pin",
-              "pin_conflict",
-              "pin_conflict_mixed",
               "undriven_power",
+              "no_driving_source",
               "single_pin_net",
               "dangling_wire",
               "unattached_label",
@@ -27010,10 +27481,15 @@
               "net_names_across_sheets",
               "duplicate_nets",
               "single_sheet_port",
+              "port_no_driver",
               "duplicate_designator",
               "unplaced_units",
+              "unit_placed_twice",
+              "no_footprint_choice",
               "net_tie_one_net",
               "unit_data_mismatch",
+              "off_grid",
+              "off_sheet",
               "library_out_of_date"
             ],
             "type": "object"
@@ -29273,7 +29749,7 @@
                     "type": "array"
                   },
                   "erc": {
-                    "$ref": "#/$defs/ErcSeverities",
+                    "$ref": "#/$defs/ErcSettings",
                     "default": {
                       "dangling_wire": "warning",
                       "duplicate_designator": "error",
@@ -29283,18 +29759,20 @@
                       "net_names_on_sheet": "error",
                       "net_tie_one_net": "warning",
                       "no_connect_connected": "warning",
-                      "pin_conflict": "error",
-                      "pin_conflict_mixed": "warning",
+                      "no_driving_source": "off",
+                      "no_footprint_choice": "warning",
+                      "off_grid": "warning",
+                      "off_sheet": "warning",
+                      "port_no_driver": "off",
                       "single_pin_net": "warning",
                       "single_sheet_port": "warning",
                       "unattached_label": "warning",
-                      "unconnected_input": "error",
-                      "unconnected_pin": "warning",
                       "undriven_power": "warning",
                       "unit_data_mismatch": "error",
+                      "unit_placed_twice": "error",
                       "unplaced_units": "warning"
                     },
-                    "description": "The ERC severities."
+                    "description": "The ERC severities and Pin Matrix."
                   },
                   "libraries": {
                     "description": "The Project Libraries: folders relative to the Project folder, `/`-separated.",
@@ -30793,6 +31271,316 @@
                   "type": "string"
                 },
                 "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinMatrix": {
+            "additionalProperties": false,
+            "description": "The Pin Matrix cells that differ from the default, keyed by the two types in matrix order.",
+            "properties": {
+              "bidirectional|bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "bidirectional|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|input": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|output": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "input|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "not_connected|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_collector|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "open_emitter|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|output": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "output|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "passive|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_bidirectional|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_in|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_in|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_in|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_out|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "port_out|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_in|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "power_out|unconnected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|not_connected": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|open_collector": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|open_emitter": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|passive": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|port_bidirectional": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|port_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|port_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|power_in": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|power_out": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|tri_state": {
+                "$ref": "#/$defs/Severity"
+              },
+              "tri_state|unconnected": {
+                "$ref": "#/$defs/Severity"
               }
             },
             "type": "object"

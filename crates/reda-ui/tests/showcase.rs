@@ -300,12 +300,12 @@ fn library(stage: &Stage) -> Harness<'static, App> {
 fn checks(stage: &Stage) -> Harness<'static, App> {
     let mut h = stage.window_on("blinky_555", false);
     let sheet = h.state().shell().active_document().unwrap().document;
-    // A stray Wire whose ends touch nothing, for ERC to find.
+    // A stray Wire whose ends touch nothing, for ERC to find; on the connection grid.
     run(
         &mut h,
         "schematic.wire.add",
         json!({"document": sheet,
-               "points": [{"x": "20mm", "y": "20mm"}, {"x": "40mm", "y": "20mm"}]}),
+               "points": [{"x": "800mil", "y": "800mil"}, {"x": "1600mil", "y": "800mil"}]}),
     );
     run(&mut h, "pcb.zone.fill", json!({}));
     zoom_to_circuit(&mut h);
