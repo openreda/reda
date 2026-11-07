@@ -292,8 +292,14 @@ pub fn hit_stack_on(
         }
         let d = distance(&item.primitive, at);
         if d <= tolerance {
-            entry.0 = entry.0.min(tier);
-            entry.1 &= d > 0.0;
+            // Nearness belongs to the best hit tier. An exact body hit must not
+            // turn a nearby Pin into an exact hit ahead of overlapping field text.
+            if tier < entry.0 {
+                entry.0 = tier;
+                entry.1 = d > 0.0;
+            } else if tier == entry.0 {
+                entry.1 &= d > 0.0;
+            }
             entry.2 = true;
         }
     }

@@ -198,3 +198,73 @@ fn footprint_editor_prefers_active_layer_pads_over_smaller_inactive_graphics() {
         "the active copper Layer wins before size ordering"
     );
 }
+
+#[test]
+fn library_drags_preserve_filtered_graphics_in_the_selection_and_in_place() {
+    use reda_ui::engine::model::LibraryElement;
+    for kind in ["symbol", "footprint"] {
+        let mut c = canvas(kind);
+        let (command, params, key) = if kind == "symbol" {
+            (
+                "library.symbol.pin.add",
+                json!({"symbol":c.document,"number":"1","name":"A","at":{"x":0,"y":0}}),
+                "pin",
+            )
+        } else {
+            (
+                "library.footprint.pad.add",
+                json!({"footprint":c.document,"number":"1","kind":"smd","shape":"rect","at":{"x":0,"y":0},"width":"2mm","height":"2mm"}),
+                "pad",
+            )
+        };
+        let movable: Uuid = run(&mut c.h, command, params)["result"][key]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let before =
+            c.h.state()
+                .shell()
+                .engine()
+                .element(c.document)
+                .unwrap()
+                .clone();
+        run(
+            &mut c.h,
+            "selection.set",
+            json!({"objects":[movable,c.small]}),
+        );
+        run(
+            &mut c.h,
+            "selection.filter.set",
+            json!({"document":c.document,"kinds":{"graphic":false}}),
+        );
+        c.h.run();
+        let at = screen(&c, 0.0, 0.0);
+        c.h.drag_at(at);
+        c.h.run();
+        c.h.hover_at(at + egui::vec2(50.0, 0.0));
+        c.h.run();
+        c.h.drop_at(at + egui::vec2(50.0, 0.0));
+        c.h.run();
+        assert_eq!(
+            c.h.state().shell().selection().objects,
+            [movable, c.small],
+            "{kind}: filtered selection remains"
+        );
+        match (
+            &before,
+            c.h.state().shell().engine().element(c.document).unwrap(),
+        ) {
+            (LibraryElement::Symbol(old), LibraryElement::Symbol(new)) => {
+                assert_eq!(old.graphics, new.graphics);
+                assert!(new.pins[0].at.x > old.pins[0].at.x);
+            }
+            (LibraryElement::Footprint(old), LibraryElement::Footprint(new)) => {
+                assert_eq!(old.graphics, new.graphics);
+                assert!(new.pads[0].at.x > old.pads[0].at.x);
+            }
+            _ => panic!("expected the same Library element kind"),
+        }
+    }
+}

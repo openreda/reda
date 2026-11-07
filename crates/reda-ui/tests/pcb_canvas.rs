@@ -568,3 +568,103 @@ fn a_board_with_no_outline_offers_a_rectangle() {
     assert_eq!(last_command(&w), "pcb.board_outline.add_rect");
     assert!(w.h.query_by_label("Create rectangle…").is_none());
 }
+
+#[test]
+fn output_origin_can_be_clicked_boxed_selected_all_dragged_and_filtered() {
+    let mut w = window();
+    let origin: Uuid =
+        w.h.state_mut()
+            .shell_mut()
+            .run("pcb.output_origin.set", json!({"at":{"x":"5mm","y":0}}))
+            .unwrap()["result"]["uuid"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({"document":w.pcb}))
+        .unwrap();
+    w.h.run();
+    w.h.run();
+    let point = Point::new(
+        reda_ui::engine::model::geom::Nm(5_000_000),
+        reda_ui::engine::model::geom::Nm(0),
+    );
+    let at = on_screen(&w, point);
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert_eq!(
+        shell(&w).selection().objects,
+        [origin],
+        "Output Origin is pickable"
+    );
+    w.h.state_mut()
+        .shell_mut()
+        .run("selection.set", json!({}))
+        .unwrap();
+    let from = at - egui::vec2(20.0, 20.0);
+    let to = at + egui::vec2(20.0, 20.0);
+    w.h.drag_at(from);
+    w.h.run();
+    w.h.hover_at(to);
+    w.h.run();
+    w.h.drop_at(to);
+    w.h.run();
+    assert!(
+        shell(&w).selection().objects.contains(&origin),
+        "rectangle includes Output Origin"
+    );
+    w.h.state_mut()
+        .shell_mut()
+        .run("selection.set", json!({}))
+        .unwrap();
+    w.h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    w.h.run();
+    assert!(
+        shell(&w).selection().objects.contains(&origin),
+        "Select All includes Output Origin"
+    );
+    w.h.state_mut()
+        .shell_mut()
+        .run("selection.set", json!({"objects":[origin]}))
+        .unwrap();
+    w.h.drag_at(at);
+    w.h.run();
+    w.h.hover_at(at + egui::vec2(50.0, 0.0));
+    w.h.run();
+    w.h.drop_at(at + egui::vec2(50.0, 0.0));
+    w.h.run();
+    assert_eq!(shell(&w).selection().objects, [origin]);
+    let moved = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .output_origin()
+        .unwrap()
+        .at;
+    assert!(moved.x > point.x, "drag moves Output Origin");
+    assert_eq!(footprint_at(&w), Point::default());
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "selection.filter.set",
+            json!({"document":w.pcb,"kinds":{"output_origin":false}}),
+        )
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("selection.set", json!({}))
+        .unwrap();
+    let at = on_screen(&w, moved);
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert!(
+        shell(&w).selection().is_empty(),
+        "Output Origin obeys its Filter"
+    );
+}

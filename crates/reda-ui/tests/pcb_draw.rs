@@ -365,3 +365,61 @@ fn the_shell_says_when_zones_need_refilling_until_they_are_refilled() {
     run(&mut b.shell, "pcb.zone.fill", json!({}));
     assert!(!b.shell.zones_need_refill());
 }
+
+#[test]
+fn dragging_a_footprint_preserves_the_filtered_free_pad_selection_and_position() {
+    let mut b = board();
+    let footprint: Uuid = run(
+        &mut b.shell,
+        "test.footprint.add",
+        json!({"at":{"x":0,"y":0},"pads":[{"at":{"x":0,"y":0},"width":"2mm","height":"2mm"}]}),
+    )["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let pad: Uuid = run(
+        &mut b.shell,
+        "pcb.free_pad.add",
+        json!({"kind":"smd","at":{"x":"5mm","y":0},"width":"1mm"}),
+    )["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let locked: Uuid = run(
+        &mut b.shell,
+        "test.footprint.add",
+        json!({"at":{"x":"10mm","y":0},"pads":[{"at":{"x":0,"y":0},"width":"2mm","height":"2mm"}]}),
+    )["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    run(
+        &mut b.shell,
+        "pcb.lock",
+        json!({"footprints":[locked],"locked":true}),
+    );
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key":"editing.protect_locked_objects","value":true}),
+    );
+    run(
+        &mut b.shell,
+        "selection.set",
+        json!({"objects":[footprint,pad,locked]}),
+    );
+    let pcb = b.pcb().uuid;
+    run(
+        &mut b.shell,
+        "selection.filter.set",
+        json!({"document":pcb,"kinds":{"free_pad":false}}),
+    );
+    b.drag(mm(0.0, 0.0), mm(2.0, 0.0));
+    assert_eq!(b.shell.selection().objects, [footprint, pad, locked]);
+    assert_eq!(b.pcb().footprint(locked).unwrap().at, mm(10.0, 0.0));
+    assert_eq!(b.pcb().footprint(footprint).unwrap().at, mm(2.0, 0.0));
+    assert_eq!(b.pcb().free_pad(pad).unwrap().at, mm(5.0, 0.0));
+}

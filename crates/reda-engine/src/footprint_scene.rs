@@ -63,7 +63,7 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
         }
     }
     let shown = (DESIGNATOR_PLACEHOLDER, footprint.name.as_str());
-    for (object, text) in element_texts(pcb, footprint, shown, fonts) {
+    for (object, text) in element_texts(pcb, footprint, shown) {
         let laid = text_geometry(&text, fonts);
         geometry.texts.push(BoardText {
             align: text.justify.into(),

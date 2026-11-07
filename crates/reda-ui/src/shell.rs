@@ -1139,6 +1139,14 @@ impl Shell {
         }
         let kind = self.engine.registry().get(base).map(|meta| meta.kind);
         let params = self.with_wiring(base, params);
+        if base == "selection.cycle"
+            && let Some(document) = params
+                .get("document")
+                .and_then(Value::as_str)
+                .and_then(|s| s.parse().ok())
+        {
+            selection::picking::prepare_cycle(self, document);
+        }
         let out = self.engine.run(id, params);
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.

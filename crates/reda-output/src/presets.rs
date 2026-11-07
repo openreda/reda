@@ -251,23 +251,13 @@ fn pcbway() -> FabPreset {
 /// Published 2-layer options, from the 2026-11-04 fab research (#142).
 fn suggestions(name: &str) -> StackupSuggestions {
     let strings = |values: &[&str]| values.iter().map(|v| (*v).to_owned()).collect();
-    let thickness = if name == "PCBWay" {
-        vec![
-            200, 400, 600, 800, 1000, 1200, 1600, 2000, 2400, 2600, 2800, 3000, 3200,
-        ]
-    } else {
-        vec![400, 600, 800, 1000, 1200, 1600, 2000]
-    };
-    let copper = match name {
-        "JLCPCB" => vec![35_000, 70_000, 87_500, 122_500, 157_500],
-        "PCBWay" => (1..=8).map(|oz| 35_000 * oz).collect(),
-        _ => vec![35_000, 70_000],
-    };
-    StackupSuggestions {
-        thickness: thickness.into_iter().map(Nm::from_um).collect(),
-        copper: copper.into_iter().map(Nm).collect(),
-        finish: strings(if name == "PCBWay" {
-            &[
+    let (thickness, copper, finish, mask_color, silk_color) = match name {
+        "PCBWay" => (
+            vec![
+                200, 400, 600, 800, 1000, 1200, 1600, 2000, 2400, 2600, 2800, 3000, 3200,
+            ],
+            (1..=8).map(|oz| 35_000 * oz).collect(),
+            strings(&[
                 "HASL with lead",
                 "HASL lead free",
                 "Immersion Gold",
@@ -276,12 +266,8 @@ fn suggestions(name: &str) -> StackupSuggestions {
                 "Immersion Silver",
                 "Immersion Tin",
                 "ENEPIG",
-            ]
-        } else {
-            &["HASL (leaded)", "HASL (lead-free)", "ENIG", "OSP"]
-        }),
-        mask_color: strings(if name == "PCBWay" {
-            &[
+            ]),
+            strings(&[
                 "Green",
                 "Red",
                 "Yellow",
@@ -292,14 +278,29 @@ fn suggestions(name: &str) -> StackupSuggestions {
                 "Matte black",
                 "Purple",
                 "none",
-            ]
-        } else {
-            &["Green", "Purple", "Red", "Yellow", "Blue", "White", "Black"]
-        }),
-        silk_color: strings(if name == "PCBWay" {
-            &["White", "Black", "Yellow", "None"]
-        } else {
-            &[]
-        }),
+            ]),
+            strings(&["White", "Black", "Yellow", "None"]),
+        ),
+        "JLCPCB" => (
+            vec![400, 600, 800, 1000, 1200, 1600, 2000],
+            vec![35_000, 70_000, 87_500, 122_500, 157_500],
+            strings(&["HASL (leaded)", "HASL (lead-free)", "ENIG", "OSP"]),
+            strings(&["Green", "Purple", "Red", "Yellow", "Blue", "White", "Black"]),
+            vec![],
+        ),
+        _ => (
+            vec![400, 600, 800, 1000, 1200, 1600, 2000],
+            vec![35_000, 70_000],
+            strings(&["HASL (leaded)", "HASL (lead-free)", "ENIG", "OSP"]),
+            strings(&["Green", "Purple", "Red", "Yellow", "Blue", "White", "Black"]),
+            vec![],
+        ),
+    };
+    StackupSuggestions {
+        thickness: thickness.into_iter().map(Nm::from_um).collect(),
+        copper: copper.into_iter().map(Nm).collect(),
+        finish,
+        mask_color,
+        silk_color,
     }
 }

@@ -78,7 +78,8 @@ fn the_panel_follows_the_selection_and_edits_all_selected_components() {
     let r1 = placed(&mut h, R_10K, 0);
     let r2 = placed(&mut h, R_10K, 1000);
     h.run();
-    h.get_by_label("Nothing selected");
+    h.get_by_role_and_label(Role::Label, "Selection Filter");
+    h.get_by_role_and_label(Role::CheckBox, "Select Component");
 
     run(
         &mut h,

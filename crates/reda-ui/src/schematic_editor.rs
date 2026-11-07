@@ -838,15 +838,26 @@ impl Cx<'_> {
                         modifiers,
                     };
                 };
-                let selected = self.selected();
-                let objects = if selected.contains(&hit) {
-                    selected
+                let selected = &self.shell.selection().objects;
+                let already_selected = selected.contains(&hit);
+                let objects = if already_selected {
+                    selected.clone()
                 } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
+                    combine(selected, &[hit], Combine::Add)
                 } else {
                     vec![hit]
                 };
-                self.select(objects.clone());
+                if !already_selected {
+                    self.select(objects.clone());
+                }
+                let on_sheet = self.sheet().map(selectable).unwrap_or_default();
+                let objects = objects
+                    .into_iter()
+                    .filter(|id| {
+                        on_sheet.contains(id)
+                            && crate::selection::rules::allowed(self.shell, self.document, *id)
+                    })
+                    .collect();
                 // Mod+drag detaches; a plain drag keeps connections.
                 self.start_flight(objects, !modifiers.command, false, from, at)
             }

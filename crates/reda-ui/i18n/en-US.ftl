@@ -449,7 +449,14 @@ violation-dangling = Unconnected end at ({ $x }, { $y })
 violation-courtyard-overlap = Courtyards overlap
 violation-silkscreen-over-pads = Silkscreen over exposed Pads
 violation-out-of-sync = The PCB is out of sync with the schematic
-violation-opening-collapsed = The { $side } { $kind } opening has collapsed
+violation-opening-collapsed =
+    The { $side ->
+        [top] top
+       *[bottom] bottom
+    } { $kind ->
+        [mask] mask
+       *[paste] paste
+    } opening has collapsed
 
 ## Messages panel
 
@@ -1184,6 +1191,7 @@ selection-kind-footprint-text = Footprint text
 selection-kind-pcb-graphic = Graphic
 selection-kind-board-outline = Board Outline
 selection-kind-board-cutout = Board Cutout
+selection-kind-output-origin = Output Origin
 selection-kind-pin = Pin
 selection-kind-graphic = Graphic
 selection-kind-text = Text
@@ -1191,3 +1199,8 @@ properties-text-frame-omitted = Text Frame: { $count ->
     [one] 1 line omitted
    *[other] { $count } lines omitted
     }
+
+selection-pick-length = { $length } mm
+selection-pick-size = { $width } × { $height } mm
+selection-pick-entry = { $kind } · { $detail }
+selection-pick-pad = { $kind } { $number } · { $designator }

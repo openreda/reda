@@ -4,9 +4,7 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
-use reda_model::{
-    DrcCheck, InDocument, Object, Project, Severity, Uuid, Violation, Waiver, apply_waivers,
-};
+use reda_model::{DrcCheck, InDocument, Object, Project, Severity, Uuid, Violation, apply_waivers};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -288,45 +286,16 @@ impl Command for DrcWaive {
             ));
         }
         let violations = current(cx, self.sync)?.violations;
-        let mut selected = Vec::new();
-        for target in &p.violations {
-            let probe =
-                Violation::new(target.check.id(), Severity::Error).objects(target.objects.clone());
-            let candidate = Waiver::of(Uuid::from_u128(0), &probe, "", 0, "");
-            let Some(violation) = violations.iter().find(|v| candidate.matches(v)) else {
-                return Err(CommandError::rejected(format!(
-                    "no current {} Violation has exactly these objects",
-                    target.check.id()
-                )));
-            };
-            if pcb(cx)?.waivers().any(|w| w.matches(violation)) {
-                return Err(CommandError::rejected(
-                    "a Waiver already waives this Violation",
-                ));
-            }
-            // Several results can share a fingerprint (for example both ends of a
-            // dangling Wire). They need one stored Waiver, even when all are selected.
-            if selected.iter().any(|(_, v)| candidate.matches(v)) {
-                continue;
-            }
-            let document = pcb(cx)?.uuid;
-            selected.push((document, violation.clone()));
-        }
-        let author = (self.user_name)(cx.user_dirs());
-        let created = cx.now().0;
-        let mut waivers = Vec::new();
-        for (document, violation) in selected {
-            let waiver = Waiver::of(
-                cx.new_id(),
-                &violation,
-                author.clone(),
-                created,
-                p.reason.clone(),
-            );
-            waivers.push(waiver.uuid);
-            cx.tx()?
-                .insert(Object::Waiver(InDocument::new(document, waiver)))?;
-        }
+        let board = pcb(cx)?;
+        let selected = reda_command::select_waivers(
+            p.violations
+                .iter()
+                .map(|t| (t.check.id(), t.objects.as_slice())),
+            &violations,
+            board.waivers(),
+            |_| Ok(board.uuid),
+        )?;
+        let waivers = reda_command::insert_waivers(cx, selected, p.reason, self.user_name)?;
         Ok(DrcWaiveResult { waivers })
     }
 }

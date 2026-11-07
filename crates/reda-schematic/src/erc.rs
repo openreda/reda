@@ -13,8 +13,7 @@ mod nets;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{
-    ErcCheck, ErcSeverities, InDocument, Object, Project, Severity, Uuid, Violation, Waiver,
-    apply_waivers,
+    ErcCheck, ErcSeverities, Object, Project, Severity, Uuid, Violation, Waiver, apply_waivers,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -263,47 +262,19 @@ impl Command for ErcWaive {
         }
         let project = cx.project()?;
         let violations = check(project);
-        let mut selected = Vec::new();
-        for target in &p.violations {
-            let probe =
-                Violation::new(target.check.id(), Severity::Error).objects(target.objects.clone());
-            let candidate = Waiver::of(Uuid::from_u128(0), &probe, "", 0, "");
-            let Some(violation) = violations.iter().find(|v| candidate.matches(v)) else {
-                return Err(CommandError::rejected(format!(
-                    "no current {} Violation has exactly these objects",
-                    target.check.id()
-                )));
-            };
-            if waivers(project).any(|w| w.matches(violation)) {
-                return Err(CommandError::rejected(
-                    "a Waiver already waives this Violation",
-                ));
-            }
-            // Several results can share a fingerprint (for example both ends of a
-            // dangling Wire). They need one stored Waiver, even when all are selected.
-            if selected.iter().any(|(_, v)| candidate.matches(v)) {
-                continue;
-            }
-            let document = violation
-                .document
-                .ok_or_else(|| CommandError::rejected("no sheet holds this Violation's objects"))?;
-            selected.push((document, violation.clone()));
-        }
-        let author = (self.user_name)(cx.user_dirs());
-        let created = cx.now().0;
-        let mut waivers = Vec::new();
-        for (document, violation) in selected {
-            let waiver = Waiver::of(
-                cx.new_id(),
-                &violation,
-                author.clone(),
-                created,
-                p.reason.clone(),
-            );
-            waivers.push(waiver.uuid);
-            cx.tx()?
-                .insert(Object::Waiver(InDocument::new(document, waiver)))?;
-        }
+        let selected = reda_command::select_waivers(
+            p.violations
+                .iter()
+                .map(|t| (t.check.id(), t.objects.as_slice())),
+            &violations,
+            waivers(project),
+            |v| {
+                v.document.ok_or_else(|| {
+                    CommandError::rejected("no sheet holds this Violation's objects")
+                })
+            },
+        )?;
+        let waivers = reda_command::insert_waivers(cx, selected, p.reason, self.user_name)?;
         Ok(ErcWaiveResult { waivers })
     }
 }

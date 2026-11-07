@@ -50,6 +50,7 @@ pub const PCB_KINDS: &[&str] = &[
     "pcb_graphic",
     "board_outline",
     "board_cutout",
+    "output_origin",
 ];
 
 /// The kinds the Symbol editor's Filter lists.

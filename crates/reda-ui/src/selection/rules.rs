@@ -1,28 +1,53 @@
 //! The common eligibility rules for every canvas and GUI selection entry point.
 
 use reda_engine::model::{LibraryElement, Uuid};
+use reda_engine::render::{Child, Item};
 
 use crate::shell::Shell;
 
+/// Looks up a child by its stable canvas identity, hiding the Scene representation.
+/// Picking already has an Item and uses its metadata directly on the hot path.
+pub fn child_item(shell: &Shell, document: Uuid, object: Uuid) -> Option<&Item> {
+    shell
+        .document_tab(document)?
+        .scene
+        .scene
+        .items
+        .iter()
+        .find(|item| {
+            item.child
+                .as_ref()
+                .is_some_and(|child| child.id() == object)
+        })
+}
+
+pub fn child(shell: &Shell, document: Uuid, object: Uuid) -> Option<&Child> {
+    child_item(shell, document, object)?.child.as_ref()
+}
+
+fn child_kind(child: &Child) -> String {
+    match child {
+        Child::Field { .. } => "field_text",
+        Child::Pad { .. } => "pad",
+        Child::FootprintText { .. } => "footprint_text",
+    }
+    .into()
+}
+
+/// The Selection Filter kind of an Item, without searching the Scene for its child.
+pub fn item_kind(shell: &Shell, document: Uuid, item: &Item) -> Option<String> {
+    item.child
+        .as_ref()
+        .map(child_kind)
+        .or_else(|| object_kind(shell, document, item.object))
+}
+
 /// The Selection Filter kind of a persisted object or a Library element's child.
 pub fn kind(shell: &Shell, document: Uuid, object: Uuid) -> Option<String> {
-    if let Some(child) = shell.document_tab(document).and_then(|t| {
-        t.scene
-            .scene
-            .items
-            .iter()
-            .filter_map(|i| i.child.as_ref())
-            .find(|c| c.id() == object)
-    }) {
-        return Some(
-            match child {
-                reda_engine::render::Child::Field { .. } => "field_text",
-                reda_engine::render::Child::Pad { .. } => "pad",
-                reda_engine::render::Child::FootprintText { .. } => "footprint_text",
-            }
-            .into(),
-        );
-    }
+    object_kind(shell, document, object).or_else(|| child(shell, document, object).map(child_kind))
+}
+
+fn object_kind(shell: &Shell, document: Uuid, object: Uuid) -> Option<String> {
     let project = shell.engine().elements()?;
     if let Some(object) = project.object(object) {
         return serde_json::to_value(object.object_type())
@@ -79,14 +104,7 @@ pub fn box_mode(
 
 /// Placement locks apply to the owning Footprint; its own text remains movable.
 pub fn locked(shell: &Shell, document: Uuid, object: Uuid) -> bool {
-    let child = shell.document_tab(document).and_then(|t| {
-        t.scene
-            .scene
-            .items
-            .iter()
-            .filter_map(|i| i.child.as_ref())
-            .find(|c| c.id() == object)
-    });
+    let child = child(shell, document, object);
     if matches!(
         child,
         Some(reda_engine::render::Child::FootprintText { .. })

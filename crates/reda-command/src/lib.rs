@@ -21,6 +21,7 @@ mod trash;
 mod units;
 mod user;
 mod view;
+mod waivers;
 
 pub use command::{
     AvailabilityContext, Command, Kind, Meta, NO_ELEMENTS, NO_PROJECT, NoParams, Preset,
@@ -45,3 +46,5 @@ pub use trash::Trash;
 pub use units::{Angle, CopperThickness, Length};
 pub use user::{UserDirs, UserName, os_user_name};
 pub use view::ViewState;
+
+pub use waivers::{insert_waivers, select_waivers};

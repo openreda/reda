@@ -17,6 +17,7 @@ use crate::shell::Shell;
 #[derive(Clone, Debug)]
 pub struct Stack {
     pub at: (f64, f64),
+    pub tolerance: f64,
     pub objects: Vec<Uuid>,
     pub index: usize,
     pub time: f64,
@@ -53,7 +54,7 @@ impl Picking {
     }
 }
 
-/// The board's explicit tier order; a sheet has only the size ordering.
+/// The board's explicit tiers, with sheet body primitives after Pins and text.
 fn rank(shell: &Shell, document: Uuid, item: &Item) -> Option<u8> {
     rank_with_locks(shell, document, item, true)
 }
@@ -62,12 +63,7 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
     if item.layer == SceneLayer::Ratsnest {
         return None;
     }
-    let kind = match &item.child {
-        Some(Child::Field { .. }) => "field_text".to_owned(),
-        Some(Child::Pad { .. }) => "pad".to_owned(),
-        Some(Child::FootprintText { .. }) => "footprint_text".to_owned(),
-        None => rules::kind(shell, document, item.object)?,
-    };
+    let kind = rules::item_kind(shell, document, item)?;
     if !shell.selection_filter(document).allows(&kind)
         || !crate::bars::document_type(shell, document)
             .is_some_and(|ty| crate::working_state::filter_kinds(ty).contains(&kind.as_str()))
@@ -112,7 +108,14 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
         .project()
         .filter(|p| p.pcb_document(document).is_some())
     else {
-        return Some(0);
+        use reda_engine::render::{ColorKey, Primitive, SchematicColor};
+        let body = kind == "unit"
+            && matches!(
+                item.color,
+                ColorKey::Schematic(SchematicColor::Body | SchematicColor::BodyFill)
+            )
+            && !matches!(item.primitive, Primitive::Glyphs(_));
+        return Some(u8::from(body));
     };
     Some(match kind.as_str() {
         "footprint_instance" => 2,
@@ -187,6 +190,7 @@ pub fn click(
         document,
         Stack {
             at,
+            tolerance,
             objects,
             index,
             time: now,
@@ -268,14 +272,7 @@ pub fn pick_scene(scene: &Scene) -> Scene {
 pub fn selected(shell: &Shell, document: Uuid, ids: &[Uuid]) -> Selection {
     let mut selected = Selection::default();
     for id in ids {
-        let child = shell.document_tab(document).and_then(|t| {
-            t.scene
-                .scene
-                .items
-                .iter()
-                .filter_map(|i| i.child.as_ref())
-                .find(|c| c.id() == *id)
-        });
+        let child = rules::child(shell, document, *id);
         match child {
             Some(child) if ids.contains(&child.owner()) => {}
             Some(Child::Field { unit, field }) => selected.fields.push(super::FieldRef {
@@ -362,15 +359,7 @@ pub fn text_pointer(
             {
                 let hit = hit(shell, document, from, tolerance)?;
                 let current = shell.selection().clone();
-                let child = shell
-                    .document_tab(document)?
-                    .scene
-                    .scene
-                    .items
-                    .iter()
-                    .filter_map(|i| i.child.as_ref())
-                    .find(|c| c.id() == hit)
-                    .cloned();
+                let child = rules::child(shell, document, hit).cloned();
                 let standalone_text = current
                     .fields
                     .iter()
@@ -543,14 +532,7 @@ pub fn text_pointer(
 
 pub fn movement_hit(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f64) -> Option<Uuid> {
     let id = hit(shell, document, at, tolerance)?;
-    let child = shell
-        .document_tab(document)?
-        .scene
-        .scene
-        .items
-        .iter()
-        .filter_map(|i| i.child.as_ref())
-        .find(|c| c.id() == id);
+    let child = rules::child(shell, document, id);
     Some(
         child
             .filter(|c| {
@@ -561,6 +543,19 @@ pub fn movement_hit(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f6
             })
             .map_or(id, |c| c.owner()),
     )
+}
+
+/// Keyboard Commands run before the next canvas hover. Rebuild at the cached pointer
+/// position so current Filters, visible Layers, locks and edits govern cycling too.
+pub fn prepare_cycle(shell: &mut Shell, document: Uuid) {
+    let position = shell
+        .selection_picking_mut()
+        .stacks
+        .get(&document)
+        .map(|s| (s.at, s.tolerance));
+    if let Some((at, tolerance)) = position {
+        hover(shell, document, at, tolerance);
+    }
 }
 
 /// Hover supplies Shift+Tab's stack even before the first click.
@@ -587,6 +582,7 @@ pub fn hover(shell: &mut Shell, document: Uuid, at: (f64, f64), tolerance: f64) 
         document,
         Stack {
             at,
+            tolerance,
             objects,
             index,
             time: f64::NEG_INFINITY,
@@ -875,31 +871,36 @@ fn entry_label(shell: &Shell, document: Uuid, id: Uuid, ordinal: usize) -> Strin
         let detail = match object {
             Object::Unit(u) => u.object.designator,
             Object::FootprintInstance(f) => f.object.designator,
-            Object::Wire(w) => format!(
-                "{:.2} mm",
-                w.segments()
-                    .map(|(a, b)| ((b.x - a.x).0 as f64).hypot((b.y - a.y).0 as f64))
-                    .sum::<f64>()
-                    / 1e6
+            Object::Wire(w) => crate::tr!(
+                "selection-pick-length",
+                length = format!(
+                    "{:.2}",
+                    w.segments()
+                        .map(|(a, b)| ((b.x - a.x).0 as f64).hypot((b.y - a.y).0 as f64))
+                        .sum::<f64>()
+                        / 1e6
+                )
             ),
-            Object::FreePad(p) => format!(
-                "{:.2} × {:.2} mm",
-                p.width.0 as f64 / 1e6,
-                p.height.0 as f64 / 1e6
+            Object::FreePad(p) => crate::tr!(
+                "selection-pick-size",
+                width = format!("{:.2}", p.width.0 as f64 / 1e6),
+                height = format!("{:.2}", p.height.0 as f64 / 1e6)
             ),
             _ => format!("{}", ordinal + 1),
         };
-        return format!("{kind} · {detail}");
+        return crate::tr!(
+            "selection-pick-entry",
+            kind = kind.as_str(),
+            detail = detail
+        );
     }
-    if let Some(item) = shell.document_tab(document).and_then(|t| {
-        t.scene
-            .scene
-            .items
-            .iter()
-            .find(|i| i.child.as_ref().is_some_and(|c| c.id() == id))
-    }) {
+    if let Some(item) = rules::child_item(shell, document, id) {
         if let reda_engine::render::Primitive::Glyphs(run) = &item.primitive {
-            return format!("{kind} · {}", run.text);
+            return crate::tr!(
+                "selection-pick-entry",
+                kind = kind.as_str(),
+                detail = run.text.as_str()
+            );
         }
         if let Some(Child::Pad { footprint, pad }) = &item.child
             && let Some(pcb) = shell
@@ -911,10 +912,19 @@ fn entry_label(shell: &Shell, document: Uuid, id: Uuid, ordinal: usize) -> Strin
                 .footprint_copy(f.footprint)
                 .and_then(|copy| copy.footprint.pads.iter().find(|p| p.uuid == *pad))
         {
-            return format!("{kind} {} · {}", p.number, f.designator);
+            return crate::tr!(
+                "selection-pick-pad",
+                kind = kind.as_str(),
+                number = p.number.as_str(),
+                designator = f.designator.as_str()
+            );
         }
     }
-    format!("{kind} · {}", ordinal + 1)
+    crate::tr!(
+        "selection-pick-entry",
+        kind = kind.as_str(),
+        detail = (ordinal + 1).to_string()
+    )
 }
 
 fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {

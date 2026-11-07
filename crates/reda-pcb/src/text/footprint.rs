@@ -69,7 +69,7 @@ pub fn footprint_texts(
         if !entry.visible || text.is_empty() {
             continue;
         }
-        out.extend(centred_text(pcb, object, text, &entry, fonts));
+        out.extend(field_to_pcb_text(pcb, text, &entry));
     }
     out
 }
@@ -109,7 +109,7 @@ pub fn placed_field_texts(
             // Automatic placements read upright on both sides and after any Footprint turn.
             placed.rotation = Millideg::ZERO;
             let content = field_text(&entry.field, &instance.designator, &instance.fields);
-            let Some(mut probe) = centred_text(pcb, instance.uuid, content, &placed, fonts) else {
+            let Some(mut probe) = field_to_pcb_text(pcb, content, &placed) else {
                 return placed;
             };
             probe.position = Point::default();
@@ -158,7 +158,6 @@ pub fn element_texts(
     pcb: &PcbDocument,
     footprint: &Footprint,
     (designator, value): (&str, &str),
-    fonts: &Fonts,
 ) -> Vec<(Uuid, PcbText)> {
     let object = footprint.uuid;
     let mut out = Vec::new();
@@ -187,7 +186,7 @@ pub fn element_texts(
         if !entry.visible || text.is_empty() {
             continue;
         }
-        if let Some(t) = centred_text(pcb, object, text, entry, fonts) {
+        if let Some(t) = field_to_pcb_text(pcb, text, entry) {
             out.push((entry.uuid, t));
         }
     }
@@ -221,13 +220,7 @@ fn pcb_text(
 
 /// A field text at its shared style anchor, mirrored on a bottom Layer. The canvas,
 /// fabrication plots and DRC all resolve its justification through `text_geometry`.
-fn centred_text(
-    pcb: &PcbDocument,
-    _object: Uuid,
-    text: &str,
-    placement: &FootprintText,
-    _fonts: &Fonts,
-) -> Option<PcbText> {
+fn field_to_pcb_text(pcb: &PcbDocument, text: &str, placement: &FootprintText) -> Option<PcbText> {
     let layer = board_layer(pcb, placement.layer)?;
     let mirrored = placement.layer.is_bottom();
     Some(PcbText {

@@ -189,15 +189,7 @@ impl SelectTool {
         match std::mem::take(&mut self.state) {
             State::Pressed { at, hit, toggle } => match hit.map(|id| {
                 board(shell)
-                    .and_then(|(_, doc)| shell.document_tab(doc))
-                    .and_then(|t| {
-                        t.scene
-                            .scene
-                            .items
-                            .iter()
-                            .filter_map(|i| i.child.as_ref())
-                            .find(|c| c.id() == id)
-                    })
+                    .and_then(|(_, doc)| crate::selection::rules::child(shell, doc, id))
                     .map_or(id, |c| c.owner())
             }) {
                 None => self.state = State::Band { from: at, to },
@@ -355,7 +347,8 @@ impl SelectTool {
         let pcb = project.pcb().expect("a board");
         let kind = project.object(object).map(|o| o.object_type());
         let mut objects = shell.selection().objects.clone();
-        if !objects.contains(&object) {
+        let already_selected = objects.contains(&object);
+        if !already_selected {
             objects = vec![object];
         }
         objects.retain(|o| {
@@ -393,14 +386,14 @@ impl SelectTool {
             })
             .unwrap_or(at);
         if let Err(e) = placement_preview(pcb, &objects, &[]) {
-            if shell.selection().objects != objects {
+            if !already_selected {
                 select(shell, objects);
             }
             shell.report(crate::tr!("error-command", error = e.message));
             self.state = State::Spent;
             return;
         }
-        if shell.selection().objects != objects {
+        if !already_selected {
             select(shell, objects.clone());
         }
         let mut m = Move {

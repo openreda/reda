@@ -451,13 +451,6 @@ impl Cx<'_> {
         snap_to_grid(at, self.grid())
     }
 
-    fn selected(&self) -> Vec<Uuid> {
-        element_editor::selected_on(self.shell, self.element)
-            .into_iter()
-            .filter(|id| crate::selection::rules::allowed(self.shell, self.element, *id))
-            .collect()
-    }
-
     fn select(&mut self, objects: Vec<Uuid>) {
         if objects != self.shell.selection().objects {
             self.commands
@@ -663,15 +656,26 @@ impl Cx<'_> {
                         modifiers,
                     };
                 };
-                let selected = self.selected();
-                let objects = if selected.contains(&hit) {
-                    selected
+                let selected = &self.shell.selection().objects;
+                let already_selected = selected.contains(&hit);
+                let objects = if already_selected {
+                    selected.clone()
                 } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
+                    combine(selected, &[hit], Combine::Add)
                 } else {
                     vec![hit]
                 };
-                self.select(objects.clone());
+                if !already_selected {
+                    self.select(objects.clone());
+                }
+                let parts = element_editor::parts(self.shell.engine(), self.element);
+                let objects = objects
+                    .into_iter()
+                    .filter(|id| {
+                        parts.contains(id)
+                            && crate::selection::rules::allowed(self.shell, self.element, *id)
+                    })
+                    .collect();
                 let anchor = self.snap(from);
                 Interaction::Moving {
                     offset: self.snap(at) - anchor,

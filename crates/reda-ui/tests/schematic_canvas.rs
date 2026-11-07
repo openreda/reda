@@ -29,11 +29,15 @@ fn harness(dir: &TempDir) -> Harness<'static, App> {
 }
 
 fn harness_with_step(dir: &TempDir, step: f32) -> Harness<'static, App> {
+    harness_with_library(dir, step, library())
+}
+
+fn harness_with_library(dir: &TempDir, step: f32, library: PathBuf) -> Harness<'static, App> {
     let engine = Engine::builder()
         .ids(SeededIds::new(0))
         .clock(FixedClock::EPOCH)
         .user_dirs(Some(UserDirs::under(&dir.path().join("home"))))
-        .starter_library(Some(library()))
+        .starter_library(Some(library))
         .headless(false)
         .build();
     let mut shell = Shell::new(engine);
@@ -256,6 +260,17 @@ fn overlapping_objects_rank_smallest_first_and_shift_tab_cycles() {
             .journal()
             .iter()
             .any(|entry| entry.id == "selection.cycle" && entry.outcome.is_ok())
+    );
+    run(
+        &mut h,
+        "selection.filter.set",
+        json!({"document":SHEET,"all":false}),
+    );
+    run(&mut h, "selection.set", json!({}));
+    run(&mut h, "selection.cycle", json!({"document":SHEET}));
+    assert!(
+        h.state().shell().selection().is_empty(),
+        "cycling cannot reuse a filtered stack before another hover"
     );
 }
 
@@ -673,6 +688,24 @@ fn dragging_an_eligible_object_leaves_filtered_objects_in_the_selection_in_place
         reda_ui::engine::model::geom::Point::default(),
         "a filtered Unit cannot move as part of a selection"
     );
+    let selected = &h.state().shell().selection().objects;
+    assert_eq!(selected.len(), 2, "a drag preserves filtered selections");
+    assert!(selected.contains(&unit.as_str().unwrap().parse().unwrap()));
+    assert!(selected.contains(&wire.as_str().unwrap().parse().unwrap()));
+    let wire = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .schematic_sheet(sheet())
+        .unwrap()
+        .wire(wire.as_str().unwrap().parse().unwrap())
+        .unwrap();
+    assert!(
+        wire.vertices[0].x.0 > 1500 * 25_400,
+        "the eligible Wire moves"
+    );
 }
 
 #[test]
@@ -766,4 +799,57 @@ fn keys_on_the_canvas_run_commands_and_the_edit_menu_aligns() {
     h.get_by_label("Align Left").click();
     h.run();
     assert_eq!(journal_since(&h, before).last().unwrap(), "schematic.align");
+}
+
+#[test]
+fn component_body_ranks_after_larger_field_text_but_pins_keep_their_priority() {
+    let dir = TempDir::new("canvas-body-text-priority");
+    let lib = dir.path().join("Test");
+    for folder in ["", "symbols", "parts", "footprints"] {
+        std::fs::create_dir_all(lib.join(folder)).unwrap();
+        for entry in std::fs::read_dir(library().join(folder)).unwrap() {
+            let entry = entry.unwrap();
+            if entry.path().is_file() {
+                std::fs::copy(entry.path(), lib.join(folder).join(entry.file_name())).unwrap();
+            }
+        }
+    }
+    let path = lib.join("symbols/R.redasym");
+    let mut symbol: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    symbol["graphics"] = json!([{"uuid":"a0000000-0000-4000-8000-000000000099","unit":"a0000000-0000-4000-8000-000000000011","shape":{"kind":"rect","start":{"x":-500000,"y":-1000000},"end":{"x":500000,"y":1000000}},"width":100000,"fill":true}]);
+    std::fs::write(path, serde_json::to_vec(&symbol).unwrap()).unwrap();
+    let mut h = harness_with_library(&dir, 0.25, lib);
+    let unit = resistor_and_wire(&mut h);
+    run(
+        &mut h,
+        "schematic.field.move",
+        json!({"unit":unit,"field":"value","at":{"x":"-250mil","y":0},"size":"500mil"}),
+    );
+    h.run();
+    let at = screen(&h, 0.0, 0.0);
+    h.drag_at(at);
+    h.drop_at(at);
+    h.run();
+    assert!(
+        h.state().shell().selection().objects.is_empty(),
+        "field text wins over the smaller body"
+    );
+    assert_eq!(h.state().shell().selection().fields.len(), 1);
+    assert_eq!(h.state().shell().selection().fields[0].field, "value");
+    run(
+        &mut h,
+        "schematic.field.move",
+        json!({"unit":unit,"field":"value","at":{"x":"-250mil","y":"120mil"},"size":"500mil"}),
+    );
+    run(&mut h, "selection.set", json!({}));
+    h.run();
+    let at = screen(&h, 0.0, 120.0);
+    h.drag_at(at);
+    h.drop_at(at);
+    h.run();
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [unit.as_str().unwrap().parse::<Uuid>().unwrap()],
+        "an exact Pin hit still ranks by size with text"
+    );
 }
