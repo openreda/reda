@@ -392,7 +392,11 @@ fn the_update_preview_lists_the_local_edits_a_footprint_change_removes() {
     let r2 = rows.iter().find(|r| r["designator"] == "R2").unwrap();
     assert!(r2.get("lost_local_edits").is_none());
 
-    engine.run_ok("schematic.component.update_from_library", json!({}));
+    let preview = engine.run_ok("schematic.component.update_preview", json!({}));
+    engine.run_ok(
+        "schematic.component.update_from_library",
+        json!({"preview_hash": preview["preview_hash"]}),
+    );
     sync(&mut engine);
     assert_eq!(
         engine.run_ok("drc.run", json!({}))["locally_edited"],

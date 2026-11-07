@@ -285,12 +285,13 @@ impl Command for UnitPlace {
 }
 
 /// What a part-table entry holds, wherever it comes from.
+#[derive(Clone)]
 pub(crate) struct EntryContent {
-    hash: String,
-    part: Part,
-    symbol: Symbol,
+    pub hash: String,
+    pub part: Part,
+    pub symbol: Symbol,
     /// Each alternate's content hash and Footprint, in the Part's order.
-    footprints: Vec<(String, Footprint)>,
+    pub footprints: Vec<(String, Footprint)>,
 }
 
 impl EntryContent {

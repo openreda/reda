@@ -72,9 +72,11 @@ pub use similar::{
 pub use unit_cycle::{UnitCycle, UnitCycleParams, UnitCycleResult};
 pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
 pub use update::{
-    ComponentUpdate, FootprintChange, LostLocalEdits, Outdated, OutdatedComponent, OutdatedResult,
-    PartChange, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams, UpdatePreview,
-    UpdateResult,
+    Aspect, Cell, CellAction, CellCase, CellRef, ComponentAspects, ComponentStatus,
+    ComponentUpdate, FootprintChange, FromTo, LibraryStatus, LibraryStatusParams,
+    LibraryStatusQuery, LibraryStatusResult, LostLocalEdits, PartChange, PartsOf, Problem,
+    SettingsParams, UpdateApplied, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams,
+    UpdatePreview, UpdateResult,
 };
 pub use wiring::{
     NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
@@ -103,9 +105,9 @@ pub fn register_all_with_user(
     registry.add(ComponentPinsQuery);
     registry.add(Find);
     registry.add(SelectSimilar);
-    registry.add(Outdated);
+    registry.add(LibraryStatusQuery);
     registry.add(UpdatePreview { lost_local_edits });
-    registry.add(UpdateFromLibrary);
+    registry.add(UpdateFromLibrary { lost_local_edits });
     registry.add(LibraryElement);
     registry.add(SheetSetFrame);
     registry.add(SheetTitleBlock);

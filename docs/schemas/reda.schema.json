@@ -276,6 +276,21 @@
         }
       ]
     },
+    "ComponentFieldMissing": {
+      "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+      "oneOf": [
+        {
+          "const": "keep",
+          "description": "The cell starts as Reject: the Component keeps its value.",
+          "type": "string"
+        },
+        {
+          "const": "remove",
+          "description": "The cell starts as Update, which removes the field.",
+          "type": "string"
+        }
+      ]
+    },
     "CplSettings": {
       "additionalProperties": false,
       "description": "A Fab Preset's CPL: its columns and position conventions.",
@@ -402,6 +417,11 @@
           "$ref": "#/$defs/Severity",
           "default": "error",
           "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync."
+        },
+        "library_out_of_date": {
+          "$ref": "#/$defs/Severity",
+          "default": "off",
+          "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table."
         },
         "net_names_across_sheets": {
           "$ref": "#/$defs/Severity",
@@ -584,6 +604,21 @@
         }
       ]
     },
+    "FootprintChoice": {
+      "description": "Which Footprint a Component chooses after its alternates are updated.",
+      "oneOf": [
+        {
+          "const": "keep_if_present",
+          "description": "The current Footprint while it is still an alternate, else the new default.",
+          "type": "string"
+        },
+        {
+          "const": "default",
+          "description": "Always the new default.",
+          "type": "string"
+        }
+      ]
+    },
     "GerberSettings": {
       "additionalProperties": false,
       "description": "The Gerber and drill switches of a Fab Preset.",
@@ -650,6 +685,83 @@
       ],
       "type": "object"
     },
+    "LibraryFieldMissing": {
+      "description": "A field the Library Part has and the Component has no value for.",
+      "oneOf": [
+        {
+          "const": "add",
+          "description": "The cell starts as Update: the Component takes the field.",
+          "type": "string"
+        },
+        {
+          "const": "add_if_not_blank",
+          "description": "Update when the Library value is not blank.",
+          "type": "string"
+        },
+        {
+          "const": "skip",
+          "description": "The cell starts as Reject.",
+          "type": "string"
+        }
+      ]
+    },
+    "LibraryUpdateSettings": {
+      "additionalProperties": false,
+      "description": "The Update from Library settings. A setting left out has its default.",
+      "properties": {
+        "add_new_footprints": {
+          "default": true,
+          "description": "Footprints new in the Library join the alternates.",
+          "type": "boolean"
+        },
+        "component_field_missing": {
+          "$ref": "#/$defs/ComponentFieldMissing",
+          "default": "keep",
+          "description": "A field on the Component and not in the Library."
+        },
+        "fields_to_update": {
+          "default": null,
+          "description": "The cells that may start as Update, by name: field names, `component_type`,\n`in_bom` and `in_cpl`. `null` (the default) is every one; a cell not listed starts\nas Reject.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "footprint_choice": {
+          "$ref": "#/$defs/FootprintChoice",
+          "default": "keep_if_present"
+        },
+        "library_field_missing": {
+          "$ref": "#/$defs/LibraryFieldMissing",
+          "default": "add",
+          "description": "A field in the Library and not on the Component."
+        },
+        "locally_edited": {
+          "$ref": "#/$defs/LocallyEdited",
+          "default": "keep",
+          "description": "A changed default the Component has its own value for."
+        },
+        "preserve_field_locations": {
+          "default": true,
+          "description": "Fields moved by hand stay where they are; off, they return to Autoposition.",
+          "type": "boolean"
+        },
+        "preserve_field_visibility": {
+          "default": true,
+          "description": "Which fields show stays as it is; off, the Designator and value show.",
+          "type": "boolean"
+        },
+        "remove_missing_footprints": {
+          "default": true,
+          "description": "Footprints gone from the Library leave the alternates.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "LineNumbers": {
       "additionalProperties": false,
       "description": "The BOM's line-number column.",
@@ -677,6 +789,21 @@
         "step"
       ],
       "type": "object"
+    },
+    "LocallyEdited": {
+      "description": "A changed default where the Component holds a value of its own.",
+      "oneOf": [
+        {
+          "const": "keep",
+          "description": "The cell starts as Reject: the Component keeps its value.",
+          "type": "string"
+        },
+        {
+          "const": "take_new",
+          "description": "The cell starts as Update: the Component takes the new default.",
+          "type": "string"
+        }
+      ]
     },
     "Location": {
       "description": "Which point of a Unit the schematic orders sort by.",
@@ -1463,6 +1590,7 @@
         "dangling_wire": "warning",
         "duplicate_designator": "error",
         "duplicate_nets": "error",
+        "library_out_of_date": "off",
         "net_names_across_sheets": "warning",
         "net_names_on_sheet": "error",
         "net_tie_one_net": "warning",
@@ -1500,6 +1628,18 @@
         "type": "string"
       },
       "type": "array"
+    },
+    "library_update": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LibraryUpdateSettings"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The Update from Library settings page 1 of its dialog saved, which the update\nCommands use unless their parameters say otherwise. Written only once there are any."
     },
     "output_jobs": {
       "default": [],

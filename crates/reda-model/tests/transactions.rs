@@ -16,6 +16,7 @@ fn empty_project() -> Project {
         erc: Default::default(),
         schematic: Default::default(),
         reannotate: None,
+        library_update: None,
     })
 }
 

@@ -71,6 +71,7 @@ pub fn check_name(check: ErcCheck) -> String {
         ErcCheck::UnplacedUnits => tr!("check-unplaced-units"),
         ErcCheck::NetTieOneNet => tr!("check-net-tie-one-net"),
         ErcCheck::UnitDataMismatch => tr!("check-unit-data-mismatch"),
+        ErcCheck::LibraryOutOfDate => tr!("check-library-out-of-date"),
     }
 }
 

@@ -27,14 +27,31 @@ pub(crate) fn register_all(registry: &mut Registry, user_name: reda_command::Use
 }
 
 /// Runs every ERC check that is not Off over the Project's Schematic Sheets, ignoring
-/// Waivers. Violations come in the order of the ERC table.
-pub fn check(project: &Project) -> Vec<Violation> {
+/// Waivers. Violations come in the order of the ERC table. `library` reads the registered
+/// Libraries for `library_out_of_date`; it is only called when that check is not Off.
+pub fn check(project: &Project, library: crate::PartsOf<'_>) -> Vec<Violation> {
     let mut report = Report {
         severities: project.props().erc,
         found: vec![],
     };
     nets::check(project, &mut report);
     components::check(project, &mut report);
+    if !report.is_off(ErcCheck::LibraryOutOfDate) {
+        for found in crate::update::library_differs(project, library) {
+            let aspects: Vec<&str> = (found.aspects.iter())
+                .map(|a| match a {
+                    crate::Aspect::Symbol => "symbol",
+                    crate::Aspect::Fields => "fields",
+                    crate::Aspect::Footprints => "footprints",
+                })
+                .collect();
+            report.add(ErcCheck::LibraryOutOfDate, |v| {
+                v.arg("designator", found.designator.as_str())
+                    .arg("aspects", aspects.join(", "))
+                    .objects(found.units.iter().copied())
+            });
+        }
+    }
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
     found
@@ -130,11 +147,17 @@ impl Command for ErcRun {
 
     fn run(&self, cx: &mut Context<'_>, p: ErcRunParams) -> Result<ErcRunResult, CommandError> {
         let project = cx.project()?;
-        let waived = apply_waivers(check(project), waivers(project), p.include_waived, |id| {
-            ErcCheck::ALL
-                .iter()
-                .any(|c| c.id() == id && project.props().erc.get(*c) != Severity::Off)
-        });
+        let library = |uuids: &[Uuid]| cx.library_parts(uuids);
+        let waived = apply_waivers(
+            check(project, &library),
+            waivers(project),
+            p.include_waived,
+            |id| {
+                ErcCheck::ALL
+                    .iter()
+                    .any(|c| c.id() == id && project.props().erc.get(*c) != Severity::Off)
+            },
+        );
         Ok(ErcRunResult {
             violations: waived.violations,
             waived: waived.waived,
@@ -261,7 +284,8 @@ impl Command for ErcWaive {
             ));
         }
         let project = cx.project()?;
-        let violations = check(project);
+        let library = |uuids: &[Uuid]| cx.library_parts(uuids);
+        let violations = check(project, &library);
         let selected = reda_command::select_waivers(
             p.violations
                 .iter()
