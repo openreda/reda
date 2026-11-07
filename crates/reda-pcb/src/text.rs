@@ -242,25 +242,28 @@ fn wrap_line(line: &str, width: Nm, font: Font<'_>, height: Nm) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current = String::new();
     for ch in line.chars() {
-        let candidate = format!("{current}{ch}");
-        if !current.is_empty() && layout(&candidate, font, height, noto_sans()).advance > width {
+        current.push(ch);
+        while layout(&current, font, height, noto_sans()).advance > width {
+            let Some((last, _)) = current.char_indices().next_back().filter(|(at, _)| *at > 0)
+            else {
+                break;
+            };
             if let Some((at, _)) = current
                 .char_indices()
                 .rev()
-                .find(|(_, c)| c.is_whitespace())
+                .find(|(at, c)| *at > 0 && c.is_whitespace())
             {
                 lines.push(current[..at].trim_end().to_owned());
                 current = current[at..].trim_start().to_owned();
             } else {
-                lines.push(std::mem::take(&mut current));
-            }
-            if ch.is_whitespace() && current.is_empty() {
-                continue;
+                lines.push(current[..last].to_owned());
+                current = current[last..].to_owned();
             }
         }
-        current.push(ch);
     }
-    lines.push(current);
+    if !current.is_empty() || lines.is_empty() {
+        lines.push(current);
+    }
     lines
 }
 

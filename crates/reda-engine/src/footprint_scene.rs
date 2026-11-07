@@ -65,6 +65,7 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
     for (object, text) in element_texts(pcb, footprint, shown, fonts) {
         let laid = text_geometry(&text, fonts);
         geometry.texts.push(BoardText {
+            align: text.justify.into(),
             child: None,
             object,
             layer: text.layer,

@@ -112,6 +112,7 @@ fn board_pad(object: Uuid, p: PlacedPad) -> BoardPad {
 
 fn board_text(object: Uuid, text: &PcbText, laid: PlacedText) -> BoardText {
     BoardText {
+        align: text.justify.into(),
         child: None,
         object,
         layer: text.layer,

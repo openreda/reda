@@ -308,3 +308,18 @@ fn knockout_uses_the_frame_box_even_when_no_complete_line_fits() {
     assert!(filled_at(&drawn, 3_900_000, 900_000));
     assert!(!filled_at(&drawn, 4_100_000, 900_000));
 }
+
+#[test]
+fn proportional_font_frames_wrap_a_carried_word_again_when_needed() {
+    let dir = TempDir::new("text-frame-proportional");
+    let mut engine = with_pcb(probe_engine(), &dir);
+    let uuid = add_text(
+        &mut engine,
+        json!({"layer":"silkscreen_top","text":"i iiiW","font":"Noto Sans","x":0,"y":0,"height":"2.1mm","frame":{"width":"4mm","height":"100mm"}}),
+    );
+    assert_eq!(
+        geometry(&mut engine, &uuid)["dropped_lines"],
+        0,
+        "every glyph fits by itself and the frame has ample height"
+    );
+}
