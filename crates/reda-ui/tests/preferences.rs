@@ -46,6 +46,7 @@ fn the_tree_lists_the_pages_with_settings_and_indents_sub_pages() {
         (0, "Schematic"),
         (1, "Wires"),
         (1, "Names & Units"),
+        (0, "Checks"),
         (0, "Display"),
         (0, "Libraries"),
         (0, "Fab Presets"),
