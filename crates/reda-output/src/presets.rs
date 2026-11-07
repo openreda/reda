@@ -5,7 +5,8 @@
 //! for one REDA rule, the preset takes the one that holds for every case the rule covers
 //! (JLCPCB's hole spacing is 0.20 mm between vias but 0.45 mm between pad holes, so 0.45).
 //! The preferred Track and Via sizes and the hole range are the seeds `checks.md` gives:
-//! a 0.25 mm Track everywhere, and a looser 0.60/0.30 mm Via on the per-fab presets.
+//! a 0.25 mm Track everywhere, and a looser Via on the per-fab presets (0.66/0.30 mm on
+//! JLCPCB, so its ring meets the 0.18 mm minimum; 0.60/0.30 mm on PCBWay).
 
 use reda_model::geom::Nm;
 use reda_model::{
@@ -126,7 +127,8 @@ fn jlcpcb() -> FabPreset {
             hole_max: Nm::from_um(6300),
             preferred: PreferredSeeds {
                 track_width: Nm::from_um(250),
-                via_diameter: Nm::from_um(600),
+                // 0.66 mm, not checks.md's original 0.60, so the ring meets JLCPCB's 0.18 mm.
+                via_diameter: Nm::from_um(660),
                 via_hole: Nm::from_um(300),
             },
         },
