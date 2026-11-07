@@ -32,6 +32,11 @@ pub fn snap_to_grid(at: (f64, f64), pitch: Nm) -> Point {
     )
 }
 
+/// The nearest grid point when `origin` gives the grid's phase in Document coordinates.
+pub fn snap_to_grid_from(at: (f64, f64), pitch: Nm, origin: Point) -> Point {
+    origin + snap_to_grid((at.0 - origin.x.0 as f64, at.1 - origin.y.0 as f64), pitch)
+}
+
 impl SnapTargets {
     /// `at` (nm) snapped: onto the nearest point target within `radius` nm, else onto the
     /// nearest segment within `radius`, else to the grid of `pitch`.

@@ -163,7 +163,7 @@ impl SelectTool {
             .filter(|_| electrical_snap(shell))
             .map(snap::targets)
             .unwrap_or_default();
-        let snapped = snap::snap(at, grid, &targets, self.radius());
+        let snapped = snap::snap(at, grid, board_origin(shell), &targets, self.radius());
         self.snap = Some(snapped);
         snapped
     }
@@ -416,7 +416,13 @@ impl SelectTool {
     /// Follows the cursor at `to` with the move `m`, redrawing the preview when it changed.
     fn track(&mut self, shell: &mut Shell, m: &mut Move, to: Point) {
         let grid = board_grid(shell);
-        let (current, kind) = snap::snap(to - m.offset, grid, &m.targets, self.radius());
+        let (current, kind) = snap::snap(
+            to - m.offset,
+            grid,
+            board_origin(shell),
+            &m.targets,
+            self.radius(),
+        );
         self.snap = Some((current, kind));
         if current != m.current {
             m.current = current;
@@ -458,7 +464,7 @@ impl SelectTool {
         let mut d = TrackDrag {
             document,
             track,
-            grab: snap::to_grid(at, board_grid(shell)),
+            grab: snap::to_grid(at, board_grid(shell), board_origin(shell)),
             detach,
             normal,
             by: Point::default(),
@@ -479,7 +485,7 @@ fn is_track(shell: &Shell, object: Uuid) -> bool {
 /// Follows the cursor at `to` with the segment drag `d`, redrawing the preview when the
 /// drag changed. A plain drag of a straight segment moves it across itself only.
 fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
-    let raw = snap::to_grid(to, board_grid(shell)) - d.grab;
+    let raw = snap::to_grid(to, board_grid(shell), board_origin(shell)) - d.grab;
     let by = match (d.detach, d.normal) {
         (false, Some((nx, ny))) => {
             let along = raw.x.0 as f64 * nx + raw.y.0 as f64 * ny;
@@ -544,6 +550,10 @@ fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
 /// `p` as the shared canvas functions take it: nm, y up.
 fn xy(p: Point) -> (f64, f64) {
     (p.x.0 as f64, p.y.0 as f64)
+}
+
+fn board_origin(shell: &Shell) -> Point {
+    board(shell).map_or_else(Point::default, |(_, document)| shell.grid_origin(document))
 }
 
 /// The board's snap grid.

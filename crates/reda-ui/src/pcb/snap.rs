@@ -8,7 +8,7 @@ use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{PcbDocument, Uuid};
 use reda_engine::pcb::placed::{placed_free_pad, placed_pads};
 
-use crate::canvas::interact::snap_to_grid;
+use crate::canvas::interact::snap_to_grid_from;
 
 /// What a point snapped to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,16 +79,22 @@ pub fn nearest(targets: &[Target], p: Point, radius: Nm) -> Option<Target> {
 }
 
 /// `p` on the nearest grid point of pitch `grid`.
-pub fn to_grid(p: Point, grid: Nm) -> Point {
-    snap_to_grid((p.x.0 as f64, p.y.0 as f64), grid)
+pub fn to_grid(p: Point, grid: Nm, origin: Point) -> Point {
+    snap_to_grid_from((p.x.0 as f64, p.y.0 as f64), grid, origin)
 }
 
 /// `p` snapped: to the nearest electrical target within `radius` when there is one,
 /// else to the grid.
-pub fn snap(p: Point, grid: Nm, targets: &[Target], radius: Nm) -> (Point, SnapKind) {
+pub fn snap(
+    p: Point,
+    grid: Nm,
+    origin: Point,
+    targets: &[Target],
+    radius: Nm,
+) -> (Point, SnapKind) {
     match nearest(targets, p, radius) {
         Some(t) => (t.at, t.kind),
-        None => (to_grid(p, grid), SnapKind::Grid),
+        None => (to_grid(p, grid, origin), SnapKind::Grid),
     }
 }
 

@@ -89,6 +89,8 @@ pub struct DocumentTab {
     pub markers: Arc<[Marker]>,
     /// The snap grid the canvas draws and Tools snap to.
     pub grid: Nm,
+    /// The Document point the visible grid runs through.
+    pub grid_origin: Point,
     /// What the editor has in flight on this canvas.
     pub interaction: Interaction,
     /// The hovered object and the objects in flight, as the canvas marks them.
@@ -116,6 +118,7 @@ impl DocumentTab {
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
             grid: grid::SCHEMATIC_DEFAULT,
+            grid_origin: Point::default(),
             interaction: Interaction::Idle,
             live: LiveHandle::default(),
             moving_offset: (0.0, 0.0),
@@ -428,6 +431,20 @@ impl Shell {
             .get::<Grids>()
             .map(|g| g.of(self.engine.elements(), document))
             .unwrap_or(grid::SCHEMATIC_DEFAULT)
+    }
+
+    /// The origin the Document's grid runs through (the Output Origin on a board).
+    pub fn grid_origin(&self, document: Uuid) -> Point {
+        grid::origin(self.engine.elements(), document)
+    }
+
+    /// A Document point on its current grid, including the board's Output Origin.
+    pub fn snap_to_grid(&self, document: Uuid, at: (f64, f64)) -> Point {
+        crate::canvas::interact::snap_to_grid_from(
+            at,
+            self.grid(document),
+            self.grid_origin(document),
+        )
     }
 
     /// `document`'s Selection Filter; it changes through `selection.filter.set`.
@@ -2205,6 +2222,7 @@ impl Shell {
                 tab.selection = self.marked.clone();
             }
             tab.grid = grids.of(project, tab.document);
+            tab.grid_origin = grid::origin(project, tab.document);
             if tab.palette.generation != self.palette.generation {
                 tab.palette = self.palette.clone();
             }

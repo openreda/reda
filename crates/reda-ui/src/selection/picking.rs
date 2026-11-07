@@ -341,7 +341,7 @@ pub fn text_pointer(
     tolerance: f64,
 ) -> Option<Vec<(String, Value)>> {
     use crate::canvas::LiveHandle;
-    use crate::canvas::interact::{Pointer, snap_to_grid};
+    use crate::canvas::interact::Pointer;
     use reda_engine::model::geom::Point;
     if shell.tool() != crate::tools::Tool::Select {
         return None;
@@ -437,8 +437,8 @@ pub fn text_pointer(
                         targets.push((child.clone(), run.at));
                     }
                 }
-                let grab = snap_to_grid(from, shell.grid(document));
-                let by = snap_to_grid(at, shell.grid(document)) - grab;
+                let grab = shell.snap_to_grid(document, from);
+                let by = shell.snap_to_grid(document, at) - grab;
                 if picked != current {
                     commands.push((
                         "selection.set".into(),
@@ -464,10 +464,10 @@ pub fn text_pointer(
         }
         match *event {
             Pointer::Drag(at) | Pointer::Hover(at) => {
-                m.by = snap_to_grid(at, shell.grid(document)) - m.grab
+                m.by = shell.snap_to_grid(document, at) - m.grab
             }
             Pointer::DragEnd(at) => {
-                m.by = snap_to_grid(at, shell.grid(document)) - m.grab;
+                m.by = shell.snap_to_grid(document, at) - m.grab;
                 if m.by != Point::default() {
                     let mut steps = Vec::new();
                     if !m.objects.is_empty() {

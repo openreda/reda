@@ -17,7 +17,7 @@ mod snap;
 
 pub use hit::{BoxMode, box_select, box_select_on, hit_stack_on, hit_test, hit_test_on};
 pub use pointer::{Pointer, pointer};
-pub use snap::{SnapTargets, Snapped, snap_to_grid};
+pub use snap::{SnapTargets, Snapped, snap_to_grid, snap_to_grid_from};
 
 use reda_engine::model::Uuid;
 

@@ -292,7 +292,7 @@ pub fn resolve_in(
     let selectable = document.map(|d| json!(selectable_on(shell, d)));
     let cursor = document.and_then(|d| {
         let at = shell.document_tab(d)?.cursor?;
-        let at = crate::canvas::interact::snap_to_grid(at, shell.grid(d));
+        let at = shell.snap_to_grid(d, at);
         Some(json!({ "x": at.x.0, "y": at.y.0 }))
     });
     if cursor.is_none() {

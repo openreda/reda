@@ -25,7 +25,7 @@ use reda_engine::model::{Project, Side, Uuid};
 use serde_json::{Value, json};
 
 use crate::canvas::CanvasInputs;
-use crate::canvas::interact::{Pointer, snap_to_grid};
+use crate::canvas::interact::Pointer;
 use crate::shell::Shell;
 
 pub use commands::register_all;
@@ -147,7 +147,7 @@ fn state(shell: &mut Shell) -> Option<&mut Placement> {
 /// `at` on `document`'s snap grid.
 fn snapped(shell: &Shell, document: Uuid, at: Point) -> Point {
     let xy = (at.x.0 as f64, at.y.0 as f64);
-    snap_to_grid(xy, shell.grid(document))
+    shell.snap_to_grid(document, xy)
 }
 
 /// Whether the Part in flight goes on `document`.

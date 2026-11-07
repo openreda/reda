@@ -505,3 +505,28 @@ fn select_connected_and_delete_work_on_the_selection() {
     assert_eq!(tracks(&b).len(), 1);
     assert!(!b.shell.selection().objects.contains(&t[1]));
 }
+
+#[test]
+fn via_placement_uses_the_output_origins_grid_phase() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    run(&mut b.shell, "tool.activate:via", json!({}));
+    route_to(&mut b, mm(5.1, 5.1));
+    assert_eq!(
+        b.shell
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .vias()
+            .next()
+            .unwrap()
+            .at,
+        mm(5.2, 5.3)
+    );
+}

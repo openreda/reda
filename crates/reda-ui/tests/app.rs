@@ -1043,3 +1043,81 @@ fn snapshot_of_the_keyboard_shortcuts_page() {
         "preferences_keyboard_shortcuts_dark",
     );
 }
+
+#[test]
+fn the_visible_board_grid_follows_output_origin_and_returns_to_zero_when_removed() {
+    let home = TempDir::new("app-grid-origin-home");
+    let work = TempDir::new("app-grid-origin-work");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    let shell = h.state_mut().shell_mut();
+    shell.new_project(work.path(), "Grid").unwrap();
+    shell
+        .run(
+            "pcb.board_outline.add_rect",
+            json!({"width":"40mm","height":"30mm"}),
+        )
+        .unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell.run("document.open", json!({"document":pcb})).unwrap();
+    shell
+        .run("layout.tab.activate", json!({"tab":pcb.to_string()}))
+        .unwrap();
+    shell
+        .run("view.grid.set", json!({"document":pcb,"grid":"1mm"}))
+        .unwrap();
+    h.run();
+    h.run();
+    let rect = h.get_by_role(Role::Canvas).rect();
+    let camera = h.state().shell().document_tab(pcb).unwrap().camera.unwrap();
+    let old = camera.screen_point(rect, (20_000_000.0, 15_000_000.0));
+    let new = camera.screen_point(rect, (20_200_000.0, 15_300_000.0));
+    let samples = |image: &[u8], width: u32, at: egui::Pos2| {
+        let (x, y) = (at.x.floor() as u32, at.y.floor() as u32);
+        (y - 1..=y + 1)
+            .flat_map(|y| {
+                (x - 1..=x + 1).map(move |x| {
+                    let offset = ((y * width + x) * 4) as usize;
+                    image[offset..offset + 4].to_vec()
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    let before = h.render().unwrap();
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.output_origin.set",
+            json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+        )
+        .unwrap();
+    h.run();
+    h.run();
+    let shifted = h.render().unwrap();
+    assert_ne!(
+        samples(before.as_raw(), before.width(), new),
+        samples(shifted.as_raw(), shifted.width(), new),
+        "a grid dot appears on the offset lattice"
+    );
+    assert_ne!(
+        samples(before.as_raw(), before.width(), old),
+        samples(shifted.as_raw(), shifted.width(), old),
+        "the former grid dot moves away"
+    );
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.output_origin.delete", json!({}))
+        .unwrap();
+    h.run();
+    h.run();
+    let restored = h.render().unwrap();
+    assert_eq!(
+        samples(before.as_raw(), before.width(), new),
+        samples(restored.as_raw(), restored.width(), new)
+    );
+    assert_eq!(
+        samples(before.as_raw(), before.width(), old),
+        samples(restored.as_raw(), restored.width(), old)
+    );
+}

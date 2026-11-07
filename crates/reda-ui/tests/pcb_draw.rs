@@ -430,3 +430,47 @@ fn dragging_a_footprint_preserves_the_filtered_free_pad_selection_and_position()
     assert_eq!(b.pcb().footprint(footprint).unwrap().at, mm(2.0, 0.0));
     assert_eq!(b.pcb().free_pad(pad).unwrap().at, mm(5.0, 0.0));
 }
+
+#[test]
+fn output_origin_phases_the_board_grid_for_hover_drawing_and_electrical_snap() {
+    use reda_ui::pcb::snap::SnapKind;
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    assert_eq!(
+        b.shell.pcb_hover(mm(1.1, 1.1)),
+        (mm(1.2, 1.3), SnapKind::Grid)
+    );
+    b.tool("free_pad");
+    b.click(mm(2.1, 2.1));
+    let pad = b.pcb().free_pads().next().unwrap().clone();
+    assert_eq!(pad.at, mm(2.2, 2.3));
+    b.tool("select");
+    assert_eq!(
+        b.shell.pcb_hover(mm(2.21, 2.31)),
+        (pad.at, SnapKind::Pad),
+        "electrical targets still win"
+    );
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.1mm","y":"0.1mm"}}),
+    );
+    assert_eq!(
+        b.pcb().free_pad(pad.uuid).unwrap().at,
+        pad.at,
+        "moving the grid moves no objects"
+    );
+    assert_eq!(
+        b.shell.pcb_hover(mm(4.0, 4.0)),
+        (mm(4.1, 4.1), SnapKind::Grid)
+    );
+    run(&mut b.shell, "pcb.output_origin.delete", json!({}));
+    assert_eq!(
+        b.shell.pcb_hover(mm(4.0, 4.0)),
+        (mm(4.0, 4.0), SnapKind::Grid)
+    );
+}

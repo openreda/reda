@@ -12,13 +12,22 @@
 use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Length, Meta, Registry};
-use reda_engine::model::geom::Nm;
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{DocumentKind, Project, Uuid};
 use reda_engine::preferences::{Preferences, Units};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::pcb::BoardView;
+
+/// The board's Output Origin phases its grid; sheets and Library canvases use zero.
+pub fn origin(project: Option<&Project>, document: Uuid) -> Point {
+    project
+        .and_then(|p| p.pcb_document(document))
+        .and_then(|pcb| pcb.output_origin())
+        .map(|origin| origin.at)
+        .unwrap_or_default()
+}
 
 const MIL: i64 = 25_400;
 const MM: i64 = 1_000_000;

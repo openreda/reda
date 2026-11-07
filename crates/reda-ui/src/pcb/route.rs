@@ -480,6 +480,7 @@ impl Router {
         let snapped = snap::snap(
             at,
             grid,
+            board(shell).map_or_else(Point::default, |(_, document)| shell.grid_origin(document)),
             &targets,
             self.radius.unwrap_or(DEFAULT_SNAP_RADIUS),
         );

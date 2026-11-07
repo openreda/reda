@@ -193,7 +193,7 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     view.mirrored = input.mirrored;
     let palette = tab.palette.palette(theme);
     let grid = grid_pitch(tab.grid.0 as f64, view.nm_per_px).map(|pitch| GridSpec {
-        origin: (0.0, 0.0),
+        origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),
         pitch,
         radius_px: GRID_DOT_RADIUS * ppp,
         color: palette.grid(),
