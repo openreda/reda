@@ -78,6 +78,10 @@ pub use update::{
     SettingsParams, UpdateApplied, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams,
     UpdatePreview, UpdateResult,
 };
+pub use update::{
+    KeepFields, ReplaceParams, ReplacePart, ReplacePartParams, ReplacePreview,
+    ReplacePreviewResult, ReplaceRow, Replaced,
+};
 pub use wiring::{
     NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
     NoConnectAddParams, NoConnectAddResult, SchematicNets, WireAdd, WireAddParams, WireAddResult,
@@ -108,6 +112,8 @@ pub fn register_all_with_user(
     registry.add(LibraryStatusQuery);
     registry.add(UpdatePreview { lost_local_edits });
     registry.add(UpdateFromLibrary { lost_local_edits });
+    registry.add(ReplacePreview { lost_local_edits });
+    registry.add(ReplacePart { lost_local_edits });
     registry.add(LibraryElement);
     registry.add(SheetSetFrame);
     registry.add(SheetTitleBlock);

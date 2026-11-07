@@ -13,6 +13,7 @@
 mod cells;
 mod diff;
 mod plan;
+mod replace;
 mod status;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -32,6 +33,10 @@ use crate::natural_cmp;
 
 pub use cells::{Cell, CellAction, CellCase};
 pub use diff::{FootprintChange, FromTo, PartChange};
+pub use replace::{
+    KeepFields, ReplaceParams, ReplacePart, ReplacePartParams, ReplacePreview,
+    ReplacePreviewResult, ReplaceRow, Replaced,
+};
 pub use status::{Aspect, ComponentStatus, LibraryStatus};
 
 /// One placed Component: its Units with their sheets, in Document order, and the
@@ -542,21 +547,7 @@ impl Command for UpdateFromLibrary {
                 blocked.join(", ")
             )));
         }
-        let mut vacated = BTreeSet::new();
-        let mut updated = Vec::with_capacity(applied.len());
-        for plan in &applied {
-            for (sheet, unit) in &plan.units {
-                let entry = ensure_entry(cx, *sheet, plan.content())?;
-                let after = plan.updated_unit(unit, entry, &settings);
-                cx.tx()?
-                    .replace(Object::Unit(InDocument::new(*sheet, after)))?;
-                vacated.insert((*sheet, unit.part));
-            }
-            updated.push(plan.report.component);
-        }
-        for (sheet, entry) in vacated {
-            remove_if_unused(cx, sheet, entry)?;
-        }
+        let updated = apply_plans(cx, &applied, &settings)?;
         if p.settings.is_some() && saved.as_ref() != Some(&settings) {
             let mut props = cx.project()?.props().clone();
             props.library_update = Some(settings);
@@ -571,6 +562,31 @@ impl Command for UpdateFromLibrary {
             not_updated,
         })
     }
+}
+
+/// Points each plan's Units at its new content, and removes the entries and copies no
+/// Unit uses any more. Returns the Components changed.
+fn apply_plans(
+    cx: &mut Context<'_>,
+    plans: &[&plan::Plan],
+    settings: &LibraryUpdateSettings,
+) -> Result<Vec<Uuid>, CommandError> {
+    let mut vacated = BTreeSet::new();
+    let mut changed = Vec::with_capacity(plans.len());
+    for plan in plans {
+        for (sheet, unit) in &plan.units {
+            let entry = ensure_entry(cx, *sheet, plan.content())?;
+            let after = plan.updated_unit(unit, entry, settings);
+            cx.tx()?
+                .replace(Object::Unit(InDocument::new(*sheet, after)))?;
+            vacated.insert((*sheet, unit.part));
+        }
+        changed.push(plan.report.component);
+    }
+    for (sheet, entry) in vacated {
+        remove_if_unused(cx, sheet, entry)?;
+    }
+    Ok(changed)
 }
 
 /// Removes the part-table entry `entry` from `sheet` when no Unit uses it any more, and

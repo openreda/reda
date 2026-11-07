@@ -403,3 +403,45 @@ fn the_update_preview_lists_the_local_edits_a_footprint_change_removes() {
         json!([])
     );
 }
+
+/// The Starter Library's Capacitor, whose Footprints the Resistor does not share.
+const CAPACITOR: &str = "b4351766-9551-4986-9f92-46fd72d7e385";
+
+#[test]
+fn the_replace_preview_lists_the_local_pad_edits_it_removes() {
+    let dir = TempDir::new("local-edit-replace");
+    let mut engine = board(&dir, 2);
+    let (_, pad) = first_pad(&mut engine, "R1");
+    widen(&mut engine, "R1");
+    let component = |engine: &mut TestEngine, d: &str| -> Value {
+        instance(engine, d)["component"]["uuid"].clone()
+    };
+    let (r1, r2) = (component(&mut engine, "R1"), component(&mut engine, "R2"));
+
+    let preview = engine.run_ok(
+        "schematic.component.replace_preview",
+        json!({"components": [r1, r2], "part": CAPACITOR}),
+    );
+    let row = |d: &str| -> Value {
+        preview["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["designator"] == d)
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(
+        row("R1")["lost_local_edits"],
+        json!([{"pad": pad["uuid"], "number": "1", "property": "width",
+                "original": pad["width"], "edited": 2_000_000}])
+    );
+    assert!(row("R2").get("lost_local_edits").is_none());
+
+    // Replacing with the same Part keeps the Footprint and its hash, and so the edits.
+    let same = engine.run_ok(
+        "schematic.component.replace_preview",
+        json!({"components": [r1], "part": RESISTOR}),
+    );
+    assert!(same["components"][0].get("lost_local_edits").is_none());
+}
