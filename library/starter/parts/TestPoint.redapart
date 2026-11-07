@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "part": {"uuid":"2c40bdd7-e568-4441-9459-84e783f05bf2","name":"TestPoint","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"f76c71b7-b687-486e-ad67-039ced3ac747"},
+  "footprints": [
+    "068a2e9e-2381-49d3-9b44-29dc7758faa7"
+  ],
+  "fields": {"value":"TestPoint","description":"Test point, 1.5 mm round SMD Pad, no paste","keywords":"TP test point probe"},
+  "pin_map": {}
+}

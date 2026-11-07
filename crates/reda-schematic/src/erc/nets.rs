@@ -19,6 +19,7 @@ use crate::natural::natural_cmp;
 
 pub(super) fn check(project: &Project, report: &mut Report) {
     let (sheets, groups) = joined(project);
+    let mut ties = Ties::default();
     for conn in &sheets {
         let sheet = project
             .schematic_sheet(conn.document)
@@ -37,9 +38,69 @@ pub(super) fn check(project: &Project, report: &mut Report) {
             .collect();
         project_net(&parts, report);
         net_names(project, &parts, report);
+        ties.add(&parts);
     }
+    ties.report(report);
     duplicate_nets(project, report);
     single_sheet_ports(project, report);
+}
+
+/// The Nets each Net Tie's Pins are on, gathered one Project-wide Net at a time.
+#[derive(Default)]
+struct Ties<'a> {
+    /// Each tie: its Designator, its Units, and the names of the Nets of its Pins, one per
+    /// Net in the order met (an unnamed Net as its index).
+    found: BTreeMap<&'a reda_model::ComponentRef, Tie<'a>>,
+    nets: usize,
+}
+
+#[derive(Default)]
+struct Tie<'a> {
+    designator: &'a str,
+    units: BTreeSet<Uuid>,
+    nets: BTreeMap<usize, String>,
+    pins: usize,
+}
+
+impl<'a> Ties<'a> {
+    fn add(&mut self, parts: &[(&'a SchematicSheet, &'a SchematicNet)]) {
+        let index = self.nets;
+        self.nets += 1;
+        let name = parts
+            .first()
+            .and_then(|(_, n)| n.name.clone())
+            .unwrap_or_default();
+        for &(sheet, net) in parts {
+            for pin in &net.pins {
+                let is_tie = sheet
+                    .unit(pin.unit)
+                    .is_some_and(|u| u.component_type == reda_model::ComponentType::NetTie);
+                if !is_tie {
+                    continue;
+                }
+                let tie = self.found.entry(&pin.component).or_default();
+                tie.designator = &pin.designator;
+                tie.units.insert(pin.unit);
+                tie.nets.entry(index).or_insert_with(|| name.clone());
+                tie.pins += 1;
+            }
+        }
+    }
+
+    /// `net_tie_one_net` for each tie with two or more Pins, all on one Net.
+    fn report(self, report: &mut Report) {
+        for tie in self.found.into_values() {
+            if tie.pins < 2 || tie.nets.len() != 1 {
+                continue;
+            }
+            let net = tie.nets.into_values().next().unwrap_or_default();
+            report.add(ErcCheck::NetTieOneNet, |v| {
+                v.arg("designator", tie.designator)
+                    .arg("net", net)
+                    .objects(tie.units)
+            });
+        }
+    }
 }
 
 /// `R1-2`: a Pin as the user names it.

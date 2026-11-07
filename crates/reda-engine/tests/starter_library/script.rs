@@ -265,8 +265,21 @@ pub struct PartSpec<'a> {
     pub fields: Value,
     /// `library.part.pin_map.set` params, without `part`; `None` keeps the implicit map.
     pub pin_map: Option<Value>,
-    /// A Mechanical Part out of the BOM and CPL: a mounting hole or a fiducial.
-    pub mechanical: bool,
+    /// Its Component Type, In BOM and In CPL.
+    pub kind: Kind,
+}
+
+/// The Component Type of a Part, with the In BOM and In CPL it gets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// Standard, in the BOM and CPL.
+    Standard,
+    /// Mechanical, out of the BOM and CPL: a mounting hole or a fiducial.
+    Mechanical,
+    /// A Net Tie, out of the BOM and CPL.
+    NetTie,
+    /// Standard but out of the BOM and CPL, like a test point: copper only.
+    Unassembled,
 }
 
 /// The engine with a new, empty Library open for writing.
@@ -512,10 +525,16 @@ impl Script {
 
     pub fn part(&mut self, spec: PartSpec<'_>) -> String {
         let uuid = self.new_element("part", spec.name);
-        if spec.mechanical {
+        let component_type = match spec.kind {
+            Kind::Standard => None,
+            Kind::Mechanical => Some("mechanical"),
+            Kind::NetTie => Some("net_tie"),
+            Kind::Unassembled => Some("standard"),
+        };
+        if let Some(component_type) = component_type {
             self.edit(
                 "library.part.edit",
-                json!({"part": uuid, "component_type": "mechanical",
+                json!({"part": uuid, "component_type": component_type,
                        "in_bom": false, "in_cpl": false}),
             );
         }

@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::passives::fields;
 use crate::script::{
-    PartSpec, Script, Sym, bottom, left, line, mil, polygon, rect, right, text, top,
+    Kind, PartSpec, Script, Sym, bottom, left, line, mil, polygon, rect, right, text, top,
 };
 
 pub fn build(s: &mut Script) {
@@ -61,7 +61,7 @@ fn op_amp(s: &mut Script, footprints: Vec<String>) {
             "U op-amp opamp operational amplifier dual",
         ),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -83,7 +83,7 @@ fn timer(s: &mut Script, footprints: Vec<String>) {
         footprints,
         fields: fields("NE555", "555 timer", "U timer 555 oscillator"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -108,7 +108,7 @@ fn ldo(s: &mut Script) {
             "U regulator LDO linear voltage",
         ),
         pin_map: Some(json!({"pins": [{"pin": "2", "pads": ["2", "4"]}]})),
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -171,6 +171,6 @@ fn mcu(s: &mut Script) {
             "keywords": "U microcontroller MCU USB STM32 Cortex-M0",
         }),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }

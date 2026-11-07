@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"f76c71b7-b687-486e-ad67-039ced3ac747","name":"TestPoint","designator_prefix":"TP","description":"Test point"},
+  "units": [
+    {"uuid":"f840ac8a-2abb-4c74-9d17-d551a77e0eac","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"eb2f3fe7-fcf2-4b15-92c9-d56c438f0338","unit":"f840ac8a-2abb-4c74-9d17-d551a77e0eac","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":-2540000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"5be44c8b-452e-4cd0-b3fd-38ed8edc7e38","unit":"f840ac8a-2abb-4c74-9d17-d551a77e0eac","shape":{"kind":"circle","center":{"x":0,"y":1270000},"radius":1270000},"width":254000}
+  ]
+}

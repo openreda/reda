@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use crate::passives::fields;
-use crate::script::{PartSpec, Script, bottom, left, line, mil, mm, rect, right};
+use crate::script::{Kind, PartSpec, Script, bottom, left, line, mil, mm, rect, right};
 
 /// The single-row sizes, then the double-row ones.
 const SINGLE: [usize; 7] = [2, 3, 4, 5, 6, 8, 10];
@@ -150,7 +150,7 @@ fn usb_c(s: &mut Script) {
             {"pin": "A7", "pads": ["A7", "B7"]},
             {"pin": "S1", "pads": ["S1", "S2", "S3", "S4"]},
         ]})),
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -206,7 +206,7 @@ fn header(s: &mut Script, sym: &str, rows: usize, count: usize, socket: bool) {
             &format!("J connector {noun}"),
         ),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -305,7 +305,7 @@ fn screw_terminals(s: &mut Script) {
                 "J connector terminal screw",
             ),
             pin_map: None,
-            mechanical: false,
+            kind: Kind::Standard,
         });
     }
 }

@@ -69,6 +69,7 @@ pub fn check_name(check: ErcCheck) -> String {
         ErcCheck::SingleSheetPort => tr!("check-single-sheet-port"),
         ErcCheck::DuplicateDesignator => tr!("check-duplicate-designator"),
         ErcCheck::UnplacedUnits => tr!("check-unplaced-units"),
+        ErcCheck::NetTieOneNet => tr!("check-net-tie-one-net"),
         ErcCheck::UnitDataMismatch => tr!("check-unit-data-mismatch"),
     }
 }

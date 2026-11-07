@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"068a2e9e-2381-49d3-9b44-29dc7758faa7","name":"TestPoint_Pad_D1.5mm","description":"Test point, 1.5 mm round SMD Pad, no paste"},
+  "pads": [
+    {"uuid":"b92b28a0-c36e-44e3-8af5-0321457669dc","number":"1","kind":"smd","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1500000,"height":1500000,"paste":"none"}
+  ],
+  "graphics": [
+    {"uuid":"c45b309b-e61e-46c7-b8d8-ab5a0b9c03d3","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1000000},"width":50000},
+    {"uuid":"db64a67d-1967-4072-ba55-57ecc11e351a","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":750000},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"47359940-5479-43e7-bd0b-d8bd754cc3f1","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"9aa8aef8-66ff-4c87-be15-8a8f2b79eda8","field":"Designator","at":{"x":0,"y":1800000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+  ]
+}
