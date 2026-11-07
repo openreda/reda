@@ -43,6 +43,25 @@ impl TrackGeometry {
             TrackGeometry::Line { from, to } | TrackGeometry::Arc { from, to, .. } => (from, to),
         }
     }
+
+    /// The length of the centreline in nm: an arc's along its curve. 0 when the ends
+    /// coincide.
+    pub fn length(&self) -> f64 {
+        let (from, to) = self.ends();
+        let chord = ((to.x.0 - from.x.0) as f64).hypot((to.y.0 - from.y.0) as f64);
+        match *self {
+            TrackGeometry::Line { .. } => chord,
+            TrackGeometry::Arc { sweep, .. } => {
+                let angle = (sweep.0 as f64 / 1000.0).to_radians().abs();
+                let half = (angle / 2.0).sin();
+                if chord == 0.0 || half == 0.0 {
+                    chord
+                } else {
+                    chord / (2.0 * half) * angle
+                }
+            }
+        }
+    }
 }
 
 /// The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.

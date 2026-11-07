@@ -263,12 +263,17 @@
         "courtyard_overlap": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
-          "description": "Overlapping courtyards."
+          "description": "Courtyards closer than `courtyard_clearance`."
         },
         "dangling": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
-          "description": "Tracks and Vias that end unconnected."
+          "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance."
+        },
+        "duplicate_copper": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: Tracks or Vias that repeat one another exactly."
         },
         "edge_clearance": {
           "$ref": "#/$defs/Severity",
@@ -295,6 +300,11 @@
           "default": "error",
           "description": "An object inside a Keepout that forbids it."
         },
+        "micro_segment": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: a Track no longer than the `micro_segment` length."
+        },
         "net_tie_not_joined": {
           "$ref": "#/$defs/Severity",
           "default": "error",
@@ -309,6 +319,11 @@
           "$ref": "#/$defs/Severity",
           "default": "warning",
           "description": "The PCB out of sync with the schematic."
+        },
+        "poor_connection": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Track end touching copper, with its centre outside that copper."
         },
         "rule_invalid": {
           "$ref": "#/$defs/Severity",
@@ -330,10 +345,15 @@
           "default": "error",
           "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
         },
-        "silkscreen_over_pads": {
+        "silk_to_edge": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
-          "description": "Silkscreen over exposed Pads."
+          "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout."
+        },
+        "silk_to_mask": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
         },
         "track_width": {
           "$ref": "#/$defs/Severity",
@@ -349,6 +369,21 @@
           "$ref": "#/$defs/Severity",
           "default": "error",
           "description": "A Via diameter or hole outside the `via_size` range."
+        },
+        "via_under_smd": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Via inside an SMD Pad."
+        },
+        "zero_area_zone": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: a Zone whose outline encloses no area."
+        },
+        "zero_length_track": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: a Track whose ends coincide."
         }
       },
       "type": "object"
@@ -1730,7 +1765,32 @@
         },
         {
           "const": "edge_clearance",
-          "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+          "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+          "type": "string"
+        },
+        {
+          "const": "silk_to_edge",
+          "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+          "type": "string"
+        },
+        {
+          "const": "silk_to_mask",
+          "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+          "type": "string"
+        },
+        {
+          "const": "courtyard_clearance",
+          "description": "Spacing between courtyards: `value`.",
+          "type": "string"
+        },
+        {
+          "const": "dangling",
+          "description": "Dangling stubs up to `tolerance` long pass.",
+          "type": "string"
+        },
+        {
+          "const": "micro_segment",
+          "description": "Tracks up to `max_length` long are micro-segments.",
           "type": "string"
         },
         {
@@ -1823,6 +1883,14 @@
             "null"
           ]
         },
+        "max_length": {
+          "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "min": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
@@ -1830,6 +1898,17 @@
             "integer",
             "null"
           ]
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SilkMaskMode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`silk_to_mask` only: what silkscreen keeps its distance from."
         },
         "percent": {
           "description": "Signed change in area in percent, strictly above -100.",
@@ -1856,6 +1935,14 @@
         "tent_vias_top": {
           "type": [
             "boolean",
+            "null"
+          ]
+        },
+        "tolerance": {
+          "description": "`dangling` only: stubs up to this long pass.",
+          "format": "int64",
+          "type": [
+            "integer",
             "null"
           ]
         },
@@ -2048,6 +2135,21 @@
         "bottom"
       ],
       "type": "string"
+    },
+    "SilkMaskMode": {
+      "description": "What `silk_to_mask` measures silkscreen against.",
+      "oneOf": [
+        {
+          "const": "exposed_copper",
+          "description": "The exposed copper: the copper inside each resolved mask opening.",
+          "type": "string"
+        },
+        {
+          "const": "mask_opening",
+          "description": "The resolved mask openings themselves.",
+          "type": "string"
+        }
+      ]
     },
     "Stackup": {
       "additionalProperties": false,

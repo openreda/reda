@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{needs_pcb, pcb};
-use crate::drc::{check, design_fingerprint};
+use crate::drc::{check_only, design_fingerprint};
 use crate::zone;
 
 pub(super) fn register_all(
@@ -22,6 +22,7 @@ pub(super) fn register_all(
     registry.add(DrcSetSeverity);
     registry.add(DrcWaive { sync, user_name });
     registry.add(DrcUnwaive);
+    registry.add(DrcFix);
 }
 
 /// What DRC learns from comparing the board with the schematic, which the engine does
@@ -40,16 +41,30 @@ pub type SyncCheck = fn(&Project) -> SyncState;
 
 /// The board's Violations now, ignoring Waivers, whether the Zones had to be refilled for
 /// them, and the fingerprint of what was checked.
-fn current(cx: &Context<'_>, sync: SyncCheck) -> Result<Checked, CommandError> {
+fn current(
+    cx: &Context<'_>,
+    sync: SyncCheck,
+    only: Option<&[DrcCheck]>,
+) -> Result<Checked, CommandError> {
     let pcb = pcb(cx)?;
     let project = cx.project()?;
+    let state = sync(project);
+    let wanted = |check: DrcCheck| only.is_none_or(|only| only.contains(&check));
+    if only.is_some_and(|only| only.iter().all(|c| c.is_health())) {
+        // The health checks read neither copper nor fills: nothing to refill.
+        return Ok(Checked {
+            violations: crate::drc::health(pcb, only),
+            refilled: false,
+            design: fingerprint(project, pcb, &state.changes),
+        });
+    }
     let stored = project.zone_fills(pcb.uuid);
     let refilled = zone::status(pcb, stored).needs_refill;
     let fills = zone::current(pcb, stored);
-    let state = sync(project);
-    let mut violations = check(pcb, &fills, cx.fonts());
+    let mut violations = check_only(pcb, &fills, cx.fonts(), only);
     // `out_of_sync` is the last check of the DRC table.
-    violations.extend(state.violation.map(|v| {
+    let sync_violation = state.violation.filter(|_| wanted(DrcCheck::OutOfSync));
+    violations.extend(sync_violation.map(|v| {
         v.located(
             pcb.uuid,
             pcb.outline().and_then(|o| o.vertices.first()).map_or(
@@ -63,11 +78,13 @@ fn current(cx: &Context<'_>, sync: SyncCheck) -> Result<Checked, CommandError> {
         .on_layers(pcb.copper_layers().map(|l| l.uuid))
     }));
     let presets = crate::rules::presets::job_presets(project, pcb);
-    violations.extend(crate::rules::presets::outside_preset_violations(
-        pcb,
-        &presets,
-        pcb.setup().severities.get(DrcCheck::RuleOutsidePreset),
-    ));
+    if wanted(DrcCheck::RuleOutsidePreset) {
+        violations.extend(crate::rules::presets::outside_preset_violations(
+            pcb,
+            &presets,
+            pcb.setup().severities.get(DrcCheck::RuleOutsidePreset),
+        ));
+    }
     Ok(Checked {
         violations,
         refilled,
@@ -106,6 +123,10 @@ pub struct DrcRunParams {
     /// Also list the Violations that Waivers waive, each naming its Waiver.
     #[serde(default)]
     pub include_waived: bool,
+    /// Run only these checks; all that are not Off when left out. The health checks
+    /// alone need no Zone refill, so a board can run them as it opens.
+    #[serde(default)]
+    pub checks: Option<Vec<DrcCheck>>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -177,12 +198,14 @@ impl Command for DrcRun {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: DrcRunParams) -> Result<DrcRunResult, CommandError> {
-        let checked = current(cx, self.sync)?;
+        let checked = current(cx, self.sync, p.checks.as_deref())?;
         let pcb = pcb(cx)?;
         let waived = apply_waivers(checked.violations, pcb.waivers(), p.include_waived, |id| {
-            DrcCheck::ALL
-                .iter()
-                .any(|c| c.id() == id && pcb.setup().severities.get(*c) != Severity::Off)
+            DrcCheck::ALL.iter().any(|c| {
+                c.id() == id
+                    && pcb.setup().severities.get(*c) != Severity::Off
+                    && p.checks.as_ref().is_none_or(|only| only.contains(c))
+            })
         });
         Ok(DrcRunResult {
             violations: waived.violations,
@@ -329,7 +352,7 @@ impl Command for DrcWaive {
                 "select at least one Violation",
             ));
         }
-        let violations = current(cx, self.sync)?.violations;
+        let violations = current(cx, self.sync, None)?.violations;
         let board = pcb(cx)?;
         let selected = reda_command::select_waivers(
             p.violations
@@ -395,5 +418,86 @@ impl Command for DrcUnwaive {
             tx.remove(uuid)?;
         }
         Ok(DrcUnwaiveResult { waivers: p.waivers })
+    }
+}
+
+pub struct DrcFix;
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DrcFixParams {
+    /// The health check whose findings to fix: `zero_length_track`, `micro_segment`,
+    /// `duplicate_copper` or `zero_area_zone`.
+    pub check: DrcCheck,
+    /// The objects to remove, each one the check finds (for `duplicate_copper`, the
+    /// duplicate, the last object of its Violation). Left out, everything it finds.
+    #[serde(default)]
+    pub objects: Option<Vec<Uuid>>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct DrcFixResult {
+    /// The objects removed.
+    pub removed: Vec<Uuid>,
+}
+
+impl Command for DrcFix {
+    const META: Meta = Meta {
+        id: "drc.fix",
+        title: "Fix Health Check Findings",
+        description: "Removes what a health check finds, as one undo step: zero-length \
+                      Tracks, micro-segments, duplicate Tracks and Vias (keeping the \
+                      first), or Zones with no area. `objects` picks which; left out, all \
+                      of them.",
+        category: "pcb",
+        icon: "drc",
+        kind: Kind::Edit,
+    };
+    type Params = DrcFixParams;
+    type Output = DrcFixResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: DrcFixParams) -> Result<DrcFixResult, CommandError> {
+        if !p.check.is_health() {
+            return Err(CommandError::invalid_params(
+                "/check",
+                format!(
+                    "`{}` is not a health check; only `zero_length_track`, \
+                     `micro_segment`, `duplicate_copper` and `zero_area_zone` can be fixed",
+                    p.check.id()
+                ),
+            ));
+        }
+        let found: Vec<Uuid> = crate::drc::health::findings(pcb(cx)?)
+            .into_iter()
+            .filter(|f| f.check == p.check)
+            .map(|f| f.remove)
+            .collect();
+        let removed = match p.objects {
+            None => found,
+            Some(objects) => {
+                for (i, uuid) in objects.iter().enumerate() {
+                    if !found.contains(uuid) {
+                        return Err(CommandError::invalid_params(
+                            &format!("/objects/{i}"),
+                            format!("`{}` finds nothing to fix in {uuid}", p.check.id()),
+                        ));
+                    }
+                }
+                let mut objects = objects;
+                objects.dedup();
+                objects
+            }
+        };
+        if !removed.is_empty() {
+            let tx = cx.tx()?;
+            for &uuid in &removed {
+                tx.remove(uuid)?;
+            }
+        }
+        Ok(DrcFixResult { removed })
     }
 }

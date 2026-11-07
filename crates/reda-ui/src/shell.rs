@@ -20,7 +20,7 @@ use reda_engine::library::LibraryIndex;
 use reda_engine::model::Project;
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{
-    DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid, Violation,
+    DocumentKind, DrcCheck, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid, Violation,
 };
 use reda_engine::preferences::Preferences;
 use reda_engine::sync::ChangeList;
@@ -1265,6 +1265,9 @@ impl Shell {
             "project.open" | "project.new" => {
                 self.show_project();
                 self.recorder.opened(&self.engine);
+                if base == "project.open" {
+                    self.run_health_checks();
+                }
             }
             "project.close" => {
                 self.engine.view_mut().set(Selection::default());
@@ -1398,6 +1401,38 @@ impl Shell {
             &format!("{}.run", kind.id()),
             json!({"include_waived": true}),
         )?;
+        self.show_run(kind, &out);
+        Ok(())
+    }
+
+    /// Runs the DRC health checks on the board of the Project just opened and lists what
+    /// they find in Messages. It never opens the panel, runs no Command (so the Journal
+    /// stays the user's) and edits nothing, so the Project stays clean. A board with
+    /// nothing to report leaves Messages as it is.
+    fn run_health_checks(&mut self) {
+        let Some(pcb) = self.engine.project().and_then(Project::pcb) else {
+            return;
+        };
+        let found = reda_engine::pcb::drc::health(pcb, None);
+        if found.is_empty() {
+            return;
+        }
+        let severities = pcb.setup().severities;
+        let waived = reda_engine::model::apply_waivers(found, pcb.waivers(), true, |id| {
+            DrcCheck::HEALTH
+                .iter()
+                .any(|c| c.id() == id && severities.get(*c) != Severity::Off)
+        });
+        let out = json!({
+            "violations": waived.violations,
+            "design": reda_engine::pcb::drc::design_fingerprint(pcb),
+        });
+        self.show_run(CheckKind::Drc, &out);
+    }
+
+    /// Shows a check run's result (`erc.run`/`drc.run` output) in Messages and on the
+    /// canvas.
+    fn show_run(&mut self, kind: CheckKind, out: &Value) {
         let violations: Vec<Violation> =
             serde_json::from_value(out["violations"].clone()).unwrap_or_default();
         let project = self.engine.project();
@@ -1416,7 +1451,6 @@ impl Shell {
             stale: false,
         });
         self.update_markers();
-        Ok(())
     }
 
     /// Lists waived Violations too, or hides them again (`view.messages.show_waived`).

@@ -45,7 +45,9 @@ pub struct BoundsParam {
 /// holds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`
 /// and `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;
 /// `hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;
-/// `edge_clearance` `value`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting
+/// `edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`
+/// `value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;
+/// `micro_segment` `max_length`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting
 /// flags; `paste_expansion` either `expansion` or signed area `percent`.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -90,6 +92,15 @@ pub struct ValuesParam {
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<i32>")]
     pub percent: Option<Option<i32>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<reda_model::SilkMaskMode>")]
+    pub mode: Option<Option<reda_model::SilkMaskMode>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub tolerance: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub max_length: Option<Option<Length>>,
 }
 
 impl ValuesParam {
@@ -116,6 +127,11 @@ impl ValuesParam {
         put(RuleField::Top, self.top);
         put(RuleField::Bottom, self.bottom);
         put(RuleField::Expansion, self.expansion);
+        put(RuleField::Tolerance, self.tolerance);
+        put(RuleField::MaxLength, self.max_length);
+        if let Some(mode) = self.mode {
+            out.push((RuleField::Mode, mode.map(RuleValue::Mode)));
+        }
         if let Some(percent) = self.percent {
             out.push((RuleField::Percent, percent.map(RuleValue::Percent)));
         }

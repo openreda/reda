@@ -264,7 +264,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         uuid: id(),
         severities,
     };
-    for (kind, values) in reda_engine::pcb::seed_rules(&fab_rules(seed.rules)) {
+    let seeded = reda_engine::pcb::seed_rules(&fab_rules(seed.rules));
+    for (kind, values) in seeded.into_iter().chain(reda_engine::pcb::default_rules()) {
         rules.push(DesignRule {
             uuid: id(),
             kind,

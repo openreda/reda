@@ -497,7 +497,7 @@ fn stale_and_unfilled_zones_are_refilled_before_checking() {
     let mut engine = engine(&dir);
     // The test Nets are on no schematic, so Sync would remove them, and the test
     // Footprints' Designators sit on their Pads.
-    for check in ["out_of_sync", "silkscreen_over_pads"] {
+    for check in ["out_of_sync", "silk_to_mask"] {
         engine.run_ok(
             "drc.set_severity",
             json!({"check": check, "severity": "off"}),

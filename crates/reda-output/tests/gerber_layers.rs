@@ -502,7 +502,7 @@ fn drc_and_the_gerber_silkscreen_agree_on_a_rotated_flipped_footprint() {
         let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
         let hits = reda_pcb::drc::check(pcb, &fills, &Fonts::default())
             .into_iter()
-            .filter(|v| v.check == "silkscreen_over_pads" && v.objects.contains(&uuid))
+            .filter(|v| v.check == "silk_to_mask" && v.objects.contains(&uuid))
             .count();
         engine.run_ok("pcb.free_pad.delete", json!({"pads": [pad]}));
         hits
@@ -519,10 +519,11 @@ fn drc_and_the_gerber_silkscreen_agree_on_a_rotated_flipped_footprint() {
         (ys.clone().min().unwrap() + ys.max().unwrap()) / 2,
     );
     let shift = (anchor.x.0 - centre.0, anchor.y.0 - centre.1);
+    // Clear by more than the Pad's half width and the 0.10 mm `silk_to_mask` limit.
     let clear = |p: (i64, i64)| {
         expected
             .iter()
-            .all(|s| distance(p, s.0, s.1) > (s.2 / 2 + mm(0.1)) as f64)
+            .all(|s| distance(p, s.0, s.1) > (s.2 / 2 + mm(0.2)) as f64)
     };
     let centred: Vec<(i64, i64)> = drawn
         .iter()

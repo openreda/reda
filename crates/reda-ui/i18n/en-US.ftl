@@ -469,14 +469,24 @@ violation-rule-invalid = The { $rule } rule is invalid: { $problem ->
     }
 violation-annular-ring = Annular ring { $actual } is below { $minimum }
 violation-hole-to-hole = Holes { $actual } apart, below { $required }
-violation-edge-clearance = Copper { $actual } from the board edge, below { $required }
+violation-edge-clearance = Copper { $actual } from the board edge or a non-plated hole, below { $required }
 violation-keepout = Object inside a Keepout
 violation-footprint-outside-board = Footprint outside the Board Outline
 violation-unrouted = Unrouted connection on { $net }
 violation-copper-without-net = Copper with no Net
 violation-dangling = Unconnected end at ({ $x }, { $y })
-violation-courtyard-overlap = Courtyards overlap
-violation-silkscreen-over-pads = Silkscreen over exposed Pads
+violation-poor-connection = Track end at ({ $x }, { $y }) touches copper off its centre
+violation-via-under-smd = Via inside an SMD Pad
+violation-courtyard-overlap = Courtyards of { $designator_a } and { $designator_b } { $actual } apart, below { $required }
+violation-silk-to-mask = Silkscreen { $actual } from { $mode ->
+        [mask_opening] a mask opening
+       *[exposed_copper] exposed copper
+    }, below { $required }
+violation-silk-to-edge = Silkscreen { $actual } from the board edge, below { $required }
+violation-zero-length-track = Track with no length
+violation-micro-segment = Track { $length } long, no longer than { $max_length }
+violation-duplicate-copper = Copper repeated exactly
+violation-zero-area-zone = Zone with no area
 violation-out-of-sync = The PCB is out of sync with the schematic
 violation-opening-collapsed =
     The { $side ->
@@ -562,8 +572,15 @@ check-footprint-outside-board = Footprint Outside Board
 check-unrouted = Unrouted
 check-copper-without-net = Copper Without Net
 check-dangling = Dangling Copper
+check-poor-connection = Poor Connection
+check-via-under-smd = Via Under SMD Pad
 check-courtyard-overlap = Courtyard Overlap
-check-silkscreen-over-pads = Silkscreen over Pads
+check-silk-to-mask = Silkscreen to Mask
+check-silk-to-edge = Silkscreen to Edge
+check-zero-length-track = Zero-Length Track
+check-micro-segment = Micro-Segment
+check-duplicate-copper = Duplicate Copper
+check-zero-area-zone = Zero-Area Zone
 check-out-of-sync = Out of Sync
 
 ## Crash recovery and Crash Reports

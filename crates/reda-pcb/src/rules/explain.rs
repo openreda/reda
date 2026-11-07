@@ -20,6 +20,11 @@ pub fn check_of(kind: RuleKind) -> Option<DrcCheck> {
         RuleKind::AnnularRing => Some(DrcCheck::AnnularRing),
         RuleKind::HoleToHole => Some(DrcCheck::HoleToHole),
         RuleKind::EdgeClearance => Some(DrcCheck::EdgeClearance),
+        RuleKind::SilkToEdge => Some(DrcCheck::SilkToEdge),
+        RuleKind::SilkToMask => Some(DrcCheck::SilkToMask),
+        RuleKind::CourtyardClearance => Some(DrcCheck::CourtyardOverlap),
+        RuleKind::Dangling => Some(DrcCheck::Dangling),
+        RuleKind::MicroSegment => Some(DrcCheck::MicroSegment),
         RuleKind::MaskExpansion | RuleKind::PasteExpansion => None,
     }
 }

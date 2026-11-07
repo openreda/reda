@@ -396,6 +396,18 @@ impl Copper {
             .collect()
     }
 
+    /// The items whose copper on `layer` touches `shape`, sorted.
+    pub(crate) fn items_touching(&self, layer: Uuid, shape: &Shape) -> Vec<Item> {
+        let mut found: Vec<Item> = self
+            .candidates(layer, shape.envelope())
+            .filter(|piece| piece.shape.touches(shape))
+            .map(|piece| piece.item)
+            .collect();
+        found.sort();
+        found.dedup();
+        found
+    }
+
     /// Whether `item`'s copper on `layer` touches any other copper there.
     pub(crate) fn touches_on(&self, item: Item, layer: Uuid) -> bool {
         self.item_pieces(item)

@@ -347,9 +347,28 @@ pub(crate) fn read_pcb_file(
             .into_iter()
             .map(|w| Object::Waiver(InDocument::new(doc, w))),
     );
+    for object in &mut objects {
+        normalise_rotations(object);
+    }
     for object in &objects {
         reda_model::text::check_object(object)
             .map_err(|why| LoadError::Invalid(path.to_owned(), why))?;
     }
     Ok(objects)
+}
+
+/// Brings the board's placement rotations into `[0°, 360°)`, so a rotation stored as 360°
+/// loads as 0° and needs no check. It is not an edit: the next save writes the normal form.
+fn normalise_rotations(object: &mut Object) {
+    match object {
+        Object::FootprintInstance(f) => {
+            f.object.rotation = f.object.rotation.normalized();
+            for o in &mut f.object.text_overrides {
+                o.rotation = o.rotation.map(|r| r.normalized());
+            }
+        }
+        Object::FreePad(p) => p.object.rotation = p.object.rotation.normalized(),
+        Object::PcbText(t) => t.object.rotation = t.object.rotation.normalized(),
+        _ => {}
+    }
 }

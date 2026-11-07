@@ -67,7 +67,17 @@ impl reda_engine::command::Command for ShowWaivedSet {
 }
 
 /// Arguments that are lengths in nm, shown in millimetres.
-const LENGTH_ARGS: &[&str] = &["x", "y", "actual", "required", "minimum", "grid", "board"];
+const LENGTH_ARGS: &[&str] = &[
+    "x",
+    "y",
+    "actual",
+    "required",
+    "minimum",
+    "grid",
+    "board",
+    "length",
+    "max_length",
+];
 
 /// A check whose results the panel shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

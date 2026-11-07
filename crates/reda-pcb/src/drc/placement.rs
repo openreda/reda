@@ -1,18 +1,24 @@
-//! The placement checks: Footprints outside the Board Outline and overlapping courtyards.
+//! The placement checks: Footprints outside the Board Outline and courtyards closer than
+//! `courtyard_clearance`.
 //!
 //! A Footprint's extent is the area of its Pads and its courtyard. A courtyard is the area
 //! its courtyard drawing encloses: rectangles, polygons and circles, and closed chains of
-//! lines and arcs; open chains enclose nothing.
+//! lines and arcs; open chains enclose nothing. A Footprint with no courtyard uses a
+//! fallback box around its copper, silkscreen and assembly drawing, ignoring text.
 
 use crate::copper::shape::BoardShape as _;
 use std::collections::BTreeMap;
 
-use reda_model::geom::{Millideg, Point};
-use reda_model::{DrcCheck, FootprintInstance, FootprintLayer, PcbDocument, Shape, Side};
+use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::{
+    DrcCheck, FootprintInstance, FootprintLayer, LayerKind, Limit, PcbDocument, RuleField,
+    RuleKind, Shape, Side,
+};
 
 use super::{Board, Report};
 use crate::copper::shape::{Shape as Copper, arc_points};
 use crate::placed::{placed_graphics, rotate};
+use crate::rules::resolve;
 use crate::zone::poly::{self, Area, Contour, ip};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
@@ -42,34 +48,107 @@ fn outside_board(board: &Board<'_>, report: &mut Report) {
     }
 }
 
+/// Footprints whose courtyards on one side come closer than `courtyard_clearance`.
+/// Courtyards that exactly touch pass at 0; overlapping ones never do.
 fn courtyard_overlap(board: &Board<'_>, report: &mut Report) {
     if report.is_off(DrcCheck::CourtyardOverlap) {
         return;
     }
     let pcb = board.pcb;
+    let (required, rule) = match resolve(pcb, None, RuleKind::CourtyardClearance, RuleField::Value)
+    {
+        Some(s) => (s.value.length().expect("a length"), s.rule),
+        None => (Nm::ZERO, pcb.board_rule(RuleKind::CourtyardClearance).uuid),
+    };
     let courtyards: Vec<(&FootprintInstance, BTreeMap<Side, Area>)> = pcb
         .footprints()
-        .map(|f| (f, courtyards(pcb, f)))
+        .map(|f| (f, courtyards_or_box(pcb, f)))
         .filter(|(_, c)| !c.is_empty())
         .collect();
     for (i, (a, a_yards)) in courtyards.iter().enumerate() {
         for (b, b_yards) in &courtyards[i + 1..] {
-            let overlaps = a_yards
+            let closest = a_yards
                 .iter()
-                .any(|(side, area)| b_yards.get(side).is_some_and(|o| poly::overlaps(area, o)));
-            if overlaps {
-                report.add(DrcCheck::CourtyardOverlap, |v| {
-                    v.arg("designator_a", a.designator.clone())
-                        .arg("designator_b", b.designator.clone())
-                        .object(a.uuid)
-                        .object(b.uuid)
-                });
-            }
+                .filter_map(|(side, area)| {
+                    let other = b_yards.get(side)?;
+                    let (ba, bb) = (poly::bounds(area)?, poly::bounds(other)?);
+                    if !poly::boxes_within(ba, bb, required.0) {
+                        return None;
+                    }
+                    let (gap, points, overlaps) = poly::gap(area, other)?;
+                    (overlaps || gap < required.0 as f64).then_some((gap, points, *side))
+                })
+                .min_by(|x, y| x.0.total_cmp(&y.0));
+            let Some((gap, [pa, pb], side)) = closest else {
+                continue;
+            };
+            let actual = Nm(gap.floor() as i64);
+            report.add(DrcCheck::CourtyardOverlap, |v| {
+                v.length(actual, required, Limit::Min, rule)
+                    .distance_points(pa, pb)
+                    .on_layers(
+                        pcb.layers()
+                            .find(LayerKind::Courtyard, Some(side))
+                            .map(|l| l.uuid),
+                    )
+                    .arg("designator_a", a.designator.clone())
+                    .arg("designator_b", b.designator.clone())
+                    .arg("required", required)
+                    .arg("actual", actual)
+                    .object(a.uuid)
+                    .object(b.uuid)
+            });
         }
     }
 }
 
-/// The area a placed Footprint takes up: its Pads and its courtyards.
+/// A placed Footprint's courtyards, or with none, the fallback box: a box around its
+/// copper, silkscreen and assembly drawing (text left out) on its side.
+fn courtyards_or_box(pcb: &PcbDocument, instance: &FootprintInstance) -> BTreeMap<Side, Area> {
+    let courtyards = courtyards(pcb, instance);
+    if !courtyards.is_empty() {
+        return courtyards;
+    }
+    let mut lo = [i64::MAX, i64::MAX];
+    let mut hi = [i64::MIN, i64::MIN];
+    let mut add = |p: [i64; 2], r: i64| {
+        lo = [lo[0].min(p[0] - r), lo[1].min(p[1] - r)];
+        hi = [hi[0].max(p[0] + r), hi[1].max(p[1] + r)];
+    };
+    if let Some(copy) = pcb.footprint_copy(instance.footprint) {
+        for pad in &copy.footprint.pads {
+            let (a, b) = Copper::pad(instance, pad).bounds();
+            add(a, 0);
+            add(b, 0);
+        }
+    }
+    for graphic in placed_graphics(pcb, instance) {
+        if graphic.layer.is_courtyard() {
+            continue;
+        }
+        let points = corners(&graphic.shape)
+            .or_else(|| polyline(&graphic.shape))
+            .unwrap_or_default();
+        for p in points {
+            add([p.x.0, p.y.0], graphic.width.0 / 2);
+        }
+    }
+    if lo[0] > hi[0] || lo[1] > hi[1] {
+        return BTreeMap::new();
+    }
+    let contour: Contour = [
+        [lo[0], lo[1]],
+        [hi[0], lo[1]],
+        [hi[0], hi[1]],
+        [lo[0], hi[1]],
+    ]
+    .into_iter()
+    .map(ip)
+    .collect();
+    BTreeMap::from([(instance.side, poly::polygon(contour))])
+}
+
+/// The area a placed Footprint takes up: its Pads and its courtyards (or fallback box).
 fn extent(pcb: &PcbDocument, instance: &FootprintInstance) -> Area {
     let mut shapes: Vec<Vec<Contour>> = Vec::new();
     if let Some(copy) = pcb.footprint_copy(instance.footprint) {
@@ -77,7 +156,7 @@ fn extent(pcb: &PcbDocument, instance: &FootprintInstance) -> Area {
             shapes.extend(poly::grown(&Copper::pad(instance, pad), 0));
         }
     }
-    for area in courtyards(pcb, instance).into_values() {
+    for area in courtyards_or_box(pcb, instance).into_values() {
         shapes.extend(area);
     }
     poly::union(shapes)

@@ -14,6 +14,7 @@ mod connections;
 mod copper;
 mod details;
 mod edge;
+pub mod health;
 mod holes;
 mod placement;
 mod silkscreen;
@@ -30,10 +31,24 @@ use crate::copper::Item;
 /// current ones: [`crate::zone::current`]). Waivers are ignored. Violations come in the
 /// order of the DRC table.
 pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violation> {
+    check_only(pcb, fills, fonts, None)
+}
+
+/// Like [`check`], running only the checks in `only` (all when `None`).
+pub fn check_only(
+    pcb: &PcbDocument,
+    fills: &ZoneFills,
+    fonts: &Fonts,
+    only: Option<&[DrcCheck]>,
+) -> Vec<Violation> {
+    if only.is_some_and(|only| only.iter().all(|c| c.is_health())) {
+        return health(pcb, only);
+    }
     let mut copper = Copper::build(pcb);
     copper.set_zone_fills(pcb, Some(fills));
     let mut report = Report {
         severities: pcb.setup().severities,
+        only: only.map(<[DrcCheck]>::to_vec),
         found: vec![],
     };
     let board = Board {
@@ -46,6 +61,13 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
     placement::check(&board, &mut report);
     silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
+    for finding in health::findings(pcb) {
+        report.add(finding.check, |v| {
+            let mut found = finding.violation(pcb, v.severity);
+            found.check = v.check;
+            found
+        });
+    }
     rule_invalid(pcb, &mut report);
     for opening in crate::openings::resolve(pcb)
         .into_iter()
@@ -90,6 +112,21 @@ pub fn check(pcb: &PcbDocument, fills: &ZoneFills, fonts: &Fonts) -> Vec<Violati
             v
         })
         .collect()
+}
+
+/// The Violations of the health checks alone (of those in `only`, when given) that are
+/// not Off, in table order. It reads neither copper nor Zone fills, so a board can run it
+/// as it opens.
+pub fn health(pcb: &PcbDocument, only: Option<&[DrcCheck]>) -> Vec<Violation> {
+    let severities = pcb.setup().severities;
+    let mut found: Vec<(DrcCheck, Violation)> = health::findings(pcb)
+        .into_iter()
+        .filter(|f| only.is_none_or(|only| only.contains(&f.check)))
+        .filter(|f| severities.get(f.check) != Severity::Off)
+        .map(|f| (f.check, f.violation(pcb, severities.get(f.check))))
+        .collect();
+    found.sort_by_key(|(check, _)| *check);
+    found.into_iter().map(|(_, v)| v).collect()
 }
 
 /// One `rule_invalid` per rule record with a blocking problem: its first, with the
@@ -156,6 +193,8 @@ pub(crate) fn item_objects(item: Item) -> Vec<Uuid> {
 /// Collects Violations of the checks that are not Off.
 pub(crate) struct Report {
     severities: DrcSeverities,
+    /// The checks to run, when not all.
+    only: Option<Vec<DrcCheck>>,
     found: Vec<(DrcCheck, Violation)>,
 }
 
@@ -163,7 +202,7 @@ impl Report {
     /// Reports a Violation of `check`, built by `build`, unless the check is Off.
     pub fn add(&mut self, check: DrcCheck, build: impl FnOnce(Violation) -> Violation) {
         let severity = self.severities.get(check);
-        if severity != Severity::Off {
+        if !self.is_off(check) {
             self.found
                 .push((check, build(Violation::new(check.id(), severity))));
         }
@@ -172,5 +211,9 @@ impl Report {
     /// Whether `check` is Off, so it need not run.
     pub fn is_off(&self, check: DrcCheck) -> bool {
         self.severities.get(check) == Severity::Off
+            || self
+                .only
+                .as_ref()
+                .is_some_and(|only| !only.contains(&check))
     }
 }
