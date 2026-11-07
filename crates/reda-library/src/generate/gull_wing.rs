@@ -10,8 +10,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Density, Termination, Tol};
-use super::pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, SILKSCREEN_CLEARANCE};
-use super::sections::Smd;
+use super::pattern::{
+    Body, FootprintPlan, GeneratorWarning, PadSpec, Resolved, SILKSCREEN_CLEARANCE,
+};
+use super::sections::{Smd, SmdResolved};
 use super::{TolParam, hundredths};
 
 /// A gull-wing package's dimensions, with the JEDEC letters in brackets.
@@ -88,6 +90,19 @@ pub struct GullWingDimensions {
 }
 
 impl GullWingDimensions {
+    /// The params for `dims`.
+    pub fn of(dims: &GullWing) -> GullWingDimensions {
+        GullWingDimensions {
+            pitch: Length(dims.pitch),
+            body_length: TolParam::of(dims.body_length),
+            body_width: TolParam::of(dims.body_width),
+            lead_span: TolParam::of(dims.lead_span),
+            lead_width: TolParam::of(dims.lead_width),
+            lead_length: TolParam::of(dims.lead_length),
+            height: Length(dims.height),
+        }
+    }
+
     /// The dimensions, or `invalid_params` under `pointer`.
     pub fn dims(self, pointer: &str) -> Result<GullWing, CommandError> {
         let at = |field: &str| format!("{pointer}/{field}");
@@ -205,6 +220,15 @@ pub fn plan(
     let span = ipc::span(dims.lead_span, dims.lead_length, goals)
         .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;
     let mut span = smd.span(span, false)?;
+    let (cl, cs) = ipc::tolerances(dims.lead_span, dims.lead_length, goals);
+    let resolved = SmdResolved {
+        goals,
+        tolerances: (cl, cs, ipc::width_tolerance(dims.lead_width, goals)),
+        span,
+        y: None,
+        pad_width: smd.pad_width(ipc::pad_width(dims.lead_width, goals)),
+        exposed_pad: None,
+    };
     let mut warnings = vec![];
     if termination == Termination::GullWing
         && smd.pads.trim
@@ -269,12 +293,13 @@ pub fn plan(
         body: Body {
             nominal: (dims.body_width.nominal(), dims.body_length.nominal()),
             max: (dims.body_width.max, dims.body_length.max),
-            polarised: true,
+            chamfered: true,
         },
         silkscreen,
         courtyard_excess: goals.courtyard,
         height: Some(dims.height),
         warnings,
         finish,
+        resolved: Resolved::Smd(resolved),
     })
 }

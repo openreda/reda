@@ -464,7 +464,7 @@ fn a_preview_computes_the_footprint_a_generator_would_write_without_writing_it()
             "{id}"
         );
     }
-    assert_eq!(reda_library::generate::GENERATORS.len(), 10);
+    assert_eq!(reda_library::generate::GENERATORS.len(), 11);
     assert!(reda_library::generate::preview("library.check", &json!({})).is_none());
 }
 
@@ -716,7 +716,11 @@ fn a_generated_footprint_records_its_generator_height_and_texts() {
     let generator = &file["generator"];
     assert_eq!(generator["command"], "library.footprint.generate.chip");
     assert_eq!(generator["params"]["library"], LIBRARY);
-    assert_eq!(generator["params"]["size"], "0603");
+    assert_eq!(
+        generator["params"]["dimensions"]["length"],
+        json!({"min": 1_450_000, "max": 1_750_000}),
+        "the standard size is written out as its dimensions"
+    );
     assert_eq!(
         generator["params"]["class"], "resistor",
         "the default class is written out"
@@ -931,7 +935,8 @@ fn density_sets_the_fillet_goals_the_courtyard_and_the_last_letter_of_the_name()
     let file = read_json(Path::new(out["file"].as_str().unwrap()));
     assert_eq!(
         file["generator"]["params"]["goals"],
-        json!({"density": "nominal", "fillet": {"toe": null, "heel": null, "side": null}})
+        json!({"density": "nominal", "fillet": {"toe": 350_000, "heel": 350_000, "side": 30_000}}),
+        "the goals are written out at the density's values (table 3-2 at 0.65 mm pitch)"
     );
 }
 

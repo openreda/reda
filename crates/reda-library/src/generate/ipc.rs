@@ -175,6 +175,16 @@ const NO_LEAD: Table = Table {
     round_off: ROUND_OFF,
 };
 
+/// Table 3-13: inward flat ribbon L-leads, used for every molded 2-terminal body
+/// (molded diodes, polarised capacitors and inductors: SOD-123, SOD-323, SMA, SMB, SMC).
+const MOLDED: Table = Table {
+    toe: [0.25, 0.15, 0.07],
+    heel: [0.80, 0.50, 0.20],
+    side: [0.01, -0.05, -0.10],
+    courtyard: [0.50, 0.25, 0.10],
+    round_off: ROUND_OFF,
+};
+
 impl Table {
     const fn at(&self, density: Density) -> Goals {
         Goals {
@@ -216,6 +226,11 @@ impl Goals {
         } else {
             FINE_GULL_WING.at(density)
         }
+    }
+
+    /// Molded 2-terminal bodies, at `density`.
+    pub fn molded(density: Density) -> Goals {
+        MOLDED.at(density)
     }
 
     /// Flat no-lead terminations, at `density`.
@@ -292,6 +307,23 @@ fn round_nearest(value: f64, grid: Nm) -> Nm {
     let steps = value / grid.0 as f64;
     let steps = (steps + 1e-9 * steps.signum()).round();
     Nm(steps as i64 * grid.0)
+}
+
+/// `CL` and `CS` for terminations spanning `span` end to end, each `terminal` long:
+/// each as `goals` gives it, or as calculated from the ranges.
+pub fn tolerances(span: Tol, terminal: Tol, goals: Goals) -> (Nm, Nm) {
+    let rms = (span.tolerance().powi(2) + 2.0 * terminal.tolerance().powi(2)).sqrt();
+    (
+        goals.span_tolerance.unwrap_or(Nm(span.tolerance() as i64)),
+        goals.inner_tolerance.unwrap_or(Nm(rms.round() as i64)),
+    )
+}
+
+/// `CW` for a termination `width` wide.
+pub fn width_tolerance(width: Tol, goals: Goals) -> Nm {
+    goals
+        .width_tolerance
+        .unwrap_or(Nm(width.tolerance() as i64))
 }
 
 /// `Z` and `G` for terminations spanning `span` end to end, each `terminal` long, or why

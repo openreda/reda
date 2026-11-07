@@ -9,9 +9,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Goals, Tol};
-use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, TolerancesParams};
+use super::sections::{
+    Applies, GoalsParams, OutputsParams, PadsParams, SmdResolved, TolerancesParams,
+};
 use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
-use crate::generate::pattern::{Body, PadSpec};
+use crate::generate::pattern::{Body, PadSpec, Resolved, polarity_mark};
 
 pub struct Chip;
 
@@ -21,20 +23,24 @@ pub struct ChipParams {
     /// The registered Library to write the Footprint into.
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as `RESC1608X55N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// A standard EIA size, with typical body dimensions. Give `size` or `dimensions`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<ChipSize>,
     /// The body dimensions from a datasheet, for a chip of no standard size.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<ChipDimensions>,
     /// What the chip is, which sets the name prefix (`RESC`, `CAPC`, `INDC`).
     #[serde(default)]
     pub class: ChipClass,
+    /// Mark terminal 1 with a Silkscreen bar beyond its Pad, for a polarised chip such
+    /// as a tantalum capacitor. Off by default.
+    #[serde(default)]
+    pub polarity_mark: bool,
     #[serde(default)]
     pub goals: GoalsParams,
     #[serde(default)]
@@ -241,6 +247,23 @@ impl FootprintFamily for Chip {
         }
     }
 
+    fn resolve_package(p: &ChipParams) -> Result<ChipParams, CommandError> {
+        let Some(size) = p.size else {
+            return Ok(p.clone());
+        };
+        let s = size.standard();
+        Ok(ChipParams {
+            size: None,
+            dimensions: Some(ChipDimensions {
+                length: TolParam::of(s.length),
+                width: TolParam::of(s.width),
+                terminal: TolParam::of(s.terminal),
+                height: Length(s.height),
+            }),
+            ..p.clone()
+        })
+    }
+
     fn plan(p: &ChipParams) -> Result<FootprintPlan, CommandError> {
         let (length, width, terminal, height, size) = match (p.size, p.dimensions) {
             (Some(size), None) => {
@@ -275,6 +298,15 @@ impl FootprintFamily for Chip {
             .map_err(|why| CommandError::invalid_params("/dimensions/terminal", why))?;
         let span = smd.span(span, false)?;
         let pad_width = smd.pad_width(ipc::pad_width(width, goals));
+        let (cl, cs) = ipc::tolerances(length, terminal, goals);
+        let resolved = Resolved::Smd(SmdResolved {
+            goals,
+            tolerances: (cl, cs, ipc::width_tolerance(width, goals)),
+            span,
+            y: None,
+            pad_width,
+            exposed_pad: None,
+        });
         let offset = span.pad_offset();
         let spec = |number: &str, x: i64| {
             PadSpec::smd(
@@ -312,20 +344,28 @@ impl FootprintFamily for Chip {
                 density.title()
             ),
         };
+        let pad_specs = vec![spec("1", -offset.0), spec("2", offset.0)];
+        let finish = smd.finish();
+        let silkscreen = if p.polarity_mark {
+            polarity_mark(&pad_specs[0], Nm(width.max.0 / 2), finish.silkscreen_width)
+        } else {
+            vec![]
+        };
         Ok(FootprintPlan {
             name,
             description,
-            pad_specs: vec![spec("1", -offset.0), spec("2", offset.0)],
+            pad_specs,
             body: Body {
                 nominal: (length.nominal(), width.nominal()),
                 max: (length.max, width.max),
-                polarised: false,
+                chamfered: false,
             },
-            silkscreen: vec![],
+            silkscreen,
             courtyard_excess: goals.courtyard,
             height: Some(height),
             warnings: vec![],
-            finish: smd.finish(),
+            finish,
+            resolved,
         })
     }
 }

@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing, GullWingDimensions};
 use super::ipc::{Termination, Tol};
+use super::no_lead::{ExposedPadDimensions, add_exposed_pad, exposed_pad_as};
+use super::pattern::{check_absent, remove_absent};
 use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, Smd, TolerancesParams};
 use super::{FootprintFamily, FootprintPlan, Target};
 
@@ -19,10 +21,10 @@ pub struct SoicParams {
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as
     /// `SOIC127P600X175-8N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// The number of leads: 8, 14 or 16 for the narrow (3.9 mm) body; 16, 18, 20, 24 or 28
     /// for the wide (7.5 mm) one. Any even number of at least 4 with `dimensions`.
@@ -31,8 +33,18 @@ pub struct SoicParams {
     #[serde(default)]
     pub wide: bool,
     /// A datasheet's dimensions, in place of the standard body.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<GullWingDimensions>,
+    /// The exposed pad under the body, for the thermally enhanced (-EP) variants: its
+    /// length along the lead rows (D2) and width across them (E2). Omitted, none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposed_pad: Option<ExposedPadDimensions>,
+    /// Lead positions left without a Pad, by number; the other Pads keep their numbers.
+    #[serde(default)]
+    pub absent_pins: Vec<u32>,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
     #[serde(default)]
     pub goals: GoalsParams,
     #[serde(default)]
@@ -50,17 +62,27 @@ pub struct SmallOutlineParams {
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as
     /// `SOP65P640X120-14N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// The number of leads: one of the standard counts, or any even number of at least 4
     /// with `dimensions`.
     pub pins: usize,
     /// A datasheet's dimensions, in place of the standard body.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<GullWingDimensions>,
+    /// The exposed pad under the body, for the thermally enhanced (-EP) variants: its
+    /// length along the lead rows (D2) and width across them (E2). Omitted, none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposed_pad: Option<ExposedPadDimensions>,
+    /// Lead positions left without a Pad, by number; the other Pads keep their numbers.
+    #[serde(default)]
+    pub absent_pins: Vec<u32>,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
     #[serde(default)]
     pub goals: GoalsParams,
     #[serde(default)]
@@ -150,23 +172,13 @@ const TSSOP: Standard = Standard {
     ],
 };
 
-/// The Footprint of a `pins`-lead package: a standard body, or `dimensions`.
-fn small_outline(
+/// The body of a `pins`-lead package: a standard one, or `dimensions`.
+fn body(
     standard: &Standard,
-    prefix: &str,
     pins: usize,
     dimensions: Option<GullWingDimensions>,
-    smd: Smd<'_>,
-) -> Result<FootprintPlan, CommandError> {
-    smd.check(Applies::default())?;
-    let density = smd.goals.density;
-    if pins < 4 || !pins.is_multiple_of(2) {
-        return Err(CommandError::invalid_params(
-            "/pins",
-            "a dual-row package needs an even number of at least 4 leads",
-        ));
-    }
-    let dims = match dimensions {
+) -> Result<GullWing, CommandError> {
+    Ok(match dimensions {
         Some(d) => d.dims("/dimensions")?,
         None => {
             let Some((_, (min, max))) = standard.lengths.iter().find(|(n, _)| *n == pins) else {
@@ -189,16 +201,67 @@ fn small_outline(
                 ..standard.leads
             }
         }
+    })
+}
+
+/// `dimensions`, or the standard body written out as dimensions.
+fn resolve_body(
+    standard: &Standard,
+    pins: usize,
+    dimensions: Option<GullWingDimensions>,
+) -> Result<Option<GullWingDimensions>, CommandError> {
+    Ok(Some(GullWingDimensions::of(&body(
+        standard, pins, dimensions,
+    )?)))
+}
+
+/// The Footprint of a `pins`-lead package: a standard body, or `dimensions`.
+fn small_outline(
+    standard: &Standard,
+    prefix: &str,
+    pins: usize,
+    dimensions: Option<GullWingDimensions>,
+    exposed_pad: Option<ExposedPadDimensions>,
+    absent: &[u32],
+    smd: Smd<'_>,
+) -> Result<FootprintPlan, CommandError> {
+    smd.check(Applies {
+        quad: false,
+        exposed_pad: exposed_pad.is_some(),
+    })?;
+    let exposed = match exposed_pad {
+        Some(pad) => Some((
+            pad.length.tol("/exposed_pad/length")?,
+            pad.width.tol("/exposed_pad/width")?,
+        )),
+        None => None,
     };
+    let exposed = exposed_pad_as(exposed, smd.pads);
+    let density = smd.goals.density;
+    if pins < 4 || !pins.is_multiple_of(2) {
+        return Err(CommandError::invalid_params(
+            "/pins",
+            "a dual-row package needs an even number of at least 4 leads",
+        ));
+    }
+    check_absent(absent, pins)?;
+    let dims = body(standard, pins, dimensions)?;
     let leads = gull_wing::dual_row(pins, dims.pitch, dims.lead_width);
-    let name = dims.ipc_name(prefix, pins, density);
+    let name = dims.ipc_name(
+        prefix,
+        pins - absent.len() + usize::from(exposed.is_some()),
+        density,
+    );
     let description = format!(
         "{}-{pins}, {} mm pitch, IPC-7351 {}",
         standard.title,
         dims.pitch.0 as f64 / 1e6,
         density.title()
     );
-    gull_wing::plan(&dims, &leads, Termination::GullWing, smd, name, description)
+    let mut plan = gull_wing::plan(&dims, &leads, Termination::GullWing, smd, name, description)?;
+    remove_absent(&mut plan, absent);
+    add_exposed_pad(&mut plan, exposed, pins + 1, &smd, "/exposed_pad")?;
+    Ok(plan)
 }
 
 pub struct Soic;
@@ -225,9 +288,27 @@ impl FootprintFamily for Soic {
         }
     }
 
+    fn resolve_package(p: &SoicParams) -> Result<SoicParams, CommandError> {
+        let standard = if p.wide { &SOIC_WIDE } else { &SOIC_NARROW };
+        Ok(SoicParams {
+            dimensions: resolve_body(standard, p.pins, p.dimensions)?,
+            ..p.clone()
+        })
+    }
+
     fn plan(p: &SoicParams) -> Result<FootprintPlan, CommandError> {
         let standard = if p.wide { &SOIC_WIDE } else { &SOIC_NARROW };
-        small_outline(standard, "SOIC", p.pins, p.dimensions, p.smd())
+        let mut plan = small_outline(
+            standard,
+            "SOIC",
+            p.pins,
+            p.dimensions,
+            p.exposed_pad,
+            &p.absent_pins,
+            p.smd(),
+        )?;
+        plan.body.chamfered = p.chamfer;
+        Ok(plan)
     }
 }
 
@@ -255,8 +336,25 @@ impl FootprintFamily for Ssop {
         }
     }
 
+    fn resolve_package(p: &SmallOutlineParams) -> Result<SmallOutlineParams, CommandError> {
+        Ok(SmallOutlineParams {
+            dimensions: resolve_body(&SSOP, p.pins, p.dimensions)?,
+            ..p.clone()
+        })
+    }
+
     fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
-        small_outline(&SSOP, "SOP", p.pins, p.dimensions, p.smd())
+        let mut plan = small_outline(
+            &SSOP,
+            "SOP",
+            p.pins,
+            p.dimensions,
+            p.exposed_pad,
+            &p.absent_pins,
+            p.smd(),
+        )?;
+        plan.body.chamfered = p.chamfer;
+        Ok(plan)
     }
 }
 
@@ -284,7 +382,24 @@ impl FootprintFamily for Tssop {
         }
     }
 
+    fn resolve_package(p: &SmallOutlineParams) -> Result<SmallOutlineParams, CommandError> {
+        Ok(SmallOutlineParams {
+            dimensions: resolve_body(&TSSOP, p.pins, p.dimensions)?,
+            ..p.clone()
+        })
+    }
+
     fn plan(p: &SmallOutlineParams) -> Result<FootprintPlan, CommandError> {
-        small_outline(&TSSOP, "SOP", p.pins, p.dimensions, p.smd())
+        let mut plan = small_outline(
+            &TSSOP,
+            "SOP",
+            p.pins,
+            p.dimensions,
+            p.exposed_pad,
+            &p.absent_pins,
+            p.smd(),
+        )?;
+        plan.body.chamfered = p.chamfer;
+        Ok(plan)
     }
 }
