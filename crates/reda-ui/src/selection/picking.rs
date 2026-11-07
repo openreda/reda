@@ -522,22 +522,20 @@ pub fn text_pointer(
             _ => {}
         }
     }
-    if consumed {
-        if let Some(tab) = shell.document_tab_mut(document) {
-            let ids: Vec<_> = moving
-                .iter()
-                .flat_map(|m| {
-                    m.objects
-                        .iter()
-                        .copied()
-                        .chain(m.targets.iter().map(|(child, _)| child.id()))
-                })
-                .collect();
-            tab.live = LiveHandle::new(None, &ids, &[]);
-            tab.moving_offset = moving
-                .as_ref()
-                .map_or((0.0, 0.0), |m| (m.by.x.0 as f64, m.by.y.0 as f64));
-        }
+    if consumed && let Some(tab) = shell.document_tab_mut(document) {
+        let ids: Vec<_> = moving
+            .iter()
+            .flat_map(|m| {
+                m.objects
+                    .iter()
+                    .copied()
+                    .chain(m.targets.iter().map(|(child, _)| child.id()))
+            })
+            .collect();
+        tab.live = LiveHandle::new(None, &ids, &[]);
+        tab.moving_offset = moving
+            .as_ref()
+            .map_or((0.0, 0.0), |m| (m.by.x.0 as f64, m.by.y.0 as f64));
     }
     shell.selection_picking_mut().moving = moving;
     consumed.then_some(commands)
@@ -903,21 +901,17 @@ fn entry_label(shell: &Shell, document: Uuid, id: Uuid, ordinal: usize) -> Strin
         if let reda_engine::render::Primitive::Glyphs(run) = &item.primitive {
             return format!("{kind} · {}", run.text);
         }
-        if let Some(Child::Pad { footprint, pad }) = &item.child {
-            if let Some(pcb) = shell
+        if let Some(Child::Pad { footprint, pad }) = &item.child
+            && let Some(pcb) = shell
                 .engine()
                 .project()
                 .and_then(|p| p.pcb_document(document))
-            {
-                if let Some(f) = pcb.footprint(*footprint) {
-                    if let Some(p) = pcb
-                        .footprint_copy(f.footprint)
-                        .and_then(|copy| copy.footprint.pads.iter().find(|p| p.uuid == *pad))
-                    {
-                        return format!("{kind} {} · {}", p.number, f.designator);
-                    }
-                }
-            }
+            && let Some(f) = pcb.footprint(*footprint)
+            && let Some(p) = pcb
+                .footprint_copy(f.footprint)
+                .and_then(|copy| copy.footprint.pads.iter().find(|p| p.uuid == *pad))
+        {
+            return format!("{kind} {} · {}", p.number, f.designator);
         }
     }
     format!("{kind} · {}", ordinal + 1)

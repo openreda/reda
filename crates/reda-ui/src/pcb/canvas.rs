@@ -18,7 +18,7 @@ use crate::tools::Tool;
 use crate::tr;
 
 /// How near a click counts as on an object, in points.
-const PICK_POINTS: f64 = 4.0;
+const PICK_POINTS: f64 = 5.0;
 /// How near electrical points catch the cursor, in points.
 const SNAP_POINTS: f64 = 10.0;
 
@@ -49,18 +49,18 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
         return;
     }
     let tolerance = Nm((PICK_POINTS * nm_per_point) as i64);
-    if shell.tool() == Tool::Select {
-        if let Some(commands) = crate::selection::picking::text_pointer(
+    if shell.tool() == Tool::Select
+        && let Some(commands) = crate::selection::picking::text_pointer(
             shell,
             document,
             &input.events,
             tolerance.0 as f64,
-        ) {
-            for (id, params) in commands {
-                let _ = shell.run_reporting(&id, params);
-            }
-            return;
+        )
+    {
+        for (id, params) in commands {
+            let _ = shell.run_reporting(&id, params);
         }
+        return;
     }
     for &event in &input.events {
         match event {

@@ -229,7 +229,7 @@ fn designator_text_selects_and_drags_alone_refuses_delete_and_follows_its_parent
             .footprint(footprint),
         Some(&before)
     );
-    let text = shell(&w).selection().texts[0].clone();
+    let text = shell(&w).selection().texts[0];
     let anchor = |w: &Window| {
         shell(w)
             .document_tab(w.pcb)
