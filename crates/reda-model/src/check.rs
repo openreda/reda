@@ -328,6 +328,9 @@ severities! {
     net_tie_one_net => NetTieOneNet = Warning,
     /// Units of one Component whose Component data differ.
     unit_data_mismatch => UnitDataMismatch = Error,
+    /// A placed Component whose Library Status is Library Differs: its Part, Symbol or
+    /// Footprints in the Libraries no longer match the copy in the part table.
+    library_out_of_date => LibraryOutOfDate = Off,
 }
 
 severities! {

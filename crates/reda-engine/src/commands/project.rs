@@ -187,6 +187,7 @@ fn build_project(
         erc: Default::default(),
         schematic: Default::default(),
         reannotate: None,
+        library_update: None,
     });
     let sheet = DocumentEntry {
         uuid: cx.new_id(),

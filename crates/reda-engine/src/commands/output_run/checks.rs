@@ -121,9 +121,19 @@ pub(crate) fn warnings(
         .documents()
         .filter_map(|d| project.schematic_sheet(d.uuid))
         .flat_map(|s| s.waivers());
-    let erc = apply_waivers(reda_schematic::erc::check(project), waivers, false, |_| {
-        false
-    });
+    // Library Status needs the Libraries, which a run does not read: it is left out here.
+    let no_library = |uuids: &[reda_model::Uuid]| {
+        uuids
+            .iter()
+            .map(|u| Err(reda_command::CommandError::not_found(u.to_string())))
+            .collect()
+    };
+    let erc = apply_waivers(
+        reda_schematic::erc::check(project, &no_library),
+        waivers,
+        false,
+        |_| false,
+    );
     let errors = erc
         .violations
         .iter()

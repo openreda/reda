@@ -149,8 +149,29 @@ fn extracting_a_component_keeps_uuids_so_its_status_is_up_to_date() {
         .engine
         .run_ok("library.where_used", json!({"element": NPN}));
     assert_eq!(used["library"]["origin"], "project");
-    let outdated = f.engine.run_ok("schematic.component.outdated", json!({}));
-    assert_eq!(outdated["components"], json!([]));
+    let status = f
+        .engine
+        .run_ok("schematic.component.library_status", json!({}));
+    let statuses: Vec<_> = status["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["designator"].as_str().unwrap(),
+                c["status"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    // The other Component's Part is only in the Starter Library, which is off now.
+    assert_eq!(
+        statuses,
+        [
+            ("Q1", "up_to_date"),
+            ("Q2", "up_to_date"),
+            (statuses[2].0, "source_missing")
+        ]
+    );
     let search = f.engine.run_ok("library.search", json!({}));
     assert_eq!(search["problems"], json!([]));
 
@@ -161,11 +182,14 @@ fn extracting_a_component_keeps_uuids_so_its_status_is_up_to_date() {
         .run_ok("library.part.edit", json!({"part": NPN, "in_cpl": false}));
     f.engine
         .run_ok("library.element.save", json!({"element": NPN}));
-    let outdated = f.engine.run_ok("schematic.component.outdated", json!({}));
-    let names: Vec<_> = outdated["components"]
+    let status = f
+        .engine
+        .run_ok("schematic.component.library_status", json!({}));
+    let names: Vec<_> = status["components"]
         .as_array()
         .unwrap()
         .iter()
+        .filter(|c| c["status"] == "library_differs")
         .map(|c| c["designator"].as_str().unwrap())
         .collect();
     assert_eq!(names, ["Q1", "Q2"]);

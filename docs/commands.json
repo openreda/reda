@@ -1921,6 +1921,11 @@
                 "const": "unit_data_mismatch",
                 "description": "Units of one Component whose Component data differ.",
                 "type": "string"
+              },
+              {
+                "const": "library_out_of_date",
+                "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table.",
+                "type": "string"
               }
             ]
           },
@@ -2138,6 +2143,11 @@
               {
                 "const": "unit_data_mismatch",
                 "description": "Units of one Component whose Component data differ.",
+                "type": "string"
+              },
+              {
+                "const": "library_out_of_date",
+                "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table.",
                 "type": "string"
               }
             ]
@@ -20172,6 +20182,21 @@
               }
             ]
           },
+          "ComponentFieldMissing": {
+            "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "The cell starts as Update, which removes the field.",
+                "type": "string"
+              }
+            ]
+          },
           "ComponentRef": {
             "additionalProperties": false,
             "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
@@ -20555,6 +20580,11 @@
                 "default": "error",
                 "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync."
               },
+              "library_out_of_date": {
+                "$ref": "#/$defs/Severity",
+                "default": "off",
+                "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table."
+              },
               "net_names_across_sheets": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -20643,7 +20673,8 @@
               "duplicate_designator",
               "unplaced_units",
               "net_tie_one_net",
-              "unit_data_mismatch"
+              "unit_data_mismatch",
+              "library_out_of_date"
             ],
             "type": "object"
           },
@@ -20905,6 +20936,21 @@
               "texts"
             ],
             "type": "object"
+          },
+          "FootprintChoice": {
+            "description": "Which Footprint a Component chooses after its alternates are updated.",
+            "oneOf": [
+              {
+                "const": "keep_if_present",
+                "description": "The current Footprint while it is still an alternate, else the new default.",
+                "type": "string"
+              },
+              {
+                "const": "default",
+                "description": "Always the new default.",
+                "type": "string"
+              }
+            ]
           },
           "FootprintGenerator": {
             "additionalProperties": false,
@@ -22555,6 +22601,94 @@
             ],
             "type": "object"
           },
+          "LibraryFieldMissing": {
+            "description": "A field the Library Part has and the Component has no value for.",
+            "oneOf": [
+              {
+                "const": "add",
+                "description": "The cell starts as Update: the Component takes the field.",
+                "type": "string"
+              },
+              {
+                "const": "add_if_not_blank",
+                "description": "Update when the Library value is not blank.",
+                "type": "string"
+              },
+              {
+                "const": "skip",
+                "description": "The cell starts as Reject.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryUpdateSettings": {
+            "additionalProperties": false,
+            "description": "The Update from Library settings. A setting left out has its default.",
+            "properties": {
+              "add_new_footprints": {
+                "default": true,
+                "description": "Footprints new in the Library join the alternates.",
+                "type": "boolean"
+              },
+              "component_field_missing": {
+                "$ref": "#/$defs/ComponentFieldMissing",
+                "default": "keep",
+                "description": "A field on the Component and not in the Library."
+              },
+              "fields_to_update": {
+                "default": null,
+                "description": "The cells that may start as Update, by name: field names, `component_type`,\n`in_bom` and `in_cpl`. `null` (the default) is every one; a cell not listed starts\nas Reject.",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "footprint_choice": {
+                "$ref": "#/$defs/FootprintChoice",
+                "default": "keep_if_present"
+              },
+              "library_field_missing": {
+                "$ref": "#/$defs/LibraryFieldMissing",
+                "default": "add",
+                "description": "A field in the Library and not on the Component."
+              },
+              "locally_edited": {
+                "$ref": "#/$defs/LocallyEdited",
+                "default": "keep",
+                "description": "A changed default the Component has its own value for."
+              },
+              "preserve_field_locations": {
+                "default": true,
+                "description": "Fields moved by hand stay where they are; off, they return to Autoposition.",
+                "type": "boolean"
+              },
+              "preserve_field_visibility": {
+                "default": true,
+                "description": "Which fields show stays as it is; off, the Designator and value show.",
+                "type": "boolean"
+              },
+              "remove_missing_footprints": {
+                "default": true,
+                "description": "Footprints gone from the Library leave the alternates.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "library_field_missing",
+              "component_field_missing",
+              "locally_edited",
+              "fields_to_update",
+              "add_new_footprints",
+              "remove_missing_footprints",
+              "footprint_choice",
+              "preserve_field_locations",
+              "preserve_field_visibility"
+            ],
+            "type": "object"
+          },
           "LineNumbers": {
             "additionalProperties": false,
             "description": "The BOM's line-number column.",
@@ -22582,6 +22716,21 @@
               "step"
             ],
             "type": "object"
+          },
+          "LocallyEdited": {
+            "description": "A changed default where the Component holds a value of its own.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "take_new",
+                "description": "The cell starts as Update: the Component takes the new default.",
+                "type": "string"
+              }
+            ]
           },
           "Location": {
             "description": "Which point of a Unit the schematic orders sort by.",
@@ -22789,6 +22938,7 @@
                       "dangling_wire": "warning",
                       "duplicate_designator": "error",
                       "duplicate_nets": "error",
+                      "library_out_of_date": "off",
                       "net_names_across_sheets": "warning",
                       "net_names_on_sheet": "error",
                       "net_tie_one_net": "warning",
@@ -22812,6 +22962,17 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "library_update": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/LibraryUpdateSettings"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The Update from Library settings page 1 saved, if any."
                   },
                   "name": {
                     "type": "string"
@@ -26361,6 +26522,21 @@
               }
             ]
           },
+          "ComponentFieldMissing": {
+            "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "The cell starts as Update, which removes the field.",
+                "type": "string"
+              }
+            ]
+          },
           "ComponentRef": {
             "additionalProperties": false,
             "description": "Which Component an object refers to: its UUID, after the Sheet Instance path that\nleads to it. In v0.1 sheets are flat and the path is always empty.",
@@ -26744,6 +26920,11 @@
                 "default": "error",
                 "description": "Different Nets with the same board name, such as one Net Label on two sheets. It\nblocks Sync."
               },
+              "library_out_of_date": {
+                "$ref": "#/$defs/Severity",
+                "default": "off",
+                "description": "A placed Component whose Library Status is Library Differs: its Part, Symbol or\nFootprints in the Libraries no longer match the copy in the part table."
+              },
               "net_names_across_sheets": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -26832,7 +27013,8 @@
               "duplicate_designator",
               "unplaced_units",
               "net_tie_one_net",
-              "unit_data_mismatch"
+              "unit_data_mismatch",
+              "library_out_of_date"
             ],
             "type": "object"
           },
@@ -27094,6 +27276,21 @@
               "texts"
             ],
             "type": "object"
+          },
+          "FootprintChoice": {
+            "description": "Which Footprint a Component chooses after its alternates are updated.",
+            "oneOf": [
+              {
+                "const": "keep_if_present",
+                "description": "The current Footprint while it is still an alternate, else the new default.",
+                "type": "string"
+              },
+              {
+                "const": "default",
+                "description": "Always the new default.",
+                "type": "string"
+              }
+            ]
           },
           "FootprintGenerator": {
             "additionalProperties": false,
@@ -28744,6 +28941,94 @@
             ],
             "type": "object"
           },
+          "LibraryFieldMissing": {
+            "description": "A field the Library Part has and the Component has no value for.",
+            "oneOf": [
+              {
+                "const": "add",
+                "description": "The cell starts as Update: the Component takes the field.",
+                "type": "string"
+              },
+              {
+                "const": "add_if_not_blank",
+                "description": "Update when the Library value is not blank.",
+                "type": "string"
+              },
+              {
+                "const": "skip",
+                "description": "The cell starts as Reject.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryUpdateSettings": {
+            "additionalProperties": false,
+            "description": "The Update from Library settings. A setting left out has its default.",
+            "properties": {
+              "add_new_footprints": {
+                "default": true,
+                "description": "Footprints new in the Library join the alternates.",
+                "type": "boolean"
+              },
+              "component_field_missing": {
+                "$ref": "#/$defs/ComponentFieldMissing",
+                "default": "keep",
+                "description": "A field on the Component and not in the Library."
+              },
+              "fields_to_update": {
+                "default": null,
+                "description": "The cells that may start as Update, by name: field names, `component_type`,\n`in_bom` and `in_cpl`. `null` (the default) is every one; a cell not listed starts\nas Reject.",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "footprint_choice": {
+                "$ref": "#/$defs/FootprintChoice",
+                "default": "keep_if_present"
+              },
+              "library_field_missing": {
+                "$ref": "#/$defs/LibraryFieldMissing",
+                "default": "add",
+                "description": "A field in the Library and not on the Component."
+              },
+              "locally_edited": {
+                "$ref": "#/$defs/LocallyEdited",
+                "default": "keep",
+                "description": "A changed default the Component has its own value for."
+              },
+              "preserve_field_locations": {
+                "default": true,
+                "description": "Fields moved by hand stay where they are; off, they return to Autoposition.",
+                "type": "boolean"
+              },
+              "preserve_field_visibility": {
+                "default": true,
+                "description": "Which fields show stays as it is; off, the Designator and value show.",
+                "type": "boolean"
+              },
+              "remove_missing_footprints": {
+                "default": true,
+                "description": "Footprints gone from the Library leave the alternates.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "library_field_missing",
+              "component_field_missing",
+              "locally_edited",
+              "fields_to_update",
+              "add_new_footprints",
+              "remove_missing_footprints",
+              "footprint_choice",
+              "preserve_field_locations",
+              "preserve_field_visibility"
+            ],
+            "type": "object"
+          },
           "LineNumbers": {
             "additionalProperties": false,
             "description": "The BOM's line-number column.",
@@ -28771,6 +29056,21 @@
               "step"
             ],
             "type": "object"
+          },
+          "LocallyEdited": {
+            "description": "A changed default where the Component holds a value of its own.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "take_new",
+                "description": "The cell starts as Update: the Component takes the new default.",
+                "type": "string"
+              }
+            ]
           },
           "Location": {
             "description": "Which point of a Unit the schematic orders sort by.",
@@ -28978,6 +29278,7 @@
                       "dangling_wire": "warning",
                       "duplicate_designator": "error",
                       "duplicate_nets": "error",
+                      "library_out_of_date": "off",
                       "net_names_across_sheets": "warning",
                       "net_names_on_sheet": "error",
                       "net_tie_one_net": "warning",
@@ -29001,6 +29302,17 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "library_update": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/LibraryUpdateSettings"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The Update from Library settings page 1 saved, if any."
                   },
                   "name": {
                     "type": "string"
@@ -44151,32 +44463,70 @@
     },
     {
       "category": "schematic",
-      "description": "Lists the Components marked \"library has a newer version\": those whose Library Part, with its Symbol and Footprints, no longer matches the copy in the part table. Components whose Part no registered Library holds are not listed. Preview an update with `schematic.component.update_preview`.",
+      "description": "Compares each placed Component's copy in the part table with its Part in the registered Libraries: `up_to_date`, `library_differs` naming the aspects that differ (`symbol`, `fields`, `footprints`), or `source_missing` when no registered Library holds the Part or an element it references. Preview an update with `schematic.component.update_preview`.",
       "icon": "library_update",
-      "id": "schematic.component.outdated",
+      "id": "schematic.component.library_status",
       "kind": "query",
       "params": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
-        "title": "NoParams",
+        "properties": {
+          "components": {
+            "description": "The Components to compare, by UUID; every placed Component by default.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "LibraryStatusParams",
         "type": "object"
       },
       "presets": [],
       "result": {
         "$defs": {
-          "OutdatedComponent": {
-            "description": "A Component whose Library Part has a newer version.",
+          "Aspect": {
+            "description": "What an Update from Library can take, separately or together (Full Replace).",
+            "oneOf": [
+              {
+                "const": "symbol",
+                "description": "The Symbol: its graphics, Units and Pins.",
+                "type": "string"
+              },
+              {
+                "const": "fields",
+                "description": "The Part's name, default fields, Component Type, In BOM and In CPL.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "The alternate Footprints, their order and geometry, and the pin-map overrides.",
+                "type": "string"
+              }
+            ]
+          },
+          "ComponentStatus": {
+            "description": "One placed Component's Library Status.",
             "properties": {
+              "aspects": {
+                "description": "For Library Differs: the aspects that differ.",
+                "items": {
+                  "$ref": "#/$defs/Aspect"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
               "component": {
                 "format": "uuid",
                 "type": "string"
               },
               "designator": {
-                "type": "string"
-              },
-              "library_hash": {
-                "description": "The content hash of the Part in the Library now.",
                 "type": "string"
               },
               "part": {
@@ -44185,11 +44535,18 @@
                 "type": "string"
               },
               "part_name": {
+                "description": "The Part's name in the part table.",
                 "type": "string"
               },
-              "placed_hash": {
-                "description": "The content hash of the copy in the part table.",
-                "type": "string"
+              "reason": {
+                "description": "For Source Missing: what is missing.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/$defs/LibraryStatus"
               }
             },
             "required": [
@@ -44197,10 +44554,29 @@
               "designator",
               "part",
               "part_name",
-              "placed_hash",
-              "library_hash"
+              "status"
             ],
             "type": "object"
+          },
+          "LibraryStatus": {
+            "description": "How a placed Component compares with the Libraries.",
+            "oneOf": [
+              {
+                "const": "up_to_date",
+                "description": "Every aspect's content hash matches.",
+                "type": "string"
+              },
+              {
+                "const": "library_differs",
+                "description": "At least one aspect differs.",
+                "type": "string"
+              },
+              {
+                "const": "source_missing",
+                "description": "No registered Library holds the Part, or a Symbol or Footprint it references.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -44208,7 +44584,7 @@
           "components": {
             "description": "By Designator, in natural order.",
             "items": {
-              "$ref": "#/$defs/OutdatedComponent"
+              "$ref": "#/$defs/ComponentStatus"
             },
             "type": "array"
           }
@@ -44216,10 +44592,10 @@
         "required": [
           "components"
         ],
-        "title": "OutdatedResult",
+        "title": "LibraryStatusResult",
         "type": "object"
       },
-      "title": "List Outdated Components"
+      "title": "Library Status"
     },
     {
       "category": "schematic",
@@ -44673,54 +45049,214 @@
     },
     {
       "category": "schematic",
-      "description": "Updates outdated Components to their Library Part as it is now, exactly as `schematic.component.update_preview` shows: each sheet gets a copy of the new Part (unused old copies are removed), fields the Component has not edited take the new defaults, and a Footprint that is no longer an alternate moves to the new default. Refused when a placed Unit is gone from the Symbol. The PCB is not touched: Sync carries Footprint changes there.",
+      "description": "Applies the update `schematic.component.update_preview` showed, given its `preview_hash` and the same parameters; fails with `conflict` when the result no longer matches. Excluded Components stay as they are, and cells start as the preview says unless `excluded_cells` or `updated_cells` override them (Locked cells cannot be). Each taken aspect replaces that part of the sheet's copy, so a partial update writes a mixed entry; the Fields aspect moves every default to the Library's whichever way each cell went. Refused while an included Component is blocked. Wires never move, and the PCB is not touched: Sync carries Footprint changes there. The settings used are saved in the Project.",
       "icon": "library_update",
       "id": "schematic.component.update_from_library",
       "kind": "edit",
       "params": {
         "$defs": {
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+          "Aspect": {
+            "description": "What an Update from Library can take, separately or together (Full Replace).",
             "oneOf": [
               {
-                "description": "Nanometres.",
-                "type": "integer"
+                "const": "symbol",
+                "description": "The Symbol: its graphics, Units and Pins.",
+                "type": "string"
               },
               {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
+                "const": "fields",
+                "description": "The Part's name, default fields, Component Type, In BOM and In CPL.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "The alternate Footprints, their order and geometry, and the pin-map overrides.",
                 "type": "string"
               }
             ]
           },
-          "Wiring": {
+          "CellRef": {
             "additionalProperties": false,
-            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "description": "One cell of one Component, for overriding how it starts.",
             "properties": {
-              "break_wires_at_autojunctions": {
-                "default": true,
-                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
-                "type": "boolean"
+              "cell": {
+                "description": "The cell: a field's name, or `component_type`, `in_bom` or `in_cpl`.",
+                "type": "string"
               },
-              "components_cut_wires": {
-                "default": true,
-                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
-                "type": "boolean"
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "cell"
+            ],
+            "type": "object"
+          },
+          "ComponentAspects": {
+            "additionalProperties": false,
+            "description": "The aspects one Component takes.",
+            "properties": {
+              "aspects": {
+                "items": {
+                  "$ref": "#/$defs/Aspect"
+                },
+                "type": "array"
               },
-              "convert_cross_junctions": {
-                "default": true,
-                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
-                "type": "boolean"
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "aspects"
+            ],
+            "type": "object"
+          },
+          "ComponentFieldMissing": {
+            "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
               },
-              "optimize_wires": {
-                "default": true,
-                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
-                "type": "boolean"
+              {
+                "const": "remove",
+                "description": "The cell starts as Update, which removes the field.",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintChoice": {
+            "description": "Which Footprint a Component chooses after its alternates are updated.",
+            "oneOf": [
+              {
+                "const": "keep_if_present",
+                "description": "The current Footprint while it is still an alternate, else the new default.",
+                "type": "string"
               },
-              "snap_grid": {
-                "$ref": "#/$defs/Length",
-                "default": 1270000,
-                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              {
+                "const": "default",
+                "description": "Always the new default.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryFieldMissing": {
+            "description": "A field the Library Part has and the Component has no value for.",
+            "oneOf": [
+              {
+                "const": "add",
+                "description": "The cell starts as Update: the Component takes the field.",
+                "type": "string"
+              },
+              {
+                "const": "add_if_not_blank",
+                "description": "Update when the Library value is not blank.",
+                "type": "string"
+              },
+              {
+                "const": "skip",
+                "description": "The cell starts as Reject.",
+                "type": "string"
+              }
+            ]
+          },
+          "LocallyEdited": {
+            "description": "A changed default where the Component holds a value of its own.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "take_new",
+                "description": "The cell starts as Update: the Component takes the new default.",
+                "type": "string"
+              }
+            ]
+          },
+          "SettingsParams": {
+            "additionalProperties": false,
+            "description": "Settings that override the ones saved in the Project for this run. Each left out\ntakes the saved value, or its default.",
+            "properties": {
+              "add_new_footprints": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "component_field_missing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ComponentFieldMissing"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fields_to_update": {
+                "description": "The cells that may start as Update: field names, `component_type`, `in_bom` and\n`in_cpl`.",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "footprint_choice": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintChoice"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "library_field_missing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LibraryFieldMissing"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "locally_edited": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LocallyEdited"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "preserve_field_locations": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "preserve_field_visibility": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "remove_missing_footprints": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               }
             },
             "type": "object"
@@ -44729,8 +45265,25 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "aspects": {
+            "description": "As for the preview.",
+            "items": {
+              "$ref": "#/$defs/Aspect"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "component_aspects": {
+            "description": "As for the preview.",
+            "items": {
+              "$ref": "#/$defs/ComponentAspects"
+            },
+            "type": "array"
+          },
           "components": {
-            "description": "The Components to update, by UUID; every outdated Component by default. Listed\nComponents that are up to date are left out.",
+            "description": "As for the preview.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -44740,368 +45293,355 @@
               "null"
             ]
           },
-          "wiring": {
+          "excluded_cells": {
+            "description": "Cells rejected (Reject Selected): the Component keeps its value.",
+            "items": {
+              "$ref": "#/$defs/CellRef"
+            },
+            "type": "array"
+          },
+          "excluded_components": {
+            "default": [],
+            "description": "Components of the preview left as they are.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "parts": {
+            "description": "As for the preview.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "preview_hash": {
+            "description": "The `preview_hash` of the `schematic.component.update_preview` this applies, run\nwith the same scope, aspects and settings.",
+            "type": "string"
+          },
+          "settings": {
             "anyOf": [
               {
-                "$ref": "#/$defs/Wiring"
+                "$ref": "#/$defs/SettingsParams"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "How the Wires on Pins that move are normalised; the fixed defaults when left out."
-          }
-        },
-        "title": "UpdateFromLibraryParams",
-        "type": "object"
-      },
-      "presets": [],
-      "result": {
-        "$defs": {
-          "ComponentType": {
-            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
-            "oneOf": [
-              {
-                "const": "standard",
-                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
-                "type": "string"
-              },
-              {
-                "const": "mechanical",
-                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
-                "type": "string"
-              },
-              {
-                "const": "net_tie",
-                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
-                "type": "string"
-              }
-            ]
+            "description": "As for the preview. The settings used are saved in the Project."
           },
-          "ComponentUpdate": {
-            "description": "What an update changes on one Component.",
-            "properties": {
-              "blocked": {
-                "description": "Whether a change (a placed Unit gone from the Symbol) stops this Component's\nupdate. Omitted when false.",
-                "type": "boolean"
-              },
-              "changes": {
-                "description": "The differences, Part first, then Symbol, then Footprints.",
-                "items": {
-                  "$ref": "#/$defs/PartChange"
-                },
-                "type": "array"
-              },
-              "component": {
-                "format": "uuid",
-                "type": "string"
-              },
-              "designator": {
-                "type": "string"
-              },
-              "library_hash": {
-                "type": "string"
-              },
-              "lost_local_edits": {
-                "description": "The local Pad and graphics edits of its Locally Edited Footprint on the board that\nthe update removes, because it changes that Footprint's hash. Omitted when none.",
-                "items": {
-                  "$ref": "#/$defs/LocalEdit"
-                },
-                "type": "array"
-              },
-              "part": {
-                "description": "The Library Part, by UUID.",
-                "format": "uuid",
-                "type": "string"
-              },
-              "placed_hash": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "component",
-              "designator",
-              "part",
-              "placed_hash",
-              "library_hash",
-              "changes"
-            ],
-            "type": "object"
-          },
-          "FootprintChange": {
-            "enum": [
-              "added",
-              "removed",
-              "modified"
-            ],
-            "type": "string"
-          },
-          "LocalEdit": {
-            "description": "One property of one Pad or graphic that differs from the copy it came from.",
-            "properties": {
-              "edited": {
-                "description": "The edited value; left out when it isn't set."
-              },
-              "graphic": {
-                "description": "The graphic, for a graphic edit.",
-                "format": "uuid",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "number": {
-                "description": "The Pad's number, for a Pad edit.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "original": {
-                "description": "The original value; left out when it wasn't set."
-              },
-              "pad": {
-                "description": "The Pad, for a Pad edit.",
-                "format": "uuid",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "property": {
-                "description": "The property, as the file names it; `graphic` for a graphic added or deleted whole.",
-                "type": "string"
-              }
-            },
-            "required": [
-              "property"
-            ],
-            "type": "object"
-          },
-          "PartChange": {
-            "description": "One difference between the placed copy and the Library Part.",
-            "oneOf": [
-              {
-                "description": "The Part was renamed.",
-                "properties": {
-                  "from": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "const": "name",
-                    "type": "string"
-                  },
-                  "to": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "from",
-                  "to"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "The Part's Component Type changed. `edited` when the Component has its own\nComponent Type, which it keeps.",
-                "properties": {
-                  "edited": {
-                    "type": "boolean"
-                  },
-                  "from": {
-                    "$ref": "#/$defs/ComponentType"
-                  },
-                  "kind": {
-                    "const": "component_type",
-                    "type": "string"
-                  },
-                  "to": {
-                    "$ref": "#/$defs/ComponentType"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "from",
-                  "to"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, and `locked` when it is one of the Component's Locked Fields: either\nway it keeps its value; otherwise it takes the new default.",
-                "properties": {
-                  "edited": {
-                    "type": "boolean"
-                  },
-                  "from": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "const": "field",
-                    "type": "string"
-                  },
-                  "locked": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "to": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "name",
-                  "from",
-                  "to"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "The Part's pin-pad map overrides changed.",
-                "properties": {
-                  "kind": {
-                    "const": "pin_map",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "The Symbol changed (pins, graphics, Units or names); `name` is its name now.",
-                "properties": {
-                  "kind": {
-                    "const": "symbol",
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "name"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "A Unit of the Component that is placed no longer exists in the Symbol. The\nComponent cannot be updated until that Unit is deleted.",
-                "properties": {
-                  "kind": {
-                    "const": "unit_removed",
-                    "type": "string"
-                  },
-                  "unit": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "unit"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "An alternate Footprint was added, removed or changed. The PCB gets a Footprint\nchange through Sync, not through the update.",
-                "properties": {
-                  "change": {
-                    "$ref": "#/$defs/FootprintChange"
-                  },
-                  "footprint": {
-                    "format": "uuid",
-                    "type": "string"
-                  },
-                  "kind": {
-                    "const": "footprint",
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "footprint",
-                  "name",
-                  "change"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "The alternates are in a new order; the first is the default.",
-                "properties": {
-                  "kind": {
-                    "const": "footprint_order",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "The Component's Footprint is no longer an alternate, so it moves to the new\ndefault (`null` when the Part has none).",
-                "properties": {
-                  "from": {
-                    "format": "uuid",
-                    "type": "string"
-                  },
-                  "kind": {
-                    "const": "footprint_choice",
-                    "type": "string"
-                  },
-                  "to": {
-                    "format": "uuid",
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  }
-                },
-                "required": [
-                  "kind",
-                  "from",
-                  "to"
-                ],
-                "type": "object"
-              }
-            ]
-          }
-        },
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "properties": {
-          "components": {
-            "description": "By Designator, in natural order.",
+          "sheets": {
+            "description": "As for the preview.",
             "items": {
-              "$ref": "#/$defs/ComponentUpdate"
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "updated_cells": {
+            "description": "Cells updated (Update Selected): the Component takes the new default.",
+            "items": {
+              "$ref": "#/$defs/CellRef"
             },
             "type": "array"
           }
         },
         "required": [
-          "components"
+          "preview_hash"
         ],
-        "title": "UpdateResult",
+        "title": "UpdateFromLibraryParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "not_updated": {
+            "description": "The Components of the preview left as they were: excluded, taking no aspect, or\nSource Missing.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updated": {
+            "description": "The Components updated, by Designator in natural order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "updated",
+          "not_updated"
+        ],
+        "title": "UpdateApplied",
         "type": "object"
       },
       "title": "Update from Library"
     },
     {
       "category": "schematic",
-      "description": "Shows what Update from Library would change on outdated Components, without changing anything: the Part's name, Component Type, default fields and pin-pad map, the Symbol and each alternate Footprint. A Component keeps field values it has edited. Apply it with `schematic.component.update_from_library`.",
+      "description": "Shows what Update from Library would change, without changing anything: per Component its Library Status, the aspects taken (all three, Full Replace, by default), the Symbol's Units and Pins with the Nets each Pin leaves or joins, the Footprints with their Pads and pin map, the field grid (old default, new default, the Component's value and how each cell starts), problems and the local Pad edits removed. Apply it with `schematic.component.update_from_library` and the returned `preview_hash`.",
       "icon": "library_update",
       "id": "schematic.component.update_preview",
       "kind": "query",
       "params": {
+        "$defs": {
+          "Aspect": {
+            "description": "What an Update from Library can take, separately or together (Full Replace).",
+            "oneOf": [
+              {
+                "const": "symbol",
+                "description": "The Symbol: its graphics, Units and Pins.",
+                "type": "string"
+              },
+              {
+                "const": "fields",
+                "description": "The Part's name, default fields, Component Type, In BOM and In CPL.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "The alternate Footprints, their order and geometry, and the pin-map overrides.",
+                "type": "string"
+              }
+            ]
+          },
+          "ComponentAspects": {
+            "additionalProperties": false,
+            "description": "The aspects one Component takes.",
+            "properties": {
+              "aspects": {
+                "items": {
+                  "$ref": "#/$defs/Aspect"
+                },
+                "type": "array"
+              },
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "aspects"
+            ],
+            "type": "object"
+          },
+          "ComponentFieldMissing": {
+            "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "The cell starts as Update, which removes the field.",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintChoice": {
+            "description": "Which Footprint a Component chooses after its alternates are updated.",
+            "oneOf": [
+              {
+                "const": "keep_if_present",
+                "description": "The current Footprint while it is still an alternate, else the new default.",
+                "type": "string"
+              },
+              {
+                "const": "default",
+                "description": "Always the new default.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryFieldMissing": {
+            "description": "A field the Library Part has and the Component has no value for.",
+            "oneOf": [
+              {
+                "const": "add",
+                "description": "The cell starts as Update: the Component takes the field.",
+                "type": "string"
+              },
+              {
+                "const": "add_if_not_blank",
+                "description": "Update when the Library value is not blank.",
+                "type": "string"
+              },
+              {
+                "const": "skip",
+                "description": "The cell starts as Reject.",
+                "type": "string"
+              }
+            ]
+          },
+          "LocallyEdited": {
+            "description": "A changed default where the Component holds a value of its own.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "take_new",
+                "description": "The cell starts as Update: the Component takes the new default.",
+                "type": "string"
+              }
+            ]
+          },
+          "SettingsParams": {
+            "additionalProperties": false,
+            "description": "Settings that override the ones saved in the Project for this run. Each left out\ntakes the saved value, or its default.",
+            "properties": {
+              "add_new_footprints": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "component_field_missing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ComponentFieldMissing"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fields_to_update": {
+                "description": "The cells that may start as Update: field names, `component_type`, `in_bom` and\n`in_cpl`.",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "footprint_choice": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FootprintChoice"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "library_field_missing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LibraryFieldMissing"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "locally_edited": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LocallyEdited"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "preserve_field_locations": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "preserve_field_visibility": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "remove_missing_footprints": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
+        "description": "Which Components an update covers and how: what `update_preview` and\n`update_from_library` share.",
         "properties": {
+          "aspects": {
+            "description": "The aspects every Component takes; all three (Full Replace) by default.",
+            "items": {
+              "$ref": "#/$defs/Aspect"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "component_aspects": {
+            "description": "The aspects of single Components, over `aspects`.",
+            "items": {
+              "$ref": "#/$defs/ComponentAspects"
+            },
+            "type": "array"
+          },
           "components": {
-            "description": "The Components to update, by UUID; every outdated Component by default. Listed\nComponents that are up to date are left out.",
+            "description": "The Components to update, by UUID (Selected Parts Only); every placed Component by\ndefault. Up to Date ones are left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "parts": {
+            "description": "Only the Components placed from these Library Parts, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SettingsParams"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Settings over the ones saved in the Project."
+          },
+          "sheets": {
+            "description": "Only the Components with a Unit on one of these sheets. A Component on several\nsheets is updated as a whole.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -45118,22 +45658,139 @@
       "presets": [],
       "result": {
         "$defs": {
-          "ComponentType": {
-            "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+          "Aspect": {
+            "description": "What an Update from Library can take, separately or together (Full Replace).",
             "oneOf": [
               {
-                "const": "standard",
-                "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+                "const": "symbol",
+                "description": "The Symbol: its graphics, Units and Pins.",
                 "type": "string"
               },
               {
-                "const": "mechanical",
-                "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+                "const": "fields",
+                "description": "The Part's name, default fields, Component Type, In BOM and In CPL.",
                 "type": "string"
               },
               {
-                "const": "net_tie",
-                "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+                "const": "footprints",
+                "description": "The alternate Footprints, their order and geometry, and the pin-map overrides.",
+                "type": "string"
+              }
+            ]
+          },
+          "Cell": {
+            "description": "One cell of the field grid.",
+            "properties": {
+              "action": {
+                "$ref": "#/$defs/CellAction",
+                "description": "How the cell starts."
+              },
+              "case": {
+                "$ref": "#/$defs/CellCase"
+              },
+              "cell": {
+                "description": "A field's name, or `component_type`, `in_bom`, `in_cpl` or `not_fitted`.",
+                "type": "string"
+              },
+              "component": {
+                "description": "The Component's value.",
+                "type": "string"
+              },
+              "new": {
+                "description": "The new default, from the Library (`\"\"` = not set).",
+                "type": "string"
+              },
+              "old": {
+                "description": "The old default, from the part-table copy (`\"\"` = not set).",
+                "type": "string"
+              }
+            },
+            "required": [
+              "cell",
+              "case",
+              "old",
+              "new",
+              "component",
+              "action"
+            ],
+            "type": "object"
+          },
+          "CellAction": {
+            "description": "What a cell does to the Component.",
+            "oneOf": [
+              {
+                "const": "update",
+                "description": "The Component takes the new default (an empty one removes the field).",
+                "type": "string"
+              },
+              {
+                "const": "reject",
+                "description": "The Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Nothing to do: the value is the new default already, or the cell is locked.",
+                "type": "string"
+              }
+            ]
+          },
+          "CellCase": {
+            "description": "How the three values of a cell compare.",
+            "oneOf": [
+              {
+                "const": "changed",
+                "description": "The default changed and the Component holds the old one.",
+                "type": "string"
+              },
+              {
+                "const": "same",
+                "description": "The default changed and the Component already holds the new one.",
+                "type": "string"
+              },
+              {
+                "const": "edited",
+                "description": "The default changed (or is gone) and the Component holds a value of its own.",
+                "type": "string"
+              },
+              {
+                "const": "added",
+                "description": "The field is new in the Library and the Component has no value.",
+                "type": "string"
+              },
+              {
+                "const": "removed",
+                "description": "The field is gone from the Library and the Component holds the old default.",
+                "type": "string"
+              },
+              {
+                "const": "component_only",
+                "description": "Only the Component has the field.",
+                "type": "string"
+              },
+              {
+                "const": "locked",
+                "description": "The field is one of the Component's Locked Fields: no change, and no override\nuntil it is unlocked.",
+                "type": "string"
+              },
+              {
+                "const": "cleared",
+                "description": "Not Fitted, cleared because the Component becomes a Net Tie, which refuses it.",
+                "type": "string"
+              }
+            ]
+          },
+          "ComponentFieldMissing": {
+            "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "The cell starts as Update, which removes the field.",
                 "type": "string"
               }
             ]
@@ -45141,12 +45798,26 @@
           "ComponentUpdate": {
             "description": "What an update changes on one Component.",
             "properties": {
+              "aspects": {
+                "description": "The aspects the update takes: those asked for that differ.",
+                "items": {
+                  "$ref": "#/$defs/Aspect"
+                },
+                "type": "array"
+              },
               "blocked": {
-                "description": "Whether a change (a placed Unit gone from the Symbol) stops this Component's\nupdate. Omitted when false.",
+                "description": "Whether a Problem stops this Component's update. Omitted when false.",
                 "type": "boolean"
               },
+              "cells": {
+                "description": "The field grid, when the Fields aspect is taken.",
+                "items": {
+                  "$ref": "#/$defs/Cell"
+                },
+                "type": "array"
+              },
               "changes": {
-                "description": "The differences, Part first, then Symbol, then Footprints.",
+                "description": "The differences of the aspects taken: Fields, Symbol, then Footprints.",
                 "items": {
                   "$ref": "#/$defs/PartChange"
                 },
@@ -45159,8 +45830,12 @@
               "designator": {
                 "type": "string"
               },
-              "library_hash": {
-                "type": "string"
+              "differs": {
+                "description": "The aspects that differ.",
+                "items": {
+                  "$ref": "#/$defs/Aspect"
+                },
+                "type": "array"
               },
               "lost_local_edits": {
                 "description": "The local Pad and graphics edits of its Locally Edited Footprint on the board that\nthe update removes, because it changes that Footprint's hash. Omitted when none.",
@@ -45174,16 +45849,35 @@
                 "format": "uuid",
                 "type": "string"
               },
-              "placed_hash": {
+              "part_name": {
                 "type": "string"
+              },
+              "problems": {
+                "items": {
+                  "$ref": "#/$defs/Problem"
+                },
+                "type": "array"
+              },
+              "reason": {
+                "description": "For Source Missing: what is missing.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "$ref": "#/$defs/LibraryStatus",
+                "description": "`library_differs` or `source_missing`; a Source Missing row cannot be updated."
               }
             },
             "required": [
               "component",
               "designator",
               "part",
-              "placed_hash",
-              "library_hash",
+              "part_name",
+              "status",
+              "differs",
+              "aspects",
               "changes"
             ],
             "type": "object"
@@ -45195,6 +45889,161 @@
               "modified"
             ],
             "type": "string"
+          },
+          "FootprintChoice": {
+            "description": "Which Footprint a Component chooses after its alternates are updated.",
+            "oneOf": [
+              {
+                "const": "keep_if_present",
+                "description": "The current Footprint while it is still an alternate, else the new default.",
+                "type": "string"
+              },
+              {
+                "const": "default",
+                "description": "Always the new default.",
+                "type": "string"
+              }
+            ]
+          },
+          "FromTo": {
+            "description": "A value before and after.",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "FromTo2": {
+            "description": "A value before and after.",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/PinType"
+              },
+              "to": {
+                "$ref": "#/$defs/PinType"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "LibraryFieldMissing": {
+            "description": "A field the Library Part has and the Component has no value for.",
+            "oneOf": [
+              {
+                "const": "add",
+                "description": "The cell starts as Update: the Component takes the field.",
+                "type": "string"
+              },
+              {
+                "const": "add_if_not_blank",
+                "description": "Update when the Library value is not blank.",
+                "type": "string"
+              },
+              {
+                "const": "skip",
+                "description": "The cell starts as Reject.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryStatus": {
+            "description": "How a placed Component compares with the Libraries.",
+            "oneOf": [
+              {
+                "const": "up_to_date",
+                "description": "Every aspect's content hash matches.",
+                "type": "string"
+              },
+              {
+                "const": "library_differs",
+                "description": "At least one aspect differs.",
+                "type": "string"
+              },
+              {
+                "const": "source_missing",
+                "description": "No registered Library holds the Part, or a Symbol or Footprint it references.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryUpdateSettings": {
+            "additionalProperties": false,
+            "description": "The Update from Library settings. A setting left out has its default.",
+            "properties": {
+              "add_new_footprints": {
+                "default": true,
+                "description": "Footprints new in the Library join the alternates.",
+                "type": "boolean"
+              },
+              "component_field_missing": {
+                "$ref": "#/$defs/ComponentFieldMissing",
+                "default": "keep",
+                "description": "A field on the Component and not in the Library."
+              },
+              "fields_to_update": {
+                "default": null,
+                "description": "The cells that may start as Update, by name: field names, `component_type`,\n`in_bom` and `in_cpl`. `null` (the default) is every one; a cell not listed starts\nas Reject.",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "footprint_choice": {
+                "$ref": "#/$defs/FootprintChoice",
+                "default": "keep_if_present"
+              },
+              "library_field_missing": {
+                "$ref": "#/$defs/LibraryFieldMissing",
+                "default": "add",
+                "description": "A field in the Library and not on the Component."
+              },
+              "locally_edited": {
+                "$ref": "#/$defs/LocallyEdited",
+                "default": "keep",
+                "description": "A changed default the Component has its own value for."
+              },
+              "preserve_field_locations": {
+                "default": true,
+                "description": "Fields moved by hand stay where they are; off, they return to Autoposition.",
+                "type": "boolean"
+              },
+              "preserve_field_visibility": {
+                "default": true,
+                "description": "Which fields show stays as it is; off, the Designator and value show.",
+                "type": "boolean"
+              },
+              "remove_missing_footprints": {
+                "default": true,
+                "description": "Footprints gone from the Library leave the alternates.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "library_field_missing",
+              "component_field_missing",
+              "locally_edited",
+              "fields_to_update",
+              "add_new_footprints",
+              "remove_missing_footprints",
+              "footprint_choice",
+              "preserve_field_locations",
+              "preserve_field_visibility"
+            ],
+            "type": "object"
           },
           "LocalEdit": {
             "description": "One property of one Pad or graphic that differs from the copy it came from.",
@@ -45238,11 +46087,26 @@
             ],
             "type": "object"
           },
-          "PartChange": {
-            "description": "One difference between the placed copy and the Library Part.",
+          "LocallyEdited": {
+            "description": "A changed default where the Component holds a value of its own.",
             "oneOf": [
               {
-                "description": "The Part was renamed.",
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "take_new",
+                "description": "The cell starts as Update: the Component takes the new default.",
+                "type": "string"
+              }
+            ]
+          },
+          "PartChange": {
+            "description": "One difference an update makes, under the aspect that brings it.",
+            "oneOf": [
+              {
+                "description": "Fields: the Part was renamed.",
                 "properties": {
                   "from": {
                     "type": "string"
@@ -45263,76 +46127,11 @@
                 "type": "object"
               },
               {
-                "description": "The Part's Component Type changed. `edited` when the Component has its own\nComponent Type, which it keeps.",
+                "description": "Symbol: the Symbol changed; `name` is its name after, and `graphics` whether its\ndrawing changed.",
                 "properties": {
-                  "edited": {
+                  "graphics": {
                     "type": "boolean"
                   },
-                  "from": {
-                    "$ref": "#/$defs/ComponentType"
-                  },
-                  "kind": {
-                    "const": "component_type",
-                    "type": "string"
-                  },
-                  "to": {
-                    "$ref": "#/$defs/ComponentType"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "from",
-                  "to"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "A default field changed (`\"\"` = not set). `edited` when the Component has its own\nvalue for it, and `locked` when it is one of the Component's Locked Fields: either\nway it keeps its value; otherwise it takes the new default.",
-                "properties": {
-                  "edited": {
-                    "type": "boolean"
-                  },
-                  "from": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "const": "field",
-                    "type": "string"
-                  },
-                  "locked": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "to": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "name",
-                  "from",
-                  "to"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "The Part's pin-pad map overrides changed.",
-                "properties": {
-                  "kind": {
-                    "const": "pin_map",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind"
-                ],
-                "type": "object"
-              },
-              {
-                "description": "The Symbol changed (pins, graphics, Units or names); `name` is its name now.",
-                "properties": {
                   "kind": {
                     "const": "symbol",
                     "type": "string"
@@ -45348,10 +46147,10 @@
                 "type": "object"
               },
               {
-                "description": "A Unit of the Component that is placed no longer exists in the Symbol. The\nComponent cannot be updated until that Unit is deleted.",
+                "description": "Symbol: a Unit new in the Symbol. It appears as unplaced.",
                 "properties": {
                   "kind": {
-                    "const": "unit_removed",
+                    "const": "unit_added",
                     "type": "string"
                   },
                   "unit": {
@@ -45365,7 +46164,89 @@
                 "type": "object"
               },
               {
-                "description": "An alternate Footprint was added, removed or changed. The PCB gets a Footprint\nchange through Sync, not through the update.",
+                "description": "Symbol: a Unit gone from the Symbol. A placed one blocks the Component until the\nuser deletes that Unit.",
+                "properties": {
+                  "kind": {
+                    "const": "unit_removed",
+                    "type": "string"
+                  },
+                  "placed": {
+                    "type": "boolean"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Symbol: a Pin added, removed, renamed, retyped or moved, matched by number within\nits Unit. On a placed Unit, `leaves` and `joins` name the Nets the Pin leaves and\njoins: Wires never move, so a moved Pin may leave its Net.",
+                "properties": {
+                  "added": {
+                    "type": "boolean"
+                  },
+                  "electrical_type": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FromTo2"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "joins": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "pin",
+                    "type": "string"
+                  },
+                  "leaves": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "moved": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FromTo"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "removed": {
+                    "type": "boolean"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit",
+                  "number"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: an alternate added, removed or changed. On a changed one, the Pad\nnumbers added or removed and the Pads (by number) moved or resized. The PCB gets\nthe change through Sync, not through the update.",
                 "properties": {
                   "change": {
                     "$ref": "#/$defs/FootprintChange"
@@ -45380,6 +46261,30 @@
                   },
                   "name": {
                     "type": "string"
+                  },
+                  "pads_added": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_moved": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_removed": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "pads_resized": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   }
                 },
                 "required": [
@@ -45391,7 +46296,7 @@
                 "type": "object"
               },
               {
-                "description": "The alternates are in a new order; the first is the default.",
+                "description": "Footprints: the alternates kept are in a new order; the first is the default.",
                 "properties": {
                   "kind": {
                     "const": "footprint_order",
@@ -45404,11 +46309,35 @@
                 "type": "object"
               },
               {
-                "description": "The Component's Footprint is no longer an alternate, so it moves to the new\ndefault (`null` when the Part has none).",
+                "description": "Footprints: the pin-pad map overrides, old and new.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/PinMap"
+                  },
+                  "kind": {
+                    "const": "pin_map",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/PinMap"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Footprints: the Component's Footprint choice changes (`null` = none).",
                 "properties": {
                   "from": {
                     "format": "uuid",
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "kind": {
                     "const": "footprint_choice",
@@ -45430,20 +46359,143 @@
                 "type": "object"
               }
             ]
+          },
+          "PinMap": {
+            "additionalProperties": false,
+            "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+            "properties": {
+              "pins": {
+                "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+                "items": {
+                  "$ref": "#/$defs/PinPads"
+                },
+                "type": "array"
+              },
+              "unconnected": {
+                "description": "Pad numbers deliberately left unconnected, sorted.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "PinPads": {
+            "additionalProperties": false,
+            "description": "One Pin mapped to an explicit set of Pads.",
+            "properties": {
+              "pads": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pin": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pin",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Problem": {
+            "description": "Something in an update that needs the user: a blocking one stops that Component.",
+            "oneOf": [
+              {
+                "description": "A placed Unit is gone from the Symbol: delete it first. Blocks.",
+                "properties": {
+                  "kind": {
+                    "const": "placed_unit_removed",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The Library Part has no Symbol, so the Symbol cannot be taken. Blocks.",
+                "properties": {
+                  "kind": {
+                    "const": "no_symbol",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "The mix leaves a Pin with no Pad on the chosen Footprint.",
+                "properties": {
+                  "kind": {
+                    "const": "pin_without_pad",
+                    "type": "string"
+                  },
+                  "number": {
+                    "type": "string"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "unit",
+                  "number"
+                ],
+                "type": "object"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "components": {
-            "description": "By Designator, in natural order.",
+            "description": "The Components in scope that are not Up to Date, by Designator in natural order.",
             "items": {
               "$ref": "#/$defs/ComponentUpdate"
             },
             "type": "array"
+          },
+          "preview_hash": {
+            "description": "Pass it to `schematic.component.update_from_library` with the same parameters.",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/$defs/LibraryUpdateSettings",
+            "description": "The settings used: the saved ones with the parameters over them."
           }
         },
         "required": [
-          "components"
+          "components",
+          "settings",
+          "preview_hash"
         ],
         "title": "UpdateResult",
         "type": "object"

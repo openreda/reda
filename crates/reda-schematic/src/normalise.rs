@@ -84,7 +84,6 @@ pub const WIRING_COMMANDS: &[&str] = &[
     "schematic.unit.place",
     "schematic.unit.move",
     "schematic.unit.cycle",
-    "schematic.component.update_from_library",
     "schematic.delete",
     "schematic.cut",
     "schematic.paste",

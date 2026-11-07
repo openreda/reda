@@ -12,6 +12,7 @@ mod derived;
 mod document;
 pub mod footprint_copper;
 mod library;
+pub mod library_update;
 pub mod local_edit;
 pub mod net_name;
 mod openings;

@@ -1,59 +1,90 @@
-//! What an Update from Library changes on one Component: the differences between the
-//! part-table copy it was placed from and the Library Part now, and the Component's own
-//! data after the update.
+//! What an Update from Library changes on one Component, aspect by aspect: the Part's
+//! name, the Symbol with its Units and Pins (with the Nets each Pin leaves or joins), and
+//! the alternate Footprints with their Pads, pin map and the Footprint choice.
 
 use std::collections::BTreeSet;
 
-use reda_command::PartCopy;
-use reda_model::{ComponentType, Fields, PartEntry, SchematicSheet, UnitInstance, Uuid};
+use reda_model::{Footprint, Pad, PinMap, PinType, Symbol, Uuid};
 use schemars::JsonSchema;
 use serde::Serialize;
 
-/// One difference between the placed copy and the Library Part.
+use super::status::{Aspect, Content};
+
+/// A value before and after.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct FromTo<T> {
+    pub from: T,
+    pub to: T,
+}
+
+/// One difference an update makes, under the aspect that brings it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PartChange {
-    /// The Part was renamed.
+    /// Fields: the Part was renamed.
     Name { from: String, to: String },
-    /// The Part's Component Type changed. `edited` when the Component has its own
-    /// Component Type, which it keeps.
-    ComponentType {
-        from: ComponentType,
-        to: ComponentType,
-        #[serde(default, skip_serializing_if = "is_false")]
-        edited: bool,
-    },
-    /// A default field changed (`""` = not set). `edited` when the Component has its own
-    /// value for it, and `locked` when it is one of the Component's Locked Fields: either
-    /// way it keeps its value; otherwise it takes the new default.
-    Field {
+    /// Symbol: the Symbol changed; `name` is its name after, and `graphics` whether its
+    /// drawing changed.
+    Symbol {
         name: String,
-        from: String,
-        to: String,
         #[serde(default, skip_serializing_if = "is_false")]
-        edited: bool,
-        #[serde(default, skip_serializing_if = "is_false")]
-        locked: bool,
+        graphics: bool,
     },
-    /// The Part's pin-pad map overrides changed.
-    PinMap,
-    /// The Symbol changed (pins, graphics, Units or names); `name` is its name now.
-    Symbol { name: String },
-    /// A Unit of the Component that is placed no longer exists in the Symbol. The
-    /// Component cannot be updated until that Unit is deleted.
-    UnitRemoved { unit: String },
-    /// An alternate Footprint was added, removed or changed. The PCB gets a Footprint
-    /// change through Sync, not through the update.
+    /// Symbol: a Unit new in the Symbol. It appears as unplaced.
+    UnitAdded { unit: String },
+    /// Symbol: a Unit gone from the Symbol. A placed one blocks the Component until the
+    /// user deletes that Unit.
+    UnitRemoved {
+        unit: String,
+        #[serde(default, skip_serializing_if = "is_false")]
+        placed: bool,
+    },
+    /// Symbol: a Pin added, removed, renamed, retyped or moved, matched by number within
+    /// its Unit. On a placed Unit, `leaves` and `joins` name the Nets the Pin leaves and
+    /// joins: Wires never move, so a moved Pin may leave its Net.
+    Pin {
+        unit: String,
+        number: String,
+        #[serde(default, skip_serializing_if = "is_false")]
+        added: bool,
+        #[serde(default, skip_serializing_if = "is_false")]
+        removed: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<FromTo<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        electrical_type: Option<FromTo<PinType>>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        moved: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        leaves: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        joins: Option<String>,
+    },
+    /// Footprints: an alternate added, removed or changed. On a changed one, the Pad
+    /// numbers added or removed and the Pads (by number) moved or resized. The PCB gets
+    /// the change through Sync, not through the update.
     Footprint {
         footprint: Uuid,
         name: String,
         change: FootprintChange,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        pads_added: Vec<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        pads_removed: Vec<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        pads_moved: Vec<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        pads_resized: Vec<String>,
     },
-    /// The alternates are in a new order; the first is the default.
+    /// Footprints: the alternates kept are in a new order; the first is the default.
     FootprintOrder,
-    /// The Component's Footprint is no longer an alternate, so it moves to the new
-    /// default (`null` when the Part has none).
-    FootprintChoice { from: Uuid, to: Option<Uuid> },
+    /// Footprints: the pin-pad map overrides, old and new.
+    PinMap { from: PinMap, to: PinMap },
+    /// Footprints: the Component's Footprint choice changes (`null` = none).
+    FootprintChoice {
+        from: Option<Uuid>,
+        to: Option<Uuid>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
@@ -69,169 +100,225 @@ fn is_false(b: &bool) -> bool {
 }
 
 impl PartChange {
-    /// Whether this change stops the update.
+    /// The aspect that brings this change.
+    pub fn aspect(&self) -> Aspect {
+        match self {
+            PartChange::Name { .. } => Aspect::Fields,
+            PartChange::Symbol { .. }
+            | PartChange::UnitAdded { .. }
+            | PartChange::UnitRemoved { .. }
+            | PartChange::Pin { .. } => Aspect::Symbol,
+            _ => Aspect::Footprints,
+        }
+    }
+
+    /// Whether this change stops the update: a placed Unit gone from the Symbol.
     pub fn blocks(&self) -> bool {
-        matches!(self, PartChange::UnitRemoved { .. })
+        matches!(self, PartChange::UnitRemoved { placed: true, .. })
     }
 }
 
-/// The differences between `entry` (on `sheet`) and `copy`, for a Component whose Units
-/// are `units` (all carrying the same Component data).
-pub fn changes(
-    sheet: &SchematicSheet,
-    entry: &PartEntry,
-    copy: &PartCopy,
-    units: &[&UnitInstance],
-) -> Vec<PartChange> {
-    let (old, new) = (&entry.part, &copy.part);
-    let component = units[0];
-    let mut out = vec![];
-    if old.name != new.name {
-        out.push(PartChange::Name {
-            from: old.name.clone(),
-            to: new.name.clone(),
-        });
+/// Where a placed Pin's Net is, before and after the update: `None` for a Pin connected
+/// to nothing.
+pub(crate) trait PinNets {
+    /// The Net of Pin `pin` (by UUID) of placed Unit `unit` before the update.
+    fn before(&self, unit: Uuid, pin: Uuid) -> Option<String>;
+    /// The same after it.
+    fn after(&self, unit: Uuid, pin: Uuid) -> Option<String>;
+}
+
+/// The Symbol changes from `old` to `new` for a Component whose placed Units are
+/// `placed` (Unit instance UUID, Symbol Unit UUID).
+pub(crate) fn symbol_changes(
+    old: &Symbol,
+    new: &Symbol,
+    placed: &[(Uuid, Uuid)],
+    nets: &dyn PinNets,
+    out: &mut Vec<PartChange>,
+) {
+    if old == new {
+        return;
     }
-    if old.component_type != new.component_type {
-        out.push(PartChange::ComponentType {
-            from: old.component_type,
-            to: new.component_type,
-            edited: component.component_type != old.component_type,
-        });
-    }
-    for name in field_names(&old.fields, &new.fields) {
-        let (from, to) = (old.fields.get(&name), new.fields.get(&name));
-        if from != to {
-            out.push(PartChange::Field {
-                edited: component.fields.get(&name) != from,
-                locked: component.locked_fields.contains(&name),
-                from: from.to_owned(),
-                to: to.to_owned(),
-                name,
+    out.push(PartChange::Symbol {
+        name: new.name.clone(),
+        graphics: old.graphics != new.graphics,
+    });
+    let instance = |unit: Uuid| placed.iter().find(|(_, u)| *u == unit).map(|(i, _)| *i);
+    for unit in &old.units {
+        if !new.units.iter().any(|u| u.uuid == unit.uuid) {
+            out.push(PartChange::UnitRemoved {
+                unit: unit.name.clone(),
+                placed: instance(unit.uuid).is_some(),
             });
         }
     }
-    if old.pin_map != new.pin_map {
-        out.push(PartChange::PinMap);
-    }
-    if let Some(symbol) = &copy.symbol {
-        if *symbol != entry.symbol {
-            out.push(PartChange::Symbol {
-                name: symbol.name.clone(),
+    for unit in &new.units {
+        if !old.units.iter().any(|u| u.uuid == unit.uuid) {
+            out.push(PartChange::UnitAdded {
+                unit: unit.name.clone(),
             });
         }
-        let kept: BTreeSet<Uuid> = symbol.units.iter().map(|u| u.uuid).collect();
-        for unit in &entry.symbol.units {
-            let placed = units.iter().any(|u| u.unit == unit.uuid);
-            if placed && !kept.contains(&unit.uuid) {
-                out.push(PartChange::UnitRemoved {
-                    unit: unit.name.clone(),
+    }
+    for unit in (new.units.iter()).filter(|u| old.units.iter().any(|o| o.uuid == u.uuid)) {
+        let at = instance(unit.uuid);
+        let olds: Vec<_> = old.unit_pins(unit.uuid).collect();
+        let news: Vec<_> = new.unit_pins(unit.uuid).collect();
+        let mut numbers: Vec<&str> = olds.iter().map(|p| p.number.as_str()).collect();
+        for p in &news {
+            if !numbers.contains(&p.number.as_str()) {
+                numbers.push(&p.number);
+            }
+        }
+        for number in numbers {
+            let o = olds.iter().find(|p| p.number == number);
+            let n = news.iter().find(|p| p.number == number);
+            let before = at.zip(o).and_then(|(i, p)| nets.before(i, p.uuid));
+            let after = at.zip(n).and_then(|(i, p)| nets.after(i, p.uuid));
+            let name = (o.zip(n))
+                .filter(|(o, n)| o.name != n.name)
+                .map(|(o, n)| FromTo {
+                    from: o.name.clone(),
+                    to: n.name.clone(),
                 });
+            let electrical_type = (o.zip(n))
+                .filter(|(o, n)| o.electrical_type != n.electrical_type)
+                .map(|(o, n)| FromTo {
+                    from: o.electrical_type,
+                    to: n.electrical_type,
+                });
+            let moved = o.zip(n).is_some_and(|(o, n)| o.at != n.at);
+            let (added, removed) = (o.is_none(), n.is_none());
+            let changed = added || removed || name.is_some() || electrical_type.is_some() || moved;
+            let net_changed = before != after;
+            if !changed && !net_changed {
+                continue;
+            }
+            let (leaves, joins) = if net_changed {
+                (before, after)
+            } else {
+                (None, None)
+            };
+            out.push(PartChange::Pin {
+                unit: unit.name.clone(),
+                number: number.to_owned(),
+                added,
+                removed,
+                name,
+                electrical_type,
+                moved,
+                leaves,
+                joins,
+            });
+        }
+    }
+}
+
+/// The Footprints changes from `old` to `new`, and the Footprint choice change.
+pub(crate) fn footprint_changes(
+    old: &Content<'_>,
+    new: &Content<'_>,
+    (from, to): (Option<Uuid>, Option<Uuid>),
+    out: &mut Vec<PartChange>,
+) {
+    let footprint = |fp: &Footprint, change: FootprintChange| PartChange::Footprint {
+        footprint: fp.uuid,
+        name: fp.name.clone(),
+        change,
+        pads_added: vec![],
+        pads_removed: vec![],
+        pads_moved: vec![],
+        pads_resized: vec![],
+    };
+    for fp in new.footprints {
+        match old.footprints.iter().find(|o| o.uuid == fp.uuid) {
+            None => out.push(footprint(fp, FootprintChange::Added)),
+            Some(o) if o != fp => out.push(modified(o, fp)),
+            Some(_) => {}
+        }
+    }
+    for fp in old.footprints {
+        if !new.footprints.iter().any(|n| n.uuid == fp.uuid) {
+            out.push(footprint(fp, FootprintChange::Removed));
+        }
+    }
+    let kept = |a: &Content<'_>, b: &Content<'_>| -> Vec<Uuid> {
+        (a.part.footprints.iter())
+            .filter(|f| b.part.footprints.contains(f))
+            .copied()
+            .collect()
+    };
+    if kept(old, new) != kept(new, old) {
+        out.push(PartChange::FootprintOrder);
+    }
+    if old.part.pin_map != new.part.pin_map {
+        out.push(PartChange::PinMap {
+            from: old.part.pin_map.clone(),
+            to: new.part.pin_map.clone(),
+        });
+    }
+    if from != to {
+        out.push(PartChange::FootprintChoice { from, to });
+    }
+}
+
+/// A changed Footprint with its Pad detail.
+fn modified(old: &Footprint, new: &Footprint) -> PartChange {
+    let numbers =
+        |fp: &Footprint| -> BTreeSet<String> { fp.pads.iter().map(|p| p.number.clone()).collect() };
+    let (o, n) = (numbers(old), numbers(new));
+    let mut moved = BTreeSet::new();
+    let mut resized = BTreeSet::new();
+    for pad in &new.pads {
+        if let Some(before) = old.pads.iter().find(|p| p.uuid == pad.uuid) {
+            if (before.at, before.rotation) != (pad.at, pad.rotation) {
+                moved.insert(pad.number.clone());
+            }
+            if !same_size(before, pad) {
+                resized.insert(pad.number.clone());
             }
         }
     }
-    footprint_changes(sheet, entry, copy, &mut out);
-    if let Some(from) = component.footprint
-        && !new.footprints.contains(&from)
-    {
-        out.push(PartChange::FootprintChoice {
-            from,
-            to: new.footprints.first().copied(),
-        });
-    }
-    out
-}
-
-fn footprint_changes(
-    sheet: &SchematicSheet,
-    entry: &PartEntry,
-    copy: &PartCopy,
-    out: &mut Vec<PartChange>,
-) {
-    let old: Vec<_> = entry
-        .footprints
-        .iter()
-        .map(|c| sheet.footprint(*c).expect("an entry's copies exist"))
-        .collect();
-    for new in &copy.footprints {
-        let fp = &new.footprint;
-        let change = match old.iter().find(|c| c.footprint.uuid == fp.uuid) {
-            None => FootprintChange::Added,
-            Some(c) if c.hash != new.hash => FootprintChange::Modified,
-            Some(_) => continue,
-        };
-        out.push(PartChange::Footprint {
-            footprint: fp.uuid,
-            name: fp.name.clone(),
-            change,
-        });
-    }
-    for c in &old {
-        if !copy.part.footprints.contains(&c.footprint.uuid) {
-            out.push(PartChange::Footprint {
-                footprint: c.footprint.uuid,
-                name: c.footprint.name.clone(),
-                change: FootprintChange::Removed,
-            });
-        }
-    }
-    let kept_old: Vec<Uuid> = entry
-        .part
-        .footprints
-        .iter()
-        .filter(|f| copy.part.footprints.contains(f))
-        .copied()
-        .collect();
-    let kept_new: Vec<Uuid> = copy
-        .part
-        .footprints
-        .iter()
-        .filter(|f| entry.part.footprints.contains(f))
-        .copied()
-        .collect();
-    if kept_old != kept_new {
-        out.push(PartChange::FootprintOrder);
+    PartChange::Footprint {
+        footprint: new.uuid,
+        name: new.name.clone(),
+        change: FootprintChange::Modified,
+        pads_added: n.difference(&o).cloned().collect(),
+        pads_removed: o.difference(&n).cloned().collect(),
+        pads_moved: moved.into_iter().collect(),
+        pads_resized: resized.into_iter().collect(),
     }
 }
 
-/// The built-in field names, then the free-form ones: the old Part's in its order, then
-/// the new Part's new ones.
-fn field_names(old: &Fields, new: &Fields) -> Vec<String> {
-    let mut names: Vec<String> = Fields::BUILT_IN.iter().map(|&n| n.to_owned()).collect();
-    for field in old.custom.iter().chain(&new.custom) {
-        if !names.contains(&field.name) {
-            names.push(field.name.clone());
-        }
-    }
-    names
+/// Whether two Pads have the same size and shape.
+fn same_size(a: &Pad, b: &Pad) -> bool {
+    a.shape == b.shape
+        && a.width == b.width
+        && a.height == b.height
+        && a.corner_ratio == b.corner_ratio
+        && a.chamfer_ratio == b.chamfer_ratio
+        && a.corners == b.corners
+        && a.hole == b.hole
 }
 
-/// The Unit as the update leaves it: pointing at `entry`, with every changed field the
-/// Component had neither edited nor locked, and a Component Type it had not edited,
-/// taking the new default, a Footprint that
-/// is no longer an alternate moved to the new default, and Not Fitted cleared on a Net Tie.
-pub fn updated_unit(unit: &UnitInstance, entry: Uuid, changes: &[PartChange]) -> UnitInstance {
-    let mut unit = unit.clone();
-    unit.part = entry;
-    for change in changes {
-        match change {
-            PartChange::Field {
-                name,
-                to,
-                edited: false,
-                locked: false,
-                ..
-            } => unit.fields.set(name, to),
-            PartChange::ComponentType {
-                to, edited: false, ..
-            } => unit.component_type = *to,
-            PartChange::FootprintChoice { to, .. } => unit.footprint = *to,
-            _ => {}
-        }
-    }
-    // A Net Tie refuses Not Fitted, so becoming one clears it.
-    if !unit.component_type.allows_not_fitted() {
-        unit.not_fitted = false;
-    }
-    unit
+/// The Pins of `symbol` (other than Not Connected ones) that reach no Pad of `footprint`
+/// through `pin_map`, as (Unit name, Pin number).
+pub(crate) fn pins_without_pads(
+    symbol: &Symbol,
+    pin_map: &PinMap,
+    footprint: &Footprint,
+) -> Vec<(String, String)> {
+    (symbol.pins.iter())
+        .filter(|p| p.electrical_type != PinType::NotConnected)
+        .filter(|p| {
+            !(pin_map.pads_of(&p.number).iter())
+                .any(|n| footprint.pads.iter().any(|pad| pad.number == *n))
+        })
+        .map(|p| {
+            let unit = symbol.units.iter().find(|u| u.uuid == p.unit);
+            (
+                unit.map(|u| u.name.clone()).unwrap_or_default(),
+                p.number.clone(),
+            )
+        })
+        .collect()
 }

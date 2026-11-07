@@ -240,6 +240,7 @@ impl Command for Create {
             erc: Default::default(),
             schematic: Default::default(),
             reannotate: None,
+            library_update: None,
         }));
         Ok(uuid)
     }

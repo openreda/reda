@@ -95,6 +95,7 @@ pub fn open_from(
         erc: file.erc,
         schematic: file.schematic,
         reannotate: file.reannotate,
+        library_update: file.library_update,
     });
     reda_model::text::check_object(&Object::Project(project.props().clone())).map_err(invalid)?;
     let mut missing = vec![];

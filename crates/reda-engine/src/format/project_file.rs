@@ -19,7 +19,8 @@
 //!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"},
 //!   "erc": {"unconnected_input":"error",…,"single_pin_net":"off",…},
 //!   "schematic": {"power_port_names_priority":false,"allow_ports_to_name_nets":true,…},
-//!   "reannotate": {"source":"schematic","mode":"renumber_all","scope":"project",…}
+//!   "reannotate": {"source":"schematic","mode":"renumber_all","scope":"project",…},
+//!   "library_update": {"library_field_missing":"add","locally_edited":"keep",…}
 //! }
 //! ```
 //!
@@ -81,6 +82,10 @@ pub(crate) struct ProjectFile {
     /// `schematic.reannotate {saved: true}` run again. Written only once there are any.
     #[serde(default)]
     pub reannotate: Option<ReannotateSettings>,
+    /// The Update from Library settings page 1 of its dialog saved, which the update
+    /// Commands use unless their parameters say otherwise. Written only once there are any.
+    #[serde(default)]
+    pub library_update: Option<reda_model::library_update::LibraryUpdateSettings>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -173,6 +178,9 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     }
     if let Some(reannotate) = &project.props().reannotate {
         w.field("reannotate", reannotate)?;
+    }
+    if let Some(settings) = &project.props().library_update {
+        w.field("library_update", settings)?;
     }
     Ok(w.finish())
 }
