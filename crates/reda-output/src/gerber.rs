@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{Millideg, Nm, Point, arc_centre};
 
 /// The aperture function of objects that take none, such as silkscreen drawing: their
 /// apertures and regions carry no `.AperFunction`.
@@ -91,11 +91,11 @@ impl Template {
             Self::Rect(w, h) => Self::RotRect(w, h, angle),
             Self::Oval(w, h) if w >= h => Self::RotOval(w, h, angle),
             Self::Oval(w, h) => Self::RotOval(h, w, Millideg(angle.0 + 90_000)),
-            Self::RotRect(w, h, rot) => Self::RotRect(w, h, Millideg(rot.0 + angle.0)),
-            Self::RotOval(w, h, rot) => Self::RotOval(w, h, Millideg(rot.0 + angle.0)),
-            Self::RoundRect(w, h, r, rot) => Self::RoundRect(w, h, r, Millideg(rot.0 + angle.0)),
+            Self::RotRect(w, h, rot) => Self::RotRect(w, h, rot + angle),
+            Self::RotOval(w, h, rot) => Self::RotOval(w, h, rot + angle),
+            Self::RoundRect(w, h, r, rot) => Self::RoundRect(w, h, r, rot + angle),
             Self::Shape(mut shape) => {
-                shape.rotation = Millideg(shape.rotation.0 + angle.0);
+                shape.rotation = shape.rotation + angle;
                 Self::Shape(shape)
             }
         }
@@ -193,32 +193,6 @@ pub(crate) fn escape(text: &str) -> String {
         }
     }
     out
-}
-
-/// The centre of the arc from `from` to `to` sweeping `sweep` (non-zero, under a full
-/// turn), rounded to the nanometre. Quarter-turn multiples are exact.
-pub(crate) fn arc_centre(from: Point, to: Point, sweep: Millideg) -> Point {
-    let (fx, fy, tx, ty) = (from.x.0, from.y.0, to.x.0, to.y.0);
-    let (dx, dy) = (tx - fx, ty - fy);
-    // centre = midpoint + perpendicular(d) / 2 × cot(sweep / 2)
-    let cot = match sweep.0 {
-        90_000 | -270_000 => Some(1),
-        180_000 | -180_000 => Some(0),
-        270_000 | -90_000 => Some(-1),
-        _ => None,
-    };
-    if let Some(k) = cot {
-        let round_half = |twice: i64| twice.div_euclid(2) + i64::from(twice.rem_euclid(2) == 1);
-        return Point::new(
-            Nm(round_half(fx + tx - k * dy)),
-            Nm(round_half(fy + ty + k * dx)),
-        );
-    }
-    let half = (sweep.0 as f64 / 1000.0).to_radians() / 2.0;
-    let k = 1.0 / half.tan();
-    let cx = (fx + tx) as f64 / 2.0 - k * dy as f64 / 2.0;
-    let cy = (fy + ty) as f64 / 2.0 + k * dx as f64 / 2.0;
-    Point::new(Nm(cx.round() as i64), Nm(cy.round() as i64))
 }
 
 /// One file being written.
@@ -485,18 +459,5 @@ mod tests {
         assert_eq!(half_mm(-4), "-0.000002");
         assert_eq!(degrees(Millideg(-90_000)), "270.000");
         assert_eq!(escape("a,b*c%d\\"), "a\\u002Cb\\u002Ac\\u0025d\\u005C");
-    }
-
-    #[test]
-    fn arc_centres_of_quarter_turns_are_exact() {
-        let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
-        assert_eq!(arc_centre(p(10, 0), p(0, 10), Millideg(90_000)), p(0, 0));
-        assert_eq!(arc_centre(p(0, 10), p(10, 0), Millideg(-90_000)), p(0, 0));
-        assert_eq!(arc_centre(p(-10, 0), p(10, 0), Millideg(180_000)), p(0, 0));
-        assert_eq!(arc_centre(p(10, 0), p(0, -10), Millideg(270_000)), p(0, 0));
-        assert_eq!(
-            arc_centre(p(1_000_000, 0), p(500_000, 866_025), Millideg(60_000)),
-            p(0, 0)
-        );
     }
 }

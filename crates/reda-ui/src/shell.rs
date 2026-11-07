@@ -438,6 +438,15 @@ impl Shell {
         grid::origin(self.engine.elements(), document)
     }
 
+    /// The open board's grid origin: its Output Origin, or zero while no board is open
+    /// or none is placed. The board tools snap, and the cursor readout measures, from it.
+    pub fn board_grid_origin(&self) -> Point {
+        self.engine
+            .project()
+            .and_then(|p| p.pcb())
+            .map_or_else(Point::default, |pcb| self.grid_origin(pcb.uuid))
+    }
+
     /// A Document point on its current grid, including the board's Output Origin.
     pub fn snap_to_grid(&self, document: Uuid, at: (f64, f64)) -> Point {
         crate::canvas::interact::snap_to_grid_from(
@@ -697,10 +706,7 @@ impl Shell {
     /// Board point `at` as the cursor readout gives it: from the Output Origin, if the
     /// board has one.
     pub fn pcb_cursor_from_origin(&self, at: Point) -> Point {
-        match self.engine.project().and_then(|p| p.pcb()) {
-            Some(pcb) => at - self.grid_origin(pcb.uuid),
-            None => at,
-        }
+        at - self.board_grid_origin()
     }
 
     /// Whether the board's Zone fills are out of date: the "Zones need refilling" note.

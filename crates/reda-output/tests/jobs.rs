@@ -174,6 +174,29 @@ fn build_choices_are_editable_saved_and_reserved_keys_are_rejected() {
     }
 }
 
+/// Saves and closes the Project, rewrites its one saved job line with `edit`, and returns
+/// the message `project.open` refuses the edited file with.
+fn load_error_after(
+    dir: &TempDir,
+    engine: &mut TestEngine,
+    edit: impl Fn(&str) -> String,
+) -> String {
+    engine.run_ok("project.save", json!({}));
+    engine.run_ok("project.close", json!({}));
+    let file = dir.path().join("Demo").join("Demo.reda");
+    let saved = std::fs::read_to_string(&file).unwrap();
+    let job_line = saved
+        .lines()
+        .find(|l| l.contains("\"name_template\""))
+        .expect("the job is saved on one line");
+    std::fs::write(&file, saved.replace(job_line, &edit(job_line))).unwrap();
+    let mut reopened = test_engine();
+    let err = reopened.run_err("project.open", json!({"path": dir.path().join("Demo")}));
+    std::fs::write(&file, saved).unwrap();
+    engine.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    err.message
+}
+
 #[test]
 fn reserved_job_keys_are_refused_on_add_and_on_load() {
     let dir = TempDir::new("jobs-reserved");
@@ -183,20 +206,24 @@ fn reserved_job_keys_are_refused_on_add_and_on_load() {
         let err = engine.run_err("output.job.add", json!({"fab_preset": preset, key: {}}));
         assert_eq!(err.code, ErrorCode::InvalidParams, "{key}");
     }
-    engine.run_ok("project.save", json!({}));
-    engine.run_ok("project.close", json!({}));
+    for key in ["checks", "overrides", "variant"] {
+        let message = load_error_after(&dir, &mut engine, |line| {
+            line.replacen('{', &format!("{{\"{key}\":{{}},"), 1)
+        });
+        assert!(message.contains(key), "{key}: {message}");
+    }
+}
 
-    let file = dir.path().join("Demo").join("Demo.reda");
-    let saved = std::fs::read_to_string(&file).unwrap();
-    let job_line = saved
-        .lines()
-        .find(|l| l.contains("\"name_template\""))
-        .expect("the job is saved on one line");
-    let with_checks = job_line.replacen('{', "{\"checks\":{},", 1);
-    std::fs::write(&file, saved.replace(job_line, &with_checks)).unwrap();
-    let mut reopened = reda_testkit::test_engine();
-    let err = reopened.run_err("project.open", json!({"path": dir.path().join("Demo")}));
-    assert!(err.message.contains("checks"), "{}", err.message);
+#[test]
+fn an_invalid_name_template_is_refused_on_load() {
+    let dir = TempDir::new("jobs-name-template-load");
+    let mut engine = engine(&dir);
+    for (bad, reason) in [("${variant}", "reserved"), ("a:b", "can't hold")] {
+        let message = load_error_after(&dir, &mut engine, |line| {
+            line.replace("${project}-${job}", bad)
+        });
+        assert!(message.contains(reason), "{bad}: {message}");
+    }
 }
 
 #[test]

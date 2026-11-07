@@ -11,8 +11,8 @@ use std::collections::BTreeSet;
 
 use reda_model::text::display;
 use reda_model::{
-    Column, ColumnSource, ComponentType, Fields, FootprintCopy, FootprintInstance, PadKind,
-    PcbDocument, Project, Side,
+    Column, ColumnSource, ComponentType, Fields, FootprintCopy, FootprintInstance, MountValues,
+    PadKind, PcbDocument, Project, Side,
 };
 use reda_pcb::natural_cmp;
 
@@ -21,8 +21,14 @@ use crate::gerber::{degrees, mm};
 use crate::plot::OutputFile;
 
 /// The BOM of `pcb`: one row per Part + chosen Footprint + fields, its Designators in
-/// natural order, the rows in the order of their first Designator.
-pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> OutputFile {
+/// natural order, the rows in the order of their first Designator. The mount column is
+/// spelled with `mount`, the preset's `mount_values`.
+pub fn bom_file(
+    project: &Project,
+    pcb: &PcbDocument,
+    columns: &[Column],
+    mount: &MountValues,
+) -> OutputFile {
     let mut groups: Vec<Vec<Fitted<'_>>> = Vec::new();
     for part in bom_parts(project, pcb) {
         match groups.iter_mut().find(|g| g[0].same_line(&part)) {
@@ -46,7 +52,7 @@ pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> Out
                 | ColumnSource::CentreY
                 | ColumnSource::Side
                 | ColumnSource::Rotation => String::new(),
-                source => first.describe(source),
+                source => first.describe(source, mount),
             })
             .collect()
     });
@@ -59,11 +65,13 @@ pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> Out
 
 /// The CPL of `pcb`: one row per placed part in natural Designator order, positions in mm
 /// from the instance transform, rotation in degrees counter-clockwise as the Footprint is turned
-/// from its IPC-7351 zero orientation, and the side it sits on.
+/// from its IPC-7351 zero orientation, and the side it sits on. The mount column is spelled
+/// with `mount`, the preset's `mount_values`, as in the BOM.
 pub fn cpl_file(
     project: &Project,
     instances: &[BoardInstance<'_>],
     columns: &[Column],
+    mount: &MountValues,
 ) -> OutputFile {
     let rows = instances
         .iter()
@@ -87,10 +95,8 @@ pub fn cpl_file(
                         Side::Top => "Top".into(),
                         Side::Bottom => "Bottom".into(),
                     },
-                    ColumnSource::Rotation => degrees(reda_model::geom::Millideg(
-                        instance.rotation.0 + transform.rotation.0,
-                    )),
-                    source => part.describe(source),
+                    ColumnSource::Rotation => degrees(transform.angle(instance.rotation)),
+                    source => part.describe(source, mount),
                 })
                 .collect()
         });
@@ -127,8 +133,9 @@ impl<'a> Fitted<'a> {
     }
 
     /// The value of a column the BOM and CPL fill the same way. A part with no Footprint
-    /// leaves the Footprint and mount type blank.
-    fn describe(&self, source: &ColumnSource) -> String {
+    /// leaves the Footprint and mount type blank; a Footprint with any plated through-hole
+    /// Pad is `mount.tht`, any other `mount.smt`.
+    fn describe(&self, source: &ColumnSource, mount: &MountValues) -> String {
         match (source, self.copy) {
             (ColumnSource::Value, _) => display(&self.fields.value).into_owned(),
             (ColumnSource::Footprint, Some(copy)) => copy.footprint.name.clone(),
@@ -138,7 +145,7 @@ impl<'a> Fitted<'a> {
                     .pads
                     .iter()
                     .any(|p| p.kind == PadKind::PlatedThroughHole);
-                if tht { "THT" } else { "SMT" }.into()
+                if tht { &mount.tht } else { &mount.smt }.clone()
             }
             (ColumnSource::Field(name), _) => display(field(self.fields, name)).into_owned(),
             _ => String::new(),

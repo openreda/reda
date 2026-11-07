@@ -120,7 +120,12 @@ fn preset_columns(engine: &TestEngine) -> (Vec<Column>, Vec<Column>) {
 
 fn bom_with(engine: &TestEngine, columns: &[Column]) -> String {
     let project = engine.project().unwrap();
-    text(bom_file(project, project.pcb().unwrap(), columns))
+    text(bom_file(
+        project,
+        project.pcb().unwrap(),
+        columns,
+        &default_mount(),
+    ))
 }
 
 fn cpl_with(engine: &TestEngine, columns: &[Column]) -> String {
@@ -133,7 +138,13 @@ fn cpl_with(engine: &TestEngine, columns: &[Column]) -> String {
             reda_model::FileOrigin::Absolute,
         )],
         columns,
+        &default_mount(),
     ))
+}
+
+/// The default mount spellings, `SMT` and `THT`.
+fn default_mount() -> reda_model::MountValues {
+    reda_model::BomSettings::default().mount_values
 }
 
 fn bom(engine: &TestEngine) -> String {
@@ -165,7 +176,7 @@ fn the_files_are_named_after_the_project() {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let (b, c) = preset_columns(&engine);
-    let bom = bom_file(project, pcb, &b);
+    let bom = bom_file(project, pcb, &b, &default_mount());
     assert_eq!((bom.name.as_str(), bom.function), ("Demo-BOM.csv", "bom"));
     let cpl = cpl_file(
         project,
@@ -175,6 +186,7 @@ fn the_files_are_named_after_the_project() {
             reda_model::FileOrigin::Absolute,
         )],
         &c,
+        &default_mount(),
     );
     assert_eq!((cpl.name.as_str(), cpl.function), ("Demo-CPL.csv", "cpl"));
     assert_eq!(
@@ -497,7 +509,7 @@ fn bom_and_cpl_match_their_goldens_for_every_shipped_preset() {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     for preset in reda_output::shipped() {
-        let bom = bom_file(project, pcb, &preset.bom.columns);
+        let bom = bom_file(project, pcb, &preset.bom.columns, &preset.bom.mount_values);
         assert_golden(golden(&format!("{}-BOM.csv", preset.name)), &bom.bytes);
         let cpl = cpl_file(
             project,
@@ -507,6 +519,7 @@ fn bom_and_cpl_match_their_goldens_for_every_shipped_preset() {
                 preset.gerber.file_origin,
             )],
             &preset.cpl.columns,
+            &preset.bom.mount_values,
         );
         assert_golden(golden(&format!("{}-CPL.csv", preset.name)), &cpl.bytes);
     }
@@ -524,5 +537,6 @@ fn relative_cpl(engine: &TestEngine) -> String {
             reda_model::FileOrigin::Relative,
         )],
         &preset.cpl.columns,
+        &preset.bom.mount_values,
     ))
 }

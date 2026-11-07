@@ -1,9 +1,9 @@
 //! Output Jobs on the Project stack: add, edit, duplicate and delete.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_model::text::TextError;
 use reda_model::{
-    DocumentKind, NotFittedPaste, Object, OutputJob, Outputs, PdfColour, Project, Uuid,
+    DocumentKind, NameTemplate, NotFittedPaste, Object, OutputJob, Outputs, PdfColour, Project,
+    Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub fn new_job(uuid: Uuid, name: String, pcb: Uuid, fab_preset: Uuid) -> OutputJ
         fab_preset,
         outputs: Outputs::ALL,
         destination: None,
-        name_template: "${project}-${job}".into(),
+        name_template: NameTemplate::default(),
         not_fitted_paste: NotFittedPaste::Keep,
         schematic_pdf_colour: PdfColour::Colour,
     }
@@ -133,32 +133,6 @@ pub fn job_destination(value: String) -> Result<Option<String>, CommandError> {
     Ok(Some(value))
 }
 
-/// The tokens a name template may use. `${variant}` is reserved for later.
-pub const NAME_TEMPLATE_TOKENS: [&str; 5] = ["project", "job", "revision", "date", "preset"];
-
-/// Characters a name template may not hold outside its tokens: a path separator, or one
-/// that some file systems refuse.
-const NAME_TEMPLATE_REFUSED: &[char] = &['<', '>', ':', '"', '\\', '|', '?', '*', '/'];
-
-/// Checks a name template: only known tokens, and no character a file name can't hold.
-/// Returns the reason it is refused.
-pub fn check_name_template(raw: &str) -> Result<(), String> {
-    if raw.trim().is_empty() {
-        return Err("the name template is empty".into());
-    }
-    let known = |name: &str| NAME_TEMPLATE_TOKENS.contains(&name).then(String::new);
-    let literal = reda_model::text::resolve(raw, known).map_err(|e| match e {
-        TextError::Unknown { name, at } if name == "variant" => {
-            format!("\"${{variant}}\" at character {at} is reserved for a later version")
-        }
-        e => e.to_string(),
-    })?;
-    match literal.chars().find(|c| NAME_TEMPLATE_REFUSED.contains(c)) {
-        Some(c) => Err(format!("a file name can't hold {c:?}")),
-        None => Ok(()),
-    }
-}
-
 /// The settings `output.job.add` and `output.job.set` share; each one left out keeps the
 /// job's value.
 struct JobSettings {
@@ -178,9 +152,9 @@ impl JobSettings {
             job.destination = job_destination(value)?;
         }
         if let Some(value) = self.name_template {
-            check_name_template(&value)
-                .map_err(|reason| CommandError::invalid_params("/name_template", reason))?;
-            job.name_template = value;
+            job.name_template = NameTemplate::new(value).map_err(|reason| {
+                CommandError::invalid_params("/name_template", reason.to_string())
+            })?;
         }
         if let Some(value) = self.not_fitted_paste {
             job.not_fitted_paste = value;

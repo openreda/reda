@@ -12,7 +12,9 @@ mod units;
 
 pub use angle::{Millideg, rotate};
 pub use bounds::Bounds;
-pub use contour::{ContourError, Segment, Vertex, chain, check_contour, rounded_rect};
+pub use contour::{
+    ContourError, Segment, Vertex, arc_centre, chain, check_contour, contour_bounds, rounded_rect,
+};
 pub use corner_rect::{CornerCut, CornerRect};
 pub use length::{Nm, Point};
 pub use units::{NM_PER_OZ, UnitError};
