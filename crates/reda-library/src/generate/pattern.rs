@@ -343,6 +343,10 @@ pub struct FootprintPlan {
 
 /// What a plan used for the values its params may leave to be calculated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "one per plan, copied a handful of times"
+)]
 pub enum Resolved {
     Smd(SmdResolved),
     Th(ThResolved),

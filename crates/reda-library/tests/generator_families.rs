@@ -120,10 +120,9 @@ fn smx_bodies_are_named_as_molded_diodes() {
         assert_eq!(out["violations"], json!([]), "{package}");
     }
     // A datasheet's dimensions; the class sets the prefix.
-    let (out, _) = generate(
-        &mut e,
-        "molded",
-        json!({"class": "capacitor", "dimensions": {
+    let out = e.run_ok(
+        "library.footprint.generate.molded",
+        json!({"library": LIBRARY, "class": "capacitor", "dimensions": {
             "span": {"min": "3.0mm", "max": "3.4mm"},
             "body_width": {"min": "1.4mm", "max": "1.8mm"},
             "body_length": {"min": "2.0mm", "max": "2.4mm"},
