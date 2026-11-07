@@ -293,7 +293,7 @@ pub(crate) fn footprint_changes(
 }
 
 /// A changed Footprint with its Pad detail.
-fn modified(old: &Footprint, new: &Footprint) -> PartChange {
+pub(crate) fn modified(old: &Footprint, new: &Footprint) -> PartChange {
     let numbers =
         |fp: &Footprint| -> BTreeSet<String> { fp.pads.iter().map(|p| p.number.clone()).collect() };
     let (o, n) = (numbers(old), numbers(new));

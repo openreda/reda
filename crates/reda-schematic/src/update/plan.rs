@@ -354,7 +354,11 @@ fn first_pass(
     // A Pin the mix leaves with no Pad on the chosen Footprint.
     let chosen_after = footprint.unwrap_or(unit.footprint);
     report.problems.extend(pins_without_pads(
-        (&old.symbol, &old.part.pin_map, fp_of(&old_fps, unit.footprint)),
+        (
+            &old.symbol,
+            &old.part.pin_map,
+            fp_of(&old_fps, unit.footprint),
+        ),
         (&symbol, &part.pin_map, fp_of(&mixed_fps, chosen_after)),
     ));
     report.blocked = report.problems.iter().any(Problem::blocks);

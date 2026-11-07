@@ -26,7 +26,7 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(RevertLocalEdits);
 }
 
-fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+pub(crate) fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
     let reason = match cx.project {
         None => NO_PROJECT,
         Some(project) if project.pcb().is_none() => NO_PCB,
@@ -37,7 +37,7 @@ fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
     })
 }
 
-fn pcb<'a>(cx: &'a Context<'_>) -> Result<&'a PcbDocument, CommandError> {
+pub(crate) fn pcb<'a>(cx: &'a Context<'_>) -> Result<&'a PcbDocument, CommandError> {
     cx.project()?
         .pcb()
         .ok_or_else(|| CommandError::unavailable(NO_PCB))

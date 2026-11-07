@@ -250,6 +250,22 @@ impl PartSource for DiskParts {
         uuids.iter().map(|&uuid| copy_part(&index, uuid)).collect()
     }
 
+    fn footprints(&self, uuids: &[Uuid]) -> Vec<Result<FootprintCopyData, CommandError>> {
+        if uuids.is_empty() {
+            return vec![];
+        }
+        let index = scan(&self.roots(), &mut DiskLibraryFiles);
+        uuids
+            .iter()
+            .map(|&uuid| {
+                let footprint = index.footprint(uuid).ok_or_else(|| {
+                    CommandError::not_found(format!("no registered Library holds Footprint {uuid}"))
+                })?;
+                copy_footprint(footprint)
+            })
+            .collect()
+    }
+
     fn locate(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {
         if elements.is_empty() {
             return vec![];
@@ -301,19 +317,28 @@ pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandEr
         let footprint = index
             .footprint(footprint)
             .ok_or_else(|| missing("Footprint", footprint))?;
-        // A Document's copy, and so its hash, leaves out how the Footprint was generated.
-        let footprint = footprint.without_generator();
-        let mut fp_hasher = ContentHash::new();
-        fp_hasher.write(&write_footprint(&footprint).map_err(internal)?);
-        let hash = fp_hasher.finish();
-        hasher.write(hash.as_bytes());
-        footprints.push(FootprintCopyData { hash, footprint });
+        let copy = copy_footprint(footprint)?;
+        hasher.write(copy.hash.as_bytes());
+        footprints.push(copy);
     }
     Ok(PartCopy {
         hash: hasher.finish(),
         part: part.clone(),
         symbol: symbol.cloned(),
         footprints,
+    })
+}
+
+/// A Library Footprint as a Document copies it, with its content hash: over its canonical
+/// file bytes, leaving out how it was generated, which a Document's copy doesn't hold.
+fn copy_footprint(footprint: &Footprint) -> Result<FootprintCopyData, CommandError> {
+    let footprint = footprint.without_generator();
+    let bytes = write_footprint(&footprint).map_err(|e| CommandError::internal(e.to_string()))?;
+    let mut hasher = ContentHash::new();
+    hasher.write(&bytes);
+    Ok(FootprintCopyData {
+        hash: hasher.finish(),
+        footprint,
     })
 }
 

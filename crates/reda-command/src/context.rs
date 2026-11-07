@@ -9,8 +9,8 @@ use reda_model::{Project, Scope, Transaction, TxError, Uuid};
 
 use crate::command::NO_PROJECT;
 use crate::{
-    Clock, CommandError, ElementLocation, Fonts, History, IdSource, PartCopy, PartSource, Signals,
-    Timestamp, Trash, UserDirs, ViewState,
+    Clock, CommandError, ElementLocation, Fonts, FootprintCopyData, History, IdSource, PartCopy,
+    PartSource, Signals, Timestamp, Trash, UserDirs, ViewState,
 };
 
 /// The engine's mutable state between Commands.
@@ -231,6 +231,14 @@ impl<'a> Context<'a> {
     /// reading the Libraries once.
     pub fn library_parts(&self, uuids: &[Uuid]) -> Vec<Result<PartCopy, CommandError>> {
         self.parts.parts(uuids)
+    }
+
+    /// Library Footprints by UUID, as [`PartSource::footprints`] gives them.
+    pub fn library_footprints(
+        &self,
+        uuids: &[Uuid],
+    ) -> Vec<Result<FootprintCopyData, CommandError>> {
+        self.parts.footprints(uuids)
     }
 
     /// Where each of these Library elements is on disk, in the same order; `None` for one

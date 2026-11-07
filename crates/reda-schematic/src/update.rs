@@ -80,6 +80,13 @@ pub(crate) fn placed_components(project: &Project) -> Vec<Placed<'_>> {
     placed
 }
 
+/// How Footprint `new` differs from `old`, as an update preview lists it: a `footprint`
+/// change (`modified`) with the Pad numbers added or removed and the Pads moved or
+/// resized.
+pub fn footprint_change(old: &reda_model::Footprint, new: &reda_model::Footprint) -> PartChange {
+    diff::modified(old, new)
+}
+
 /// Reads the registered Libraries for these Parts, in the same order.
 pub type PartsOf<'a> = &'a dyn Fn(&[Uuid]) -> Vec<Result<PartCopy, CommandError>>;
 

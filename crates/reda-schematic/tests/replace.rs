@@ -23,7 +23,8 @@ impl Fixture {
     }
 
     fn replace(&mut self, params: Value) -> Value {
-        self.engine.run_ok("schematic.component.replace_part", params)
+        self.engine
+            .run_ok("schematic.component.replace_part", params)
     }
 
     /// The part-table entry a Unit uses.
@@ -113,7 +114,10 @@ fn keep_fields_edited_keeps_values_that_differ_from_the_old_defaults() {
         "LCSC (the old default) goes, Note (the Component's own) stays"
     );
     assert_eq!(unit["component_type"], "net_tie", "always the new Part's");
-    assert_eq!(unit["in_bom"], false, "held the old default, so takes the new");
+    assert_eq!(
+        unit["in_bom"], false,
+        "held the old default, so takes the new"
+    );
     assert_eq!(unit["in_cpl"], false);
 }
 
@@ -207,7 +211,11 @@ fn the_footprint_stays_the_same_by_uuid_first() {
     let preview = f.replace_preview(json!({"components": [component], "part": R_ALT}));
     assert_eq!(preview["components"][0]["footprint"], R_0805);
     f.replace(json!({"components": [component], "part": R_ALT}));
-    assert_eq!(f.object(&r1["unit"])["footprint"], R_0805, "not the default R_2512");
+    assert_eq!(
+        f.object(&r1["unit"])["footprint"],
+        R_0805,
+        "not the default R_2512"
+    );
 }
 
 #[test]
@@ -229,7 +237,10 @@ fn the_footprint_is_the_new_default_otherwise_or_the_one_named() {
     let r1 = f.r1_on_0805();
     let r2 = f.r1_on_0805();
     f.add_r_alt(&[R_2512, R_0603]);
-    let (c1, c2) = (r1["component"]["uuid"].clone(), r2["component"]["uuid"].clone());
+    let (c1, c2) = (
+        r1["component"]["uuid"].clone(),
+        r2["component"]["uuid"].clone(),
+    );
     f.replace(json!({"components": [c1], "part": R_ALT}));
     assert_eq!(f.object(&r1["unit"])["footprint"], R_2512);
     f.replace(json!({"components": [c2], "part": R_ALT, "footprint": R_0603}));
@@ -336,8 +347,7 @@ fn a_placed_unit_with_no_match_blocks_that_component() {
     let r1 = f.place(R_10K, "60mm");
     let r = r1["component"]["uuid"].clone();
 
-    let preview =
-        f.replace_preview(json!({"components": [component, r], "part": OPAMP_ALT}));
+    let preview = f.replace_preview(json!({"components": [component, r], "part": OPAMP_ALT}));
     let row = preview["components"]
         .as_array()
         .unwrap()
@@ -365,10 +375,15 @@ fn a_placed_unit_with_no_match_blocks_that_component() {
     );
     assert_eq!(err.code, ErrorCode::Rejected);
     assert!(err.message.contains("U1"), "{}", err.message);
-    assert_eq!(f.entry_of(&r1["unit"])["part"]["uuid"], R_10K, "nothing changed");
+    assert_eq!(
+        f.entry_of(&r1["unit"])["part"]["uuid"],
+        R_10K,
+        "nothing changed"
+    );
 
     // Once the Power Unit is deleted, the Replace goes ahead.
-    f.engine.run_ok("schematic.delete", json!({"objects": [power]}));
+    f.engine
+        .run_ok("schematic.delete", json!({"objects": [power]}));
     f.replace(json!({"components": [component], "part": OPAMP_ALT}));
     assert_eq!(f.entry_of(&u1["unit"])["part"]["uuid"], OPAMP_ALT);
 }
@@ -379,7 +394,10 @@ fn new_units_appear_as_unplaced() {
     let r1 = f.place(R_10K, "0mm");
     let component = r1["component"]["uuid"].clone();
     let preview = f.replace_preview(json!({"components": [component], "part": LM358}));
-    let changes = preview["components"][0]["changes"].as_array().unwrap().clone();
+    let changes = preview["components"][0]["changes"]
+        .as_array()
+        .unwrap()
+        .clone();
     for unit in ["B", "Power"] {
         assert!(
             changes.contains(&json!({"kind": "unit_added", "unit": unit})),
@@ -391,7 +409,11 @@ fn new_units_appear_as_unplaced() {
     // The next Unit placed is B, which was unplaced.
     let next = f.place_unit(&component, "20mm");
     assert_eq!(f.object(&next)["unit"], OPAMP_UNIT_B);
-    assert_eq!(f.object(&next)["designator"], "R1", "the Designator prefix stays");
+    assert_eq!(
+        f.object(&next)["designator"],
+        "R1",
+        "the Designator prefix stays"
+    );
 }
 
 #[test]
@@ -428,7 +450,11 @@ fn the_preview_changes_nothing_and_the_replace_is_one_undo_step() {
             .unwrap()
             .contains(&json!({"kind": "name", "from": "R_10k", "to": "C_100n"}))
     );
-    assert_eq!(f.entry_of(&r1["unit"]), before, "the preview changes nothing");
+    assert_eq!(
+        f.entry_of(&r1["unit"]),
+        before,
+        "the preview changes nothing"
+    );
 
     // A preview that no longer matches is a conflict.
     f.engine.run_ok(
@@ -437,9 +463,7 @@ fn the_preview_changes_nothing_and_the_replace_is_one_undo_step() {
     );
     let mut stale = params.clone();
     stale["preview_hash"] = preview["preview_hash"].clone();
-    let err = f
-        .engine
-        .run_err("schematic.component.replace_part", stale);
+    let err = f.engine.run_err("schematic.component.replace_part", stale);
     assert_eq!(err.code, ErrorCode::Conflict);
 
     let mut fresh = params.clone();
@@ -448,9 +472,7 @@ fn the_preview_changes_nothing_and_the_replace_is_one_undo_step() {
     assert_eq!(done["result"]["replaced"], components);
     assert_eq!(f.entry_of(&r2["unit"])["part"]["uuid"], C_100N);
     // The R_10k entry is gone with both Components off it.
-    assert!(
-        (done["changes"][SHEET]["deleted"].as_array().unwrap()).contains(&before["uuid"])
-    );
+    assert!((done["changes"][SHEET]["deleted"].as_array().unwrap()).contains(&before["uuid"]));
 
     f.engine.run_ok("edit.undo", json!({"document": SHEET}));
     assert_eq!(f.entry_of(&r1["unit"]), before);
@@ -480,7 +502,10 @@ fn pin_changes_name_the_nets_they_leave_and_wires_never_move() {
     );
     let component = r1["component"]["uuid"].clone();
     let preview = f.replace_preview(json!({"components": [component], "part": C_100N}));
-    let changes = preview["components"][0]["changes"].as_array().unwrap().clone();
+    let changes = preview["components"][0]["changes"]
+        .as_array()
+        .unwrap()
+        .clone();
     assert!(
         changes.contains(&json!({"kind": "pin", "unit": "A", "number": "1",
                                  "moved": true, "leaves": "SIG"})),
@@ -489,7 +514,11 @@ fn pin_changes_name_the_nets_they_leave_and_wires_never_move() {
     let done = f.replace(json!({"components": [component], "part": C_100N}));
     assert_eq!(f.object(&wire), wire_before, "Wires never move");
     for list in ["created", "modified", "deleted"] {
-        for uuid in done["changes"][SHEET][list].as_array().into_iter().flatten() {
+        for uuid in done["changes"][SHEET][list]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
             assert_ne!(uuid, &wire, "the Wire is not touched");
         }
     }

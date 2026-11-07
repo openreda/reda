@@ -214,8 +214,16 @@ fn plan_one(
         .or_else(|| content.part.footprints.first().copied());
     let new_fps: Vec<&Footprint> = content.footprints.iter().map(|(_, f)| f).collect();
     problems.extend(pins_without_pads(
-        (&old.symbol, &old.part.pin_map, fp_of(&old_fps, unit.footprint)),
-        (&content.symbol, &content.part.pin_map, fp_of(&new_fps, footprint)),
+        (
+            &old.symbol,
+            &old.part.pin_map,
+            fp_of(&old_fps, unit.footprint),
+        ),
+        (
+            &content.symbol,
+            &content.part.pin_map,
+            fp_of(&new_fps, footprint),
+        ),
     ));
 
     let mut cells = replace_cells(&old.part, &content.part, unit, p.keep_fields);
