@@ -492,7 +492,7 @@ fn collapsed_openings_translate_both_sides_and_kinds_without_changing_check_argu
                 "pcb.free_pad.add",
                 json!({"kind":"smd","side":side,
             "at":{"x":if side == "top" { "1mm" } else { "5mm" },"y":"1mm"},
-            "width":"1mm","mask":{"top":{"expansion":"-0.5mm"},"bottom":{"expansion":"-0.5mm"}},
+            "width":"1mm","mask":{side:{"expansion":"-0.5mm"}},
             "paste":{"expansion":"-0.6mm"}}),
             )
             .unwrap();
