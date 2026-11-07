@@ -197,7 +197,7 @@ One function serves the dialog, `pcb.rules.set` and `pcb.rules.validate`.
   | Preset | Track preferred | Via preferred (diameter / hole) | Via hole min | `hole_size` |
   |---|---|---|---|---|
   | Generic | 0.25 | 0.70 / 0.30 | 0.30 | 0.50 to 6.30 |
-  | JLCPCB | 0.25 | 0.60 / 0.30 | 0.15 | 0.20 to 6.30 |
+  | JLCPCB | 0.25 | 0.66 / 0.30 | 0.15 | 0.20 to 6.30 |
   | PCBWay | 0.25 | 0.60 / 0.30 | 0.15 | 0.20 to 6.30 |
 
 - **Which preset:** a rule is compared with every Fab Preset used by an Output Job for this PCB Document. Board Setup shows the strictest limit beside each value and names its preset. With no jobs it shows nothing.

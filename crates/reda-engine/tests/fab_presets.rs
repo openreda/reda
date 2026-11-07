@@ -52,7 +52,7 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
     );
     assert_eq!(
         value(RuleKind::ViaSize, RuleField::DiameterPreferred),
-        Some(Nm::from_um(600))
+        Some(Nm::from_um(660))
     );
     assert_eq!(
         value(RuleKind::ViaSize, RuleField::HolePreferred),
@@ -82,12 +82,11 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
     assert_eq!(jobs[0].destination(), "outputs/JLCPCB");
 }
 
-/// The JLCPCB seed Via (0.60/0.30 mm, a 0.15 mm ring) is below JLCPCB's 0.18 mm annular
-/// ring minimum. Both values are as `checks.md` gives them; the conflict is left for the
-/// check of unverified defaults (openreda/reda#260).
+/// Each preset's seed Via meets its own annular ring minimum. JLCPCB's is 0.66/0.30 mm
+/// (a 0.18 mm ring) because 0.60/0.30 mm left 0.15 mm, under JLCPCB's 0.18 mm.
 #[test]
-fn a_default_via_on_a_generic_or_pcbway_board_has_enough_annular_ring() {
-    for preset in ["Generic", "PCBWay"] {
+fn a_default_via_on_every_shipped_preset_has_enough_annular_ring() {
+    for preset in ["Generic", "JLCPCB", "PCBWay"] {
         let dir = TempDir::new("fab-via");
         let mut engine = test_engine();
         new_project(
