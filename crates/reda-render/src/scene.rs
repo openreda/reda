@@ -247,6 +247,16 @@ impl Scene {
         b.get()
     }
 
+    /// The sheet's paper, as (min, max); `None` when the Scene has none (a board or a
+    /// Library element). The grid stops at its edge.
+    pub fn paper(&self) -> Option<(Point, Point)> {
+        let paper = ColorKey::Schematic(crate::color::SchematicColor::Paper);
+        self.items
+            .iter()
+            .find(|i| i.color == paper)
+            .and_then(|i| i.primitive.bounds())
+    }
+
     /// Every item drawing `object`.
     pub fn items_of(&self, object: Uuid) -> impl Iterator<Item = &Item> {
         self.items.iter().filter(move |i| i.object == object)

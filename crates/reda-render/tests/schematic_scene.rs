@@ -58,6 +58,26 @@ fn a_bigger_sheet_draws_a_bigger_frame() {
     assert_eq!((lo, hi), (Point::default(), Point::new(420.mm(), 297.mm())));
 }
 
+#[test]
+fn a_sheet_scene_knows_its_paper_so_the_grid_can_stop_there() {
+    let dir = TempDir::new("render-paper");
+    let mut engine = demo(&dir);
+    engine.run_ok(
+        "schematic.sheet.set_frame",
+        json!({"document": SHEET, "size": "a3"}),
+    );
+    let mut scene = schematic_scene(engine.project().unwrap(), sheet(), &[]).unwrap();
+    assert_eq!(
+        scene.paper(),
+        Some((Point::default(), Point::new(420.mm(), 297.mm())))
+    );
+    // Without the paper item (a board, a Library element) there is none.
+    scene
+        .items
+        .retain(|i| i.color != reda_render::ColorKey::Schematic(SchematicColor::Paper));
+    assert_eq!(scene.paper(), None);
+}
+
 const R_10K: &str = "a0000000-0000-4000-8000-000000000100";
 const C_100N: &str = "a0000000-0000-4000-8000-000000000110";
 const LM358: &str = "a0000000-0000-4000-8000-000000000120";

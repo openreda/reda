@@ -376,3 +376,36 @@ fn modified_only_and_all_settings() {
     h.run();
     assert!(h.state().shell().preferences().pcb.auto_pan);
 }
+
+/// How far `label`'s text starts from the left edge of its page tree row, in points.
+fn tree_label_indent(h: &Harness<'static, App>, label: &str) -> f32 {
+    let row = h.get_by_role_and_label(Role::TreeItem, label).rect();
+    let mut found = None;
+    for clipped in &h.output().shapes {
+        let mut shapes = vec![&clipped.shape];
+        while let Some(shape) = shapes.pop() {
+            match shape {
+                egui::Shape::Vec(inner) => shapes.extend(inner),
+                egui::Shape::Text(text)
+                    if text.galley.text() == label && row.contains(text.pos) =>
+                {
+                    found = Some(text.pos.x - row.left());
+                }
+                _ => {}
+            }
+        }
+    }
+    found.unwrap_or_else(|| panic!("no text {label:?} in its row {row:?}"))
+}
+
+#[test]
+fn page_tree_labels_are_left_aligned() {
+    let home = TempDir::new("prefs-home");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    // Short and long titles start at the row's padding, not centred in the row.
+    for title in ["General", "Keyboard Shortcuts", "Schematic"] {
+        let indent = tree_label_indent(&h, title);
+        assert!(indent < 10.0, "{title:?} starts {indent} pt into its row");
+    }
+}

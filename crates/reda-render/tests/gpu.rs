@@ -355,6 +355,7 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
         pitch: 10.0 * 1_000_000.0,
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
+        paper: None,
     };
     grid.set(gpu.queue(), &view, Some(&spec));
     let img = gpu
@@ -535,4 +536,49 @@ fn view_only_labels_hide_below_their_minimum_size_on_screen() {
         .render(&scene, &zoomed, &palette, &Highlight::new())
         .unwrap();
     assert_eq!(pixel(&img, 50, 50), white);
+}
+
+#[test]
+fn the_grid_stops_at_the_papers_edge() {
+    let Some(gpu) = headless() else { return };
+    // A 100 mm square paper in the middle of a 200 px view at 1 px = 1 mm, so the paper
+    // covers pixels 50..150 and the canvas shows around it.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Paper,
+        filled_rect(c, 100, 100),
+    );
+    let palette = Palette::shipped(Theme::Light);
+    let gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let view = View {
+        center: (50_000_000.0, 50_000_000.0),
+        nm_per_px: 1_000_000.0,
+        width: 200,
+        height: 200,
+        mirrored: false,
+    };
+    let mut grid = Grid::new(gpu.device(), gpu.renderer());
+    let spec = GridSpec {
+        origin: (0.0, 0.0),
+        pitch: 10.0 * 1_000_000.0,
+        radius_px: 1.5,
+        color: Rgba([0, 0, 0, 255]),
+        paper: Some(((0.0, 0.0), (100_000_000.0, 100_000_000.0))),
+    };
+    grid.set(gpu.queue(), &view, Some(&spec));
+    let img = gpu
+        .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+        .unwrap();
+    // Document (20 mm, 30 mm), on the paper: pixel (70, 120).
+    assert_eq!(pixel(&img, 70, 120), [0, 0, 0, 255]);
+    // Document (-20 mm, 30 mm) is a grid point off the paper: pixel (30, 120) stays canvas.
+    let canvas = rgb(palette.background());
+    assert_eq!(pixel(&img, 30, 120), canvas, "grid drawn past the paper");
+    // So does one above the paper, Document (20 mm, 130 mm): pixel (70, 20).
+    assert_eq!(pixel(&img, 70, 20), canvas, "grid drawn past the paper");
 }

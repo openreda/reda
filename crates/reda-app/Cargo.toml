@@ -16,6 +16,8 @@ path = "src/main.rs"
 
 [dependencies]
 reda-ui = { path = "../reda-ui" }
+# Only for its feature: the Adwaita title bar where the Wayland compositor draws none.
+winit.workspace = true
 
 [lints]
 workspace = true

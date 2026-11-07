@@ -46,6 +46,10 @@ png = "0.18.1"
 egui = "0.37"
 eframe = { version = "0.37", default-features = false, features = ["wgpu", "accesskit", "default_fonts", "wayland", "x11", "clipboard", "links"] }
 egui-wgpu = "0.37"
+# eframe turns off winit's default features, which leaves Wayland compositors that draw no
+# title bar (GNOME) with a bare frame: no title, no double-click to maximize. reda-app turns
+# winit's Adwaita title bar back on (app.md#window-shell). Same winit as eframe 0.37's.
+winit = { version = "0.30.13", default-features = false, features = ["wayland-csd-adwaita"] }
 # SVG icons, rendered by resvg through egui's image loaders.
 egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
 egui_kittest = { version = "0.37", features = ["wgpu", "snapshot"] }

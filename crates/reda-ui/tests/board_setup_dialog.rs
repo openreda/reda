@@ -139,3 +139,34 @@ fn an_invalid_rule_disables_ok_until_fixed_and_ok_commits_one_batch() {
     );
     assert!(board.net_class_named("Class 1").is_some());
 }
+
+/// How far `label`'s text starts from the left edge of its page tree row, in points.
+fn tree_label_indent(h: &Harness<'static, App>, label: &str) -> f32 {
+    let row = h.get_by_role_and_label(Role::TreeItem, label).rect();
+    let mut found = None;
+    for clipped in &h.output().shapes {
+        let mut shapes = vec![&clipped.shape];
+        while let Some(shape) = shapes.pop() {
+            match shape {
+                egui::Shape::Vec(inner) => shapes.extend(inner),
+                egui::Shape::Text(text)
+                    if text.galley.text() == label && row.contains(text.pos) =>
+                {
+                    found = Some(text.pos.x - row.left());
+                }
+                _ => {}
+            }
+        }
+    }
+    found.unwrap_or_else(|| panic!("no text {label:?} in its row {row:?}"))
+}
+#[test]
+fn page_tree_labels_are_left_aligned() {
+    let (home, work) = (TempDir::new("bsd-home"), TempDir::new("bsd-work"));
+    let mut h = harness(home.path(), work.path(), "Dlg");
+    open_board_setup(&mut h, "Dlg");
+    for title in ["Clearance", "Via", "Edge Clearance", "DRC"] {
+        let indent = tree_label_indent(&h, title);
+        assert!(indent < 10.0, "{title:?} starts {indent} pt into its row");
+    }
+}

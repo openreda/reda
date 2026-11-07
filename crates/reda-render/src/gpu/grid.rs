@@ -5,7 +5,7 @@ use crate::view::View;
 
 use super::{Renderer, SAMPLE_COUNT};
 
-const UNIFORM_SIZE: u64 = 48;
+const UNIFORM_SIZE: u64 = 64;
 
 /// What grid to draw.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -17,6 +17,9 @@ pub struct GridSpec {
     /// The dot radius in pixels.
     pub radius_px: f32,
     pub color: Rgba,
+    /// The sheet's paper, as two opposite Document corners (nm): the grid stops at its
+    /// edge. `None` (a board or a Library element) draws it over the whole canvas.
+    pub paper: Option<((f64, f64), (f64, f64))>,
 }
 
 /// The grid pipeline and its uniforms, for one canvas. Draw it into the canvas pass after
@@ -126,6 +129,23 @@ impl Grid {
         bytes.extend_from_slice(&0u32.to_le_bytes());
         for v in spec.color.0 {
             bytes.extend_from_slice(&(f32::from(v) / 255.0).to_le_bytes());
+        }
+        // The paper in target pixels (y down), as min x, min y, max x, max y.
+        let clip = match spec.paper {
+            Some((a, b)) => {
+                let px = |(x, y): (f64, f64)| {
+                    (
+                        (x - view.center.0) / view.nm_per_px * mirror + view.width as f64 / 2.0,
+                        view.height as f64 / 2.0 - (y - view.center.1) / view.nm_per_px,
+                    )
+                };
+                let (a, b) = (px(a), px(b));
+                [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)].map(|v| v as f32)
+            }
+            None => [f32::MIN, f32::MIN, f32::MAX, f32::MAX],
+        };
+        for v in clip {
+            bytes.extend_from_slice(&v.to_le_bytes());
         }
         queue.write_buffer(&self.uniforms, 0, &bytes);
     }

@@ -1121,3 +1121,52 @@ fn the_visible_board_grid_follows_output_origin_and_returns_to_zero_when_removed
         samples(restored.as_raw(), restored.width(), old)
     );
 }
+
+#[test]
+fn the_sheet_grid_stops_at_the_papers_edge() {
+    let home = TempDir::new("app-grid-paper-home");
+    let folder = snapshot_folder("grid-paper");
+    let file = make_project(&folder, "GridPaper");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().expect("a sheet tab").document;
+    shell
+        .run(
+            "view.grid.set",
+            json!({"document": sheet, "grid": "2.54mm"}),
+        )
+        .unwrap();
+    h.run();
+    // The paper's bottom-left corner at the canvas centre, 10 px between grid dots.
+    let tab = h.state_mut().shell_mut().document_tab_mut(sheet).unwrap();
+    tab.camera = Some(reda_ui::canvas::Camera {
+        center: (0.0, 0.0),
+        nm_per_point: 254_000.0,
+    });
+    h.run();
+    h.run();
+    let rect = h.get_by_role(Role::Canvas).rect();
+    let camera = h
+        .state()
+        .shell()
+        .document_tab(sheet)
+        .unwrap()
+        .camera
+        .unwrap();
+    let image = h.render().unwrap();
+    let ppp = h.ctx.pixels_per_point();
+    let at = |x_mm: f64, y_mm: f64| {
+        let p = camera.screen_point(rect, (x_mm * 1e6, y_mm * 1e6)) * ppp;
+        let (x, y) = (p.x.floor() as u32, p.y.floor() as u32);
+        image.get_pixel(x, y).0
+    };
+    // On the paper a grid point differs from the paper midway between dots.
+    assert_ne!(at(5.08, 5.08), at(6.35, 6.35), "a dot on the paper");
+    // Off the paper, left of it and below it, there is no dot.
+    assert_eq!(at(-5.08, 5.08), at(-6.35, 6.35), "no dot left of the paper");
+    assert_eq!(at(5.08, -5.08), at(6.35, -6.35), "no dot below the paper");
+}
