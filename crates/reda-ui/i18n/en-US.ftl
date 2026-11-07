@@ -395,11 +395,15 @@ error-project-held = { $project } is already open in another REDA window (proces
 
 ## Violations: one line per check id, built from its arguments. Lengths are in mm.
 
-violation-unconnected-input = Input Pin { $pin } is not connected
 violation-unconnected-pin = Pin { $pin } is not connected
 violation-pin-conflict = Pin conflict on { $net }: { $pin_a } ({ $type_a }) with { $pin_b } ({ $type_b })
-violation-pin-conflict-mixed = Pin types mix on { $net }: { $pin_a } ({ $type_a }) with { $pin_b } ({ $type_b })
 violation-undriven-power = Power Net { $net } has no driver
+violation-no-driving-source = Net { $net } has Input Pins and nothing to drive them
+violation-port-no-driver = Every Port on Net { $net } is an input, so nothing drives it
+violation-unit-placed-twice = Unit { $unit } of { $designator } is placed { $count } times
+violation-no-footprint-choice = { $designator } has no Footprint chosen
+violation-off-grid = Off the 50 mil connection grid at ({ $x }, { $y })
+violation-off-sheet = Outside the sheet at ({ $x }, { $y })
 violation-single-pin-net = Net { $net } connects only Pin { $pin }
 violation-dangling-wire = Wire end at ({ $x }, { $y }) touches nothing
 violation-unattached-label = { $name } is attached to nothing
@@ -522,11 +526,15 @@ severity-off = Off
 
 ## Check titles, for "Set severity of …"
 
-check-unconnected-input = Unconnected Input
 check-unconnected-pin = Unconnected Pin
 check-pin-conflict = Pin Conflict
-check-pin-conflict-mixed = Mixed Pin Types
 check-undriven-power = Undriven Power
+check-no-driving-source = No Driving Source
+check-port-no-driver = Port With No Driver
+check-unit-placed-twice = Unit Placed Twice
+check-no-footprint-choice = No Footprint Choice
+check-off-grid = Off Grid
+check-off-sheet = Off Sheet
 check-single-pin-net = Single-Pin Net
 check-dangling-wire = Dangling Wire
 check-unattached-label = Unattached Label
@@ -612,7 +620,16 @@ settings-date = Date
 settings-author = Author
 settings-company = Company
 settings-erc-choice = { $check }: { $severity }
-settings-erc-matrix = Pin-type matrix (fixed): E is a Pin Conflict, W is Mixed Pin Types.
+settings-erc-matrix = Pin Matrix: E is an Error, W a Warning, a dot Off.
+settings-erc-set-by-matrix = { $check }: set by the Pin Matrix
+pin-matrix-port-in = Port in
+pin-matrix-port-in-short = >P
+pin-matrix-port-out = Port out
+pin-matrix-port-out-short = P>
+pin-matrix-port-bidirectional = Port bidirectional
+pin-matrix-port-bidirectional-short = <P>
+pin-matrix-unconnected = Unconnected
+pin-matrix-unconnected-short = Unc
 pin-type-input = Input
 pin-type-input-short = In
 pin-type-output = Output

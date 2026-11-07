@@ -369,12 +369,13 @@ fn a_pin_violation_is_marked_on_its_pin() {
         .run(
             "schematic.component.place",
             json!({"document": sheet, "part": "a0000000-0000-4000-8000-000000000100",
-                   "at": at(0, 0)}),
+                   "at": at(1000, 1000)}),
         )
         .unwrap();
     shell.run_check(CheckKind::Erc).unwrap();
 
-    // The resistor's two Pins are unconnected: one marker on each Pin's end.
+    // The resistor's two Pins are unconnected: one marker on each Pin's end, then the
+    // test Part's missing Footprint choice on the Unit's origin.
     let project = shell.engine().project().unwrap();
     let pins: Vec<Point> = reda_ui::engine::schematic::connectivity::placed_pins(
         project.schematic_sheet(sheet).unwrap(),
@@ -383,7 +384,8 @@ fn a_pin_violation_is_marked_on_its_pin() {
     .map(|(_, _, p)| p)
     .collect();
     let markers: Vec<Point> = shell.markers(sheet).iter().map(|m| m.at).collect();
-    assert_eq!(markers, pins);
+    assert_eq!(markers[..2], pins);
+    assert_eq!(markers[2..], [Point::new(Nm(25_400_000), Nm(25_400_000))]);
     assert_ne!(pins[0], pins[1]);
 }
 

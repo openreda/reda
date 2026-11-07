@@ -1,9 +1,12 @@
 //! The ERC checks of Components: duplicate Designators, unplaced Units of placed
-//! multi-unit Components and Unit data mismatches.
+//! multi-unit Components, Units placed twice, Components with no Footprint choice and Unit
+//! data mismatches.
 
 use std::collections::BTreeMap;
 
-use reda_model::{ComponentRef, ErcCheck, Fields, PartEntry, Project, UnitInstance, Uuid};
+use reda_model::{
+    ComponentRef, ComponentType, ErcCheck, Fields, PartEntry, Project, UnitInstance, Uuid,
+};
 
 use super::Report;
 use crate::natural::natural_cmp;
@@ -14,7 +17,7 @@ struct Placed<'a> {
     entry: &'a PartEntry,
 }
 
-pub(super) fn check(project: &Project, report: &mut Report) {
+pub(super) fn check(project: &Project, report: &mut Report<'_>) {
     // Every Component's Units, Components in order of their first Unit (Document order,
     // then Unit UUID).
     let mut order: Vec<&ComponentRef> = vec![];
@@ -38,11 +41,17 @@ pub(super) fn check(project: &Project, report: &mut Report) {
         unplaced_units(units, report);
     }
     for units in &components {
+        placed_twice(units, report);
+    }
+    for units in &components {
+        no_footprint_choice(units, report);
+    }
+    for units in &components {
         mismatch(units, report);
     }
 }
 
-fn duplicate_designators(components: &[&Vec<Placed>], report: &mut Report) {
+fn duplicate_designators(components: &[&Vec<Placed>], report: &mut Report<'_>) {
     // Designator -> the Components that carry it, each with its Units that do.
     let mut by_designator: BTreeMap<&str, Vec<Vec<Uuid>>> = BTreeMap::new();
     for units in components {
@@ -67,7 +76,7 @@ fn duplicate_designators(components: &[&Vec<Placed>], report: &mut Report) {
     }
 }
 
-fn unplaced_units(units: &[Placed], report: &mut Report) {
+fn unplaced_units(units: &[Placed], report: &mut Report<'_>) {
     let first = &units[0];
     let symbol = &first.entry.symbol;
     if symbol.units.len() < 2 {
@@ -86,9 +95,44 @@ fn unplaced_units(units: &[Placed], report: &mut Report) {
     }
 }
 
+/// One Violation per Symbol Unit of a Component placed more than once, in Symbol Unit
+/// order, naming every placement.
+fn placed_twice(units: &[Placed], report: &mut Report<'_>) {
+    let first = &units[0];
+    for symbol_unit in &first.entry.symbol.units {
+        let placed: Vec<Uuid> = (units.iter())
+            .filter(|p| p.unit.unit == symbol_unit.uuid)
+            .map(|p| p.unit.uuid)
+            .collect();
+        if placed.len() > 1 {
+            report.add(ErcCheck::UnitPlacedTwice, |v| {
+                v.arg("designator", first.unit.designator.as_str())
+                    .arg("unit", symbol_unit.name.as_str())
+                    .arg("count", placed.len() as i64)
+                    .objects(placed)
+            });
+        }
+    }
+}
+
+/// A Standard or Net Tie Component with no Footprint chosen, so it cannot reach the board.
+fn no_footprint_choice(units: &[Placed], report: &mut Report<'_>) {
+    let first = units[0].unit;
+    let needs = matches!(
+        first.component_type,
+        ComponentType::Standard | ComponentType::NetTie
+    );
+    if needs && units.iter().all(|p| p.unit.footprint.is_none()) {
+        report.add(ErcCheck::NoFootprintChoice, |v| {
+            v.arg("designator", first.designator.as_str())
+                .objects(units.iter().map(|p| p.unit.uuid))
+        });
+    }
+}
+
 /// Units of one Component whose Designator, value, other fields, Footprint choice,
 /// Component Type, In BOM, In CPL or Not Fitted differ.
-fn mismatch(units: &[Placed], report: &mut Report) {
+fn mismatch(units: &[Placed], report: &mut Report<'_>) {
     let first = units[0].unit;
     let differs: [(&str, Differs); 8] = [
         ("designator", |a, b| a.designator != b.designator),

@@ -17,7 +17,7 @@
 //!     {"uuid":"…","name":"JLCPCB","pcb":"…","fab_preset":"…","outputs":{…}}
 //!   ],
 //!   "properties": {"title":"…","revision":"B","date":"…","author":"…","company":"…"},
-//!   "erc": {"unconnected_input":"error",…,"single_pin_net":"off",…},
+//!   "erc": {"single_pin_net":"off",…,"pin_matrix_overrides":{"output|output":"warning"}},
 //!   "schematic": {"power_port_names_priority":false,"allow_ports_to_name_nets":true,…},
 //!   "reannotate": {"source":"schematic","mode":"renumber_all","scope":"project",…},
 //!   "library_update": {"library_field_missing":"add","locally_edited":"keep",…}
@@ -33,7 +33,7 @@ use std::path::Path;
 
 use reda_model::annotate::ReannotateSettings;
 use reda_model::{
-    DocumentEntry, DocumentKind, ErcSeverities, OutputJob, Project, ProjectFabPreset,
+    DocumentEntry, DocumentKind, ErcSettings, OutputJob, Project, ProjectFabPreset,
     ProjectProperties, SchematicOptions, Uuid,
 };
 use schemars::JsonSchema;
@@ -70,10 +70,11 @@ pub(crate) struct ProjectFile {
     /// is set.
     #[serde(default)]
     pub properties: ProjectProperties,
-    /// The ERC severities, `error`, `warning` or `off` per check. Written only when any
-    /// differs from its default; a check left out has its default.
+    /// The ERC severities, `error`, `warning` or `off` per check, and the Pin Matrix
+    /// cells that differ from the default (`pin_matrix_overrides`). Written only when any
+    /// differs from its default; a check or cell left out has its default.
     #[serde(default)]
-    pub erc: ErcSeverities,
+    pub erc: ErcSettings,
     /// The schematic options: how Nets are named. Written only when any differs from its
     /// default; an option left out has its default.
     #[serde(default)]

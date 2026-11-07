@@ -8,12 +8,15 @@
 
 mod components;
 mod details;
-mod matrix;
 mod nets;
+mod placement;
+
+pub use placement::CONNECTION_GRID;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{
-    ErcCheck, ErcSeverities, Object, Project, Severity, Uuid, Violation, Waiver, apply_waivers,
+    Cell, ErcCheck, ErcSettings, MatrixType, Object, Project, Severity, Uuid, Violation, Waiver,
+    apply_waivers,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -22,6 +25,7 @@ pub(crate) fn register_all(registry: &mut Registry, user_name: reda_command::Use
     registry.add(ErcRun);
     registry.add(ErcStale);
     registry.add(ErcSetSeverity);
+    registry.add(ErcSetPinMatrix);
     registry.add(ErcWaive { user_name });
     registry.add(ErcUnwaive);
 }
@@ -31,11 +35,12 @@ pub(crate) fn register_all(registry: &mut Registry, user_name: reda_command::Use
 /// Libraries for `library_out_of_date`; it is only called when that check is not Off.
 pub fn check(project: &Project, library: crate::PartsOf<'_>) -> Vec<Violation> {
     let mut report = Report {
-        severities: project.props().erc,
+        settings: &project.props().erc,
         found: vec![],
     };
     nets::check(project, &mut report);
     components::check(project, &mut report);
+    placement::check(project, &mut report);
     if !report.is_off(ErcCheck::LibraryOutOfDate) {
         for found in crate::update::library_differs(project, library) {
             let aspects: Vec<&str> = (found.aspects.iter())
@@ -85,24 +90,42 @@ fn waivers(project: &Project) -> impl Iterator<Item = &Waiver> {
 }
 
 /// Collects Violations of the checks that are not Off.
-pub(crate) struct Report {
-    severities: ErcSeverities,
+pub(crate) struct Report<'a> {
+    settings: &'a ErcSettings,
     found: Vec<(ErcCheck, Violation)>,
 }
 
-impl Report {
-    /// Reports a Violation of `check`, built by `build`, unless the check is Off.
+impl Report<'_> {
+    /// Reports a Violation of `check`, built by `build`, unless the check is Off. The Pin
+    /// Matrix checks report through [`Report::add_cell`].
     pub(crate) fn add(&mut self, check: ErcCheck, build: impl FnOnce(Violation) -> Violation) {
-        let severity = self.severities.get(check);
+        let severity = (self.settings.severities.get(check))
+            .expect("a Pin Matrix check reports through its cell");
+        self.push(check, severity, build);
+    }
+
+    /// Reports a Violation of a Pin Matrix cell's check, built by `build`, with the
+    /// cell's severity, unless the cell is Off.
+    pub(crate) fn add_cell(&mut self, cell: Cell, build: impl FnOnce(Violation) -> Violation) {
+        let severity = self.settings.pin_matrix_overrides.get(cell);
+        self.push(cell.check(), severity, build);
+    }
+
+    fn push(
+        &mut self,
+        check: ErcCheck,
+        severity: Severity,
+        build: impl FnOnce(Violation) -> Violation,
+    ) {
         if severity != Severity::Off {
             self.found
                 .push((check, build(Violation::new(check.id(), severity))));
         }
     }
 
-    /// Whether `check` is Off, so it need not run.
+    /// Whether `check` is Off (for a matrix check, all its cells), so it need not run.
     pub(crate) fn is_off(&self, check: ErcCheck) -> bool {
-        self.severities.get(check) == Severity::Off
+        !self.settings.is_on(check)
     }
 }
 
@@ -155,7 +178,7 @@ impl Command for ErcRun {
             |id| {
                 ErcCheck::ALL
                     .iter()
-                    .any(|c| c.id() == id && project.props().erc.get(*c) != Severity::Off)
+                    .any(|c| c.id() == id && project.props().erc.is_on(*c))
             },
         );
         Ok(ErcRunResult {
@@ -226,9 +249,83 @@ impl Command for ErcSetSeverity {
     type Output = ();
 
     fn run(&self, cx: &mut Context<'_>, p: ErcSetSeverityParams) -> Result<(), CommandError> {
+        if p.check.is_matrix() {
+            return Err(CommandError::invalid_params(
+                "/check",
+                format!(
+                    "the Pin Matrix sets the severity of {}, one cell at a time: use \
+                     erc.set_pin_matrix",
+                    p.check.id()
+                ),
+            ));
+        }
         let tx = cx.tx()?;
         let mut props = tx.project().props().clone();
-        props.erc.set(p.check, p.severity);
+        props.erc.severities.set(p.check, p.severity);
+        tx.replace(Object::Project(props))?;
+        Ok(())
+    }
+}
+
+pub struct ErcSetPinMatrix;
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ErcSetPinMatrixParams {
+    /// The cells to set, in any order; a later entry for the same cell wins.
+    pub cells: Vec<PinMatrixCellParam>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PinMatrixCellParam {
+    /// One type of the pair: a Pin type, `port_in`, `port_out`, `port_bidirectional` or
+    /// `unconnected`.
+    pub a: MatrixType,
+    /// The other type, in either order.
+    pub b: MatrixType,
+    /// The cell's new severity; null resets it to its default.
+    pub severity: Option<Severity>,
+}
+
+impl Command for ErcSetPinMatrix {
+    const META: Meta = Meta {
+        id: "erc.set_pin_matrix",
+        title: "Set Pin Matrix Cells",
+        description: "Sets the severity of Pin Matrix cells, one, many or all, as one undo \
+                      step. Each cell pairs two of the ten Pin types and Port `in`, `out` \
+                      and `bidirectional`, or a Pin type with `unconnected`, and sets how \
+                      `pin_conflict` or `unconnected_pin` reports that pairing. A null \
+                      severity resets the cell. The Project stores only cells that differ \
+                      from the default.",
+        category: "schematic",
+        icon: "severity",
+        kind: Kind::Edit,
+    };
+    type Params = ErcSetPinMatrixParams;
+    type Output = ();
+
+    fn run(&self, cx: &mut Context<'_>, p: ErcSetPinMatrixParams) -> Result<(), CommandError> {
+        let mut cells = Vec::with_capacity(p.cells.len());
+        for (i, c) in p.cells.iter().enumerate() {
+            let cell = Cell::new(c.a, c.b).ok_or_else(|| {
+                CommandError::invalid_params(
+                    &format!("/cells/{i}"),
+                    format!(
+                        "the Pin Matrix has no cell for {} and {}: only Pin types pair \
+                         with unconnected",
+                        c.a.id(),
+                        c.b.id()
+                    ),
+                )
+            })?;
+            cells.push((cell, c.severity));
+        }
+        let tx = cx.tx()?;
+        let mut props = tx.project().props().clone();
+        for (cell, severity) in cells {
+            props.erc.pin_matrix_overrides.set(cell, severity);
+        }
         tx.replace(Object::Project(props))?;
         Ok(())
     }

@@ -54,7 +54,7 @@ fn object_get_returns_any_object_with_its_document() {
     let mut project = engine.run_ok("object.get", json!({"uuid": PROJECT}));
     // The ERC severities ride along; erc.rs in reda-schematic tests them.
     let erc = project["object"].as_object_mut().unwrap().remove("erc");
-    assert_eq!(erc.unwrap()["unconnected_input"], "error");
+    assert_eq!(erc.unwrap()["single_pin_net"], "warning");
     let schematic = project["object"]
         .as_object_mut()
         .unwrap()

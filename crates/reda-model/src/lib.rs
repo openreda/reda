@@ -30,8 +30,8 @@ mod uuid;
 
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use check::{
-    ErcCheck, ErcSeverities, LibraryCheck, LibrarySeverities, Limit, Measurement, Severity,
-    Violation, ViolationArg, Waived, Waiver, apply_waivers, pin_conflict,
+    Cell, ErcCheck, ErcSettings, ErcSeverities, LibraryCheck, LibrarySeverities, Limit, MatrixType,
+    Measurement, PinMatrix, Severity, Violation, ViolationArg, Waived, Waiver, apply_waivers,
 };
 pub use document::{DocumentEntry, DocumentKind};
 pub use library::{

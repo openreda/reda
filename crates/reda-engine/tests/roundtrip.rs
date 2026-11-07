@@ -11,7 +11,7 @@ use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck,
-    ErcSeverities, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
+    ErcSettings, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
     GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer, LayerKind, LayerSet,
     LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation, OutputJob, OutputOrigin,
     Outputs, PadConnection, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, Port,
@@ -845,11 +845,16 @@ prop_compose! {
         settings in prop::option::of(settings()),
         properties in prop::collection::vec(stored_text(), 5),
         erc in prop::collection::vec((0..ErcCheck::ALL.len(), 0..3u8), 0..4),
+        cells in prop::collection::vec((0..101usize, 0..4u8), 0..4),
     ) -> Project {
-        let mut severities = ErcSeverities::DEFAULT;
+        let mut severities = ErcSettings::DEFAULT;
+        let level = |n: u8| [Severity::Error, Severity::Warning, Severity::Off].get(n as usize).copied();
         for (check, severity) in erc {
-            let severity = [Severity::Error, Severity::Warning, Severity::Off][severity as usize];
-            severities.set(ErcCheck::ALL[check], severity);
+            severities.severities.set(ErcCheck::ALL[check], level(severity).unwrap());
+        }
+        for (cell, severity) in cells {
+            let cell = reda_model::Cell::all().nth(cell).unwrap();
+            severities.pin_matrix_overrides.set(cell, level(severity));
         }
         let [title, revision, date, author, company] =
             <[String; 5]>::try_from(properties).unwrap();
