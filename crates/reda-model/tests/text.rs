@@ -93,6 +93,7 @@ fn project_with_sheet() -> Project {
         properties: Default::default(),
         erc: Default::default(),
         schematic: Default::default(),
+        reannotate: None,
     });
     let mut tx = project.transaction();
     let mut props = tx.project().props().clone();

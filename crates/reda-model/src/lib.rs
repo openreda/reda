@@ -4,6 +4,7 @@
 //! [`Transaction`], which records a [`ChangeSet`] of before/after states per object. The
 //! file format is not defined here: the engine maps these types to canonical JSON.
 
+pub mod annotate;
 pub mod auto_increment;
 mod change;
 mod check;

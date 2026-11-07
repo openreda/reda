@@ -678,6 +678,21 @@
       ],
       "type": "object"
     },
+    "Location": {
+      "description": "Which point of a Unit the schematic orders sort by.",
+      "oneOf": [
+        {
+          "const": "part",
+          "description": "The centre of its body.",
+          "type": "string"
+        },
+        {
+          "const": "designator",
+          "description": "Where its Designator text sits, or the body centre when it is hidden.",
+          "type": "string"
+        }
+      ]
+    },
     "LocationStyle": {
       "description": "How a cross-reference names where on its sheet a partner is.",
       "oneOf": [
@@ -731,6 +746,21 @@
       ],
       "type": "object"
     },
+    "Mode": {
+      "description": "What Re-annotate renumbers.",
+      "oneOf": [
+        {
+          "const": "renumber_all",
+          "description": "Every unlocked Component in the scope.",
+          "type": "string"
+        },
+        {
+          "const": "fix_duplicates_only",
+          "description": "Only Components whose Designator another Component holds too: the first in\nprocessing order keeps it, unless a locked or out-of-scope Component holds it.",
+          "type": "string"
+        }
+      ]
+    },
     "MountValues": {
       "additionalProperties": false,
       "description": "The spellings of the mount column.",
@@ -776,6 +806,51 @@
         {
           "const": "remove",
           "description": "Not Fitted Pads lose their paste openings.",
+          "type": "string"
+        }
+      ]
+    },
+    "Order": {
+      "description": "The order Re-annotate numbers in. The first four walk the schematic: sheets go in\nProjects panel order, and sheet y grows upwards, so \"down\" starts at the top. The last\nfour walk the board, the bottom side mirrored in X (seen from below); board y grows\nupwards too, so \"descending Y\" starts at the top.",
+      "oneOf": [
+        {
+          "const": "across_then_down",
+          "description": "Rows from the top, each left to right.",
+          "type": "string"
+        },
+        {
+          "const": "across_then_up",
+          "description": "Rows from the bottom, each left to right.",
+          "type": "string"
+        },
+        {
+          "const": "down_then_across",
+          "description": "Columns from the left, each top to bottom.",
+          "type": "string"
+        },
+        {
+          "const": "up_then_across",
+          "description": "Columns from the left, each bottom to top.",
+          "type": "string"
+        },
+        {
+          "const": "ascending_x_then_ascending_y",
+          "description": "Columns from the left, each bottom to top.",
+          "type": "string"
+        },
+        {
+          "const": "ascending_x_then_descending_y",
+          "description": "Columns from the left, each top to bottom.",
+          "type": "string"
+        },
+        {
+          "const": "ascending_y_then_ascending_x",
+          "description": "Rows from the bottom, each left to right.",
+          "type": "string"
+        },
+        {
+          "const": "descending_y_then_ascending_x",
+          "description": "Rows from the top, each left to right.",
           "type": "string"
         }
       ]
@@ -1053,6 +1128,69 @@
       ],
       "type": "object"
     },
+    "ReannotateSettings": {
+      "additionalProperties": false,
+      "description": "The settings of one Re-annotate, as stored for the next run. A `selection` scope is\nstored without the selection itself.",
+      "properties": {
+        "location": {
+          "$ref": "#/$defs/Location",
+          "description": "Schematic only: the point of a Unit to sort by."
+        },
+        "mode": {
+          "$ref": "#/$defs/Mode"
+        },
+        "order": {
+          "$ref": "#/$defs/Order"
+        },
+        "per_sheet": {
+          "description": "Schematic only: where each listed sheet's numbering starts; 1 for the others.",
+          "items": {
+            "$ref": "#/$defs/SheetStart"
+          },
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/ScopeKind"
+        },
+        "sheets": {
+          "description": "The sheets, for scope `sheets`, in Projects panel order.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sides": {
+          "$ref": "#/$defs/Sides",
+          "description": "Board only: the sides to number."
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "start_index": {
+          "description": "Board only: where numbering starts.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threshold": {
+          "description": "A part this close to the first part of a row (or column) joins it.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "mode",
+        "scope",
+        "order",
+        "location",
+        "threshold",
+        "sides",
+        "start_index"
+      ],
+      "type": "object"
+    },
     "SchematicOptions": {
       "additionalProperties": false,
       "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
@@ -1093,6 +1231,26 @@
       },
       "type": "object"
     },
+    "ScopeKind": {
+      "description": "Which Components a Re-annotate takes.",
+      "oneOf": [
+        {
+          "const": "project",
+          "description": "Every Component in the Project.",
+          "type": "string"
+        },
+        {
+          "const": "sheets",
+          "description": "Every Component with a Unit on one of the listed sheets.",
+          "type": "string"
+        },
+        {
+          "const": "selection",
+          "description": "The selected Components (from the board: Selected Only).",
+          "type": "string"
+        }
+      ]
+    },
     "Severity": {
       "description": "How a check's Violations are reported.",
       "enum": [
@@ -1101,6 +1259,26 @@
         "off"
       ],
       "type": "string"
+    },
+    "SheetStart": {
+      "additionalProperties": false,
+      "description": "Where one sheet's numbering starts.",
+      "properties": {
+        "sheet": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "start_index": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sheet",
+        "start_index"
+      ],
+      "type": "object"
     },
     "SheetStyle": {
       "description": "How a cross-reference names a partner's sheet.",
@@ -1141,6 +1319,26 @@
       ],
       "type": "object"
     },
+    "Sides": {
+      "description": "Which board sides the board orders number.",
+      "oneOf": [
+        {
+          "const": "top_then_bottom",
+          "description": "The top side, then the bottom, then Components with no Footprint on the board.",
+          "type": "string"
+        },
+        {
+          "const": "top",
+          "description": "Only Components whose Footprint is on the top.",
+          "type": "string"
+        },
+        {
+          "const": "bottom",
+          "description": "Only Components whose Footprint is on the bottom.",
+          "type": "string"
+        }
+      ]
+    },
     "SlotCommand": {
       "description": "How the drill file writes a slot.",
       "oneOf": [
@@ -1152,6 +1350,21 @@
         {
           "const": "g85",
           "description": "The `G85` canned slot.",
+          "type": "string"
+        }
+      ]
+    },
+    "Source": {
+      "description": "Where Re-annotate takes the positions it numbers by.",
+      "oneOf": [
+        {
+          "const": "schematic",
+          "description": "Where the Units sit on their sheets.",
+          "type": "string"
+        },
+        {
+          "const": "board",
+          "description": "Where the Footprints sit on the board. The new Designators write through to it.",
           "type": "string"
         }
       ]
@@ -1310,6 +1523,18 @@
         "title": ""
       },
       "description": "The Project properties that fill the sheets' title blocks. Written only when any\nis set."
+    },
+    "reannotate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReannotateSettings"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The last Re-annotate settings applied, which **Re-annotate (last settings)** and\n`schematic.reannotate {saved: true}` run again. Written only once there are any."
     },
     "schematic": {
       "$ref": "#/$defs/SchematicOptions",

@@ -382,6 +382,24 @@ pub fn footprint_bounds(pcb: &PcbDocument, instance: &FootprintInstance) -> Boun
         .unwrap_or(Bounds::of_point(instance.at))
 }
 
+/// A box around a placed Footprint's Courtyard drawing, or around its Pads when it has no
+/// Courtyard (its origin when it has neither): the box a Footprint's body takes, since
+/// v0.1 has no separate body outline.
+pub fn courtyard_bounds(pcb: &PcbDocument, instance: &FootprintInstance) -> Bounds {
+    placed_graphics(pcb, instance)
+        .into_iter()
+        .filter(|g| g.layer.is_courtyard())
+        .filter_map(|g| shape_bounds(&g.shape))
+        .reduce(Bounds::union)
+        .or_else(|| {
+            placed_pads(pcb, instance)
+                .into_iter()
+                .map(|p| p.bounds())
+                .reduce(Bounds::union)
+        })
+        .unwrap_or(Bounds::of_point(instance.at))
+}
+
 /// A box around a Free Pad's copper (or hole).
 pub fn free_pad_bounds(pad: &FreePad) -> Bounds {
     outline_bounds(pad.at, pad.rotation, &pad.outline())

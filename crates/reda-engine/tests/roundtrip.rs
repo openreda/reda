@@ -854,7 +854,7 @@ prop_compose! {
         let [title, revision, date, author, company] =
             <[String; 5]>::try_from(properties).unwrap();
         let properties = ProjectProperties { title, revision, date, author, company };
-        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities, schematic: Default::default() });
+        let mut project = Project::new(ProjectProps { uuid, name, documents: vec![], libraries, properties, erc: severities, schematic: Default::default(), reannotate: None });
         let mut tx = project.transaction();
         let mut order = vec![];
         let mut names = std::collections::BTreeSet::new();
@@ -974,6 +974,7 @@ fn every_saved_project_includes_the_state_folder_gitignore() {
         properties: Default::default(),
         erc: Default::default(),
         schematic: Default::default(),
+        reannotate: None,
     });
     assert_eq!(save(&project)[".reda/.gitignore"], b"*\n");
 }

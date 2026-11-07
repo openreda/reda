@@ -35,6 +35,9 @@ pub struct ProjectProps {
     /// The schematic options.
     #[serde(default)]
     pub schematic: SchematicOptions,
+    /// The last Re-annotate settings applied, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reannotate: Option<crate::annotate::ReannotateSettings>,
 }
 
 /// The Project's schematic options: how Nets are named and Ports cross-referenced.
