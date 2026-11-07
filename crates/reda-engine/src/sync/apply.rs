@@ -251,7 +251,7 @@ impl<'c, 'e> Applier<'c, 'e> {
         for &net in merges.0.keys() {
             self.cx.tx()?.remove(net)?;
         }
-        self.prune_copies()?;
+        crate::commands::local_edits::prune_copies(self.cx)?;
         Ok(created)
     }
 
@@ -326,6 +326,7 @@ impl<'c, 'e> Applier<'c, 'e> {
         let copy = FootprintCopy {
             uuid: self.cx.new_id(),
             hash: from.hash.clone(),
+            edited_from: None,
             footprint: from.footprint.clone(),
         };
         self.cx.tx()?.insert(Object::FootprintCopy(InDocument::new(
@@ -373,21 +374,6 @@ impl<'c, 'e> Applier<'c, 'e> {
                 Some(_) => self.cx.tx()?.replace(object)?,
                 None => self.cx.tx()?.insert(object)?,
             }
-        }
-        Ok(())
-    }
-
-    /// Removes the PCB's Footprint copies no instance uses any more.
-    fn prune_copies(&mut self) -> Result<(), CommandError> {
-        let pcb = self.cx.project()?.pcb().expect("a PCB");
-        let used: BTreeSet<Uuid> = pcb.footprints().map(|i| i.footprint).collect();
-        let unused: Vec<Uuid> = pcb
-            .footprint_copies()
-            .map(|c| c.uuid)
-            .filter(|u| !used.contains(u))
-            .collect();
-        for uuid in unused {
-            self.cx.tx()?.remove(uuid)?;
         }
         Ok(())
     }

@@ -61,9 +61,9 @@
 use std::path::Path;
 
 use reda_model::{
-    Fields, FootprintCopy, FootprintGraphic, FootprintText, InDocument, NetLabel, NoConnect,
-    Object, Pad, PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet, SheetFrame,
-    SheetGraphic, SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Waiver, Wire,
+    EditedFrom, Fields, FootprintCopy, FootprintGraphic, FootprintText, InDocument, NetLabel,
+    NoConnect, Object, Pad, PartEntry, Pin, PinMap, Port, PowerPort, Provenance, SchematicSheet,
+    SheetFrame, SheetGraphic, SheetText, SymbolGraphic, Unit, UnitInstance, Uuid, Waiver, Wire,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -163,6 +163,9 @@ pub(crate) struct FootprintCopyRow {
     uuid: Uuid,
     /// The content hash of the Footprint, as copied.
     hash: String,
+    /// On a PCB's Locally Edited Footprint: the copy it was edited from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    edited_from: Option<EditedFrom>,
     footprint: FootprintRow,
     /// Where the Footprint was imported from, as in a `.redafp` file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -177,6 +180,7 @@ impl FootprintCopyRow {
         FootprintCopyRow {
             uuid: c.uuid,
             hash: c.hash.clone(),
+            edited_from: c.edited_from.clone(),
             footprint: FootprintRow::of(&c.footprint),
             provenance: c.footprint.provenance.clone(),
             pads: c.footprint.pads.clone(),
@@ -199,6 +203,7 @@ impl FootprintCopyRow {
         Ok(FootprintCopy {
             uuid,
             hash: self.hash,
+            edited_from: self.edited_from,
             footprint,
         })
     }

@@ -8,6 +8,7 @@ mod diff;
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, NoParams, PartCopy};
+use reda_model::local_edit::LocalEdit;
 use reda_model::{InDocument, Object, PartEntry, Project, UnitInstance, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -163,6 +164,37 @@ pub struct ComponentUpdate {
     /// update. Omitted when false.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub blocked: bool,
+    /// The local Pad and graphics edits of its Locally Edited Footprint on the board that
+    /// the update removes, because it changes that Footprint's hash. Omitted when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub lost_local_edits: Vec<LocalEdit>,
+}
+
+/// Which local edits on the board an update removes: given the Component and the
+/// Footprint it will have (`None` for none) with that copy's hash, the edits of its Locally
+/// Edited Footprint when that Footprint or hash differs from the one it was edited from.
+pub type LostLocalEdits = fn(&Project, Uuid, Option<(Uuid, &str)>) -> Vec<LocalEdit>;
+
+/// A [`LostLocalEdits`] for a registry without the engine: it finds none.
+pub fn no_lost_local_edits(_: &Project, _: Uuid, _: Option<(Uuid, &str)>) -> Vec<LocalEdit> {
+    Vec::new()
+}
+
+/// The Footprint a Component has after an update, with the new copy's hash.
+fn footprint_after<'a>(
+    unit: &UnitInstance,
+    copy: &'a PartCopy,
+    changes: &[PartChange],
+) -> Option<(Uuid, &'a str)> {
+    let chosen = changes
+        .iter()
+        .find_map(|c| match c {
+            PartChange::FootprintChoice { to, .. } => Some(*to),
+            _ => None,
+        })
+        .unwrap_or(unit.footprint)?;
+    let index = copy.part.footprints.iter().position(|f| *f == chosen)?;
+    Some((chosen, copy.footprints.get(index)?.hash.as_str()))
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -179,7 +211,11 @@ struct Plan {
 }
 
 /// The updates `p` asks for, without changing anything.
-fn plan(cx: &Context<'_>, p: &UpdateParams) -> Result<Vec<Plan>, CommandError> {
+fn plan(
+    cx: &Context<'_>,
+    p: &UpdateParams,
+    lost_local_edits: LostLocalEdits,
+) -> Result<Vec<Plan>, CommandError> {
     let project = cx.project()?;
     let mut placed = placed_components(project);
     if let Some(wanted) = &p.components {
@@ -201,6 +237,11 @@ fn plan(cx: &Context<'_>, p: &UpdateParams) -> Result<Vec<Plan>, CommandError> {
                 .expect("the Unit's sheet exists");
             let units: Vec<&UnitInstance> = placed.units.iter().map(|(_, u)| *u).collect();
             let changes = diff::changes(sheet, placed.entry, &copy, &units);
+            let lost = lost_local_edits(
+                project,
+                placed.component,
+                footprint_after(units[0], &copy, &changes),
+            );
             let report = ComponentUpdate {
                 component: placed.component,
                 designator: placed.designator().to_owned(),
@@ -209,6 +250,7 @@ fn plan(cx: &Context<'_>, p: &UpdateParams) -> Result<Vec<Plan>, CommandError> {
                 library_hash: copy.hash.clone(),
                 blocked: changes.iter().any(PartChange::blocks),
                 changes,
+                lost_local_edits: lost,
             };
             Plan {
                 units: placed
@@ -224,7 +266,9 @@ fn plan(cx: &Context<'_>, p: &UpdateParams) -> Result<Vec<Plan>, CommandError> {
     Ok(plans)
 }
 
-pub struct UpdatePreview;
+pub struct UpdatePreview {
+    pub lost_local_edits: LostLocalEdits,
+}
 
 impl Command for UpdatePreview {
     const META: Meta = Meta {
@@ -243,7 +287,10 @@ impl Command for UpdatePreview {
     type Output = UpdateResult;
 
     fn run(&self, cx: &mut Context<'_>, p: UpdateParams) -> Result<UpdateResult, CommandError> {
-        let components = plan(cx, &p)?.into_iter().map(|p| p.report).collect();
+        let components = plan(cx, &p, self.lost_local_edits)?
+            .into_iter()
+            .map(|p| p.report)
+            .collect();
         Ok(UpdateResult { components })
     }
 }
@@ -279,6 +326,7 @@ impl Command for UpdateFromLibrary {
             &UpdateParams {
                 components: p.components,
             },
+            no_lost_local_edits,
         )?;
         if let Some(blocked) = plans.iter().find(|p| p.report.blocked) {
             return Err(CommandError::rejected(format!(

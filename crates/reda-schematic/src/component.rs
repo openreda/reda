@@ -357,6 +357,7 @@ pub(crate) fn ensure_entry(
                 let copy = FootprintCopy {
                     uuid,
                     hash,
+                    edited_from: None,
                     footprint,
                 };
                 cx.tx()?

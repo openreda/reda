@@ -402,11 +402,11 @@ impl PcbDocument {
         self.footprint_copies.get(&uuid)
     }
 
-    /// The copy of Library Footprint `footprint` with content hash `hash`.
+    /// The unedited copy of Library Footprint `footprint` with content hash `hash`.
     pub fn footprint_copy_for(&self, footprint: Uuid, hash: &str) -> Option<&FootprintCopy> {
         self.footprint_copies
             .values()
-            .find(|c| c.footprint.uuid == footprint && c.hash == hash)
+            .find(|c| c.footprint.uuid == footprint && c.hash == hash && c.edited_from.is_none())
     }
 
     /// The placed Footprint instances, sorted by UUID.
@@ -901,6 +901,20 @@ impl PcbDocument {
                     pad.paste.as_ref(),
                 ) {
                     return Err(format!("Pad {}{field}: {problem}", pad.uuid));
+                }
+            }
+            if let Some(from) = &copy.edited_from {
+                let origin = self.footprint_copies.get(&from.uuid).filter(|o| {
+                    o.edited_from.is_none()
+                        && o.footprint.uuid == copy.footprint.uuid
+                        && o.hash == from.hash
+                });
+                if origin.is_none() {
+                    return Err(format!(
+                        "Footprint copy {} is edited from copy {} with hash {}, which the PCB \
+                         does not hold as an unedited copy of the same Footprint",
+                        copy.uuid, from.uuid, from.hash
+                    ));
                 }
             }
             if !keys.insert((copy.footprint.uuid, copy.hash.as_str())) {

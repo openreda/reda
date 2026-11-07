@@ -72,8 +72,9 @@ pub use similar::{
 pub use unit_cycle::{UnitCycle, UnitCycleParams, UnitCycleResult};
 pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
 pub use update::{
-    ComponentUpdate, FootprintChange, Outdated, OutdatedComponent, OutdatedResult, PartChange,
-    UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams, UpdatePreview, UpdateResult,
+    ComponentUpdate, FootprintChange, LostLocalEdits, Outdated, OutdatedComponent, OutdatedResult,
+    PartChange, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams, UpdatePreview,
+    UpdateResult,
 };
 pub use wiring::{
     NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
@@ -82,11 +83,20 @@ pub use wiring::{
 
 /// Adds every Command defined in `reda-schematic`.
 pub fn register_all(registry: &mut Registry) {
-    register_all_with_user(registry, reda_command::os_user_name);
+    register_all_with_user(
+        registry,
+        reda_command::os_user_name,
+        update::no_lost_local_edits,
+    );
 }
 
-/// Adds the Commands with a source for the Preference-backed Waiver author.
-pub fn register_all_with_user(registry: &mut Registry, user_name: reda_command::UserName) {
+/// Adds the Commands with a source for the Preference-backed Waiver author, and the PCB
+/// reader that tells which local edits an update removes (it lives in `reda-engine`).
+pub fn register_all_with_user(
+    registry: &mut Registry,
+    user_name: reda_command::UserName,
+    lost_local_edits: LostLocalEdits,
+) {
     registry.add(ComponentPlace);
     registry.add(UnitPlace);
     registry.add(ComponentSet);
@@ -94,7 +104,7 @@ pub fn register_all_with_user(registry: &mut Registry, user_name: reda_command::
     registry.add(Find);
     registry.add(SelectSimilar);
     registry.add(Outdated);
-    registry.add(UpdatePreview);
+    registry.add(UpdatePreview { lost_local_edits });
     registry.add(UpdateFromLibrary);
     registry.add(LibraryElement);
     registry.add(SheetSetFrame);

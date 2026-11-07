@@ -353,6 +353,24 @@
       },
       "type": "object"
     },
+    "EditedFrom": {
+      "additionalProperties": false,
+      "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
+      "properties": {
+        "hash": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "hash"
+      ],
+      "type": "object"
+    },
     "Field": {
       "additionalProperties": false,
       "description": "One free-form field.",
@@ -406,6 +424,17 @@
       "additionalProperties": false,
       "description": "One copied Footprint: a `.redafp` file's keys in one row. The PCB file's part table\nuses the same rows.",
       "properties": {
+        "edited_from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EditedFrom"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "On a PCB's Locally Edited Footprint: the copy it was edited from."
+        },
         "footprint": {
           "$ref": "#/$defs/FootprintRow"
         },

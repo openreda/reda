@@ -29,7 +29,11 @@ pub fn registry() -> Registry {
     reda_library::register_all(&mut registry);
     reda_library::register_generators(&mut registry, crate::library::store_footprint);
     reda_output::register_all(&mut registry);
-    reda_schematic::register_all_with_user(&mut registry, crate::preferences::waiver_author);
+    reda_schematic::register_all_with_user(
+        &mut registry,
+        crate::preferences::waiver_author,
+        crate::sync::lost_local_edits,
+    );
     reda_render::register_all(&mut registry, DERIVE);
     registry
 }

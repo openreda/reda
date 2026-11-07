@@ -347,6 +347,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         let copy = FootprintCopy {
             uuid: id(),
             hash: "e".repeat(32),
+            edited_from: None,
             footprint,
         };
         let mut pads: Vec<PadNet> = copy
@@ -670,6 +671,7 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
         let copy = FootprintCopy {
             uuid: id(1),
             hash: "f".repeat(32),
+            edited_from: None,
             footprint,
         };
         let entry = PartEntry {
