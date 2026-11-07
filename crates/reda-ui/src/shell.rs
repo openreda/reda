@@ -643,10 +643,12 @@ impl Shell {
         self.pcb_draw.cancel_text();
     }
 
-    /// Board point `at` as the cursor readout gives it: from the user origin, if set.
+    /// Board point `at` as the cursor readout gives it: from the Output Origin, if the
+    /// board has one.
     pub fn pcb_cursor_from_origin(&self, at: Point) -> Point {
-        match self.board_view().origin {
-            Some(origin) => at - origin,
+        let origin = self.engine.project().and_then(|p| p.pcb()?.output_origin());
+        match origin {
+            Some(origin) => at - origin.at,
             None => at,
         }
     }
@@ -1025,7 +1027,6 @@ impl Shell {
         if let Some(pcb) = project.pcb() {
             let view = documents.entry(pcb.uuid).or_default();
             view.layers = self.board_view().layers.clone();
-            view.user_origin = self.board_view().origin;
             view.units = Some(self.board_view().units);
         }
         // The settings windows are not kept: their edits do not outlive the window.
@@ -1732,7 +1733,6 @@ impl Shell {
         let mut board = BoardView::new(units);
         if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
             board.layers = view.layers.clone();
-            board.origin = view.user_origin;
             board.units = view.units.unwrap_or(units);
         }
         *self.board_view_mut() = board;

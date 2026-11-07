@@ -95,7 +95,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) {
 }
 
 /// What the drawing Tools show over the canvas: the shape in progress, a measurement,
-/// the Mechanical Part being placed, and the user origin.
+/// and the Mechanical Part being placed. (The Output Origin is in the Scene.)
 fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     let painter = ui.painter_at(shown.rect);
     let accent = ui.visuals().selection.stroke.color;
@@ -134,19 +134,6 @@ fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
             label,
             FontId::proportional(12.0),
             accent,
-        );
-    }
-    if let Some(origin) = shell.board_view().origin {
-        let c = screen(origin);
-        let r = 7.0;
-        painter.circle_stroke(c, r * 0.6, Stroke::new(1.0, accent));
-        painter.line_segment(
-            [c - vec2(r, 0.0), c + vec2(r, 0.0)],
-            Stroke::new(1.0, accent),
-        );
-        painter.line_segment(
-            [c - vec2(0.0, r), c + vec2(0.0, r)],
-            Stroke::new(1.0, accent),
         );
     }
 }

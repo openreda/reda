@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{SeededIds, UserDirs};
-use reda_ui::engine::model::geom::{Nm, Point};
+use reda_ui::engine::model::geom::Nm;
 use reda_ui::engine::model::{DocumentKind, LayerKind, ObjectType, Side, Uuid};
 use reda_ui::engine::preferences::{InactiveLayerMode, Units};
 use reda_ui::engine::render::{DIMMED_OPACITY, SceneLayer};
@@ -109,25 +109,6 @@ fn drawn(b: &Board, layer: Uuid) -> bool {
     composites(b)
         .iter()
         .any(|(l, _)| *l == SceneLayer::Board(layer))
-}
-
-#[test]
-fn view_json_keeps_the_user_origin() {
-    let b = board();
-    let mut shell = b.shell;
-    run(&mut shell, "project.save", json!({}));
-    run(
-        &mut shell,
-        "pcb.view.origin.set",
-        json!({"at": {"x": "5mm", "y": "-2mm"}}),
-    );
-    shell.save_view();
-    let mut again = Shell::new(engine_in(b._home.path()));
-    again.open_project(&b.project).unwrap();
-    assert_eq!(
-        again.board_view().origin,
-        Some(Point::new(Nm::from_mm(5), Nm::from_mm(-2)))
-    );
 }
 
 #[test]

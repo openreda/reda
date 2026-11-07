@@ -54,8 +54,6 @@ pub enum Tool {
     FreePad,
     /// Places (or moves) the Output Origin.
     OutputOrigin,
-    /// Sets the user origin the cursor position is measured from.
-    UserOrigin,
     /// Measures between two points.
     Measure,
     /// Routes Tracks on the board: clicks place corners, same-Net copper ends the route (T).
@@ -105,7 +103,6 @@ impl Tool {
             Tool::Rect => "rect",
             Tool::FreePad => "free_pad",
             Tool::OutputOrigin => "output_origin",
-            Tool::UserOrigin => "user_origin",
             Tool::Measure => "measure",
             Tool::Route => "route",
             Tool::Via => "via",
@@ -137,7 +134,7 @@ impl Tool {
 }
 
 /// The PCB drawing Tools with a Preset each: (Tool, title, icon).
-const BOARD_TOOLS: [(Tool, &str, &str); 13] = [
+const BOARD_TOOLS: [(Tool, &str, &str); 12] = [
     (Tool::BoardOutline, "Board Outline", "board_outline"),
     (
         Tool::BoardOutlineRect,
@@ -153,7 +150,6 @@ const BOARD_TOOLS: [(Tool, &str, &str); 13] = [
     (Tool::Rect, "Rectangle", "rectangle"),
     (Tool::FreePad, "Free Pad", "pad"),
     (Tool::OutputOrigin, "Output Origin", "origin"),
-    (Tool::UserOrigin, "User Origin", "user_origin"),
     (Tool::Measure, "Measure", "measure"),
 ];
 

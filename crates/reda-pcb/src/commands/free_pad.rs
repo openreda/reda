@@ -282,7 +282,7 @@ impl Command for FreePadDelete {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OutputOriginSetParams {
-    /// Where Footprint positions are measured from in the manufacturing outputs.
+    /// The point the editor, and relative manufacturing outputs, measure coordinates from.
     pub at: PointParam,
 }
 
@@ -339,8 +339,9 @@ impl Command for OutputOriginDelete {
     const META: Meta = Meta {
         id: "pcb.output_origin.delete",
         title: "Remove Output Origin",
-        description: "Removes the Output Origin. Relative manufacturing outputs then use \
-                      the lower-left of the Board Outline's bounding box.",
+        description: "Removes the Output Origin. The editor then measures from design \
+                      zero, and relative manufacturing outputs from the lower-left of the \
+                      Board Outline's bounding box.",
         category: "pcb",
         icon: "delete",
         kind: Kind::Edit,

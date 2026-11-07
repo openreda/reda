@@ -17967,7 +17967,7 @@
               },
               {
                 "const": "output_origin",
-                "description": "The point manufacturing outputs measure Footprint positions from.",
+                "description": "Where the editor and relative manufacturing outputs measure coordinates from.",
                 "type": "string"
               }
             ]
@@ -23327,6 +23327,7 @@
           },
           "name_template": {
             "default": null,
+            "description": "Names the zip and the BOM and CPL files, from `${project}`, `${job}`,\n`${revision}`, `${date}` and `${preset}`; defaults to `${project}-${job}`.",
             "type": [
               "string",
               "null"
@@ -23341,7 +23342,8 @@
                 "type": "null"
               }
             ],
-            "default": null
+            "default": null,
+            "description": "Keep or remove Not Fitted Components' paste openings."
           },
           "outputs": {
             "anyOf": [
@@ -23372,7 +23374,8 @@
                 "type": "null"
               }
             ],
-            "default": null
+            "default": null,
+            "description": "The schematic PDF in colour or mono."
           }
         },
         "required": [
@@ -23765,7 +23768,7 @@
     },
     {
       "category": "output",
-      "description": "Changes an Output Job's name, PCB Document, Fab Preset copy, outputs or destination. Values left out are kept; an empty `destination` restores the default. Returns the job.",
+      "description": "Changes an Output Job's name, PCB Document, Fab Preset copy, outputs, destination, name template, Not Fitted paste or schematic PDF colour. Values left out are kept; an empty `destination` restores the default. Returns the job.",
       "icon": "output_job_edit",
       "id": "output.job.set",
       "kind": "edit",
@@ -23892,6 +23895,7 @@
           },
           "name_template": {
             "default": null,
+            "description": "Names the zip and the BOM and CPL files, from `${project}`, `${job}`,\n`${revision}`, `${date}` and `${preset}`; defaults to `${project}-${job}`.",
             "type": [
               "string",
               "null"
@@ -23906,7 +23910,8 @@
                 "type": "null"
               }
             ],
-            "default": null
+            "default": null,
+            "description": "Keep or remove Not Fitted Components' paste openings."
           },
           "outputs": {
             "anyOf": [
@@ -23936,7 +23941,8 @@
                 "type": "null"
               }
             ],
-            "default": null
+            "default": null,
+            "description": "The schematic PDF in colour or mono."
           }
         },
         "required": [
@@ -28445,7 +28451,7 @@
     },
     {
       "category": "pcb",
-      "description": "Removes the Output Origin. Relative manufacturing outputs then use the lower-left of the Board Outline's bounding box.",
+      "description": "Removes the Output Origin. The editor then measures from design zero, and relative manufacturing outputs from the lower-left of the Board Outline's bounding box.",
       "icon": "delete",
       "id": "pcb.output_origin.delete",
       "kind": "edit",
@@ -28523,7 +28529,7 @@
         "properties": {
           "at": {
             "$ref": "#/$defs/PointParam",
-            "description": "Where Footprint positions are measured from in the manufacturing outputs."
+            "description": "The point the editor, and relative manufacturing outputs, measure coordinates from."
           }
         },
         "required": [

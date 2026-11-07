@@ -150,7 +150,6 @@ Each icon is listed in `reda.txt`. To add one, draw `<key>.svg`, list it there a
 | `unit_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `units` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `update_check` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `user_origin` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `via` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `view_flip` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `waive` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
