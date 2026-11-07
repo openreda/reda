@@ -107,7 +107,8 @@ fn search_covers_the_starter_user_and_project_libraries() {
         .iter()
         .map(|l| l["origin"].as_str().unwrap())
         .collect();
-    assert_eq!(libraries, ["starter", "user", "project"]);
+    // Resolution order: Project, user, Starter.
+    assert_eq!(libraries, ["project", "user", "starter"]);
 }
 
 #[test]
@@ -150,4 +151,45 @@ fn search_works_with_no_project_and_no_user_folder() {
     let mut engine = reda_testkit::test_engine();
     let out = engine.run_ok("library.search", json!({"text": "x"}));
     assert_eq!(out, json!({"libraries": [], "parts": [], "problems": []}));
+}
+
+#[test]
+fn an_inactive_user_or_starter_library_is_not_scanned_or_searched() {
+    let home = TempDir::new("search-inactive");
+    let work = TempDir::new("search-inactive-work");
+    let user_a = work.path().join("a");
+    let user_b = work.path().join("b");
+    write_library(&user_a, 1, "TL072", "TL072");
+    write_library(&user_b, 2, "NE5532", "NE5532");
+    let mut engine = engine(home.path(), Some(demo_library()));
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "libraries.paths", "value": [user_a, user_b]}),
+    );
+    let out = engine.run_ok("library.search", json!({}));
+    assert_eq!(names(&out), ["LM358", "MountingHole_M3", "NE5532", "TL072"]);
+
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "libraries.inactive", "value": [user_a]}),
+    );
+    let out = engine.run_ok("library.search", json!({}));
+    assert_eq!(names(&out), ["LM358", "MountingHole_M3", "NE5532"]);
+    assert_eq!(out["libraries"].as_array().unwrap().len(), 2);
+
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "libraries.starter_active", "value": false}),
+    );
+    let out = engine.run_ok("library.search", json!({}));
+    assert_eq!(names(&out), ["NE5532"]);
+    assert_eq!(out["problems"], json!([]));
+    // Its Part can no longer be found for placing either.
+    let lm358 = "00000050-0000-4000-8000-000000000000";
+    let err = engine.run_err("library.element.open", json!({"element": lm358}));
+    assert_eq!(
+        err.code,
+        reda_engine::command::ErrorCode::NotFound,
+        "{err:?}"
+    );
 }

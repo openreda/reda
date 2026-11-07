@@ -10,7 +10,10 @@ use reda_engine::fab_presets;
 use serde_json::json;
 
 use super::shortcuts::Row;
-use super::{Kind, LIBRARY_PATHS, LIBRARY_SEVERITIES, PageId, PreferencesDialog, Setting, schema};
+use super::{
+    Kind, LIBRARY_PATHS, LIBRARY_SEVERITIES, LIBRARY_STARTER_ACTIVE, PageId, PreferencesDialog,
+    Setting, schema,
+};
 use crate::bars::DocumentType;
 use crate::bridge::Bridge;
 use crate::keymap::{Chord, Context};
@@ -417,9 +420,15 @@ impl PreferencesDialog {
         if paths.is_empty() {
             ui.weak(tr!("pref-libraries-none"));
         }
+        let libraries = cx.shell.preferences().libraries.clone();
         let mut remove = None;
+        let mut toggle = None;
         for (i, path) in paths.iter().enumerate() {
             ui.horizontal(|ui| {
+                let active = !libraries.inactive.contains(path);
+                if active_checkbox(ui, active, path) {
+                    toggle = Some(path.clone());
+                }
                 ui.label(path.as_str());
                 let button = ui.small_button(tr!("pref-remove"));
                 let name = tr!("pref-remove-named", item = path.as_str());
@@ -432,6 +441,17 @@ impl PreferencesDialog {
         if let Some(i) = remove {
             let _ = self.remove_library_path(cx.shell, i);
         }
+        if let Some(path) = toggle {
+            let _ = self.toggle_library_active(cx.shell, &path);
+        }
+        ui.horizontal(|ui| {
+            let starter = tr!("pref-libraries-starter");
+            if active_checkbox(ui, libraries.starter_active, &starter) {
+                let value = json!(!libraries.starter_active);
+                let _ = self.set(cx.shell, LIBRARY_STARTER_ACTIVE, value);
+            }
+            ui.label(starter);
+        });
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             let mut text = std::mem::take(&mut self.new_library_path);
@@ -798,4 +818,14 @@ fn context_label(context: &Context) -> String {
         Context::Global => tr!("shortcuts-context-global"),
         other => other.to_string(),
     }
+}
+
+/// A Library's Active checkbox, named after the Library; true when it was clicked.
+fn active_checkbox(ui: &mut Ui, active: bool, library: &str) -> bool {
+    let mut checked = active;
+    let response = ui.checkbox(&mut checked, "");
+    let name = tr!("pref-library-active-named", library = library);
+    response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, active, name.clone()));
+    let tip = tr!("pref-library-active-tip");
+    response.on_hover_text(tip).changed()
 }

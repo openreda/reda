@@ -3928,6 +3928,77 @@
     },
     {
       "category": "library",
+      "description": "Copies a Symbol, Footprint or Part into a writable registered Library under a new UUID, adding `_1`, `_2`… to a name already taken there. A copied Part still references its original Symbol and Footprints, since Parts can reference across Libraries.",
+      "icon": "duplicate",
+      "id": "library.element.copy",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "element": {
+            "description": "The Symbol, Footprint or Part to copy, from any registered Library.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The writable Library to copy it into; its own Library duplicates it.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element",
+          "library"
+        ],
+        "title": "ElementCopyParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "enum": [
+              "symbol",
+              "footprint",
+              "part"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "element": {
+            "description": "The copy's new UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "name": {
+            "description": "The copy's name: the original's, with `_1`, `_2`… added when that is taken.",
+            "type": "string"
+          },
+          "path": {
+            "description": "The file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element",
+          "kind",
+          "name",
+          "path"
+        ],
+        "title": "ElementCopyResult",
+        "type": "object"
+      },
+      "title": "Copy to Library"
+    },
+    {
+      "category": "library",
       "description": "Creates a Symbol (with one Unit, A), a Footprint or a Part called `name` in a registered Library and opens it for editing on its own undo stack. Nothing is written until `library.element.save`. The starter Library is read-only.",
       "icon": "library_element_new",
       "id": "library.element.new",
@@ -4131,6 +4202,126 @@
         "type": "object"
       },
       "title": "Save Library Element"
+    },
+    {
+      "category": "library",
+      "description": "Writes the Parts, Symbols and Footprints of Components from the part tables into a writable registered Library, keeping their UUIDs, so the Components read Up to Date. Naming a Component whose Part the Library already holds is refused. Leaving out `components` extracts the whole Project (Make Project Library). Elements the Library already holds are skipped and listed; a name another element already has there refuses the whole extraction. Extracted Footprints carry no `generator`.",
+      "icon": "library_add",
+      "id": "library.extract_from_project",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "default": null,
+            "description": "The Components to extract, by UUID. Left out: every Component of the Project (Make\nProject Library).",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "library": {
+            "description": "The writable registered Library to write into.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "library"
+        ],
+        "title": "ExtractParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "enum": [
+              "symbol",
+              "footprint",
+              "part"
+            ],
+            "type": "string"
+          },
+          "ExtractedElement": {
+            "description": "One element written.",
+            "properties": {
+              "element": {
+                "description": "Its UUID, the same as in the part table.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/$defs/ElementKind"
+              },
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "description": "The file written.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "element",
+              "kind",
+              "name",
+              "path"
+            ],
+            "type": "object"
+          },
+          "SkippedElement": {
+            "description": "One element the Library already held, so it was left as it is.",
+            "properties": {
+              "element": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/$defs/ElementKind"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "element",
+              "kind",
+              "name"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "skipped": {
+            "description": "The elements that Library already held.",
+            "items": {
+              "$ref": "#/$defs/SkippedElement"
+            },
+            "type": "array"
+          },
+          "written": {
+            "items": {
+              "$ref": "#/$defs/ExtractedElement"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "written",
+          "skipped"
+        ],
+        "title": "ExtractResult",
+        "type": "object"
+      },
+      "title": "Extract to Library"
     },
     {
       "category": "library",
@@ -17261,7 +17452,7 @@
     },
     {
       "category": "library",
-      "description": "Scans the registered Libraries (the starter Library, the user's from Preferences and the Project's) and returns the Parts whose name or field values contain `text`, optionally only from one Library or of one Component Type.",
+      "description": "Scans the active registered Libraries (the Project's, the user's from Preferences and the starter Library, in that resolution order) and returns the Parts matching every word of `text` (`field:value` words and `*` wildcards included), optionally only from one Library or of one Component Type.",
       "icon": "search",
       "id": "library.search",
       "kind": "file",
@@ -17314,7 +17505,7 @@
           },
           "text": {
             "default": "",
-            "description": "Matched, ignoring case, as a substring of a Part's name or any of its field values\n(Value, Description, Keywords, MPN, the free-form fields…). Empty matches every Part.",
+            "description": "Words separated by spaces, each of which must match, ignoring case: a plain word as\na substring of a Part's name or any of its field values (Value, Description,\nKeywords, MPN, the free-form fields…), a `field:value` word such as `mpn:GRM188` or\n`lcsc:C14` only in that field (`name:` for the Part's name; a Part without the field\nnever matches). `*` stands for any run of characters. Empty matches every Part.",
             "type": "string"
           }
         },
@@ -19464,6 +19655,190 @@
         "type": "null"
       },
       "title": "Remove Unit"
+    },
+    {
+      "category": "library",
+      "description": "Lists the Parts across the registered Libraries that use a Symbol or Footprint, and for any element the Components of the open Project that use it, found by scanning the part tables.",
+      "icon": "where_used",
+      "id": "library.where_used",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "element": {
+            "description": "The Symbol, Footprint or Part, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element"
+        ],
+        "title": "WhereUsedParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "enum": [
+              "symbol",
+              "footprint",
+              "part"
+            ],
+            "type": "string"
+          },
+          "LibrarySummary": {
+            "description": "One scanned Library.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "origin": {
+                "$ref": "#/$defs/Origin"
+              },
+              "path": {
+                "description": "The Library folder.",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "origin",
+              "path"
+            ],
+            "type": "object"
+          },
+          "Origin": {
+            "description": "How a Library came to be registered.",
+            "oneOf": [
+              {
+                "const": "starter",
+                "description": "The starter Library that ships with REDA. Read-only.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "Listed in the user's Preferences.",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "description": "Listed in the open Project's `.reda` file.",
+                "type": "string"
+              }
+            ]
+          },
+          "UsingComponent": {
+            "description": "A Component of the open Project that uses the element.",
+            "properties": {
+              "component": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "designator": {
+                "type": "string"
+              },
+              "part": {
+                "description": "The Library Part it was placed from.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "sheet": {
+                "description": "The sheet its Units are on.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "component",
+              "designator",
+              "sheet",
+              "part"
+            ],
+            "type": "object"
+          },
+          "UsingPart": {
+            "description": "A Library Part that uses the element.",
+            "properties": {
+              "library": {
+                "$ref": "#/$defs/LibrarySummary"
+              },
+              "name": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "library"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "components": {
+            "description": "The Components of the open Project that use the element, by Designator.",
+            "items": {
+              "$ref": "#/$defs/UsingComponent"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "library": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LibrarySummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Library that holds the element; null when no active registered Library does\nand only the Project's part tables still hold a copy."
+          },
+          "name": {
+            "type": "string"
+          },
+          "parts": {
+            "description": "The Parts across the registered Libraries that use a Symbol or Footprint, sorted by\nname. Always empty for a Part.",
+            "items": {
+              "$ref": "#/$defs/UsingPart"
+            },
+            "type": "array"
+          },
+          "used_in_project": {
+            "description": "How many Components that is: \"Used in Project: N\".",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "library",
+          "parts",
+          "components",
+          "used_in_project"
+        ],
+        "title": "WhereUsedResult",
+        "type": "object"
+      },
+      "title": "Where Used"
     },
     {
       "category": "query",

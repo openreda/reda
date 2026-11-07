@@ -137,3 +137,51 @@ fn a_hit_names_its_library() {
     assert_eq!(hits[0].library.info.name, "Mechanical");
     assert_eq!(hits[0].library.origin, Origin::Starter);
 }
+
+#[test]
+fn every_word_of_the_text_must_match_somewhere() {
+    let index = index();
+    assert_eq!(names(&index, &text("thick 0603")), ["R_0603"]);
+    assert_eq!(names(&index, &text("0603  100N")), ["C_0603"]);
+    assert_eq!(names(&index, &text("thick 100n")), Vec::<String>::new());
+}
+
+#[test]
+fn a_field_token_matches_only_that_field() {
+    let index = index();
+    assert_eq!(names(&index, &text("mpn:grm188")), ["C_0603"]);
+    assert_eq!(names(&index, &text("lcsc:C14663")), ["C_0603"]);
+    assert_eq!(names(&index, &text("LCSC:c146")), ["C_0603"]);
+    assert_eq!(names(&index, &text("value:10k")), ["R_0603"]);
+    assert_eq!(names(&index, &text("name:led")), ["LED_0603"]);
+    // "smd" is in R_0603's Keywords, not its Description.
+    assert_eq!(
+        names(&index, &text("description:smd")),
+        Vec::<String>::new()
+    );
+    assert_eq!(names(&index, &text("keywords:smd 0603")), ["R_0603"]);
+}
+
+#[test]
+fn a_field_token_naming_a_field_a_part_lacks_does_not_match_it() {
+    let index = index();
+    assert_eq!(names(&index, &text("lcsc:")), ["C_0603"]);
+    assert_eq!(names(&index, &text("mpn:")), ["C_0603"]);
+    assert_eq!(names(&index, &text("digikey:")), Vec::<String>::new());
+    assert_eq!(names(&index, &text("manufacturer:*")), ["LED_0603"]);
+}
+
+#[test]
+fn a_star_matches_any_run_of_characters() {
+    let index = index();
+    assert_eq!(names(&index, &text("R_*3")), ["R_0603"]);
+    assert_eq!(
+        names(&index, &text("*_0603")),
+        ["C_0603", "LED_0603", "R_0603"]
+    );
+    assert_eq!(names(&index, &text("grm*104")), ["C_0603"]);
+    assert_eq!(names(&index, &text("mpn:GRM*KA9")), ["C_0603"]);
+    assert_eq!(names(&index, &text("thick*resistor")), ["R_0603"]);
+    assert_eq!(names(&index, &text("resistor*thick")), Vec::<String>::new());
+    assert_eq!(names(&index, &text("*")).len(), 4);
+}
