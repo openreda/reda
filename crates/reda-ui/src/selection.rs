@@ -5,6 +5,7 @@
 //!
 //! [`Shell::selection`]: crate::shell::Shell::selection
 
+pub mod filter_ui;
 pub mod picking;
 pub mod rules;
 
@@ -81,14 +82,7 @@ pub struct FieldRef {
     pub field: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct TextRef {
-    pub footprint: Uuid,
-    pub text: Uuid,
-}
-
-pub use reda_engine::model::PadRef;
+pub use reda_engine::model::{FootprintTextRef as TextRef, PadRef};
 
 /// Adds `selection.set` to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
@@ -220,9 +214,13 @@ fn check(project: &Project, selection: &Selection) -> Result<(), CommandError> {
             .documents()
             .filter_map(|d| project.schematic_sheet(d.uuid))
             .find_map(|s| s.unit(field.unit));
-        if !unit.is_some_and(|u| u.visible_fields.contains(&field.field)) {
+        if !unit.is_some_and(|u| {
+            field.field == reda_engine::model::UnitInstance::DESIGNATOR
+                || reda_engine::model::Fields::BUILT_IN.contains(&field.field.as_str())
+                || u.fields.custom.iter().any(|f| f.name == field.field)
+        }) {
             return Err(CommandError::not_found(format!(
-                "no visible field {:?} on Unit {}",
+                "no field {:?} on Unit {}",
                 field.field, field.unit
             )));
         }

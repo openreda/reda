@@ -16,6 +16,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
     if let Some(placing) = crate::placement::placing(shell) {
         return placing_section(ui, placing);
     }
+    if shell.selection().is_empty() {
+        return crate::selection::filter_ui::properties(ui, shell);
+    }
     let Some(project) = shell.engine().project() else {
         ui.weak(tr!("properties-nothing-selected"));
         return Vec::new();

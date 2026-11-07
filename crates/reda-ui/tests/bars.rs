@@ -623,7 +623,10 @@ fn the_tools_that_do_not_fit_a_narrow_canvas_are_in_the_more_tools_menu() {
     h.state_mut().shell_mut().open_project(&file).unwrap();
     h.run();
     // Power Port, last on the sheet's Active Bar, has no room on the bar.
-    assert!(h.query_by_label_contains("Power Port").is_none());
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Power Port")
+            .is_none()
+    );
     h.get_by_role_and_label(Role::Button, "More Tools").click();
     h.run();
     // Its menu, with the Tool and the Power Port Presets, is a submenu there.

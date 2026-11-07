@@ -6,7 +6,7 @@
 //!   be picked. A board picks through its composited Layers with [`hit_test_on`] and
 //!   [`box_select_on`] (topmost Layer first, item by item).
 //! - [`Combine`] turns the pointer's modifiers into how a pick changes the selection
-//!   (Shift adds, Mod toggles), and [`combine`] applies it.
+//!   (Shift toggles), and [`combine`] applies it.
 //! - [`SnapTargets`] snaps a cursor to the grid, or onto a nearby electrical target.
 //! - [`pointer`] turns one frame of egui input on a canvas into [`Pointer`] events in
 //!   Document coordinates, which an editor's Tools consume.

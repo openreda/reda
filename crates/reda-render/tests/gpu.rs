@@ -180,6 +180,60 @@ fn a_selected_object_is_lighter_and_haloed_without_new_geometry() {
 }
 
 #[test]
+fn selecting_a_child_marks_only_its_ink_and_selecting_the_parent_includes_it() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let child = reda_render::Child::Field {
+        unit: id(2),
+        field: "value".into(),
+    };
+    push(
+        &mut scene,
+        id(2),
+        SchematicColor::Wire,
+        filled_rect(Point::new(mm(80), mm(50)), 10, 10),
+    );
+    scene.items.last_mut().unwrap().child = Some(child.clone());
+    let palette = Palette::shipped(Theme::Dark);
+    let view = view_of(&scene, 100);
+    let plain = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    let picked_child = gpu
+        .render(
+            &scene,
+            &view,
+            &palette,
+            Highlight::new().mark(child.id(), Flags::SELECTED),
+        )
+        .unwrap();
+    assert_eq!(
+        pixel(&picked_child, 50, 50),
+        pixel(&plain, 50, 50),
+        "the parent body stays unselected"
+    );
+    assert_ne!(
+        pixel(&picked_child, 80, 50),
+        pixel(&plain, 80, 50),
+        "the selected child is marked"
+    );
+    let picked_parent = gpu
+        .render(
+            &scene,
+            &view,
+            &palette,
+            Highlight::new().mark(id(2), Flags::SELECTED),
+        )
+        .unwrap();
+    assert_ne!(pixel(&picked_parent, 50, 50), pixel(&plain, 50, 50));
+    assert_ne!(
+        pixel(&picked_parent, 80, 50),
+        pixel(&plain, 80, 50),
+        "the parent includes its child's ink"
+    );
+}
+
+#[test]
 fn moving_objects_are_drawn_at_the_offset_and_hidden_ones_not_at_all() {
     let Some(gpu) = headless() else { return };
     let scene = square_on_paper();

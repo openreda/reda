@@ -394,7 +394,10 @@ pub fn active_bar(
     if items.is_empty() {
         return None;
     }
-    let shown = active_bar_fit(items, canvas.width());
+    let shown = active_bar_fit(
+        items,
+        canvas.width() - chrome::BAR_BUTTON - chrome::BAR_SPACING,
+    );
     let (row, rest) = items.split_at(shown);
     let rest = &rest[rest
         .iter()
@@ -414,6 +417,10 @@ pub fn active_bar(
                         let mut clicked = icon_row(ui, cx, row);
                         if !rest.is_empty() {
                             clicked = clicked.or(more_tools(ui, cx, rest));
+                        }
+                        if let Some(document) = cx.document {
+                            clicked = clicked
+                                .or(crate::selection::filter_ui::button(ui, cx.shell, document));
                         }
                         clicked
                     })

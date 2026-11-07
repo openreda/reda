@@ -59,14 +59,35 @@ fn rank(shell: &Shell, document: Uuid, item: &Item) -> Option<u8> {
 }
 
 fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) -> Option<u8> {
-    if protect
-        && shell.preferences().editing.protect_locked_objects
-        && rules::locked(shell, document, item.object)
+    if item.layer == SceneLayer::Ratsnest {
+        return None;
+    }
+    let kind = match &item.child {
+        Some(Child::Field { .. }) => "field_text".to_owned(),
+        Some(Child::Pad { .. }) => "pad".to_owned(),
+        Some(Child::FootprintText { .. }) => "footprint_text".to_owned(),
+        None => rules::kind(shell, document, item.object)?,
+    };
+    if !shell.selection_filter(document).allows(&kind)
+        || !crate::bars::document_type(shell, document)
+            .is_some_and(|ty| crate::working_state::filter_kinds(ty).contains(&kind.as_str()))
     {
         return None;
     }
-    if item.layer == SceneLayer::Ratsnest || !rules::allowed(shell, document, item.object) {
-        return None;
+    if protect
+        && shell.preferences().editing.protect_locked_objects
+        && !matches!(item.child, Some(Child::FootprintText { .. }))
+    {
+        let owner = item.child.as_ref().map_or(item.object, Child::owner);
+        if shell
+            .engine()
+            .project()
+            .and_then(|p| p.pcb_document(document))
+            .and_then(|p| p.footprint(owner))
+            .is_some_and(|f| f.locked)
+        {
+            return None;
+        }
     }
     let Some(project) = shell
         .engine()
@@ -75,7 +96,6 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
     else {
         return Some(0);
     };
-    let kind = rules::kind(shell, document, item.object)?;
     Some(match kind.as_str() {
         "footprint_instance" => 2,
         "zone" | "keepout" => 3,
@@ -98,7 +118,7 @@ pub fn stack(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f64) -> V
         return Vec::new();
     };
     hit_stack_on(
-        &pick_scene(&tab.scene.scene),
+        &document_scene(shell, document),
         tab.scene.layers.as_deref(),
         at,
         tolerance,
@@ -182,6 +202,12 @@ impl Command for Cycle {
     type Params = CycleParams;
     type Output = SelectionSetResult;
     fn run(&self, cx: &mut Context<'_>, p: CycleParams) -> Result<Self::Output, CommandError> {
+        if cx.view::<crate::tools::ActiveTool>()?.0 != crate::tools::Tool::Select {
+            return Err(CommandError::unavailable(
+                "finish the active Tool before cycling",
+            ));
+        }
+        let current = cx.view::<Selection>()?.canvas_ids();
         let picker = cx.view::<Picking>()?;
         if !picker.idle {
             return Err(CommandError::unavailable(
@@ -195,7 +221,11 @@ impl Command for Cycle {
         else {
             return Ok(SelectionSetResult { count: 0 });
         };
-        stack.index = (stack.index + 1) % stack.objects.len();
+        let previous = (current.len() == 1)
+            .then(|| stack.objects.iter().position(|id| *id == current[0]))
+            .flatten()
+            .unwrap_or(stack.index);
+        stack.index = (previous + 1) % stack.objects.len();
         let selection = stack
             .targets
             .get(&stack.objects[stack.index])
@@ -256,7 +286,7 @@ pub fn box_selection(
     modifiers: egui::Modifiers,
 ) -> Option<(String, Value)> {
     let tab = shell.document_tab(document)?;
-    let scene = pick_scene(&tab.scene.scene);
+    let scene = document_scene(shell, document);
     let picked = crate::canvas::interact::box_select_on(
         &scene,
         tab.scene.layers.as_deref(),
@@ -315,7 +345,10 @@ pub fn text_pointer(
                     .find(|i| i.child.as_ref().is_some_and(|c| c.id() == hit))?;
                 let child = item.child.clone()?;
                 if matches!(child, Child::Pad { .. })
-                    || shell.selection().objects.contains(&child.owner())
+                    || (shell.selection().objects.contains(&child.owner())
+                        && rules::allowed(shell, document, child.owner())
+                        && !(shell.preferences().editing.protect_locked_objects
+                            && rules::locked(shell, document, child.owner())))
                 {
                     return None;
                 }
@@ -389,7 +422,12 @@ pub fn movement_hit(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f6
         .find(|c| c.id() == id);
     Some(
         child
-            .filter(|c| shell.selection().objects.contains(&c.owner()))
+            .filter(|c| {
+                shell.selection().objects.contains(&c.owner())
+                    && rules::allowed(shell, document, c.owner())
+                    && !(shell.preferences().editing.protect_locked_objects
+                        && rules::locked(shell, document, c.owner()))
+            })
             .map_or(id, |c| c.owner()),
     )
 }
@@ -444,7 +482,7 @@ pub fn double_click(
     let Some(tab) = shell.document_tab(document) else {
         return;
     };
-    let scene = pick_scene(&tab.scene.scene);
+    let scene = document_scene(shell, document);
     let mut objects = hit_stack_on(&scene, tab.scene.layers.as_deref(), at, tolerance, |i| {
         rank_with_locks(shell, document, i, false)
     });
@@ -457,8 +495,20 @@ pub fn double_click(
         }
         return;
     }
+    let layers = layer_list(shell, document);
     let layer = |id: Uuid| scene.items.iter().find(|i| i.object == id).map(|i| i.layer);
-    objects.sort_by_key(|id| (layer(*id), *id));
+    objects.sort_by_key(|id| {
+        (
+            match layer(*id) {
+                Some(SceneLayer::Board(id)) => layers
+                    .iter()
+                    .position(|l| l.uuid == id)
+                    .unwrap_or(usize::MAX - 1),
+                _ => usize::MAX,
+            },
+            *id,
+        )
+    });
     shell.selection_picking_mut().list = Some(PickList {
         document,
         objects,
@@ -479,11 +529,9 @@ pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
     let mut open = true;
     let mut preview = None;
     let mut choose = None;
-    let scene = shell
-        .document_tab(document)
-        .map(|t| pick_scene(&t.scene.scene))
-        .unwrap_or_default();
-    egui::Window::new("Pick Object")
+    let scene = document_scene(shell, document);
+    let layers = layer_list(shell, document);
+    egui::Window::new(crate::tr!("selection-pick-title"))
         .id(egui::Id::NULL.with(("pick-object", document)))
         .default_pos(list.at)
         .collapsible(false)
@@ -491,7 +539,7 @@ pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
         .open(&mut open)
         .show(ui.ctx(), |ui| {
             let mut previous = None;
-            for id in &list.objects {
+            for (ordinal, id) in list.objects.iter().enumerate() {
                 if !rules::allowed(shell, document, *id) {
                     continue;
                 }
@@ -507,26 +555,35 @@ pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
                             .project()
                             .and_then(|p| p.pcb_document(document))
                             .and_then(|p| p.layers().layer(layer))
-                            .map(|l| format!("{:?} {:?}", l.side, l.kind))
-                            .unwrap_or_else(|| "Layer".into()),
-                        Some(SceneLayer::Drill) => "Through hole".into(),
-                        _ => "Sheet".into(),
+                            .map(|l| {
+                                crate::panels::layers::layer_name(
+                                    shell
+                                        .engine()
+                                        .project()
+                                        .and_then(|p| p.pcb_document(document))
+                                        .expect("board"),
+                                    l,
+                                )
+                            })
+                            .or_else(|| {
+                                layers
+                                    .iter()
+                                    .find(|l| l.uuid == layer)
+                                    .map(editor_layer_name)
+                            })
+                            .unwrap_or_else(|| crate::tr!("selection-pick-layer")),
+                        Some(SceneLayer::Drill) => crate::tr!("selection-pick-drill"),
+                        _ => crate::tr!("selection-pick-sheet"),
                     };
                     ui.strong(name);
                     previous = layer;
                 }
-                let kind = rules::kind(shell, document, *id).unwrap_or_else(|| "object".into());
+                let label = entry_label(shell, document, *id, ordinal);
                 ui.horizontal(|ui| {
                     let (rect, _) =
                         ui.allocate_exact_size(egui::vec2(28.0, 20.0), egui::Sense::hover());
-                    let color = ui.visuals().selection.stroke.color;
-                    ui.painter().rect_stroke(
-                        rect.shrink(3.0),
-                        2.0,
-                        egui::Stroke::new(1.5, color),
-                        egui::StrokeKind::Inside,
-                    );
-                    let row = ui.selectable_label(false, format!("{kind} · {id}"));
+                    thumbnail(ui, &scene, *id, rect);
+                    let row = ui.selectable_label(false, label);
                     if row.hovered() {
                         preview = Some(*id);
                     }
@@ -534,7 +591,29 @@ pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
                         choose = Some(*id);
                     }
                     if rules::locked(shell, document, *id) {
-                        ui.label("🔒").on_hover_text("Locked");
+                        let (lock, response) =
+                            ui.allocate_exact_size(egui::vec2(16.0, 20.0), egui::Sense::hover());
+                        let color = ui.visuals().text_color();
+                        ui.painter().circle_stroke(
+                            lock.center() - egui::vec2(0.0, 3.0),
+                            4.0,
+                            egui::Stroke::new(1.5, color),
+                        );
+                        ui.painter().rect_filled(
+                            egui::Rect::from_center_size(
+                                lock.center() + egui::vec2(0.0, 3.0),
+                                egui::vec2(11.0, 9.0),
+                            ),
+                            2.0,
+                            color,
+                        );
+                        response.widget_info(|| {
+                            egui::WidgetInfo::labeled(
+                                egui::Role::Image,
+                                true,
+                                crate::tr!("selection-pick-locked"),
+                            )
+                        });
                     }
                 });
             }
@@ -553,5 +632,222 @@ pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
     }
     if !open {
         shell.selection_picking_mut().list = None;
+    }
+}
+
+/// A Footprint can be picked by its body even when its only ink consists of Pads.
+fn document_scene(shell: &Shell, document: Uuid) -> Scene {
+    let Some(tab) = shell.document_tab(document) else {
+        return Scene::default();
+    };
+    let mut scene = pick_scene(&tab.scene.scene);
+    if let Some(pcb) = shell
+        .engine()
+        .project()
+        .and_then(|p| p.pcb_document(document))
+    {
+        let layer = shell
+            .board_view()
+            .active_layer(shell.engine().project().expect("board Project"))
+            .map(SceneLayer::Board)
+            .unwrap_or(SceneLayer::Drill);
+        for footprint in pcb.footprints() {
+            let b = reda_engine::pcb::placed::footprint_bounds(pcb, footprint);
+            scene.items.push(Item {
+                object: footprint.uuid,
+                child: None,
+                layer,
+                color: reda_engine::render::ColorKey::Board(reda_engine::render::BoardColor::Hole),
+                primitive: reda_engine::render::Primitive::Rect {
+                    center: b.center(),
+                    size: (b.width(), b.height()),
+                    rotation: reda_engine::model::geom::Millideg(0),
+                    corner_radius: reda_engine::model::geom::Nm(0),
+                    stroke: None,
+                },
+            });
+        }
+    }
+    scene
+}
+
+/// Everything eligible on this canvas, with children collapsed into a picked parent.
+pub fn all(shell: &Shell, document: Uuid) -> Selection {
+    let scene = document_scene(shell, document);
+    let layers = shell
+        .document_tab(document)
+        .and_then(|t| t.scene.layers.as_deref());
+    let mut ids = Vec::new();
+    for item in &scene.items {
+        if layers.is_none_or(|ls| ls.iter().any(|c| c.layer == item.layer))
+            && rank_with_locks(shell, document, item, false).is_some()
+            && !ids.contains(&item.object)
+        {
+            ids.push(item.object);
+        }
+    }
+    selected(shell, document, &ids)
+}
+
+pub fn cancel(shell: &mut Shell) {
+    let picker = shell.selection_picking_mut();
+    let document = picker.moving.take().map(|m| m.document);
+    picker.list = None;
+    picker.idle = true;
+    if let Some(tab) = document.and_then(|d| shell.document_tab_mut(d)) {
+        tab.live = crate::canvas::LiveHandle::default();
+        tab.moving_offset = (0.0, 0.0);
+    }
+}
+
+fn layer_list(shell: &Shell, document: Uuid) -> Vec<reda_engine::model::Layer> {
+    if let Some(pcb) = shell
+        .engine()
+        .project()
+        .and_then(|p| p.pcb_document(document))
+    {
+        return pcb.layers().layers.clone();
+    }
+    if let Some(reda_engine::model::LibraryElement::Footprint(f)) = shell.engine().element(document)
+    {
+        return reda_engine::footprint_scene(f, shell.engine().fonts()).layers;
+    }
+    Vec::new()
+}
+
+fn editor_layer_name(layer: &reda_engine::model::Layer) -> String {
+    use reda_engine::model::{LayerKind, Side};
+    let kind = match layer.kind {
+        LayerKind::Copper => crate::tr!("layer-copper"),
+        LayerKind::Silkscreen => crate::tr!("layer-silkscreen"),
+        LayerKind::SolderMask => crate::tr!("layer-solder-mask"),
+        LayerKind::Paste => crate::tr!("layer-paste"),
+        LayerKind::Courtyard => crate::tr!("layer-courtyard"),
+        LayerKind::Assembly => crate::tr!("layer-assembly"),
+        LayerKind::BoardOutline => crate::tr!("layer-board-outline"),
+        LayerKind::Mechanical => crate::tr!("layer-mechanical"),
+        LayerKind::Documentation => crate::tr!("layer-documentation"),
+    };
+    match layer.side {
+        Some(Side::Top) => crate::tr!("layer-top", kind = kind.as_str()),
+        Some(Side::Bottom) => crate::tr!("layer-bottom", kind = kind.as_str()),
+        None => kind,
+    }
+}
+
+fn entry_label(shell: &Shell, document: Uuid, id: Uuid, ordinal: usize) -> String {
+    use reda_engine::model::Object;
+    let kind = super::filter_ui::kind_label(
+        &rules::kind(shell, document, id).unwrap_or_else(|| "graphic".into()),
+    );
+    if let Some(object) = shell.engine().elements().and_then(|p| p.object(id)) {
+        let detail = match object {
+            Object::Unit(u) => u.object.designator,
+            Object::FootprintInstance(f) => f.object.designator,
+            Object::Wire(w) => format!(
+                "{:.2} mm",
+                w.segments()
+                    .map(|(a, b)| ((b.x - a.x).0 as f64).hypot((b.y - a.y).0 as f64))
+                    .sum::<f64>()
+                    / 1e6
+            ),
+            Object::FreePad(p) => format!(
+                "{:.2} × {:.2} mm",
+                p.width.0 as f64 / 1e6,
+                p.height.0 as f64 / 1e6
+            ),
+            _ => format!("{}", ordinal + 1),
+        };
+        return format!("{kind} · {detail}");
+    }
+    if let Some(item) = shell.document_tab(document).and_then(|t| {
+        t.scene
+            .scene
+            .items
+            .iter()
+            .find(|i| i.child.as_ref().is_some_and(|c| c.id() == id))
+    }) {
+        if let reda_engine::render::Primitive::Glyphs(run) = &item.primitive {
+            return format!("{kind} · {}", run.text);
+        }
+        if let Some(Child::Pad { footprint, pad }) = &item.child {
+            if let Some(pcb) = shell
+                .engine()
+                .project()
+                .and_then(|p| p.pcb_document(document))
+            {
+                if let Some(f) = pcb.footprint(*footprint) {
+                    if let Some(p) = pcb
+                        .footprint_copy(f.footprint)
+                        .and_then(|copy| copy.footprint.pads.iter().find(|p| p.uuid == *pad))
+                    {
+                        return format!("{kind} {} · {}", p.number, f.designator);
+                    }
+                }
+            }
+        }
+    }
+    format!("{kind} · {}", ordinal + 1)
+}
+
+fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {
+    use reda_engine::render::Primitive;
+    let items: Vec<_> = scene.items.iter().filter(|i| i.object == object).collect();
+    let bounds = items
+        .iter()
+        .filter_map(|i| i.primitive.bounds())
+        .reduce(|(a, b), (c, d)| {
+            (
+                reda_engine::model::geom::Point::new(a.x.min(c.x), a.y.min(c.y)),
+                reda_engine::model::geom::Point::new(b.x.max(d.x), b.y.max(d.y)),
+            )
+        });
+    let Some((lo, hi)) = bounds else {
+        return;
+    };
+    let scale = ((rect.width() - 4.0) as f64 / ((hi.x - lo.x).0.max(1) as f64))
+        .min((rect.height() - 4.0) as f64 / ((hi.y - lo.y).0.max(1) as f64));
+    let center = (
+        ((lo.x.0 + hi.x.0) as f64 / 2.0),
+        ((lo.y.0 + hi.y.0) as f64 / 2.0),
+    );
+    let at = |p: reda_engine::model::geom::Point| {
+        rect.center()
+            + egui::vec2(
+                ((p.x.0 as f64 - center.0) * scale) as f32,
+                ((center.1 - p.y.0 as f64) * scale) as f32,
+            )
+    };
+    let color = ui.visuals().selection.stroke.color;
+    let stroke = egui::Stroke::new(1.3, color);
+    for item in items {
+        match &item.primitive {
+            Primitive::Capsule { a, b, .. } => {
+                ui.painter().line_segment([at(*a), at(*b)], stroke);
+            }
+            Primitive::Ring { center, outer, .. } => {
+                ui.painter()
+                    .circle_stroke(at(*center), (outer.0 as f64 * scale) as f32, stroke);
+            }
+            Primitive::Glyphs(_) => {
+                ui.painter().text(
+                    rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "T",
+                    egui::FontId::proportional(14.0),
+                    color,
+                );
+            }
+            other => {
+                if let Some((a, b)) = other.bounds() {
+                    ui.painter().rect_stroke(
+                        egui::Rect::from_two_pos(at(a), at(b)),
+                        1.0,
+                        stroke,
+                        egui::StrokeKind::Inside,
+                    );
+                }
+            }
+        }
     }
 }

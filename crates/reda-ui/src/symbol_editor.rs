@@ -265,6 +265,7 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
     let tool = shell.tool();
     let grid = snap_grid(shell, symbol, tool);
     let state = canvas(shell, symbol);
+    let directional = shell.preferences().editing.directional_rectangle;
     let Some(tab) = shell.document_tab_mut(symbol) else {
         return;
     };
@@ -286,7 +287,11 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode: if directional {
+                        BoxMode::of_drag(*from, *to)
+                    } else {
+                        BoxMode::Enclose
+                    },
                 }),
                 ..Overlay::default()
             },
@@ -352,23 +357,6 @@ impl Cx<'_> {
 
     fn run(&mut self, id: &str, params: Value) {
         self.commands.push((id.to_owned(), params));
-    }
-
-    /// Pins and graphics of the shown Unit (other Units are not drawn).
-    fn pickable(&self, uuid: Uuid) -> bool {
-        if !crate::selection::rules::allowed(self.shell, self.element(), uuid) {
-            return false;
-        }
-        let unit = self.unit;
-        self.symbol
-            .pins
-            .iter()
-            .any(|p| p.uuid == uuid && Some(p.unit) == unit)
-            || self
-                .symbol
-                .graphics
-                .iter()
-                .any(|g| g.uuid == uuid && Some(g.unit) == unit)
     }
 
     fn hit(&self, at: P) -> Option<Uuid> {
@@ -556,7 +544,10 @@ impl Cx<'_> {
                         modifiers,
                     };
                 };
-                let selected = element_editor::selected_on(self.shell, self.element());
+                let selected: Vec<_> = element_editor::selected_on(self.shell, self.element())
+                    .into_iter()
+                    .filter(|id| crate::selection::rules::allowed(self.shell, self.element(), *id))
+                    .collect();
                 let objects = if selected.contains(&hit) {
                     selected
                 } else if modifiers.shift {

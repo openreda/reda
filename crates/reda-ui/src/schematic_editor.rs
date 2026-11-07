@@ -359,6 +359,7 @@ fn show(
 ) {
     preview_run(shell, document, &mut state);
     preview_scene(shell, document, &mut state, previewed);
+    let directional = shell.preferences().editing.directional_rectangle;
     let Some(tab) = shell.document_tab_mut(document) else {
         return;
     };
@@ -372,7 +373,11 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode: if directional {
+                        BoxMode::of_drag(*from, *to)
+                    } else {
+                        BoxMode::Enclose
+                    },
                 }),
                 ..Overlay::default()
             },
@@ -571,7 +576,10 @@ impl Cx<'_> {
             .objects
             .iter()
             .copied()
-            .filter(|o| on_sheet.contains(o))
+            .filter(|o| {
+                on_sheet.contains(o)
+                    && crate::selection::rules::allowed(self.shell, self.document, *o)
+            })
             .collect()
     }
 

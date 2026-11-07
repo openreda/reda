@@ -36,6 +36,7 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
     let mut geometry = BoardGeometry::default();
     for pad in &footprint.pads {
         geometry.pads.push(BoardPad {
+            child: None,
             object: pad.uuid,
             number: pad.number.clone(),
             kind: pad.kind,

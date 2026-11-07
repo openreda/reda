@@ -540,7 +540,31 @@ impl Shell {
             return;
         }
         let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.press(self, at, toggle, tolerance);
+        tool.press(
+            self,
+            at,
+            egui::Modifiers {
+                command: toggle,
+                ..egui::Modifiers::NONE
+            },
+            tolerance,
+        );
+        self.pcb_tool = tool;
+    }
+
+    /// The canvas passes actual modifiers: Shift toggles picks, while Mod detaches drags.
+    pub fn pcb_press_with_modifiers(
+        &mut self,
+        at: Point,
+        modifiers: egui::Modifiers,
+        tolerance: Nm,
+    ) {
+        if self.drawing() {
+            self.pcb_press(at, modifiers.command, tolerance);
+            return;
+        }
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.press(self, at, modifiers, tolerance);
         self.pcb_tool = tool;
     }
 
@@ -1929,6 +1953,7 @@ impl Shell {
             "schematic.cut" => self.clipboard = Some(out["result"].clone()),
             // Escape (and any Tool change) puts back what the canvases have in flight.
             "tool.activate" => {
+                selection::picking::cancel(self);
                 let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
                 for document in documents {
                     crate::schematic_editor::cancel(self, document);

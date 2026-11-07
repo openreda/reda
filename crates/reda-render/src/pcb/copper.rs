@@ -47,6 +47,9 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad]) {
         };
         for layer in copper.into_iter().chain(mask).chain(paste).flatten() {
             b.on_layer(pad.object, layer, shape.clone());
+            if let Some(item) = b.scene.items.last_mut() {
+                item.child = pad.child.clone();
+            }
         }
     }
 }
@@ -119,6 +122,9 @@ pub(super) fn holes(b: &mut Builder, pads: &[BoardPad]) {
             }
         };
         b.push(pad.object, SceneLayer::Drill, BoardColor::Hole, primitive);
+        if let Some(item) = b.scene.items.last_mut() {
+            item.child = pad.child.clone();
+        }
     }
     let pcb = b.pcb;
     for via in pcb.vias() {

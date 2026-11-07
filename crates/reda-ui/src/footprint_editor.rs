@@ -370,6 +370,7 @@ fn show(
     cursor: Option<P>,
 ) {
     let grid = shell.grid(element);
+    let directional = shell.preferences().editing.directional_rectangle;
     let Some(tab) = shell.document_tab_mut(element) else {
         return;
     };
@@ -390,7 +391,11 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode: if directional {
+                        BoxMode::of_drag(*from, *to)
+                    } else {
+                        BoxMode::Enclose
+                    },
                 }),
                 ..Overlay::default()
             },
@@ -448,6 +453,9 @@ impl Cx<'_> {
 
     fn selected(&self) -> Vec<Uuid> {
         element_editor::selected_on(self.shell, self.element)
+            .into_iter()
+            .filter(|id| crate::selection::rules::allowed(self.shell, self.element, *id))
+            .collect()
     }
 
     fn select(&mut self, objects: Vec<Uuid>) {

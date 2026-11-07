@@ -302,6 +302,7 @@ pub fn resolve_in(
         .map(|d| selected_on(shell, d))
         .filter(|s| !s.is_empty())
         .map(|s| json!(s));
+    let select_all = command == "selection.set" && params["objects"].as_str() == Some(SELECTABLE);
     let filled = fill(&mut params, UNDO_STACK, undo.as_ref())
         .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_ref()))
         .and_then(|()| fill(&mut params, GRID, grid.as_ref()))
@@ -319,6 +320,10 @@ pub fn resolve_in(
     let run = match filled {
         Err(reason) => Err(reason),
         Ok(()) => {
+            if select_all && let Some(document) = document {
+                params = serde_json::to_value(crate::selection::picking::all(shell, document))
+                    .expect("selection serializes");
+            }
             // The window is never headless.
             match shell.engine().available(&run_id, false) {
                 Ok(()) => Ok((run_id, params.clone())),
@@ -371,6 +376,20 @@ fn selectable_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
     let Some(project) = shell.engine().project() else {
         return Vec::new();
     };
+    if let Some(tab) = shell
+        .document_tab(document)
+        .filter(|_| project.pcb_document(document).is_some())
+    {
+        let mut out = Vec::new();
+        for item in &tab.scene.scene.items {
+            if crate::selection::rules::allowed(shell, document, item.object)
+                && !out.contains(&item.object)
+            {
+                out.push(item.object);
+            }
+        }
+        return out;
+    }
     let objects = project
         .schematic_sheet(document)
         .map(crate::schematic_editor::selectable)

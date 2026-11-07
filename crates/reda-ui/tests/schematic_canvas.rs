@@ -137,7 +137,11 @@ fn selection_filter_governs_mouse_rectangle_and_select_all_but_explicit_selectio
     h.drop_at(body);
     h.run();
     assert!(
-        h.state().shell().selection().is_empty(),
+        !h.state()
+            .shell()
+            .selection()
+            .objects
+            .contains(&unit.as_str().unwrap().parse().unwrap()),
         "filtered Unit cannot be clicked"
     );
     let from = screen(&h, -500.0, -500.0);
@@ -245,6 +249,14 @@ fn overlapping_objects_rank_smallest_first_and_shift_tab_cycles() {
     h.key_press_modifiers(Modifiers::SHIFT, Key::Tab);
     h.run();
     assert_eq!(h.state().shell().selection().objects, [wires[0]]);
+    assert!(
+        h.state()
+            .shell()
+            .engine()
+            .journal()
+            .iter()
+            .any(|entry| entry.id == "selection.cycle" && entry.outcome.is_ok())
+    );
 }
 
 #[test]
@@ -312,6 +324,14 @@ fn component_field_text_can_be_selected_and_moved_alone_but_cannot_be_deleted() 
             .is_some_and(|message| message.contains("cannot be deleted alone")),
         "standalone field deletion reports its refusal"
     );
+    assert!(
+        h.state()
+            .shell()
+            .engine()
+            .journal()
+            .iter()
+            .any(|entry| entry.id == "selection.delete" && entry.outcome.is_err())
+    );
     assert_eq!(
         h.state()
             .shell()
@@ -348,8 +368,8 @@ fn double_clicking_a_stack_opens_a_pick_list_and_hover_previews_without_selectin
     }
     h.get_by_label("Pick Object");
     let before = h.state().shell().selection().clone();
-    let label = format!("wire · {wire}");
-    h.get_by_label(&label).hover();
+    let label = "Wire · 25.40 mm";
+    h.get_by_label(label).hover();
     h.run();
     assert_eq!(
         h.state().shell().selection(),
@@ -365,10 +385,231 @@ fn double_clicking_a_stack_opens_a_pick_list_and_hover_previews_without_selectin
             .hovered,
         Some(wire)
     );
-    h.get_by_label(&label).click();
+    h.get_by_label(label).click();
     h.run();
     assert_eq!(h.state().shell().selection().objects, [wire]);
     assert_ne!(wire, unit.as_str().unwrap().parse::<Uuid>().unwrap());
+}
+
+#[test]
+fn properties_and_active_bar_share_the_selection_filter() {
+    let dir = TempDir::new("canvas-filter-controls");
+    let mut h = harness(&dir);
+    run(&mut h, "panel.show", json!({"panel":"properties"}));
+    h.run();
+    h.get_by_label("Select Wire").click();
+    h.run();
+    assert!(!h.state().shell().selection_filter(sheet()).allows("wire"));
+    h.get_by_role_and_label(Role::Button, "Selection Filter")
+        .click();
+    h.run();
+    h.get_all_by_label("All").last().unwrap().click();
+    h.run();
+    assert!(h.state().shell().selection_filter(sheet()).allows("wire"));
+}
+
+#[test]
+fn repeat_click_cycles_within_three_pixels_and_six_hundred_ms() {
+    let dir = TempDir::new("canvas-repeat-pick");
+    let mut h = harness_with_step(&dir, 0.01);
+    let mut ids = Vec::new();
+    for points in [
+        json!([{"x":"-100mil","y":0},{"x":"100mil","y":0}]),
+        json!([{"x":0,"y":"-500mil"},{"x":0,"y":"500mil"}]),
+    ] {
+        ids.push(
+            run(
+                &mut h,
+                "schematic.wire.add",
+                json!({"document":SHEET,"points":points}),
+            )["result"]["wires"][0]
+                .as_str()
+                .unwrap()
+                .parse::<Uuid>()
+                .unwrap(),
+        );
+    }
+    h.run();
+    let at = screen(&h, 0.0, 0.0);
+    let click = |h: &mut Harness<'_, App>, at: Pos2, gap: f64| {
+        h.input_mut().time = Some(h.ctx.input(|i| i.time) + gap);
+        h.drag_at(at);
+        h.drop_at(at);
+        h.run();
+    };
+    click(&mut h, at, 0.7);
+    assert_eq!(h.state().shell().selection().objects, [ids[0]]);
+    click(&mut h, at + vec2(2.0, 0.0), 0.35);
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [ids[1]],
+        "repeat within both limits cycles"
+    );
+    click(&mut h, at + vec2(6.0, 0.0), 0.35);
+    assert_eq!(
+        h.state().shell().selection().objects,
+        [ids[0]],
+        "a click more than three pixels away starts again"
+    );
+    click(&mut h, at, 0.7);
+    assert!(
+        h.state().shell().selection().objects != [ids[1]],
+        "a late click cannot cycle to the next object"
+    );
+}
+
+#[test]
+fn double_clicking_a_single_object_selects_it_and_opens_properties() {
+    let dir = TempDir::new("canvas-single-properties");
+    let mut h = harness_with_step(&dir, 0.01);
+    let wire = run(
+        &mut h,
+        "schematic.wire.add",
+        json!({"document":SHEET,"points":[{"x":"-100mil","y":0},{"x":"100mil","y":0}]}),
+    )["result"]["wires"][0]
+        .as_str()
+        .unwrap()
+        .parse::<Uuid>()
+        .unwrap();
+    h.run();
+    let before = h.state().shell().engine().journal().len();
+    let at = screen(&h, 0.0, 0.0);
+    for _ in 0..2 {
+        h.drag_at(at);
+        h.drop_at(at);
+        h.run();
+    }
+    assert_eq!(h.state().shell().selection().objects, [wire]);
+    assert!(
+        h.state().shell().engine().journal()[before..]
+            .iter()
+            .any(|entry| entry.id == "panel.show" && entry.outcome.is_ok()),
+        "double click opens Properties"
+    );
+}
+
+#[test]
+fn explicitly_selected_parent_and_field_move_the_text_once() {
+    let dir = TempDir::new("canvas-parent-field-move");
+    let mut h = harness(&dir);
+    let unit = resistor_and_wire(&mut h);
+    let id: Uuid = unit.as_str().unwrap().parse().unwrap();
+    run(
+        &mut h,
+        "schematic.field.move",
+        json!({"unit":unit,"field":"designator","at":{"x":"500mil","y":"500mil"}}),
+    );
+    run(
+        &mut h,
+        "selection.set",
+        json!({"objects":[unit],"fields":[{"unit":unit,"field":"designator"}]}),
+    );
+    let old = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .schematic_sheet(sheet())
+        .unwrap()
+        .unit(id)
+        .unwrap()
+        .field_text("designator")
+        .unwrap()
+        .clone();
+    let from = screen(&h, 510.0, 500.0);
+    h.drag_at(from);
+    h.run();
+    h.hover_at(from + vec2(60.0, 0.0));
+    h.run();
+    h.drop_at(from + vec2(60.0, 0.0));
+    h.run();
+    let unit = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .schematic_sheet(sheet())
+        .unwrap()
+        .unit(id)
+        .unwrap();
+    assert!(unit.at.x.0 > 0);
+    assert_eq!(
+        unit.field_text("designator"),
+        Some(&old),
+        "the child keeps its local offset, without a second move"
+    );
+}
+
+#[test]
+fn select_similar_honours_filter_changes_and_refuses_a_filtered_template() {
+    let dir = TempDir::new("canvas-similar-filter");
+    let mut h = harness(&dir);
+    let unit = resistor_and_wire(&mut h);
+    run(&mut h, "selection.set", json!({"objects":[unit]}));
+    run(&mut h, "schematic.dialog.open:select_similar", json!({}));
+    h.run();
+    h.get_by_label("Select Similar to R1");
+    run(
+        &mut h,
+        "selection.filter.set",
+        json!({"document":SHEET,"kinds":{"unit":false}}),
+    );
+    h.get_all_by_label("Select").last().unwrap().click();
+    h.run();
+    assert!(
+        h.state().shell().selection().is_empty(),
+        "Apply filters the results using current working state"
+    );
+    run(&mut h, "selection.set", json!({"objects":[unit]}));
+    run(&mut h, "schematic.dialog.open:select_similar", json!({}));
+    h.run();
+    assert!(
+        h.query_by_label("Select Similar to R1").is_none(),
+        "a filtered template cannot open Select Similar"
+    );
+}
+
+#[test]
+fn dragging_an_eligible_object_leaves_filtered_objects_in_the_selection_in_place() {
+    let dir = TempDir::new("canvas-filtered-selection-move");
+    let mut h = harness(&dir);
+    let unit = resistor_and_wire(&mut h);
+    let wire = run(
+        &mut h,
+        "schematic.wire.add",
+        json!({"document":SHEET,"points":[{"x":"1500mil","y":0},{"x":"2500mil","y":0}]}),
+    )["result"]["wires"][0]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects":[unit,wire]}));
+    run(
+        &mut h,
+        "selection.filter.set",
+        json!({"document":SHEET,"kinds":{"unit":false}}),
+    );
+    h.run();
+    let at = screen(&h, 2000.0, 0.0);
+    h.drag_at(at);
+    h.run();
+    h.hover_at(at + vec2(50.0, 0.0));
+    h.run();
+    h.drop_at(at + vec2(50.0, 0.0));
+    h.run();
+    assert_eq!(
+        h.state()
+            .shell()
+            .engine()
+            .project()
+            .unwrap()
+            .schematic_sheet(sheet())
+            .unwrap()
+            .unit(unit.as_str().unwrap().parse().unwrap())
+            .unwrap()
+            .at,
+        reda_ui::engine::model::geom::Point::default(),
+        "a filtered Unit cannot move as part of a selection"
+    );
 }
 
 #[test]

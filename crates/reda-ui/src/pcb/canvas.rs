@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use super::snap::SnapKind;
 use super::view::format_length;
-use crate::canvas::interact::{BoxMode, Pointer};
+use crate::canvas::interact::Pointer;
 use crate::canvas::{CanvasInputs, RubberBand};
 use crate::shell::Shell;
 use crate::tools::Tool;
@@ -49,13 +49,27 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
         return;
     }
     let tolerance = Nm((PICK_POINTS * nm_per_point) as i64);
+    if shell.tool() == Tool::Select {
+        if let Some(commands) = crate::selection::picking::text_pointer(
+            shell,
+            document,
+            &input.events,
+            tolerance.0 as f64,
+        ) {
+            for (id, params) in commands {
+                let _ = shell.run_reporting(&id, params);
+            }
+            return;
+        }
+    }
     for &event in &input.events {
         match event {
             Pointer::Hover(at) => {
+                crate::selection::picking::hover(shell, document, at, tolerance.0 as f64);
                 shell.pcb_hover(board_point(at));
             }
             Pointer::Click { at, modifiers } => {
-                shell.pcb_press(board_point(at), modifiers.command, tolerance);
+                shell.pcb_press_with_modifiers(board_point(at), modifiers, tolerance);
                 shell.pcb_release();
             }
             Pointer::DragStart {
@@ -63,7 +77,7 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
                 at,
                 modifiers,
             } => {
-                shell.pcb_press(board_point(from), modifiers.command, tolerance);
+                shell.pcb_press_with_modifiers(board_point(from), modifiers, tolerance);
                 shell.pcb_drag(board_point(at));
             }
             Pointer::Drag(at) => shell.pcb_drag(board_point(at)),
@@ -76,7 +90,11 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
     let band = shell.pcb_band().map(|(a, b)| RubberBand {
         from: (a.x.0 as f64, a.y.0 as f64),
         to: (b.x.0 as f64, b.y.0 as f64),
-        mode: BoxMode::Enclose,
+        mode: crate::selection::rules::box_mode(
+            shell,
+            (a.x.0 as f64, a.y.0 as f64),
+            (b.x.0 as f64, b.y.0 as f64),
+        ),
     });
     if let Some(tab) = shell.document_tab_mut(document) {
         tab.overlay.rubber_band = band;

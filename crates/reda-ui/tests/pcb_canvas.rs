@@ -34,6 +34,10 @@ struct Window {
 /// The window on a board with one Footprint (a 2 mm Pad) at the origin, with its PCB tab
 /// focused and the Layers panel open.
 fn window() -> Window {
+    window_with_step(0.25)
+}
+
+fn window_with_step(step: f32) -> Window {
     let home = TempDir::new("pcb-canvas-home");
     let work = TempDir::new("pcb-canvas-work");
     let engine = Engine::builder()
@@ -66,6 +70,8 @@ fn window() -> Window {
         .unwrap();
     shell.run("panel.show", json!({"panel": "layers"})).unwrap();
     let h = Harness::builder()
+        .with_step_dt(step)
+        .with_max_steps(100)
         .with_size([1000.0, 1100.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     Window {
@@ -100,6 +106,250 @@ fn on_screen(w: &Window, p: Point) -> Pos2 {
 fn footprint_at(w: &Window) -> Point {
     let pcb = shell(w).engine().project().unwrap().pcb().unwrap();
     pcb.footprint(w.footprint).unwrap().at
+}
+
+#[test]
+fn pads_follow_the_shared_click_shift_toggle_and_filter_rules() {
+    let mut w = window();
+    w.h.run();
+    let at = on_screen(&w, Point::default());
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert!(
+        shell(&w).selection().objects.is_empty(),
+        "the Pad is selected independently"
+    );
+    assert_eq!(shell(&w).selection().pads.len(), 1);
+    w.h.event(egui::Event::ModifiersChanged(Modifiers::SHIFT));
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert!(
+        shell(&w).selection().is_empty(),
+        "Shift toggles the Pad out"
+    );
+    w.h.event(egui::Event::ModifiersChanged(Modifiers::NONE));
+    let pcb = w.pcb;
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "selection.filter.set",
+            json!({"document":pcb,"kinds":{"pad":false}}),
+        )
+        .unwrap();
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert!(
+        shell(&w).selection().pads.is_empty(),
+        "filtered Pads cannot be picked"
+    );
+    w.h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    w.h.run();
+    assert!(
+        shell(&w).selection().pads.is_empty(),
+        "Select All honours the same Filter"
+    );
+    let near_pad = on_screen(&w, Point::default()) + egui::vec2(1.0, 0.0);
+    w.h.hover_at(near_pad);
+    w.h.run();
+    assert_eq!(
+        shell(&w).pcb_snap(),
+        Some((Point::default(), reda_ui::pcb::snap::SnapKind::Pad)),
+        "filtering a Pad does not remove its snap target"
+    );
+}
+
+#[test]
+fn designator_text_selects_and_drags_alone_refuses_delete_and_follows_its_parent() {
+    let mut w = window();
+    let footprint = w.footprint;
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.footprint.text.set",
+            json!({"instances":[footprint],"field":"Designator","at":{"x":"4mm","y":0}}),
+        )
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({"document":w.pcb}))
+        .unwrap();
+    w.h.run();
+    w.h.run();
+    let at = on_screen(
+        &w,
+        Point::new(
+            reda_ui::engine::model::geom::Nm(4_000_000),
+            reda_ui::engine::model::geom::Nm(0),
+        ),
+    );
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert!(shell(&w).selection().objects.is_empty());
+    assert_eq!(shell(&w).selection().texts.len(), 1);
+    w.h.drag_at(at);
+    w.h.run();
+    w.h.hover_at(at + egui::vec2(50.0, 0.0));
+    w.h.run();
+    w.h.drop_at(at + egui::vec2(50.0, 0.0));
+    w.h.run();
+    assert_eq!(footprint_at(&w), Point::default());
+    let before = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .footprint(footprint)
+        .unwrap()
+        .clone();
+    assert!(
+        before
+            .text_overrides
+            .iter()
+            .any(|t| t.at.is_some_and(|at| at.x.0 > 4_000_000))
+    );
+    w.h.key_press(Key::Delete);
+    w.h.run();
+    assert!(
+        shell(&w)
+            .message()
+            .is_some_and(|m| m.contains("cannot be deleted alone"))
+    );
+    assert_eq!(
+        shell(&w)
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .footprint(footprint),
+        Some(&before)
+    );
+    let text = shell(&w).selection().texts[0].clone();
+    let anchor = |w: &Window| {
+        shell(w)
+            .document_tab(w.pcb)
+            .unwrap()
+            .scene
+            .scene
+            .items
+            .iter()
+            .find_map(|item| match (&item.child, &item.primitive) {
+                (
+                    Some(reda_ui::engine::render::Child::FootprintText {
+                        footprint: f,
+                        text: t,
+                    }),
+                    reda_ui::engine::render::Primitive::Glyphs(run),
+                ) if *f == text.footprint && *t == text.text => Some(run.at),
+                _ => None,
+            })
+            .unwrap()
+    };
+    let from = anchor(&w);
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.move",
+            json!({"objects":[footprint],"by":{"x":"1mm","y":0}}),
+        )
+        .unwrap();
+    assert_eq!(anchor(&w).x.0, from.x.0 + 1_000_000);
+}
+
+#[test]
+fn active_layer_ranks_before_smaller_objects_on_other_visible_layers() {
+    let mut w = window();
+    let free =
+        w.h.state_mut()
+            .shell_mut()
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind":"smd","side":"bottom","at":{"x":0,"y":0},"width":"0.2mm"}),
+            )
+            .unwrap()["result"]["uuid"]
+            .clone();
+    w.h.run();
+    let at = on_screen(&w, Point::default());
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert_eq!(
+        shell(&w).selection().pads.len(),
+        1,
+        "the larger active-layer Pad ranks first"
+    );
+    let bottom = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .layers()
+        .find(LayerKind::Copper, Some(Side::Bottom))
+        .unwrap()
+        .uuid;
+    w.h.state_mut()
+        .shell_mut()
+        .run("pcb.layer.activate", json!({"layer":bottom}))
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("selection.set", json!({}))
+        .unwrap();
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert_eq!(
+        shell(&w).selection().objects,
+        [free.as_str().unwrap().parse::<Uuid>().unwrap()],
+        "activating the other Layer changes stack priority"
+    );
+}
+
+#[test]
+fn protected_objects_are_skipped_by_click_but_pick_list_shows_locks_and_selects_explicitly() {
+    let mut w = window_with_step(0.01);
+    let footprint = w.footprint;
+    w.h.state_mut()
+        .shell_mut()
+        .run("pcb.lock", json!({"footprints":[footprint],"locked":true}))
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "selection.filter.set",
+            json!({"document":w.pcb,"kinds":{"footprint_text":false}}),
+        )
+        .unwrap();
+    w.h.run();
+    let at = on_screen(&w, Point::default());
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    assert!(
+        shell(&w).selection().is_empty(),
+        "protected objects are skipped"
+    );
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    w.h.get_by_label("Pick Object");
+    assert!(
+        w.h.query_all_by_label("Locked").count() >= 1,
+        "the pick list marks locked entries"
+    );
+    w.h.get_by_label("Footprint · TP").click();
+    w.h.run();
+    assert_eq!(
+        shell(&w).selection().objects,
+        [footprint],
+        "explicit list picks can select protected objects"
+    );
 }
 
 #[test]

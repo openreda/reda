@@ -60,7 +60,11 @@ fn pad_labels(b: &mut Builder, pad: &BoardPad, layer: SceneLayer) {
     for (text, color, height, shift) in lines {
         let height = fit(&text, Nm(short.0 * height / 100), long);
         let at = offset(short.0 * shift / 100);
+        let first = b.scene.items.len();
         label(b, pad.object, layer, color, &text, at, height, rotation);
+        for item in &mut b.scene.items[first..] {
+            item.child = pad.child.clone();
+        }
     }
 }
 

@@ -270,33 +270,49 @@ pub fn hit_stack_on(
     rank: impl Fn(&Item) -> Option<u8>,
 ) -> Vec<Uuid> {
     let visible = |i: &Item| layers.is_none_or(|ls| ls.iter().any(|l| l.layer == i.layer));
-    let mut hits: Vec<(Uuid, u8, f64)> = Vec::new();
+    // One pass accumulates bounds and hits: hover must stay usable on large boards.
+    let mut objects = std::collections::BTreeMap::new();
     for item in &scene.items {
-        if !visible(item) || distance(&item.primitive, at) > tolerance {
+        if !visible(item) {
             continue;
         }
         let Some(tier) = rank(item) else {
             continue;
         };
-        if let Some(hit) = hits.iter_mut().find(|hit| hit.0 == item.object) {
-            hit.1 = hit.1.min(tier);
-            continue;
+        let entry = objects.entry(item.object).or_insert((
+            u8::MAX,
+            true,
+            false,
+            (f64::INFINITY, f64::INFINITY),
+            (f64::NEG_INFINITY, f64::NEG_INFINITY),
+        ));
+        if let Some((a, b)) = bounds(item) {
+            entry.3 = (entry.3.0.min(a.0), entry.3.1.min(a.1));
+            entry.4 = (entry.4.0.max(b.0), entry.4.1.max(b.1));
         }
-        let mut lo = (f64::INFINITY, f64::INFINITY);
-        let mut hi = (f64::NEG_INFINITY, f64::NEG_INFINITY);
-        for drawn in scene
-            .items
-            .iter()
-            .filter(|i| i.object == item.object && visible(i) && rank(i).is_some())
-        {
-            if let Some((a, b)) = bounds(drawn) {
-                lo = (lo.0.min(a.0), lo.1.min(a.1));
-                hi = (hi.0.max(b.0), hi.1.max(b.1));
-            }
+        let d = distance(&item.primitive, at);
+        if d <= tolerance {
+            entry.0 = entry.0.min(tier);
+            entry.1 &= d > 0.0;
+            entry.2 = true;
         }
-        let area = (hi.0 - lo.0).max(1.0) * (hi.1 - lo.1).max(1.0);
-        hits.push((item.object, tier, area));
     }
-    hits.sort_by(|a, b| a.1.cmp(&b.1).then(a.2.total_cmp(&b.2)).then(a.0.cmp(&b.0)));
+    let mut hits: Vec<_> = objects
+        .into_iter()
+        .filter_map(|(id, (tier, near, hit, lo, hi))| {
+            hit.then_some((
+                id,
+                tier,
+                near,
+                (hi.0 - lo.0).max(1.0) * (hi.1 - lo.1).max(1.0),
+            ))
+        })
+        .collect();
+    hits.sort_by(|a, b| {
+        a.1.cmp(&b.1)
+            .then(a.2.cmp(&b.2))
+            .then(a.3.total_cmp(&b.3))
+            .then(a.0.cmp(&b.0))
+    });
     hits.into_iter().map(|h| h.0).collect()
 }

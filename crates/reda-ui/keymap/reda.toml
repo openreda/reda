@@ -637,3 +637,9 @@ params = { element = "$active_document" }
 key = "Shift+Tab"
 command = "selection.cycle"
 params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }

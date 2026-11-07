@@ -85,7 +85,13 @@ fn selected_on_canvas(tab: &DocumentTab) -> usize {
         return 0;
     }
     let mut drawn: Vec<_> = (tab.scene.scene.items.iter())
-        .map(|item| item.object)
+        .map(|item| {
+            item.child
+                .as_ref()
+                .map(|c| c.id())
+                .filter(|id| selected.contains(id))
+                .unwrap_or(item.object)
+        })
         .filter(|object| selected.contains(object))
         .collect();
     drawn.sort_unstable();
