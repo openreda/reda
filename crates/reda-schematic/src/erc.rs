@@ -7,22 +7,23 @@
 //! can tell when results are stale.
 
 mod components;
+mod details;
 mod matrix;
 mod nets;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{
-    ErcCheck, ErcSeverities, InDocument, Object, Project, Scope, Severity, Uuid, Violation, Waiver,
+    ErcCheck, ErcSeverities, InDocument, Object, Project, Severity, Uuid, Violation, Waiver,
     apply_waivers,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn register_all(registry: &mut Registry) {
+pub(crate) fn register_all(registry: &mut Registry, user_name: reda_command::UserName) {
     registry.add(ErcRun);
     registry.add(ErcStale);
     registry.add(ErcSetSeverity);
-    registry.add(ErcWaive);
+    registry.add(ErcWaive { user_name });
     registry.add(ErcUnwaive);
 }
 
@@ -37,7 +38,13 @@ pub fn check(project: &Project) -> Vec<Violation> {
     components::check(project, &mut report);
     let mut found = report.found;
     found.sort_by_key(|(check, _)| *check);
-    found.into_iter().map(|(_, v)| v).collect()
+    found
+        .into_iter()
+        .map(|(_, mut v)| {
+            details::complete(project, &mut v);
+            v
+        })
+        .collect()
 }
 
 /// The fingerprint of everything ERC reads: the Project properties (with the ERC
@@ -124,7 +131,11 @@ impl Command for ErcRun {
 
     fn run(&self, cx: &mut Context<'_>, p: ErcRunParams) -> Result<ErcRunResult, CommandError> {
         let project = cx.project()?;
-        let waived = apply_waivers(check(project), waivers(project), p.include_waived);
+        let waived = apply_waivers(check(project), waivers(project), p.include_waived, |id| {
+            ErcCheck::ALL
+                .iter()
+                .any(|c| c.id() == id && project.props().erc.get(*c) != Severity::Off)
+        });
         Ok(ErcRunResult {
             violations: waived.violations,
             waived: waived.waived,
@@ -201,36 +212,41 @@ impl Command for ErcSetSeverity {
     }
 }
 
-pub struct ErcWaive;
+pub struct ErcWaive {
+    user_name: reda_command::UserName,
+}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ErcWaiveParams {
-    /// The check id of the Violation, such as `unconnected_pin`.
-    pub check: ErcCheck,
-    /// Exactly the objects of the Violation, in any order.
-    pub objects: Vec<Uuid>,
-    /// Why it is waived.
+    /// The current Violations to waive together, each with exactly its objects.
+    pub violations: Vec<ErcWaiverTarget>,
+    /// One reason for every selected Violation.
     #[serde(default)]
-    pub comment: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ErcWaiverTarget {
+    pub check: ErcCheck,
+    pub objects: Vec<Uuid>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ErcWaiveResult {
-    /// The new Waiver.
-    pub waiver: Uuid,
-    /// The sheet that holds it: the one holding the Violation's first object.
-    pub document: Uuid,
+    /// The new Waivers, in the order of the selected Violations.
+    pub waivers: Vec<Uuid>,
 }
 
 impl Command for ErcWaive {
     const META: Meta = Meta {
         id: "erc.waive",
-        title: "Waive ERC Violation",
-        description: "Waives one current ERC Violation, named by its check and exactly its \
-                      objects, with an optional comment. The Waiver is stored in the sheet \
-                      holding the Violation's first object and stops matching once those \
-                      objects no longer break the check.",
+        title: "Waive ERC Violations",
+        description: "Waives the selected current ERC Violations with one reason, author \
+                      and creation time, as one undo step. Each Waiver is stored in the \
+                      Document holding its objects and stops matching once those objects \
+                      no longer break the check.",
         category: "schematic",
         icon: "waive",
         kind: Kind::Edit,
@@ -239,37 +255,56 @@ impl Command for ErcWaive {
     type Output = ErcWaiveResult;
 
     fn run(&self, cx: &mut Context<'_>, p: ErcWaiveParams) -> Result<ErcWaiveResult, CommandError> {
-        let project = cx.project()?;
-        let probe = Violation::new(p.check.id(), Severity::Error).objects(p.objects.clone());
-        let candidate = Waiver::of(Uuid::from_u128(0), &probe, "");
-        let Some(violation) = check(project).into_iter().find(|v| candidate.matches(v)) else {
-            return Err(CommandError::rejected(format!(
-                "no current {} Violation has exactly these objects",
-                p.check.id()
-            )));
-        };
-        if let Some(existing) = waivers(project).find(|w| w.matches(&violation)) {
-            return Err(CommandError::rejected(format!(
-                "Waiver {} already waives this Violation",
-                existing.uuid
-            )));
+        if p.violations.is_empty() {
+            return Err(CommandError::invalid_params(
+                "/violations",
+                "select at least one Violation",
+            ));
         }
-        let document = violation
-            .objects
-            .iter()
-            .find_map(|&uuid| match project.object(uuid)?.scope() {
-                Scope::Document(d) if project.schematic_sheet(d).is_some() => Some(d),
-                _ => None,
-            })
-            .ok_or_else(|| CommandError::rejected("no sheet holds this Violation's objects"))?;
-        let waiver = Waiver::of(cx.new_id(), &violation, p.comment);
-        let uuid = waiver.uuid;
-        cx.tx()?
-            .insert(Object::Waiver(InDocument::new(document, waiver)))?;
-        Ok(ErcWaiveResult {
-            waiver: uuid,
-            document,
-        })
+        let project = cx.project()?;
+        let violations = check(project);
+        let mut selected = Vec::new();
+        for target in &p.violations {
+            let probe =
+                Violation::new(target.check.id(), Severity::Error).objects(target.objects.clone());
+            let candidate = Waiver::of(Uuid::from_u128(0), &probe, "", 0, "");
+            let Some(violation) = violations.iter().find(|v| candidate.matches(v)) else {
+                return Err(CommandError::rejected(format!(
+                    "no current {} Violation has exactly these objects",
+                    target.check.id()
+                )));
+            };
+            if waivers(project).any(|w| w.matches(violation)) {
+                return Err(CommandError::rejected(
+                    "a Waiver already waives this Violation",
+                ));
+            }
+            // Several results can share a fingerprint (for example both ends of a
+            // dangling Wire). They need one stored Waiver, even when all are selected.
+            if selected.iter().any(|(_, v)| candidate.matches(v)) {
+                continue;
+            }
+            let document = violation
+                .document
+                .ok_or_else(|| CommandError::rejected("no sheet holds this Violation's objects"))?;
+            selected.push((document, violation.clone()));
+        }
+        let author = (self.user_name)(cx.user_dirs());
+        let created = cx.now().0;
+        let mut waivers = Vec::new();
+        for (document, violation) in selected {
+            let waiver = Waiver::of(
+                cx.new_id(),
+                &violation,
+                author.clone(),
+                created,
+                p.reason.clone(),
+            );
+            waivers.push(waiver.uuid);
+            cx.tx()?
+                .insert(Object::Waiver(InDocument::new(document, waiver)))?;
+        }
+        Ok(ErcWaiveResult { waivers })
     }
 }
 

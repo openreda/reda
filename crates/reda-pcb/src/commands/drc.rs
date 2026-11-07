@@ -14,11 +14,15 @@ use super::{needs_pcb, pcb};
 use crate::drc::{check, design_fingerprint};
 use crate::zone;
 
-pub(super) fn register_all(registry: &mut Registry, sync: SyncCheck) {
+pub(super) fn register_all(
+    registry: &mut Registry,
+    sync: SyncCheck,
+    user_name: reda_command::UserName,
+) {
     registry.add(DrcRun { sync });
     registry.add(DrcStale { sync });
     registry.add(DrcSetSeverity);
-    registry.add(DrcWaive { sync });
+    registry.add(DrcWaive { sync, user_name });
     registry.add(DrcUnwaive);
 }
 
@@ -47,7 +51,19 @@ fn current(cx: &Context<'_>, sync: SyncCheck) -> Result<Checked, CommandError> {
     let state = sync(project);
     let mut violations = check(pcb, &fills, cx.fonts());
     // `out_of_sync` is the last check of the DRC table.
-    violations.extend(state.violation);
+    violations.extend(state.violation.map(|v| {
+        v.located(
+            pcb.uuid,
+            pcb.outline().and_then(|o| o.vertices.first()).map_or(
+                reda_model::geom::Point::new(
+                    reda_model::geom::Nm::ZERO,
+                    reda_model::geom::Nm::ZERO,
+                ),
+                |v| v.point(),
+            ),
+        )
+        .on_layers(pcb.copper_layers().map(|l| l.uuid))
+    }));
     Ok(Checked {
         violations,
         refilled,
@@ -122,7 +138,11 @@ impl Command for DrcRun {
     fn run(&self, cx: &mut Context<'_>, p: DrcRunParams) -> Result<DrcRunResult, CommandError> {
         let checked = current(cx, self.sync)?;
         let pcb = pcb(cx)?;
-        let waived = apply_waivers(checked.violations, pcb.waivers(), p.include_waived);
+        let waived = apply_waivers(checked.violations, pcb.waivers(), p.include_waived, |id| {
+            DrcCheck::ALL
+                .iter()
+                .any(|c| c.id() == id && pcb.setup().severities.get(*c) != Severity::Off)
+        });
         Ok(DrcRunResult {
             violations: waived.violations,
             waived: waived.waived,
@@ -215,36 +235,40 @@ impl Command for DrcSetSeverity {
 
 pub struct DrcWaive {
     sync: SyncCheck,
+    user_name: reda_command::UserName,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DrcWaiveParams {
-    /// The check id of the Violation, such as `clearance`.
-    pub check: DrcCheck,
-    /// Exactly the objects of the Violation, in any order.
-    pub objects: Vec<Uuid>,
-    /// Why it is waived.
+    /// The current Violations to waive together, each with exactly its objects.
+    pub violations: Vec<DrcWaiverTarget>,
+    /// One reason for every selected Violation.
     #[serde(default)]
-    pub comment: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DrcWaiverTarget {
+    pub check: DrcCheck,
+    pub objects: Vec<Uuid>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct DrcWaiveResult {
-    /// The new Waiver.
-    pub waiver: Uuid,
-    /// The PCB Document that holds it.
-    pub document: Uuid,
+    /// The new Waivers, in the order of the selected Violations.
+    pub waivers: Vec<Uuid>,
 }
 
 impl Command for DrcWaive {
     const META: Meta = Meta {
         id: "drc.waive",
-        title: "Waive DRC Violation",
-        description: "Waives one current DRC Violation, named by its check and exactly its \
-                      objects, with an optional comment. The Waiver is stored in the PCB \
-                      Document and stops matching once those objects no longer break the \
-                      check.",
+        title: "Waive DRC Violations",
+        description: "Waives the selected current DRC Violations with one reason, author \
+                      and creation time, as one undo step. Each Waiver is stored in the \
+                      Document holding its objects and stops matching once those objects \
+                      no longer break the check.",
         category: "pcb",
         icon: "waive",
         kind: Kind::Edit,
@@ -257,31 +281,53 @@ impl Command for DrcWaive {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: DrcWaiveParams) -> Result<DrcWaiveResult, CommandError> {
-        let probe = Violation::new(p.check.id(), Severity::Error).objects(p.objects.clone());
-        let candidate = Waiver::of(Uuid::from_u128(0), &probe, "");
-        let violations = current(cx, self.sync)?.violations;
-        let Some(violation) = violations.into_iter().find(|v| candidate.matches(v)) else {
-            return Err(CommandError::rejected(format!(
-                "no current {} Violation has exactly these objects",
-                p.check.id()
-            )));
-        };
-        let pcb = pcb(cx)?;
-        if let Some(existing) = pcb.waivers().find(|w| w.matches(&violation)) {
-            return Err(CommandError::rejected(format!(
-                "Waiver {} already waives this Violation",
-                existing.uuid
-            )));
+        if p.violations.is_empty() {
+            return Err(CommandError::invalid_params(
+                "/violations",
+                "select at least one Violation",
+            ));
         }
-        let document = pcb.uuid;
-        let waiver = Waiver::of(cx.new_id(), &violation, p.comment);
-        let uuid = waiver.uuid;
-        cx.tx()?
-            .insert(Object::Waiver(InDocument::new(document, waiver)))?;
-        Ok(DrcWaiveResult {
-            waiver: uuid,
-            document,
-        })
+        let violations = current(cx, self.sync)?.violations;
+        let mut selected = Vec::new();
+        for target in &p.violations {
+            let probe =
+                Violation::new(target.check.id(), Severity::Error).objects(target.objects.clone());
+            let candidate = Waiver::of(Uuid::from_u128(0), &probe, "", 0, "");
+            let Some(violation) = violations.iter().find(|v| candidate.matches(v)) else {
+                return Err(CommandError::rejected(format!(
+                    "no current {} Violation has exactly these objects",
+                    target.check.id()
+                )));
+            };
+            if pcb(cx)?.waivers().any(|w| w.matches(violation)) {
+                return Err(CommandError::rejected(
+                    "a Waiver already waives this Violation",
+                ));
+            }
+            // Several results can share a fingerprint (for example both ends of a
+            // dangling Wire). They need one stored Waiver, even when all are selected.
+            if selected.iter().any(|(_, v)| candidate.matches(v)) {
+                continue;
+            }
+            let document = pcb(cx)?.uuid;
+            selected.push((document, violation.clone()));
+        }
+        let author = (self.user_name)(cx.user_dirs());
+        let created = cx.now().0;
+        let mut waivers = Vec::new();
+        for (document, violation) in selected {
+            let waiver = Waiver::of(
+                cx.new_id(),
+                &violation,
+                author.clone(),
+                created,
+                p.reason.clone(),
+            );
+            waivers.push(waiver.uuid);
+            cx.tx()?
+                .insert(Object::Waiver(InDocument::new(document, waiver)))?;
+        }
+        Ok(DrcWaiveResult { waivers })
     }
 }
 

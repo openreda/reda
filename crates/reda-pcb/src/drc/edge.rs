@@ -2,12 +2,12 @@
 //! edge clearance, or outside the board altogether.
 
 use reda_model::geom::{Millideg, Nm, Vertex};
-use reda_model::{DrcCheck, Uuid};
+use reda_model::{DrcCheck, Limit, RuleField, RuleKind, Uuid};
 
 use super::{Board, Report, item_objects};
 use crate::copper::Item;
 use crate::copper::shape::{Core, P, Prim, Shape, arc_points};
-use crate::rules::net_rules;
+use crate::rules::{net_rules, resolve};
 
 /// One edge of the board: the outline or a cutout, as a closed chain of corners (arcs as
 /// chords within 1 µm).
@@ -92,10 +92,12 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
             continue;
         };
         for edge in &edges {
-            let gap = edge
+            let nearest = edge
                 .segments()
-                .map(|s| shape.distance(&s))
-                .fold(f64::INFINITY, f64::min);
+                .min_by(|a, b| shape.distance(a).total_cmp(&shape.distance(b)))
+                .expect("edge has segments");
+            let gap = shape.distance(&nearest);
+            let [a, b] = shape.closest_points(&nearest);
             let anchor = match &shape.prims[0].core {
                 Core::Seg(a, _) => *a,
                 Core::Poly(points) => points[0],
@@ -109,10 +111,25 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
                 continue;
             };
             report.add(DrcCheck::EdgeClearance, |v| {
-                v.arg("required", required)
-                    .arg("actual", actual)
-                    .objects(item_objects(item))
-                    .object(edge.uuid)
+                v.length(
+                    actual,
+                    required,
+                    Limit::Min,
+                    resolve(
+                        pcb,
+                        board.copper.net(item),
+                        RuleKind::EdgeClearance,
+                        RuleField::Value,
+                    )
+                    .expect("edge limit applies")
+                    .rule,
+                )
+                .distance_points(a, b)
+                .on_layers(pieces.iter().map(|(l, _)| *l))
+                .arg("required", required)
+                .arg("actual", actual)
+                .objects(item_objects(item))
+                .object(edge.uuid)
             });
         }
     }

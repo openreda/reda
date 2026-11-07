@@ -2,19 +2,19 @@
   "format": 1,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000024","hash":"5204a554be9f67ce6bc2a3d16aaf7e92","part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040","a0000000-0000-4000-8000-000000000050"],"copies":["00000000-0000-4000-8000-000000000022","00000000-0000-4000-8000-000000000023"],"fields":{"value":"10k","mpn":"RC0603FR-0710KL","custom":[{"name":"LCSC","value":"C25804"}]},"pin_map":{},"symbol":{"uuid":"a0000000-0000-4000-8000-000000000010","name":"R","designator_prefix":"R"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000024","hash":"d7af23998a57d7f21588bccfe555c04b","part":{"uuid":"a0000000-0000-4000-8000-000000000100","name":"R_10k","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000010"},"footprints":["a0000000-0000-4000-8000-000000000040","a0000000-0000-4000-8000-000000000050"],"copies":["00000000-0000-4000-8000-000000000022","00000000-0000-4000-8000-000000000023"],"fields":{"value":"10k","mpn":"RC0603FR-0710KL","custom":[{"name":"LCSC","value":"C25804"}]},"pin_map":{},"symbol":{"uuid":"a0000000-0000-4000-8000-000000000010","name":"R","designator_prefix":"R"},"units":[
       {"uuid":"a0000000-0000-4000-8000-000000000011","name":"A"}
     ],"pins":[
       {"uuid":"a0000000-0000-4000-8000-000000000012","unit":"a0000000-0000-4000-8000-000000000011","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000},
       {"uuid":"a0000000-0000-4000-8000-000000000013","unit":"a0000000-0000-4000-8000-000000000011","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":1270000}
     ],"graphics":[]},
-    {"uuid":"00000000-0000-4000-8000-000000000027","hash":"05171c88564837ae0a62bd17509537ff","part":{"uuid":"a0000000-0000-4000-8000-000000000110","name":"C_100n","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000020"},"footprints":["a0000000-0000-4000-8000-000000000040"],"copies":["00000000-0000-4000-8000-000000000022"],"fields":{"value":"100n"},"pin_map":{},"symbol":{"uuid":"a0000000-0000-4000-8000-000000000020","name":"C","designator_prefix":"C"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000027","hash":"2d83e1bda8cbf9dec7408a4ead2848e3","part":{"uuid":"a0000000-0000-4000-8000-000000000110","name":"C_100n","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000020"},"footprints":["a0000000-0000-4000-8000-000000000040"],"copies":["00000000-0000-4000-8000-000000000022"],"fields":{"value":"100n"},"pin_map":{},"symbol":{"uuid":"a0000000-0000-4000-8000-000000000020","name":"C","designator_prefix":"C"},"units":[
       {"uuid":"a0000000-0000-4000-8000-000000000021","name":"A"}
     ],"pins":[
       {"uuid":"a0000000-0000-4000-8000-000000000022","unit":"a0000000-0000-4000-8000-000000000021","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":2540000},
       {"uuid":"a0000000-0000-4000-8000-000000000023","unit":"a0000000-0000-4000-8000-000000000021","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000}
     ],"graphics":[]},
-    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"a7e21484d68a0266d318bb796d1c6d7b","part":{"uuid":"a0000000-0000-4000-8000-000000000120","name":"LM358","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000030"},"footprints":["a0000000-0000-4000-8000-000000000060"],"copies":["00000000-0000-4000-8000-00000000002a"],"fields":{"value":"LM358"},"pin_map":{},"symbol":{"uuid":"a0000000-0000-4000-8000-000000000030","name":"OpAmp_Dual","designator_prefix":"U"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"08e7063f4f4944b2767c1c7da8146bd7","part":{"uuid":"a0000000-0000-4000-8000-000000000120","name":"LM358","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a0000000-0000-4000-8000-000000000030"},"footprints":["a0000000-0000-4000-8000-000000000060"],"copies":["00000000-0000-4000-8000-00000000002a"],"fields":{"value":"LM358"},"pin_map":{},"symbol":{"uuid":"a0000000-0000-4000-8000-000000000030","name":"OpAmp_Dual","designator_prefix":"U"},"units":[
       {"uuid":"a0000000-0000-4000-8000-000000000031","name":"A"},
       {"uuid":"a0000000-0000-4000-8000-000000000032","name":"B"},
       {"uuid":"a0000000-0000-4000-8000-000000000033","name":"Power"}
@@ -26,21 +26,21 @@
     ],"graphics":[]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000022","hash":"3cfe2899f9c1e0eb81b7484b722a44cc","footprint":{"uuid":"a0000000-0000-4000-8000-000000000040","name":"R_0603"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000022","hash":"8d38227ac7777610b6df53aec5e386a4","footprint":{"uuid":"a0000000-0000-4000-8000-000000000040","name":"R_0603"},"pads":[
       {"uuid":"a0000000-0000-4000-8000-000000000041","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-800000,"y":0},"rotation":0,"width":800000,"height":950000},
       {"uuid":"a0000000-0000-4000-8000-000000000042","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":800000,"y":0},"rotation":0,"width":800000,"height":950000}
     ],"graphics":[],"texts":[
       {"uuid":"a0000000-0000-4000-8000-00000000004e","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"a0000000-0000-4000-8000-00000000004f","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"5b113637ae39671200bf48a45e2308eb","footprint":{"uuid":"a0000000-0000-4000-8000-000000000050","name":"R_0805"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"7c9536a16ebf42700b2a95fac0f99ecb","footprint":{"uuid":"a0000000-0000-4000-8000-000000000050","name":"R_0805"},"pads":[
       {"uuid":"a0000000-0000-4000-8000-000000000051","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1000000,"y":0},"rotation":0,"width":1000000,"height":1450000},
       {"uuid":"a0000000-0000-4000-8000-000000000052","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1000000,"y":0},"rotation":0,"width":1000000,"height":1450000}
     ],"graphics":[],"texts":[
       {"uuid":"a0000000-0000-4000-8000-00000000005e","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"a0000000-0000-4000-8000-00000000005f","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002a","hash":"684df2305662563e2ff8f6c5df32146a","footprint":{"uuid":"a0000000-0000-4000-8000-000000000060","name":"SOIC-8"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000002a","hash":"49f041ecceff20ca34b28da80080034a","footprint":{"uuid":"a0000000-0000-4000-8000-000000000060","name":"SOIC-8"},"pads":[
       {"uuid":"a0000000-0000-4000-8000-000000000061","number":"1","kind":"smd","shape":"rect","at":{"x":-2475000,"y":-1905000},"rotation":0,"width":1950000,"height":600000},
       {"uuid":"a0000000-0000-4000-8000-000000000064","number":"4","kind":"smd","shape":"rect","at":{"x":-2475000,"y":1905000},"rotation":0,"width":1950000,"height":600000},
       {"uuid":"a0000000-0000-4000-8000-000000000067","number":"7","kind":"smd","shape":"rect","at":{"x":2475000,"y":-635000},"rotation":0,"width":1950000,"height":600000},

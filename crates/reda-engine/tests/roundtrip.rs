@@ -530,7 +530,9 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                     uuid: id(),
                     check: "keepout".into(),
                     objects: waived,
-                    comment: if bottom {
+                    author: "Ada".into(),
+                    created: 1_767_225_600_000,
+                    reason: if bottom {
                         "fixture".into()
                     } else {
                         String::new()
@@ -818,7 +820,9 @@ fn sheet_objects(sheet: Uuid, seed: SheetSeed) -> Vec<Object> {
                     o.sort();
                     o
                 },
-                comment: if len.0 % 2 == 0 {
+                author: "Ada".into(),
+                created: 1_767_225_600_000,
+                reason: if len.0 % 2 == 0 {
                     String::new()
                 } else {
                     format!("{name} \"ok\"")

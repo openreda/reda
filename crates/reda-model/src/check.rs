@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use reda_geom::Nm;
+use reda_geom::{Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +49,26 @@ pub struct Violation {
     /// only when asked to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub waiver: Option<Uuid>,
+    /// A measured length in nm or area in square nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measured: Option<Measurement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required: Option<Measurement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<Limit>,
+    /// The check's marker point, retained even when an object is deleted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Point>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<Uuid>,
+    /// The closest points on a distance check's two objects, in object order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub points: Option<[Point; 2]>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<Uuid>,
+    /// The record that supplied the limit, including a board-wide record.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<Uuid>,
 }
 
 impl Violation {
@@ -60,7 +80,56 @@ impl Violation {
             args: BTreeMap::new(),
             objects: vec![],
             waiver: None,
+            measured: None,
+            required: None,
+            limit: None,
+            at: None,
+            document: None,
+            points: None,
+            layers: vec![],
+            rule: None,
         }
+    }
+
+    /// Records a length comparison and the rule record that supplied the limit.
+    pub fn length(mut self, measured: Nm, required: Nm, limit: Limit, rule: Uuid) -> Self {
+        self.measured = Some(Measurement::Length(measured));
+        self.required = Some(Measurement::Length(required));
+        self.limit = Some(limit);
+        self.rule = Some(rule);
+        self
+    }
+
+    /// Records an area comparison in square nanometres.
+    pub fn area(mut self, measured: i64, required: i64, limit: Limit, rule: Uuid) -> Self {
+        self.measured = Some(Measurement::Area(measured));
+        self.required = Some(Measurement::Area(required));
+        self.limit = Some(limit);
+        self.rule = Some(rule);
+        self
+    }
+
+    pub fn located(mut self, document: Uuid, at: Point) -> Self {
+        self.document = Some(document);
+        self.at = Some(at);
+        self
+    }
+
+    pub fn on_layers(mut self, layers: impl IntoIterator<Item = Uuid>) -> Self {
+        self.layers.extend(layers);
+        self.layers.sort();
+        self.layers.dedup();
+        self
+    }
+
+    /// Records the closest points and places the marker midway between them.
+    pub fn distance_points(mut self, a: Point, b: Point) -> Self {
+        self.points = Some([a, b]);
+        self.at = Some(Point::new(
+            Nm(a.x.0 + (b.x.0 - a.x.0) / 2),
+            Nm(a.y.0 + (b.y.0 - a.y.0) / 2),
+        ));
+        self
     }
 
     /// Adds the message argument `name`.
@@ -80,6 +149,22 @@ impl Violation {
         self.objects.extend(uuids);
         self
     }
+}
+
+/// A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Measurement {
+    Length(Nm),
+    Area(i64),
+}
+
+/// Which limit the measured value violates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Limit {
+    Min,
+    Max,
 }
 
 /// One message argument: a string, or an integer (lengths in nanometres, angles in

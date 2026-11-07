@@ -5,7 +5,7 @@ mod common;
 use common::{PCB, SHEET, created, engine, pcb, synced};
 use reda_command::ErrorCode;
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{ConnectionStyle, Corner, Hole, PadKind, PadShape, Ratio, Side, Uuid};
+use reda_model::{ConnectionStyle, Corner, Hole, LayerKind, PadKind, PadShape, Ratio, Side, Uuid};
 use reda_testkit::{TempDir, TestEngine};
 use serde_json::json;
 
@@ -370,6 +370,14 @@ fn drc_reports_collapsed_openings_but_ignores_intentional_tenting_and_none() {
         .collect();
     assert_eq!(found.len(), 2, "{run}");
     assert!(found.iter().all(|v| v["severity"] == "warning"));
+    for (kind, layer) in [("paste", LayerKind::Paste), ("mask", LayerKind::SolderMask)] {
+        let violation = found.iter().find(|v| v["args"]["kind"] == kind).unwrap();
+        assert_eq!(violation["args"]["side"], "top");
+        assert_eq!(violation["document"], PCB);
+        assert_eq!(violation["at"], json!({"x": 5_000_000, "y": 5_000_000}));
+        let layer = pcb(&engine).layers().find(layer, Some(Side::Top)).unwrap();
+        assert_eq!(violation["layers"], json!([layer.uuid]));
+    }
 }
 
 #[test]

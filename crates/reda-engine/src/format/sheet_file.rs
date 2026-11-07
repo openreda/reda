@@ -42,7 +42,7 @@
 //!     {"uuid":"…","shape":{"kind":"rect","from":{…},"to":{…}}}
 //!   ],
 //!   "waivers": [
-//!     {"uuid":"…","check":"unconnected_pin","objects":["…","…"],"comment":"test point"}
+//!     {"uuid":"…","check":"unconnected_pin","objects":["…","…"],"author":"Ada","created":1767225600000,"reason":"test point"}
 //!   ]
 //! }
 //! ```

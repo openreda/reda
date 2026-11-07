@@ -21,11 +21,15 @@ const PREVIEW_SEED: u64 = 0xf1e5;
 pub fn registry() -> Registry {
     let mut registry = Registry::new();
     crate::commands::register_all(&mut registry);
-    reda_pcb::register_all(&mut registry, crate::sync::drc_state);
+    reda_pcb::register_all_with_user(
+        &mut registry,
+        crate::sync::drc_state,
+        crate::preferences::waiver_author,
+    );
     reda_library::register_all(&mut registry);
     reda_library::register_generators(&mut registry, crate::library::store_footprint);
     reda_output::register_all(&mut registry);
-    reda_schematic::register_all(&mut registry);
+    reda_schematic::register_all_with_user(&mut registry, crate::preferences::waiver_author);
     reda_render::register_all(&mut registry, DERIVE);
     registry
 }
