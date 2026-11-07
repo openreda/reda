@@ -53,8 +53,15 @@ pub struct FootprintSource {
     pub graphics: Vec<GraphicSource>,
     pub designator: FootprintText,
     pub value: FootprintText,
+    /// Further field texts, such as the assembly Designator KiCad writes as reference
+    /// user text on a Fab Layer.
+    pub field_texts: Vec<FootprintText>,
     /// Copyright lines from the footprint's texts, properties and description.
     pub copyright: Vec<String>,
+    /// False for `exclude_from_bom` (or the legacy `virtual`).
+    pub in_bom: bool,
+    /// False for `exclude_from_pos_files` (or the legacy `virtual`).
+    pub in_cpl: bool,
     pub warnings: Vec<String>,
 }
 
@@ -105,9 +112,15 @@ pub fn read(root: &Sexp) -> Read<FootprintSource> {
         graphics: vec![],
         designator: FootprintText::designator(Uuid::NIL),
         value: FootprintText::value(Uuid::NIL),
+        field_texts: vec![],
         copyright: vec![],
+        in_bom: true,
+        in_cpl: true,
         warnings: vec![],
     };
+    if let Some(attr) = root.child("attr") {
+        read_attributes(attr, &mut out);
+    }
     let note_copyright = |text: &str, out: &mut FootprintSource| {
         if is_copyright(text) && !out.copyright.iter().any(|c| c == text) {
             out.copyright.push(text.to_owned());
@@ -160,7 +173,29 @@ pub fn read(root: &Sexp) -> Read<FootprintSource> {
     for window in windows {
         attach_window(window, &mut out);
     }
+    crate::courtyard::chain(&mut out.graphics, &mut out.warnings);
     Ok(out)
+}
+
+/// `(attr smd exclude_from_pos_files exclude_from_bom board_only dnp …)`. `dnp` is
+/// ignored, because Not Fitted belongs to a placed Component. KiCad 5's `virtual` is what
+/// KiCad 6 reads as board-only and excluded from both.
+fn read_attributes(attr: &Sexp, out: &mut FootprintSource) {
+    let words: Vec<&str> = attr.args().iter().filter_map(Sexp::text).collect();
+    let virtual_ = words.contains(&"virtual");
+    if virtual_ || words.contains(&"exclude_from_bom") {
+        out.in_bom = false;
+    }
+    if virtual_ || words.contains(&"exclude_from_pos_files") {
+        out.in_cpl = false;
+    }
+    if virtual_ || words.contains(&"board_only") {
+        out.warnings.push(
+            "the footprint is marked board-only, which was ignored: an import always makes a \
+             Symbol and Footprint pair"
+                .into(),
+        );
+    }
 }
 
 fn pad_layers(pad: &Sexp) -> Vec<&str> {
@@ -259,6 +294,17 @@ fn read_text(item: &Sexp, kind: &str, text: &str, out: &mut FootprintSource) -> 
                 return Ok(());
             };
             if node::hidden(item) {
+                return Ok(());
+            }
+            // User text naming the reference or value is that field's text.
+            let field = match text {
+                "${REFERENCE}" | "%R" => Some(FootprintText::designator(Uuid::NIL)),
+                "${VALUE}" | "%V" => Some(FootprintText::value(Uuid::NIL)),
+                _ => None,
+            };
+            if let Some(field) = field.filter(|_| layer.is_silkscreen() || layer.is_assembly()) {
+                let placed = placed(field)?;
+                out.field_texts.push(placed);
                 return Ok(());
             }
             let size = node::font_size(item)?.unwrap_or(Nm(1_000_000));
@@ -661,6 +707,10 @@ pub fn build(
             ..source.value
         },
     ];
+    texts.extend(source.field_texts.into_iter().map(|t| FootprintText {
+        uuid: new_id(),
+        ..t
+    }));
     texts.sort_by_key(|t| t.uuid);
     Footprint {
         uuid,
