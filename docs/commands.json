@@ -11703,6 +11703,458 @@
     },
     {
       "category": "library",
+      "description": "Lays the rows `pins` out in a `layout` (dil, quad, connector, zig_zag, single_row or manual) with a rectangular body on the 50 mil grid and Pin 1 at the origin, onto a new Symbol (opened unsaved), a new Unit of an open Symbol, or an existing Unit, whose Pins keep their UUIDs by number and whose graphics become the new body. Reopening reads the rows with `library.symbol.generate.read`.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.generate",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "Layout": {
+            "description": "How the wizard lays Pins out.",
+            "oneOf": [
+              {
+                "const": "dil",
+                "description": "Dual in-line: the first half down the left, the rest back up the right, as the\npackage numbers them. An odd count puts the extra Pin on the left.",
+                "type": "string"
+              },
+              {
+                "const": "quad",
+                "description": "Four sides counter-clockwise from the top of the left: down the left, along the\nbottom, up the right, back along the top. Earlier sides take any remainder.",
+                "type": "string"
+              },
+              {
+                "const": "connector",
+                "description": "A two-row connector: odd rows on the left, each beside the even row after it.",
+                "type": "string"
+              },
+              {
+                "const": "zig_zag",
+                "description": "A two-row connector drawn staggered: sides alternate and each Pin is one pitch\nbelow the one before.",
+                "type": "string"
+              },
+              {
+                "const": "single_row",
+                "description": "Every Pin down the left.",
+                "type": "string"
+              },
+              {
+                "const": "manual",
+                "description": "Each Pin on its row's `side`; left and right top to bottom, top and bottom left\nto right, in row order.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Side": {
+            "description": "A side of the body.",
+            "enum": [
+              "left",
+              "right",
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "WizardPin": {
+            "additionalProperties": false,
+            "description": "One row of the wizard's pin grid.",
+            "properties": {
+              "electrical_type": {
+                "$ref": "#/$defs/PinType",
+                "default": "passive",
+                "description": "Omitted, `passive`."
+              },
+              "group": {
+                "description": "A change of group between neighbouring Pins on a side leaves one empty pitch.\nThe `connector` and `zig_zag` layouts ignore it, since their rows pair up.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "default": "",
+                "type": "string"
+              },
+              "number": {
+                "description": "Unique across the Symbol.",
+                "type": "string"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The side the `manual` layout puts it on; the other layouts choose the side."
+              }
+            },
+            "required": [
+              "number"
+            ],
+            "type": "object"
+          },
+          "WizardTarget": {
+            "description": "What the wizard makes.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A new Symbol with one Unit, A, in a registered Library, opened unsaved for editing\nlike `library.element.new`.",
+                "properties": {
+                  "designator_prefix": {
+                    "description": "Omitted, `J` for the `connector` and `zig_zag` layouts and `U` for the rest.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "new_symbol",
+                    "type": "string"
+                  },
+                  "library": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Its name, which is also its file stem.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "library",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A new Unit after the last one of an open Symbol.",
+                "properties": {
+                  "kind": {
+                    "const": "new_unit",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Omitted, the next free letter.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "symbol": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "symbol"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An existing Unit of an open Symbol, when the wizard reopens: its Pins become the\nrows, keeping UUIDs by number, and its graphics become the new body.",
+                "properties": {
+                  "kind": {
+                    "const": "unit",
+                    "type": "string"
+                  },
+                  "symbol": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "symbol",
+                  "unit"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layout": {
+            "$ref": "#/$defs/Layout"
+          },
+          "pin_length": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omitted, 100 mil."
+          },
+          "pins": {
+            "description": "The pin grid's rows, in order. Numbers are unique across the Symbol.",
+            "items": {
+              "$ref": "#/$defs/WizardPin"
+            },
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/$defs/WizardTarget"
+          }
+        },
+        "required": [
+          "layout",
+          "pins",
+          "target"
+        ],
+        "title": "SymbolGenerateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the wizard made.",
+        "properties": {
+          "pins": {
+            "description": "Each row's Pin UUID, in row order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "symbol": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit_name": {
+            "description": "The Unit's name, such as `A`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "unit",
+          "unit_name",
+          "pins"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Symbol Wizard"
+    },
+    {
+      "category": "library",
+      "description": "Reads a Unit's Pins back as `library.symbol.generate` params, for reopening the wizard: the `manual` layout with each Pin's side, in order down the left, along the bottom, down the right and along the top, groups where a side has gaps, and the first Pin's length.",
+      "icon": "symbol_edit",
+      "id": "library.symbol.generate.read",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "symbol": {
+            "description": "The open Symbol.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Omitted, its first Unit.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "symbol"
+        ],
+        "title": "SymbolGenerateReadParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Layout": {
+            "description": "How the wizard lays Pins out.",
+            "oneOf": [
+              {
+                "const": "dil",
+                "description": "Dual in-line: the first half down the left, the rest back up the right, as the\npackage numbers them. An odd count puts the extra Pin on the left.",
+                "type": "string"
+              },
+              {
+                "const": "quad",
+                "description": "Four sides counter-clockwise from the top of the left: down the left, along the\nbottom, up the right, back along the top. Earlier sides take any remainder.",
+                "type": "string"
+              },
+              {
+                "const": "connector",
+                "description": "A two-row connector: odd rows on the left, each beside the even row after it.",
+                "type": "string"
+              },
+              {
+                "const": "zig_zag",
+                "description": "A two-row connector drawn staggered: sides alternate and each Pin is one pitch\nbelow the one before.",
+                "type": "string"
+              },
+              {
+                "const": "single_row",
+                "description": "Every Pin down the left.",
+                "type": "string"
+              },
+              {
+                "const": "manual",
+                "description": "Each Pin on its row's `side`; left and right top to bottom, top and bottom left\nto right, in row order.",
+                "type": "string"
+              }
+            ]
+          },
+          "PinType": {
+            "description": "A Pin's electrical type, which ERC checks.",
+            "enum": [
+              "input",
+              "output",
+              "bidirectional",
+              "tri_state",
+              "passive",
+              "power_in",
+              "power_out",
+              "open_collector",
+              "open_emitter",
+              "not_connected"
+            ],
+            "type": "string"
+          },
+          "Side": {
+            "description": "A side of the body.",
+            "enum": [
+              "left",
+              "right",
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "WizardPin": {
+            "additionalProperties": false,
+            "description": "One row of the wizard's pin grid.",
+            "properties": {
+              "electrical_type": {
+                "$ref": "#/$defs/PinType",
+                "default": "passive",
+                "description": "Omitted, `passive`."
+              },
+              "group": {
+                "description": "A change of group between neighbouring Pins on a side leaves one empty pitch.\nThe `connector` and `zig_zag` layouts ignore it, since their rows pair up.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "default": "",
+                "type": "string"
+              },
+              "number": {
+                "description": "Unique across the Symbol.",
+                "type": "string"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The side the `manual` layout puts it on; the other layouts choose the side."
+              }
+            },
+            "required": [
+              "number",
+              "name",
+              "electrical_type"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The wizard's input, as reopening reads it from a Unit.",
+        "properties": {
+          "layout": {
+            "$ref": "#/$defs/Layout",
+            "description": "Always `manual`, which puts each Pin back on its side in its order."
+          },
+          "pin_length": {
+            "description": "The length of the Unit's first Pin.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pins": {
+            "description": "Left top to bottom, then bottom, right and top. A gap of more than a pitch between\nneighbours on a side starts a new group (`1`, `2`, …); with no gaps there are no\ngroups.",
+            "items": {
+              "$ref": "#/$defs/WizardPin"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layout",
+          "pin_length",
+          "pins"
+        ],
+        "title": "WizardInput",
+        "type": "object"
+      },
+      "title": "Read Symbol Wizard Rows"
+    },
+    {
+      "category": "library",
       "description": "Draws a line, rectangle, arc, circle, polygon or text on a Unit of an open Symbol.",
       "icon": "symbol_edit",
       "id": "library.symbol.graphic.add",

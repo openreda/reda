@@ -4,7 +4,9 @@
 //! A script `<name>.jsonl` is in the Journal format (`reda_engine::journal`). Its goldens
 //! are the canonical bytes of every file the open Project would save, under `<name>/`,
 //! except `.reda/.gitignore`. The goldens come from `store::encode` after the last step, so
-//! a script need not (and should not) run `project.save`.
+//! a script need not (and should not) run `project.save`. The files of every Project
+//! Library inside the Project folder are goldens too, as the script left them on disk,
+//! so a script that creates a Library and saves elements into it checks them.
 //!
 //! Scripts run with the repo's starter Library (`library/starter`) registered, so they can
 //! place its Parts by UUID; a starter Library change that alters a placed Part shows up
@@ -84,6 +86,18 @@ fn run_one(script: &Path, bless: bool) -> Result<(), Vec<String>> {
     if let Some(project) = engine.project() {
         let files = store::encode(project).map_err(|e| vec![format!("encoding: {e}")])?;
         actual.extend(files.into_iter().filter(|(path, _)| path != SKIPPED));
+        if let Some(folder) = engine.location() {
+            for library in project
+                .props()
+                .libraries
+                .iter()
+                .filter(|l| !l.starts_with(".."))
+            {
+                for (path, bytes) in read_tree(&folder.join(library)) {
+                    actual.insert(format!("{library}/{path}"), bytes);
+                }
+            }
+        }
     }
 
     let golden_dir = script.with_extension("");

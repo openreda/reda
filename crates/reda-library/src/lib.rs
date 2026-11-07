@@ -15,6 +15,7 @@ pub mod generate;
 mod index;
 mod scan;
 mod search;
+pub mod wizard;
 
 pub use check::{Elements, PIN_GRID, check};
 pub use commands::{

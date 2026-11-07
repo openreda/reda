@@ -374,3 +374,35 @@ fn open_footprint_tabs_stay_when_a_project_opens() {
     assert!(shell.document_tab(fp).is_some());
     assert!(shell.layout().place(&TabKey::Document(fp)).is_some());
 }
+
+#[test]
+fn the_pad_tool_steps_letter_numbers_and_skips_taken_ones() {
+    let home = TempDir::new("fpe-pad-increment");
+    let mut shell = shell(&home);
+    let fp = new_footprint(&mut shell);
+    let f = footprint(&shell, fp);
+    assert_eq!(footprint_editor::next_number(&f, None, 1), "1");
+    assert_eq!(footprint_editor::next_number(&f, Some("A"), 1), "B");
+    assert_eq!(footprint_editor::next_number(&f, Some("Z"), 1), "AA");
+    assert_eq!(footprint_editor::next_number(&f, Some("A1"), 2), "A3");
+    assert_eq!(footprint_editor::next_number(&f, Some("EP"), 0), "1");
+
+    shell.run("tool.activate:pad", json!({})).unwrap();
+    feed(&mut shell, fp, &[click(mm(0.0, 0.0))]);
+    let first = footprint(&shell, fp).pads[0].uuid;
+    // Renumbering the placed Pad does not stop the run: the next steps from what was placed.
+    shell
+        .run(
+            "library.footprint.pad.edit",
+            json!({"footprint": fp, "pad": first, "number": "2"}),
+        )
+        .unwrap();
+    feed(&mut shell, fp, &[click(mm(2.0, 0.0)), click(mm(4.0, 0.0))]);
+    let mut numbers: Vec<String> = footprint(&shell, fp)
+        .pads
+        .iter()
+        .map(|p| p.number.clone())
+        .collect();
+    numbers.sort();
+    assert_eq!(numbers, ["2", "3", "4"], "1 → 2 is taken, so 3, then 4");
+}

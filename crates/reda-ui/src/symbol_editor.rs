@@ -29,7 +29,7 @@ use std::collections::BTreeMap;
 use reda_engine::Engine;
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{LibraryElement, Pin, Symbol, Uuid};
+use reda_engine::model::{LibraryElement, Pin, Symbol, Uuid, auto_increment};
 use reda_engine::render::{Scene, symbol_scene};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -90,6 +90,9 @@ pub struct Canvas {
     pub interaction: Interaction,
     /// The Text Tool's text being typed, and where it goes.
     pub text: Option<(Point, String)>,
+    /// The number and name of the last Pin the Pin Tool placed here, which the next one
+    /// auto-increments from.
+    pub last_pin: Option<(String, String)>,
 }
 
 /// The Symbol editor's view state: each Symbol tab's canvas.
@@ -219,7 +222,6 @@ pub fn pointer(
         pick: PICK_POINTS * nm_per_point,
         read_only,
         commands: Vec::new(),
-        pins_added: 0,
     };
     state.interaction = cx.sync_tool(state.interaction);
     for &event in events {
@@ -335,8 +337,6 @@ struct Cx<'a> {
     pick: f64,
     read_only: bool,
     commands: Vec<Invocation>,
-    /// Pins this frame's clicks already asked for, so each gets its own number.
-    pins_added: u64,
 }
 
 impl Cx<'_> {
@@ -375,7 +375,7 @@ impl Cx<'_> {
         state.interaction = match self.shell.tool() {
             Tool::Pin => {
                 if let Pointer::Click { at, .. } = event {
-                    self.place_pin(at, state.pin_rotation);
+                    self.place_pin(at, state.pin_rotation, &mut state.last_pin);
                 }
                 Interaction::Idle
             }
@@ -395,16 +395,17 @@ impl Cx<'_> {
         };
     }
 
-    fn place_pin(&mut self, at: P, rotation: Millideg) {
+    fn place_pin(&mut self, at: P, rotation: Millideg, last: &mut Option<(String, String)>) {
         let Some(unit) = self.unit.filter(|_| !self.read_only) else {
             return;
         };
-        let number = next_number(self.symbol, self.pins_added);
-        self.pins_added += 1;
+        let steps = self.shell.preferences().schematic.auto_increment;
+        let (number, name) = next_pin(self.symbol, last.as_ref(), steps.primary, steps.secondary);
+        *last = Some((number.clone(), name.clone()));
         let at = self.snap(at);
         self.run(
             "library.symbol.pin.add",
-            json!({"symbol": self.element(), "unit": unit, "name": "", "number": number,
+            json!({"symbol": self.element(), "unit": unit, "name": name, "number": number,
                    "at": json_point(at), "rotation": rotation.0}),
         );
     }
@@ -720,20 +721,41 @@ fn paste_start(symbol: &Symbol, unit: Uuid) -> Point {
     Point::new(x, lowest - PASTE_PITCH)
 }
 
-/// The number for a new Pin: one more than the highest numeric number, `skip` further
-/// on for Pins already asked for.
-fn next_number(symbol: &Symbol, skip: u64) -> String {
-    let highest = symbol
-        .pins
-        .iter()
-        .filter_map(|p| p.number.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0);
-    let mut n = highest + 1 + skip;
-    while symbol.pins.iter().any(|p| p.number == n.to_string()) {
-        n += 1;
-    }
-    n.to_string()
+/// The number and name of the next Pin the Pin Tool places in `symbol`, after `last`
+/// (the number and name of the one it placed before, if any): the number steps by
+/// `primary` (letters too, A → B, skipping numbers taken) and the name by `secondary`
+/// (its trailing number only), as the Pin now is if it is still there under that number,
+/// so edits made to it carry on. With nothing to step from, the number is one past the
+/// highest numeric one and the name is empty.
+pub fn next_pin(
+    symbol: &Symbol,
+    last: Option<&(String, String)>,
+    primary: i64,
+    secondary: i64,
+) -> (String, String) {
+    let taken = |n: &str| symbol.pins.iter().any(|p| p.number == n);
+    let stepped = last.and_then(|(number, name)| {
+        let name = symbol
+            .pins
+            .iter()
+            .find(|p| p.number == *number)
+            .map_or(name.as_str(), |p| p.name.as_str());
+        let next = auto_increment::next_number(number, primary, |n| !taken(n))?;
+        Some((next, auto_increment::step(name, secondary)))
+    });
+    stepped.unwrap_or_else(|| {
+        let highest = symbol
+            .pins
+            .iter()
+            .filter_map(|p| p.number.parse::<u64>().ok())
+            .max()
+            .unwrap_or(0);
+        let mut n = highest + 1;
+        while taken(&n.to_string()) {
+            n += 1;
+        }
+        (n.to_string(), String::new())
+    })
 }
 
 fn json_point(p: Point) -> Value {
