@@ -5,6 +5,18 @@ use common::{engine, pcb, synced_resistors};
 use reda_testkit::TempDir;
 use serde_json::{Value, json};
 
+/// The UUID of instance `id`'s Silkscreen Designator entry.
+fn silk_designator(engine: &reda_testkit::TestEngine, id: reda_model::Uuid) -> reda_model::Uuid {
+    let instance = pcb(engine).footprint(id).unwrap();
+    pcb(engine)
+        .footprint_copy(instance.footprint)
+        .unwrap()
+        .footprint
+        .designator_text()
+        .unwrap()
+        .uuid
+}
+
 #[test]
 fn bulk_text_changes_are_sparse_and_leave_the_footprint_copy_unchanged() {
     let dir = TempDir::new("footprint-text-bulk");
@@ -21,16 +33,18 @@ fn bulk_text_changes_are_sparse_and_leave_the_footprint_copy_unchanged() {
             .unwrap();
     for instance in saved["footprints"].as_array().unwrap() {
         assert!(instance.get("designator_text").is_none());
+        // The field selects both Designator entries: Silkscreen and Assembly.
         let changes = instance["text_overrides"].as_array().unwrap();
-        assert_eq!(changes.len(), 1);
-        let change = &changes[0];
-        assert!(change["text"].is_string());
-        assert!(change.get("at").is_none());
-        assert!(change.get("rotation").is_none());
-        assert!(change.get("autoposition").is_none());
-        assert_eq!(change["visible"], false);
-        assert_eq!(change["style"]["height"], 800_000);
-        assert_eq!(change["style"]["thickness"], 100_000);
+        assert_eq!(changes.len(), 2);
+        for change in changes {
+            assert!(change["text"].is_string());
+            assert!(change.get("at").is_none());
+            assert!(change.get("rotation").is_none());
+            assert!(change.get("autoposition").is_none());
+            assert_eq!(change["visible"], false);
+            assert_eq!(change["style"]["height"], 800_000);
+            assert_eq!(change["style"]["thickness"], 100_000);
+        }
     }
     assert_eq!(
         pcb(&engine)
@@ -58,6 +72,7 @@ fn nine_autopositions_follow_the_rotated_courtyard_and_stay_upright() {
     let dir = TempDir::new("footprint-autoposition");
     let mut engine = engine(&dir);
     let [id, _] = synced_resistors(&mut engine);
+    let silk = silk_designator(&engine, id);
     for position in [
         "left_above",
         "center_above",
@@ -71,7 +86,7 @@ fn nine_autopositions_follow_the_rotated_courtyard_and_stay_upright() {
     ] {
         engine.run_ok(
             "pcb.footprint.text.set",
-            json!({"instances":[id],"field":"Designator","autoposition":position}),
+            json!({"instances":[id],"texts":[silk],"autoposition":position}),
         );
         // The same side of the (rotated) Courtyard box on the board, at every turn.
         for turn in 0..4 {
@@ -97,7 +112,7 @@ fn nine_autopositions_follow_the_rotated_courtyard_and_stay_upright() {
     }
     engine.run_ok(
         "pcb.footprint.text.set",
-        json!({"instances":[id],"field":"Designator","at":{"x":"20mm","y":"30mm"}}),
+        json!({"instances":[id],"texts":[silk],"at":{"x":"20mm","y":"30mm"}}),
     );
     let instance = pcb(&engine).footprint(id).unwrap().clone();
     // Moving the text returns it to `manual`, the default, which isn't stored.
@@ -118,6 +133,7 @@ fn an_anchor_moves_one_text_and_overrides_keep_only_changed_values() {
     let dir = TempDir::new("footprint-text-sparse-anchor");
     let mut engine = engine(&dir);
     let [id, other] = synced_resistors(&mut engine);
+    let silk = silk_designator(&engine, id);
     // One board point for several texts would stack them there.
     let error = engine.run_err(
         "pcb.footprint.text.set",
@@ -132,11 +148,11 @@ fn an_anchor_moves_one_text_and_overrides_keep_only_changed_values() {
 
     engine.run_ok(
         "pcb.footprint.text.set",
-        json!({"instances":[id],"field":"Designator","autoposition":"center_above"}),
+        json!({"instances":[id],"texts":[silk],"autoposition":"center_above"}),
     );
     engine.run_ok(
         "pcb.footprint.text.set",
-        json!({"instances":[id],"field":"Designator","autoposition":"manual"}),
+        json!({"instances":[id],"texts":[silk],"autoposition":"manual"}),
     );
     assert!(
         pcb(&engine)
@@ -160,11 +176,11 @@ fn an_anchor_moves_one_text_and_overrides_keep_only_changed_values() {
     let turn = frame.angle(entry.rotation);
     engine.run_ok(
         "pcb.footprint.text.set",
-        json!({"instances":[id],"field":"Designator","autoposition":"center_above"}),
+        json!({"instances":[id],"texts":[silk],"autoposition":"center_above"}),
     );
     engine.run_ok(
         "pcb.footprint.text.set",
-        json!({"instances":[id],"field":"Designator","at":{"x":home.x.0,"y":home.y.0},"rotation":turn.0}),
+        json!({"instances":[id],"texts":[silk],"at":{"x":home.x.0,"y":home.y.0},"rotation":turn.0}),
     );
     assert!(
         pcb(&engine)
@@ -180,9 +196,10 @@ fn changing_a_footprint_remaps_overrides_to_the_same_field_and_layer() {
     let dir = TempDir::new("footprint-text-remap");
     let mut engine = engine(&dir);
     let [id, _] = synced_resistors(&mut engine);
+    let silk = silk_designator(&engine, id);
     engine.run_ok(
         "pcb.footprint.text.set",
-        json!({"instances":[id],"field":"Designator","at":{"x":"20mm","y":"30mm"},"visible":false}),
+        json!({"instances":[id],"texts":[silk],"at":{"x":"20mm","y":"30mm"},"visible":false}),
     );
     let component = pcb(&engine)
         .footprint(id)
