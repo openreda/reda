@@ -697,9 +697,8 @@ impl Shell {
     /// Board point `at` as the cursor readout gives it: from the Output Origin, if the
     /// board has one.
     pub fn pcb_cursor_from_origin(&self, at: Point) -> Point {
-        let origin = self.engine.project().and_then(|p| p.pcb()?.output_origin());
-        match origin {
-            Some(origin) => at - origin.at,
+        match self.engine.project().and_then(|p| p.pcb()) {
+            Some(pcb) => at - self.grid_origin(pcb.uuid),
             None => at,
         }
     }

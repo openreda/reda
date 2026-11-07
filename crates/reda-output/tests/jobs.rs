@@ -195,7 +195,8 @@ fn reserved_job_keys_are_refused_on_add_and_on_load() {
     let with_checks = job_line.replacen('{', "{\"checks\":{},", 1);
     std::fs::write(&file, saved.replace(job_line, &with_checks)).unwrap();
     let mut reopened = reda_testkit::test_engine();
-    reopened.run_err("project.open", json!({"path": dir.path().join("Demo")}));
+    let err = reopened.run_err("project.open", json!({"path": dir.path().join("Demo")}));
+    assert!(err.message.contains("checks"), "{}", err.message);
 }
 
 #[test]
