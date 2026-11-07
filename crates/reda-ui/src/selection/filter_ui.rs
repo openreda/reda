@@ -55,8 +55,10 @@ pub fn properties(ui: &mut egui::Ui, shell: &Shell) -> Vec<(&'static str, Value)
 /// The Active Bar owns this square button, so its responsive overflow keeps working.
 pub fn button(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Option<(String, Value)> {
     let title = crate::tr!("selection-filter-title");
-    let (rect, response) = ui.allocate_exact_size(
-        egui::Vec2::splat(crate::chrome::BAR_BUTTON),
+    let (_, rect) = ui.allocate_space(egui::Vec2::splat(crate::chrome::BAR_BUTTON));
+    let response = ui.interact(
+        rect,
+        ui.scope_id().with(("selection-filter-button", document)),
         egui::Sense::click(),
     );
     let c = rect.center();
