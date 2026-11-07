@@ -71,7 +71,7 @@
       {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000047","hash":"aff37f12ad3ea2503f0cf0d5afde2908","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000047","hash":"433716d2401df529ade4701052d6d33c","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDRV0W64P254R1L508T254H850B","description":"Pin header, 1 × 2, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"51072fb9-94c3-4b5d-80bf-636681ace084","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"75bf775f-bdf6-476e-a21c-ac73893d1705","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
     ],"graphics":[
@@ -85,9 +85,9 @@
       {"uuid":"0a73cdc3-c47e-4114-8f77-f6b28948356a","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"81bd3f94-6d32-4707-9448-c1ab0ecaf351","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000049","hash":"f66650588f7be8832a306c50aa7314b3","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
-      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
-      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000049","hash":"b483fa1a6d0853cec46d805f6558c873","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000},
+      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"c40aeae4-dd1b-4c6b-bca1-573bf549d9e9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"e47f7153-007a-4925-bff2-7afa18cc14f7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}

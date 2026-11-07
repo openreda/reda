@@ -1,4 +1,4 @@
-//! The IPC-7351B Pad equations at Nominal density.
+//! The IPC-7351B Pad equations, at the three density levels.
 //!
 //! For a part with two opposite rows of terminations:
 //!
@@ -10,19 +10,67 @@
 //! terminal ends, `W` the terminal width, `C` each dimension's tolerance, `F` the board
 //! fabrication tolerance, `P` the placement tolerance, and `Jt`, `Jh`, `Js` the toe, heel
 //! and side solder-fillet goals of the package family. `S` uses its RMS tolerance
-//! `√(CL² + 2·CT²)`, as the standard does, rather than the worst case. `Z` and `X` are
-//! rounded up and `G` down to the round-off grid.
+//! `√(CL² + 2·CT²)`, as the standard does, rather than the worst case. `Z`, `G` and `X`
+//! are rounded to the nearest point of the round-off grid: 0.05 mm, or 0.02 mm on chips
+//! smaller than 1608.
 
 use reda_model::geom::Nm;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-/// The board fabrication tolerance `F`.
-pub const FABRICATION: Nm = Nm(50_000);
-/// The placement tolerance `P`.
-pub const PLACEMENT: Nm = Nm(25_000);
+/// The board fabrication tolerance `F`, as one total value.
+pub const FABRICATION: Nm = Nm(100_000);
+/// The placement tolerance `P`, as one total value.
+pub const PLACEMENT: Nm = Nm(50_000);
 /// Pad sizes and spacings are rounded to this grid.
 pub const ROUND_OFF: Nm = Nm(50_000);
+/// Pad sizes and spacings of chips smaller than 1608 are rounded to this grid.
+pub const SMALL_CHIP_ROUND_OFF: Nm = Nm(20_000);
 /// The courtyard is rounded outwards to this grid.
 pub const COURTYARD_GRID: Nm = Nm(50_000);
+
+/// How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels
+/// A (Most), B (Nominal) and C (Least).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Density {
+    /// Level A, for low-density boards and hand or wave soldering.
+    Most,
+    /// Level B, for most boards.
+    #[default]
+    Nominal,
+    /// Level C, for high-density boards.
+    Least,
+}
+
+impl Density {
+    /// The last letter of an IPC-7351 name: `M`, `N` or `L`.
+    pub fn letter(self) -> char {
+        match self {
+            Density::Most => 'M',
+            Density::Nominal => 'N',
+            Density::Least => 'L',
+        }
+    }
+
+    /// The level's name in a description: `Most`, `Nominal` or `Least`.
+    pub fn title(self) -> &'static str {
+        match self {
+            Density::Most => "Most",
+            Density::Nominal => "Nominal",
+            Density::Least => "Least",
+        }
+    }
+
+    /// The value for this level out of `most / nominal / least`.
+    const fn pick(self, values: [f64; 3]) -> f64 {
+        match self {
+            Density::Most => values[0],
+            Density::Nominal => values[1],
+            Density::Least => values[2],
+        }
+    }
+}
 
 /// Millimetres to the nearest nanometre, for the built-in tables.
 pub const fn mm(value: f64) -> Nm {
@@ -55,44 +103,105 @@ impl Tol {
     }
 }
 
-/// The solder-fillet goals of a package family at Nominal density, and the courtyard
-/// excess around it.
+/// The solder-fillet goals of a package family at one density level, the courtyard excess
+/// around it, and the grid its Pads are rounded to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Goals {
     pub toe: Nm,
     pub heel: Nm,
     pub side: Nm,
     pub courtyard: Nm,
+    pub round_off: Nm,
+}
+
+/// One family's row of IPC-7351B's goal tables: toe, heel, side and courtyard excess as
+/// Most / Nominal / Least (mm), and the round-off grid.
+struct Table {
+    toe: [f64; 3],
+    heel: [f64; 3],
+    side: [f64; 3],
+    courtyard: [f64; 3],
+    round_off: Nm,
+}
+
+/// Table 3-5: rectangular or square-end chips of 1608 metric (0603) and larger.
+const CHIP: Table = Table {
+    toe: [0.55, 0.35, 0.15],
+    heel: [0.0, 0.0, 0.0],
+    side: [0.05, 0.0, -0.05],
+    courtyard: [0.50, 0.25, 0.10],
+    round_off: ROUND_OFF,
+};
+/// Table 3-6: chips smaller than 1608 metric (0402, 0201).
+const SMALL_CHIP: Table = Table {
+    toe: [0.30, 0.20, 0.10],
+    heel: [0.0, 0.0, 0.0],
+    side: [0.05, 0.0, -0.05],
+    courtyard: [0.20, 0.15, 0.10],
+    round_off: SMALL_CHIP_ROUND_OFF,
+};
+/// Table 3-2: gull-wing leads at a pitch over 0.625 mm.
+const GULL_WING: Table = Table {
+    toe: [0.55, 0.35, 0.15],
+    heel: [0.45, 0.35, 0.25],
+    side: [0.05, 0.03, 0.01],
+    courtyard: [0.50, 0.25, 0.10],
+    round_off: ROUND_OFF,
+};
+/// Table 3-3: gull-wing leads at a pitch of 0.625 mm or less.
+const FINE_GULL_WING: Table = Table {
+    side: [0.01, -0.02, -0.04],
+    ..GULL_WING
+};
+/// Tables 3-15 and 3-16: flat no-lead terminations on the body's underside (QFN, SON).
+const NO_LEAD: Table = Table {
+    toe: [0.40, 0.30, 0.20],
+    heel: [0.0, 0.0, 0.0],
+    side: [-0.04, -0.04, -0.04],
+    courtyard: [0.50, 0.25, 0.10],
+    round_off: ROUND_OFF,
+};
+
+impl Table {
+    const fn at(&self, density: Density) -> Goals {
+        Goals {
+            toe: mm(density.pick(self.toe)),
+            heel: mm(density.pick(self.heel)),
+            side: mm(density.pick(self.side)),
+            courtyard: mm(density.pick(self.courtyard)),
+            round_off: self.round_off,
+        }
+    }
+}
+
+/// A chip's body is smaller than 1608 metric when its nominal length is under 1.6 mm or
+/// its nominal width under 0.8 mm.
+pub fn is_small_chip(length: Tol, width: Tol) -> bool {
+    length.nominal().0 < 1_600_000 || width.nominal().0 < 800_000
 }
 
 impl Goals {
-    /// Rectangular or square-end chips of 1608 metric (0603) and larger.
-    pub const CHIP: Goals = Goals::mm(0.35, 0.0, 0.0, 0.25);
-    /// Rectangular or square-end chips smaller than 1608 metric (0402, 0201).
-    pub const SMALL_CHIP: Goals = Goals::mm(0.20, -0.05, 0.0, 0.15);
-    /// Gull-wing leads at a pitch over 0.625 mm.
-    pub const GULL_WING: Goals = Goals::mm(0.35, 0.35, 0.03, 0.25);
-    /// Gull-wing leads at a pitch of 0.625 mm or less.
-    pub const FINE_GULL_WING: Goals = Goals::mm(0.35, 0.35, -0.02, 0.25);
-    /// Flat no-lead terminations on the body's underside (QFN, DFN/SON).
-    pub const NO_LEAD: Goals = Goals::mm(0.30, 0.0, -0.04, 0.25);
-
-    const fn mm(toe: f64, heel: f64, side: f64, courtyard: f64) -> Goals {
-        Goals {
-            toe: mm(toe),
-            heel: mm(heel),
-            side: mm(side),
-            courtyard: mm(courtyard),
+    /// Two-terminal chips `length` by `width`, at `density`.
+    pub fn chip(length: Tol, width: Tol, density: Density) -> Goals {
+        if is_small_chip(length, width) {
+            SMALL_CHIP.at(density)
+        } else {
+            CHIP.at(density)
         }
     }
 
-    /// The gull-wing goals for a lead pitch.
-    pub fn gull_wing(pitch: Nm) -> Goals {
+    /// Gull-wing leads at `pitch`, at `density`.
+    pub fn gull_wing(pitch: Nm, density: Density) -> Goals {
         if pitch.0 > 625_000 {
-            Goals::GULL_WING
+            GULL_WING.at(density)
         } else {
-            Goals::FINE_GULL_WING
+            FINE_GULL_WING.at(density)
         }
+    }
+
+    /// Flat no-lead terminations, at `density`.
+    pub fn no_lead(density: Density) -> Goals {
+        NO_LEAD.at(density)
     }
 }
 
@@ -106,11 +215,11 @@ pub enum Termination {
 }
 
 impl Termination {
-    /// The solder-fillet goals for leads at `pitch`.
-    pub fn goals(self, pitch: Nm) -> Goals {
+    /// The solder-fillet goals for leads at `pitch`, at `density`.
+    pub fn goals(self, pitch: Nm, density: Density) -> Goals {
         match self {
-            Termination::GullWing => Goals::gull_wing(pitch),
-            Termination::NoLead => Goals::NO_LEAD,
+            Termination::GullWing => Goals::gull_wing(pitch, density),
+            Termination::NoLead => Goals::no_lead(density),
         }
     }
 }
@@ -152,6 +261,14 @@ fn round(value: f64, grid: Nm, up: bool) -> Nm {
     Nm(steps as i64 * grid.0)
 }
 
+/// Rounds `value` (in nm) to the nearest point of the grid, halves away from zero,
+/// allowing for float noise.
+fn round_nearest(value: f64, grid: Nm) -> Nm {
+    let steps = value / grid.0 as f64;
+    let steps = (steps + 1e-9 * steps.signum()).round();
+    Nm(steps as i64 * grid.0)
+}
+
 /// `Z` and `G` for terminations spanning `span` end to end, each `terminal` long, or why
 /// they do not fit.
 pub fn span(span: Tol, terminal: Tol, goals: Goals) -> Result<Span, String> {
@@ -162,8 +279,8 @@ pub fn span(span: Tol, terminal: Tol, goals: Goals) -> Result<Span, String> {
     let outer = span.min.0 as f64 + 2.0 * goals.toe.0 as f64 + rss(span.tolerance());
     let inner = s_max - 2.0 * goals.heel.0 as f64 - rss(s_rms);
     let span = Span {
-        outer: round(outer, ROUND_OFF, true),
-        inner: round(inner, ROUND_OFF, false),
+        outer: round_nearest(outer, goals.round_off),
+        inner: round_nearest(inner, goals.round_off),
     };
     if span.inner.0 <= 0 {
         return Err("the terminals are too long for the span: the Pads would meet".into());
@@ -171,12 +288,12 @@ pub fn span(span: Tol, terminal: Tol, goals: Goals) -> Result<Span, String> {
     Ok(span)
 }
 
-/// `value` rounded up to the round-off grid.
+/// `value` rounded up to the 0.05 mm round-off grid.
 pub fn round_up(value: Nm) -> Nm {
     round(value.0 as f64, ROUND_OFF, true)
 }
 
-/// `value` rounded down to the round-off grid.
+/// `value` rounded down to the 0.05 mm round-off grid.
 pub fn round_down(value: Nm) -> Nm {
     round(value.0 as f64, ROUND_OFF, false)
 }
@@ -184,7 +301,7 @@ pub fn round_down(value: Nm) -> Nm {
 /// `X` for a termination `width` wide.
 pub fn pad_width(width: Tol, goals: Goals) -> Nm {
     let x = width.min.0 as f64 + 2.0 * goals.side.0 as f64 + rss(width.tolerance());
-    round(x, ROUND_OFF, true)
+    round_nearest(x, goals.round_off)
 }
 
 /// `value` rounded away from zero to the courtyard grid.

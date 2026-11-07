@@ -8,7 +8,7 @@ use reda_command::CommandError;
 use reda_model::geom::{Nm, Point};
 
 use super::gull_wing::keep_body_middle_clear;
-use super::ipc::{self, Termination, Tol};
+use super::ipc::{self, Density, Termination, Tol};
 use super::pattern::{Body, FootprintPlan, PadSpec, SILKSCREEN_WIDTH, clip_silkscreen, rectangle};
 
 /// A four-sided package's dimensions.
@@ -41,16 +41,17 @@ fn centres(n: usize, pitch: Nm) -> impl DoubleEndedIterator<Item = Nm> {
     (0..n).map(move |i| Nm((2 * i as i64 - (n as i64 - 1)) * pitch.0 / 2))
 }
 
-/// The Footprint of a four-sided package terminated as `termination`. Silkscreen
+/// The Footprint of a four-sided package terminated as `termination`, at `density`. Silkscreen
 /// marks the body's corners where they clear the copper, all but the upper-left one,
 /// whose absence marks pin 1.
 pub fn plan(
     q: &Quad,
     termination: Termination,
+    density: Density,
     name: String,
     description: String,
 ) -> Result<FootprintPlan, CommandError> {
-    let goals = termination.goals(q.pitch);
+    let goals = termination.goals(q.pitch, density);
     let span = |tips: Tol, body: Tol| {
         let span = ipc::span(tips, q.lead_length, goals)
             .map_err(|why| CommandError::invalid_params("/dimensions/lead_length", why))?;

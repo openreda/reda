@@ -1,7 +1,7 @@
 {
   "format": 1,
   "footprint": {"uuid":"43ca8637-7f8d-4597-866a-d91d359dd6bb","name":"SOT95P237X112-3N","description":"SOT-23-3, IPC-7351 Nominal","height":1120000},
-  "generator": {"command":"library.footprint.generate.sot","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"package":"sot23_3"}},
+  "generator": {"command":"library.footprint.generate.sot","params":{"goals":{"density":"nominal"},"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"package":"sot23_3"}},
   "pads": [
     {"uuid":"0899657c-dcf9-4352-8fbe-b4bfa3add311","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-1012500,"y":-950000},"rotation":0,"width":1325000,"height":600000,"corner_ratio":50000},
     {"uuid":"19cc8aa6-906a-4aa1-ba27-2faadf833396","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":1012500,"y":0},"rotation":0,"width":1325000,"height":600000,"corner_ratio":50000},

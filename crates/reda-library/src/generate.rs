@@ -1,5 +1,5 @@
 //! Footprint generators: one Command per package family that computes an IPC-7351
-//! Nominal Footprint, writes it into a chosen Library and runs the
+//! Footprint at a chosen density level (through-hole families at level B), writes it into a chosen Library and runs the
 //! Library check on it.
 //!
 //! A family is a [`FootprintFamily`]: its Command metadata, its params, and a pure
@@ -33,6 +33,7 @@ use serde::{Deserialize, Serialize};
 
 pub use chip::{Chip, ChipClass, ChipDimensions, ChipParams, ChipSize};
 pub use gull_wing::GullWingDimensions;
+pub use ipc::Density;
 pub use no_lead::{Dfn, ExposedPadDimensions, NoLeadDimensions, NoLeadParams, Qfn};
 pub use pattern::{Body, FootprintPlan, PadSpec};
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
@@ -216,6 +217,17 @@ fn generator_of<F: FootprintFamily>(
         command: F::META.id.to_owned(),
         params,
     })
+}
+
+/// The `goals` section of a surface-mount family's params.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GoalsParams {
+    /// The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger
+    /// Pads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,
+    /// `M` or `L`).
+    #[serde(default)]
+    pub density: ipc::Density,
 }
 
 /// A dimension param: its least and greatest value, each an integer in nanometres or a

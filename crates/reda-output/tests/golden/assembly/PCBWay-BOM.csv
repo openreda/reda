@@ -1,4 +1,4 @@
 Item #,Designator,Qty,Manufacturer,Mfg Part #,Description / Value,Package/Footprint,Type
-1,J1,1,,,Header 1x2,HDR254P1X2,THT
+1,J1,1,,,Header 1x2,HDRV0W64P254R1L508T254H850B,THT
 2,"R1, R2",2,Yageo,RC0603FR-0710KL,10k,RESC1608X55N,SMD
 3,R3,1,,,4k7,RESC1608X55N,SMD

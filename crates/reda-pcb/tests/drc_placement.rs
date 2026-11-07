@@ -1,7 +1,7 @@
 //! DRC II: the placement, silkscreen and sync checks, through `drc.run`, on Footprints
 //! synced from the repo's starter Library.
 //!
-//! The 0603 Resistor (RESC1608X55N) has two 0.925 × 1 mm Pads at x = ±0.7875 mm, a
+//! The 0603 Resistor (RESC1608X55N) has two 0.90 × 0.95 mm Pads at x = ±0.775 mm, a
 //! 3 × 1.5 mm courtyard centred on its origin and its Designator 1.45 mm above it.
 
 mod common;
@@ -141,7 +141,7 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
         ("10.8mm", "8mm"),
         ("10.8mm", "12mm"),
     );
-    // Above both Pads, 0.425 mm clear.
+    // Above both Pads, 0.45 mm clear.
     line(
         &mut engine,
         "silkscreen_top",
@@ -151,7 +151,7 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
     // R2's Designator moved onto its Pad 2.
     engine.run_ok(
         "pcb.designator_text.set",
-        json!({"footprint": r[1], "at": {"x": "20.7875mm", "y": "10mm"}}),
+        json!({"footprint": r[1], "at": {"x": "20.775mm", "y": "10mm"}}),
     );
     // A text over R3's Pad 1.
     let text = created(&engine.run_ok(

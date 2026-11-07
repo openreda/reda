@@ -350,7 +350,7 @@ fn a_mechanical_component_on_a_sheet_reaches_the_bom_with_or_without_a_footprint
         lines(&bom(&engine)),
         [
             "Designator,Quantity,Value,Footprint,Manufacturer,MPN",
-            "J1,1,Header 1x2,HDR254P1X2,,",
+            "J1,1,Header 1x2,HDRV0W64P254R1L508T254H850B,,",
             "R1,1,10k,RESC1608X55N,,",
             "R2,1,M3 screw,,,",
         ]
@@ -453,7 +453,7 @@ fn common_column_sources_follow_the_preset_mapping() {
         lines(&bom_with(&engine, &all)),
         [
             "#,Ref,N,Val,Pkg,Type,X,Y,Side,Rot,Maker,Part Number,LCSC Part #",
-            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDR254P1X2,THT,,,,,,,",
+            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDRV0W64P254R1L508T254H850B,THT,,,,,,,",
             "2,\"R1, R2\",2,10k,RESC1608X55N,SMT,,,,,Yageo,RC0603FR-0710KL,C25804",
         ],
         "position columns are blank in a BOM"
@@ -461,7 +461,7 @@ fn common_column_sources_follow_the_preset_mapping() {
     assert_eq!(
         lines(&cpl_with(&engine, &all))[1..],
         [
-            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDR254P1X2,THT,20.000000,10.000000,Top,0.000,,,",
+            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDRV0W64P254R1L508T254H850B,THT,20.000000,10.000000,Top,0.000,,,",
             "2,R1,1,10k,RESC1608X55N,SMT,5.000000,5.000000,Top,0.000,Yageo,RC0603FR-0710KL,C25804",
             "3,R2,1,10k,RESC1608X55N,SMT,10.000000,5.000000,Top,0.000,Yageo,RC0603FR-0710KL,C25804",
         ]

@@ -1,10 +1,10 @@
 {
   "format": 1,
   "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"CAPC1005X40N","description":"Chip capacitor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},
-  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"0402"}},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"capacitor","dimensions":null,"goals":{"density":"nominal"},"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"0402"}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":50000}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000},

@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"4f868252-862f-4062-80cf-58ab93eefc03","name":"HDRV0W64P254R1L1524T254H850B","description":"Pin header, 1 × 6, 2.54 mm pitch","height":8500000},
+  "generator": {"command":"library.footprint.generate.header","params":{"library":"5a7e0000-0000-4000-8000-000000000001","name":null,"pins_per_row":6,"pitch":"2.54","rows":1,"socket":false}},
+  "pads": [
+    {"uuid":"432f730f-c47d-4cae-b721-256c2a7186d3","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"5185aa3f-9e5a-43f6-bc6c-e316d1260c57","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"b23b9162-2130-489a-a586-2148b7957e49","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"b712ab14-779b-4e60-9896-2cc00103041c","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"c0f4beb8-22c6-482a-81c9-4ee015e5394c","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+    {"uuid":"de450b35-b6e9-47cb-b737-275db1a43a02","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+  ],
+  "graphics": [
+    {"uuid":"10d97ddc-384e-4219-9740-63d61ec7ebfa","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-7680000},"end":{"x":1330000,"y":-7680000}},"width":120000},
+    {"uuid":"15e8b517-f742-4d3a-8a4d-479917151dbc","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-7680000},"end":{"x":-1330000,"y":7680000}},"width":120000},
+    {"uuid":"804e39a4-8322-419e-82ec-681ef08bed78","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":7680000},"end":{"x":1330000,"y":7680000}},"width":120000},
+    {"uuid":"8dd34ecd-fc5c-4538-97fb-4e6e17375ae8","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-7900000},"end":{"x":1550000,"y":7900000}},"width":50000},
+    {"uuid":"9722c646-0478-43eb-9483-a113ecde3c0c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-7680000},"end":{"x":1330000,"y":7680000}},"width":120000},
+    {"uuid":"bae914c2-e471-4472-b042-a860c27afbf9","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":7620000},{"x":1270000,"y":7620000},{"x":1270000,"y":-7620000},{"x":-1270000,"y":-7620000},{"x":-1270000,"y":6985000}]},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"9b6c023f-dfba-4fa4-b38e-88ff2c7a04ac","field":"Designator","at":{"x":0,"y":8600000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"c3e7d941-d873-4a06-9c24-c13373c471b0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+  ]
+}

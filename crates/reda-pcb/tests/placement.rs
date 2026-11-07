@@ -187,8 +187,8 @@ fn a_flipped_footprint_mirrors_its_pads_and_drawing_onto_the_bottom() {
             .find(|p| p.number == number)
             .unwrap()
     };
-    // RESC1608X55N: Pad 1 at (-0.7875 mm, 0), Pad 2 at (+0.7875 mm, 0), SMD on top.
-    let half = Nm(787_500);
+    // RESC1608X55N: Pad 1 at (-0.775 mm, 0), Pad 2 at (+0.775 mm, 0), SMD on top.
+    let half = Nm(775_000);
     assert_eq!(pad(&engine, "1").at, a + Point::new(-half, Nm(0)));
     assert_eq!(pad(&engine, "1").side, Some(Side::Top));
 

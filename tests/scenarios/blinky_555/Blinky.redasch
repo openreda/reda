@@ -2,7 +2,7 @@
   "format": 1,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000025","hash":"9356368f62c84850e161ad5e0c4039f0","part":{"uuid":"6ad2a4fb-15fe-4c32-b244-29a4bee87635","name":"Timer_555","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"eebdad0d-b78a-4f9b-be97-ae74568d41ed"},"footprints":["7afee21e-6914-4820-8f71-a396e8dd3ac1","a3c5aa5c-0015-43fb-8fe0-b72305a1157d"],"copies":["00000000-0000-4000-8000-000000000023","00000000-0000-4000-8000-000000000024"],"fields":{"value":"NE555","description":"555 timer","keywords":"U timer 555 oscillator"},"pin_map":{},"symbol":{"uuid":"eebdad0d-b78a-4f9b-be97-ae74568d41ed","name":"Timer_555","designator_prefix":"U","description":"555 timer"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000025","hash":"ec0e95b80eaf5351ed0adcf3f4a46c6c","part":{"uuid":"6ad2a4fb-15fe-4c32-b244-29a4bee87635","name":"Timer_555","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"eebdad0d-b78a-4f9b-be97-ae74568d41ed"},"footprints":["7afee21e-6914-4820-8f71-a396e8dd3ac1","a3c5aa5c-0015-43fb-8fe0-b72305a1157d"],"copies":["00000000-0000-4000-8000-000000000023","00000000-0000-4000-8000-000000000024"],"fields":{"value":"NE555","description":"555 timer","keywords":"U timer 555 oscillator"},"pin_map":{},"symbol":{"uuid":"eebdad0d-b78a-4f9b-be97-ae74568d41ed","name":"Timer_555","designator_prefix":"U","description":"555 timer"},"units":[
       {"uuid":"ef661553-ab0f-4180-af7e-49a6f3efbf77","name":"A"}
     ],"pins":[
       {"uuid":"01454f36-2957-4b93-9a60-c68ec3d255ca","unit":"ef661553-ab0f-4180-af7e-49a6f3efbf77","name":"RESET","number":"4","electrical_type":"input","at":{"x":-7620000,"y":3810000},"rotation":0,"length":2540000},
@@ -16,7 +16,7 @@
     ],"graphics":[
       {"uuid":"c4bc1fe0-58f3-4f15-9c7b-730034d7145a","unit":"ef661553-ab0f-4180-af7e-49a6f3efbf77","shape":{"kind":"rect","start":{"x":-5080000,"y":-6350000},"end":{"x":5080000,"y":6350000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002d","hash":"29b5786cdc0f74d1b38141b3c0eeebcd","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-000000000028","00000000-0000-4000-8000-000000000029","00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b","00000000-0000-4000-8000-00000000002c"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000002d","hash":"3956f08da59cde90bcbe869658dbf3e3","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-000000000028","00000000-0000-4000-8000-000000000029","00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b","00000000-0000-4000-8000-00000000002c"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
       {"uuid":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"A"}
     ],"pins":[
       {"uuid":"4d8013c9-7801-4d73-93ac-a5c047a300b5","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000,"name_visible":false,"number_visible":false},
@@ -24,7 +24,7 @@
     ],"graphics":[
       {"uuid":"0e65c72b-7ee9-49c4-94cc-ef11deea34c0","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","shape":{"kind":"rect","start":{"x":-1016000,"y":-2540000},"end":{"x":1016000,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000036","hash":"6b8edf9cd7a6596419949720b12cee31","part":{"uuid":"8bac4a84-9009-4fde-bf59-3c6e47a39ae6","name":"Capacitor_Polarised","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe"},"footprints":["ccb154ef-2442-491a-b1d0-d39c9fb13e8e","2adccc08-5d68-4c21-a620-92fb92ec9033","7d6a13a1-5426-4600-ade9-fa7b906918e8","1f399e5c-50d0-4d9c-bb9f-153e8a201cae"],"copies":["00000000-0000-4000-8000-000000000032","00000000-0000-4000-8000-000000000033","00000000-0000-4000-8000-000000000034","00000000-0000-4000-8000-000000000035"],"fields":{"value":"10u","description":"Polarised capacitor (tantalum or electrolytic)","keywords":"C capacitor polarised electrolytic tantalum"},"pin_map":{},"symbol":{"uuid":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe","name":"Capacitor_Polarised","designator_prefix":"C","description":"Polarised capacitor; Pin 1 is positive"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000036","hash":"a00f82338f4dc7232cc114a92b317386","part":{"uuid":"8bac4a84-9009-4fde-bf59-3c6e47a39ae6","name":"Capacitor_Polarised","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe"},"footprints":["ccb154ef-2442-491a-b1d0-d39c9fb13e8e","2adccc08-5d68-4c21-a620-92fb92ec9033","7d6a13a1-5426-4600-ade9-fa7b906918e8","1f399e5c-50d0-4d9c-bb9f-153e8a201cae"],"copies":["00000000-0000-4000-8000-000000000032","00000000-0000-4000-8000-000000000033","00000000-0000-4000-8000-000000000034","00000000-0000-4000-8000-000000000035"],"fields":{"value":"10u","description":"Polarised capacitor (tantalum or electrolytic)","keywords":"C capacitor polarised electrolytic tantalum"},"pin_map":{},"symbol":{"uuid":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe","name":"Capacitor_Polarised","designator_prefix":"C","description":"Polarised capacitor; Pin 1 is positive"},"units":[
       {"uuid":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"A"}
     ],"pins":[
       {"uuid":"5f023e11-1bd7-4b50-a234-31cabec1d6b5","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":3302000,"name_visible":false,"number_visible":false},
@@ -35,7 +35,7 @@
       {"uuid":"60018492-9a37-4245-bcd4-9ca22b5e54a6","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"line","start":{"x":-2032000,"y":508000},"end":{"x":2032000,"y":508000}},"width":254000},
       {"uuid":"6948ae47-748f-4c5a-a862-dcc7e2bf2ef5","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"rect","start":{"x":-2032000,"y":-1016000},"end":{"x":2032000,"y":-508000}},"width":254000,"fill":true}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000040","hash":"e444ac52b6a991a180e99f4fea00e579","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-00000000003b","00000000-0000-4000-8000-00000000003c","00000000-0000-4000-8000-00000000003d","00000000-0000-4000-8000-00000000003e","00000000-0000-4000-8000-00000000003f"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000040","hash":"e0bfe6917b9b69626b65859608a08773","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-00000000003b","00000000-0000-4000-8000-00000000003c","00000000-0000-4000-8000-00000000003d","00000000-0000-4000-8000-00000000003e","00000000-0000-4000-8000-00000000003f"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
       {"uuid":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A"}
     ],"pins":[
       {"uuid":"4c45e5ee-3d76-48d7-9fbf-f1aac5cb4e5c","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
@@ -48,7 +48,7 @@
       {"uuid":"a8b4eb77-3821-4730-b8a1-82a1217d18b0","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"line","start":{"x":1524000,"y":-1016000},"end":{"x":2794000,"y":-2286000}},"width":254000},
       {"uuid":"ad15be61-8d76-47ec-a1fb-ce4b40a118f1","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"line","start":{"x":-1270000,"y":-1270000},"end":{"x":1270000,"y":-1270000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000048","hash":"2c3eb773e2db77736326162b0e8cbb8b","part":{"uuid":"b4351766-9551-4986-9f92-46fd72d7e385","name":"Capacitor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"e2a20189-4b01-467b-a2c0-1e5ddd811319"},"footprints":["4cbeeb47-93a7-4a38-9bfa-49862757d1ea","2f30e497-fa3d-473c-89eb-c952d32ae866","9f2fe3a0-4816-480e-afcc-1165dc5d603c","15dd7aa2-d617-4a1d-875b-9e6177603525","cd0be5b4-30b8-43a1-86a0-04fe884fe2c5"],"copies":["00000000-0000-4000-8000-000000000043","00000000-0000-4000-8000-000000000044","00000000-0000-4000-8000-000000000045","00000000-0000-4000-8000-000000000046","00000000-0000-4000-8000-000000000047"],"fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"pin_map":{},"symbol":{"uuid":"e2a20189-4b01-467b-a2c0-1e5ddd811319","name":"Capacitor","designator_prefix":"C","description":"Capacitor"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000048","hash":"d70fe5d4597f4b59b4f5208d8c536eb3","part":{"uuid":"b4351766-9551-4986-9f92-46fd72d7e385","name":"Capacitor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"e2a20189-4b01-467b-a2c0-1e5ddd811319"},"footprints":["4cbeeb47-93a7-4a38-9bfa-49862757d1ea","2f30e497-fa3d-473c-89eb-c952d32ae866","9f2fe3a0-4816-480e-afcc-1165dc5d603c","15dd7aa2-d617-4a1d-875b-9e6177603525","cd0be5b4-30b8-43a1-86a0-04fe884fe2c5"],"copies":["00000000-0000-4000-8000-000000000043","00000000-0000-4000-8000-000000000044","00000000-0000-4000-8000-000000000045","00000000-0000-4000-8000-000000000046","00000000-0000-4000-8000-000000000047"],"fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"pin_map":{},"symbol":{"uuid":"e2a20189-4b01-467b-a2c0-1e5ddd811319","name":"Capacitor","designator_prefix":"C","description":"Capacitor"},"units":[
       {"uuid":"5066b805-cd8b-4a7e-9d84-c514cbd67273","name":"A"}
     ],"pins":[
       {"uuid":"4c3b1b00-84af-4a10-8546-a73b55a2a70e","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":3302000,"name_visible":false,"number_visible":false},
@@ -57,7 +57,7 @@
       {"uuid":"8aab28e9-82a2-4b70-9c95-c663eda97630","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","shape":{"kind":"line","start":{"x":-2032000,"y":508000},"end":{"x":2032000,"y":508000}},"width":254000},
       {"uuid":"c083b96f-c08b-4436-9ed4-c77a9ab4a55d","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","shape":{"kind":"line","start":{"x":-2032000,"y":-508000},"end":{"x":2032000,"y":-508000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000004f","hash":"3f1d0201251719e2a9ed079cc7ca07ae","part":{"uuid":"d0560bc9-5203-4a8b-b575-24058968bdd8","name":"Header_1x02","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"0d12434e-5c88-4016-a415-e4bec26351fe"},"footprints":["26d79843-0798-462a-8497-835a14905264","a3cf2a76-4db1-40d0-b706-993194277cef"],"copies":["00000000-0000-4000-8000-00000000004d","00000000-0000-4000-8000-00000000004e"],"fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"0d12434e-5c88-4016-a415-e4bec26351fe","name":"Conn_1x02","designator_prefix":"J","description":"Generic connector, 1 × 2 pins"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000004f","hash":"5ce6857969a610c63af4b6f17ffa1dea","part":{"uuid":"d0560bc9-5203-4a8b-b575-24058968bdd8","name":"Header_1x02","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"0d12434e-5c88-4016-a415-e4bec26351fe"},"footprints":["26d79843-0798-462a-8497-835a14905264","a3cf2a76-4db1-40d0-b706-993194277cef"],"copies":["00000000-0000-4000-8000-00000000004d","00000000-0000-4000-8000-00000000004e"],"fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"0d12434e-5c88-4016-a415-e4bec26351fe","name":"Conn_1x02","designator_prefix":"J","description":"Generic connector, 1 × 2 pins"},"units":[
       {"uuid":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","name":"A"}
     ],"pins":[
       {"uuid":"1b766ffd-a0c4-461e-ad0f-e59c6ee1a3ea","unit":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
@@ -67,25 +67,25 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"ad9c21b2e24f5ea27de4d2c01c0f1b95","footprint":{"uuid":"7afee21e-6914-4820-8f71-a396e8dd3ac1","name":"SOIC127P600X175-8N","description":"SOIC-8, 1.27 mm pitch, IPC-7351 Nominal","height":1750000},"pads":[
-      {"uuid":"0bce11ec-346f-4972-ab9f-4f8ba97a7b51","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
-      {"uuid":"1e438b59-6d5a-47a8-bac7-1a60cbb01b18","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
-      {"uuid":"20777590-eae8-4eba-9d3b-44255933e7e6","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
-      {"uuid":"3a831966-e50e-4317-ac7a-e5cb1d78df2d","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
-      {"uuid":"42a3f917-58b7-482f-b69b-32fbfefbb2e8","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
-      {"uuid":"8649cfc2-5efc-416c-8313-5016450c45bc","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
-      {"uuid":"880f64de-ae75-40bf-b748-f23d621d70eb","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":635000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000},
-      {"uuid":"fc33a32b-56f3-4ac1-a9a3-17b55df9e749","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":1905000},"rotation":0,"width":2000000,"height":600000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000023","hash":"2b746e66fb0391c4060efabf45d4f28a","footprint":{"uuid":"7afee21e-6914-4820-8f71-a396e8dd3ac1","name":"SOIC127P600X175-8N","description":"SOIC-8, 1.27 mm pitch, IPC-7351 Nominal","height":1750000},"pads":[
+      {"uuid":"0bce11ec-346f-4972-ab9f-4f8ba97a7b51","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":635000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000},
+      {"uuid":"1e438b59-6d5a-47a8-bac7-1a60cbb01b18","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-635000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000},
+      {"uuid":"20777590-eae8-4eba-9d3b-44255933e7e6","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":1905000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000},
+      {"uuid":"3a831966-e50e-4317-ac7a-e5cb1d78df2d","number":"3","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-635000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000},
+      {"uuid":"42a3f917-58b7-482f-b69b-32fbfefbb2e8","number":"5","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":-1905000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000},
+      {"uuid":"8649cfc2-5efc-416c-8313-5016450c45bc","number":"4","kind":"smd","shape":"rounded_rect","at":{"x":-2475000,"y":-1905000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000},
+      {"uuid":"880f64de-ae75-40bf-b748-f23d621d70eb","number":"7","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":635000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000},
+      {"uuid":"fc33a32b-56f3-4ac1-a9a3-17b55df9e749","number":"8","kind":"smd","shape":"rounded_rect","at":{"x":2475000,"y":1905000},"rotation":0,"width":1950000,"height":600000,"corner_ratio":50000}
     ],"graphics":[
-      {"uuid":"1ff06916-cc84-4fe2-8be8-dc7d766cc06e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3750000,"y":-2750000},"end":{"x":3750000,"y":2750000}},"width":50000},
-      {"uuid":"933fcbd8-d86e-4e2d-8656-c28d77cb8231","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3475000,"y":2560000},"end":{"x":2000000,"y":2560000}},"width":120000},
+      {"uuid":"1ff06916-cc84-4fe2-8be8-dc7d766cc06e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3700000,"y":-2750000},"end":{"x":3700000,"y":2750000}},"width":50000},
+      {"uuid":"933fcbd8-d86e-4e2d-8656-c28d77cb8231","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3450000,"y":2560000},"end":{"x":2000000,"y":2560000}},"width":120000},
       {"uuid":"9edad386-0f34-46d8-aff4-d0ee06a92a3e","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-975000,"y":2450000},{"x":1950000,"y":2450000},{"x":1950000,"y":-2450000},{"x":-1950000,"y":-2450000},{"x":-1950000,"y":1475000}]},"width":100000},
       {"uuid":"d884077c-c431-4cd6-a0da-87bcddbac1de","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2000000,"y":-2560000},"end":{"x":2000000,"y":-2560000}},"width":120000}
     ],"texts":[
       {"uuid":"a5b4f04c-6a74-4b7f-ae66-f5999684637e","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"d7545d6e-6b36-41e7-9859-fdcc939ccbc7","field":"Designator","at":{"x":0,"y":3450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000024","hash":"94f1f076f404f2a0d515ce205b015f25","footprint":{"uuid":"a3c5aa5c-0015-43fb-8fe0-b72305a1157d","name":"DIP254P762X533-8","description":"DIP-8, 7.62 mm row spacing, IPC-7251 Nominal","height":5330000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000024","hash":"3443b81d4b23a28f95d490fff508407e","footprint":{"uuid":"a3c5aa5c-0015-43fb-8fe0-b72305a1157d","name":"DIP762W46P254L1016H533Q8B","description":"DIP-8, 7.62 mm row spacing, IPC-7251 Nominal","height":5330000},"pads":[
       {"uuid":"156982c5-e9ee-420e-9943-ede343b58d43","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-3810000,"y":3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
       {"uuid":"52f2fad0-d8a3-4abf-9b70-df5a17c23fa4","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":3810000,"y":-1270000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
       {"uuid":"99cfbbac-e230-4921-94e8-baac539201d3","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":-3810000,"y":-3810000},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":900000,"height":900000}},
@@ -105,9 +105,9 @@
       {"uuid":"8e9a5c70-e749-43ba-865d-d10d0143e4b6","field":"Designator","at":{"x":0,"y":6050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"ff2d2b9b-ef29-41dc-a793-dc85f2049805","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000028","hash":"58418cfc2f997eea8455d59f86bef4aa","footprint":{"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},"pads":[
-      {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000},
-      {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000028","hash":"c7936da09e36c365ebc9695b074443ce","footprint":{"uuid":"cece716c-4fd0-42c8-900c-0f3bc3c14225","name":"RESC1005X40N","description":"Chip resistor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},"pads":[
+      {"uuid":"9170a2a0-833e-4674-aa1a-870015c1654f","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":50000},
+      {"uuid":"bd8dc11d-1101-4978-8d14-232f79e0c8c8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"76d3f486-feab-4215-99a9-4ea1d56c579c","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
       {"uuid":"832a282d-a408-4a5e-ad34-ce518f62238b","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000}
@@ -115,9 +115,9 @@
       {"uuid":"b7de30cc-6911-42ef-af7b-7178beafa8ad","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"de5dcc6d-625e-48ed-af87-d03436b3784d","field":"Designator","at":{"x":0,"y":1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000029","hash":"f66650588f7be8832a306c50aa7314b3","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
-      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
-      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000029","hash":"b483fa1a6d0853cec46d805f6558c873","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+      {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000},
+      {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"c40aeae4-dd1b-4c6b-bca1-573bf549d9e9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"e47f7153-007a-4925-bff2-7afa18cc14f7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
@@ -125,24 +125,24 @@
       {"uuid":"c857cef7-4c11-4e1a-a3f0-cc25b527e5db","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002a","hash":"ac474cb0d8345c7c0a736ce0afeab0f7","footprint":{"uuid":"71936419-d9da-4a2b-8429-13c6a21ecace","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},"pads":[
-      {"uuid":"69d36719-97ac-43be-a0c6-d39c2b2ee7f5","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
-      {"uuid":"d8f3a9df-6725-4db0-9d8c-221acd8d66ae","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
+    {"uuid":"00000000-0000-4000-8000-00000000002a","hash":"584308723a90f2ba9222bc76e18bee21","footprint":{"uuid":"71936419-d9da-4a2b-8429-13c6a21ecace","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},"pads":[
+      {"uuid":"69d36719-97ac-43be-a0c6-d39c2b2ee7f5","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":48780},
+      {"uuid":"d8f3a9df-6725-4db0-9d8c-221acd8d66ae","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":48780}
     ],"graphics":[
       {"uuid":"1b556a87-5cdf-45c1-a13f-a5b14bd76ae1","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000},
-      {"uuid":"5797dfa9-0d27-4c46-98f9-8d101e340f22","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000}
+      {"uuid":"5797dfa9-0d27-4c46-98f9-8d101e340f22","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-1000000},"end":{"x":1700000,"y":1000000}},"width":50000}
     ],"texts":[
       {"uuid":"3741e149-09f6-4b5e-a1be-b23c21c48161","field":"Designator","at":{"x":0,"y":1700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"ef217695-e8b4-4f9c-ae28-018ae8e6ef32","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"e0e17f2974c20eef373aadce594077c9","footprint":{"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},"pads":[
-      {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667},
-      {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667}
+    {"uuid":"00000000-0000-4000-8000-00000000002b","hash":"ac490396c685c6713f8cad5fc49ef56d","footprint":{"uuid":"e80f4a40-24ca-407b-844c-e5cab9631e1c","name":"RESC3216X65N","description":"Chip resistor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},"pads":[
+      {"uuid":"6cbd4c96-69d7-4a7a-9d4c-5a1c05cf8b62","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1150000,"height":1800000,"corner_ratio":43478},
+      {"uuid":"83e5f15a-a925-46ec-97fc-1fd26f0cc9a8","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1150000,"height":1800000,"corner_ratio":43478}
     ],"graphics":[
       {"uuid":"44297572-5b1e-47bb-9e7a-f3198c88aa8b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000},
-      {"uuid":"6702b208-3d83-4920-a07a-7ff576d7b69d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000}
+      {"uuid":"6702b208-3d83-4920-a07a-7ff576d7b69d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1150000},"end":{"x":2300000,"y":1150000}},"width":50000}
     ],"texts":[
-      {"uuid":"44f25427-334b-4b3d-a058-5711924b22fc","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"44f25427-334b-4b3d-a058-5711924b22fc","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"531eb07c-ec51-40a0-9a33-ad9123eca689","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-00000000002c","hash":"56e596c94888a4c5f9e8eae0e3d8dcbf","footprint":{"uuid":"afd4eee0-373d-4487-aade-3ad89f20f99d","name":"RES_Axial_L6.3mm_D2.5mm_P10.16mm","description":"Axial resistor, 0207 body (6.3 × 2.5 mm), leads 10.16 mm apart"},"pads":[
@@ -158,26 +158,26 @@
       {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"93505dbc-3734-4000-9025-215dbd4b74cb","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"c143045f9e3c30363ced6083000f1146","footprint":{"uuid":"ccb154ef-2442-491a-b1d0-d39c9fb13e8e","name":"CAPMP3216X180N","description":"Moulded polarised chip capacitor, 3216 metric, IPC-7351 Nominal","height":1800000},"pads":[
-      {"uuid":"1097d408-0175-4bd9-aafe-cf2ca4af0fd8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1312500,"y":0},"rotation":0,"width":1525000,"height":1850000,"corner_ratio":32787},
-      {"uuid":"7dd31955-ae9a-4c5f-8efe-77eab8376875","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1312500,"y":0},"rotation":0,"width":1525000,"height":1850000,"corner_ratio":32787}
+    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"94850624c7385dcc79becc437366b82c","footprint":{"uuid":"ccb154ef-2442-491a-b1d0-d39c9fb13e8e","name":"CAPMP3216X180N","description":"Moulded polarised chip capacitor, 3216 metric, IPC-7351 Nominal","height":1800000},"pads":[
+      {"uuid":"1097d408-0175-4bd9-aafe-cf2ca4af0fd8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1300000,"y":0},"rotation":0,"width":1500000,"height":1800000,"corner_ratio":33333},
+      {"uuid":"7dd31955-ae9a-4c5f-8efe-77eab8376875","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1300000,"y":0},"rotation":0,"width":1500000,"height":1800000,"corner_ratio":33333}
     ],"graphics":[
       {"uuid":"679b352a-2c5f-44e5-a0fe-719839393e8f","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000},
-      {"uuid":"7eb85dc6-e48f-4928-b9ec-3f5c23e14027","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2335000,"y":-925000},"end":{"x":-2335000,"y":925000}},"width":120000},
-      {"uuid":"8deb9f88-488f-4b76-b33e-4b5c6f904351","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000}
+      {"uuid":"7eb85dc6-e48f-4928-b9ec-3f5c23e14027","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2310000,"y":-900000},"end":{"x":-2310000,"y":900000}},"width":120000},
+      {"uuid":"8deb9f88-488f-4b76-b33e-4b5c6f904351","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1150000},"end":{"x":2300000,"y":1150000}},"width":50000}
     ],"texts":[
-      {"uuid":"8f1b528c-b58e-4d8b-b809-46ec92e14a77","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"8f1b528c-b58e-4d8b-b809-46ec92e14a77","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"ad64c8d0-b134-4876-94ba-5ae985ae1a75","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000033","hash":"856dab0de4188f38787e571dd8e441cd","footprint":{"uuid":"2adccc08-5d68-4c21-a620-92fb92ec9033","name":"CAPMP3528X210N","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal","height":2100000},"pads":[
-      {"uuid":"665a48cc-84f5-414e-801d-cb3234894240","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_ratio":32787},
-      {"uuid":"cfc412fd-6626-416e-a589-e25a52cbe4b6","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1462500,"y":0},"rotation":0,"width":1525000,"height":3050000,"corner_ratio":32787}
+    {"uuid":"00000000-0000-4000-8000-000000000033","hash":"71c73110a22341741bf2d3213ecba00d","footprint":{"uuid":"2adccc08-5d68-4c21-a620-92fb92ec9033","name":"CAPMP3528X210N","description":"Moulded polarised chip capacitor, 3528 metric, IPC-7351 Nominal","height":2100000},"pads":[
+      {"uuid":"665a48cc-84f5-414e-801d-cb3234894240","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1450000,"y":0},"rotation":0,"width":1500000,"height":3000000,"corner_ratio":33333},
+      {"uuid":"cfc412fd-6626-416e-a589-e25a52cbe4b6","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1450000,"y":0},"rotation":0,"width":1500000,"height":3000000,"corner_ratio":33333}
     ],"graphics":[
-      {"uuid":"09a74e66-b1e4-4243-b587-463c557d6df7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2500000,"y":-1800000},"end":{"x":2500000,"y":1800000}},"width":50000},
+      {"uuid":"09a74e66-b1e4-4243-b587-463c557d6df7","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2450000,"y":-1750000},"end":{"x":2450000,"y":1750000}},"width":50000},
       {"uuid":"8ba39dc9-1835-4595-9cf1-f8482bab5d24","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1400000},"end":{"x":1750000,"y":1400000}},"width":100000},
-      {"uuid":"8eb2d06a-58d1-45d8-85cb-f5b3c1ac2448","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2485000,"y":-1525000},"end":{"x":-2485000,"y":1525000}},"width":120000}
+      {"uuid":"8eb2d06a-58d1-45d8-85cb-f5b3c1ac2448","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2460000,"y":-1500000},"end":{"x":-2460000,"y":1500000}},"width":120000}
     ],"texts":[
-      {"uuid":"75113202-f31d-4ad5-856a-0f5f9f808f69","field":"Designator","at":{"x":0,"y":2500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"75113202-f31d-4ad5-856a-0f5f9f808f69","field":"Designator","at":{"x":0,"y":2450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"d4c9e7d3-81d5-43a7-a412-6ecfdd138873","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-000000000034","hash":"1ad1966c50d3571c712d47127947b8f5","footprint":{"uuid":"7d6a13a1-5426-4600-ade9-fa7b906918e8","name":"CAPP_Radial_D5.0mm_P2.00mm","description":"Radial electrolytic capacitor, 5 mm across, leads 2 mm apart"},"pads":[
@@ -228,16 +228,16 @@
       {"uuid":"7834d3ac-71d5-4c71-b361-fdd7bd61b8e0","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"ae4e5903-f838-48a2-8847-c94a2b7f12b2","field":"Designator","at":{"x":0,"y":1650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003d","hash":"ad12aedf9e5a6bc9189f3a4dbbfbfd92","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},"pads":[
-      {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455},
-      {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1525000,"y":0},"rotation":0,"width":1100000,"height":1850000,"corner_ratio":45455}
+    {"uuid":"00000000-0000-4000-8000-00000000003d","hash":"9bf6ffc67bf9ee2af6ffef579e89cba4","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},"pads":[
+      {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1512500,"y":0},"rotation":0,"width":1075000,"height":1800000,"corner_ratio":46512},
+      {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1512500,"y":0},"rotation":0,"width":1075000,"height":1800000,"corner_ratio":46512}
     ],"graphics":[
-      {"uuid":"87b32797-9ffe-4e67-a9f1-19b476028f28","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2335000,"y":-925000},"end":{"x":-2335000,"y":925000}},"width":120000},
-      {"uuid":"acbe1e68-5d92-4a59-84a6-d4ec3a923002","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000},
+      {"uuid":"87b32797-9ffe-4e67-a9f1-19b476028f28","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2310000,"y":-900000},"end":{"x":-2310000,"y":900000}},"width":120000},
+      {"uuid":"acbe1e68-5d92-4a59-84a6-d4ec3a923002","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1150000},"end":{"x":2300000,"y":1150000}},"width":50000},
       {"uuid":"d0acbb24-93e9-4ed9-a3d6-97691f18cdc5","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000}
     ],"texts":[
       {"uuid":"4b6333a3-f466-4490-bcb8-326f7019c4e8","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"59d44a1c-b042-46e4-9c50-3f7cf392f24a","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+      {"uuid":"59d44a1c-b042-46e4-9c50-3f7cf392f24a","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-00000000003e","hash":"5a951fddf9f4f33c72125174d74a70c9","footprint":{"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart"},"pads":[
       {"uuid":"6a99ad72-426c-478c-b3f3-067cf1f78846","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}},
@@ -261,9 +261,9 @@
       {"uuid":"032141cd-ebdf-4466-b6fe-393be90bd26f","field":"Designator","at":{"x":0,"y":4070000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000043","hash":"a739069c85dfd29df4d3c0d126709a98","footprint":{"uuid":"4cbeeb47-93a7-4a38-9bfa-49862757d1ea","name":"CAPC1005X40N","description":"Chip capacitor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},"pads":[
-      {"uuid":"7b8d370a-7d71-44dc-b5bd-db3b2c86e655","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000},
-      {"uuid":"96a5c6f3-2cd2-41a0-91c1-4cc6ed8ab8fe","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":475000,"y":0},"rotation":0,"width":550000,"height":600000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000043","hash":"8da0fd8143e975fb947b4792ff40bcfc","footprint":{"uuid":"4cbeeb47-93a7-4a38-9bfa-49862757d1ea","name":"CAPC1005X40N","description":"Chip capacitor, 0402 (1005 metric), IPC-7351 Nominal","height":400000},"pads":[
+      {"uuid":"7b8d370a-7d71-44dc-b5bd-db3b2c86e655","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":50000},
+      {"uuid":"96a5c6f3-2cd2-41a0-91c1-4cc6ed8ab8fe","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":455000,"y":0},"rotation":0,"width":590000,"height":600000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"f4e94a75-a80a-42e3-9161-dd1b976aba9f","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
       {"uuid":"fe6178c8-eaf6-4865-84cf-0d55fe59ad95","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-450000},"end":{"x":900000,"y":450000}},"width":50000}
@@ -271,9 +271,9 @@
       {"uuid":"229e04a7-8c74-41ad-bd1b-c664949c2c30","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"5c0de4d5-c756-4a08-a8f0-b9b9772c533f","field":"Designator","at":{"x":0,"y":1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000044","hash":"e29a05cb2ab46342dd89cec5d8722e15","footprint":{"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
-      {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000},
-      {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-787500,"y":0},"rotation":0,"width":925000,"height":1000000,"corner_ratio":50000}
+    {"uuid":"00000000-0000-4000-8000-000000000044","hash":"b3e32a00748312856596c8ccc72f4fe7","footprint":{"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+      {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000},
+      {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":50000}
     ],"graphics":[
       {"uuid":"17938c85-55ca-4562-acab-13c590e07881","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"507e76c1-9511-4c85-a79e-ade8abe04cea","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000}
@@ -281,24 +281,24 @@
       {"uuid":"6650f912-5820-4887-8288-a5f8f074951c","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"9dd1b274-9c71-4195-8c2e-dd89d3a15ce3","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"9fba0857e80b59613dacecc9dc242407","footprint":{"uuid":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","name":"CAPC2012X60N","description":"Chip capacitor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},"pads":[
-      {"uuid":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
-      {"uuid":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
+    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"a5a5b708f0b7ae490ac83bf33d3e26e5","footprint":{"uuid":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","name":"CAPC2012X60N","description":"Chip capacitor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},"pads":[
+      {"uuid":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":48780},
+      {"uuid":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":48780}
     ],"graphics":[
-      {"uuid":"5b33eed9-1982-475a-ad63-257d16634887","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000},
+      {"uuid":"5b33eed9-1982-475a-ad63-257d16634887","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-1000000},"end":{"x":1700000,"y":1000000}},"width":50000},
       {"uuid":"7c799cd7-6425-477d-80a2-28efbec8f762","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
     ],"texts":[
       {"uuid":"c07530dc-4f1d-48a6-9a6c-031aa8b2f981","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"d34cad27-7d92-4c97-bb86-d12508678534","field":"Designator","at":{"x":0,"y":1700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000046","hash":"1fc1bc2be0a051fb88417efff9a13b47","footprint":{"uuid":"15dd7aa2-d617-4a1d-875b-9e6177603525","name":"CAPC3216X65N","description":"Chip capacitor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},"pads":[
-      {"uuid":"e4bb84b4-6dc5-4d7e-a006-64cab0318d65","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667},
-      {"uuid":"e8afdd95-7b49-46da-9ab4-9431635efdec","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1200000,"height":1850000,"corner_ratio":41667}
+    {"uuid":"00000000-0000-4000-8000-000000000046","hash":"8f3561a8542e81a70f2ca0c1ca74f24d","footprint":{"uuid":"15dd7aa2-d617-4a1d-875b-9e6177603525","name":"CAPC3216X65N","description":"Chip capacitor, 1206 (3216 metric), IPC-7351 Nominal","height":650000},"pads":[
+      {"uuid":"e4bb84b4-6dc5-4d7e-a006-64cab0318d65","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1475000,"y":0},"rotation":0,"width":1150000,"height":1800000,"corner_ratio":43478},
+      {"uuid":"e8afdd95-7b49-46da-9ab4-9431635efdec","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1475000,"y":0},"rotation":0,"width":1150000,"height":1800000,"corner_ratio":43478}
     ],"graphics":[
-      {"uuid":"8389c8ac-735d-4da8-99c7-0e9ec975447e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2350000,"y":-1200000},"end":{"x":2350000,"y":1200000}},"width":50000},
+      {"uuid":"8389c8ac-735d-4da8-99c7-0e9ec975447e","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1150000},"end":{"x":2300000,"y":1150000}},"width":50000},
       {"uuid":"873afb3a-fdc0-4470-a8ff-2c510f245501","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000}
     ],"texts":[
-      {"uuid":"528341fd-4f89-4ff6-95ec-44aaec9ffd8c","field":"Designator","at":{"x":0,"y":1900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"528341fd-4f89-4ff6-95ec-44aaec9ffd8c","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"8186a33f-d231-497f-a4ca-a9150288f5eb","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-000000000047","hash":"e29da07cb0ae228553b8dea27cfee587","footprint":{"uuid":"cd0be5b4-30b8-43a1-86a0-04fe884fe2c5","name":"CAP_Disc_D5.0mm_W2.5mm_P5.08mm","description":"Ceramic disc capacitor, 5.0 × 2.5 mm body, leads 5.08 mm apart"},"pads":[
@@ -313,7 +313,7 @@
       {"uuid":"44e00762-a41d-49b3-9770-d4b89f8e2d8d","field":"Designator","at":{"x":0,"y":2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"d892f725-4b0a-4cea-9b32-7beea19dcad3","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000004d","hash":"aff37f12ad3ea2503f0cf0d5afde2908","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDR254P1X2","description":"Pin header, 1 × 2, 2.54 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000004d","hash":"433716d2401df529ade4701052d6d33c","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDRV0W64P254R1L508T254H850B","description":"Pin header, 1 × 2, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"51072fb9-94c3-4b5d-80bf-636681ace084","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"75bf775f-bdf6-476e-a21c-ac73893d1705","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
     ],"graphics":[
@@ -327,7 +327,7 @@
       {"uuid":"0a73cdc3-c47e-4114-8f77-f6b28948356a","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"81bd3f94-6d32-4707-9448-c1ab0ecaf351","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000004e","hash":"05707182fd93cc0b061bc15af8b5ed60","footprint":{"uuid":"a3cf2a76-4db1-40d0-b706-993194277cef","name":"HDR127P1X2","description":"Pin header, 1 × 2, 1.27 mm pitch"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000004e","hash":"90032f2d1c30740032e0cb97913eb0db","footprint":{"uuid":"a3cf2a76-4db1-40d0-b706-993194277cef","name":"HDRV0W40P127R1L254T127H400B","description":"Pin header, 1 × 2, 1.27 mm pitch","height":4000000},"pads":[
       {"uuid":"10b9bb66-da82-4d69-98e7-70ee1d917aa1","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"37c3512e-5a88-4050-bec2-027d541f600a","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
     ],"graphics":[

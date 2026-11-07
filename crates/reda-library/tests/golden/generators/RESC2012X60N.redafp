@@ -1,13 +1,13 @@
 {
   "format": 1,
   "footprint": {"uuid":"00000000-0000-4000-8000-000000000001","name":"RESC2012X60N","description":"Chip resistor, 0805 (2012 metric), IPC-7351 Nominal","height":600000},
-  "generator": {"command":"library.footprint.generate.chip","params":{"class":"resistor","dimensions":null,"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"0805"}},
+  "generator": {"command":"library.footprint.generate.chip","params":{"class":"resistor","dimensions":null,"goals":{"density":"nominal"},"library":"000000aa-0000-4000-8000-000000000000","name":null,"size":"0805"}},
   "pads": [
-    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619},
-    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":950000,"y":0},"rotation":0,"width":1050000,"height":1500000,"corner_ratio":47619}
+    {"uuid":"00000000-0000-4000-8000-000000000002","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":48780},
+    {"uuid":"00000000-0000-4000-8000-000000000003","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":937500,"y":0},"rotation":0,"width":1025000,"height":1450000,"corner_ratio":48780}
   ],
   "graphics": [
-    {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1750000,"y":-1000000},"end":{"x":1750000,"y":1000000}},"width":50000},
+    {"uuid":"00000000-0000-4000-8000-000000000004","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-1000000},"end":{"x":1700000,"y":1000000}},"width":50000},
     {"uuid":"00000000-0000-4000-8000-000000000005","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
   ],
   "texts": [
