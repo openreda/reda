@@ -7,7 +7,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Termination, Tol};
-use super::quad::{self, Quad};
+use super::pattern::{check_absent, remove_absent};
+use super::quad::{self, Pin1Location, Quad};
 use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, TolerancesParams};
 use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 
@@ -20,18 +21,28 @@ pub struct QfpParams {
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as
     /// `QFP50P900X900X160-48N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// The number of leads, the same on each side: 32 or 44 (0.8 mm pitch), 48, 64, 80,
     /// 100 or 144 (0.5 mm pitch) for the standard LQFP bodies, or any multiple of 4 with
     /// `dimensions`.
     pub pins: usize,
     /// A datasheet's dimensions, in place of the standard body.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<QfpDimensions>,
+    /// Lead positions left without a Pad, by number; the other Pads keep their numbers.
+    #[serde(default)]
+    pub absent_pins: Vec<u32>,
+    /// Where pin 1 is, `corner` (the top of the left side, by default) or
+    /// `top_centre`.
+    #[serde(default)]
+    pub pin1_location: Pin1Location,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
     #[serde(default)]
     pub goals: GoalsParams,
     #[serde(default)]
@@ -164,6 +175,44 @@ impl QfpDimensions {
     }
 }
 
+/// The body: the standard LQFP for the pin count, or the `dimensions`.
+fn body(p: &QfpParams) -> Result<QfpBody, CommandError> {
+    Ok(match p.dimensions {
+        Some(d) => d.dims()?,
+        None => match LQFP.iter().find(|(n, _)| *n == p.pins) {
+            Some((_, dims)) => *dims,
+            None => {
+                let counts: Vec<String> = LQFP.iter().map(|(n, _)| n.to_string()).collect();
+                return Err(CommandError::invalid_params(
+                    "/pins",
+                    format!(
+                        "the standard LQFP bodies come with {} leads; give `dimensions` \
+                         for {}",
+                        counts.join(", "),
+                        p.pins
+                    ),
+                ));
+            }
+        },
+    })
+}
+
+impl QfpDimensions {
+    /// The params for `dims`.
+    fn of(dims: &QfpBody) -> QfpDimensions {
+        QfpDimensions {
+            pitch: Length(dims.pitch),
+            body_length: TolParam::of(dims.body_y),
+            body_width: TolParam::of(dims.body_x),
+            lead_span_length: TolParam::of(dims.span_y),
+            lead_span_width: TolParam::of(dims.span_x),
+            lead_width: TolParam::of(dims.lead_width),
+            lead_length: TolParam::of(dims.lead_length),
+            height: Length(dims.height),
+        }
+    }
+}
+
 impl FootprintFamily for Qfp {
     const META: Meta = Meta {
         id: "library.footprint.generate.qfp",
@@ -187,6 +236,13 @@ impl FootprintFamily for Qfp {
         }
     }
 
+    fn resolve_package(p: &QfpParams) -> Result<QfpParams, CommandError> {
+        Ok(QfpParams {
+            dimensions: Some(QfpDimensions::of(&body(p)?)),
+            ..p.clone()
+        })
+    }
+
     fn plan(p: &QfpParams) -> Result<FootprintPlan, CommandError> {
         if p.pins < 8 || !p.pins.is_multiple_of(4) {
             return Err(CommandError::invalid_params(
@@ -194,29 +250,13 @@ impl FootprintFamily for Qfp {
                 "a QFP needs the same number of leads on each side: a multiple of 4, at least 8",
             ));
         }
+        check_absent(&p.absent_pins, p.pins)?;
         let smd = p.smd();
         smd.check(Applies {
             quad: true,
             exposed_pad: false,
         })?;
-        let dims = match p.dimensions {
-            Some(d) => d.dims()?,
-            None => match LQFP.iter().find(|(n, _)| *n == p.pins) {
-                Some((_, dims)) => *dims,
-                None => {
-                    let counts: Vec<String> = LQFP.iter().map(|(n, _)| n.to_string()).collect();
-                    return Err(CommandError::invalid_params(
-                        "/pins",
-                        format!(
-                            "the standard LQFP bodies come with {} leads; give `dimensions` \
-                             for {}",
-                            counts.join(", "),
-                            p.pins
-                        ),
-                    ));
-                }
-            },
-        };
+        let dims = body(p)?;
         let quad = Quad {
             pitch: dims.pitch,
             rows: p.pins / 4,
@@ -228,6 +268,7 @@ impl FootprintFamily for Qfp {
             lead_width: dims.lead_width,
             lead_length: dims.lead_length,
             height: dims.height,
+            pin1: p.pin1_location,
         };
         let density = p.goals.density;
         let name = format!(
@@ -236,7 +277,7 @@ impl FootprintFamily for Qfp {
             hundredths(dims.span_x.nominal()),
             hundredths(dims.span_y.nominal()),
             hundredths(dims.height),
-            p.pins,
+            p.pins - p.absent_pins.len(),
             density.letter()
         );
         let description = format!(
@@ -247,6 +288,9 @@ impl FootprintFamily for Qfp {
             dims.pitch.0 as f64 / 1e6,
             density.title()
         );
-        quad::plan(&quad, Termination::GullWing, smd, name, description)
+        let mut plan = quad::plan(&quad, Termination::GullWing, smd, name, description)?;
+        plan.body.chamfered = p.chamfer;
+        remove_absent(&mut plan, &p.absent_pins);
+        Ok(plan)
     }
 }

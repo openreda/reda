@@ -4314,8 +4314,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -4326,8 +4336,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -4338,7 +4358,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -4396,7 +4415,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -4408,7 +4426,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -4420,7 +4437,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -4437,11 +4453,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -4531,7 +4543,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -4543,8 +4554,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -4554,14 +4575,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -4584,7 +4604,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -4596,7 +4615,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -4613,7 +4631,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -4641,6 +4658,26 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
           },
           "RatioParam": {
             "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
@@ -4671,7 +4708,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -4683,7 +4719,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -4712,11 +4747,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -4728,7 +4759,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -4743,10 +4773,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -4761,7 +4788,6 @@
             "description": "What the chip is, which sets the name prefix (`RESC`, `CAPC`, `INDC`)."
           },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -4777,18 +4803,13 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "The body dimensions from a datasheet, for a chip of no standard size."
           },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -4797,7 +4818,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as `RESC1608X55N`.",
             "type": [
               "string",
@@ -4819,17 +4839,16 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
+          },
+          "polarity_mark": {
+            "default": false,
+            "description": "Mark terminal 1 with a Silkscreen bar beyond its Pad, for a polarised chip such\nas a tantalum capacitor. Off by default.",
+            "type": "boolean"
           },
           "size": {
             "anyOf": [
@@ -4840,24 +4859,15 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "A standard EIA size, with typical body dimensions. Give `size` or `dimensions`."
           },
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           }
         },
@@ -5185,8 +5195,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -5197,8 +5217,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -5209,7 +5239,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -5286,7 +5315,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -5298,7 +5326,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -5310,7 +5337,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -5327,11 +5353,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -5387,7 +5409,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The exposed pad. Omitted, the package has none."
               },
               "height": {
@@ -5472,7 +5493,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -5484,8 +5504,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -5495,14 +5525,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -5525,7 +5554,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -5537,7 +5565,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -5554,7 +5581,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -5582,6 +5608,41 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
+          },
+          "Pin1Location": {
+            "description": "Where a four-sided package's pin 1 is; the numbering runs counter-clockwise from it.",
+            "oneOf": [
+              {
+                "const": "corner",
+                "description": "At the top of the left side, the IPC-7351 zero orientation.",
+                "type": "string"
+              },
+              {
+                "const": "top_centre",
+                "description": "In the middle of the top side (left of the middle on an even count), as on a\nPLCC.",
+                "type": "string"
+              }
+            ]
           },
           "RatioParam": {
             "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
@@ -5612,7 +5673,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -5624,7 +5684,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -5653,11 +5712,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -5669,7 +5724,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -5684,10 +5738,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -5696,8 +5747,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -5713,18 +5778,13 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -5733,7 +5793,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`QFN50P500X500X100-33N`.",
             "type": [
               "string",
@@ -5755,17 +5814,16 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
+          },
+          "pin1_location": {
+            "$ref": "#/$defs/Pin1Location",
+            "default": "corner",
+            "description": "QFN: where pin 1 is, `corner` (the top of the left side, by default) or\n`top_centre`."
           },
           "pins": {
             "description": "The number of terminals, not counting the exposed pad: one of the standard counts,\nor any count that fits the package with `dimensions`.",
@@ -5776,18 +5834,10 @@
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           }
         },
@@ -6167,7 +6217,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The Pad diameter. Left out, the hole plus 0.50 mm, less where neighbours are\nclose."
               },
               "hole": {
@@ -6179,7 +6228,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The finished hole diameter. Left out, the lead's greatest diagonal plus 0.20 mm."
               }
             },
@@ -6198,7 +6246,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, 0.25 mm."
               }
             },
@@ -6208,8 +6255,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -6222,7 +6283,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it is\n`DIP<row spacing>W<lead width>P<pitch>L<body length>H<height>Q<pins>B`, such as\n`DIP762W46P254L1016H533Q8B`.",
             "type": [
               "string",
@@ -6242,10 +6302,7 @@
           },
           "pads": {
             "$ref": "#/$defs/ThPadsParams",
-            "default": {
-              "diameter": null,
-              "hole": null
-            }
+            "default": {}
           },
           "pins": {
             "description": "The number of leads: even, 4 to 64.",
@@ -6255,9 +6312,7 @@
           },
           "tolerances": {
             "$ref": "#/$defs/ThTolerancesParams",
-            "default": {
-              "courtyard_excess": null
-            }
+            "default": {}
           },
           "wide": {
             "default": false,
@@ -6655,7 +6710,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The Pad diameter. Left out, the hole plus 0.50 mm, less where neighbours are\nclose."
               },
               "hole": {
@@ -6667,7 +6721,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The finished hole diameter. Left out, the lead's greatest diagonal plus 0.20 mm."
               }
             },
@@ -6686,7 +6739,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, 0.25 mm."
               }
             },
@@ -6696,8 +6748,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -6710,7 +6776,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it is\n`HDRV<row span>W<post width>P<pitch>R<rows>L<length>T<width>H<height>B`, such as\n`HDRV254W64P254R2L1270T508H850B`, or `SKTV…` for a socket.",
             "type": [
               "string",
@@ -6730,10 +6795,7 @@
           },
           "pads": {
             "$ref": "#/$defs/ThPadsParams",
-            "default": {
-              "diameter": null,
-              "hole": null
-            }
+            "default": {}
           },
           "pins_per_row": {
             "description": "The pins in each row, 1 to 50.",
@@ -6757,9 +6819,7 @@
           },
           "tolerances": {
             "$ref": "#/$defs/ThTolerancesParams",
-            "default": {
-              "courtyard_excess": null
-            }
+            "default": {}
           }
         },
         "required": [
@@ -7070,6 +7130,965 @@
     },
     {
       "category": "library",
+      "description": "Generates an IPC-7351 Footprint for a molded 2-terminal body (SOD-123, SOD-323, SMA, SMB, SMC, or the `dimensions` given), terminal 1 on the left with a Silkscreen polarity mark, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.generate.molded",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ComponentParams": {
+            "additionalProperties": false,
+            "description": "A package's tolerances, as the spread between its least and greatest value.",
+            "properties": {
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
+              },
+              "span": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The terminal width (CW)."
+              }
+            },
+            "type": "object"
+          },
+          "Density": {
+            "description": "How much copper and room a surface-mount Footprint gets: the IPC-7351 density levels\nA (Most), B (Nominal) and C (Least).",
+            "oneOf": [
+              {
+                "const": "most",
+                "description": "Level A, for low-density boards and hand or wave soldering.",
+                "type": "string"
+              },
+              {
+                "const": "nominal",
+                "description": "Level B, for most boards.",
+                "type": "string"
+              },
+              {
+                "const": "least",
+                "description": "Level C, for high-density boards.",
+                "type": "string"
+              }
+            ]
+          },
+          "ExposedPadSize": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/Length",
+                "description": "Along y (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/Length",
+                "description": "Along x (E2)."
+              }
+            },
+            "required": [
+              "width",
+              "length"
+            ],
+            "type": "object"
+          },
+          "FilletParams": {
+            "additionalProperties": false,
+            "description": "Solder-fillet goals, each from the lead's edge; negative shrinks the Pad.",
+            "properties": {
+              "heel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "At the lead's inner end (Jh)."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Along each side of the lead (Js)."
+              },
+              "toe": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "At the lead's outer end (Jt)."
+              }
+            },
+            "type": "object"
+          },
+          "GoalsParams": {
+            "additionalProperties": false,
+            "description": "The `goals` section of a surface-mount family's params.",
+            "properties": {
+              "density": {
+                "$ref": "#/$defs/Density",
+                "default": "nominal",
+                "description": "The IPC-7351 density level: `nominal` (level B, the default), `most` (A, larger\nPads and courtyard) or `least` (C, smaller). It sets the name's last letter (`N`,\n`M` or `L`)."
+              },
+              "fillet": {
+                "$ref": "#/$defs/FilletParams",
+                "default": {},
+                "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
+              }
+            },
+            "type": "object"
+          },
+          "LeadShape": {
+            "description": "The shape of a surface-mount generator's Pads.",
+            "oneOf": [
+              {
+                "const": "rounded_rect",
+                "description": "A rounded rectangle.",
+                "type": "string"
+              },
+              {
+                "const": "rect",
+                "description": "A plain rectangle.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "MoldedClass": {
+            "enum": [
+              "diode",
+              "capacitor",
+              "inductor"
+            ],
+            "type": "string"
+          },
+          "MoldedDimensions": {
+            "additionalProperties": false,
+            "description": "A molded body's dimensions.",
+            "properties": {
+              "body_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body's length along the span, without the terminals."
+              },
+              "body_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The body's width across the span."
+              },
+              "height": {
+                "$ref": "#/$defs/Length",
+                "description": "The greatest height."
+              },
+              "span": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The span over the terminals, end to end."
+              },
+              "terminal_length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "The length of each terminal's flat, along the span."
+              },
+              "terminal_width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Each terminal's width."
+              }
+            },
+            "required": [
+              "span",
+              "body_length",
+              "body_width",
+              "terminal_width",
+              "terminal_length",
+              "height"
+            ],
+            "type": "object"
+          },
+          "MoldedPackage": {
+            "oneOf": [
+              {
+                "enum": [
+                  "sod123",
+                  "sod323"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "sma",
+                "description": "DO-214AC.",
+                "type": "string"
+              },
+              {
+                "const": "smb",
+                "description": "DO-214AA.",
+                "type": "string"
+              },
+              {
+                "const": "smc",
+                "description": "DO-214AB.",
+                "type": "string"
+              }
+            ]
+          },
+          "OutputsParams": {
+            "additionalProperties": false,
+            "description": "The `outputs` section: which outlines are drawn, and how wide.",
+            "properties": {
+              "assembly": {
+                "default": true,
+                "description": "Draw the Assembly outline. On by default.",
+                "type": "boolean"
+              },
+              "assembly_width": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "0.10 mm by default."
+              },
+              "courtyard": {
+                "default": true,
+                "description": "Draw the courtyard. On by default.",
+                "type": "boolean"
+              },
+              "courtyard_width": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "0.05 mm by default."
+              },
+              "silkscreen": {
+                "default": true,
+                "description": "Draw the Silkscreen outline. On by default.",
+                "type": "boolean"
+              },
+              "silkscreen_width": {
+                "$ref": "#/$defs/Length",
+                "default": 120000,
+                "description": "0.12 mm by default."
+              }
+            },
+            "type": "object"
+          },
+          "PadsParams": {
+            "additionalProperties": false,
+            "description": "The `pads` section of a surface-mount family's params.",
+            "properties": {
+              "corner_ratio": {
+                "$ref": "#/$defs/RatioParam",
+                "default": 25000,
+                "description": "A rounded Pad's corners, as a share of half its shorter side: 25% by default."
+              },
+              "exposed_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ExposedPadSize"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
+              },
+              "length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
+              },
+              "max_corner_radius": {
+                "$ref": "#/$defs/Length",
+                "default": 250000,
+                "description": "The largest corner radius, 0.25 mm by default; larger Pads get a smaller ratio."
+              },
+              "paste_array": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PasteSplit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
+              },
+              "paste_coverage": {
+                "default": 50,
+                "description": "How much of an exposed pad's area its paste windows cover, in percent: 50 by\ndefault.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/LeadShape",
+                "default": "rounded_rect",
+                "description": "The Pads' shape, `rounded_rect` by default."
+              },
+              "spacing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
+              },
+              "spacing_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the same across y, between the top and bottom Pads."
+              },
+              "trim": {
+                "default": true,
+                "description": "Trim gull-wing Pads so they don't run under the body, and lead Pads so they keep\nclear of the exposed pad, with a warning for each trim. On by default.",
+                "type": "boolean"
+              },
+              "width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Each lead Pad's width. Left out, IPC-7351's."
+              }
+            },
+            "type": "object"
+          },
+          "PasteArray": {
+            "additionalProperties": false,
+            "description": "An array of paste windows.",
+            "properties": {
+              "columns": {
+                "description": "Along x.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Along y.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "columns",
+              "rows"
+            ],
+            "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
+          },
+          "RatioParam": {
+            "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
+            "oneOf": [
+              {
+                "description": "Thousandths of a percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "A percentage.",
+                "pattern": "^\\s*[0-9]+(\\.[0-9]{1,3})?\\s*%$",
+                "type": "string"
+              }
+            ]
+          },
+          "RoundOffParams": {
+            "additionalProperties": false,
+            "description": "The grids Pad sizes and placements are rounded to. Left out, 0.05 mm, or 0.02 mm on\nchips smaller than 1608.",
+            "properties": {
+              "place": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The grid for the Pad width (X)."
+              }
+            },
+            "type": "object"
+          },
+          "TolParam": {
+            "additionalProperties": false,
+            "description": "A dimension param: its least and greatest value, each an integer in nanometres or a\nlength string.",
+            "properties": {
+              "max": {
+                "$ref": "#/$defs/Length"
+              },
+              "min": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ],
+            "type": "object"
+          },
+          "TolerancesParams": {
+            "additionalProperties": false,
+            "description": "The `tolerances` section of a surface-mount family's params.",
+            "properties": {
+              "component": {
+                "$ref": "#/$defs/ComponentParams",
+                "default": {},
+                "description": "The package's own tolerances, calculated from its dimension ranges unless given."
+              },
+              "courtyard_excess": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
+              },
+              "fabrication": {
+                "$ref": "#/$defs/Length",
+                "default": 100000,
+                "description": "The board fabrication tolerance (F), 0.10 mm by default."
+              },
+              "placement": {
+                "$ref": "#/$defs/Length",
+                "default": 50000,
+                "description": "The placement tolerance (P), 0.05 mm by default."
+              },
+              "round_off": {
+                "$ref": "#/$defs/RoundOffParams",
+                "default": {}
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "chamfer": {
+            "default": false,
+            "description": "Chamfer the Assembly outline's corner at terminal 1. Off by default.",
+            "type": "boolean"
+          },
+          "class": {
+            "$ref": "#/$defs/MoldedClass",
+            "default": "diode",
+            "description": "What the part is, which sets the name prefix of a body from `dimensions` or a\nDO-214 body (`DIOM`, `CAPM`, `INDM`). SOD bodies are always `SOD`."
+          },
+          "description": {
+            "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MoldedDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The body dimensions from a datasheet, for a body of no standard size."
+          },
+          "goals": {
+            "$ref": "#/$defs/GoalsParams",
+            "default": {
+              "density": "nominal",
+              "fillet": {}
+            }
+          },
+          "library": {
+            "description": "The registered Library to write the Footprint into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as `SOD3716X135N`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outputs": {
+            "$ref": "#/$defs/OutputsParams",
+            "default": {
+              "assembly": true,
+              "assembly_width": 100000,
+              "courtyard": true,
+              "courtyard_width": 50000,
+              "silkscreen": true,
+              "silkscreen_width": 120000
+            }
+          },
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MoldedPackage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A standard body, with typical dimensions. Give `package` or `dimensions`."
+          },
+          "pads": {
+            "$ref": "#/$defs/PadsParams",
+            "default": {
+              "corner_ratio": 25000,
+              "max_corner_radius": 250000,
+              "paste_coverage": 50,
+              "shape": "rounded_rect",
+              "trim": true
+            }
+          },
+          "polarity_mark": {
+            "default": true,
+            "description": "Mark terminal 1 with a Silkscreen bar beyond its Pad. On by default.",
+            "type": "boolean"
+          },
+          "tolerances": {
+            "$ref": "#/$defs/TolerancesParams",
+            "default": {
+              "component": {},
+              "fabrication": 100000,
+              "placement": 50000,
+              "round_off": {}
+            }
+          }
+        },
+        "required": [
+          "library"
+        ],
+        "title": "MoldedParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a generator returns.",
+        "properties": {
+          "file": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "The new Footprint's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "library": {
+            "description": "The Library it was written into.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "violations": {
+            "description": "What the Library check found in the new Footprint.",
+            "items": {
+              "$ref": "#/$defs/Violation"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "description": "Where the Footprint departs from IPC-7351, and Pads the generator trimmed.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "name",
+          "library",
+          "file",
+          "violations",
+          "warnings"
+        ],
+        "title": "Generated",
+        "type": "object"
+      },
+      "title": "Generate Molded Footprint"
+    },
+    {
+      "category": "library",
       "description": "Generates an IPC-7351 Footprint for a QFN with terminals on four sides and an exposed pad, from a standard body or the `dimensions` given, writes it into a registered Library and runs the Library check on it. `goals.density` picks the IPC density level, Nominal by default.",
       "icon": "footprint_generate",
       "id": "library.footprint.generate.qfn",
@@ -7089,8 +8108,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -7101,8 +8130,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -7113,7 +8152,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -7190,7 +8228,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -7202,7 +8239,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -7214,7 +8250,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -7231,11 +8266,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -7291,7 +8322,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The exposed pad. Omitted, the package has none."
               },
               "height": {
@@ -7376,7 +8406,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -7388,8 +8417,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -7399,14 +8438,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -7429,7 +8467,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -7441,7 +8478,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -7458,7 +8494,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -7486,6 +8521,41 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
+          },
+          "Pin1Location": {
+            "description": "Where a four-sided package's pin 1 is; the numbering runs counter-clockwise from it.",
+            "oneOf": [
+              {
+                "const": "corner",
+                "description": "At the top of the left side, the IPC-7351 zero orientation.",
+                "type": "string"
+              },
+              {
+                "const": "top_centre",
+                "description": "In the middle of the top side (left of the middle on an even count), as on a\nPLCC.",
+                "type": "string"
+              }
+            ]
           },
           "RatioParam": {
             "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
@@ -7516,7 +8586,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -7528,7 +8597,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -7557,11 +8625,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -7573,7 +8637,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -7588,10 +8651,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -7600,8 +8660,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -7617,18 +8691,13 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -7637,7 +8706,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`QFN50P500X500X100-33N`.",
             "type": [
               "string",
@@ -7659,17 +8727,16 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
+          },
+          "pin1_location": {
+            "$ref": "#/$defs/Pin1Location",
+            "default": "corner",
+            "description": "QFN: where pin 1 is, `corner` (the top of the left side, by default) or\n`top_centre`."
           },
           "pins": {
             "description": "The number of terminals, not counting the exposed pad: one of the standard counts,\nor any count that fits the package with `dimensions`.",
@@ -7680,18 +8747,10 @@
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           }
         },
@@ -8020,8 +9079,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -8032,8 +9101,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -8044,7 +9123,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -8102,7 +9180,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -8114,7 +9191,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -8126,7 +9202,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -8143,11 +9218,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -8237,7 +9308,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -8249,8 +9319,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -8260,14 +9340,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -8290,7 +9369,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -8302,7 +9380,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -8319,7 +9396,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -8347,6 +9423,41 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
+          },
+          "Pin1Location": {
+            "description": "Where a four-sided package's pin 1 is; the numbering runs counter-clockwise from it.",
+            "oneOf": [
+              {
+                "const": "corner",
+                "description": "At the top of the left side, the IPC-7351 zero orientation.",
+                "type": "string"
+              },
+              {
+                "const": "top_centre",
+                "description": "In the middle of the top side (left of the middle on an even count), as on a\nPLCC.",
+                "type": "string"
+              }
+            ]
           },
           "QfpDimensions": {
             "additionalProperties": false,
@@ -8426,7 +9537,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -8438,7 +9548,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -8467,11 +9576,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -8483,7 +9588,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -8498,10 +9602,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -8510,8 +9611,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -8527,18 +9642,13 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
           },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -8547,7 +9657,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`QFP50P900X900X160-48N`.",
             "type": [
               "string",
@@ -8569,17 +9678,16 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
+          },
+          "pin1_location": {
+            "$ref": "#/$defs/Pin1Location",
+            "default": "corner",
+            "description": "Where pin 1 is, `corner` (the top of the left side, by default) or\n`top_centre`."
           },
           "pins": {
             "description": "The number of leads, the same on each side: 32 or 44 (0.8 mm pitch), 48, 64, 80,\n100 or 144 (0.5 mm pitch) for the standard LQFP bodies, or any multiple of 4 with\n`dimensions`.",
@@ -8590,18 +9698,10 @@
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           }
         },
@@ -8930,8 +10030,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -8942,8 +10052,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -8954,7 +10074,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -8979,6 +10098,25 @@
                 "type": "string"
               }
             ]
+          },
+          "ExposedPadDimensions": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body length (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body width (E2)."
+              }
+            },
+            "required": [
+              "length",
+              "width"
+            ],
+            "type": "object"
           },
           "ExposedPadSize": {
             "additionalProperties": false,
@@ -9012,7 +10150,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -9024,7 +10161,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -9036,7 +10172,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -9053,11 +10188,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -9191,7 +10322,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -9203,8 +10333,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -9214,14 +10354,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -9244,7 +10383,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -9256,7 +10394,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -9273,7 +10410,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -9301,6 +10437,26 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
           },
           "RatioParam": {
             "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
@@ -9331,7 +10487,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -9343,7 +10498,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -9372,11 +10526,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -9388,7 +10538,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -9403,10 +10552,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -9415,8 +10561,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -9432,18 +10592,24 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "exposed_pad": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExposedPadDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The exposed pad under the body, for the thermally enhanced (-EP) variants: its\nlength along the lead rows (D2) and width across them (E2). Omitted, none."
           },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -9452,7 +10618,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOIC127P600X175-8N`.",
             "type": [
               "string",
@@ -9474,16 +10639,10 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
           },
           "pins": {
@@ -9495,18 +10654,10 @@
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           },
           "wide": {
@@ -9840,8 +10991,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -9852,8 +11013,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -9864,7 +11035,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -9922,7 +11092,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -9934,7 +11103,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -9946,7 +11114,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -9963,11 +11130,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -10057,7 +11220,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -10069,8 +11231,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -10080,14 +11252,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -10110,7 +11281,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -10122,7 +11292,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -10139,7 +11308,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -10167,6 +11335,26 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
           },
           "RatioParam": {
             "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
@@ -10197,7 +11385,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -10209,7 +11396,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -10245,11 +11431,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -10261,7 +11443,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -10276,10 +11457,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -10288,8 +11466,12 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -10300,11 +11482,7 @@
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -10313,7 +11491,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOT95P237X112-3N`.",
             "type": [
               "string",
@@ -10338,33 +11515,19 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
           },
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           }
         },
@@ -10693,8 +11856,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -10705,8 +11878,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -10717,7 +11900,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -10742,6 +11924,25 @@
                 "type": "string"
               }
             ]
+          },
+          "ExposedPadDimensions": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body length (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body width (E2)."
+              }
+            },
+            "required": [
+              "length",
+              "width"
+            ],
+            "type": "object"
           },
           "ExposedPadSize": {
             "additionalProperties": false,
@@ -10775,7 +11976,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -10787,7 +11987,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -10799,7 +11998,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -10816,11 +12014,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -10954,7 +12148,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -10966,8 +12159,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -10977,14 +12180,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -11007,7 +12209,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -11019,7 +12220,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -11036,7 +12236,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -11064,6 +12263,26 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
           },
           "RatioParam": {
             "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
@@ -11094,7 +12313,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -11106,7 +12324,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -11135,11 +12352,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -11151,7 +12364,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -11166,10 +12378,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -11178,8 +12387,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -11195,18 +12418,24 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "exposed_pad": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExposedPadDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The exposed pad under the body, for the thermally enhanced (-EP) variants: its\nlength along the lead rows (D2) and width across them (E2). Omitted, none."
           },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -11215,7 +12444,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOP65P640X120-14N`.",
             "type": [
               "string",
@@ -11237,16 +12465,10 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
           },
           "pins": {
@@ -11258,18 +12480,10 @@
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           }
         },
@@ -11598,8 +12812,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span between the terminals' inner ends (CS), whose default is the RMS of the\nspan's and twice the terminal length's."
+              },
+              "inner_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the inner span of the top and bottom terminals, when it differs\nfrom `inner`."
               },
               "span": {
                 "anyOf": [
@@ -11610,8 +12834,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The span over the terminals (CL)."
+              },
+              "span_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the span over the top and bottom terminals, when it differs from\n`span`."
               },
               "width": {
                 "anyOf": [
@@ -11622,7 +12856,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The terminal width (CW)."
               }
             },
@@ -11647,6 +12880,25 @@
                 "type": "string"
               }
             ]
+          },
+          "ExposedPadDimensions": {
+            "additionalProperties": false,
+            "description": "An exposed pad's size.",
+            "properties": {
+              "length": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body length (D2)."
+              },
+              "width": {
+                "$ref": "#/$defs/TolParam",
+                "description": "Along the body width (E2)."
+              }
+            },
+            "required": [
+              "length",
+              "width"
+            ],
+            "type": "object"
           },
           "ExposedPadSize": {
             "additionalProperties": false,
@@ -11680,7 +12932,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's inner end (Jh)."
               },
               "side": {
@@ -11692,7 +12943,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Along each side of the lead (Js)."
               },
               "toe": {
@@ -11704,7 +12954,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "At the lead's outer end (Jt)."
               }
             },
@@ -11721,11 +12970,7 @@
               },
               "fillet": {
                 "$ref": "#/$defs/FilletParams",
-                "default": {
-                  "heel": null,
-                  "side": null,
-                  "toe": null
-                },
+                "default": {},
                 "description": "The solder-fillet goals. Each left out takes the IPC-7351 value for the package\nfamily and density."
               }
             },
@@ -11859,7 +13104,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "DFN and QFN: the exposed pad's size. Left out, the package's nominal exposed pad."
               },
               "length": {
@@ -11871,8 +13115,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's length, heel to toe. Left out, IPC-7351's."
+              },
+              "length_y": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "QFP and QFN: the top and bottom Pads' length, when it differs from `length`."
               },
               "max_corner_radius": {
                 "$ref": "#/$defs/Length",
@@ -11882,14 +13136,13 @@
               "paste_array": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/PasteArray"
+                    "$ref": "#/$defs/PasteSplit"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "description": "DFN and QFN: the exposed pad's paste windows, as columns and rows. Left out, an\nexposed pad of 2.1 × 1.6 mm or more gets about one per 1.5 mm each way, and a\nsmaller one inherits the board's paste."
+                "description": "A package with an exposed pad: its paste windows, as columns and rows, or\n`inherit` for none (the board's paste). Left out, an exposed pad of 2.1 × 1.6 mm\nor more gets about one per 1.5 mm each way, and a smaller one inherits."
               },
               "paste_coverage": {
                 "default": 50,
@@ -11912,7 +13165,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The distance between the centres of opposite lead Pads: across x, between the\nleft and right ones. Left out, IPC-7351's."
               },
               "spacing_y": {
@@ -11924,7 +13176,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "QFP and QFN: the same across y, between the top and bottom Pads."
               },
               "trim": {
@@ -11941,7 +13192,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Each lead Pad's width. Left out, IPC-7351's."
               }
             },
@@ -11969,6 +13219,26 @@
               "rows"
             ],
             "type": "object"
+          },
+          "PasteKeyword": {
+            "oneOf": [
+              {
+                "const": "inherit",
+                "description": "No windows: the exposed pad inherits the board's paste.",
+                "type": "string"
+              }
+            ]
+          },
+          "PasteSplit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PasteArray"
+              },
+              {
+                "$ref": "#/$defs/PasteKeyword"
+              }
+            ],
+            "description": "An exposed pad's paste: an array of windows, or none of its own."
           },
           "RatioParam": {
             "description": "A share of half the Pad's shorter side, 100% being fully round: integer thousandths of a percent, or a percentage such as \"25%\".",
@@ -11999,7 +13269,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the outer and inner Pad edges (Z and G), which place the Pads."
               },
               "size": {
@@ -12011,7 +13280,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The grid for the Pad width (X)."
               }
             },
@@ -12040,11 +13308,7 @@
             "properties": {
               "component": {
                 "$ref": "#/$defs/ComponentParams",
-                "default": {
-                  "inner": null,
-                  "span": null,
-                  "width": null
-                },
+                "default": {},
                 "description": "The package's own tolerances, calculated from its dimension ranges unless given."
               },
               "courtyard_excess": {
@@ -12056,7 +13320,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "The courtyard's clearance around the Pads and body. Left out, IPC-7351's for the\nfamily and density."
               },
               "fabrication": {
@@ -12071,10 +13334,7 @@
               },
               "round_off": {
                 "$ref": "#/$defs/RoundOffParams",
-                "default": {
-                  "place": null,
-                  "size": null
-                }
+                "default": {}
               }
             },
             "type": "object"
@@ -12083,8 +13343,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "absent_pins": {
+            "default": [],
+            "description": "Lead positions left without a Pad, by number; the other Pads keep their numbers.",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "chamfer": {
+            "default": true,
+            "description": "Chamfer the Assembly outline's corner at pin 1. On by default.",
+            "type": "boolean"
+          },
           "description": {
-            "default": null,
             "description": "The Footprint's description. Omitted, it gets one naming the package and density.",
             "type": [
               "string",
@@ -12100,18 +13374,24 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "A datasheet's dimensions, in place of the standard body."
+          },
+          "exposed_pad": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExposedPadDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The exposed pad under the body, for the thermally enhanced (-EP) variants: its\nlength along the lead rows (D2) and width across them (E2). Omitted, none."
           },
           "goals": {
             "$ref": "#/$defs/GoalsParams",
             "default": {
               "density": "nominal",
-              "fillet": {
-                "heel": null,
-                "side": null,
-                "toe": null
-              }
+              "fillet": {}
             }
           },
           "library": {
@@ -12120,7 +13400,6 @@
             "type": "string"
           },
           "name": {
-            "default": null,
             "description": "The Footprint's name. Omitted, it gets its IPC-7351 name, such as\n`SOP65P640X120-14N`.",
             "type": [
               "string",
@@ -12142,16 +13421,10 @@
             "$ref": "#/$defs/PadsParams",
             "default": {
               "corner_ratio": 25000,
-              "exposed_pad": null,
-              "length": null,
               "max_corner_radius": 250000,
-              "paste_array": null,
               "paste_coverage": 50,
               "shape": "rounded_rect",
-              "spacing": null,
-              "spacing_y": null,
-              "trim": true,
-              "width": null
+              "trim": true
             }
           },
           "pins": {
@@ -12163,18 +13436,10 @@
           "tolerances": {
             "$ref": "#/$defs/TolerancesParams",
             "default": {
-              "component": {
-                "inner": null,
-                "span": null,
-                "width": null
-              },
-              "courtyard_excess": null,
+              "component": {},
               "fabrication": 100000,
               "placement": 50000,
-              "round_off": {
-                "place": null,
-                "size": null
-              }
+              "round_off": {}
             }
           }
         },
@@ -14460,6 +15725,320 @@
         "type": "null"
       },
       "title": "Remove Pad"
+    },
+    {
+      "category": "library",
+      "description": "Runs an open generated Footprint's generator again, with its stored params or new `params`, in place: the Footprint keeps its UUID and name and its Pads keep their UUIDs by number, and everything else is replaced, hand edits included. `library.footprint.regenerate.preview` lists what is lost first. One undo step.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.regenerate",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint": {
+            "description": "The open, generated Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "params": {
+            "default": null,
+            "description": "New params for the Footprint's generator, in place of the stored ones, as that\ngenerator Command takes them. `library` may be left out, and `name` is ignored:\nthe Footprint keeps its name."
+          }
+        },
+        "required": [
+          "footprint"
+        ],
+        "title": "RegenerateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Change": {
+            "enum": [
+              "removed",
+              "changed",
+              "added"
+            ],
+            "type": "string"
+          },
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "Lost": {
+            "description": "One part of the Footprint that regenerating removes, changes or adds.",
+            "properties": {
+              "change": {
+                "$ref": "#/$defs/Change"
+              },
+              "kind": {
+                "description": "`pad`, `graphic`, `text` or `footprint` (one of its own properties).",
+                "type": "string"
+              },
+              "uuid": {
+                "description": "The Pad, graphic or text.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "what": {
+                "description": "What it is, such as `Pad 3`, `Line on silkscreen_top`, `Designator on\nassembly_top` or `description`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "what",
+              "change"
+            ],
+            "type": "object"
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What regenerating changes.",
+        "properties": {
+          "added": {
+            "description": "What regenerating adds.",
+            "items": {
+              "$ref": "#/$defs/Lost"
+            },
+            "type": "array"
+          },
+          "footprint": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lost": {
+            "description": "What the Footprint has now that regenerating removes or changes: hand edits, or\nwhat the new params change.",
+            "items": {
+              "$ref": "#/$defs/Lost"
+            },
+            "type": "array"
+          },
+          "unchanged": {
+            "description": "Whether the regenerated Footprint is the one there now.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "The generator's warnings.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "lost",
+          "added",
+          "unchanged",
+          "warnings"
+        ],
+        "title": "Regenerated",
+        "type": "object"
+      },
+      "title": "Regenerate Footprint"
+    },
+    {
+      "category": "library",
+      "description": "What `library.footprint.regenerate` would do with the same params, changing nothing: what the open Footprint loses (hand edits, or what new params change), what it gains, and the generator's warnings.",
+      "icon": "footprint_generate",
+      "id": "library.footprint.regenerate.preview",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprint": {
+            "description": "The open, generated Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "params": {
+            "default": null,
+            "description": "New params for the Footprint's generator, in place of the stored ones, as that\ngenerator Command takes them. `library` may be left out, and `name` is ignored:\nthe Footprint keeps its name."
+          }
+        },
+        "required": [
+          "footprint"
+        ],
+        "title": "RegenerateParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Change": {
+            "enum": [
+              "removed",
+              "changed",
+              "added"
+            ],
+            "type": "string"
+          },
+          "GeneratorWarning": {
+            "description": "Something a generator reports about the Footprint it made.",
+            "properties": {
+              "code": {
+                "$ref": "#/$defs/WarningCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "pads": {
+                "description": "The Pads it concerns, by number.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "params": {
+                "description": "The params it concerns, as JSON pointers.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "Lost": {
+            "description": "One part of the Footprint that regenerating removes, changes or adds.",
+            "properties": {
+              "change": {
+                "$ref": "#/$defs/Change"
+              },
+              "kind": {
+                "description": "`pad`, `graphic`, `text` or `footprint` (one of its own properties).",
+                "type": "string"
+              },
+              "uuid": {
+                "description": "The Pad, graphic or text.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "what": {
+                "description": "What it is, such as `Pad 3`, `Line on silkscreen_top`, `Designator on\nassembly_top` or `description`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "what",
+              "change"
+            ],
+            "type": "object"
+          },
+          "WarningCode": {
+            "oneOf": [
+              {
+                "const": "trimmed",
+                "description": "Pads were cut back: gull-wing Pads so they don't run under the body, or lead Pads\nso they keep clear of the exposed pad.",
+                "type": "string"
+              },
+              {
+                "const": "not_ipc_compliant",
+                "description": "An overridden value gives a land pattern other than IPC-7351's.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What regenerating changes.",
+        "properties": {
+          "added": {
+            "description": "What regenerating adds.",
+            "items": {
+              "$ref": "#/$defs/Lost"
+            },
+            "type": "array"
+          },
+          "footprint": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lost": {
+            "description": "What the Footprint has now that regenerating removes or changes: hand edits, or\nwhat the new params change.",
+            "items": {
+              "$ref": "#/$defs/Lost"
+            },
+            "type": "array"
+          },
+          "unchanged": {
+            "description": "Whether the regenerated Footprint is the one there now.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "The generator's warnings.",
+            "items": {
+              "$ref": "#/$defs/GeneratorWarning"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "footprint",
+          "lost",
+          "added",
+          "unchanged",
+          "warnings"
+        ],
+        "title": "Regenerated",
+        "type": "object"
+      },
+      "title": "Preview Regenerate Footprint"
     },
     {
       "category": "library",

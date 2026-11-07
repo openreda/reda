@@ -14,10 +14,12 @@
 mod chip;
 mod gull_wing;
 pub mod ipc;
+mod molded;
 mod no_lead;
 mod pattern;
 mod qfp;
 mod quad;
+mod regenerate;
 pub mod sections;
 mod small_outline;
 mod sot;
@@ -35,15 +37,18 @@ use serde::{Deserialize, Serialize};
 pub use chip::{Chip, ChipClass, ChipDimensions, ChipParams, ChipSize};
 pub use gull_wing::GullWingDimensions;
 pub use ipc::Density;
+pub use molded::{Molded, MoldedClass, MoldedDimensions, MoldedPackage, MoldedParams};
 pub use no_lead::{Dfn, ExposedPadDimensions, NoLeadDimensions, NoLeadParams, Qfn};
-pub use pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, WarningCode};
+pub use pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, Resolved, WarningCode};
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
+pub use quad::Pin1Location;
+pub use regenerate::{Change, Lost, Regenerate, RegenerateParams, RegeneratePreview, Regenerated};
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
 pub use through_hole::{Dip, DipParams, Header, HeaderParams, HeaderPitch};
 
 use crate::{Elements, check, check_element_name};
-use sections::{Sections, smd_compliant, smd_overrides, th_overrides};
+use sections::{Sections, smd_compliant};
 
 /// The [`Sections`] of a surface-mount family's params, and its [`sections::Smd`] view.
 macro_rules! smd_sections {
@@ -60,14 +65,35 @@ macro_rules! smd_sections {
         }
 
         impl Sections for $params {
-            fn overrides(&self) -> Vec<String> {
-                smd_overrides(&self.goals, &self.tolerances, &self.pads)
+            const IPC_VALUES: &'static [&'static str] = sections::SMD_IPC_VALUES;
+            const DERIVED: &'static [&'static str] = sections::SMD_DERIVED;
+
+            fn underived(&self) -> Self {
+                let pads = sections::PadsParams {
+                    length: None,
+                    length_y: None,
+                    width: None,
+                    spacing: None,
+                    spacing_y: None,
+                    ..self.pads
+                };
+                Self { pads, ..self.clone() }
             }
 
             fn compliant(&self) -> Self {
                 let (goals, tolerances, pads) =
                     smd_compliant(&self.goals, &self.pads);
                 Self { goals, tolerances, pads, ..self.clone() }
+            }
+
+            fn resolved_sections(&self, resolved: Resolved) -> Self {
+                let (goals, tolerances, pads) =
+                    resolved.smd().sections(&self.goals, &self.pads);
+                Self { goals, tolerances, pads, ..self.clone() }
+            }
+
+            fn named(&self, name: String, description: String) -> Self {
+                Self { name: Some(name), description: Some(description), ..self.clone() }
             }
         }
     )*};
@@ -77,8 +103,12 @@ macro_rules! smd_sections {
 macro_rules! th_sections {
     ($($params:ty),*) => {$(
         impl Sections for $params {
-            fn overrides(&self) -> Vec<String> {
-                th_overrides(&self.tolerances, &self.pads)
+            const IPC_VALUES: &'static [&'static str] = sections::TH_IPC_VALUES;
+            const DERIVED: &'static [&'static str] = sections::TH_DERIVED;
+
+            fn underived(&self) -> Self {
+                let pads = sections::ThPadsParams { diameter: None, ..self.pads };
+                Self { pads, ..self.clone() }
             }
 
             fn compliant(&self) -> Self {
@@ -88,12 +118,22 @@ macro_rules! th_sections {
                     ..self.clone()
                 }
             }
+
+            fn resolved_sections(&self, resolved: Resolved) -> Self {
+                let (tolerances, pads) = resolved.th().sections();
+                Self { tolerances, pads, ..self.clone() }
+            }
+
+            fn named(&self, name: String, description: String) -> Self {
+                Self { name: Some(name), description: Some(description), ..self.clone() }
+            }
         }
     )*};
 }
 
 smd_sections!(
     ChipParams,
+    MoldedParams,
     SotParams,
     SoicParams,
     SmallOutlineParams,
@@ -114,6 +154,7 @@ pub type FootprintStore = fn(
 /// Adds every generator Command, each writing through `store`.
 pub fn register_generators(registry: &mut Registry, store: FootprintStore) {
     registry.add(Generator::<Chip>::new(store));
+    registry.add(Generator::<Molded>::new(store));
     registry.add(Generator::<Sot>::new(store));
     registry.add(Generator::<Soic>::new(store));
     registry.add(Generator::<Ssop>::new(store));
@@ -126,8 +167,9 @@ pub fn register_generators(registry: &mut Registry, store: FootprintStore) {
 }
 
 /// Every generator Command's id, in the order [`register_generators`] adds them.
-pub const GENERATORS: [&str; 10] = [
+pub const GENERATORS: [&str; 11] = [
     <Chip as FootprintFamily>::META.id,
+    <Molded as FootprintFamily>::META.id,
     <Sot as FootprintFamily>::META.id,
     <Soic as FootprintFamily>::META.id,
     <Ssop as FootprintFamily>::META.id,
@@ -139,20 +181,46 @@ pub const GENERATORS: [&str; 10] = [
     <Header as FootprintFamily>::META.id,
 ];
 
-type Preview = fn(&serde_json::Value) -> Result<Footprint, CommandError>;
+type Build = fn(
+    &serde_json::Value,
+    &mut dyn FnMut() -> Uuid,
+) -> Result<(Footprint, Vec<GeneratorWarning>), CommandError>;
 
-const PREVIEWS: [Preview; 10] = [
-    preview_of::<Chip>,
-    preview_of::<Sot>,
-    preview_of::<Soic>,
-    preview_of::<Ssop>,
-    preview_of::<Tssop>,
-    preview_of::<Dfn>,
-    preview_of::<Qfn>,
-    preview_of::<Qfp>,
-    preview_of::<Dip>,
-    preview_of::<Header>,
+/// Each of [`GENERATORS`]' builds, in the same order.
+const BUILDS: [Build; 11] = [
+    build_of::<Chip>,
+    build_of::<Molded>,
+    build_of::<Sot>,
+    build_of::<Soic>,
+    build_of::<Ssop>,
+    build_of::<Tssop>,
+    build_of::<Dfn>,
+    build_of::<Qfn>,
+    build_of::<Qfp>,
+    build_of::<Dip>,
+    build_of::<Header>,
 ];
+
+fn build_of<F: FootprintFamily>(
+    params: &serde_json::Value,
+    new_id: &mut dyn FnMut() -> Uuid,
+) -> Result<(Footprint, Vec<GeneratorWarning>), CommandError> {
+    let p: F::Params = serde_json::from_value(params.clone())
+        .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
+    build::<F>(&p, new_id)
+}
+
+/// The Footprint the generator Command `command` makes from `params`, taking UUIDs from
+/// `new_id`, and its warnings, without writing anything. `None` when `command` is not a
+/// generator.
+pub fn rebuild(
+    command: &str,
+    params: &serde_json::Value,
+    new_id: &mut dyn FnMut() -> Uuid,
+) -> Option<Result<(Footprint, Vec<GeneratorWarning>), CommandError>> {
+    let i = GENERATORS.iter().position(|id| *id == command)?;
+    Some(BUILDS[i](params, new_id))
+}
 
 /// The Footprint the generator Command `command` would write with `params`, computed
 /// without writing anything (its UUIDs count up from 1), for a generator form's preview. `None`
@@ -161,23 +229,16 @@ pub fn preview(
     command: &str,
     params: &serde_json::Value,
 ) -> Option<Result<Footprint, CommandError>> {
-    let i = GENERATORS.iter().position(|id| *id == command)?;
-    Some(PREVIEWS[i](params))
-}
-
-fn preview_of<F: FootprintFamily>(params: &serde_json::Value) -> Result<Footprint, CommandError> {
-    let p: F::Params = serde_json::from_value(params.clone())
-        .map_err(|e| CommandError::invalid_params("", e.to_string()))?;
     let mut next = 0;
-    let (footprint, _) = build::<F>(&p, || {
+    let built = rebuild(command, params, &mut || {
         next += 1;
         Uuid::from_u128(next)
     })?;
-    Ok(footprint)
+    Some(built.map(|(footprint, _)| footprint))
 }
 
 /// The Footprint family `F` makes from `p`, taking UUIDs from `new_id`, and the warnings
-/// that go with it.
+/// that go with it. The Footprint records `p` with every value resolved.
 fn build<F: FootprintFamily>(
     p: &F::Params,
     new_id: impl FnMut() -> Uuid,
@@ -185,28 +246,55 @@ fn build<F: FootprintFamily>(
     let target = F::target(p);
     let pattern = F::plan(p)?;
     let mut warnings = pattern.warnings.clone();
-    let overrides = p.overrides();
-    if !overrides.is_empty() {
-        let ipc = F::plan(&p.compliant())?;
-        if !pattern.same_land_pattern(&ipc) {
+    let sections = p.resolved_sections(pattern.resolved);
+    let compliant = p.compliant();
+    let ipc = F::plan(&compliant)?;
+    if !pattern.same_land_pattern(&ipc) {
+        // A value is overridden when it differs from IPC-7351's, or, for a derived one,
+        // from what the other values give.
+        let resolved_json = |params: &F::Params| -> Result<serde_json::Value, CommandError> {
+            let plan = F::plan(params)?;
+            serde_json::to_value(params.resolved_sections(plan.resolved)).map_err(internal)
+        };
+        let ours = serde_json::to_value(&sections).map_err(internal)?;
+        let theirs = resolved_json(&compliant)?;
+        let derived = resolved_json(&p.underived())?;
+        let params: Vec<String> = F::Params::IPC_VALUES
+            .iter()
+            .filter(|pointer| {
+                let against = if F::Params::DERIVED.contains(pointer) {
+                    &derived
+                } else {
+                    &theirs
+                };
+                ours.pointer(pointer) != against.pointer(pointer)
+            })
+            .map(|pointer| (*pointer).to_owned())
+            .collect();
+        if !params.is_empty() {
             warnings.push(GeneratorWarning {
                 code: WarningCode::NotIpcCompliant,
                 message: "the overridden values give a land pattern other than IPC-7351's; \
                           the name still reads as IPC-7351's"
                     .into(),
                 pads: vec![],
-                params: overrides,
+                params,
             });
         }
     }
     let name = target.name.unwrap_or_else(|| pattern.name.clone());
-    let description = target.description;
+    let description = target
+        .description
+        .unwrap_or_else(|| pattern.description.clone());
+    let resolved = F::resolve_package(&sections.named(name.clone(), description.clone()))?;
     let mut footprint = pattern.into_footprint(name, new_id);
-    if let Some(description) = description {
-        footprint.description = description;
-    }
-    footprint.generator = Some(Box::new(generator_of::<F>(p)?));
+    footprint.description = description;
+    footprint.generator = Some(Box::new(generator_of::<F>(&resolved)?));
     Ok((footprint, warnings))
+}
+
+fn internal(e: serde_json::Error) -> CommandError {
+    CommandError::internal(e.to_string())
 }
 
 /// One package family.
@@ -220,6 +308,12 @@ pub trait FootprintFamily: Send + Sync + 'static {
 
     /// The Footprint, or `invalid_params` saying which param does not work.
     fn plan(params: &Self::Params) -> Result<FootprintPlan, CommandError>;
+
+    /// `params` with a standard package written out as the dimensions it stands for,
+    /// where the family takes dimensions.
+    fn resolve_package(params: &Self::Params) -> Result<Self::Params, CommandError> {
+        Ok(params.clone())
+    }
 }
 
 /// The Library a generated Footprint is written into, and its name and description if
@@ -320,6 +414,14 @@ pub struct TolParam {
 }
 
 impl TolParam {
+    /// The param for `tol`.
+    pub fn of(tol: ipc::Tol) -> TolParam {
+        TolParam {
+            min: Length(tol.min),
+            max: Length(tol.max),
+        }
+    }
+
     /// The dimension, or `invalid_params` at `pointer` when it is not positive or its
     /// minimum exceeds its maximum.
     pub fn tol(self, pointer: &str) -> Result<ipc::Tol, CommandError> {
@@ -338,6 +440,12 @@ impl TolParam {
         }
         Ok(ipc::Tol { min, max })
     }
+}
+
+/// `value` in tenths of a millimetre, rounded, two digits at least, for the body codes
+/// of IPC-7351 names such as `1608`.
+pub(crate) fn tenths(value: reda_model::geom::Nm) -> String {
+    format!("{:02}", (value.0 + 50_000) / 100_000)
 }
 
 /// `value` in hundredths of a millimetre, rounded, for IPC-7351 names.

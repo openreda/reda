@@ -21,10 +21,10 @@ use serde::{Deserialize, Serialize};
 use super::gull_wing::{self, Side};
 use super::ipc::{self, Tol};
 use super::pattern::{
-    Body, Finish, FootprintPlan, LandKind, PadSpec, SILKSCREEN_CLEARANCE, clip_silkscreen,
-    rectangle,
+    Body, Finish, FootprintPlan, LandKind, PadSpec, Resolved, SILKSCREEN_CLEARANCE, check_absent,
+    clip_silkscreen, rectangle, remove_absent,
 };
-use super::sections::{OutputsParams, ThPadsParams, ThTolerancesParams, check_outputs};
+use super::sections::{OutputsParams, ThPadsParams, ThResolved, ThTolerancesParams, check_outputs};
 use super::{FootprintFamily, Target, hundredths};
 
 /// Added to the lead's greatest diagonal for the hole.
@@ -141,16 +141,22 @@ pub struct DipParams {
     /// The Footprint's name. Omitted, it is
     /// `DIP<row spacing>W<lead width>P<pitch>L<body length>H<height>Q<pins>B`, such as
     /// `DIP762W46P254L1016H533Q8B`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// The number of leads: even, 4 to 64.
     pub pins: usize,
     /// Rows 15.24 mm (600 mil, JEDEC MS-011) apart instead of 7.62 mm (300 mil, MS-001).
     #[serde(default)]
     pub wide: bool,
+    /// Lead positions left without a Pad, by number; the other Pads keep their numbers.
+    #[serde(default)]
+    pub absent_pins: Vec<u32>,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
     #[serde(default)]
     pub tolerances: ThTolerancesParams,
     #[serde(default)]
@@ -194,6 +200,7 @@ impl FootprintFamily for Dip {
         };
         // A typical body is as long as its leads take: half the count times the pitch.
         let length = Nm(p.pins as i64 / 2 * DIP_PITCH.0);
+        check_absent(&p.absent_pins, p.pins)?;
         check_outputs(&p.outputs)?;
         let finish = Finish::outputs(&p.outputs);
         let silk = finish.silkscreen_width;
@@ -215,7 +222,8 @@ impl FootprintFamily for Dip {
             Nm(length.0 / 2 + silk.0 / 2),
         );
         let silkscreen = clip_silkscreen(&outline, &pad_specs, silk);
-        Ok(FootprintPlan {
+        let excess = courtyard_excess(&p.tolerances)?;
+        let mut plan = FootprintPlan {
             name: format!(
                 "DIP{}W{}P{}L{}H{}Q{}B",
                 hundredths(row_spacing),
@@ -223,7 +231,7 @@ impl FootprintFamily for Dip {
                 hundredths(DIP_PITCH),
                 hundredths(length),
                 hundredths(DIP_HEIGHT),
-                p.pins
+                p.pins - p.absent_pins.len()
             ),
             description: format!(
                 "DIP-{}, {} mm row spacing, IPC-7251 Nominal",
@@ -234,14 +242,21 @@ impl FootprintFamily for Dip {
             body: Body {
                 nominal: (body_width.nominal(), length),
                 max: (body_width.max, length),
-                polarised: true,
+                chamfered: p.chamfer,
             },
             silkscreen,
-            courtyard_excess: courtyard_excess(&p.tolerances)?,
+            courtyard_excess: excess,
             height: Some(DIP_HEIGHT),
             warnings: vec![],
             finish,
-        })
+            resolved: Resolved::Th(ThResolved {
+                courtyard_excess: excess,
+                hole,
+                diameter,
+            }),
+        };
+        remove_absent(&mut plan, &p.absent_pins);
+        Ok(plan)
     }
 }
 
@@ -289,10 +304,10 @@ pub struct HeaderParams {
     /// The Footprint's name. Omitted, it is
     /// `HDRV<row span>W<post width>P<pitch>R<rows>L<length>T<width>H<height>B`, such as
     /// `HDRV254W64P254R2L1270T508H850B`, or `SKTV…` for a socket.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// 1 or 2 rows.
     pub rows: usize,
@@ -302,6 +317,12 @@ pub struct HeaderParams {
     /// A socket (female) rather than a pin header (male). The Footprint is the same.
     #[serde(default)]
     pub socket: bool,
+    /// Lead positions left without a Pad, by number; the other Pads keep their numbers.
+    #[serde(default)]
+    pub absent_pins: Vec<u32>,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
     #[serde(default)]
     pub tolerances: ThTolerancesParams,
     #[serde(default)]
@@ -345,6 +366,7 @@ impl FootprintFamily for Header {
             ));
         }
         let pitch = p.pitch.pitch();
+        check_absent(&p.absent_pins, p.rows * p.pins_per_row)?;
         check_outputs(&p.outputs)?;
         let finish = Finish::outputs(&p.outputs);
         let silk = finish.silkscreen_width;
@@ -379,7 +401,8 @@ impl FootprintFamily for Header {
         } else {
             ("HDRV", "Pin header")
         };
-        Ok(FootprintPlan {
+        let excess = courtyard_excess(&p.tolerances)?;
+        let mut plan = FootprintPlan {
             name: format!(
                 "{prefix}{}W{}P{}R{rows}L{}T{}H{}B",
                 hundredths(Nm((rows - 1) * pitch.0)),
@@ -397,13 +420,20 @@ impl FootprintFamily for Header {
             body: Body {
                 nominal: body,
                 max: body,
-                polarised: true,
+                chamfered: p.chamfer,
             },
             silkscreen,
-            courtyard_excess: courtyard_excess(&p.tolerances)?,
+            courtyard_excess: excess,
             height: Some(p.pitch.height()),
             warnings: vec![],
             finish,
-        })
+            resolved: Resolved::Th(ThResolved {
+                courtyard_excess: excess,
+                hole,
+                diameter,
+            }),
+        };
+        remove_absent(&mut plan, &p.absent_pins);
+        Ok(plan)
     }
 }

@@ -13,8 +13,10 @@ use serde::{Deserialize, Serialize};
 
 use super::gull_wing::{self, GullWing};
 use super::ipc::{self, Density, Goals, Termination, Tol};
-use super::pattern::{GeneratorWarning, LandKind, PadSpec};
-use super::quad::{self, Quad};
+use super::pattern::{
+    GeneratorWarning, LandKind, PadSpec, Resolved, check_absent, paste_split, remove_absent,
+};
+use super::quad::{self, Pin1Location, Quad};
 use super::sections::{Applies, GoalsParams, OutputsParams, PadsParams, Smd, TolerancesParams};
 use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
 
@@ -92,32 +94,39 @@ impl NoLead {
 
     /// The dimensions with the exposed pad sized as `pads` overrides it.
     fn with_exposed_pad(self, pads: &PadsParams) -> NoLead {
-        let Some(size) = pads.exposed_pad else {
-            return self;
-        };
-        let exact = |v: Length| Tol {
-            min: v.nm(),
-            max: v.nm(),
-        };
         NoLead {
-            exposed_pad: Some((exact(size.length), exact(size.width))),
+            exposed_pad: exposed_pad_as(self.exposed_pad, pads),
             ..self
         }
     }
+}
 
-    /// The exposed pad's Pad, numbered `number`, at its nominal size.
-    fn exposed_pad_spec(&self, number: usize) -> Option<PadSpec> {
-        let (length, width) = self.exposed_pad?;
-        Some(PadSpec {
-            kind: LandKind::Exposed,
-            ..PadSpec::smd(
-                number.to_string(),
-                Point::new(Nm(0), Nm(0)),
-                width.nominal(),
-                length.nominal(),
-            )
-        })
-    }
+/// An exposed pad's length (y) and width (x), sized as `pads` overrides it; `None`
+/// when the package has none.
+pub(super) fn exposed_pad_as(exposed: Option<(Tol, Tol)>, pads: &PadsParams) -> Option<(Tol, Tol)> {
+    let exposed = exposed?;
+    let Some(size) = pads.exposed_pad else {
+        return Some(exposed);
+    };
+    let exact = |v: Length| Tol {
+        min: v.nm(),
+        max: v.nm(),
+    };
+    Some((exact(size.length), exact(size.width)))
+}
+
+/// The exposed pad's Pad, numbered `number`, at its nominal size.
+fn exposed_pad_spec(exposed: Option<(Tol, Tol)>, number: usize) -> Option<PadSpec> {
+    let (length, width) = exposed?;
+    Some(PadSpec {
+        kind: LandKind::Exposed,
+        ..PadSpec::smd(
+            number.to_string(),
+            Point::new(Nm(0), Nm(0)),
+            width.nominal(),
+            length.nominal(),
+        )
+    })
 }
 
 /// A no-lead package's dimensions from a datasheet.
@@ -137,7 +146,7 @@ pub struct NoLeadDimensions {
     /// The greatest height (A).
     pub height: Length,
     /// The exposed pad. Omitted, the package has none.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exposed_pad: Option<ExposedPadDimensions>,
 }
 
@@ -152,6 +161,24 @@ pub struct ExposedPadDimensions {
 }
 
 impl NoLeadDimensions {
+    /// The params for `dims`.
+    fn of(dims: &NoLead) -> NoLeadDimensions {
+        NoLeadDimensions {
+            pitch: Length(dims.pitch),
+            body_length: TolParam::of(dims.body_length),
+            body_width: TolParam::of(dims.body_width),
+            lead_width: TolParam::of(dims.lead_width),
+            lead_length: TolParam::of(dims.lead_length),
+            height: Length(dims.height),
+            exposed_pad: dims
+                .exposed_pad
+                .map(|(length, width)| ExposedPadDimensions {
+                    length: TolParam::of(length),
+                    width: TolParam::of(width),
+                }),
+        }
+    }
+
     fn dims(self) -> Result<NoLead, CommandError> {
         let at = |field: &str| format!("/dimensions/{field}");
         let positive = |value: Length, field: &str| {
@@ -190,17 +217,27 @@ pub struct NoLeadParams {
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as
     /// `QFN50P500X500X100-33N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// The number of terminals, not counting the exposed pad: one of the standard counts,
     /// or any count that fits the package with `dimensions`.
     pub pins: usize,
     /// A datasheet's dimensions, in place of the standard body.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<NoLeadDimensions>,
+    /// Lead positions left without a Pad, by number; the other Pads keep their numbers.
+    #[serde(default)]
+    pub absent_pins: Vec<u32>,
+    /// QFN: where pin 1 is, `corner` (the top of the left side, by default) or
+    /// `top_centre`.
+    #[serde(default)]
+    pub pin1_location: Pin1Location,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
     #[serde(default)]
     pub goals: GoalsParams,
     #[serde(default)]
@@ -302,13 +339,28 @@ impl FootprintFamily for Dfn {
         }
     }
 
+    fn resolve_package(p: &NoLeadParams) -> Result<NoLeadParams, CommandError> {
+        let dims = standard_or("DFN", DFN, p.pins, p.dimensions)?;
+        Ok(NoLeadParams {
+            dimensions: Some(NoLeadDimensions::of(&dims)),
+            ..p.clone()
+        })
+    }
+
     fn plan(p: &NoLeadParams) -> Result<FootprintPlan, CommandError> {
+        if p.pin1_location != Pin1Location::Corner {
+            return Err(CommandError::invalid_params(
+                "/pin1_location",
+                "a DFN's pin 1 is at the top of the left side",
+            ));
+        }
         if p.pins < 2 || !p.pins.is_multiple_of(2) {
             return Err(CommandError::invalid_params(
                 "/pins",
                 "a DFN needs an even number of at least 2 terminals",
             ));
         }
+        check_absent(&p.absent_pins, p.pins)?;
         let smd = p.smd();
         smd.check(Applies {
             quad: false,
@@ -331,10 +383,18 @@ impl FootprintFamily for Dfn {
             &leads,
             Termination::NoLead,
             smd,
-            dims.ipc_name("SON", p.pins, density),
+            dims.ipc_name("SON", p.pins - p.absent_pins.len(), density),
             dims.description("DFN", p.pins, density),
         )?;
-        add_exposed_pad(&mut pattern, &dims, p.pins + 1, &smd)?;
+        remove_absent(&mut pattern, &p.absent_pins);
+        add_exposed_pad(
+            &mut pattern,
+            dims.exposed_pad,
+            p.pins + 1,
+            &smd,
+            "/dimensions/exposed_pad",
+        )?;
+        pattern.body.chamfered = p.chamfer;
         Ok(pattern)
     }
 }
@@ -464,6 +524,14 @@ impl FootprintFamily for Qfn {
         }
     }
 
+    fn resolve_package(p: &NoLeadParams) -> Result<NoLeadParams, CommandError> {
+        let dims = standard_or("QFN", QFN, p.pins, p.dimensions)?;
+        Ok(NoLeadParams {
+            dimensions: Some(NoLeadDimensions::of(&dims)),
+            ..p.clone()
+        })
+    }
+
     fn plan(p: &NoLeadParams) -> Result<FootprintPlan, CommandError> {
         if p.pins < 4 || !p.pins.is_multiple_of(4) {
             return Err(CommandError::invalid_params(
@@ -471,6 +539,7 @@ impl FootprintFamily for Qfn {
                 "a QFN needs the same number of terminals on each side: a multiple of 4",
             ));
         }
+        check_absent(&p.absent_pins, p.pins)?;
         let smd = p.smd();
         smd.check(Applies {
             quad: true,
@@ -488,16 +557,25 @@ impl FootprintFamily for Qfn {
             lead_width: dims.lead_width,
             lead_length: dims.lead_length,
             height: dims.height,
+            pin1: p.pin1_location,
         };
         let density = p.goals.density;
         let mut pattern = quad::plan(
             &quad,
             Termination::NoLead,
             smd,
-            dims.ipc_name("QFN", p.pins, density),
+            dims.ipc_name("QFN", p.pins - p.absent_pins.len(), density),
             dims.description("QFN", p.pins, density),
         )?;
-        add_exposed_pad(&mut pattern, &dims, p.pins + 1, &smd)?;
+        remove_absent(&mut pattern, &p.absent_pins);
+        add_exposed_pad(
+            &mut pattern,
+            dims.exposed_pad,
+            p.pins + 1,
+            &smd,
+            "/dimensions/exposed_pad",
+        )?;
+        pattern.body.chamfered = p.chamfer;
         Ok(pattern)
     }
 }
@@ -505,15 +583,20 @@ impl FootprintFamily for Qfn {
 /// Adds the exposed pad's Pad, if the package has one, and trims the lead Pads' heels
 /// where they come closer to it than [`EXPOSED_PAD_CLEARANCE`], with a warning for each
 /// pair of opposite sides trimmed.
-fn add_exposed_pad(
+pub(super) fn add_exposed_pad(
     pattern: &mut FootprintPlan,
-    dims: &NoLead,
+    exposed: Option<(Tol, Tol)>,
     number: usize,
     smd: &Smd<'_>,
+    pointer: &str,
 ) -> Result<(), CommandError> {
-    let Some(exposed) = dims.exposed_pad_spec(number) else {
+    let Some(exposed) = exposed_pad_spec(exposed, number) else {
         return Ok(());
     };
+    if let Resolved::Smd(r) = &mut pattern.resolved {
+        let paste = paste_split(exposed.width, exposed.height, &pattern.finish);
+        r.exposed_pad = Some((exposed.width, exposed.height, paste));
+    }
     if !smd.pads.trim {
         pattern.pad_specs.push(exposed);
         return Ok(());
@@ -549,7 +632,7 @@ fn add_exposed_pad(
             }
             if outer <= edge.0 {
                 return Err(CommandError::invalid_params(
-                    "/dimensions/exposed_pad",
+                    pointer,
                     "the exposed pad leaves no room for the lead Pads",
                 ));
             }

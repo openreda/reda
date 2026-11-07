@@ -8,11 +8,14 @@ use reda_model::{
     PadKind, PadShape, Paste, PasteWindow, Ratio, Shape, TextStyle, Uuid, ZoneConnection,
 };
 
+use reda_command::CommandError;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::ipc::courtyard_round;
-use super::sections::{OutputsParams, PadsParams};
+use super::sections::{
+    OutputsParams, PadsParams, PasteArray, PasteKeyword, PasteSplit, SmdResolved, ThResolved,
+};
 
 /// The gap kept between Silkscreen lines and copper.
 pub const SILKSCREEN_CLEARANCE: Nm = Nm(200_000);
@@ -43,8 +46,8 @@ pub struct Finish {
     pub max_corner_radius: Nm,
     /// Paste windows' share of an exposed pad's area, in percent.
     pub paste_coverage: u32,
-    /// The exposed pad's paste windows as columns and rows, when given.
-    pub paste_array: Option<(u32, u32)>,
+    /// The exposed pad's paste windows, when given.
+    pub paste_array: Option<PasteSplit>,
     /// The Silkscreen lines' width; Silkscreen lines are drawn when `silkscreen`.
     pub silkscreen_width: Nm,
     pub silkscreen: bool,
@@ -248,6 +251,49 @@ pub fn clip_silkscreen(
     out
 }
 
+/// A 2-terminal part's polarity mark: a Silkscreen bar `width` wide across the outer end
+/// of `pad` (terminal 1, on the left), [`SILKSCREEN_CLEARANCE`] beyond its copper,
+/// reaching `half_height` either side of the axis, or past the Pad if that is taller.
+pub fn polarity_mark(pad: &PadSpec, half_height: Nm, width: Nm) -> Vec<(Point, Point)> {
+    let (x0, _, _, y1) = pad.bounds();
+    let x = x0 - SILKSCREEN_CLEARANCE.0 - width.0 / 2;
+    let y = half_height.0.max(y1 + width.0 / 2);
+    vec![(Point::new(Nm(x), Nm(y)), Point::new(Nm(x), Nm(-y)))]
+}
+
+/// Refuses `absent` unless it names distinct leads of the `leads` a package has, leaving
+/// at least one.
+pub fn check_absent(absent: &[u32], leads: usize) -> Result<(), CommandError> {
+    for (i, &n) in absent.iter().enumerate() {
+        let pointer = format!("/absent_pins/{i}");
+        if n == 0 || n as usize > leads {
+            return Err(CommandError::invalid_params(
+                &pointer,
+                format!("the package's leads are numbered 1 to {leads}"),
+            ));
+        }
+        if absent[..i].contains(&n) {
+            return Err(CommandError::invalid_params(
+                &pointer,
+                format!("pin {n} is listed twice"),
+            ));
+        }
+    }
+    if absent.len() >= leads {
+        return Err(CommandError::invalid_params(
+            "/absent_pins",
+            "leave at least one lead",
+        ));
+    }
+    Ok(())
+}
+
+/// Leaves out the Pads numbered in `absent`; the others keep their numbers.
+pub fn remove_absent(plan: &mut FootprintPlan, absent: &[u32]) {
+    plan.pad_specs
+        .retain(|spec| !absent.iter().any(|n| n.to_string() == spec.number));
+}
+
 /// The four sides of the rectangle with corner `(x, y)`, symmetric about the origin.
 pub fn rectangle(x: Nm, y: Nm) -> Vec<(Point, Point)> {
     let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
@@ -268,7 +314,7 @@ pub struct Body {
     /// The greatest size along x and y, which the courtyard encloses.
     pub max: (Nm, Nm),
     /// Whether pin 1 is marked, by a chamfer on the Assembly outline's upper-left corner.
-    pub polarised: bool,
+    pub chamfered: bool,
 }
 
 /// Everything a family computes. Coordinates have y pointing up, and pin 1 sits on the
@@ -291,6 +337,35 @@ pub struct FootprintPlan {
     /// pattern may not be what the caller expects.
     pub warnings: Vec<GeneratorWarning>,
     pub finish: Finish,
+    /// The values the params may leave to be calculated, as calculated.
+    pub resolved: Resolved,
+}
+
+/// What a plan used for the values its params may leave to be calculated.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "one per plan, copied a handful of times"
+)]
+pub enum Resolved {
+    Smd(SmdResolved),
+    Th(ThResolved),
+}
+
+impl Resolved {
+    pub fn smd(self) -> SmdResolved {
+        match self {
+            Resolved::Smd(r) => r,
+            Resolved::Th(_) => unreachable!("a surface-mount plan"),
+        }
+    }
+
+    pub fn th(self) -> ThResolved {
+        match self {
+            Resolved::Th(r) => r,
+            Resolved::Smd(_) => unreachable!("a through-hole plan"),
+        }
+    }
 }
 
 /// Something a generator reports about the Footprint it made.
@@ -439,16 +514,9 @@ impl FootprintPlan {
 /// [`PASTE_SPLIT`] either way gets cells no larger than [`PASTE_CELL`], and a smaller pad
 /// `None`, so it inherits.
 fn paste_windows(width: Nm, height: Nm, finish: &Finish) -> Option<Paste> {
-    let (columns, rows) = match finish.paste_array {
-        Some((columns, rows)) => (i64::from(columns), i64::from(rows)),
-        None => {
-            let (long, short) = (width.max(height), width.min(height));
-            if long < PASTE_SPLIT.0 || short < PASTE_SPLIT.1 {
-                return None;
-            }
-            let count = |side: Nm| ((side.0 + PASTE_CELL.0 - 1) / PASTE_CELL.0).max(1);
-            (count(width), count(height))
-        }
+    let (columns, rows) = match paste_split(width, height, finish) {
+        PasteSplit::Array(a) => (i64::from(a.columns), i64::from(a.rows)),
+        PasteSplit::Keyword(PasteKeyword::Inherit) => return None,
     };
     let (cell_x, cell_y) = (width.0 / columns, height.0 / rows);
     let scale = (f64::from(finish.paste_coverage) / 100.0).sqrt();
@@ -469,11 +537,29 @@ fn paste_windows(width: Nm, height: Nm, finish: &Finish) -> Option<Paste> {
     Some(Paste::Windows { windows })
 }
 
+/// The paste of an exposed pad `width` × `height`: as `finish` gives it, or else an array
+/// of cells no larger than [`PASTE_CELL`] on a pad of at least [`PASTE_SPLIT`] either way,
+/// and none on a smaller one.
+pub fn paste_split(width: Nm, height: Nm, finish: &Finish) -> PasteSplit {
+    if let Some(split) = finish.paste_array {
+        return split;
+    }
+    let (long, short) = (width.max(height), width.min(height));
+    if long < PASTE_SPLIT.0 || short < PASTE_SPLIT.1 {
+        return PasteSplit::Keyword(PasteKeyword::Inherit);
+    }
+    let count = |side: Nm| ((side.0 + PASTE_CELL.0 - 1) / PASTE_CELL.0).max(1) as u32;
+    PasteSplit::Array(PasteArray {
+        columns: count(width),
+        rows: count(height),
+    })
+}
+
 /// The nominal body outline; a polarised body has its upper-left corner chamfered by a
 /// quarter of its shorter side, at most 1 mm.
 fn assembly_outline(body: Body) -> Shape {
     let (x, y) = (body.nominal.0.0 / 2, body.nominal.1.0 / 2);
-    if !body.polarised {
+    if !body.chamfered {
         return Shape::Rect {
             start: Point::new(Nm(-x), Nm(-y)),
             end: Point::new(Nm(x), Nm(y)),

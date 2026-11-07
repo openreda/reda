@@ -20,12 +20,15 @@ pub struct SotParams {
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as
     /// `SOT95P237X112-3N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The Footprint's description. Omitted, it gets one naming the package and density.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub package: SotPackage,
+    /// Chamfer the Assembly outline's corner at pin 1. On by default.
+    #[serde(default = "super::sections::yes")]
+    pub chamfer: bool,
     #[serde(default)]
     pub goals: GoalsParams,
     #[serde(default)]
@@ -150,6 +153,9 @@ impl FootprintFamily for Sot {
         let density = p.goals.density;
         let name = dims.ipc_name("SOT", leads.len(), density);
         let description = format!("{title}, IPC-7351 {}", density.title());
-        gull_wing::plan(&dims, &leads, Termination::GullWing, smd, name, description)
+        let mut plan =
+            gull_wing::plan(&dims, &leads, Termination::GullWing, smd, name, description)?;
+        plan.body.chamfered = p.chamfer;
+        Ok(plan)
     }
 }

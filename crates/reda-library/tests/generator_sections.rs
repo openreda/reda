@@ -735,8 +735,9 @@ fn overrides_that_do_not_apply_to_a_family_are_refused() {
     }
 }
 
-/// Defaults are fixed in the code and written out, so the stored params say what the
-/// Footprint was made with, and running them again gives it back.
+/// Defaults are fixed in the code and written out, with every calculated value, so the
+/// stored params say what the Footprint was made with, and running them again gives it
+/// back.
 #[test]
 fn the_stored_params_hold_every_fixed_default_and_rerun_to_the_same_footprint() {
     let dir = TempDir::new("gen-sections-defaults");
@@ -746,12 +747,18 @@ fn the_stored_params_hold_every_fixed_default_and_rerun_to_the_same_footprint() 
     assert_eq!(params["goals"]["density"], "nominal");
     assert_eq!(params["tolerances"]["fabrication"], 100_000);
     assert_eq!(params["tolerances"]["placement"], 50_000);
+    // The calculated values are written out too. By hand, body 4.90–5.10, L 0.30–0.50,
+    // b 0.18–0.30 mm, toe 0.30, heel 0, side -0.04: Z 5.729 → 5.75, G 4.009 → 4.00, so
+    // Pads 0.875 long, 4.875 apart each way; X 0.264 → 0.25. The exposed pad is 3.45 mm
+    // square, with 3 × 3 paste windows.
     assert_eq!(
         params["pads"],
         json!({
             "shape": "rounded_rect", "corner_ratio": 25_000, "max_corner_radius": 250_000,
-            "length": null, "width": null, "spacing": null, "spacing_y": null,
-            "exposed_pad": null, "trim": true, "paste_coverage": 50, "paste_array": null,
+            "length": 875_000, "length_y": 875_000, "width": 250_000,
+            "spacing": 4_875_000, "spacing_y": 4_875_000,
+            "exposed_pad": {"width": 3_450_000, "length": 3_450_000},
+            "trim": true, "paste_coverage": 50, "paste_array": {"columns": 3, "rows": 3},
         })
     );
     assert_eq!(
