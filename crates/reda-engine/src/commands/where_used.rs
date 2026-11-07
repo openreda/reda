@@ -68,7 +68,7 @@ impl Command for WhereUsed {
                       Footprint, and for any element the Components of the open Project \
                       that use it, found by scanning the part tables.",
         category: "library",
-        icon: "where_used",
+        icon: "select_similar",
         kind: Kind::File,
     };
     type Params = WhereUsedParams;

@@ -19659,7 +19659,7 @@
     {
       "category": "library",
       "description": "Lists the Parts across the registered Libraries that use a Symbol or Footprint, and for any element the Components of the open Project that use it, found by scanning the part tables.",
-      "icon": "where_used",
+      "icon": "select_similar",
       "id": "library.where_used",
       "kind": "file",
       "params": {
