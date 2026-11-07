@@ -5,7 +5,7 @@
 //! Component is placed. Elements reference each other by UUID, across Libraries too, so a
 //! Part names its Symbol and Footprints by UUID rather than by Library.
 
-use reda_geom::{Millideg, Nm, Point};
+use reda_geom::{Bounds, Millideg, Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -198,6 +198,23 @@ impl Footprint {
             generator: None,
             ..self.clone()
         }
+    }
+
+    /// Its body box (v0.1 has no separate body object): the courtyard's bounding box, or
+    /// with no courtyard a box around its copper and drawing, its field texts left out.
+    /// `None` when it has neither.
+    pub fn body_box(&self) -> Option<Bounds> {
+        let courtyard = self
+            .graphics
+            .iter()
+            .filter(|g| g.layer.is_courtyard())
+            .filter_map(|g| g.shape.bounds())
+            .reduce(Bounds::union);
+        courtyard.or_else(|| {
+            let pads = self.pads.iter().map(Pad::bounds);
+            let drawing = self.graphics.iter().filter_map(|g| g.shape.bounds());
+            pads.chain(drawing).reduce(Bounds::union)
+        })
     }
 }
 
@@ -450,6 +467,22 @@ pub enum Shape {
 }
 
 impl Shape {
+    /// A box around its points: arcs by their full circle, text by its anchor.
+    pub fn bounds(&self) -> Option<Bounds> {
+        match self {
+            Shape::Line { start, end } | Shape::Rect { start, end } => {
+                Bounds::of_points([*start, *end])
+            }
+            Shape::Arc { center, start, .. } => {
+                let (dx, dy) = ((start.x - center.x).0 as f64, (start.y - center.y).0 as f64);
+                Some(Bounds::around(*center, Nm(dx.hypot(dy).ceil() as i64)))
+            }
+            Shape::Circle { center, radius } => Some(Bounds::around(*center, *radius)),
+            Shape::Polygon { points } => Bounds::of_points(points.iter().copied()),
+            Shape::Text { at, .. } => Some(Bounds::of_point(*at)),
+        }
+    }
+
     /// The shape moved by `by`.
     pub fn translated(&self, by: Point) -> Shape {
         let mut shape = self.clone();

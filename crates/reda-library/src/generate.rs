@@ -29,7 +29,9 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 
 use reda_command::{Command, CommandError, Context, Length, Meta, Registry, Session};
-use reda_model::{Footprint, FootprintGenerator, LibraryElement, Symbol, Uuid, Violation};
+use reda_model::{
+    Footprint, FootprintGenerator, LibraryElement, LibrarySeverities, Part, Symbol, Uuid, Violation,
+};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -42,7 +44,9 @@ pub use no_lead::{Dfn, ExposedPadDimensions, NoLeadDimensions, NoLeadParams, Qfn
 pub use pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, Resolved, WarningCode};
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
 pub use quad::Pin1Location;
-pub use regenerate::{Change, Lost, Regenerate, RegenerateParams, RegeneratePreview, Regenerated};
+pub use regenerate::{
+    Change, Lost, Regenerate, RegenerateParams, RegeneratePreview, Regenerated, still_made,
+};
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
 pub use through_hole::{Dip, DipParams, Header, HeaderParams, HeaderPitch};
@@ -151,19 +155,30 @@ pub type FootprintStore = fn(
     footprint: &Footprint,
 ) -> Result<PathBuf, CommandError>;
 
-/// Adds every generator Command, each writing through `store`.
-pub fn register_generators(registry: &mut Registry, store: FootprintStore) {
-    registry.add(Generator::<Chip>::new(store));
-    registry.add(Generator::<Molded>::new(store));
-    registry.add(Generator::<Sot>::new(store));
-    registry.add(Generator::<Soic>::new(store));
-    registry.add(Generator::<Ssop>::new(store));
-    registry.add(Generator::<Tssop>::new(store));
-    registry.add(Generator::<Dfn>::new(store));
-    registry.add(Generator::<Qfn>::new(store));
-    registry.add(Generator::<Qfp>::new(store));
-    registry.add(Generator::<Dip>::new(store));
-    registry.add(Generator::<Header>::new(store));
+/// The user's Library check severities, for checking what a generator made.
+pub type SeveritiesOf = fn(session: &Session) -> LibrarySeverities;
+
+/// How generators reach the engine: where they write, and the severities they check with.
+#[derive(Clone, Copy)]
+pub struct GeneratorHost {
+    pub store: FootprintStore,
+    pub severities: SeveritiesOf,
+}
+
+/// Adds every generator Command, each writing through `host` and checking what it wrote
+/// with the user's severities.
+pub fn register_generators(registry: &mut Registry, host: GeneratorHost) {
+    registry.add(Generator::<Chip>::new(host));
+    registry.add(Generator::<Molded>::new(host));
+    registry.add(Generator::<Sot>::new(host));
+    registry.add(Generator::<Soic>::new(host));
+    registry.add(Generator::<Ssop>::new(host));
+    registry.add(Generator::<Tssop>::new(host));
+    registry.add(Generator::<Dfn>::new(host));
+    registry.add(Generator::<Qfn>::new(host));
+    registry.add(Generator::<Qfp>::new(host));
+    registry.add(Generator::<Dip>::new(host));
+    registry.add(Generator::<Header>::new(host));
 }
 
 /// Every generator Command's id, in the order [`register_generators`] adds them.
@@ -326,14 +341,14 @@ pub struct Target {
 
 /// The Command for family `F`.
 pub struct Generator<F> {
-    store: FootprintStore,
+    host: GeneratorHost,
     family: PhantomData<fn() -> F>,
 }
 
 impl<F> Generator<F> {
-    pub fn new(store: FootprintStore) -> Generator<F> {
+    pub fn new(host: GeneratorHost) -> Generator<F> {
         Generator {
-            store,
+            host,
             family: PhantomData,
         }
     }
@@ -366,6 +381,10 @@ impl Elements for NoElements {
     fn footprint(&self, _: Uuid) -> Option<&Footprint> {
         None
     }
+
+    fn parts(&self) -> Vec<&Part> {
+        vec![]
+    }
 }
 
 impl<F: FootprintFamily> Command for Generator<F> {
@@ -379,8 +398,11 @@ impl<F: FootprintFamily> Command for Generator<F> {
             check_element_name(name).map_err(|why| CommandError::invalid_params("/name", why))?;
         }
         let (footprint, warnings) = build::<F>(&p, || cx.new_id())?;
-        let file = (self.store)(cx.session()?, target.library, &footprint)?;
-        let violations = check(&NoElements, &LibraryElement::Footprint(footprint.clone()));
+        let session = cx.session()?;
+        let file = (self.host.store)(session, target.library, &footprint)?;
+        let severities = (self.host.severities)(session);
+        let element = LibraryElement::Footprint(footprint.clone());
+        let violations = check(&NoElements, &element, &severities);
         Ok(Generated {
             footprint: footprint.uuid,
             name: footprint.name,

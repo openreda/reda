@@ -212,7 +212,14 @@ fn the_pin_tool_places_pins_on_the_50_mil_grid_with_rising_numbers() {
         .shell
         .run("library.check", json!({"element": symbol}))
         .unwrap();
-    assert_eq!(out["violations"], json!([]), "on grid, numbers unique");
+    // A new Symbol has no description yet; nothing else is found.
+    let checks: Vec<&str> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["check"].as_str().unwrap())
+        .collect();
+    assert_eq!(checks, ["missing_description"], "on grid, numbers unique");
 }
 
 #[test]
@@ -544,7 +551,14 @@ fn pasted_pin_rows_add_and_update_pins_in_one_step() {
         .shell
         .run("library.check", json!({"element": symbol}))
         .unwrap();
-    assert_eq!(out["violations"], json!([]), "new Pins land on the grid");
+    // A new Symbol has no description yet; nothing else is found.
+    let checks: Vec<&str> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["check"].as_str().unwrap())
+        .collect();
+    assert_eq!(checks, ["missing_description"], "new Pins land on the grid");
     f.shell
         .run("edit.undo", json!({"document": symbol}))
         .unwrap();

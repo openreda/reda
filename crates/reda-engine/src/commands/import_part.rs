@@ -162,13 +162,14 @@ impl Command for ImportPart {
 
         // Check what is now on disk, as the Library will be read from now on.
         let index = scan_registered(session);
+        let severities = crate::preferences::library_severities(session);
         let violations = [
             LibraryElement::Symbol(imported.symbol.clone()),
             LibraryElement::Footprint(imported.footprint.clone()),
             LibraryElement::Part(imported.part.clone()),
         ]
         .iter()
-        .flat_map(|e| check(&index, e))
+        .flat_map(|e| check(&index, e, &severities))
         .collect();
 
         let notice = match &session.user_dirs {

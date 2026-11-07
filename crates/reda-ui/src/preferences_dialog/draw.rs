@@ -10,7 +10,7 @@ use reda_engine::fab_presets;
 use serde_json::json;
 
 use super::shortcuts::Row;
-use super::{Kind, LIBRARY_PATHS, PageId, PreferencesDialog, Setting, schema};
+use super::{Kind, LIBRARY_PATHS, LIBRARY_SEVERITIES, PageId, PreferencesDialog, Setting, schema};
 use crate::bars::DocumentType;
 use crate::bridge::Bridge;
 use crate::keymap::{Chord, Context};
@@ -457,6 +457,42 @@ impl PreferencesDialog {
                 cx.outcome = Outcome::PickFolder;
             }
         });
+        self.library_severities(ui, cx);
+    }
+
+    /// The Library check's severities: a grid of check, severity and the reset dot, in
+    /// the order of the check's table, with Reset severities.
+    fn library_severities(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
+        ui.add_space(12.0);
+        ui.strong(tr!("pref-libraries-severities"));
+        ui.label(tr!("pref-libraries-severities-intro"));
+        ui.add_space(4.0);
+        let settings: Vec<Setting> = PageId::LIBRARIES
+            .settings()
+            .into_iter()
+            .filter(|s| s.key.starts_with(LIBRARY_SEVERITIES))
+            .collect();
+        egui::Grid::new("preferences-library-severities")
+            .striped(true)
+            .num_columns(3)
+            .show(ui, |ui| {
+                for setting in &settings {
+                    let label = ui.label(setting.label.as_str());
+                    if !setting.description.is_empty() {
+                        label.on_hover_text(setting.description.as_str());
+                    }
+                    ui.horizontal(|ui| self.editor(ui, cx, setting));
+                    self.reset_dot(ui, cx, setting);
+                    ui.end_row();
+                }
+            });
+        ui.add_space(4.0);
+        let changed = settings.iter().any(|s| self.can_reset(cx.shell, &s.key));
+        let reset = ui.add_enabled(changed, Button::new(tr!("pref-libraries-severities-reset")));
+        if reset.clicked() {
+            let keys: Vec<String> = settings.iter().map(|s| s.key.clone()).collect();
+            self.reset_with(cx, |d, shell| d.reset_keys(shell, &keys));
+        }
     }
 
     /// The bridge switch, the agents connected now and the agents allowed in, each with

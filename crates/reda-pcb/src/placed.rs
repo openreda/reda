@@ -407,18 +407,7 @@ pub fn free_pad_bounds(pad: &FreePad) -> Bounds {
 
 /// A box around a shape's points (arcs and circles by their full circle).
 pub(crate) fn shape_bounds(shape: &Shape) -> Option<Bounds> {
-    match shape {
-        Shape::Line { start, end } | Shape::Rect { start, end } => {
-            Bounds::of_points([*start, *end])
-        }
-        Shape::Arc { center, start, .. } => {
-            let (dx, dy) = ((start.x - center.x).0 as f64, (start.y - center.y).0 as f64);
-            Some(Bounds::around(*center, Nm(dx.hypot(dy).ceil() as i64)))
-        }
-        Shape::Circle { center, radius } => Some(Bounds::around(*center, *radius)),
-        Shape::Polygon { points } => Bounds::of_points(points.iter().copied()),
-        Shape::Text { at, .. } => Some(Bounds::of_point(*at)),
-    }
+    shape.bounds()
 }
 
 /// Keep text edits when changing a Footprint: stable UUID first, then field and Layer.

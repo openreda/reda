@@ -392,6 +392,9 @@ pub enum InactiveLayerMode {
 pub struct Libraries {
     /// Folders of user Libraries.
     pub paths: Vec<String>,
+    /// How the Library check reports each of its checks: Error, Warning or Off. It never
+    /// blocks a save.
+    pub severities: reda_model::LibrarySeverities,
 }
 
 /// The agent bridge.
@@ -496,6 +499,12 @@ pub fn describe(key: &str) -> Option<String> {
     }
     let own = node["description"].as_str().map(str::to_owned);
     own.or_else(|| resolve(&node)["description"].as_str().map(str::to_owned))
+}
+
+/// The Library check severities of the session's user, reading the file now; the
+/// defaults with no per-user folder.
+pub fn library_severities(session: &reda_command::Session) -> reda_model::LibrarySeverities {
+    current(session.user_dirs.as_ref()).libraries.severities
 }
 
 /// The Preferences for `dirs`, reading the file now. A front end with no per-user folder

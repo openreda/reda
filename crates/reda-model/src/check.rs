@@ -329,3 +329,68 @@ severities! {
     /// Units of one Component whose Component data differ.
     unit_data_mismatch => UnitDataMismatch = Error,
 }
+
+severities! {
+    /// One Library check, named as in [`LibrarySeverities`].
+    enum LibraryCheck;
+    /// The severity of every Library check, set per user in Preferences. A check left out
+    /// has its default.
+    #[serde(default)]
+    struct LibrarySeverities;
+    /// Two Pins of a Symbol with one number.
+    duplicate_pin_number => DuplicatePinNumber = Error,
+    /// A Pin with no Pad in some alternate Footprint of its Part.
+    pin_without_pad => PinWithoutPad = Error,
+    /// A reference that resolves to nothing.
+    broken_reference => BrokenReference = Error,
+    /// Touching Pads with different numbers on a Part's Footprint.
+    shorted_copper => ShortedCopper = Error,
+    /// A Net Tie Part's Footprint that does not join its Pads.
+    net_tie_not_joined => NetTieNotJoined = Error,
+    /// A Pad with no number on a Part's Footprint. Non-plated Pads, and any Pad of a
+    /// Mechanical Part, are exempt.
+    missing_pad_number => MissingPadNumber = Error,
+    /// A Footprint with SMD copper only on the bottom and no through-hole Pads.
+    mirrored_footprint => MirroredFootprint = Error,
+    /// A Footprint origin outside its body box.
+    origin_outside_body => OriginOutsideBody = Error,
+    /// A Symbol with no Designator prefix.
+    missing_designator_prefix => MissingDesignatorPrefix = Error,
+    /// A Pin with no number.
+    missing_pin_number => MissingPinNumber = Error,
+    /// A plated Pad whose offset leaves its hole outside the copper.
+    hole_outside_copper => HoleOutsideCopper = Error,
+    /// A Pin off the 50 mil grid.
+    off_grid_pin => OffGridPin = Warning,
+    /// A Pad mapped to no Pin and not marked unconnected.
+    unmapped_pad => UnmappedPad = Warning,
+    /// A Footprint with no courtyard.
+    missing_courtyard => MissingCourtyard = Warning,
+    /// A paste window not fully on its Pad's copper.
+    paste_window_outside_copper => PasteWindowOutsideCopper = Warning,
+    /// The same graphic, place and Layer twice.
+    duplicate_primitives => DuplicatePrimitives = Warning,
+    /// A Footprint origin more than 0.1 mm from its body box's centre.
+    origin_off_centroid => OriginOffCentroid = Warning,
+    /// A Symbol, Footprint or Part with no description.
+    missing_description => MissingDescription = Warning,
+    /// A gap in a Symbol's numeric Pin numbers, not counting the absent pins of its Parts'
+    /// generated Footprints.
+    missing_pins_in_sequence => MissingPinsInSequence = Warning,
+    /// Two Parts with one name across the registered Libraries.
+    duplicate_part_name => DuplicatePartName = Warning,
+    /// Two Parts with one MPN across the registered Libraries.
+    duplicate_mpn => DuplicateMpn = Warning,
+    /// A generated Footprint whose stored parameters no longer produce it, from a hand edit
+    /// or a changed generator.
+    generator_out_of_date => GeneratorOutOfDate = Warning,
+    /// A Pin with no name.
+    missing_pin_name => MissingPinName = Off,
+}
+
+impl LibraryCheck {
+    /// The check whose id is `id`, such as `off_grid_pin`.
+    pub fn from_id(id: &str) -> Option<LibraryCheck> {
+        LibraryCheck::ALL.iter().copied().find(|c| c.id() == id)
+    }
+}

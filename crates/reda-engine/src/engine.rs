@@ -27,7 +27,11 @@ pub fn registry() -> Registry {
         crate::preferences::waiver_author,
     );
     reda_library::register_all(&mut registry);
-    reda_library::register_generators(&mut registry, crate::library::store_footprint);
+    let host = reda_library::GeneratorHost {
+        store: crate::library::store_footprint,
+        severities: crate::preferences::library_severities,
+    };
+    reda_library::register_generators(&mut registry, host);
     reda_output::register_all(&mut registry);
     reda_schematic::register_all_with_user(
         &mut registry,

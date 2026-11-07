@@ -265,11 +265,16 @@ fn led(s: &mut Script) {
         ),
         ("LEDC3216X110N", (3.0, 3.4), (1.4, 1.8), (0.4, 0.6), "1.1mm"),
     ] {
+        // The chip generator knows resistors, capacitors and inductors: an LED takes the
+        // capacitor's fillets with its own description and a cathode mark.
+        let description = format!("Chip LED, {} metric, IPC-7351 Nominal", &name[4..8]);
         let fp = s.generate(
             "chip",
             json!({
                 "class": "capacitor",
                 "name": name,
+                "description": description,
+                "polarity_mark": true,
                 "dimensions": {
                     "length": {"min": mm(length.0), "max": mm(length.1)},
                     "width": {"min": mm(width.0), "max": mm(width.1)},
@@ -278,8 +283,6 @@ fn led(s: &mut Script) {
                 },
             }),
         );
-        let description = format!("Chip LED, {} metric, IPC-7351 Nominal", &name[4..8]);
-        s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
     // The 3 mm LED's pads are 1.6 mm (IPC-2222 Level B for its 0.9 mm hole is 1.5 mm) so

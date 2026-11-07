@@ -3493,7 +3493,7 @@
     },
     {
       "category": "library",
-      "description": "Runs the Library check on one element, one Library or every registered Library, and returns its Violations: off-grid Pins, duplicate Pin numbers, Pins with no Pad in some alternate Footprint, Pads mapped to no Pin and not marked unconnected, missing courtyards and broken references. Open elements are checked with their unsaved changes. It never blocks saving.",
+      "description": "Runs the Library check on one element, one Library or every registered Library, and returns its Violations, each at the severity the user set in Preferences (`libraries.severities`; checks set to off do not run): Pin, Pad and pin-map mistakes, shorted copper, Footprint origin and courtyard problems, duplicate primitives, Part names and MPNs, missing descriptions, and generated Footprints their stored params no longer make. Open elements are checked with their unsaved changes. It never blocks saving.",
       "icon": "rule",
       "id": "library.check",
       "kind": "file",

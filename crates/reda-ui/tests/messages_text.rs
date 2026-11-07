@@ -2,7 +2,7 @@
 //! arguments through the UI catalogue, never from text the engine sends.
 
 use reda_ui::engine::model::geom::Nm;
-use reda_ui::engine::model::{DrcCheck, ErcCheck, Severity, Violation};
+use reda_ui::engine::model::{DrcCheck, ErcCheck, LibraryCheck, Severity, Violation};
 use reda_ui::i18n;
 use reda_ui::messages::{check_title, violation_text};
 
@@ -38,11 +38,12 @@ fn an_unknown_check_falls_back_to_its_id() {
 }
 
 #[test]
-fn every_erc_and_drc_check_has_text_and_a_title_in_the_catalogue() {
+fn every_erc_drc_and_library_check_has_text_and_a_title_in_the_catalogue() {
     let ids = ErcCheck::ALL
         .iter()
         .map(|c| c.id())
-        .chain(DrcCheck::ALL.iter().map(|c| c.id()));
+        .chain(DrcCheck::ALL.iter().map(|c| c.id()))
+        .chain(LibraryCheck::ALL.iter().map(|c| c.id()));
     let missing: Vec<String> = ids
         .flat_map(|id| {
             let id = id.replace('_', "-");
@@ -57,4 +58,24 @@ fn every_erc_and_drc_check_has_text_and_a_title_in_the_catalogue() {
 fn a_check_title_comes_from_the_catalogue() {
     assert_eq!(check_title("dangling_wire"), "Dangling Wire");
     assert_eq!(check_title("from_the_future"), "from_the_future");
+}
+
+#[test]
+fn library_check_lines_name_what_they_found() {
+    let v = Violation::new("missing_pins_in_sequence", Severity::Warning).arg("missing", "3-4, 6");
+    assert_eq!(violation_text(&v), "Pin numbers 3-4, 6 are missing");
+    let v = Violation::new("origin_off_centroid", Severity::Warning)
+        .arg("x", Nm(300_000))
+        .arg("y", Nm(0));
+    assert_eq!(
+        violation_text(&v),
+        "The origin is off the body centre at (0.3mm, 0mm)"
+    );
+    let v = Violation::new("generator_out_of_date", Severity::Warning)
+        .arg("generator", "library.footprint.generate.chip");
+    assert_eq!(
+        violation_text(&v),
+        "The Footprint differs from what its stored generator params make: \
+         edited by hand, or made by an older generator"
+    );
 }

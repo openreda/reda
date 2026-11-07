@@ -409,3 +409,67 @@ fn page_tree_labels_are_left_aligned() {
         assert!(indent < 10.0, "{title:?} starts {indent} pt into its row");
     }
 }
+
+#[test]
+fn the_libraries_page_has_a_grid_of_library_check_severities_with_reset() {
+    let home = TempDir::new("pref-dialog-library-severities");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Libraries");
+    let severities = || reda_ui::engine::model::LibrarySeverities::DEFAULT;
+    assert_eq!(
+        h.state().shell().preferences().libraries.severities,
+        severities()
+    );
+    // One row per check, named by its title, at the spec's default.
+    for check in reda_ui::engine::model::LibraryCheck::ALL {
+        let title = reda_ui::messages::check_title(check.id());
+        assert!(
+            h.query_by_role_and_label(Role::ComboBox, &title).is_some(),
+            "no row for {title}"
+        );
+    }
+    assert!(
+        h.query_by_role_and_label(Role::Label, "Library check severities")
+            .is_some()
+    );
+
+    h.get_by_role_and_label(Role::ComboBox, "Missing Courtyard")
+        .click();
+    h.run();
+    h.get_all_by_label("Error").last().unwrap().click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.set");
+    let set = h.state().shell().preferences().libraries.severities;
+    assert_eq!(
+        set.missing_courtyard,
+        reda_ui::engine::model::Severity::Error
+    );
+
+    h.get_by_role_and_label(Role::ComboBox, "Missing Pin Name")
+        .click();
+    h.run();
+    h.get_all_by_label("Warning").last().unwrap().click();
+    h.run();
+    assert_eq!(
+        h.state()
+            .shell()
+            .preferences()
+            .libraries
+            .severities
+            .missing_pin_name,
+        reda_ui::engine::model::Severity::Warning
+    );
+
+    h.get_by_role_and_label(Role::Button, "Reset severities")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Reset severities")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.reset");
+    assert_eq!(
+        h.state().shell().preferences().libraries.severities,
+        severities()
+    );
+}
