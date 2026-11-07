@@ -109,6 +109,7 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         properties: Default::default(),
         erc: Default::default(),
         schematic: Default::default(),
+        reannotate: None,
     });
     let document = new_id();
     let rules = FabRules {

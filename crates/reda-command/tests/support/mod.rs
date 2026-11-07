@@ -239,6 +239,7 @@ impl Command for Create {
             properties: Default::default(),
             erc: Default::default(),
             schematic: Default::default(),
+            reannotate: None,
         }));
         Ok(uuid)
     }

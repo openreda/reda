@@ -37,14 +37,19 @@ impl ReannotateOrder {
         ReannotateOrder::BoardPosition,
     ];
 
-    fn id(self) -> &'static str {
-        match self {
+    /// The `source` and `order` params for this order.
+    fn params(self) -> Value {
+        let order = match self {
             ReannotateOrder::AcrossThenDown => "across_then_down",
             ReannotateOrder::AcrossThenUp => "across_then_up",
             ReannotateOrder::DownThenAcross => "down_then_across",
             ReannotateOrder::UpThenAcross => "up_then_across",
-            ReannotateOrder::BoardPosition => "board_position",
-        }
+            // Rows from the top, each left to right, as on the sheet.
+            ReannotateOrder::BoardPosition => {
+                return json!({"source": "board", "order": "descending_y_then_ascending_x"});
+            }
+        };
+        json!({"source": "schematic", "order": order})
     }
 
     fn label(self) -> String {
@@ -115,12 +120,12 @@ impl ReannotateDialog {
 
     /// The params `schematic.reannotate` takes for the dialog's choices.
     fn params(&self, shell: &Shell) -> Value {
-        let mut params = json!({"order": self.order.id()});
+        let mut params = self.order.params();
         match self.scope {
             ReannotateScope::Project => params["scope"] = json!("project"),
             ReannotateScope::Sheet => {
-                params["scope"] = json!("sheet");
-                params["document"] = json!(self.sheet);
+                params["scope"] = json!("sheets");
+                params["sheets"] = json!([self.sheet]);
             }
             ReannotateScope::Selection => {
                 params["scope"] = json!("selection");

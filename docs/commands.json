@@ -15519,6 +15519,21 @@
             ],
             "type": "object"
           },
+          "Location": {
+            "description": "Which point of a Unit the schematic orders sort by.",
+            "oneOf": [
+              {
+                "const": "part",
+                "description": "The centre of its body.",
+                "type": "string"
+              },
+              {
+                "const": "designator",
+                "description": "Where its Designator text sits, or the body centre when it is hidden.",
+                "type": "string"
+              }
+            ]
+          },
           "LocationStyle": {
             "description": "How a cross-reference names where on its sheet a partner is.",
             "oneOf": [
@@ -15622,6 +15637,21 @@
               },
               {
                 "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "Mode": {
+            "description": "What Re-annotate renumbers.",
+            "oneOf": [
+              {
+                "const": "renumber_all",
+                "description": "Every unlocked Component in the scope.",
+                "type": "string"
+              },
+              {
+                "const": "fix_duplicates_only",
+                "description": "Only Components whose Designator another Component holds too: the first in\nprocessing order keeps it, unless a locked or out-of-scope Component holds it.",
+                "type": "string"
               }
             ]
           },
@@ -15732,6 +15762,17 @@
                       "title": ""
                     },
                     "description": "The Project properties that fill the sheets' title blocks."
+                  },
+                  "reannotate": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ReannotateSettings"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The last Re-annotate settings applied, if any."
                   },
                   "schematic": {
                     "$ref": "#/$defs/SchematicOptions",
@@ -16512,6 +16553,51 @@
                   "type"
                 ],
                 "type": "object"
+              }
+            ]
+          },
+          "Order": {
+            "description": "The order Re-annotate numbers in. The first four walk the schematic: sheets go in\nProjects panel order, and sheet y grows upwards, so \"down\" starts at the top. The last\nfour walk the board, the bottom side mirrored in X (seen from below); board y grows\nupwards too, so \"descending Y\" starts at the top.",
+            "oneOf": [
+              {
+                "const": "across_then_down",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "across_then_up",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "down_then_across",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "up_then_across",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_x_then_ascending_y",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_x_then_descending_y",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_y_then_ascending_x",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "descending_y_then_ascending_x",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
               }
             ]
           },
@@ -17311,6 +17397,69 @@
             ],
             "type": "object"
           },
+          "ReannotateSettings": {
+            "additionalProperties": false,
+            "description": "The settings of one Re-annotate, as stored for the next run. A `selection` scope is\nstored without the selection itself.",
+            "properties": {
+              "location": {
+                "$ref": "#/$defs/Location",
+                "description": "Schematic only: the point of a Unit to sort by."
+              },
+              "mode": {
+                "$ref": "#/$defs/Mode"
+              },
+              "order": {
+                "$ref": "#/$defs/Order"
+              },
+              "per_sheet": {
+                "description": "Schematic only: where each listed sheet's numbering starts; 1 for the others.",
+                "items": {
+                  "$ref": "#/$defs/SheetStart"
+                },
+                "type": "array"
+              },
+              "scope": {
+                "$ref": "#/$defs/ScopeKind"
+              },
+              "sheets": {
+                "description": "The sheets, for scope `sheets`, in Projects panel order.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sides": {
+                "$ref": "#/$defs/Sides",
+                "description": "Board only: the sides to number."
+              },
+              "source": {
+                "$ref": "#/$defs/Source"
+              },
+              "start_index": {
+                "description": "Board only: where numbering starts.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "threshold": {
+                "description": "A part this close to the first part of a row (or column) joins it.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "source",
+              "mode",
+              "scope",
+              "order",
+              "location",
+              "threshold",
+              "sides",
+              "start_index"
+            ],
+            "type": "object"
+          },
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
@@ -17542,6 +17691,26 @@
             ],
             "type": "object"
           },
+          "ScopeKind": {
+            "description": "Which Components a Re-annotate takes.",
+            "oneOf": [
+              {
+                "const": "project",
+                "description": "Every Component in the Project.",
+                "type": "string"
+              },
+              {
+                "const": "sheets",
+                "description": "Every Component with a Unit on one of the listed sheets.",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "description": "The selected Components (from the board: Selected Only).",
+                "type": "string"
+              }
+            ]
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -17771,6 +17940,26 @@
             ],
             "type": "string"
           },
+          "SheetStart": {
+            "additionalProperties": false,
+            "description": "Where one sheet's numbering starts.",
+            "properties": {
+              "sheet": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "start_index": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "sheet",
+              "start_index"
+            ],
+            "type": "object"
+          },
           "SheetStyle": {
             "description": "How a cross-reference names a partner's sheet.",
             "oneOf": [
@@ -17818,6 +18007,26 @@
             ],
             "type": "object"
           },
+          "Sides": {
+            "description": "Which board sides the board orders number.",
+            "oneOf": [
+              {
+                "const": "top_then_bottom",
+                "description": "The top side, then the bottom, then Components with no Footprint on the board.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Only Components whose Footprint is on the top.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Only Components whose Footprint is on the bottom.",
+                "type": "string"
+              }
+            ]
+          },
           "SlotCommand": {
             "description": "How the drill file writes a slot.",
             "oneOf": [
@@ -17829,6 +18038,21 @@
               {
                 "const": "g85",
                 "description": "The `G85` canned slot.",
+                "type": "string"
+              }
+            ]
+          },
+          "Source": {
+            "description": "Where Re-annotate takes the positions it numbers by.",
+            "oneOf": [
+              {
+                "const": "schematic",
+                "description": "Where the Units sit on their sheets.",
+                "type": "string"
+              },
+              {
+                "const": "board",
+                "description": "Where the Footprints sit on the board. The new Designators write through to it.",
                 "type": "string"
               }
             ]
@@ -21484,6 +21708,21 @@
             ],
             "type": "object"
           },
+          "Location": {
+            "description": "Which point of a Unit the schematic orders sort by.",
+            "oneOf": [
+              {
+                "const": "part",
+                "description": "The centre of its body.",
+                "type": "string"
+              },
+              {
+                "const": "designator",
+                "description": "Where its Designator text sits, or the body centre when it is hidden.",
+                "type": "string"
+              }
+            ]
+          },
           "LocationStyle": {
             "description": "How a cross-reference names where on its sheet a partner is.",
             "oneOf": [
@@ -21587,6 +21826,21 @@
               },
               {
                 "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "Mode": {
+            "description": "What Re-annotate renumbers.",
+            "oneOf": [
+              {
+                "const": "renumber_all",
+                "description": "Every unlocked Component in the scope.",
+                "type": "string"
+              },
+              {
+                "const": "fix_duplicates_only",
+                "description": "Only Components whose Designator another Component holds too: the first in\nprocessing order keeps it, unless a locked or out-of-scope Component holds it.",
+                "type": "string"
               }
             ]
           },
@@ -21697,6 +21951,17 @@
                       "title": ""
                     },
                     "description": "The Project properties that fill the sheets' title blocks."
+                  },
+                  "reannotate": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ReannotateSettings"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The last Re-annotate settings applied, if any."
                   },
                   "schematic": {
                     "$ref": "#/$defs/SchematicOptions",
@@ -22501,6 +22766,51 @@
             ],
             "type": "object"
           },
+          "Order": {
+            "description": "The order Re-annotate numbers in. The first four walk the schematic: sheets go in\nProjects panel order, and sheet y grows upwards, so \"down\" starts at the top. The last\nfour walk the board, the bottom side mirrored in X (seen from below); board y grows\nupwards too, so \"descending Y\" starts at the top.",
+            "oneOf": [
+              {
+                "const": "across_then_down",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "across_then_up",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "down_then_across",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "up_then_across",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_x_then_ascending_y",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_x_then_descending_y",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_y_then_ascending_x",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "descending_y_then_ascending_x",
+                "description": "Rows from the top, each left to right.",
+                "type": "string"
+              }
+            ]
+          },
           "Orientation": {
             "description": "Which way up a sheet's paper is.",
             "oneOf": [
@@ -23297,6 +23607,69 @@
             ],
             "type": "object"
           },
+          "ReannotateSettings": {
+            "additionalProperties": false,
+            "description": "The settings of one Re-annotate, as stored for the next run. A `selection` scope is\nstored without the selection itself.",
+            "properties": {
+              "location": {
+                "$ref": "#/$defs/Location",
+                "description": "Schematic only: the point of a Unit to sort by."
+              },
+              "mode": {
+                "$ref": "#/$defs/Mode"
+              },
+              "order": {
+                "$ref": "#/$defs/Order"
+              },
+              "per_sheet": {
+                "description": "Schematic only: where each listed sheet's numbering starts; 1 for the others.",
+                "items": {
+                  "$ref": "#/$defs/SheetStart"
+                },
+                "type": "array"
+              },
+              "scope": {
+                "$ref": "#/$defs/ScopeKind"
+              },
+              "sheets": {
+                "description": "The sheets, for scope `sheets`, in Projects panel order.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sides": {
+                "$ref": "#/$defs/Sides",
+                "description": "Board only: the sides to number."
+              },
+              "source": {
+                "$ref": "#/$defs/Source"
+              },
+              "start_index": {
+                "description": "Board only: where numbering starts.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "threshold": {
+                "description": "A part this close to the first part of a row (or column) joins it.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "source",
+              "mode",
+              "scope",
+              "order",
+              "location",
+              "threshold",
+              "sides",
+              "start_index"
+            ],
+            "type": "object"
+          },
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
@@ -23528,6 +23901,26 @@
             ],
             "type": "object"
           },
+          "ScopeKind": {
+            "description": "Which Components a Re-annotate takes.",
+            "oneOf": [
+              {
+                "const": "project",
+                "description": "Every Component in the Project.",
+                "type": "string"
+              },
+              {
+                "const": "sheets",
+                "description": "Every Component with a Unit on one of the listed sheets.",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "description": "The selected Components (from the board: Selected Only).",
+                "type": "string"
+              }
+            ]
+          },
           "Severity": {
             "description": "How a check's Violations are reported.",
             "enum": [
@@ -23757,6 +24150,26 @@
             ],
             "type": "string"
           },
+          "SheetStart": {
+            "additionalProperties": false,
+            "description": "Where one sheet's numbering starts.",
+            "properties": {
+              "sheet": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "start_index": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "sheet",
+              "start_index"
+            ],
+            "type": "object"
+          },
           "SheetStyle": {
             "description": "How a cross-reference names a partner's sheet.",
             "oneOf": [
@@ -23804,6 +24217,26 @@
             ],
             "type": "object"
           },
+          "Sides": {
+            "description": "Which board sides the board orders number.",
+            "oneOf": [
+              {
+                "const": "top_then_bottom",
+                "description": "The top side, then the bottom, then Components with no Footprint on the board.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Only Components whose Footprint is on the top.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Only Components whose Footprint is on the bottom.",
+                "type": "string"
+              }
+            ]
+          },
           "SlotCommand": {
             "description": "How the drill file writes a slot.",
             "oneOf": [
@@ -23815,6 +24248,21 @@
               {
                 "const": "g85",
                 "description": "The `G85` canned slot.",
+                "type": "string"
+              }
+            ]
+          },
+          "Source": {
+            "description": "Where Re-annotate takes the positions it numbers by.",
+            "oneOf": [
+              {
+                "const": "schematic",
+                "description": "Where the Units sit on their sheets.",
+                "type": "string"
+              },
+              {
+                "const": "board",
+                "description": "Where the Footprints sit on the board. The new Designators write through to it.",
                 "type": "string"
               }
             ]
@@ -47148,14 +47596,58 @@
     },
     {
       "category": "schematic",
-      "description": "Renumbers Designators in a processing order (across then down, across then up, down then across, up then across; sheets in Document order), or by board position (where the Footprints sit: top side, then bottom; the new Designators write through to the board, one undo entry per Document). Each Component in the scope that is not Designator-locked gets the smallest free number for its prefix; locked and out-of-scope Components keep theirs. Every Unit of a Component gets the same Designator.",
+      "description": "Renumbers Designators, from the schematic (by where each Unit's body or Designator sits, sheets in Projects panel order) or from the board (by the leading edge of each Footprint's Courtyard or Pads, the top side then the bottom seen from below; the new Designators write through to the board, one undo entry per Document). Rows and columns gather the parts within `threshold` of their first part. Each Component in the scope that is not Designator-locked gets the smallest free number for its prefix from its start index (with `fix_duplicates_only`, only duplicates are renumbered); locked and out-of-scope Components keep theirs, so a number an unselected Component holds is skipped. Every Unit of a Component gets the same Designator. The settings applied are saved in the Project, and `{saved: true}` runs them again.",
       "icon": "annotate",
       "id": "schematic.reannotate",
       "kind": "edit",
       "params": {
         "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Location": {
+            "description": "Which point of a Unit the schematic orders sort by.",
+            "oneOf": [
+              {
+                "const": "part",
+                "description": "The centre of its body.",
+                "type": "string"
+              },
+              {
+                "const": "designator",
+                "description": "Where its Designator text sits, or the body centre when it is hidden.",
+                "type": "string"
+              }
+            ]
+          },
+          "Mode": {
+            "description": "What Re-annotate renumbers.",
+            "oneOf": [
+              {
+                "const": "renumber_all",
+                "description": "Every unlocked Component in the scope.",
+                "type": "string"
+              },
+              {
+                "const": "fix_duplicates_only",
+                "description": "Only Components whose Designator another Component holds too: the first in\nprocessing order keeps it, unless a locked or out-of-scope Component holds it.",
+                "type": "string"
+              }
+            ]
+          },
           "Order": {
-            "description": "The processing orders a Re-annotate can take. For the sheet orders, sheets are always\nnumbered in Document order; within a sheet, the order says how to walk it. Sheet y\ngrows upwards, so \"down\" starts at the top of the sheet.",
+            "description": "The order Re-annotate numbers in. The first four walk the schematic: sheets go in\nProjects panel order, and sheet y grows upwards, so \"down\" starts at the top. The last\nfour walk the board, the bottom side mirrored in X (seen from below); board y grows\nupwards too, so \"descending Y\" starts at the top.",
             "oneOf": [
               {
                 "const": "across_then_down",
@@ -47178,14 +47670,29 @@
                 "type": "string"
               },
               {
-                "const": "board_position",
-                "description": "By where the Footprints sit on the board: the top side first, in rows from the top\n(board y grows upwards), each left to right; then the bottom side, in rows from the\ntop, each right to left as seen from below. Components with no Footprint on the\nboard come last, across then down on their sheets. Needs a PCB Document.",
+                "const": "ascending_x_then_ascending_y",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_x_then_descending_y",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_y_then_ascending_x",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "descending_y_then_ascending_x",
+                "description": "Rows from the top, each left to right.",
                 "type": "string"
               }
             ]
           },
-          "ReannotateScope": {
-            "description": "Which Components to renumber.",
+          "ScopeKind": {
+            "description": "Which Components a Re-annotate takes.",
             "oneOf": [
               {
                 "const": "project",
@@ -47193,13 +47700,68 @@
                 "type": "string"
               },
               {
-                "const": "sheet",
-                "description": "Every Component with a Unit on the sheet `document`.",
+                "const": "sheets",
+                "description": "Every Component with a Unit on one of the listed sheets.",
                 "type": "string"
               },
               {
                 "const": "selection",
-                "description": "The Components or Units listed in `selection`.",
+                "description": "The selected Components (from the board: Selected Only).",
+                "type": "string"
+              }
+            ]
+          },
+          "SheetStart": {
+            "additionalProperties": false,
+            "description": "Where one sheet's numbering starts.",
+            "properties": {
+              "sheet": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "start_index": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "sheet",
+              "start_index"
+            ],
+            "type": "object"
+          },
+          "Sides": {
+            "description": "Which board sides the board orders number.",
+            "oneOf": [
+              {
+                "const": "top_then_bottom",
+                "description": "The top side, then the bottom, then Components with no Footprint on the board.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Only Components whose Footprint is on the top.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Only Components whose Footprint is on the bottom.",
+                "type": "string"
+              }
+            ]
+          },
+          "Source": {
+            "description": "Where Re-annotate takes the positions it numbers by.",
+            "oneOf": [
+              {
+                "const": "schematic",
+                "description": "Where the Units sit on their sheets.",
+                "type": "string"
+              },
+              {
+                "const": "board",
+                "description": "Where the Footprints sit on the board. The new Designators write through to it.",
                 "type": "string"
               }
             ]
@@ -47208,23 +47770,67 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "document": {
-            "description": "The Schematic Sheet, for scope `sheet`.",
-            "format": "uuid",
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Location"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From the schematic: sort by `part` (the body centre, the default) or `designator`\n(where its text sits, or the body centre when it is hidden)."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Mode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`renumber_all` (the default), or `fix_duplicates_only`: only Components whose\nDesignator another holds are renumbered, the first in processing order keeping it."
+          },
+          "order": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Order"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From the schematic: `across_then_down` (the default), `across_then_up`,\n`down_then_across` or `up_then_across`; sheets always go in Projects panel order.\nFrom the board: `descending_y_then_ascending_x` (the default),\n`ascending_y_then_ascending_x`, `ascending_x_then_descending_y` or\n`ascending_x_then_ascending_y`."
+          },
+          "per_sheet": {
+            "description": "From the schematic: where each listed sheet's numbering starts (1 for the others).\nA sheet that runs over takes the next free numbers.",
+            "items": {
+              "$ref": "#/$defs/SheetStart"
+            },
             "type": [
-              "string",
+              "array",
               "null"
             ]
           },
-          "order": {
-            "$ref": "#/$defs/Order",
-            "description": "The order to number the Components in."
+          "saved": {
+            "default": false,
+            "description": "Run the Project's saved settings (those of the last `schematic.reannotate`\napplied). No other setting may be given with it, except `selection` for a saved\n`selection` scope.",
+            "type": "boolean"
           },
           "scope": {
-            "$ref": "#/$defs/ReannotateScope"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ScopeKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`project` (the default), `sheets` (the Components with a Unit on one of `sheets`)\nor `selection` (those in `selection`; from the board, Selected Only)."
           },
           "selection": {
-            "description": "Component or Unit UUIDs, for scope `selection`. A Unit stands for its Component.",
+            "description": "Component, Unit or Footprint instance UUIDs, for scope `selection`. A Unit or a\nFootprint stands for its Component.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -47233,18 +47839,88 @@
               "array",
               "null"
             ]
+          },
+          "sheets": {
+            "description": "The Schematic Sheets, for scope `sheets`.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "sides": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Sides"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From the board: `top_then_bottom` (the default), `top` or `bottom`."
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Source"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`schematic` (the default): by where the Units sit on the sheets. `board`: by where\nthe Footprints sit on the board; the new Designators write through to it."
+          },
+          "start_index": {
+            "description": "From the board: where numbering starts, 1 by default.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "threshold": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A part this close to the first part of a row (or column) joins it. 100 mil by\ndefault."
           }
         },
-        "required": [
-          "order",
-          "scope"
-        ],
         "title": "ReannotateParams",
         "type": "object"
       },
       "presets": [],
       "result": {
         "$defs": {
+          "Duplicate": {
+            "description": "A Designator that more than one Component still holds after the plan, because each of\nthem is locked or outside the scope.",
+            "properties": {
+              "components": {
+                "description": "The Components holding it, by UUID.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "designator": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "designator",
+              "components"
+            ],
+            "type": "object"
+          },
           "Rename": {
             "description": "One Component's Designator before and after.",
             "properties": {
@@ -47268,33 +47944,86 @@
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "description": "Old → new for every Component renumbered, in processing order. Locked Components are\nleft out; a Component whose number comes out the same is listed with `old` = `new`.",
+        "description": "What a Re-annotate would do.",
         "properties": {
           "designators": {
+            "description": "Old → new for every Component it numbers, in processing order; a Component whose\nnumber comes out the same is listed with `old` = `new`. Locked Components, those\noutside the scope and those on a board side not numbered are left out.",
             "items": {
               "$ref": "#/$defs/Rename"
+            },
+            "type": "array"
+          },
+          "kept_duplicates": {
+            "description": "The Designators still shared after it by locked or out-of-scope Components.",
+            "items": {
+              "$ref": "#/$defs/Duplicate"
             },
             "type": "array"
           }
         },
         "required": [
-          "designators"
+          "designators",
+          "kept_duplicates"
         ],
-        "title": "ReannotateResult",
+        "title": "Plan",
         "type": "object"
       },
       "title": "Re-annotate"
     },
     {
       "category": "schematic",
-      "description": "Shows old → new for what `schematic.reannotate` would do with the same params, without changing anything.",
+      "description": "Shows old → new for what `schematic.reannotate` would do with the same params, and the Designators that locked or out-of-scope Components would still share, without changing anything.",
       "icon": "annotate",
       "id": "schematic.reannotate.preview",
       "kind": "query",
       "params": {
         "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Location": {
+            "description": "Which point of a Unit the schematic orders sort by.",
+            "oneOf": [
+              {
+                "const": "part",
+                "description": "The centre of its body.",
+                "type": "string"
+              },
+              {
+                "const": "designator",
+                "description": "Where its Designator text sits, or the body centre when it is hidden.",
+                "type": "string"
+              }
+            ]
+          },
+          "Mode": {
+            "description": "What Re-annotate renumbers.",
+            "oneOf": [
+              {
+                "const": "renumber_all",
+                "description": "Every unlocked Component in the scope.",
+                "type": "string"
+              },
+              {
+                "const": "fix_duplicates_only",
+                "description": "Only Components whose Designator another Component holds too: the first in\nprocessing order keeps it, unless a locked or out-of-scope Component holds it.",
+                "type": "string"
+              }
+            ]
+          },
           "Order": {
-            "description": "The processing orders a Re-annotate can take. For the sheet orders, sheets are always\nnumbered in Document order; within a sheet, the order says how to walk it. Sheet y\ngrows upwards, so \"down\" starts at the top of the sheet.",
+            "description": "The order Re-annotate numbers in. The first four walk the schematic: sheets go in\nProjects panel order, and sheet y grows upwards, so \"down\" starts at the top. The last\nfour walk the board, the bottom side mirrored in X (seen from below); board y grows\nupwards too, so \"descending Y\" starts at the top.",
             "oneOf": [
               {
                 "const": "across_then_down",
@@ -47317,14 +48046,29 @@
                 "type": "string"
               },
               {
-                "const": "board_position",
-                "description": "By where the Footprints sit on the board: the top side first, in rows from the top\n(board y grows upwards), each left to right; then the bottom side, in rows from the\ntop, each right to left as seen from below. Components with no Footprint on the\nboard come last, across then down on their sheets. Needs a PCB Document.",
+                "const": "ascending_x_then_ascending_y",
+                "description": "Columns from the left, each bottom to top.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_x_then_descending_y",
+                "description": "Columns from the left, each top to bottom.",
+                "type": "string"
+              },
+              {
+                "const": "ascending_y_then_ascending_x",
+                "description": "Rows from the bottom, each left to right.",
+                "type": "string"
+              },
+              {
+                "const": "descending_y_then_ascending_x",
+                "description": "Rows from the top, each left to right.",
                 "type": "string"
               }
             ]
           },
-          "ReannotateScope": {
-            "description": "Which Components to renumber.",
+          "ScopeKind": {
+            "description": "Which Components a Re-annotate takes.",
             "oneOf": [
               {
                 "const": "project",
@@ -47332,13 +48076,68 @@
                 "type": "string"
               },
               {
-                "const": "sheet",
-                "description": "Every Component with a Unit on the sheet `document`.",
+                "const": "sheets",
+                "description": "Every Component with a Unit on one of the listed sheets.",
                 "type": "string"
               },
               {
                 "const": "selection",
-                "description": "The Components or Units listed in `selection`.",
+                "description": "The selected Components (from the board: Selected Only).",
+                "type": "string"
+              }
+            ]
+          },
+          "SheetStart": {
+            "additionalProperties": false,
+            "description": "Where one sheet's numbering starts.",
+            "properties": {
+              "sheet": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "start_index": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "sheet",
+              "start_index"
+            ],
+            "type": "object"
+          },
+          "Sides": {
+            "description": "Which board sides the board orders number.",
+            "oneOf": [
+              {
+                "const": "top_then_bottom",
+                "description": "The top side, then the bottom, then Components with no Footprint on the board.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Only Components whose Footprint is on the top.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Only Components whose Footprint is on the bottom.",
+                "type": "string"
+              }
+            ]
+          },
+          "Source": {
+            "description": "Where Re-annotate takes the positions it numbers by.",
+            "oneOf": [
+              {
+                "const": "schematic",
+                "description": "Where the Units sit on their sheets.",
+                "type": "string"
+              },
+              {
+                "const": "board",
+                "description": "Where the Footprints sit on the board. The new Designators write through to it.",
                 "type": "string"
               }
             ]
@@ -47347,23 +48146,67 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "document": {
-            "description": "The Schematic Sheet, for scope `sheet`.",
-            "format": "uuid",
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Location"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From the schematic: sort by `part` (the body centre, the default) or `designator`\n(where its text sits, or the body centre when it is hidden)."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Mode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`renumber_all` (the default), or `fix_duplicates_only`: only Components whose\nDesignator another holds are renumbered, the first in processing order keeping it."
+          },
+          "order": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Order"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From the schematic: `across_then_down` (the default), `across_then_up`,\n`down_then_across` or `up_then_across`; sheets always go in Projects panel order.\nFrom the board: `descending_y_then_ascending_x` (the default),\n`ascending_y_then_ascending_x`, `ascending_x_then_descending_y` or\n`ascending_x_then_ascending_y`."
+          },
+          "per_sheet": {
+            "description": "From the schematic: where each listed sheet's numbering starts (1 for the others).\nA sheet that runs over takes the next free numbers.",
+            "items": {
+              "$ref": "#/$defs/SheetStart"
+            },
             "type": [
-              "string",
+              "array",
               "null"
             ]
           },
-          "order": {
-            "$ref": "#/$defs/Order",
-            "description": "The order to number the Components in."
+          "saved": {
+            "default": false,
+            "description": "Run the Project's saved settings (those of the last `schematic.reannotate`\napplied). No other setting may be given with it, except `selection` for a saved\n`selection` scope.",
+            "type": "boolean"
           },
           "scope": {
-            "$ref": "#/$defs/ReannotateScope"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ScopeKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`project` (the default), `sheets` (the Components with a Unit on one of `sheets`)\nor `selection` (those in `selection`; from the board, Selected Only)."
           },
           "selection": {
-            "description": "Component or Unit UUIDs, for scope `selection`. A Unit stands for its Component.",
+            "description": "Component, Unit or Footprint instance UUIDs, for scope `selection`. A Unit or a\nFootprint stands for its Component.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -47372,18 +48215,88 @@
               "array",
               "null"
             ]
+          },
+          "sheets": {
+            "description": "The Schematic Sheets, for scope `sheets`.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "sides": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Sides"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From the board: `top_then_bottom` (the default), `top` or `bottom`."
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Source"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`schematic` (the default): by where the Units sit on the sheets. `board`: by where\nthe Footprints sit on the board; the new Designators write through to it."
+          },
+          "start_index": {
+            "description": "From the board: where numbering starts, 1 by default.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "threshold": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A part this close to the first part of a row (or column) joins it. 100 mil by\ndefault."
           }
         },
-        "required": [
-          "order",
-          "scope"
-        ],
         "title": "ReannotateParams",
         "type": "object"
       },
       "presets": [],
       "result": {
         "$defs": {
+          "Duplicate": {
+            "description": "A Designator that more than one Component still holds after the plan, because each of\nthem is locked or outside the scope.",
+            "properties": {
+              "components": {
+                "description": "The Components holding it, by UUID.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "designator": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "designator",
+              "components"
+            ],
+            "type": "object"
+          },
           "Rename": {
             "description": "One Component's Designator before and after.",
             "properties": {
@@ -47407,19 +48320,28 @@
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "description": "Old → new for every Component renumbered, in processing order. Locked Components are\nleft out; a Component whose number comes out the same is listed with `old` = `new`.",
+        "description": "What a Re-annotate would do.",
         "properties": {
           "designators": {
+            "description": "Old → new for every Component it numbers, in processing order; a Component whose\nnumber comes out the same is listed with `old` = `new`. Locked Components, those\noutside the scope and those on a board side not numbered are left out.",
             "items": {
               "$ref": "#/$defs/Rename"
+            },
+            "type": "array"
+          },
+          "kept_duplicates": {
+            "description": "The Designators still shared after it by locked or out-of-scope Components.",
+            "items": {
+              "$ref": "#/$defs/Duplicate"
             },
             "type": "array"
           }
         },
         "required": [
-          "designators"
+          "designators",
+          "kept_duplicates"
         ],
-        "title": "ReannotateResult",
+        "title": "Plan",
         "type": "object"
       },
       "title": "Preview Re-annotate"
