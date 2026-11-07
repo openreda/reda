@@ -10,7 +10,7 @@ use crate::document::{DocumentEntry, DocumentKind};
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{PcbDocument, ZoneFills};
 use crate::schematic::SchematicSheet;
-use crate::{ElementSource, ErcSeverities, LibraryElement, Scope, TxError, Uuid};
+use crate::{ElementSource, ErcSettings, LibraryElement, Scope, TxError, Uuid};
 
 /// Project-wide properties, stored in `<name>.reda`.
 ///
@@ -29,9 +29,9 @@ pub struct ProjectProps {
     /// The Project properties that fill the sheets' title blocks.
     #[serde(default)]
     pub properties: ProjectProperties,
-    /// The ERC severities.
+    /// The ERC severities and Pin Matrix.
     #[serde(default)]
-    pub erc: ErcSeverities,
+    pub erc: ErcSettings,
     /// The schematic options.
     #[serde(default)]
     pub schematic: SchematicOptions,

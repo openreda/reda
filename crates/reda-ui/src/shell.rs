@@ -1539,15 +1539,22 @@ impl Shell {
     }
 
     /// Sets the severity of a line's check (`erc.set_severity`/`drc.set_severity`) and
-    /// runs the check again.
+    /// runs the check again. For a Pin Matrix check it sets the cell of the line's pair of
+    /// types instead (`erc.set_pin_matrix`).
     pub fn set_severity(&mut self, key: LineKey, severity: Severity) -> Result<(), CommandError> {
         let Some((kind, v)) = self.violation_of(key) else {
             return Ok(());
         };
-        self.run_reporting(
-            &format!("{}.set_severity", kind.id()),
-            json!({"check": v.check, "severity": severity}),
-        )?;
+        match crate::messages::matrix_cell(&v).filter(|_| kind == CheckKind::Erc) {
+            Some((a, b)) => self.run_reporting(
+                "erc.set_pin_matrix",
+                json!({"cells": [{"a": a, "b": b, "severity": severity}]}),
+            )?,
+            None => self.run_reporting(
+                &format!("{}.set_severity", kind.id()),
+                json!({"check": v.check, "severity": severity}),
+            )?,
+        };
         self.run_check(kind)
     }
 

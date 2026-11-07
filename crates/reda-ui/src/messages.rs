@@ -344,6 +344,20 @@ pub fn violation_text(violation: &Violation) -> String {
     i18n::translate(&key, &args)
 }
 
+/// The Pin Matrix cell an ERC Violation of `unconnected_pin` or `pin_conflict` belongs to,
+/// as its two type names: what **Set severity** changes for such a line.
+pub fn matrix_cell(violation: &Violation) -> Option<(String, String)> {
+    let text = |name: &str| match violation.args.get(name) {
+        Some(ViolationArg::Text(t)) => Some(t.clone()),
+        _ => None,
+    };
+    match violation.check.as_str() {
+        "unconnected_pin" => Some((text("type")?, "unconnected".to_owned())),
+        "pin_conflict" => Some((text("type_a")?, text("type_b")?)),
+        _ => None,
+    }
+}
+
 /// A check's title from the catalogue (`check-<id>`); its id when there is none.
 pub fn check_title(check: &str) -> String {
     let key = format!("check-{}", check.replace('_', "-"));

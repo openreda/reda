@@ -283,17 +283,23 @@ fn reset_to_defaults_shows_the_page_defaults_as_pending_edits_until_apply() {
     f.h.get_by_label("Single-Pin Net: Off").click();
     f.h.run();
     f.click("Apply");
-    let erc = |f: &Fixture| f.shell().engine().project().unwrap().props().erc;
-    assert_eq!(erc(&f).get(ErcCheck::SinglePinNet), Severity::Off);
+    let erc = |f: &Fixture| f.shell().engine().project().unwrap().props().erc.clone();
+    assert_eq!(
+        erc(&f).severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Off)
+    );
     f.click("Reset to Defaults");
     assert_eq!(
-        erc(&f).get(ErcCheck::SinglePinNet),
-        Severity::Off,
+        erc(&f).severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Off),
         "pending"
     );
     assert!(!f.disabled("Apply"));
     f.click("Apply");
-    assert_eq!(erc(&f).get(ErcCheck::SinglePinNet), Severity::Warning);
+    assert_eq!(
+        erc(&f).severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Warning)
+    );
 }
 
 #[test]

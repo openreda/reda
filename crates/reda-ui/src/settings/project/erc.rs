@@ -1,8 +1,10 @@
-//! The ERC page: each check's severity (`erc.set_severity`), with the fixed pin-type
-//! matrix shown read-only beside the Pin conflict checks.
+//! The ERC page: each check's severity (`erc.set_severity`), with the Project's Pin Matrix
+//! shown read-only beside the two checks it sets.
 
 use egui::{Button, RichText, Role, Ui, WidgetInfo};
-use reda_engine::model::{ErcCheck, ErcSeverities, PinType, Project, Severity, pin_conflict};
+use reda_engine::model::{
+    Cell, ErcCheck, ErcSeverities, MatrixType, PinMatrix, PinType, PortDirection, Project, Severity,
+};
 use serde_json::json;
 
 use crate::settings::{Draft, Page, PageCx, Problem, Step};
@@ -11,16 +13,20 @@ use crate::tr;
 /// The severity of every ERC check, as chosen.
 #[derive(Clone, Debug)]
 pub struct ErcPage {
+    /// The checks with a severity of their own: not the Pin Matrix checks.
     severities: Vec<(ErcCheck, Draft<Severity>)>,
+    /// The Project's Pin Matrix, as loaded.
+    matrix: PinMatrix,
 }
 
 impl Default for ErcPage {
     fn default() -> Self {
         ErcPage {
-            severities: ErcCheck::ALL
-                .iter()
+            severities: (ErcCheck::ALL.iter())
+                .filter(|c| !c.is_matrix())
                 .map(|&c| (c, Draft::new(Severity::Warning)))
                 .collect(),
+            matrix: PinMatrix::DEFAULT,
         }
     }
 }
@@ -54,11 +60,10 @@ fn severity_name(severity: Severity) -> String {
 /// An ERC check's name for the user.
 pub fn check_name(check: ErcCheck) -> String {
     match check {
-        ErcCheck::UnconnectedInput => tr!("check-unconnected-input"),
         ErcCheck::UnconnectedPin => tr!("check-unconnected-pin"),
         ErcCheck::PinConflict => tr!("check-pin-conflict"),
-        ErcCheck::PinConflictMixed => tr!("check-pin-conflict-mixed"),
         ErcCheck::UndrivenPower => tr!("check-undriven-power"),
+        ErcCheck::NoDrivingSource => tr!("check-no-driving-source"),
         ErcCheck::SinglePinNet => tr!("check-single-pin-net"),
         ErcCheck::DanglingWire => tr!("check-dangling-wire"),
         ErcCheck::UnattachedLabel => tr!("check-unattached-label"),
@@ -67,11 +72,37 @@ pub fn check_name(check: ErcCheck) -> String {
         ErcCheck::NetNamesAcrossSheets => tr!("check-net-names-across-sheets"),
         ErcCheck::DuplicateNets => tr!("check-duplicate-nets"),
         ErcCheck::SingleSheetPort => tr!("check-single-sheet-port"),
+        ErcCheck::PortNoDriver => tr!("check-port-no-driver"),
         ErcCheck::DuplicateDesignator => tr!("check-duplicate-designator"),
         ErcCheck::UnplacedUnits => tr!("check-unplaced-units"),
+        ErcCheck::UnitPlacedTwice => tr!("check-unit-placed-twice"),
+        ErcCheck::NoFootprintChoice => tr!("check-no-footprint-choice"),
         ErcCheck::NetTieOneNet => tr!("check-net-tie-one-net"),
         ErcCheck::UnitDataMismatch => tr!("check-unit-data-mismatch"),
+        ErcCheck::OffGrid => tr!("check-off-grid"),
+        ErcCheck::OffSheet => tr!("check-off-sheet"),
         ErcCheck::LibraryOutOfDate => tr!("check-library-out-of-date"),
+    }
+}
+
+/// A Pin Matrix row's or column's name and its short form for the column heads.
+fn matrix_type_names(t: MatrixType) -> (String, String) {
+    match t {
+        MatrixType::Pin(t) => pin_type_names(t),
+        MatrixType::Port(PortDirection::In) => {
+            (tr!("pin-matrix-port-in"), tr!("pin-matrix-port-in-short"))
+        }
+        MatrixType::Port(PortDirection::Out) => {
+            (tr!("pin-matrix-port-out"), tr!("pin-matrix-port-out-short"))
+        }
+        MatrixType::Port(PortDirection::Bidirectional) => (
+            tr!("pin-matrix-port-bidirectional"),
+            tr!("pin-matrix-port-bidirectional-short"),
+        ),
+        MatrixType::Unconnected => (
+            tr!("pin-matrix-unconnected"),
+            tr!("pin-matrix-unconnected-short"),
+        ),
     }
 }
 
@@ -109,10 +140,13 @@ impl Page for ErcPage {
     }
 
     fn load(&mut self, project: &Project, reset: bool) {
-        let erc = project.props().erc;
+        let erc = &project.props().erc;
         for (check, draft) in &mut self.severities {
-            draft.load(erc.get(*check), reset);
+            if let Some(severity) = erc.severities.get(*check) {
+                draft.load(severity, reset);
+            }
         }
+        self.matrix = erc.pin_matrix_overrides.clone();
     }
 
     fn steps(&self) -> Vec<Step> {
@@ -134,7 +168,9 @@ impl Page for ErcPage {
 
     fn reset_to_defaults(&mut self, _shell: &mut crate::shell::Shell) {
         for (check, draft) in &mut self.severities {
-            draft.set(ErcSeverities::DEFAULT.get(*check));
+            if let Some(severity) = ErcSeverities::DEFAULT.get(*check) {
+                draft.set(severity);
+            }
         }
     }
 
@@ -143,17 +179,18 @@ impl Page for ErcPage {
     }
 
     fn show(&mut self, ui: &mut Ui, _cx: &mut PageCx<'_>) {
-        // The matrix goes right after the two Pin conflict checks it decides.
-        let split = ErcCheck::ALL
-            .iter()
-            .position(|&c| c == ErcCheck::PinConflictMixed)
-            .map_or(self.severities.len(), |i| i + 1);
-        let (head, tail) = self.severities.split_at_mut(split);
-        severity_grid(ui, "settings-erc-head", head);
+        // The matrix comes first, standing for the two checks it sets.
+        for check in ErcCheck::ALL.iter().filter(|c| c.is_matrix()) {
+            ui.label(tr!(
+                "settings-erc-set-by-matrix",
+                check = check_name(*check)
+            ));
+        }
         ui.add_space(4.0);
-        ui.indent("settings-erc-matrix", pin_matrix);
+        let matrix = &self.matrix;
+        ui.indent("settings-erc-matrix", |ui| pin_matrix(ui, matrix));
         ui.add_space(4.0);
-        severity_grid(ui, "settings-erc-tail", tail);
+        severity_grid(ui, "settings-erc-checks", &mut self.severities);
     }
 }
 
@@ -189,9 +226,8 @@ fn severity_grid(ui: &mut Ui, id: &str, rows: &mut [(ErcCheck, Draft<Severity>)]
         });
 }
 
-/// The fixed pin-type matrix: E where two Pin types on one Net are a Pin conflict, W
-/// where they should not mix.
-fn pin_matrix(ui: &mut Ui) {
+/// The Project's Pin Matrix, read-only: E, W or a dot per cell, coloured by level.
+fn pin_matrix(ui: &mut Ui, matrix: &PinMatrix) {
     ui.weak(tr!("settings-erc-matrix"));
     let error = ui.visuals().error_fg_color;
     let warning = ui.visuals().warn_fg_color;
@@ -199,18 +235,22 @@ fn pin_matrix(ui: &mut Ui) {
         .spacing([4.0, 2.0])
         .show(ui, |ui| {
             ui.label("");
-            for &t in PinType::ALL {
-                let (name, short) = pin_type_names(t);
+            for &t in MatrixType::ALL {
+                let (name, short) = matrix_type_names(t);
                 ui.label(RichText::new(short).small()).on_hover_text(name);
             }
             ui.end_row();
-            for &a in PinType::ALL {
-                ui.label(RichText::new(pin_type_names(a).0).small());
-                for &b in PinType::ALL {
-                    let cell = match pin_conflict(a, b) {
-                        Some(ErcCheck::PinConflict) => RichText::new("E").color(error).strong(),
-                        Some(_) => RichText::new("W").color(warning).strong(),
-                        None => RichText::new("·").weak(),
+            for &a in MatrixType::ALL
+                .iter()
+                .filter(|t| **t != MatrixType::Unconnected)
+            {
+                ui.label(RichText::new(matrix_type_names(a).0).small());
+                for &b in MatrixType::ALL {
+                    let cell = match Cell::new(a, b).map(|c| matrix.get(c)) {
+                        Some(Severity::Error) => RichText::new("E").color(error).strong(),
+                        Some(Severity::Warning) => RichText::new("W").color(warning).strong(),
+                        Some(Severity::Off) => RichText::new("·").weak(),
+                        None => RichText::new(""),
                     };
                     ui.label(cell.small());
                 }

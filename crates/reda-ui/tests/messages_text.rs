@@ -79,3 +79,19 @@ fn library_check_lines_name_what_they_found() {
          edited by hand, or made by an older generator"
     );
 }
+
+#[test]
+fn a_pin_matrix_line_names_its_cell() {
+    use reda_ui::messages::matrix_cell;
+    let v = Violation::new("pin_conflict", Severity::Warning)
+        .arg("type_a", "output")
+        .arg("type_b", "port_in");
+    assert_eq!(matrix_cell(&v), Some(("output".into(), "port_in".into())));
+    let v = Violation::new("unconnected_pin", Severity::Error).arg("type", "input");
+    assert_eq!(
+        matrix_cell(&v),
+        Some(("input".into(), "unconnected".into()))
+    );
+    let v = Violation::new("dangling_wire", Severity::Warning);
+    assert_eq!(matrix_cell(&v), None);
+}

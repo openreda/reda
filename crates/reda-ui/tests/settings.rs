@@ -69,7 +69,10 @@ fn apply_commits_every_page_as_one_batch_and_one_undo_entry() {
     let p = shell.engine().project().unwrap().props().clone();
     assert_eq!(p.properties.title, "Motor driver");
     assert_eq!(p.properties.company, "Acme");
-    assert_eq!(p.erc.get(ErcCheck::SinglePinNet), Severity::Off);
+    assert_eq!(
+        p.erc.severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Off)
+    );
     assert_eq!(p.libraries, ["parts"]);
     assert!(!d.has_changes(), "applied changes are no longer pending");
 
@@ -77,7 +80,10 @@ fn apply_commits_every_page_as_one_batch_and_one_undo_entry() {
     shell.undo(false, Some(Scope::Project)).unwrap();
     let p = shell.engine().project().unwrap().props().clone();
     assert_eq!(p.properties.title, "");
-    assert_eq!(p.erc.get(ErcCheck::SinglePinNet), Severity::Warning);
+    assert_eq!(
+        p.erc.severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Warning)
+    );
     assert!(p.libraries.is_empty());
     assert!(
         shell.undo(false, Some(Scope::Project)).is_err(),

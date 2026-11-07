@@ -16,7 +16,7 @@ use crate::Uuid;
 mod pin_matrix;
 mod waiver;
 
-pub use pin_matrix::pin_conflict;
+pub use pin_matrix::{Cell, ErcSettings, MatrixType, PinMatrix};
 pub use waiver::{Waived, Waiver, apply_waivers};
 
 // A check set to `Off` does not run, so it reports nothing. (Kept out of the doc comment,
@@ -216,6 +216,89 @@ impl From<Uuid> for ViolationArg {
 /// of `field => Variant = DefaultSeverity` rows. The field name is the check id that
 /// Violations and Waivers carry.
 macro_rules! severities {
+    // A table whose first checks are set by the Pin Matrix: they are in the check enum but
+    // have no field in the severities struct.
+    (
+        $(#[$emeta:meta])* enum $check:ident;
+        $(#[$smeta:meta])* struct $severities:ident;
+        matrix { $($(#[$mdoc:meta])* $mfield:ident => $mvariant:ident,)* }
+        $($(#[$doc:meta])* $field:ident => $variant:ident = $default:ident,)*
+    ) => {
+        $(#[$emeta])*
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+            JsonSchema,
+        )]
+        #[serde(rename_all = "snake_case")]
+        pub enum $check {
+            $($(#[$mdoc])* $mvariant,)*
+            $($(#[$doc])* $variant,)*
+        }
+
+        impl $check {
+            /// Every check, in the order of its table.
+            pub const ALL: &[$check] = &[$($check::$mvariant,)* $($check::$variant,)*];
+
+            /// The check id Violations and Waivers carry, such as `pin_conflict`.
+            pub const fn id(self) -> &'static str {
+                match self {
+                    $($check::$mvariant => stringify!($mfield),)*
+                    $($check::$variant => stringify!($field),)*
+                }
+            }
+
+            /// Whether the Pin Matrix sets this check's severity, one cell at a time, so
+            /// it has no severity of its own.
+            pub const fn is_matrix(self) -> bool {
+                matches!(self, $($check::$mvariant)|*)
+            }
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+        $(#[$smeta])*
+        #[serde(deny_unknown_fields)]
+        pub struct $severities {
+            $($(#[$doc])* pub $field: Severity,)*
+        }
+
+        impl $severities {
+            /// The defaults of the table.
+            pub const DEFAULT: $severities = $severities {
+                $($field: Severity::$default,)*
+            };
+
+            /// The severity of `check`; `None` for a check the Pin Matrix sets.
+            pub fn get(&self, check: $check) -> Option<Severity> {
+                match check {
+                    $($check::$mvariant => None,)*
+                    $($check::$variant => Some(self.$field),)*
+                }
+            }
+
+            /// Sets the severity of `check`; false, changing nothing, for a check the Pin
+            /// Matrix sets.
+            pub fn set(&mut self, check: $check, severity: Severity) -> bool {
+                match check {
+                    $($check::$mvariant => false,)*
+                    $($check::$variant => {
+                        self.$field = severity;
+                        true
+                    })*
+                }
+            }
+
+            /// Whether every check has its default severity.
+            pub fn is_default(&self) -> bool {
+                *self == $severities::DEFAULT
+            }
+        }
+
+        impl Default for $severities {
+            fn default() -> $severities {
+                $severities::DEFAULT
+            }
+        }
+    };
     (
         $(#[$emeta:meta])* enum $check:ident;
         $(#[$smeta:meta])* struct $severities:ident;
@@ -291,22 +374,24 @@ severities! {
     /// default.
     #[serde(default)]
     struct ErcSeverities;
-    /// An Input or Power In Pin connected to nothing.
-    unconnected_input => UnconnectedInput = Error,
-    /// A Pin of another type connected to nothing. Not Connected Pins and Pins with a
-    /// No-Connect Marker are exempt.
-    unconnected_pin => UnconnectedPin = Warning,
-    /// Drivers fighting on a Net: Output and Power Out Pins together.
-    pin_conflict => PinConflict = Error,
-    /// Pin types that should not mix on a Net, such as Tri-state and Output.
-    pin_conflict_mixed => PinConflictMixed = Warning,
+    matrix {
+        /// A Pin connected to nothing. Pins with a No-Connect Marker are exempt. Its
+        /// severity is the Pin Matrix cell of the Pin's type and Unconnected.
+        unconnected_pin => UnconnectedPin,
+        /// Two Pins or Ports on a Net whose types conflict. Its severity is the Pin
+        /// Matrix cell of the two types.
+        pin_conflict => PinConflict,
+    }
     /// A Net with Power In Pins and no Power Out Pin or Power Port.
     undriven_power => UndrivenPower = Warning,
+    /// A Net with Input Pins and no Output, Bidirectional, Tri-state, Open Collector, Open
+    /// Emitter or Power Out Pin, and no Power Port.
+    no_driving_source => NoDrivingSource = Off,
     /// A wired Net with only one Pin.
     single_pin_net => SinglePinNet = Warning,
     /// A Wire end that touches nothing.
     dangling_wire => DanglingWire = Warning,
-    /// A Net Label or Port attached to nothing.
+    /// A Net Label, Port or Power Port attached to nothing.
     unattached_label => UnattachedLabel = Warning,
     /// A No-Connect Marker on a Pin that is connected.
     no_connect_connected => NoConnectConnected = Warning,
@@ -320,14 +405,24 @@ severities! {
     duplicate_nets => DuplicateNets = Error,
     /// A Port whose name no other sheet has.
     single_sheet_port => SingleSheetPort = Warning,
+    /// A Net whose Ports are all `in`, so nothing drives it.
+    port_no_driver => PortNoDriver = Off,
     /// Several Components with the same Designator.
     duplicate_designator => DuplicateDesignator = Error,
     /// Units of a placed multi-unit Component left unplaced.
     unplaced_units => UnplacedUnits = Warning,
+    /// One Unit of a Component placed more than once.
+    unit_placed_twice => UnitPlacedTwice = Error,
+    /// A Standard or Net Tie Component with no Footprint choice.
+    no_footprint_choice => NoFootprintChoice = Warning,
     /// A Net Tie with all its Pins on one Net, so the tie does nothing.
     net_tie_one_net => NetTieOneNet = Warning,
     /// Units of one Component whose Component data differ.
     unit_data_mismatch => UnitDataMismatch = Error,
+    /// A Pin or Wire vertex off the 50 mil connection grid.
+    off_grid => OffGrid = Warning,
+    /// An object outside the sheet border.
+    off_sheet => OffSheet = Warning,
     /// A placed Component whose Library Status is Library Differs: its Part, Symbol or
     /// Footprints in the Libraries no longer match the copy in the part table.
     library_out_of_date => LibraryOutOfDate = Off,

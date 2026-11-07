@@ -14,6 +14,20 @@ const LOGIC: &str = "a0000000-0000-4000-8000-000000000210";
 const R_PIN_1: &str = "a0000000-0000-4000-8000-000000000012";
 const R_PIN_2: &str = "a0000000-0000-4000-8000-000000000013";
 
+/// The ten Pin types, as the Pin Matrix names them.
+const PIN_TYPES: [&str; 10] = [
+    "input",
+    "output",
+    "bidirectional",
+    "tri_state",
+    "passive",
+    "power_in",
+    "power_out",
+    "open_collector",
+    "open_emitter",
+    "not_connected",
+];
+
 fn library() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/erc_library/Erc")
 }
@@ -121,15 +135,6 @@ fn port_on(engine: &mut TestEngine, sheet: &str, name: &str, x: i64, y: i64) -> 
     out["result"]["port"].as_str().unwrap().to_owned()
 }
 
-fn checks(result: &Value) -> Vec<String> {
-    result["violations"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v["check"].as_str().unwrap().to_owned())
-        .collect()
-}
-
 fn sorted(mut v: Vec<String>) -> Vec<String> {
     v.sort();
     v
@@ -169,19 +174,25 @@ fn unconnected_input_and_power_in_pins_are_errors_and_not_connected_pins_are_exe
     let mut engine = demo(&dir);
     let u = place(&mut engine, LOGIC, 0, 0);
     let out = erc(&mut engine);
-    let inputs = of(&out, "unconnected_input");
-    assert_eq!(inputs.len(), 2, "{out}");
-    assert_eq!(inputs[0]["severity"], "error");
-    assert_eq!(inputs[0]["objects"], json!([u, logic_pin(1)]));
-    assert_eq!(inputs[1]["objects"], json!([u, logic_pin(6)]));
-    let others: Vec<Value> = of(&out, "unconnected_pin")
+    let unconnected = of(&out, "unconnected_pin");
+    let errors: Vec<&Value> = unconnected
         .iter()
+        .filter(|v| v["severity"] == "error")
+        .collect();
+    assert_eq!(errors.len(), 2, "{out}");
+    assert_eq!(errors[0]["objects"], json!([u, logic_pin(1)]));
+    assert_eq!(errors[0]["args"]["type"], "input");
+    assert_eq!(errors[1]["objects"], json!([u, logic_pin(6)]));
+    assert_eq!(errors[1]["args"]["type"], "power_in");
+    let warnings: Vec<Value> = (unconnected.iter())
+        .filter(|v| v["severity"] == "warning")
         .map(|v| v["args"]["pin"].clone())
         .collect();
     assert_eq!(
-        json!(others),
+        json!(warnings),
         json!(["U1-2", "U1-3", "U1-4", "U1-5", "U1-8"])
     );
+    assert!(of(&out, "unconnected_input").is_empty());
 }
 
 #[test]
@@ -195,8 +206,9 @@ fn a_no_connect_marker_exempts_its_pin_until_the_pin_is_wired() {
     )["result"]["no_connect"]
         .clone();
     let out = erc(&mut engine);
-    assert_eq!(checks(&out), ["unconnected_pin"], "{out}");
-    assert_eq!(of(&out, "unconnected_pin")[0]["args"]["pin"], "R1-2");
+    let unconnected = of(&out, "unconnected_pin");
+    assert_eq!(unconnected.len(), 1, "{out}");
+    assert_eq!(unconnected[0]["args"]["pin"], "R1-2");
 
     wire(&mut engine, &[(0, 150), (0, 300), (200, 300)]);
     let out = erc(&mut engine);
@@ -223,11 +235,11 @@ fn outputs_on_one_net_are_a_pin_conflict_error() {
     );
     assert_eq!(found[0]["args"]["type_a"], "output");
     assert_eq!(found[0]["args"]["pin_b"], "U2-2");
-    assert!(of(&out, "pin_conflict_mixed").is_empty());
+    assert_eq!(found[0]["args"]["type_b"], "output");
 }
 
 #[test]
-fn tri_state_with_output_is_a_mixed_pin_conflict_warning() {
+fn tri_state_with_output_is_a_pin_conflict_warning() {
     let dir = TempDir::new("erc-mixed");
     let mut engine = demo(&dir);
     let u1 = place(&mut engine, LOGIC, 0, 0);
@@ -235,7 +247,7 @@ fn tri_state_with_output_is_a_mixed_pin_conflict_warning() {
     // U1 TRI at (0, -200) to U2 OUT at (1000, -200).
     wire(&mut engine, &[(0, -200), (1000, -200)]);
     let out = erc(&mut engine);
-    let found = of(&out, "pin_conflict_mixed");
+    let found = of(&out, "pin_conflict");
     assert_eq!(found.len(), 1, "{out}");
     assert_eq!(found[0]["severity"], "warning");
     assert_eq!(
@@ -244,7 +256,7 @@ fn tri_state_with_output_is_a_mixed_pin_conflict_warning() {
     );
     assert_eq!(found[0]["args"]["type_a"], "tri_state");
     assert_eq!(found[0]["args"]["type_b"], "output");
-    assert!(of(&out, "pin_conflict").is_empty());
+    assert!(of(&out, "pin_conflict_mixed").is_empty());
 }
 
 #[test]
@@ -440,29 +452,147 @@ fn severities_are_set_per_check_stored_in_the_project_and_undone_on_its_stack() 
     let dir = TempDir::new("erc-severity");
     let mut engine = demo(&dir);
     place(&mut engine, R_10K, 0, 0);
+    wire(&mut engine, &[(0, 150), (0, 300)]);
     engine.run_ok(
         "erc.set_severity",
-        json!({"check": "unconnected_pin", "severity": "error"}),
+        json!({"check": "dangling_wire", "severity": "error"}),
     );
     let out = erc(&mut engine);
-    assert_eq!(of(&out, "unconnected_pin")[0]["severity"], "error");
+    assert_eq!(of(&out, "dangling_wire")[0]["severity"], "error");
     engine.run_ok(
         "erc.set_severity",
-        json!({"check": "unconnected_pin", "severity": "off"}),
+        json!({"check": "dangling_wire", "severity": "off"}),
     );
-    assert_eq!(erc(&mut engine)["violations"], json!([]));
+    assert!(of(&erc(&mut engine), "dangling_wire").is_empty());
 
     engine.run_ok("project.save", json!({}));
     let (_, file) = saved(&dir, ".reda");
-    assert!(file.contains("\"unconnected_pin\":\"off\""), "{file}");
-    assert_eq!(erc(&mut reopen(&dir))["violations"], json!([]));
+    assert!(file.contains("\"dangling_wire\":\"off\""), "{file}");
+    assert!(of(&erc(&mut reopen(&dir)), "dangling_wire").is_empty());
 
     engine.run_ok("edit.undo", json!({"document": "project"}));
     let out = erc(&mut engine);
-    assert_eq!(of(&out, "unconnected_pin")[0]["severity"], "error");
+    assert_eq!(of(&out, "dangling_wire")[0]["severity"], "error");
     engine.run_ok("edit.undo", json!({"document": "project"}));
     let out = erc(&mut engine);
+    assert_eq!(of(&out, "dangling_wire")[0]["severity"], "warning");
+}
+
+#[test]
+fn the_pin_matrix_checks_have_no_severity_of_their_own() {
+    let dir = TempDir::new("erc-matrix-severity");
+    let mut engine = demo(&dir);
+    for check in ["unconnected_pin", "pin_conflict"] {
+        let err = engine.run_err(
+            "erc.set_severity",
+            json!({"check": check, "severity": "off"}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{check}");
+        assert!(
+            err.message.contains("erc.set_pin_matrix"),
+            "{}",
+            err.message
+        );
+    }
+    for gone in ["unconnected_input", "pin_conflict_mixed"] {
+        let err = engine.run_err(
+            "erc.set_severity",
+            json!({"check": gone, "severity": "off"}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{gone}");
+    }
+}
+
+#[test]
+fn pin_matrix_cells_are_set_as_one_step_and_stored_sparsely() {
+    let dir = TempDir::new("erc-matrix");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 0, 0);
+    // Passive with Unconnected is a Warning by default.
+    let out = erc(&mut engine);
     assert_eq!(of(&out, "unconnected_pin")[0]["severity"], "warning");
+
+    engine.run_ok(
+        "erc.set_pin_matrix",
+        json!({"cells": [
+            {"a": "unconnected", "b": "passive", "severity": "error"},
+            {"a": "output", "b": "output", "severity": "warning"},
+            {"a": "input", "b": "input", "severity": "off"},
+        ]}),
+    );
+    let out = erc(&mut engine);
+    let found = of(&out, "unconnected_pin");
+    assert_eq!(found.len(), 2, "{out}");
+    assert!(found.iter().all(|v| v["severity"] == "error"));
+
+    engine.run_ok("project.save", json!({}));
+    let (_, file) = saved(&dir, ".reda");
+    assert!(
+        file.contains(
+            "\"pin_matrix_overrides\":{\"output|output\":\"warning\",\"passive|unconnected\":\"error\"}"
+        ),
+        "{file}"
+    );
+    let out = erc(&mut reopen(&dir));
+    assert_eq!(of(&out, "unconnected_pin")[0]["severity"], "error");
+
+    // A null severity resets a cell; resetting every cell leaves no overrides.
+    engine.run_ok(
+        "erc.set_pin_matrix",
+        json!({"cells": [{"a": "passive", "b": "unconnected", "severity": "off"}]}),
+    );
+    assert!(of(&erc(&mut engine), "unconnected_pin").is_empty());
+    engine.run_ok(
+        "erc.set_pin_matrix",
+        json!({"cells": [
+            {"a": "passive", "b": "unconnected", "severity": null},
+            {"a": "output", "b": "output", "severity": null},
+        ]}),
+    );
+    assert_eq!(
+        of(&erc(&mut engine), "unconnected_pin")[0]["severity"],
+        "warning"
+    );
+    engine.run_ok("project.save", json!({}));
+    let (_, file) = saved(&dir, ".reda");
+    assert!(!file.contains("\"erc\""), "{file}");
+
+    // Each call is one undo step on the Project's stack.
+    engine.run_ok("edit.undo", json!({"document": "project"}));
+    assert!(of(&erc(&mut engine), "unconnected_pin").is_empty());
+    engine.run_ok("edit.undo", json!({"document": "project"}));
+    assert_eq!(
+        of(&erc(&mut engine), "unconnected_pin")[0]["severity"],
+        "error"
+    );
+    engine.run_ok("edit.undo", json!({"document": "project"}));
+    assert_eq!(
+        of(&erc(&mut engine), "unconnected_pin")[0]["severity"],
+        "warning"
+    );
+}
+
+#[test]
+fn a_pin_matrix_pair_it_has_no_cell_for_is_refused_and_changes_nothing() {
+    let dir = TempDir::new("erc-matrix-bad");
+    let mut engine = demo(&dir);
+    let err = engine.run_err(
+        "erc.set_pin_matrix",
+        json!({"cells": [
+            {"a": "output", "b": "output", "severity": "off"},
+            {"a": "port_in", "b": "unconnected", "severity": "error"},
+        ]}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    assert_eq!(err.details.unwrap()["pointer"], "/cells/1");
+    let err = engine.run_err(
+        "erc.set_pin_matrix",
+        json!({"cells": [{"a": "output", "b": "speaker", "severity": "off"}]}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    engine.run_ok("project.save", json!({}));
+    let (_, file) = saved(&dir, ".reda");
+    assert!(!file.contains("\"erc\""), "{file}");
 }
 
 #[test]
@@ -628,10 +758,13 @@ fn batch_erc_waivers_validate_atomically_and_take_one_step_per_document() {
     e.run_ok("edit.redo", json!({"document":SHEET}));
     e.run_ok("edit.redo", json!({"document":second}));
     assert_eq!(erc(&mut e)["waived"], 4);
-    e.run_ok(
-        "erc.set_severity",
-        json!({"check":"unconnected_pin","severity":"off"}),
-    );
+    // With every Unconnected cell Off, `unconnected_pin` is off, so its Waivers are not
+    // stale.
+    let cells: Vec<Value> = PIN_TYPES
+        .iter()
+        .map(|t| json!({"a": t, "b": "unconnected", "severity": "off"}))
+        .collect();
+    e.run_ok("erc.set_pin_matrix", json!({ "cells": cells }));
     assert_eq!(erc(&mut e)["unmatched_waivers"], json!([]));
     e.run_ok("project.save", json!({}));
     assert_eq!(erc(&mut reopen(&dir))["unmatched_waivers"], json!([]));
@@ -673,4 +806,305 @@ fn a_net_tie_with_all_its_pins_on_one_net_does_nothing_and_warns() {
     let mut engine = demo(&dir);
     place(&mut engine, NET_TIE, 0, 0);
     assert!(of(&erc(&mut engine), "net_tie_one_net").is_empty());
+}
+
+fn port_dir(engine: &mut TestEngine, sheet: &str, name: &str, dir: &str, x: i64, y: i64) -> String {
+    let out = engine.run_ok(
+        "schematic.port.add",
+        json!({"document": sheet, "name": name, "direction": dir, "at": at(x, y)}),
+    );
+    out["result"]["port"].as_str().unwrap().to_owned()
+}
+
+fn new_sheet(engine: &mut TestEngine) -> String {
+    engine.run_ok("document.add", json!({"kind": "schematic"}))["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+fn set_severity(engine: &mut TestEngine, check: &str, severity: &str) {
+    engine.run_ok(
+        "erc.set_severity",
+        json!({"check": check, "severity": severity}),
+    );
+}
+
+/// The `pin_conflict` Violations that involve object `uuid`.
+fn conflicts_with(result: &Value, uuid: &str) -> Vec<Value> {
+    of(result, "pin_conflict")
+        .into_iter()
+        .filter(|v| v["objects"].as_array().unwrap().iter().any(|o| o == uuid))
+        .collect()
+}
+
+#[test]
+fn a_driver_wired_to_an_in_port_on_its_sheet_is_a_pin_conflict_warning() {
+    let dir = TempDir::new("erc-pin-port");
+    let mut engine = demo(&dir);
+    let u = place(&mut engine, LOGIC, 0, 0);
+    // U1 OUT at (0, -100) to an `in` Port.
+    wire(&mut engine, &[(0, -100), (300, -100)]);
+    let port = port_dir(&mut engine, SHEET, "SIG", "in", 300, -100);
+    let out = erc(&mut engine);
+    let found = conflicts_with(&out, &port);
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["objects"], json!([u, logic_pin(2), port]));
+    assert_eq!(found[0]["args"]["pin_b"], "SIG");
+    assert_eq!(found[0]["args"]["type_a"], "output");
+    assert_eq!(found[0]["args"]["type_b"], "port_in");
+}
+
+#[test]
+fn pins_and_ports_compare_only_within_one_sheet() {
+    let dir = TempDir::new("erc-pin-port-sheets");
+    let mut engine = demo(&dir);
+    // Sheet 1: U1 OUT drives an `out` Port SIG.
+    place(&mut engine, LOGIC, 0, 0);
+    wire(&mut engine, &[(0, -100), (300, -100)]);
+    let out_port = port_dir(&mut engine, SHEET, "SIG", "out", 300, -100);
+    // Sheet 2: an `in` Port SIG feeds U2 IN; U1 OUT on sheet 1 is how it is driven.
+    let second = new_sheet(&mut engine);
+    place_on(&mut engine, &second, LOGIC, 0, 0);
+    wire_on(&mut engine, &second, &[(0, 0), (300, 0)]);
+    let in_port = port_dir(&mut engine, &second, "SIG", "in", 300, 0);
+    let out = erc(&mut engine);
+    assert!(conflicts_with(&out, &in_port).is_empty(), "{out}");
+    assert!(conflicts_with(&out, &out_port).is_empty(), "{out}");
+}
+
+#[test]
+fn out_ports_on_one_net_conflict_across_sheets() {
+    let dir = TempDir::new("erc-port-port");
+    let mut engine = demo(&dir);
+    let a = port_dir(&mut engine, SHEET, "BUS", "out", 0, 0);
+    let second = new_sheet(&mut engine);
+    let b = port_dir(&mut engine, &second, "BUS", "out", 0, 0);
+    let other = port_dir(&mut engine, &second, "IDLE", "out", 500, 0);
+    let out = erc(&mut engine);
+    let found = conflicts_with(&out, &a);
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(sorted(strings(&found[0]["objects"])), sorted(vec![a, b]));
+    assert_eq!(found[0]["args"]["type_a"], "port_out");
+    assert_eq!(found[0]["args"]["type_b"], "port_out");
+    assert!(conflicts_with(&out, &other).is_empty());
+
+    // An `in` Port with an `out` one is fine by default.
+    let dir = TempDir::new("erc-port-port-in");
+    let mut engine = demo(&dir);
+    let a = port_dir(&mut engine, SHEET, "BUS", "out", 0, 0);
+    let second = new_sheet(&mut engine);
+    port_dir(&mut engine, &second, "BUS", "in", 0, 0);
+    assert!(conflicts_with(&erc(&mut engine), &a).is_empty());
+}
+
+#[test]
+fn an_input_net_with_nothing_to_drive_it_has_no_driving_source_when_switched_on() {
+    let dir = TempDir::new("erc-no-driver");
+    let mut engine = demo(&dir);
+    let u = place(&mut engine, LOGIC, 0, 0);
+    // U1 IN at (0, 0), labelled A: nothing drives it.
+    wire(&mut engine, &[(0, 0), (-300, 0)]);
+    label(&mut engine, "A", -300, 0);
+    assert!(
+        of(&erc(&mut engine), "no_driving_source").is_empty(),
+        "Off by default"
+    );
+
+    set_severity(&mut engine, "no_driving_source", "warning");
+    let out = erc(&mut engine);
+    let found = of(&out, "no_driving_source");
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["args"]["net"], "A");
+    assert_eq!(found[0]["objects"], json!([u, logic_pin(1)]));
+
+    // A Power Port on the Net drives it.
+    engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": "A", "at": at(-300, 0)}),
+    );
+    assert!(of(&erc(&mut engine), "no_driving_source").is_empty());
+}
+
+#[test]
+fn a_tri_state_pin_drives_an_input_net() {
+    let dir = TempDir::new("erc-tri-drives");
+    let mut engine = demo(&dir);
+    set_severity(&mut engine, "no_driving_source", "warning");
+    place(&mut engine, LOGIC, 0, 0);
+    // U1 IN at (0, 0) round to U1 TRI at (0, -200).
+    wire(&mut engine, &[(0, 0), (-100, 0), (-100, -200), (0, -200)]);
+    assert!(of(&erc(&mut engine), "no_driving_source").is_empty());
+}
+
+#[test]
+fn a_net_whose_ports_are_all_in_has_no_driver_when_switched_on() {
+    let dir = TempDir::new("erc-port-no-driver");
+    let mut engine = demo(&dir);
+    let a = port_dir(&mut engine, SHEET, "CLK", "in", 0, 0);
+    let second = new_sheet(&mut engine);
+    let b = port_dir(&mut engine, &second, "CLK", "in", 0, 0);
+    port_dir(&mut engine, SHEET, "DATA", "in", 500, 0);
+    port_dir(&mut engine, &second, "DATA", "bidirectional", 500, 0);
+    assert!(
+        of(&erc(&mut engine), "port_no_driver").is_empty(),
+        "Off by default"
+    );
+
+    set_severity(&mut engine, "port_no_driver", "warning");
+    let out = erc(&mut engine);
+    let found = of(&out, "port_no_driver");
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["args"]["net"], "CLK");
+    assert_eq!(sorted(strings(&found[0]["objects"])), sorted(vec![a, b]));
+}
+
+#[test]
+fn a_floating_power_port_is_attached_to_nothing() {
+    let dir = TempDir::new("erc-floating-power");
+    let mut engine = demo(&dir);
+    let add = |engine: &mut TestEngine, x: i64, y: i64| {
+        engine.run_ok(
+            "schematic.power_port.add",
+            json!({"document": SHEET, "name": "VCC", "at": at(x, y)}),
+        )["result"]["power_port"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let floating = add(&mut engine, 2000, 2000);
+    wire(&mut engine, &[(0, 0), (500, 0)]);
+    add(&mut engine, 500, 0);
+    let out = erc(&mut engine);
+    let found = of(&out, "unattached_label");
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["objects"], json!([floating]));
+    assert_eq!(found[0]["args"]["name"], "VCC");
+}
+
+#[test]
+fn one_unit_placed_twice_is_an_error() {
+    let dir = TempDir::new("erc-placed-twice");
+    let mut engine = demo(&dir);
+    let a = place(&mut engine, LM358, 0, 0);
+    assert!(of(&erc(&mut engine), "unit_placed_twice").is_empty());
+    let copy = "00000000-0000-4000-8000-0000000000ff";
+    let mut reopened = hand_edit(&mut engine, &dir, |text| {
+        let row = text
+            .lines()
+            .find(|l| l.contains(&format!("{{\"uuid\":\"{a}\"")))
+            .unwrap()
+            .to_owned();
+        let twin = row.replace(&a, copy).replace("\"x\":0,", "\"x\":25400000,");
+        let twin = twin.trim_end_matches(',').to_owned() + ",";
+        text.replacen(&row, &format!("{twin}\n{row}"), 1)
+    });
+    let out = erc(&mut reopened);
+    let found = of(&out, "unit_placed_twice");
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "error");
+    assert_eq!(found[0]["args"]["designator"], "U1");
+    assert_eq!(found[0]["args"]["unit"], "A");
+    assert_eq!(found[0]["args"]["count"], 2);
+    assert_eq!(
+        sorted(strings(&found[0]["objects"])),
+        sorted(vec![a, copy.to_owned()])
+    );
+}
+
+#[test]
+fn a_standard_or_net_tie_component_with_no_footprint_choice_warns() {
+    let dir = TempDir::new("erc-no-footprint");
+    let mut engine = demo(&dir);
+    let u = place(&mut engine, LOGIC, 1000, 0);
+    let tie = place(&mut engine, NET_TIE, 2000, 0);
+    let out = erc(&mut engine);
+    let found = of(&out, "no_footprint_choice");
+    assert_eq!(found.len(), 2, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["args"]["designator"], "U1");
+    assert_eq!(found[0]["objects"], json!([u]));
+    assert_eq!(found[1]["objects"], json!([tie]));
+
+    // A Mechanical Component needs no Footprint.
+    let mut reopened = hand_edit(&mut engine, &dir, |text| {
+        let row = text
+            .lines()
+            .find(|l| l.contains(&format!("{{\"uuid\":\"{u}\"")))
+            .unwrap()
+            .to_owned();
+        let mechanical = row.replace(
+            "\"component_type\":\"standard\"",
+            "\"component_type\":\"mechanical\"",
+        );
+        assert_ne!(mechanical, row);
+        text.replacen(&row, &mechanical, 1)
+    });
+    let out = erc(&mut reopened);
+    let found = of(&out, "no_footprint_choice");
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["objects"], json!([tie]));
+}
+
+#[test]
+fn a_component_with_a_footprint_chosen_has_a_choice() {
+    let dir = TempDir::new("erc-footprint-chosen");
+    let mut engine = test_engine_with_library(&reda_testkit::starter_library());
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let found = engine.run_ok("library.search", json!({}));
+    let part = (found["parts"].as_array().unwrap().iter())
+        .find(|p| p["name"] == "Capacitor")
+        .map(|p| p["uuid"].clone())
+        .unwrap();
+    engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": part, "at": at(1000, 1000)}),
+    );
+    let out = erc(&mut engine);
+    assert!(of(&out, "no_footprint_choice").is_empty(), "{out}");
+}
+
+#[test]
+fn pins_and_wire_vertices_off_the_connection_grid_warn() {
+    let dir = TempDir::new("erc-off-grid");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 1000, 1000);
+    assert!(of(&erc(&mut engine), "off_grid").is_empty());
+    let r = place(&mut engine, R_10K, 2025, 1000);
+    let w = wire(&mut engine, &[(3000, 1000), (3000, 1210), (3200, 1210)]);
+    let out = erc(&mut engine);
+    let found = of(&out, "off_grid");
+    assert_eq!(found.len(), 4, "{out}");
+    assert!(found.iter().all(|v| v["severity"] == "warning"));
+    assert_eq!(found[0]["objects"], json!([r, R_PIN_1]));
+    assert_eq!(found[1]["objects"], json!([r, R_PIN_2]));
+    assert_eq!(found[2]["objects"], json!([w[0]]));
+    assert_eq!(found[2]["at"], json!({"x": 76_200_000, "y": 30_734_000}));
+    assert_eq!(found[3]["objects"], json!([w[0]]));
+}
+
+#[test]
+fn an_object_outside_the_sheet_warns() {
+    let dir = TempDir::new("erc-off-sheet");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 1000, 1000);
+    assert!(of(&erc(&mut engine), "off_sheet").is_empty());
+    // R's Pin 2 hangs 150 mil below the origin, off the paper's bottom edge.
+    let low = place(&mut engine, R_10K, 2000, 0);
+    let text = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Far", "at": at(20_000, 1000)}),
+    )["result"]["text"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let out = erc(&mut engine);
+    let found = of(&out, "off_sheet");
+    assert_eq!(found.len(), 2, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    let objects: Vec<Value> = found.iter().map(|v| v["objects"][0].clone()).collect();
+    assert_eq!(sorted(strings(&json!(objects))), sorted(vec![low, text]));
 }

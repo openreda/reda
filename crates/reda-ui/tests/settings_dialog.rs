@@ -118,14 +118,25 @@ fn apply_on_the_erc_page_commits_and_keeps_the_dialog_open() {
     open_settings(&mut h, "Dlg");
     h.get_by_role_and_label(Role::TreeItem, "ERC").click();
     h.run();
-    h.get_by_label("Pin-type matrix (fixed): E is a Pin Conflict, W is Mixed Pin Types.");
+    h.get_by_label("Pin Matrix: E is an Error, W a Warning, a dot Off.");
     h.get_by_label("Single-Pin Net: Off").click();
     h.run();
     h.get_by_label("Apply").click();
     h.run();
     assert_eq!(last_journal_id(&h), "batch");
-    let erc = h.state().shell().engine().project().unwrap().props().erc;
-    assert_eq!(erc.get(ErcCheck::SinglePinNet), Severity::Off);
+    let erc = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .erc
+        .clone();
+    assert_eq!(
+        erc.severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Off)
+    );
     h.get_by_label("Project Settings");
     assert!(disabled(&h, "Apply"), "nothing left to apply");
 }

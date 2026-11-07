@@ -145,3 +145,61 @@ fn an_edit_marks_the_results_out_of_date() {
     h.run();
     h.get_by_label("ERC results are out of date: the design changed after the run.");
 }
+
+/// Set severity on a Pin Matrix check's line sets the cell of its pair of types.
+#[test]
+fn set_severity_on_an_unconnected_pin_sets_its_pin_matrix_cell() {
+    let (home, work) = (TempDir::new("panel-home"), TempDir::new("panel-work"));
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(Some(reda_testkit::starter_library()))
+        .headless(false)
+        .build();
+    let mut shell = Shell::new(engine);
+    shell.new_project(work.path(), "Demo").unwrap();
+    let sheet = shell.engine().project().unwrap().props().documents[0];
+    let parts = shell.run("library.search", json!({})).unwrap();
+    let resistor = (parts["parts"].as_array().unwrap().iter())
+        .find(|p| p["name"] == "Resistor")
+        .map(|p| p["uuid"].clone())
+        .unwrap();
+    shell
+        .run(
+            "schematic.component.place",
+            json!({"document": sheet, "part": resistor, "at": at(2000, 2000)}),
+        )
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1100.0, 800.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    h.get_all_by_label("Run ERC").last().unwrap().click();
+    h.run();
+
+    h.get_by_label("Pin R1-1 is not connected")
+        .click_secondary();
+    h.run();
+    h.get_by_label("Set severity of “Unconnected Pin”").hover();
+    h.run();
+    h.get_by_label("Error").click();
+    h.run();
+    assert!(journal(&h).contains(&"erc.set_pin_matrix".to_owned()));
+    assert!(!journal(&h).contains(&"erc.set_severity".to_owned()));
+    let erc = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .erc
+        .clone();
+    let cell = reda_ui::engine::model::Cell::unconnected(reda_ui::engine::model::PinType::Passive);
+    assert_eq!(
+        erc.pin_matrix_overrides.get(cell),
+        reda_ui::engine::model::Severity::Error
+    );
+    // Both Pins are passive, so both lines follow the cell.
+    h.get_by_label("Pin R1-1 is not connected");
+    h.get_by_label("Pin R1-2 is not connected");
+}
