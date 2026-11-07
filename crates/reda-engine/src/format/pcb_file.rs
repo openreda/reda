@@ -154,7 +154,8 @@ pub(crate) struct PcbFile {
     /// Pads that belong to no Footprint, sorted by UUID; left out while there are none.
     #[serde(default)]
     free_pads: Vec<FreePad>,
-    /// The point the CPL measures from; left out while it is not set.
+    /// The Output Origin: the zero of a `relative` preset's Gerber, drill and CPL, and of
+    /// the editor's coordinates and grid; left out while it is not set.
     #[serde(default)]
     output_origin: Option<OutputOrigin>,
     /// The copper Zones (outlines and settings, never fills); left out while the board

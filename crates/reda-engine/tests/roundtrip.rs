@@ -600,7 +600,7 @@ prop_compose! {
             pcb,
             fab_preset: preset,
             outputs: Outputs { gerber, drill, bom, cpl, ..Outputs::ALL },
-            name_template: "${project}-${job}".into(),
+            name_template: reda_model::NameTemplate::default(),
             not_fitted_paste: Default::default(),
             schematic_pdf_colour: Default::default(),
             destination,

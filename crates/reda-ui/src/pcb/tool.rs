@@ -163,7 +163,7 @@ impl SelectTool {
             .filter(|_| electrical_snap(shell))
             .map(snap::targets)
             .unwrap_or_default();
-        let snapped = snap::snap(at, grid, board_origin(shell), &targets, self.radius());
+        let snapped = snap::snap(at, grid, shell.board_grid_origin(), &targets, self.radius());
         self.snap = Some(snapped);
         snapped
     }
@@ -419,7 +419,7 @@ impl SelectTool {
         let (current, kind) = snap::snap(
             to - m.offset,
             grid,
-            board_origin(shell),
+            shell.board_grid_origin(),
             &m.targets,
             self.radius(),
         );
@@ -464,7 +464,7 @@ impl SelectTool {
         let mut d = TrackDrag {
             document,
             track,
-            grab: snap::to_grid(at, board_grid(shell), board_origin(shell)),
+            grab: snap::to_grid(at, board_grid(shell), shell.board_grid_origin()),
             detach,
             normal,
             by: Point::default(),
@@ -485,7 +485,7 @@ fn is_track(shell: &Shell, object: Uuid) -> bool {
 /// Follows the cursor at `to` with the segment drag `d`, redrawing the preview when the
 /// drag changed. A plain drag of a straight segment moves it across itself only.
 fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
-    let raw = snap::to_grid(to, board_grid(shell), board_origin(shell)) - d.grab;
+    let raw = snap::to_grid(to, board_grid(shell), shell.board_grid_origin()) - d.grab;
     let by = match (d.detach, d.normal) {
         (false, Some((nx, ny))) => {
             let along = raw.x.0 as f64 * nx + raw.y.0 as f64 * ny;
@@ -550,10 +550,6 @@ fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
 /// `p` as the shared canvas functions take it: nm, y up.
 fn xy(p: Point) -> (f64, f64) {
     (p.x.0 as f64, p.y.0 as f64)
-}
-
-fn board_origin(shell: &Shell) -> Point {
-    board(shell).map_or_else(Point::default, |(_, document)| shell.grid_origin(document))
 }
 
 /// The board's snap grid.

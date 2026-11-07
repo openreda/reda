@@ -2691,7 +2691,7 @@
         }
       ],
       "default": null,
-      "description": "The point the CPL measures from; left out while it is not set."
+      "description": "The Output Origin: the zero of a `relative` preset's Gerber, drill and CPL, and of\nthe editor's coordinates and grid; left out while it is not set."
     },
     "pcb": {
       "$ref": "#/$defs/PcbRow",

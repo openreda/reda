@@ -10,7 +10,7 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{Millideg, Nm, Point};
+use crate::{Bounds, Millideg, Nm, Point};
 
 /// One corner of a contour and the edge that leaves it towards the next vertex.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -219,4 +219,104 @@ pub fn chain(segments: &[Segment]) -> Result<Vec<Vertex>, ContourError> {
     }
     check_contour(&out)?;
     Ok(out)
+}
+
+/// The centre of the arc from `from` to `to` sweeping `sweep` (non-zero, under a full
+/// turn), rounded to the nanometre. Quarter-turn multiples are exact.
+pub fn arc_centre(from: Point, to: Point, sweep: Millideg) -> Point {
+    let (fx, fy, tx, ty) = (from.x.0, from.y.0, to.x.0, to.y.0);
+    let (dx, dy) = (tx - fx, ty - fy);
+    // centre = midpoint + perpendicular(d) / 2 × cot(sweep / 2)
+    let cot = match sweep.0 {
+        90_000 | -270_000 => Some(1),
+        180_000 | -180_000 => Some(0),
+        270_000 | -90_000 => Some(-1),
+        _ => None,
+    };
+    if let Some(k) = cot {
+        let round_half = |twice: i64| twice.div_euclid(2) + i64::from(twice.rem_euclid(2) == 1);
+        return Point::new(
+            Nm(round_half(fx + tx - k * dy)),
+            Nm(round_half(fy + ty + k * dx)),
+        );
+    }
+    let half = (sweep.0 as f64 / 1000.0).to_radians() / 2.0;
+    let k = 1.0 / half.tan();
+    let cx = (fx + tx) as f64 / 2.0 - k * dy as f64 / 2.0;
+    let cy = (fy + ty) as f64 / 2.0 + k * dx as f64 / 2.0;
+    Point::new(Nm(cx.round() as i64), Nm(cy.round() as i64))
+}
+
+/// The smallest box holding a closed contour, arcs included: an arc that sweeps past an
+/// axis reaches out to its radius there. `None` for no vertices.
+pub fn contour_bounds(vertices: &[Vertex]) -> Option<Bounds> {
+    let edges = vertices.iter().enumerate().flat_map(|(i, v)| {
+        let to = vertices[(i + 1) % vertices.len()].point();
+        let extremes = if v.sweep == Millideg::ZERO {
+            Vec::new()
+        } else {
+            arc_extremes(v.point(), to, v.sweep)
+        };
+        std::iter::once(v.point()).chain(extremes)
+    });
+    Bounds::of_points(edges)
+}
+
+/// The points where the arc from `from` sweeping `sweep` crosses the axes through its
+/// centre: where it reaches furthest left, right, up or down.
+fn arc_extremes(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
+    let c = arc_centre(from, to, sweep);
+    let (dx, dy) = ((from.x.0 - c.x.0) as f64, (from.y.0 - c.y.0) as f64);
+    let r = Nm(dx.hypot(dy).round() as i64);
+    let start = dy.atan2(dx).to_degrees();
+    let s = sweep.0 as f64 / 1000.0;
+    [
+        (0.0, Point::new(c.x + r, c.y)),
+        (90.0, Point::new(c.x, c.y + r)),
+        (180.0, Point::new(c.x - r, c.y)),
+        (270.0, Point::new(c.x, c.y - r)),
+    ]
+    .into_iter()
+    .filter(|(axis, _)| {
+        if s > 0.0 {
+            (axis - start).rem_euclid(360.0) <= s
+        } else {
+            (start - axis).rem_euclid(360.0) <= -s
+        }
+    })
+    .map(|(_, p)| p)
+    .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn arc_centres_of_quarter_turns_are_exact() {
+        let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
+        assert_eq!(arc_centre(p(10, 0), p(0, 10), Millideg(90_000)), p(0, 0));
+        assert_eq!(arc_centre(p(0, 10), p(10, 0), Millideg(-90_000)), p(0, 0));
+        assert_eq!(arc_centre(p(-10, 0), p(10, 0), Millideg(180_000)), p(0, 0));
+        assert_eq!(arc_centre(p(10, 0), p(0, -10), Millideg(270_000)), p(0, 0));
+        assert_eq!(
+            arc_centre(p(1_000_000, 0), p(500_000, 866_025), Millideg(60_000)),
+            p(0, 0)
+        );
+    }
+
+    #[test]
+    fn contour_bounds_reach_out_to_arcs() {
+        let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
+        // A 20 × 10 box whose bottom edge bulges down in a half-circle of radius 10.
+        let vertices = [
+            Vertex::arc(p(-10, 0), Millideg(180_000)),
+            Vertex::at(p(10, 0)),
+            Vertex::at(p(10, 10)),
+            Vertex::at(p(-10, 10)),
+        ];
+        let b = contour_bounds(&vertices).unwrap();
+        assert_eq!((b.min, b.max), (p(-10, -10), p(10, 10)));
+        assert_eq!(contour_bounds(&[]), None);
+    }
 }

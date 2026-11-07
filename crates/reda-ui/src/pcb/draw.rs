@@ -315,13 +315,7 @@ impl Draw {
                 object: Uuid::NIL,
             });
         }
-        snap::snap(
-            at,
-            grid,
-            pcb.map_or_else(Point::default, |p| shell.grid_origin(p.uuid)),
-            &targets,
-            self.radius(),
-        )
+        snap::snap(at, grid, shell.board_grid_origin(), &targets, self.radius())
     }
 
     /// Puts down point `p`.

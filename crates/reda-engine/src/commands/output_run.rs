@@ -70,10 +70,12 @@ impl Command for JobRun {
                       (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board \
                       Outline as the Profile) and the Excellon drill files (plated and \
                       non-plated) and writes them with the CSV BOM and CPL (columns from the \
-                      job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions \
-                      from the preset's common origin for Gerber, drill and CPL) and their \
+                      job's Fab Preset; Not Fitted and Mechanical Parts left out) and their \
                       zip, `<project>-<job>.zip`, to the job's destination \
-                      (default `outputs/<job>/`), replacing the last run's files. The checks \
+                      (default `outputs/<job>/`), replacing the last run's files. Gerber, \
+                      drill and CPL share one origin: the board's own zero for an `absolute` \
+                      preset, and for a `relative` one the Output Origin, or the lower-left \
+                      of the Board Outline while none is placed. The checks \
                       that block read only the job's PCB: duplicate Designators, an open \
                       Board Outline and a Footprint the PCB cannot resolve block the run \
                       (`rejected`, `details.blockers`). Other problems, such as an \
@@ -169,8 +171,14 @@ impl Command for JobRun {
             fonts: &fonts,
             created,
         };
-        let bom = reda_output::bom_file(project, &pcb, &preset.bom.columns);
-        let cpl = reda_output::cpl_file(project, &instances, &preset.cpl.columns);
+        let bom =
+            reda_output::bom_file(project, &pcb, &preset.bom.columns, &preset.bom.mount_values);
+        let cpl = reda_output::cpl_file(
+            project,
+            &instances,
+            &preset.cpl.columns,
+            &preset.bom.mount_values,
+        );
         let mut known: Vec<String> = Vec::new();
         let mut files: Vec<OutputFile> = Vec::new();
         for (on, every) in [

@@ -2272,11 +2272,13 @@
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
               {
-                "enum": [
-                  "part",
-                  "footprint",
-                  "value"
-                ],
+                "const": "part",
+                "description": "The Component's Part.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "The chosen Footprint.",
                 "type": "string"
               },
               {
@@ -2285,7 +2287,13 @@
                 "type": "string"
               },
               {
+                "const": "value",
+                "description": "The Component's value.",
+                "type": "string"
+              },
+              {
                 "additionalProperties": false,
+                "description": "The Component field with this name.",
                 "properties": {
                   "field": {
                     "type": "string"
@@ -2299,52 +2307,71 @@
             ]
           },
           "BomLayout": {
-            "enum": [
-              "grouped",
-              "flat"
-            ],
-            "type": "string"
+            "description": "One BOM row per group or per Component.",
+            "oneOf": [
+              {
+                "const": "grouped",
+                "description": "One row per group of Components sharing `group_by`.",
+                "type": "string"
+              },
+              {
+                "const": "flat",
+                "description": "One row per Component.",
+                "type": "string"
+              }
+            ]
           },
           "BomSettings": {
             "additionalProperties": false,
+            "description": "A Fab Preset's BOM: its columns and row conventions.",
             "properties": {
               "columns": {
+                "description": "The columns, Source → Header, in file order.",
                 "items": {
                   "$ref": "#/$defs/Column"
                 },
                 "type": "array"
               },
               "designator_separator": {
+                "description": "What joins a row's Designators, which are never written as ranges.",
                 "type": "string"
               },
               "group_by": {
+                "description": "What a grouped row's Components share.",
                 "items": {
                   "$ref": "#/$defs/BomGroup"
                 },
                 "type": "array"
               },
               "layout": {
-                "$ref": "#/$defs/BomLayout"
+                "$ref": "#/$defs/BomLayout",
+                "description": "Grouped rows or one row per Component."
               },
               "line_numbers": {
-                "$ref": "#/$defs/LineNumbers"
+                "$ref": "#/$defs/LineNumbers",
+                "description": "The line-number column's start and step."
               },
               "list_unplaced": {
+                "description": "Whether footprintless Mechanical Components on a sheet are listed.",
                 "type": "boolean"
               },
               "mount_values": {
-                "$ref": "#/$defs/MountValues"
+                "$ref": "#/$defs/MountValues",
+                "description": "The spellings of the mount column."
               },
               "not_fitted": {
-                "$ref": "#/$defs/NotFittedBom"
+                "$ref": "#/$defs/NotFittedBom",
+                "description": "Whether Not Fitted Components are listed."
               },
               "required_fields": {
+                "description": "Fields whose missing value warns; the row stays, and Mechanical rows are skipped.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "sort": {
+                "description": "The row order, by these columns in turn.",
                 "items": {
                   "$ref": "#/$defs/ColumnSource"
                 },
@@ -2366,20 +2393,44 @@
             "type": "object"
           },
           "BottomPosition": {
-            "enum": [
-              "top_view",
-              "negate_x",
-              "negate_y"
-            ],
-            "type": "string"
+            "description": "How a bottom-side part's position is written.",
+            "oneOf": [
+              {
+                "const": "top_view",
+                "description": "Positions as seen from the top.",
+                "type": "string"
+              },
+              {
+                "const": "negate_x",
+                "description": "X negated.",
+                "type": "string"
+              },
+              {
+                "const": "negate_y",
+                "description": "Y negated.",
+                "type": "string"
+              }
+            ]
           },
           "BottomRotation": {
-            "enum": [
-              "stored",
-              "plus_180",
-              "negate"
-            ],
-            "type": "string"
+            "description": "How a bottom-side part's stored rotation θ is written.",
+            "oneOf": [
+              {
+                "const": "stored",
+                "description": "θ as stored: a part at 30° flipped to the bottom writes 330.",
+                "type": "string"
+              },
+              {
+                "const": "plus_180",
+                "description": "θ + 180: writes 150.",
+                "type": "string"
+              },
+              {
+                "const": "negate",
+                "description": "360 − θ: writes 30.",
+                "type": "string"
+              }
+            ]
           },
           "Column": {
             "additionalProperties": false,
@@ -2390,7 +2441,8 @@
                 "type": "string"
               },
               "source": {
-                "$ref": "#/$defs/ColumnSource"
+                "$ref": "#/$defs/ColumnSource",
+                "description": "What fills the column."
               }
             },
             "required": [
@@ -2429,7 +2481,7 @@
               },
               {
                 "const": "mount",
-                "description": "`SMT` or `THT`.",
+                "description": "The mount type, spelled with the BOM's `mount_values`.",
                 "type": "string"
               },
               {
@@ -2494,30 +2546,38 @@
           },
           "CplSettings": {
             "additionalProperties": false,
+            "description": "A Fab Preset's CPL: its columns and position conventions.",
             "properties": {
               "bottom_position": {
-                "$ref": "#/$defs/BottomPosition"
+                "$ref": "#/$defs/BottomPosition",
+                "description": "How a bottom-side part's position is written."
               },
               "bottom_rotation": {
-                "$ref": "#/$defs/BottomRotation"
+                "$ref": "#/$defs/BottomRotation",
+                "description": "How a bottom-side part's rotation is written."
               },
               "columns": {
+                "description": "The columns, Source → Header, in file order.",
                 "items": {
                   "$ref": "#/$defs/Column"
                 },
                 "type": "array"
               },
               "exclude_through_hole": {
+                "description": "Leaves out Footprints with a plated through-hole Pad.",
                 "type": "boolean"
               },
               "side_values": {
-                "$ref": "#/$defs/SideValues"
+                "$ref": "#/$defs/SideValues",
+                "description": "The spellings of the side column."
               },
               "unit_suffix": {
+                "description": "Whether the unit follows each position.",
                 "type": "boolean"
               },
               "units": {
-                "$ref": "#/$defs/CplUnits"
+                "$ref": "#/$defs/CplUnits",
+                "description": "The unit positions are written in."
               }
             },
             "required": [
@@ -2532,12 +2592,24 @@
             "type": "object"
           },
           "CplUnits": {
-            "enum": [
-              "mm",
-              "mil",
-              "in"
-            ],
-            "type": "string"
+            "description": "The unit of CPL positions.",
+            "oneOf": [
+              {
+                "const": "mm",
+                "description": "Millimetres.",
+                "type": "string"
+              },
+              {
+                "const": "mil",
+                "description": "Thousandths of an inch.",
+                "type": "string"
+              },
+              {
+                "const": "in",
+                "description": "Inches.",
+                "type": "string"
+              }
+            ]
           },
           "FabPreset": {
             "additionalProperties": false,
@@ -2552,7 +2624,8 @@
                 "description": "The CPL table form, columns and position conventions."
               },
               "gerber": {
-                "$ref": "#/$defs/GerberSettings"
+                "$ref": "#/$defs/GerberSettings",
+                "description": "The Gerber and drill switches."
               },
               "name": {
                 "description": "The preset's name, such as \"JLCPCB\". It names the preset a Project copy came from.",
@@ -2567,9 +2640,11 @@
                 "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither."
               },
               "stackup_suggestions": {
-                "$ref": "#/$defs/StackupSuggestions"
+                "$ref": "#/$defs/StackupSuggestions",
+                "description": "The Stackup options the fab offers; never checked against the board."
               },
               "zip_assembly": {
+                "description": "Puts the BOM and CPL inside the zip instead of beside it.",
                 "type": "boolean"
               }
             },
@@ -2619,10 +2694,12 @@
                 "type": "integer"
               },
               "mask_expansion": {
-                "$ref": "#/$defs/MaskExpansion"
+                "$ref": "#/$defs/MaskExpansion",
+                "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
               "paste_expansion": {
-                "$ref": "#/$defs/PasteExpansion"
+                "$ref": "#/$defs/PasteExpansion",
+                "description": "The paste expansion a new board starts with."
               },
               "preferred": {
                 "$ref": "#/$defs/PreferredSeeds",
@@ -2676,11 +2753,19 @@
             ]
           },
           "FileOrigin": {
-            "enum": [
-              "absolute",
-              "relative"
-            ],
-            "type": "string"
+            "description": "Where Gerber, drill and CPL coordinates are measured from, for all three together.",
+            "oneOf": [
+              {
+                "const": "absolute",
+                "description": "Design zero.",
+                "type": "string"
+              },
+              {
+                "const": "relative",
+                "description": "The Output Origin if one is placed on the PCB Document, otherwise the lower-left\ncorner of the Board Outline's bounding box.",
+                "type": "string"
+              }
+            ]
           },
           "GerberSettings": {
             "additionalProperties": false,
@@ -2695,9 +2780,10 @@
               },
               "file_origin": {
                 "$ref": "#/$defs/FileOrigin",
-                "description": "Shared by Gerber, drill and CPL."
+                "description": "Where coordinates are measured from; shared by Gerber, drill and CPL."
               },
               "merge_drill": {
+                "description": "One drill file with plated and non-plated holes, instead of PTH and NPTH.",
                 "type": "boolean"
               },
               "naming": {
@@ -2705,10 +2791,12 @@
                 "description": "How the files are named."
               },
               "outline_on_every_plot": {
+                "description": "Adds the Board Outline to every Gerber plot.",
                 "type": "boolean"
               },
               "slot_command": {
-                "$ref": "#/$defs/SlotCommand"
+                "$ref": "#/$defs/SlotCommand",
+                "description": "How the drill file writes slots."
               },
               "x2_attributes": {
                 "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
@@ -2728,11 +2816,14 @@
           },
           "LayerFileName": {
             "additionalProperties": false,
+            "description": "A Layer whose Gerber file gets its own name.",
             "properties": {
               "layer": {
+                "description": "The Layer's name, so the override carries between boards and Projects.",
                 "type": "string"
               },
               "name": {
+                "description": "The file name to write that Layer's Gerber as.",
                 "type": "string"
               }
             },
@@ -2744,16 +2835,20 @@
           },
           "LineNumbers": {
             "additionalProperties": false,
+            "description": "The BOM's line-number column.",
             "properties": {
               "enabled": {
+                "description": "Whether the line-number column counts.",
                 "type": "boolean"
               },
               "start": {
+                "description": "The first row's number.",
                 "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
               },
               "step": {
+                "description": "The increase from one row to the next.",
                 "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
@@ -2801,11 +2896,14 @@
           },
           "MountValues": {
             "additionalProperties": false,
+            "description": "The spellings of the mount column.",
             "properties": {
               "smt": {
+                "description": "The mount column for a Footprint with no plated through-hole Pad.",
                 "type": "string"
               },
               "tht": {
+                "description": "The mount column for a Footprint with any plated through-hole Pad.",
                 "type": "string"
               }
             },
@@ -2816,11 +2914,19 @@
             "type": "object"
           },
           "NotFittedBom": {
-            "enum": [
-              "omit",
-              "list"
-            ],
-            "type": "string"
+            "description": "Whether the BOM lists Not Fitted Components.",
+            "oneOf": [
+              {
+                "const": "omit",
+                "description": "Not Fitted Components are left out.",
+                "type": "string"
+              },
+              {
+                "const": "list",
+                "description": "Not Fitted Components get their own rows with quantity 0.",
+                "type": "string"
+              }
+            ]
           },
           "Origin": {
             "description": "Where a preset comes from.",
@@ -2874,17 +2980,17 @@
             "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
             "properties": {
               "track_width": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Track width.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_diameter": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Via diameter.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_hole": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Via hole.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -2898,11 +3004,14 @@
           },
           "SideValues": {
             "additionalProperties": false,
+            "description": "The spellings of the CPL's side column.",
             "properties": {
               "bottom": {
+                "description": "The side column for a part on the bottom.",
                 "type": "string"
               },
               "top": {
+                "description": "The side column for a part on top.",
                 "type": "string"
               }
             },
@@ -2913,11 +3022,19 @@
             "type": "object"
           },
           "SlotCommand": {
-            "enum": [
-              "route",
-              "g85"
-            ],
-            "type": "string"
+            "description": "How the drill file writes a slot.",
+            "oneOf": [
+              {
+                "const": "route",
+                "description": "Routed: `G00`, `M15`, `G01`, `M16`, `G05`.",
+                "type": "string"
+              },
+              {
+                "const": "g85",
+                "description": "The `G85` canned slot.",
+                "type": "string"
+              }
+            ]
           },
           "StackupSeeds": {
             "additionalProperties": false,
@@ -2947,6 +3064,7 @@
             "description": "Suggestions never validate the board or seed its finish or colours.",
             "properties": {
               "copper": {
+                "description": "Outer copper thicknesses the fab offers.",
                 "items": {
                   "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                   "format": "int64",
@@ -2955,24 +3073,28 @@
                 "type": "array"
               },
               "finish": {
+                "description": "Surface finishes the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "mask_color": {
+                "description": "Solder Mask colours the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "silk_color": {
+                "description": "Silkscreen colours the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "thickness": {
+                "description": "Board thicknesses the fab offers.",
                 "items": {
                   "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                   "format": "int64",
@@ -12597,11 +12719,13 @@
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
               {
-                "enum": [
-                  "part",
-                  "footprint",
-                  "value"
-                ],
+                "const": "part",
+                "description": "The Component's Part.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "The chosen Footprint.",
                 "type": "string"
               },
               {
@@ -12610,7 +12734,13 @@
                 "type": "string"
               },
               {
+                "const": "value",
+                "description": "The Component's value.",
+                "type": "string"
+              },
+              {
                 "additionalProperties": false,
+                "description": "The Component field with this name.",
                 "properties": {
                   "field": {
                     "type": "string"
@@ -12624,52 +12754,71 @@
             ]
           },
           "BomLayout": {
-            "enum": [
-              "grouped",
-              "flat"
-            ],
-            "type": "string"
+            "description": "One BOM row per group or per Component.",
+            "oneOf": [
+              {
+                "const": "grouped",
+                "description": "One row per group of Components sharing `group_by`.",
+                "type": "string"
+              },
+              {
+                "const": "flat",
+                "description": "One row per Component.",
+                "type": "string"
+              }
+            ]
           },
           "BomSettings": {
             "additionalProperties": false,
+            "description": "A Fab Preset's BOM: its columns and row conventions.",
             "properties": {
               "columns": {
+                "description": "The columns, Source → Header, in file order.",
                 "items": {
                   "$ref": "#/$defs/Column"
                 },
                 "type": "array"
               },
               "designator_separator": {
+                "description": "What joins a row's Designators, which are never written as ranges.",
                 "type": "string"
               },
               "group_by": {
+                "description": "What a grouped row's Components share.",
                 "items": {
                   "$ref": "#/$defs/BomGroup"
                 },
                 "type": "array"
               },
               "layout": {
-                "$ref": "#/$defs/BomLayout"
+                "$ref": "#/$defs/BomLayout",
+                "description": "Grouped rows or one row per Component."
               },
               "line_numbers": {
-                "$ref": "#/$defs/LineNumbers"
+                "$ref": "#/$defs/LineNumbers",
+                "description": "The line-number column's start and step."
               },
               "list_unplaced": {
+                "description": "Whether footprintless Mechanical Components on a sheet are listed.",
                 "type": "boolean"
               },
               "mount_values": {
-                "$ref": "#/$defs/MountValues"
+                "$ref": "#/$defs/MountValues",
+                "description": "The spellings of the mount column."
               },
               "not_fitted": {
-                "$ref": "#/$defs/NotFittedBom"
+                "$ref": "#/$defs/NotFittedBom",
+                "description": "Whether Not Fitted Components are listed."
               },
               "required_fields": {
+                "description": "Fields whose missing value warns; the row stays, and Mechanical rows are skipped.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "sort": {
+                "description": "The row order, by these columns in turn.",
                 "items": {
                   "$ref": "#/$defs/ColumnSource"
                 },
@@ -12691,20 +12840,44 @@
             "type": "object"
           },
           "BottomPosition": {
-            "enum": [
-              "top_view",
-              "negate_x",
-              "negate_y"
-            ],
-            "type": "string"
+            "description": "How a bottom-side part's position is written.",
+            "oneOf": [
+              {
+                "const": "top_view",
+                "description": "Positions as seen from the top.",
+                "type": "string"
+              },
+              {
+                "const": "negate_x",
+                "description": "X negated.",
+                "type": "string"
+              },
+              {
+                "const": "negate_y",
+                "description": "Y negated.",
+                "type": "string"
+              }
+            ]
           },
           "BottomRotation": {
-            "enum": [
-              "stored",
-              "plus_180",
-              "negate"
-            ],
-            "type": "string"
+            "description": "How a bottom-side part's stored rotation θ is written.",
+            "oneOf": [
+              {
+                "const": "stored",
+                "description": "θ as stored: a part at 30° flipped to the bottom writes 330.",
+                "type": "string"
+              },
+              {
+                "const": "plus_180",
+                "description": "θ + 180: writes 150.",
+                "type": "string"
+              },
+              {
+                "const": "negate",
+                "description": "360 − θ: writes 30.",
+                "type": "string"
+              }
+            ]
           },
           "Bounds": {
             "additionalProperties": false,
@@ -12746,7 +12919,8 @@
                 "type": "string"
               },
               "source": {
-                "$ref": "#/$defs/ColumnSource"
+                "$ref": "#/$defs/ColumnSource",
+                "description": "What fills the column."
               }
             },
             "required": [
@@ -12785,7 +12959,7 @@
               },
               {
                 "const": "mount",
-                "description": "`SMT` or `THT`.",
+                "description": "The mount type, spelled with the BOM's `mount_values`.",
                 "type": "string"
               },
               {
@@ -12943,30 +13117,38 @@
           },
           "CplSettings": {
             "additionalProperties": false,
+            "description": "A Fab Preset's CPL: its columns and position conventions.",
             "properties": {
               "bottom_position": {
-                "$ref": "#/$defs/BottomPosition"
+                "$ref": "#/$defs/BottomPosition",
+                "description": "How a bottom-side part's position is written."
               },
               "bottom_rotation": {
-                "$ref": "#/$defs/BottomRotation"
+                "$ref": "#/$defs/BottomRotation",
+                "description": "How a bottom-side part's rotation is written."
               },
               "columns": {
+                "description": "The columns, Source → Header, in file order.",
                 "items": {
                   "$ref": "#/$defs/Column"
                 },
                 "type": "array"
               },
               "exclude_through_hole": {
+                "description": "Leaves out Footprints with a plated through-hole Pad.",
                 "type": "boolean"
               },
               "side_values": {
-                "$ref": "#/$defs/SideValues"
+                "$ref": "#/$defs/SideValues",
+                "description": "The spellings of the side column."
               },
               "unit_suffix": {
+                "description": "Whether the unit follows each position.",
                 "type": "boolean"
               },
               "units": {
-                "$ref": "#/$defs/CplUnits"
+                "$ref": "#/$defs/CplUnits",
+                "description": "The unit positions are written in."
               }
             },
             "required": [
@@ -12981,12 +13163,24 @@
             "type": "object"
           },
           "CplUnits": {
-            "enum": [
-              "mm",
-              "mil",
-              "in"
-            ],
-            "type": "string"
+            "description": "The unit of CPL positions.",
+            "oneOf": [
+              {
+                "const": "mm",
+                "description": "Millimetres.",
+                "type": "string"
+              },
+              {
+                "const": "mil",
+                "description": "Thousandths of an inch.",
+                "type": "string"
+              },
+              {
+                "const": "in",
+                "description": "Inches.",
+                "type": "string"
+              }
+            ]
           },
           "CrossReferenceStyles": {
             "additionalProperties": false,
@@ -13268,10 +13462,12 @@
                 "type": "integer"
               },
               "mask_expansion": {
-                "$ref": "#/$defs/MaskExpansion"
+                "$ref": "#/$defs/MaskExpansion",
+                "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
               "paste_expansion": {
-                "$ref": "#/$defs/PasteExpansion"
+                "$ref": "#/$defs/PasteExpansion",
+                "description": "The paste expansion a new board starts with."
               },
               "preferred": {
                 "$ref": "#/$defs/PreferredSeeds",
@@ -13400,11 +13596,19 @@
             ]
           },
           "FileOrigin": {
-            "enum": [
-              "absolute",
-              "relative"
-            ],
-            "type": "string"
+            "description": "Where Gerber, drill and CPL coordinates are measured from, for all three together.",
+            "oneOf": [
+              {
+                "const": "absolute",
+                "description": "Design zero.",
+                "type": "string"
+              },
+              {
+                "const": "relative",
+                "description": "The Output Origin if one is placed on the PCB Document, otherwise the lower-left\ncorner of the Board Outline's bounding box.",
+                "type": "string"
+              }
+            ]
           },
           "Footprint": {
             "additionalProperties": false,
@@ -13624,9 +13828,10 @@
               },
               "file_origin": {
                 "$ref": "#/$defs/FileOrigin",
-                "description": "Shared by Gerber, drill and CPL."
+                "description": "Where coordinates are measured from; shared by Gerber, drill and CPL."
               },
               "merge_drill": {
+                "description": "One drill file with plated and non-plated holes, instead of PTH and NPTH.",
                 "type": "boolean"
               },
               "naming": {
@@ -13634,10 +13839,12 @@
                 "description": "How the files are named."
               },
               "outline_on_every_plot": {
+                "description": "Adds the Board Outline to every Gerber plot.",
                 "type": "boolean"
               },
               "slot_command": {
-                "$ref": "#/$defs/SlotCommand"
+                "$ref": "#/$defs/SlotCommand",
+                "description": "How the drill file writes slots."
               },
               "x2_attributes": {
                 "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
@@ -15066,11 +15273,14 @@
           },
           "LayerFileName": {
             "additionalProperties": false,
+            "description": "A Layer whose Gerber file gets its own name.",
             "properties": {
               "layer": {
+                "description": "The Layer's name, so the override carries between boards and Projects.",
                 "type": "string"
               },
               "name": {
+                "description": "The file name to write that Layer's Gerber as.",
                 "type": "string"
               }
             },
@@ -15116,16 +15326,20 @@
           },
           "LineNumbers": {
             "additionalProperties": false,
+            "description": "The BOM's line-number column.",
             "properties": {
               "enabled": {
+                "description": "Whether the line-number column counts.",
                 "type": "boolean"
               },
               "start": {
+                "description": "The first row's number.",
                 "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
               },
               "step": {
+                "description": "The increase from one row to the next.",
                 "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
@@ -15246,11 +15460,14 @@
           },
           "MountValues": {
             "additionalProperties": false,
+            "description": "The spellings of the mount column.",
             "properties": {
               "smt": {
+                "description": "The mount column for a Footprint with no plated through-hole Pad.",
                 "type": "string"
               },
               "tht": {
+                "description": "The mount column for a Footprint with any plated through-hole Pad.",
                 "type": "string"
               }
             },
@@ -15261,19 +15478,34 @@
             "type": "object"
           },
           "NotFittedBom": {
-            "enum": [
-              "omit",
-              "list"
-            ],
-            "type": "string"
+            "description": "Whether the BOM lists Not Fitted Components.",
+            "oneOf": [
+              {
+                "const": "omit",
+                "description": "Not Fitted Components are left out.",
+                "type": "string"
+              },
+              {
+                "const": "list",
+                "description": "Not Fitted Components get their own rows with quantity 0.",
+                "type": "string"
+              }
+            ]
           },
           "NotFittedPaste": {
             "description": "Whether this build retains Not Fitted Components' paste openings.",
-            "enum": [
-              "keep",
-              "remove"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "Not Fitted Pads keep their paste openings, so one stencil serves every build.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "Not Fitted Pads lose their paste openings.",
+                "type": "string"
+              }
+            ]
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -15472,14 +15704,16 @@
                     "type": "string"
                   },
                   "name_template": {
-                    "description": "The zip and assembly files' stem, resolved with the shared text resolver.",
+                    "description": "The zip and assembly files' stem, resolved with the shared text resolver. Checked\non load like on `output.job.add`/`set`.",
                     "type": "string"
                   },
                   "not_fitted_paste": {
-                    "$ref": "#/$defs/NotFittedPaste"
+                    "$ref": "#/$defs/NotFittedPaste",
+                    "description": "Whether Not Fitted Pads keep their paste openings in this build."
                   },
                   "outputs": {
-                    "$ref": "#/$defs/Outputs"
+                    "$ref": "#/$defs/Outputs",
+                    "description": "Which files it writes."
                   },
                   "pcb": {
                     "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
@@ -15487,7 +15721,8 @@
                     "type": "string"
                   },
                   "schematic_pdf_colour": {
-                    "$ref": "#/$defs/PdfColour"
+                    "$ref": "#/$defs/PdfColour",
+                    "description": "The schematic PDF in colour or mono."
                   },
                   "type": {
                     "const": "output_job",
@@ -16144,9 +16379,11 @@
                 "type": "boolean"
               },
               "drill_report": {
+                "description": "The drill report.",
                 "type": "boolean"
               },
               "fab_notes": {
+                "description": "The Fab Notes.",
                 "type": "boolean"
               },
               "gerber": {
@@ -16154,12 +16391,15 @@
                 "type": "boolean"
               },
               "gerber_job": {
+                "description": "The Gerber job file.",
                 "type": "boolean"
               },
               "reports": {
+                "description": "The DRC, ERC and Change List reports.",
                 "type": "boolean"
               },
               "schematic_pdf": {
+                "description": "The schematic PDF.",
                 "type": "boolean"
               }
             },
@@ -16599,11 +16839,18 @@
           },
           "PdfColour": {
             "description": "The schematic PDF's paper colour mode.",
-            "enum": [
-              "colour",
-              "mono"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "colour",
+                "description": "In colour.",
+                "type": "string"
+              },
+              {
+                "const": "mono",
+                "description": "In black.",
+                "type": "string"
+              }
+            ]
           },
           "Pin": {
             "additionalProperties": false,
@@ -16814,17 +17061,17 @@
             "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
             "properties": {
               "track_width": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Track width.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_diameter": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Via diameter.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_hole": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Via hole.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -17386,11 +17633,14 @@
           },
           "SideValues": {
             "additionalProperties": false,
+            "description": "The spellings of the CPL's side column.",
             "properties": {
               "bottom": {
+                "description": "The side column for a part on the bottom.",
                 "type": "string"
               },
               "top": {
+                "description": "The side column for a part on top.",
                 "type": "string"
               }
             },
@@ -17401,11 +17651,19 @@
             "type": "object"
           },
           "SlotCommand": {
-            "enum": [
-              "route",
-              "g85"
-            ],
-            "type": "string"
+            "description": "How the drill file writes a slot.",
+            "oneOf": [
+              {
+                "const": "route",
+                "description": "Routed: `G00`, `M15`, `G01`, `M16`, `G05`.",
+                "type": "string"
+              },
+              {
+                "const": "g85",
+                "description": "The `G85` canned slot.",
+                "type": "string"
+              }
+            ]
           },
           "StackupEntry": {
             "anyOf": [
@@ -17448,6 +17706,7 @@
             "description": "Suggestions never validate the board or seed its finish or colours.",
             "properties": {
               "copper": {
+                "description": "Outer copper thicknesses the fab offers.",
                 "items": {
                   "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                   "format": "int64",
@@ -17456,24 +17715,28 @@
                 "type": "array"
               },
               "finish": {
+                "description": "Surface finishes the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "mask_color": {
+                "description": "Solder Mask colours the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "silk_color": {
+                "description": "Silkscreen colours the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "thickness": {
+                "description": "Board thicknesses the fab offers.",
                 "items": {
                   "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                   "format": "int64",
@@ -18339,11 +18602,13 @@
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
               {
-                "enum": [
-                  "part",
-                  "footprint",
-                  "value"
-                ],
+                "const": "part",
+                "description": "The Component's Part.",
+                "type": "string"
+              },
+              {
+                "const": "footprint",
+                "description": "The chosen Footprint.",
                 "type": "string"
               },
               {
@@ -18352,7 +18617,13 @@
                 "type": "string"
               },
               {
+                "const": "value",
+                "description": "The Component's value.",
+                "type": "string"
+              },
+              {
                 "additionalProperties": false,
+                "description": "The Component field with this name.",
                 "properties": {
                   "field": {
                     "type": "string"
@@ -18366,52 +18637,71 @@
             ]
           },
           "BomLayout": {
-            "enum": [
-              "grouped",
-              "flat"
-            ],
-            "type": "string"
+            "description": "One BOM row per group or per Component.",
+            "oneOf": [
+              {
+                "const": "grouped",
+                "description": "One row per group of Components sharing `group_by`.",
+                "type": "string"
+              },
+              {
+                "const": "flat",
+                "description": "One row per Component.",
+                "type": "string"
+              }
+            ]
           },
           "BomSettings": {
             "additionalProperties": false,
+            "description": "A Fab Preset's BOM: its columns and row conventions.",
             "properties": {
               "columns": {
+                "description": "The columns, Source → Header, in file order.",
                 "items": {
                   "$ref": "#/$defs/Column"
                 },
                 "type": "array"
               },
               "designator_separator": {
+                "description": "What joins a row's Designators, which are never written as ranges.",
                 "type": "string"
               },
               "group_by": {
+                "description": "What a grouped row's Components share.",
                 "items": {
                   "$ref": "#/$defs/BomGroup"
                 },
                 "type": "array"
               },
               "layout": {
-                "$ref": "#/$defs/BomLayout"
+                "$ref": "#/$defs/BomLayout",
+                "description": "Grouped rows or one row per Component."
               },
               "line_numbers": {
-                "$ref": "#/$defs/LineNumbers"
+                "$ref": "#/$defs/LineNumbers",
+                "description": "The line-number column's start and step."
               },
               "list_unplaced": {
+                "description": "Whether footprintless Mechanical Components on a sheet are listed.",
                 "type": "boolean"
               },
               "mount_values": {
-                "$ref": "#/$defs/MountValues"
+                "$ref": "#/$defs/MountValues",
+                "description": "The spellings of the mount column."
               },
               "not_fitted": {
-                "$ref": "#/$defs/NotFittedBom"
+                "$ref": "#/$defs/NotFittedBom",
+                "description": "Whether Not Fitted Components are listed."
               },
               "required_fields": {
+                "description": "Fields whose missing value warns; the row stays, and Mechanical rows are skipped.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "sort": {
+                "description": "The row order, by these columns in turn.",
                 "items": {
                   "$ref": "#/$defs/ColumnSource"
                 },
@@ -18433,20 +18723,44 @@
             "type": "object"
           },
           "BottomPosition": {
-            "enum": [
-              "top_view",
-              "negate_x",
-              "negate_y"
-            ],
-            "type": "string"
+            "description": "How a bottom-side part's position is written.",
+            "oneOf": [
+              {
+                "const": "top_view",
+                "description": "Positions as seen from the top.",
+                "type": "string"
+              },
+              {
+                "const": "negate_x",
+                "description": "X negated.",
+                "type": "string"
+              },
+              {
+                "const": "negate_y",
+                "description": "Y negated.",
+                "type": "string"
+              }
+            ]
           },
           "BottomRotation": {
-            "enum": [
-              "stored",
-              "plus_180",
-              "negate"
-            ],
-            "type": "string"
+            "description": "How a bottom-side part's stored rotation θ is written.",
+            "oneOf": [
+              {
+                "const": "stored",
+                "description": "θ as stored: a part at 30° flipped to the bottom writes 330.",
+                "type": "string"
+              },
+              {
+                "const": "plus_180",
+                "description": "θ + 180: writes 150.",
+                "type": "string"
+              },
+              {
+                "const": "negate",
+                "description": "360 − θ: writes 30.",
+                "type": "string"
+              }
+            ]
           },
           "Bounds": {
             "additionalProperties": false,
@@ -18488,7 +18802,8 @@
                 "type": "string"
               },
               "source": {
-                "$ref": "#/$defs/ColumnSource"
+                "$ref": "#/$defs/ColumnSource",
+                "description": "What fills the column."
               }
             },
             "required": [
@@ -18527,7 +18842,7 @@
               },
               {
                 "const": "mount",
-                "description": "`SMT` or `THT`.",
+                "description": "The mount type, spelled with the BOM's `mount_values`.",
                 "type": "string"
               },
               {
@@ -18685,30 +19000,38 @@
           },
           "CplSettings": {
             "additionalProperties": false,
+            "description": "A Fab Preset's CPL: its columns and position conventions.",
             "properties": {
               "bottom_position": {
-                "$ref": "#/$defs/BottomPosition"
+                "$ref": "#/$defs/BottomPosition",
+                "description": "How a bottom-side part's position is written."
               },
               "bottom_rotation": {
-                "$ref": "#/$defs/BottomRotation"
+                "$ref": "#/$defs/BottomRotation",
+                "description": "How a bottom-side part's rotation is written."
               },
               "columns": {
+                "description": "The columns, Source → Header, in file order.",
                 "items": {
                   "$ref": "#/$defs/Column"
                 },
                 "type": "array"
               },
               "exclude_through_hole": {
+                "description": "Leaves out Footprints with a plated through-hole Pad.",
                 "type": "boolean"
               },
               "side_values": {
-                "$ref": "#/$defs/SideValues"
+                "$ref": "#/$defs/SideValues",
+                "description": "The spellings of the side column."
               },
               "unit_suffix": {
+                "description": "Whether the unit follows each position.",
                 "type": "boolean"
               },
               "units": {
-                "$ref": "#/$defs/CplUnits"
+                "$ref": "#/$defs/CplUnits",
+                "description": "The unit positions are written in."
               }
             },
             "required": [
@@ -18723,12 +19046,24 @@
             "type": "object"
           },
           "CplUnits": {
-            "enum": [
-              "mm",
-              "mil",
-              "in"
-            ],
-            "type": "string"
+            "description": "The unit of CPL positions.",
+            "oneOf": [
+              {
+                "const": "mm",
+                "description": "Millimetres.",
+                "type": "string"
+              },
+              {
+                "const": "mil",
+                "description": "Thousandths of an inch.",
+                "type": "string"
+              },
+              {
+                "const": "in",
+                "description": "Inches.",
+                "type": "string"
+              }
+            ]
           },
           "CrossReferenceStyles": {
             "additionalProperties": false,
@@ -19010,10 +19345,12 @@
                 "type": "integer"
               },
               "mask_expansion": {
-                "$ref": "#/$defs/MaskExpansion"
+                "$ref": "#/$defs/MaskExpansion",
+                "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
               "paste_expansion": {
-                "$ref": "#/$defs/PasteExpansion"
+                "$ref": "#/$defs/PasteExpansion",
+                "description": "The paste expansion a new board starts with."
               },
               "preferred": {
                 "$ref": "#/$defs/PreferredSeeds",
@@ -19142,11 +19479,19 @@
             ]
           },
           "FileOrigin": {
-            "enum": [
-              "absolute",
-              "relative"
-            ],
-            "type": "string"
+            "description": "Where Gerber, drill and CPL coordinates are measured from, for all three together.",
+            "oneOf": [
+              {
+                "const": "absolute",
+                "description": "Design zero.",
+                "type": "string"
+              },
+              {
+                "const": "relative",
+                "description": "The Output Origin if one is placed on the PCB Document, otherwise the lower-left\ncorner of the Board Outline's bounding box.",
+                "type": "string"
+              }
+            ]
           },
           "Footprint": {
             "additionalProperties": false,
@@ -19366,9 +19711,10 @@
               },
               "file_origin": {
                 "$ref": "#/$defs/FileOrigin",
-                "description": "Shared by Gerber, drill and CPL."
+                "description": "Where coordinates are measured from; shared by Gerber, drill and CPL."
               },
               "merge_drill": {
+                "description": "One drill file with plated and non-plated holes, instead of PTH and NPTH.",
                 "type": "boolean"
               },
               "naming": {
@@ -19376,10 +19722,12 @@
                 "description": "How the files are named."
               },
               "outline_on_every_plot": {
+                "description": "Adds the Board Outline to every Gerber plot.",
                 "type": "boolean"
               },
               "slot_command": {
-                "$ref": "#/$defs/SlotCommand"
+                "$ref": "#/$defs/SlotCommand",
+                "description": "How the drill file writes slots."
               },
               "x2_attributes": {
                 "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
@@ -20808,11 +21156,14 @@
           },
           "LayerFileName": {
             "additionalProperties": false,
+            "description": "A Layer whose Gerber file gets its own name.",
             "properties": {
               "layer": {
+                "description": "The Layer's name, so the override carries between boards and Projects.",
                 "type": "string"
               },
               "name": {
+                "description": "The file name to write that Layer's Gerber as.",
                 "type": "string"
               }
             },
@@ -20858,16 +21209,20 @@
           },
           "LineNumbers": {
             "additionalProperties": false,
+            "description": "The BOM's line-number column.",
             "properties": {
               "enabled": {
+                "description": "Whether the line-number column counts.",
                 "type": "boolean"
               },
               "start": {
+                "description": "The first row's number.",
                 "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
               },
               "step": {
+                "description": "The increase from one row to the next.",
                 "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
@@ -20988,11 +21343,14 @@
           },
           "MountValues": {
             "additionalProperties": false,
+            "description": "The spellings of the mount column.",
             "properties": {
               "smt": {
+                "description": "The mount column for a Footprint with no plated through-hole Pad.",
                 "type": "string"
               },
               "tht": {
+                "description": "The mount column for a Footprint with any plated through-hole Pad.",
                 "type": "string"
               }
             },
@@ -21003,19 +21361,34 @@
             "type": "object"
           },
           "NotFittedBom": {
-            "enum": [
-              "omit",
-              "list"
-            ],
-            "type": "string"
+            "description": "Whether the BOM lists Not Fitted Components.",
+            "oneOf": [
+              {
+                "const": "omit",
+                "description": "Not Fitted Components are left out.",
+                "type": "string"
+              },
+              {
+                "const": "list",
+                "description": "Not Fitted Components get their own rows with quantity 0.",
+                "type": "string"
+              }
+            ]
           },
           "NotFittedPaste": {
             "description": "Whether this build retains Not Fitted Components' paste openings.",
-            "enum": [
-              "keep",
-              "remove"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "Not Fitted Pads keep their paste openings, so one stencil serves every build.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "Not Fitted Pads lose their paste openings.",
+                "type": "string"
+              }
+            ]
           },
           "Object": {
             "description": "Any persisted object addressable by UUID, tagged with its `type`.",
@@ -21214,14 +21587,16 @@
                     "type": "string"
                   },
                   "name_template": {
-                    "description": "The zip and assembly files' stem, resolved with the shared text resolver.",
+                    "description": "The zip and assembly files' stem, resolved with the shared text resolver. Checked\non load like on `output.job.add`/`set`.",
                     "type": "string"
                   },
                   "not_fitted_paste": {
-                    "$ref": "#/$defs/NotFittedPaste"
+                    "$ref": "#/$defs/NotFittedPaste",
+                    "description": "Whether Not Fitted Pads keep their paste openings in this build."
                   },
                   "outputs": {
-                    "$ref": "#/$defs/Outputs"
+                    "$ref": "#/$defs/Outputs",
+                    "description": "Which files it writes."
                   },
                   "pcb": {
                     "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
@@ -21229,7 +21604,8 @@
                     "type": "string"
                   },
                   "schematic_pdf_colour": {
-                    "$ref": "#/$defs/PdfColour"
+                    "$ref": "#/$defs/PdfColour",
+                    "description": "The schematic PDF in colour or mono."
                   },
                   "type": {
                     "const": "output_job",
@@ -21907,9 +22283,11 @@
                 "type": "boolean"
               },
               "drill_report": {
+                "description": "The drill report.",
                 "type": "boolean"
               },
               "fab_notes": {
+                "description": "The Fab Notes.",
                 "type": "boolean"
               },
               "gerber": {
@@ -21917,12 +22295,15 @@
                 "type": "boolean"
               },
               "gerber_job": {
+                "description": "The Gerber job file.",
                 "type": "boolean"
               },
               "reports": {
+                "description": "The DRC, ERC and Change List reports.",
                 "type": "boolean"
               },
               "schematic_pdf": {
+                "description": "The schematic PDF.",
                 "type": "boolean"
               }
             },
@@ -22362,11 +22743,18 @@
           },
           "PdfColour": {
             "description": "The schematic PDF's paper colour mode.",
-            "enum": [
-              "colour",
-              "mono"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "colour",
+                "description": "In colour.",
+                "type": "string"
+              },
+              {
+                "const": "mono",
+                "description": "In black.",
+                "type": "string"
+              }
+            ]
           },
           "Pin": {
             "additionalProperties": false,
@@ -22577,17 +22965,17 @@
             "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
             "properties": {
               "track_width": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Track width.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_diameter": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Via diameter.",
                 "format": "int64",
                 "type": "integer"
               },
               "via_hole": {
-                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "description": "The preferred Via hole.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -23149,11 +23537,14 @@
           },
           "SideValues": {
             "additionalProperties": false,
+            "description": "The spellings of the CPL's side column.",
             "properties": {
               "bottom": {
+                "description": "The side column for a part on the bottom.",
                 "type": "string"
               },
               "top": {
+                "description": "The side column for a part on top.",
                 "type": "string"
               }
             },
@@ -23164,11 +23555,19 @@
             "type": "object"
           },
           "SlotCommand": {
-            "enum": [
-              "route",
-              "g85"
-            ],
-            "type": "string"
+            "description": "How the drill file writes a slot.",
+            "oneOf": [
+              {
+                "const": "route",
+                "description": "Routed: `G00`, `M15`, `G01`, `M16`, `G05`.",
+                "type": "string"
+              },
+              {
+                "const": "g85",
+                "description": "The `G85` canned slot.",
+                "type": "string"
+              }
+            ]
           },
           "StackupEntry": {
             "anyOf": [
@@ -23211,6 +23610,7 @@
             "description": "Suggestions never validate the board or seed its finish or colours.",
             "properties": {
               "copper": {
+                "description": "Outer copper thicknesses the fab offers.",
                 "items": {
                   "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                   "format": "int64",
@@ -23219,24 +23619,28 @@
                 "type": "array"
               },
               "finish": {
+                "description": "Surface finishes the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "mask_color": {
+                "description": "Solder Mask colours the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "silk_color": {
+                "description": "Silkscreen colours the fab offers.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "thickness": {
+                "description": "Board thicknesses the fab offers.",
                 "items": {
                   "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                   "format": "int64",
@@ -23721,11 +24125,18 @@
         "$defs": {
           "NotFittedPaste": {
             "description": "Whether this build retains Not Fitted Components' paste openings.",
-            "enum": [
-              "keep",
-              "remove"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "Not Fitted Pads keep their paste openings, so one stencil serves every build.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "Not Fitted Pads lose their paste openings.",
+                "type": "string"
+              }
+            ]
           },
           "OutputsParam": {
             "additionalProperties": false,
@@ -23799,11 +24210,18 @@
           },
           "PdfColour": {
             "description": "The schematic PDF's paper colour mode.",
-            "enum": [
-              "colour",
-              "mono"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "colour",
+                "description": "In colour.",
+                "type": "string"
+              },
+              {
+                "const": "mono",
+                "description": "In black.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -23991,7 +24409,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out; CPL positions from the preset's common origin for Gerber, drill and CPL) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline and a Footprint the PCB cannot resolve block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline and a Footprint the PCB cannot resolve block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -24281,11 +24699,18 @@
         "$defs": {
           "NotFittedPaste": {
             "description": "Whether this build retains Not Fitted Components' paste openings.",
-            "enum": [
-              "keep",
-              "remove"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "Not Fitted Pads keep their paste openings, so one stencil serves every build.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "Not Fitted Pads lose their paste openings.",
+                "type": "string"
+              }
+            ]
           },
           "OutputsParam": {
             "additionalProperties": false,
@@ -24359,11 +24784,18 @@
           },
           "PdfColour": {
             "description": "The schematic PDF's paper colour mode.",
-            "enum": [
-              "colour",
-              "mono"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "colour",
+                "description": "In colour.",
+                "type": "string"
+              },
+              {
+                "const": "mono",
+                "description": "In black.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -24461,11 +24893,18 @@
         "$defs": {
           "NotFittedPaste": {
             "description": "Whether this build retains Not Fitted Components' paste openings.",
-            "enum": [
-              "keep",
-              "remove"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "Not Fitted Pads keep their paste openings, so one stencil serves every build.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "Not Fitted Pads lose their paste openings.",
+                "type": "string"
+              }
+            ]
           },
           "Outputs": {
             "additionalProperties": false,
@@ -24484,9 +24923,11 @@
                 "type": "boolean"
               },
               "drill_report": {
+                "description": "The drill report.",
                 "type": "boolean"
               },
               "fab_notes": {
+                "description": "The Fab Notes.",
                 "type": "boolean"
               },
               "gerber": {
@@ -24494,12 +24935,15 @@
                 "type": "boolean"
               },
               "gerber_job": {
+                "description": "The Gerber job file.",
                 "type": "boolean"
               },
               "reports": {
+                "description": "The DRC, ERC and Change List reports.",
                 "type": "boolean"
               },
               "schematic_pdf": {
+                "description": "The schematic PDF.",
                 "type": "boolean"
               }
             },
@@ -24518,11 +24962,18 @@
           },
           "PdfColour": {
             "description": "The schematic PDF's paper colour mode.",
-            "enum": [
-              "colour",
-              "mono"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "const": "colour",
+                "description": "In colour.",
+                "type": "string"
+              },
+              {
+                "const": "mono",
+                "description": "In black.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -24545,14 +24996,16 @@
             "type": "string"
           },
           "name_template": {
-            "description": "The zip and assembly files' stem, resolved with the shared text resolver.",
+            "description": "The zip and assembly files' stem, resolved with the shared text resolver. Checked\non load like on `output.job.add`/`set`.",
             "type": "string"
           },
           "not_fitted_paste": {
-            "$ref": "#/$defs/NotFittedPaste"
+            "$ref": "#/$defs/NotFittedPaste",
+            "description": "Whether Not Fitted Pads keep their paste openings in this build."
           },
           "outputs": {
-            "$ref": "#/$defs/Outputs"
+            "$ref": "#/$defs/Outputs",
+            "description": "Which files it writes."
           },
           "pcb": {
             "description": "The PCB Document it plots. A job whose PCB Document is gone is broken until it is\npointed at another.",
@@ -24560,7 +25013,8 @@
             "type": "string"
           },
           "schematic_pdf_colour": {
-            "$ref": "#/$defs/PdfColour"
+            "$ref": "#/$defs/PdfColour",
+            "description": "The schematic PDF in colour or mono."
           },
           "uuid": {
             "format": "uuid",

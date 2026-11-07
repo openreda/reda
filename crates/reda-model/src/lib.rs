@@ -40,8 +40,9 @@ pub use library::{
 pub use output::{
     BomGroup, BomLayout, BomSettings, BottomPosition, BottomRotation, Column, ColumnSource,
     CplSettings, CplUnits, FabPreset, FabRules, FileNaming, FileOrigin, GerberSettings,
-    LayerFileName, LineNumbers, MountValues, NotFittedBom, NotFittedPaste, OutputJob, Outputs,
-    PdfColour, PreferredSeeds, ProjectFabPreset, SideValues, SlotCommand, StackupSuggestions,
+    LayerFileName, LineNumbers, MountValues, NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError,
+    NotFittedBom, NotFittedPaste, OutputJob, Outputs, PdfColour, PreferredSeeds, ProjectFabPreset,
+    SideValues, SlotCommand, StackupSuggestions,
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadForm, PadKind,

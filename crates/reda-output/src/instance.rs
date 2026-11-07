@@ -1,9 +1,7 @@
 //! Board instances are the common geometry boundary of the manufacturing writers.
 
-use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{Millideg, Nm, Point, contour_bounds};
 use reda_model::{FileOrigin, PcbDocument, ZoneFills};
-
-use crate::gerber::arc_centre;
 
 /// A rigid transform: rotate about design zero, then translate in output coordinates.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -13,12 +11,18 @@ pub struct InstanceTransform {
 }
 
 impl InstanceTransform {
+    /// `point` in output coordinates.
     pub fn point(self, point: Point) -> Point {
         let rotated = point.rotated_about(Point::default(), self.rotation);
         Point::new(
             rotated.x + self.translation.x,
             rotated.y + self.translation.y,
         )
+    }
+
+    /// An object's design-space rotation `angle` in output coordinates.
+    pub fn angle(self, angle: Millideg) -> Millideg {
+        angle + self.rotation
     }
 }
 
@@ -45,7 +49,9 @@ impl<'a> BoardInstance<'a> {
     }
 }
 
-/// The design-space point used as zero by Gerber, drill and CPL together.
+/// The design-space point used as zero by Gerber, drill and CPL together: zero for
+/// `absolute`; for `relative` the Output Origin, or else the lower-left of the Board
+/// Outline's bounding box, arcs included.
 pub fn resolve_origin(pcb: &PcbDocument, mode: FileOrigin) -> Point {
     if mode == FileOrigin::Absolute {
         return Point::default();
@@ -53,48 +59,9 @@ pub fn resolve_origin(pcb: &PcbDocument, mode: FileOrigin) -> Point {
     if let Some(origin) = pcb.output_origin() {
         return origin.at;
     }
-    let Some(outline) = pcb.outline().filter(|o| !o.vertices.is_empty()) else {
-        return Point::default();
-    };
-    let vertices = &outline.vertices;
-    let mut min = Point::new(Nm(i64::MAX), Nm(i64::MAX));
-    let mut take = |p: Point| {
-        min = Point::new(min.x.min(p.x), min.y.min(p.y));
-    };
-    for (i, v) in vertices.iter().enumerate() {
-        take(v.point());
-        if v.sweep != Millideg::ZERO {
-            let to = vertices[(i + 1) % vertices.len()].point();
-            for p in arc_extremes(v.point(), to, v.sweep) {
-                take(p);
-            }
-        }
-    }
-    min
-}
-
-fn arc_extremes(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
-    let c = arc_centre(from, to, sweep);
-    let (dx, dy) = ((from.x.0 - c.x.0) as f64, (from.y.0 - c.y.0) as f64);
-    let r = Nm(dx.hypot(dy).round() as i64);
-    let start = dy.atan2(dx).to_degrees();
-    let s = sweep.0 as f64 / 1000.0;
-    [
-        (0.0, Point::new(c.x + r, c.y)),
-        (90.0, Point::new(c.x, c.y + r)),
-        (180.0, Point::new(c.x - r, c.y)),
-        (270.0, Point::new(c.x, c.y - r)),
-    ]
-    .into_iter()
-    .filter(|(axis, _)| {
-        if s > 0.0 {
-            (axis - start).rem_euclid(360.0) <= s
-        } else {
-            (start - axis).rem_euclid(360.0) <= -s
-        }
-    })
-    .map(|(_, p)| p)
-    .collect()
+    pcb.outline()
+        .and_then(|outline| contour_bounds(&outline.vertices))
+        .map_or_else(Point::default, |bounds| bounds.min)
 }
 
 /// Stable identity of the complete coordinate arrangement. This is an alignment tag,
