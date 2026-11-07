@@ -98,9 +98,7 @@ pub fn placed_field_texts(
         .map(|entry| {
             let mut placed = frame.text(&entry);
             let mode = instance
-                .text_overrides
-                .iter()
-                .find(|o| o.text == entry.uuid)
+                .text_override(entry.uuid)
                 .and_then(|o| o.autoposition)
                 .unwrap_or_default();
             if mode == Manual {

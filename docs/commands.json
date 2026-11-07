@@ -9629,6 +9629,19 @@
             ],
             "type": "string"
           },
+          "KnockoutParam": {
+            "additionalProperties": false,
+            "description": "The knockout box around a text, grown by `margin`.",
+            "properties": {
+              "margin": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -9659,6 +9672,39 @@
               "y"
             ],
             "type": "object"
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -9666,7 +9712,7 @@
         "properties": {
           "at": {
             "$ref": "#/$defs/PointParam",
-            "description": "The text centre, relative to the Footprint origin."
+            "description": "The text anchor, relative to the Footprint origin; `justify` says how the text sits\non it."
           },
           "field": {
             "description": "The field it shows: `Designator`, `Value` or any field name.",
@@ -9694,6 +9740,28 @@
               }
             ],
             "description": "The capital height. Omitted, 1 mm."
+          },
+          "justify": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TextJustify"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omitted, centred on the anchor."
+          },
+          "knockout": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnockoutParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A box around the text with the glyphs removed. Omitted, none."
           },
           "layer": {
             "anyOf": [
@@ -9763,7 +9831,7 @@
     },
     {
       "category": "library",
-      "description": "Changes a Footprint text's field, position, rotation, Layer, height, pen width, font or visibility. Omitted fields keep their value.",
+      "description": "Changes a Footprint text's field, anchor, rotation, Layer, height, pen width, font, justification, knockout or visibility. Omitted fields keep their value.",
       "icon": "footprint_edit",
       "id": "library.footprint.text.edit",
       "kind": "edit",
@@ -9795,6 +9863,19 @@
             ],
             "type": "string"
           },
+          "KnockoutParam": {
+            "additionalProperties": false,
+            "description": "The knockout box around a text, grown by `margin`.",
+            "properties": {
+              "margin": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -9825,6 +9906,39 @@
               "y"
             ],
             "type": "object"
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -9839,7 +9953,12 @@
                 "type": "null"
               }
             ],
-            "description": "The text centre, relative to the Footprint origin."
+            "description": "The text anchor, relative to the Footprint origin."
+          },
+          "clear_knockout": {
+            "default": false,
+            "description": "Removes the knockout box.",
+            "type": "boolean"
           },
           "field": {
             "description": "The field it shows: `Designator`, `Value` or any field name.",
@@ -9870,6 +9989,28 @@
               }
             ],
             "description": "The capital height. Without a new `thickness`, the pen width keeps its proportion\nto the height."
+          },
+          "justify": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TextJustify"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the text sits on its anchor."
+          },
+          "knockout": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnockoutParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Adds or changes the knockout box."
           },
           "layer": {
             "anyOf": [
@@ -13407,7 +13548,7 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The text centre, relative to the Footprint origin."
+                "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
               },
               "field": {
                 "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
@@ -13439,64 +13580,6 @@
               "rotation",
               "style",
               "layer"
-            ],
-            "type": "object"
-          },
-          "FootprintTextOverride": {
-            "additionalProperties": false,
-            "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
-            "properties": {
-              "at": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/Point"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "autoposition": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/TextAutoposition"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "rotation": {
-                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "style": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/TextStyle"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "text": {
-                "format": "uuid",
-                "type": "string"
-              },
-              "visible": {
-                "type": [
-                  "boolean",
-                  "null"
-                ]
-              }
-            },
-            "required": [
-              "text"
             ],
             "type": "object"
           },
@@ -14323,7 +14406,7 @@
               "text_overrides": {
                 "description": "Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.",
                 "items": {
-                  "$ref": "#/$defs/FootprintTextOverride"
+                  "$ref": "#/$defs/TextOverride"
                 },
                 "type": "array"
               },
@@ -17584,6 +17667,64 @@
             ],
             "type": "object"
           },
+          "TextOverride": {
+            "additionalProperties": false,
+            "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
+            "properties": {
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "autoposition": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextAutoposition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "text": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "visible": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
           "TextStyle": {
             "additionalProperties": false,
             "description": "The shared style of free PCB text and Footprint field text.",
@@ -19149,7 +19290,7 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The text centre, relative to the Footprint origin."
+                "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
               },
               "field": {
                 "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
@@ -19181,64 +19322,6 @@
               "rotation",
               "style",
               "layer"
-            ],
-            "type": "object"
-          },
-          "FootprintTextOverride": {
-            "additionalProperties": false,
-            "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
-            "properties": {
-              "at": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/Point"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "autoposition": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/TextAutoposition"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "rotation": {
-                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "style": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/TextStyle"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "text": {
-                "format": "uuid",
-                "type": "string"
-              },
-              "visible": {
-                "type": [
-                  "boolean",
-                  "null"
-                ]
-              }
-            },
-            "required": [
-              "text"
             ],
             "type": "object"
           },
@@ -20065,7 +20148,7 @@
               "text_overrides": {
                 "description": "Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.",
                 "items": {
-                  "$ref": "#/$defs/FootprintTextOverride"
+                  "$ref": "#/$defs/TextOverride"
                 },
                 "type": "array"
               },
@@ -23347,6 +23430,64 @@
             ],
             "type": "object"
           },
+          "TextOverride": {
+            "additionalProperties": false,
+            "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
+            "properties": {
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "autoposition": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextAutoposition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "text": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "visible": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
           "TextStyle": {
             "additionalProperties": false,
             "description": "The shared style of free PCB text and Footprint field text.",
@@ -26489,7 +26630,7 @@
     },
     {
       "category": "pcb",
-      "description": "Changes field text across placed Footprints with sparse overrides. Select by field or text entry UUIDs. Anchors and rotations use board coordinates; moving text sets manual placement. Reset restores the Footprint defaults. Allowed on locked Footprints.",
+      "description": "Changes field text across placed Footprints with sparse overrides. Select by field or text entry UUIDs. Anchors and rotations use board coordinates; an anchor moves exactly one text entry and sets manual placement. Reset restores the Footprint defaults. Allowed on locked Footprints.",
       "icon": "text_edit",
       "id": "pcb.footprint.text.set",
       "kind": "edit",
@@ -26670,7 +26811,7 @@
                 "type": "null"
               }
             ],
-            "description": "Anchor in board coordinates. Moving text sets `manual`."
+            "description": "Anchor in board coordinates, for a selection of exactly one text entry. Moving text\nsets `manual`."
           },
           "autoposition": {
             "anyOf": [
@@ -35177,7 +35318,7 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The text centre, relative to the Footprint origin."
+                "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
               },
               "field": {
                 "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
@@ -37227,7 +37368,7 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The text centre, relative to the Footprint origin."
+                "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
               },
               "field": {
                 "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
@@ -41497,7 +41638,7 @@
             "properties": {
               "at": {
                 "$ref": "#/$defs/Point",
-                "description": "The text centre, relative to the Footprint origin."
+                "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
               },
               "field": {
                 "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",

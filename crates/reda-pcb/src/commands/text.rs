@@ -137,7 +137,7 @@ impl Command for TextAdd {
                 height,
                 thickness,
                 justify: p.justify.unwrap_or_default(),
-                knockout: p.knockout.map(KnockoutParam::resolve).transpose()?,
+                knockout: p.knockout.map(|k| k.resolve("/knockout")).transpose()?,
             },
             frame: p.frame.map(FrameParam::resolve).transpose()?,
             rotation: p
@@ -244,7 +244,7 @@ impl Command for TextSet {
             text.justify = justify;
         }
         if let Some(knockout) = p.knockout {
-            text.knockout = Some(knockout.resolve()?);
+            text.knockout = Some(knockout.resolve("/knockout")?);
         }
         if let Some(frame) = p.frame {
             text.frame = Some(frame.resolve()?);
@@ -315,11 +315,12 @@ pub struct KnockoutParam {
     pub margin: Length,
 }
 impl KnockoutParam {
-    pub(super) fn resolve(self) -> Result<TextKnockout, CommandError> {
+    /// The knockout, checked; `at` is the JSON pointer of this parameter.
+    fn resolve(&self, at: &str) -> Result<TextKnockout, CommandError> {
         let margin = self.margin.nm();
         if margin < Nm::ZERO {
             return Err(CommandError::invalid_params(
-                "/knockout/margin",
+                &format!("{at}/margin"),
                 "margin must be nonnegative",
             ));
         }
@@ -370,14 +371,7 @@ impl StyleParam {
             style.justify = justify;
         }
         if let Some(knockout) = &self.knockout {
-            let margin = knockout.margin.nm();
-            if margin < Nm::ZERO {
-                return Err(CommandError::invalid_params(
-                    "/style/knockout/margin",
-                    "margin must be nonnegative",
-                ));
-            }
-            style.knockout = Some(TextKnockout { margin });
+            style.knockout = Some(knockout.resolve("/style/knockout")?);
         }
         if self.clear_knockout {
             style.knockout = None;

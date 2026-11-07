@@ -533,7 +533,7 @@
         "text_overrides": {
           "description": "Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.",
           "items": {
-            "$ref": "#/$defs/FootprintTextOverride"
+            "$ref": "#/$defs/TextOverride"
           },
           "type": "array"
         },
@@ -603,7 +603,7 @@
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
-          "description": "The text centre, relative to the Footprint origin."
+          "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
         },
         "field": {
           "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
@@ -635,64 +635,6 @@
         "rotation",
         "style",
         "layer"
-      ],
-      "type": "object"
-    },
-    "FootprintTextOverride": {
-      "additionalProperties": false,
-      "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
-      "properties": {
-        "at": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Point"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "autoposition": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TextAutoposition"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "rotation": {
-          "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "style": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TextStyle"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "text": {
-          "format": "uuid",
-          "type": "string"
-        },
-        "visible": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "text"
       ],
       "type": "object"
     },
@@ -2194,6 +2136,64 @@
       },
       "required": [
         "margin"
+      ],
+      "type": "object"
+    },
+    "TextOverride": {
+      "additionalProperties": false,
+      "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "autoposition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextAutoposition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rotation": {
+          "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "visible": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "text"
       ],
       "type": "object"
     },

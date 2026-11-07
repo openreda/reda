@@ -26,7 +26,7 @@ mod zone;
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
 
 pub use footprint::{
-    FootprintInstance, FootprintTextOverride, FootprintTextRef, PadNet, PadRef, TextAutoposition,
+    FootprintInstance, FootprintTextRef, PadNet, PadRef, TextAutoposition, TextOverride,
 };
 pub use placement::{FreePad, OutputOrigin};
 pub use rules::{Bounds, DesignRule, RuleField, RuleKind, RuleScope, RuleValue, RuleValues};

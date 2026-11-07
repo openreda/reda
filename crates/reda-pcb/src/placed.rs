@@ -322,16 +322,14 @@ pub fn placed_graphics(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<P
         .collect()
 }
 
-/// The primary Designator's resolved placement in the Footprint's frame.
-pub fn designator_text(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<FootprintText> {
-    let primary = pcb
-        .footprint_copy(instance.footprint)?
-        .footprint
-        .designator_text()?
-        .uuid;
-    instance_texts(pcb, instance)
-        .into_iter()
-        .find(|t| t.uuid == primary)
+/// The UUID of the text entry drawing a placed Footprint's primary Designator.
+pub fn primary_designator(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<Uuid> {
+    Some(
+        pcb.footprint_copy(instance.footprint)?
+            .footprint
+            .designator_text()?
+            .uuid,
+    )
 }
 
 /// All field text entries with the instance's sparse overrides applied.
@@ -341,7 +339,7 @@ pub fn instance_texts(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Fo
         .map(|c| c.footprint.texts.clone())
         .unwrap_or_default();
     for text in &mut texts {
-        if let Some(change) = instance.text_overrides.iter().find(|o| o.text == text.uuid) {
+        if let Some(change) = instance.text_override(text.uuid) {
             if let Some(at) = change.at {
                 text.at = at;
             }
@@ -359,14 +357,15 @@ pub fn instance_texts(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Fo
     texts
 }
 
-/// Where a Footprint's Designator text is drawn on the board.
-pub fn placed_designator(pcb: &PcbDocument, instance: &FootprintInstance) -> Option<FootprintText> {
-    let primary = pcb
-        .footprint_copy(instance.footprint)?
-        .footprint
-        .designator_text()?
-        .uuid;
-    crate::text::placed_field_texts(pcb, instance, &reda_command::Fonts::default())
+/// Where a Footprint's Designator text is drawn on the board. Automatic placements
+/// measure the text with `fonts`.
+pub fn placed_designator(
+    pcb: &PcbDocument,
+    instance: &FootprintInstance,
+    fonts: &reda_command::Fonts,
+) -> Option<FootprintText> {
+    let primary = primary_designator(pcb, instance)?;
+    crate::text::placed_field_texts(pcb, instance, fonts)
         .into_iter()
         .find(|t| t.uuid == primary)
 }

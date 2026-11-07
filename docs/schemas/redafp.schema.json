@@ -124,7 +124,7 @@
       "properties": {
         "at": {
           "$ref": "#/$defs/Point",
-          "description": "The text centre, relative to the Footprint origin."
+          "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
         },
         "field": {
           "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",

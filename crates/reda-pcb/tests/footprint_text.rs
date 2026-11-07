@@ -73,46 +73,105 @@ fn nine_autopositions_follow_the_rotated_courtyard_and_stay_upright() {
             "pcb.footprint.text.set",
             json!({"instances":[id],"field":"Designator","autoposition":position}),
         );
-        let before =
-            reda_pcb::placed::placed_designator(pcb(&engine), pcb(&engine).footprint(id).unwrap())
-                .unwrap();
-        let bounds =
-            reda_pcb::placed::footprint_bounds(pcb(&engine), pcb(&engine).footprint(id).unwrap());
-        if position.ends_with("above") {
-            assert!(before.at.y > bounds.max.y, "{position}");
+        // The same side of the (rotated) Courtyard box on the board, at every turn.
+        for turn in 0..4 {
+            let instance = pcb(&engine).footprint(id).unwrap();
+            let text =
+                reda_pcb::placed::placed_designator(pcb(&engine), instance, &Default::default())
+                    .unwrap();
+            let bounds = reda_pcb::placed::footprint_bounds(pcb(&engine), instance);
+            let at = (position, turn);
+            assert_eq!(text.rotation, reda_model::geom::Millideg::ZERO, "{at:?}");
+            match position.split_once('_').map_or(position, |(h, _)| h) {
+                "left" => assert!(text.at.x < bounds.min.x, "{at:?}"),
+                "right" => assert!(text.at.x > bounds.max.x, "{at:?}"),
+                _ => assert!((bounds.min.x..=bounds.max.x).contains(&text.at.x), "{at:?}"),
+            }
+            match position.rsplit_once('_').map_or(position, |(_, v)| v) {
+                "above" => assert!(text.at.y > bounds.max.y, "{at:?}"),
+                "below" => assert!(text.at.y < bounds.min.y, "{at:?}"),
+                _ => assert!((bounds.min.y..=bounds.max.y).contains(&text.at.y), "{at:?}"),
+            }
+            engine.run_ok("pcb.rotate", json!({"objects":[id],"angle":"90deg"}));
         }
-        if position.ends_with("below") {
-            assert!(before.at.y < bounds.min.y, "{position}");
-        }
-        if position.starts_with("left_") {
-            assert!(before.at.x < bounds.min.x, "{position}");
-        }
-        if position.starts_with("right_") {
-            assert!(before.at.x > bounds.max.x, "{position}");
-        }
-        engine.run_ok("pcb.rotate", json!({"objects":[id],"angle":"90deg"}));
-        let after =
-            reda_pcb::placed::placed_designator(pcb(&engine), pcb(&engine).footprint(id).unwrap())
-                .unwrap();
-        assert_eq!(after.rotation, reda_model::geom::Millideg::ZERO);
     }
     engine.run_ok(
         "pcb.footprint.text.set",
         json!({"instances":[id],"field":"Designator","at":{"x":"20mm","y":"30mm"}}),
     );
     let instance = pcb(&engine).footprint(id).unwrap().clone();
+    // Moving the text returns it to `manual`, the default, which isn't stored.
+    assert_eq!(instance.text_overrides[0].autoposition, None);
     assert_eq!(
-        instance.text_overrides[0].autoposition,
-        Some(reda_model::TextAutoposition::Manual)
-    );
-    assert_eq!(
-        reda_pcb::placed::placed_designator(pcb(&engine), &instance)
+        reda_pcb::placed::placed_designator(pcb(&engine), &instance, &Default::default())
             .unwrap()
             .at,
         reda_model::geom::Point::new(
             reda_model::geom::Nm::from_mm(20),
             reda_model::geom::Nm::from_mm(30)
         )
+    );
+}
+
+#[test]
+fn an_anchor_moves_one_text_and_overrides_keep_only_changed_values() {
+    let dir = TempDir::new("footprint-text-sparse-anchor");
+    let mut engine = engine(&dir);
+    let [id, other] = synced_resistors(&mut engine);
+    // One board point for several texts would stack them there.
+    let error = engine.run_err(
+        "pcb.footprint.text.set",
+        json!({"instances":[id, other],"field":"Designator","at":{"x":"20mm","y":"30mm"}}),
+    );
+    assert_eq!(error.code, reda_command::ErrorCode::InvalidParams);
+    assert!(
+        pcb(&engine)
+            .footprints()
+            .all(|i| i.text_overrides.is_empty())
+    );
+
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[id],"field":"Designator","autoposition":"center_above"}),
+    );
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[id],"field":"Designator","autoposition":"manual"}),
+    );
+    assert!(
+        pcb(&engine)
+            .footprint(id)
+            .unwrap()
+            .text_overrides
+            .is_empty()
+    );
+
+    // The entry's own place and reading direction, given on the board, store nothing.
+    let instance = pcb(&engine).footprint(id).unwrap().clone();
+    let entry = pcb(&engine)
+        .footprint_copy(instance.footprint)
+        .unwrap()
+        .footprint
+        .designator_text()
+        .unwrap()
+        .clone();
+    let frame = reda_pcb::placed::Frame::of(&instance);
+    let home = frame.point(entry.at);
+    let turn = frame.angle(entry.rotation);
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[id],"field":"Designator","autoposition":"center_above"}),
+    );
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":[id],"field":"Designator","at":{"x":home.x.0,"y":home.y.0},"rotation":turn.0}),
+    );
+    assert!(
+        pcb(&engine)
+            .footprint(id)
+            .unwrap()
+            .text_overrides
+            .is_empty()
     );
 }
 
@@ -262,9 +321,12 @@ fn autoposition_uses_the_pad_box_when_the_footprint_has_no_courtyard() {
         "pcb.footprint.text.set",
         json!({"instances":[id],"field":"Designator","autoposition":"center_above"}),
     );
-    let placed =
-        reda_pcb::placed::placed_designator(pcb(&engine), pcb(&engine).footprint(id).unwrap())
-            .unwrap();
+    let placed = reda_pcb::placed::placed_designator(
+        pcb(&engine),
+        pcb(&engine).footprint(id).unwrap(),
+        &Default::default(),
+    )
+    .unwrap();
     assert_eq!(placed.at.x, reda_model::geom::Nm::ZERO);
     assert!(placed.at.y > reda_model::geom::Nm::from_um(500));
 }

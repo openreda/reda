@@ -4,7 +4,7 @@
 
 use reda_engine::command::ErrorCode;
 use reda_engine::model::geom::{Millideg, Nm};
-use reda_engine::model::{FootprintLayer, LibraryElement};
+use reda_engine::model::{FootprintLayer, LibraryElement, TextHJustify, TextVJustify};
 use reda_testkit::{TempDir, TestEngine, test_engine_in};
 use serde_json::{Value, json};
 
@@ -198,6 +198,53 @@ fn field_texts_are_added_edited_and_removed() {
         text.style.thickness,
         Nm::from_um(200),
         "the pen keeps its proportion to the height"
+    );
+
+    // The whole shared text style but `frame`: justification and knockout too.
+    e.run_ok(
+        "library.footprint.text.edit",
+        json!({"footprint": fp, "text": added, "justify": {"h": "right", "v": "top"},
+               "knockout": {"margin": "0.2mm"}}),
+    );
+    let style = |e: &TestEngine| {
+        footprint(e, &fp)
+            .texts
+            .into_iter()
+            .find(|t| t.uuid.to_string() == added)
+            .unwrap()
+            .style
+    };
+    let styled = style(&e);
+    assert_eq!(styled.justify.h, TextHJustify::Right);
+    assert_eq!(styled.justify.v, TextVJustify::Top);
+    assert_eq!(styled.knockout.unwrap().margin, Nm::from_um(200));
+    for bad in [
+        json!({"footprint": fp, "text": added, "knockout": {"margin": "-0.1mm"}}),
+        json!({"footprint": fp, "text": added, "knockout": {"margin": "0.1mm"},
+               "clear_knockout": true}),
+        json!({"footprint": fp, "text": added, "frame": {"width": "1mm", "height": "1mm"}}),
+    ] {
+        assert_eq!(
+            e.run_err("library.footprint.text.edit", bad).code,
+            ErrorCode::InvalidParams
+        );
+    }
+    e.run_ok(
+        "library.footprint.text.edit",
+        json!({"footprint": fp, "text": added, "clear_knockout": true}),
+    );
+    assert_eq!(style(&e).knockout, None);
+    let knocked = e.run_ok(
+        "library.footprint.text.add",
+        json!({"footprint": fp, "field": "Value", "at": {"x": 0, "y": 0},
+               "justify": {"h": "left", "v": "bottom"}, "knockout": {"margin": "0.1mm"}}),
+    )["result"]["text"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    e.run_ok(
+        "library.footprint.text.remove",
+        json!({"footprint": fp, "text": knocked}),
     );
 
     let refused = e.run_err(

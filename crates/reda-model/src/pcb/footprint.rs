@@ -45,7 +45,7 @@ pub struct FootprintInstance {
     pub not_fitted: bool,
     /// Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub text_overrides: Vec<FootprintTextOverride>,
+    pub text_overrides: Vec<TextOverride>,
     /// One entry per Pad of the Footprint copy, sorted by Pad UUID.
     pub pads: Vec<PadNet>,
 }
@@ -54,6 +54,11 @@ impl FootprintInstance {
     /// The Net of Pad `pad`, if it has one.
     pub fn pad_net(&self, pad: Uuid) -> Option<Uuid> {
         self.pads.iter().find(|p| p.pad == pad).and_then(|p| p.net)
+    }
+
+    /// The override of Footprint text entry `text`, if this instance has one.
+    pub fn text_override(&self, text: Uuid) -> Option<&TextOverride> {
+        self.text_overrides.iter().find(|o| o.text == text)
     }
 }
 
@@ -70,7 +75,7 @@ pub struct FootprintTextRef {
 /// An instance changes only the properties present here; the Footprint supplies the rest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct FootprintTextOverride {
+pub struct TextOverride {
     pub text: Uuid,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<Point>,
@@ -84,7 +89,7 @@ pub struct FootprintTextOverride {
     pub autoposition: Option<TextAutoposition>,
 }
 
-impl FootprintTextOverride {
+impl TextOverride {
     pub fn new(text: Uuid) -> Self {
         Self {
             text,

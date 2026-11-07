@@ -284,7 +284,8 @@ pub struct FootprintText {
     /// The field it shows: `Designator`, `Value` or any field name. A field the Component
     /// does not have draws nothing.
     pub field: String,
-    /// The text centre, relative to the Footprint origin.
+    /// The text anchor, relative to the Footprint origin; `style.justify` says how the
+    /// text sits on it.
     pub at: Point,
     pub rotation: Millideg,
     #[serde(deserialize_with = "footprint_text_style")]

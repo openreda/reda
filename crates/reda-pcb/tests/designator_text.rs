@@ -15,7 +15,7 @@ fn mm(x: i64, y: i64) -> Point {
 }
 
 fn designator(engine: &TestEngine, uuid: reda_model::Uuid) -> reda_model::FootprintText {
-    placed_designator(pcb(engine), footprint(engine, uuid)).unwrap()
+    placed_designator(pcb(engine), footprint(engine, uuid), &Default::default()).unwrap()
 }
 
 #[test]

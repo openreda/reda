@@ -6,7 +6,7 @@ use reda_command::{
     Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
     Unavailable,
 };
-use reda_model::{FootprintTextOverride, InDocument, Object, TextAutoposition, Uuid};
+use reda_model::{InDocument, Object, TextAutoposition, TextOverride, TextStyle, Uuid};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -30,7 +30,8 @@ pub struct FootprintTextSetParams {
     /// Select individual entries by their stable Footprint text UUIDs.
     pub texts: Option<Vec<Uuid>>,
     pub autoposition: Option<TextAutoposition>,
-    /// Anchor in board coordinates. Moving text sets `manual`.
+    /// Anchor in board coordinates, for a selection of exactly one text entry. Moving text
+    /// sets `manual`.
     pub at: Option<PointParam>,
     /// Reading direction in board coordinates.
     pub rotation: Option<Angle>,
@@ -45,7 +46,7 @@ impl Command for FootprintTextSet {
     const META: Meta = Meta {
         id: "pcb.footprint.text.set",
         title: "Set Footprint Text",
-        description: "Changes field text across placed Footprints with sparse overrides. Select by field or text entry UUIDs. Anchors and rotations use board coordinates; moving text sets manual placement. Reset restores the Footprint defaults. Allowed on locked Footprints.",
+        description: "Changes field text across placed Footprints with sparse overrides. Select by field or text entry UUIDs. Anchors and rotations use board coordinates; an anchor moves exactly one text entry and sets manual placement. Reset restores the Footprint defaults. Allowed on locked Footprints.",
         category: "pcb",
         icon: "text_edit",
         kind: Kind::Edit,
@@ -104,6 +105,7 @@ fn set_texts(cx: &mut Context<'_>, p: FootprintTextSetParams) -> Result<Placed, 
     let pcb = pcb(cx)?;
     let mut updates = Vec::new();
     let mut seen = BTreeSet::new();
+    let mut selected = 0;
     for uuid in &p.instances {
         if !seen.insert(*uuid) {
             continue;
@@ -142,27 +144,35 @@ fn set_texts(cx: &mut Context<'_>, p: FootprintTextSetParams) -> Result<Placed, 
                 "a text entry does not belong to a selected Footprint",
             ));
         }
+        selected += entries.len();
+        if p.at.is_some() && selected > 1 {
+            // One board point for several texts would stack them all there.
+            return Err(CommandError::invalid_params(
+                "/at",
+                "an anchor moves one text entry; use autoposition to place many",
+            ));
+        }
         let frame = Frame::of(&instance);
         for entry in entries {
-            let current = instance
-                .text_overrides
-                .iter()
-                .find(|o| o.text == entry.uuid)
-                .cloned();
+            let current = instance.text_override(entry.uuid).cloned();
             instance.text_overrides.retain(|o| o.text != entry.uuid);
             if p.reset {
                 continue;
             }
-            let mut change = current.unwrap_or_else(|| FootprintTextOverride::new(entry.uuid));
+            let mut change = current.unwrap_or_else(|| TextOverride::new(entry.uuid));
+            // Overrides stay sparse: a value equal to the entry's, or `manual` (the default),
+            // is left out.
             if let Some(at) = &p.at {
-                change.at = Some(frame.local(at.point()));
-                change.autoposition = Some(TextAutoposition::Manual);
+                let at = frame.local(at.point());
+                change.at = (at != entry.at).then_some(at);
+                change.autoposition = None;
             }
             if let Some(rotation) = p.rotation {
-                change.rotation = Some(frame.local_angle(rotation.millideg()));
+                let rotation = frame.local_angle(rotation.millideg());
+                change.rotation = (rotation != entry.rotation.normalized()).then_some(rotation);
             }
             if let Some(position) = p.autoposition {
-                change.autoposition = Some(position);
+                change.autoposition = (position != TextAutoposition::Manual).then_some(position);
             }
             if let Some(style) = &p.style {
                 let mut resolved = change.style.clone().unwrap_or_else(|| entry.style.clone());
@@ -221,11 +231,8 @@ impl Command for DesignatorTextSet {
         let instance = board.footprint(p.footprint).ok_or_else(|| {
             CommandError::invalid_params("/footprint", "not a Footprint on the board")
         })?;
-        let primary = board
-            .footprint_copy(instance.footprint)
-            .and_then(|c| c.footprint.designator_text())
-            .ok_or_else(|| CommandError::rejected("this Footprint draws no Designator text"))?
-            .uuid;
+        let primary = crate::placed::primary_designator(board, instance)
+            .ok_or_else(|| CommandError::rejected("this Footprint draws no Designator text"))?;
         let style = p
             .size
             .map(|size| {
@@ -233,7 +240,7 @@ impl Command for DesignatorTextSet {
                 Ok::<_, CommandError>(StyleParam {
                     font: None,
                     height: Some(size),
-                    thickness: Some(Length::from(reda_model::geom::Nm(height.0 * 3 / 20))),
+                    thickness: Some(Length::from(TextStyle::of_height(height).thickness)),
                     justify: None,
                     knockout: None,
                     clear_knockout: false,

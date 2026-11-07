@@ -8,7 +8,7 @@ use reda_command::{
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
     Corners, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Pad, PadKind, PadShape,
-    Ratio, Shape, Side, TextStyle, Uuid, ZoneConnection,
+    Ratio, Shape, Side, TextJustify, TextKnockout, TextStyle, Uuid, ZoneConnection,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -585,7 +585,8 @@ pub struct FootprintTextAddParams {
     pub footprint: Uuid,
     /// The field it shows: `Designator`, `Value` or any field name.
     pub field: String,
-    /// The text centre, relative to the Footprint origin.
+    /// The text anchor, relative to the Footprint origin; `justify` says how the text sits
+    /// on it.
     pub at: PointParam,
     pub rotation: Option<Angle>,
     /// A Silkscreen or Assembly Layer. Omitted, the top Silkscreen.
@@ -596,8 +597,19 @@ pub struct FootprintTextAddParams {
     pub thickness: Option<Length>,
     /// The font family. Omitted, Hershey Roman Simplex.
     pub font: Option<String>,
+    /// Omitted, centred on the anchor.
+    pub justify: Option<TextJustify>,
+    /// A box around the text with the glyphs removed. Omitted, none.
+    pub knockout: Option<KnockoutParam>,
     /// Omitted, shown.
     pub visible: Option<bool>,
+}
+
+/// The knockout box around a text, grown by `margin`.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KnockoutParam {
+    pub margin: Length,
 }
 
 impl Command for FootprintTextAdd {
@@ -635,6 +647,9 @@ impl Command for FootprintTextAdd {
             height: None,
             thickness: p.thickness,
             font: p.font,
+            justify: p.justify,
+            knockout: p.knockout,
+            clear_knockout: false,
             visible: p.visible,
         };
         change.apply(&mut text)?;
@@ -656,7 +671,7 @@ pub struct FootprintTextEditParams {
     pub text: Uuid,
     /// The field it shows: `Designator`, `Value` or any field name.
     pub field: Option<String>,
-    /// The text centre, relative to the Footprint origin.
+    /// The text anchor, relative to the Footprint origin.
     pub at: Option<PointParam>,
     pub rotation: Option<Angle>,
     /// A Silkscreen or Assembly Layer.
@@ -668,6 +683,13 @@ pub struct FootprintTextEditParams {
     pub thickness: Option<Length>,
     /// The font family.
     pub font: Option<String>,
+    /// How the text sits on its anchor.
+    pub justify: Option<TextJustify>,
+    /// Adds or changes the knockout box.
+    pub knockout: Option<KnockoutParam>,
+    /// Removes the knockout box.
+    #[serde(default)]
+    pub clear_knockout: bool,
     pub visible: Option<bool>,
 }
 
@@ -680,6 +702,9 @@ struct TextChange {
     height: Option<Length>,
     thickness: Option<Length>,
     font: Option<String>,
+    justify: Option<TextJustify>,
+    knockout: Option<KnockoutParam>,
+    clear_knockout: bool,
     visible: Option<bool>,
 }
 
@@ -713,6 +738,28 @@ impl TextChange {
         if let Some(font) = self.font {
             text.style.font = font;
         }
+        if let Some(justify) = self.justify {
+            text.style.justify = justify;
+        }
+        if self.clear_knockout && self.knockout.is_some() {
+            return Err(CommandError::invalid_params(
+                "/clear_knockout",
+                "give knockout or clear_knockout, not both",
+            ));
+        }
+        if let Some(knockout) = self.knockout {
+            let margin = knockout.margin.nm();
+            if margin < Nm(0) {
+                return Err(CommandError::invalid_params(
+                    "/knockout/margin",
+                    "the knockout margin is negative",
+                ));
+            }
+            text.style.knockout = Some(TextKnockout { margin });
+        }
+        if self.clear_knockout {
+            text.style.knockout = None;
+        }
         if let Some(visible) = self.visible {
             text.visible = visible;
         }
@@ -744,8 +791,8 @@ impl Command for FootprintTextEdit {
     const META: Meta = meta(
         "library.footprint.text.edit",
         "Edit Footprint Text",
-        "Changes a Footprint text's field, position, rotation, Layer, height, pen width, \
-         font or visibility. Omitted fields keep their value.",
+        "Changes a Footprint text's field, anchor, rotation, Layer, height, pen width, \
+         font, justification, knockout or visibility. Omitted fields keep their value.",
     );
     type Params = FootprintTextEditParams;
     type Output = ();
@@ -765,6 +812,9 @@ impl Command for FootprintTextEdit {
                 height: p.height,
                 thickness: p.thickness,
                 font: p.font,
+                justify: p.justify,
+                knockout: p.knockout,
+                clear_knockout: p.clear_knockout,
                 visible: p.visible,
             }
             .apply(text)

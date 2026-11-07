@@ -139,7 +139,12 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
   - `manual` uses the entry's own position, moved with the Footprint.
   - The other values place the text against the Courtyard or fallback box. It keeps that place when the Footprint rotates, and stays upright. The upright rule is REDA's own, because the docs don't cover it.
   - Dragging the text sets `manual`.
-- **Bulk edit:** `pcb.footprint.text.set {instances, field, autoposition?, at?, rotation?, style?, visible?}` sets position, size, style and visibility across many instances, and hides a Designator on tiny parts.
+- **Bulk edit:** `pcb.footprint.text.set {instances, field | texts, autoposition?, at?, rotation?, style?, visible?, reset?}` sets position, size, style and visibility across many instances, and hides a Designator on tiny parts.
+  - `field` picks every entry showing that field. `texts` picks entries by UUID instead, as a drag does.
+  - `at` and `rotation` are on the board. `at` moves exactly one entry, because one board point for many would stack them; `autoposition` places many.
+  - `style` patches only the properties it names, and `clear_knockout` removes a knockout.
+  - `reset` drops the picked entries' overrides.
+  - An override keeps only values that differ from the entry's, and `manual` is never stored.
 - **A Footprint change** keeps an override whose entry matches by UUID, or else by `field` and Layer. Any other override is dropped. This keeps the [Designator text placement](sync.md#what-sync-does-to-the-board) that Sync promises.
 - Text overrides aren't local edits: they don't change the Footprint's hash.
 
@@ -506,7 +511,7 @@ Free text and [Footprint text](library.md#footprint-contents) share one style: `
 - **`justify {h: left|center|right, v: top|center|bottom}`:** how the text sits on its anchor. `position` is now the anchor, where it was the left of the first baseline. `bottom` is the last line's baseline. Free text defaults to left and bottom, and Footprint text to centre.
 - **`knockout {margin}`:** the box around the text, grown by `margin`, with the glyphs removed. It works on every font. The docs show it clearly only on TrueType and barcode text, but REDA's default font is a stroke font and silk labels need it there.
   - It is one flattened polygon, the same on the canvas, in PDFs and in [Gerbers](outputs.md#gerber). So it doesn't depend on draw order and erases nothing beside it. Other silk under the box shows through the letters.
-- **`frame {width, height}`**, on free text only: the text wraps at the width, and `justify` applies inside the frame. A line that doesn't fit the height isn't drawn, and Properties says so. The leading suite clips, but half a glyph can't be read on a board. With `knockout`, the frame is the box.
+- **`frame {width, height}`**, on free text only: the text wraps at the width, and `justify` applies inside the frame. A line that doesn't fit the height isn't drawn, and Properties says so. A single glyph wider than the frame can't wrap, so its line isn't drawn either, and leaves no gap. `pcb.text.set` takes `clear_frame` and `clear_knockout` to remove them. The leading suite clips, but half a glyph can't be read on a board. With `knockout`, the frame is the box.
 - A barcode `kind` is [reserved](architecture.md#reserved-names).
 
 ## Dimensions

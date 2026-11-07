@@ -8,7 +8,7 @@ mod knockout;
 use std::sync::OnceLock;
 
 use reda_command::Fonts;
-use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{Bounds, Millideg, Nm, Point};
 use reda_model::text::display;
 use reda_model::{
     HERSHEY_FONT, NOTO_SANS_FONT, PcbDocument, PcbText, TextHJustify, TextVJustify, Uuid,
@@ -143,12 +143,17 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
             .into_iter()
             .flat_map(|line| wrap_line(&line, frame.width, font, text.height))
             .collect();
+        // Only a single glyph wider than the frame is left too wide; its line is dropped
+        // without leaving a gap.
+        let wrapped = lines.len();
+        lines.retain(|line| layout(line, font, text.height, noto_sans()).advance <= frame.width);
+        dropped_lines = wrapped - lines.len();
         let capacity = if frame.height < text.height {
             0
         } else {
             1 + (frame.height.0 - text.height.0) / pitch
         } as usize;
-        dropped_lines = lines.len().saturating_sub(capacity);
+        dropped_lines += lines.len().saturating_sub(capacity);
         lines.truncate(capacity);
     }
     let block_height = if lines.is_empty() {
@@ -185,13 +190,6 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
     };
     for (i, line) in lines.iter().enumerate() {
         let geometry = layout(line, font, text.height, noto_sans());
-        if text
-            .frame
-            .is_some_and(|frame| geometry.advance > frame.width)
-        {
-            dropped_lines += 1;
-            continue;
-        }
         let dx = left
             + match text.justify.h {
                 TextHJustify::Left => 0,
@@ -211,9 +209,10 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
             .extend(geometry.fill.indices.iter().map(|i| i + base));
     }
     if let Some(knockout) = text.knockout {
-        let frame = text
-            .frame
-            .map(|frame| (left, bottom, left + frame.width.0, bottom + frame.height.0));
+        let frame = text.frame.map(|frame| Bounds {
+            min: Point::new(Nm(left), Nm(bottom)),
+            max: Point::new(Nm(left + frame.width.0), Nm(bottom + frame.height.0)),
+        });
         fill = knockout::flatten(&strokes, text.thickness, &fill, frame, knockout.margin);
         strokes.clear();
     }

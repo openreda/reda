@@ -298,6 +298,14 @@ _Avoid_: Inverted text, negative text
 A box that free text wraps inside.
 _Avoid_: Text box
 
+**Field Text**:
+A text entry of a Footprint that shows one of its Component's fields, such as the Designator or the value, wherever that Footprint is placed.
+_Avoid_: Label, attribute text
+
+**Text Override**:
+A placed Footprint's own position, rotation, style, visibility or autoposition for one Field Text. It isn't a local edit: the Footprint copy and its hash stay unchanged.
+_Avoid_: Footprint override, local text edit
+
 **Lock**:
 A mark on a placed object that protects its geometry from being changed by accident.
 _Avoid_: Freeze, pin

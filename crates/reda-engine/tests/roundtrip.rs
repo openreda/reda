@@ -381,10 +381,10 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             in_cpl: !flag,
             not_fitted: !flag,
             text_overrides: if flag {
-                vec![reda_model::FootprintTextOverride {
+                vec![reda_model::TextOverride {
                     rotation: Some(Millideg(270_000)),
                     visible: Some(false),
-                    ..reda_model::FootprintTextOverride::new(Uuid::v4_from_bits(seed.base ^ 11))
+                    ..reda_model::TextOverride::new(Uuid::v4_from_bits(seed.base ^ 11))
                 }]
             } else {
                 vec![]

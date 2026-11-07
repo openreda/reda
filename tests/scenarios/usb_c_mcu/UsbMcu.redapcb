@@ -208,7 +208,7 @@
       {"pad":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","net":"00000000-0000-4000-8000-0000000000b7"},
       {"pad":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","net":"00000000-0000-4000-8000-0000000000bf"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c2","component":{"uuid":"00000000-0000-4000-8000-000000000048"},"footprint":"00000000-0000-4000-8000-0000000000c0","at":{"x":28000000,"y":18000000},"rotation":270000,"side":"bottom","designator":"C2","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"text_overrides":[{"text":"d34cad27-7d92-4c97-bb86-d12508678534","at":{"x":0,"y":-2200000},"rotation":270000,"autoposition":"manual"}],"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c2","component":{"uuid":"00000000-0000-4000-8000-000000000048"},"footprint":"00000000-0000-4000-8000-0000000000c0","at":{"x":28000000,"y":18000000},"rotation":270000,"side":"bottom","designator":"C2","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"text_overrides":[{"text":"d34cad27-7d92-4c97-bb86-d12508678534","at":{"x":0,"y":-2200000},"rotation":270000}],"pads":[
       {"pad":"64fb2a87-35b3-4e07-afa0-4fc17baa89b3","net":"00000000-0000-4000-8000-0000000000b7"},
       {"pad":"a0e42a5e-5097-48ce-85f3-1acbccf8e6f4","net":"00000000-0000-4000-8000-0000000000b4"}
     ]},
@@ -224,7 +224,7 @@
       {"pad":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","net":"00000000-0000-4000-8000-0000000000b9"},
       {"pad":"b034cab0-2c1e-489e-9521-1346c8e2152b","net":"00000000-0000-4000-8000-0000000000b7"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000c9","component":{"uuid":"00000000-0000-4000-8000-000000000025"},"footprint":"00000000-0000-4000-8000-0000000000c8","at":{"x":11000000,"y":4377500},"rotation":0,"side":"top","designator":"J1","fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"component_type":"standard","in_bom":true,"in_cpl":true,"text_overrides":[{"text":"210590f8-c0cc-4dfb-b429-4245f9d06fa3","at":{"x":-7500000,"y":4622500},"rotation":0,"autoposition":"manual"}],"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c9","component":{"uuid":"00000000-0000-4000-8000-000000000025"},"footprint":"00000000-0000-4000-8000-0000000000c8","at":{"x":11000000,"y":4377500},"rotation":0,"side":"top","designator":"J1","fields":{"value":"USB-C","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount","keywords":"J connector USB Type-C receptacle"},"component_type":"standard","in_bom":true,"in_cpl":true,"text_overrides":[{"text":"210590f8-c0cc-4dfb-b429-4245f9d06fa3","at":{"x":-7500000,"y":4622500}}],"pads":[
       {"pad":"0f8b3078-57ca-4e48-b465-770d7f72d774","net":"00000000-0000-4000-8000-0000000000b7"},
       {"pad":"12ef56d9-c47e-41ae-8e4f-7dddcba6fe4c","net":"00000000-0000-4000-8000-0000000000b7"},
       {"pad":"2137f401-4e41-4f86-b48d-1693c37f0401"},
@@ -255,7 +255,7 @@
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-0000000000b5"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-0000000000b7"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000ce","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"footprint":"00000000-0000-4000-8000-0000000000cc","at":{"x":12750000,"y":11600000},"rotation":90000,"side":"top","designator":"R2","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"text_overrides":[{"text":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","at":{"x":-200000,"y":-1850000},"rotation":270000,"autoposition":"manual"}],"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000ce","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"footprint":"00000000-0000-4000-8000-0000000000cc","at":{"x":12750000,"y":11600000},"rotation":90000,"side":"top","designator":"R2","fields":{"value":"5.1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"text_overrides":[{"text":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","at":{"x":-200000,"y":-1850000},"rotation":270000}],"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-0000000000b6"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-0000000000b7"}
     ]},

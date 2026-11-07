@@ -197,6 +197,21 @@ fn a_text_frame_wraps_and_drops_whole_lines_that_do_not_fit() {
     assert_eq!(drawn["strokes"][0], seg(900_000, 2_100_000, 100_000, 0));
 }
 
+#[test]
+fn a_glyph_wider_than_the_frame_drops_its_line_without_leaving_a_gap() {
+    let dir = TempDir::new("text-frame-wide-glyph");
+    let mut engine = with_pcb(probe_engine(), &dir);
+    // `W` is 2.4 mm wide and can't wrap in a 2 mm frame; `A` (1.8 mm) takes the one line.
+    let uuid = add_text(
+        &mut engine,
+        json!({"layer":"silkscreen_top","text":"W\nA","x":0,"y":0,"height":"2.1mm", "frame":{"width":"2mm","height":"2.1mm"}}),
+    );
+    let drawn = geometry(&mut engine, &uuid);
+    assert_eq!(drawn["dropped_lines"], 1);
+    assert_eq!(drawn["strokes"].as_array().unwrap().len(), 3);
+    assert_eq!(drawn["strokes"][0], seg(900_000, 2_100_000, 100_000, 0));
+}
+
 fn filled_at(geometry: &Value, x: i64, y: i64) -> bool {
     let points = geometry["fill"]["points"].as_array().unwrap();
     geometry["fill"]["indices"]

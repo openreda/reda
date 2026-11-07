@@ -208,7 +208,8 @@ fn a_flipped_footprint_mirrors_its_pads_and_drawing_onto_the_bottom() {
             FootprintLayer::CourtyardBottom
         ]
     );
-    let designator = placed_designator(pcb(&engine), footprint(&engine, r1)).unwrap();
+    let designator =
+        placed_designator(pcb(&engine), footprint(&engine, r1), &Default::default()).unwrap();
     assert_eq!(designator.layer, FootprintLayer::SilkscreenBottom);
     assert_eq!(designator.at, a + Point::new(Nm(0), Nm(1_450_000)));
 

@@ -1,7 +1,7 @@
 //! Flatten a knockout box minus its glyphs before any board transform.
 
 use i_triangle::int::triangulatable::IntTriangulatable;
-use reda_model::geom::{Nm, Point};
+use reda_model::geom::{Bounds, Nm, Point};
 
 use super::{Fill, Stroke};
 use crate::copper::shape::{Core, Prim, Shape};
@@ -11,7 +11,7 @@ pub(super) fn flatten(
     strokes: &[Stroke],
     width: Nm,
     fill: &Fill,
-    frame: Option<(i64, i64, i64, i64)>,
+    frame: Option<Bounds>,
     margin: Nm,
 ) -> Fill {
     let prims = strokes
@@ -34,27 +34,17 @@ pub(super) fn flatten(
     }
     let glyphs = poly::union(glyphs);
     let bounds = frame.or_else(|| {
-        let mut points = fill.points.iter().map(|p| (p.x.0, p.y.0, 0)).chain(
-            strokes
-                .iter()
-                .flat_map(|s| [s.a, s.b])
-                .map(|p| (p.x.0, p.y.0, width.0 / 2)),
-        );
-        let (x, y, r) = points.next()?;
-        let mut b = (x - r, y - r, x + r, y + r);
-        for (x, y, r) in points {
-            b = (
-                b.0.min(x - r),
-                b.1.min(y - r),
-                b.2.max(x + r),
-                b.3.max(y + r),
-            );
-        }
-        Some(b)
+        let ink = fill.points.iter().map(|&p| Bounds::of_point(p));
+        let pen = strokes
+            .iter()
+            .flat_map(|s| [s.a, s.b])
+            .map(|p| Bounds::around(p, Nm(width.0 / 2)));
+        ink.chain(pen).reduce(Bounds::union)
     });
-    let Some((left, bottom, right, top)) = bounds else {
+    let Some(Bounds { min, max }) = bounds else {
         return Fill::default();
     };
+    let (left, bottom, right, top) = (min.x.0, min.y.0, max.x.0, max.y.0);
     let m = margin.0;
     let box_area = poly::polygon(vec![
         poly::ip([left - m, bottom - m]),
