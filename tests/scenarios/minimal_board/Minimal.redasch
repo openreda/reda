@@ -18,7 +18,7 @@
     ],"graphics":[
       {"uuid":"0e65c72b-7ee9-49c4-94cc-ef11deea34c0","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","shape":{"kind":"rect","start":{"x":-1016000,"y":-2540000},"end":{"x":1016000,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"4da0c4bc6b204a0b73f7f2d9aca38d27","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000030","00000000-0000-4000-8000-000000000031","00000000-0000-4000-8000-000000000032","00000000-0000-4000-8000-000000000033","00000000-0000-4000-8000-000000000034"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"e0569bcfecdb4dea58c2722b7c64cf3c","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000030","00000000-0000-4000-8000-000000000031","00000000-0000-4000-8000-000000000032","00000000-0000-4000-8000-000000000033","00000000-0000-4000-8000-000000000034"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
       {"uuid":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A"}
     ],"pins":[
       {"uuid":"4c45e5ee-3d76-48d7-9fbf-f1aac5cb4e5c","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
@@ -120,41 +120,41 @@
       {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"93505dbc-3734-4000-9025-215dbd4b74cb","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"3bae327e57c8d50ac5a4b200da4991a6","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"3770e81d0d091f3d1490638d299e4bfb","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
       {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":25000},
       {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":25000}
     ],"graphics":[
       {"uuid":"21fd2982-c15f-4ec3-ad3c-af15a6130fb9","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-800000,"y":-400000},"end":{"x":800000,"y":400000}},"width":100000},
       {"uuid":"2ab07252-ab3d-4a95-9ee7-87caa212790c","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1500000,"y":-750000},"end":{"x":1500000,"y":750000}},"width":50000},
-      {"uuid":"c70db547-1153-49e5-858c-eaccb665d0f9","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1485000,"y":-475000},"end":{"x":-1485000,"y":475000}},"width":120000}
+      {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1485000,"y":535000},"end":{"x":-1485000,"y":-535000}},"width":120000}
     ],"texts":[
-      {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"68127592-062c-43f9-9f7f-15c75d5bc9c0","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"97e0fd39-2f51-4d23-98ba-6e9bb646d80e","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+      {"uuid":"3cb82ba6-ff6c-4132-b12c-8dd7fb9851a0","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"68127592-062c-43f9-9f7f-15c75d5bc9c0","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"fc5a1da4-a477-4e33-a0c3-e21a2e8ca40b","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"9cf1b8c82a91f0b7ddd837aaae3a1807","footprint":{"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal","height":1000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"6d8947a5314ce89bff0ba8ff39bc8b48","footprint":{"uuid":"4e42a296-3583-4c92-a62e-f371552e358c","name":"LEDC2012X100N","description":"Chip LED, 2012 metric, IPC-7351 Nominal","height":1000000},"pads":[
       {"uuid":"da7f65dd-1524-4d8b-80d1-612e6ea8c86c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":25000},
       {"uuid":"e5bb7c36-9594-4db9-aa43-e20ad1d34fab","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":962500,"y":0},"rotation":0,"width":925000,"height":1400000,"corner_ratio":25000}
     ],"graphics":[
       {"uuid":"3400cc70-58f1-40c1-bef5-8ccf9cf34469","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1700000,"y":-950000},"end":{"x":1700000,"y":950000}},"width":50000},
-      {"uuid":"639faa5c-e0b5-48df-a74e-fdbce618d495","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1685000,"y":-700000},"end":{"x":-1685000,"y":700000}},"width":120000},
-      {"uuid":"6b85221b-1d33-485b-9dc8-d462bd5a8b22","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000}
+      {"uuid":"6b85221b-1d33-485b-9dc8-d462bd5a8b22","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1000000,"y":-625000},"end":{"x":1000000,"y":625000}},"width":100000},
+      {"uuid":"ae4e5903-f838-48a2-8847-c94a2b7f12b2","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1685000,"y":760000},"end":{"x":-1685000,"y":-760000}},"width":120000}
     ],"texts":[
-      {"uuid":"4ab3b06a-e0a7-4911-8cc6-49c947bb16a9","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"7834d3ac-71d5-4c71-b361-fdd7bd61b8e0","field":"Value","at":{"x":0,"y":-1460000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"ae4e5903-f838-48a2-8847-c94a2b7f12b2","field":"Designator","at":{"x":0,"y":1650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+      {"uuid":"4ab3b06a-e0a7-4911-8cc6-49c947bb16a9","field":"Value","at":{"x":0,"y":-1460000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"5549da30-99eb-4be7-b7da-9bfd19e055b9","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":620000,"thickness":93000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"7834d3ac-71d5-4c71-b361-fdd7bd61b8e0","field":"Designator","at":{"x":0,"y":1650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"f7ad29cc8b1d2c77a50c27c69e5c76e1","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"dbc68efcfff47beaa261513b057ae5d8","footprint":{"uuid":"6265ffd0-3a84-4eb5-baff-7024f3c43c7a","name":"LEDC3216X110N","description":"Chip LED, 3216 metric, IPC-7351 Nominal","height":1100000},"pads":[
       {"uuid":"1b401347-e12d-476b-9d30-5add58c799ac","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1512500,"y":0},"rotation":0,"width":1075000,"height":1800000,"corner_ratio":25000},
       {"uuid":"1fc2385c-af4e-4bc0-9642-ab15f4b87fcc","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1512500,"y":0},"rotation":0,"width":1075000,"height":1800000,"corner_ratio":25000}
     ],"graphics":[
-      {"uuid":"87b32797-9ffe-4e67-a9f1-19b476028f28","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2310000,"y":-900000},"end":{"x":-2310000,"y":900000}},"width":120000},
+      {"uuid":"59d44a1c-b042-46e4-9c50-3f7cf392f24a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2310000,"y":960000},"end":{"x":-2310000,"y":-960000}},"width":120000},
       {"uuid":"acbe1e68-5d92-4a59-84a6-d4ec3a923002","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2300000,"y":-1150000},"end":{"x":2300000,"y":1150000}},"width":50000},
       {"uuid":"d0acbb24-93e9-4ed9-a3d6-97691f18cdc5","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-1600000,"y":-800000},"end":{"x":1600000,"y":800000}},"width":100000}
     ],"texts":[
-      {"uuid":"4b6333a3-f466-4490-bcb8-326f7019c4e8","field":"Value","at":{"x":0,"y":-1750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"59d44a1c-b042-46e4-9c50-3f7cf392f24a","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-      {"uuid":"cbf150a1-56ab-45e8-8f1a-559d1a88b79f","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"40a1b6d3-302c-46f1-a024-c737b3837536","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"4b6333a3-f466-4490-bcb8-326f7019c4e8","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"cbf150a1-56ab-45e8-8f1a-559d1a88b79f","field":"Value","at":{"x":0,"y":-1750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-000000000033","hash":"5a951fddf9f4f33c72125174d74a70c9","footprint":{"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart"},"pads":[
       {"uuid":"6a99ad72-426c-478c-b3f3-067cf1f78846","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}},

@@ -467,6 +467,9 @@ impl PreferencesDialog {
 /// The user Library folders' key.
 pub const LIBRARY_PATHS: &str = "libraries.paths";
 
+/// The prefix of the Library check severity keys, one per check.
+pub const LIBRARY_SEVERITIES: &str = "libraries.severities.";
+
 /// A value as All settings writes it: strings bare, unset blank, the rest as JSON.
 fn as_text(value: &Value) -> String {
     match value {

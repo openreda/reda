@@ -231,11 +231,17 @@ fn capacitors(s: &mut Script) {
         ("CAPMP3216X180N", (3.0, 3.4), (1.4, 1.8), "1.8mm"),
         ("CAPMP3528X210N", (3.3, 3.7), (2.6, 3.0), "2.1mm"),
     ] {
+        let description = format!(
+            "Moulded polarised chip capacitor, {} metric, IPC-7351 Nominal",
+            &name[5..9]
+        );
         let fp = s.generate(
             "chip",
             json!({
                 "class": "capacitor",
                 "name": name,
+                "description": description,
+                "polarity_mark": true,
                 "dimensions": {
                     "length": {"min": mm(length.0), "max": mm(length.1)},
                     "width": {"min": mm(width.0), "max": mm(width.1)},
@@ -244,11 +250,6 @@ fn capacitors(s: &mut Script) {
                 },
             }),
         );
-        let description = format!(
-            "Moulded polarised chip capacitor, {} metric, IPC-7351 Nominal",
-            &name[5..9]
-        );
-        s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
     for (diameter, pitch, pad, drill) in [(5.0, 2.0, 1.4, 0.8), (6.3, 2.5, 1.6, 0.8)] {

@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use reda_geom::{CornerCut, CornerRect, Millideg, Nm, Point};
+use reda_geom::{Bounds, CornerCut, CornerRect, Millideg, Nm, Point};
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
@@ -89,6 +89,15 @@ impl Pad {
     /// Its copper outline in its own frame, the anchor at the origin.
     pub fn outline(&self) -> CornerRect {
         self.form().outline()
+    }
+
+    /// A box around its copper in the Footprint's frame.
+    pub fn bounds(&self) -> Bounds {
+        let corners = self
+            .outline()
+            .box_corners()
+            .map(|p| (p + self.at).rotated_about(self.at, self.rotation));
+        Bounds::of_points(corners).expect("four corners")
     }
 
     /// The side its copper is on in the Footprint's frame: `None` for a Pad with a hole.

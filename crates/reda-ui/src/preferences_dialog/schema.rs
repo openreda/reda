@@ -147,7 +147,9 @@ fn setting_in(schema: &Value, key: String) -> Setting {
         .or_else(|| resolved["description"].as_str())
         .unwrap_or_default()
         .to_owned();
-    let label = catalogue(&key).unwrap_or_else(|| sentence(&description, &key));
+    let label = catalogue(&key)
+        .or_else(|| check_title(&key))
+        .unwrap_or_else(|| sentence(&description, &key));
     let document = per_document(&key)
         .and_then(PageId::from_id)
         .map(PageId::title);
@@ -235,6 +237,12 @@ fn choice(key: &str, value: &str, description: Option<&str>) -> Choice {
         value: value.to_owned(),
         label,
     }
+}
+
+/// A Library check severity's label: its check's title.
+fn check_title(key: &str) -> Option<String> {
+    let check = key.strip_prefix(super::LIBRARY_SEVERITIES)?;
+    Some(crate::messages::check_title(check))
 }
 
 /// The catalogue's label for a key, `pref-<key>` with `.` and `_` written as `-`.

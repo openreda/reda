@@ -23,7 +23,7 @@ pub use commands::{
     normalise_library_path, register_all,
 };
 pub use edit::check_element_name;
-pub use generate::{FootprintStore, register_generators};
+pub use generate::{FootprintStore, GeneratorHost, SeveritiesOf, register_generators};
 pub use index::{Library, LibraryIndex, Origin, ScanProblem};
 pub use scan::{ElementKind, LIBRARY_EXTENSION, LibraryFiles, LibraryRoot, scan};
 pub use search::{SearchHit, SearchQuery};

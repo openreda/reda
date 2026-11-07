@@ -186,6 +186,59 @@ fn regenerated(
     Ok((new, out))
 }
 
+/// Whether `footprint`'s stored generator params still make it: the same Pads, graphics,
+/// texts and properties, whatever their UUIDs. `None` when no generator made it,
+/// `Some(false)` when the params now make something else, fail, or name a generator REDA
+/// lacks. The name is the Footprint's own (as regenerating keeps it) and the stored
+/// record itself is not compared, so a renamed Footprint still matches.
+pub fn still_made(footprint: &Footprint) -> Option<bool> {
+    let generator = footprint.generator.as_ref()?;
+    let mut params = generator.params.clone();
+    let Some(fields) = params.as_object_mut() else {
+        return Some(false);
+    };
+    fields
+        .entry("library")
+        .or_insert_with(|| serde_json::json!(Uuid::NIL));
+    fields.insert("name".into(), serde_json::json!(footprint.name));
+    let mut next = 0u128;
+    let mut new_id = || {
+        next += 1;
+        Uuid::from_u128(next)
+    };
+    let Some(Ok((new, _))) = rebuild(&generator.command, &params, &mut new_id) else {
+        return Some(false);
+    };
+    Some(without_uuids(&new) == without_uuids(footprint))
+}
+
+/// A Footprint's contents with every UUID cleared and each list in a fixed order, so two
+/// Footprints that differ only in UUIDs compare equal.
+fn without_uuids(footprint: &Footprint) -> (Vec<String>, Vec<String>, Vec<String>, String) {
+    fn canonical<T: Clone + Serialize>(items: &[T], clear: impl Fn(&mut T)) -> Vec<String> {
+        let mut out: Vec<String> = items
+            .iter()
+            .map(|item| {
+                let mut item = item.clone();
+                clear(&mut item);
+                serde_json::to_string(&item).unwrap_or_default()
+            })
+            .collect();
+        out.sort();
+        out
+    }
+    let properties = serde_json::json!({
+        "description": footprint.description,
+        "height": footprint.height,
+    });
+    (
+        canonical(&footprint.pads, |p| p.uuid = Uuid::NIL),
+        canonical(&footprint.graphics, |g| g.uuid = Uuid::NIL),
+        canonical(&footprint.texts, |t| t.uuid = Uuid::NIL),
+        properties.to_string(),
+    )
+}
+
 /// A generator's `invalid_params` error, with its pointer under `/params` when the
 /// caller gave the params.
 fn under_params(mut e: CommandError, given: bool) -> CommandError {
