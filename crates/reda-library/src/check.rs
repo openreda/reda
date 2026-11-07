@@ -3,9 +3,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use reda_model::footprint_copper;
 use reda_model::geom::Nm;
 use reda_model::{
-    Footprint, FootprintLayer, LibraryElement, PadKind, Part, Severity, Symbol, Uuid, Violation,
+    ComponentType, Footprint, FootprintLayer, LibraryElement, PadKind, Part, Severity, Symbol,
+    Uuid, Violation,
 };
 
 use crate::LibraryIndex;
@@ -138,6 +140,9 @@ fn check_part(elements: &dyn Elements, part: &Part) -> Vec<Violation> {
             None => out.push(broken("footprint", uuid.to_string())),
         }
     }
+    for footprint in &footprints {
+        tie_copper(part, footprint, &mut out);
+    }
     let Some(symbol) = symbol else {
         return out;
     };
@@ -150,6 +155,32 @@ fn check_part(elements: &dyn Elements, part: &Part) -> Vec<Violation> {
         check_pin_map(part, symbol, footprint, &mut out);
     }
     out
+}
+
+/// `net_tie_not_joined` for a Net Tie's Footprint that isn't a valid tie, `shorted_copper`
+/// for touching Pads with different numbers on any other Part's.
+fn tie_copper(part: &Part, footprint: &Footprint, out: &mut Vec<Violation>) {
+    if part.component_type == ComponentType::NetTie {
+        if let Some(problem) = footprint_copper::tie_problem(footprint) {
+            out.push(
+                Violation::new("net_tie_not_joined", Severity::Error)
+                    .arg("footprint", footprint.name.as_str())
+                    .arg("reason", problem.id())
+                    .objects([part.uuid, footprint.uuid]),
+            );
+        }
+        return;
+    }
+    for (a, b) in footprint_copper::shorted_pads(footprint) {
+        let (a, b) = (&footprint.pads[a], &footprint.pads[b]);
+        out.push(
+            Violation::new("shorted_copper", Severity::Error)
+                .arg("pad_a", a.number.as_str())
+                .arg("pad_b", b.number.as_str())
+                .arg("footprint", footprint.name.as_str())
+                .objects([part.uuid, footprint.uuid, a.uuid, b.uuid]),
+        );
+    }
 }
 
 /// Pins that reach no Pad of `footprint`, and Pads no Pin reaches that are not marked

@@ -2,7 +2,7 @@
   "format": 1,
   "footprint": {"uuid":"4147e6dc-4826-4af3-8aaf-99a7accd9bbd","name":"Fiducial_1mm_Mask2mm","description":"Fiducial mark, 1 mm copper in a 2 mm mask opening"},
   "pads": [
-    {"uuid":"be19c584-9350-4171-95c9-c3717c606f4b","number":"","kind":"smd","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1000000,"height":1000000,"mask":{"top":{"expansion":500000}}}
+    {"uuid":"be19c584-9350-4171-95c9-c3717c606f4b","number":"","kind":"smd","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1000000,"height":1000000,"mask":{"top":{"expansion":500000}},"paste":"none"}
   ],
   "graphics": [
     {"uuid":"83e14916-371b-4fdb-aad7-667ce7073251","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1250000},"width":50000}

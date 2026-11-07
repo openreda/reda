@@ -1033,6 +1033,16 @@
                 "type": "string"
               },
               {
+                "const": "shorted_copper",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_not_joined",
+                "description": "A Net Tie's Footprint that isn't a valid tie.",
+                "type": "string"
+              },
+              {
                 "const": "track_width",
                 "description": "A Track narrower than the minimum or wider than the maximum.",
                 "type": "string"
@@ -1258,6 +1268,16 @@
               {
                 "const": "short_circuit",
                 "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "shorted_copper",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_not_joined",
+                "description": "A Net Tie's Footprint that isn't a valid tie.",
                 "type": "string"
               },
               {
@@ -1867,6 +1887,11 @@
                 "type": "string"
               },
               {
+                "const": "net_tie_one_net",
+                "description": "A Net Tie with all its Pins on one Net, so the tie does nothing.",
+                "type": "string"
+              },
+              {
                 "const": "unit_data_mismatch",
                 "description": "Units of one Component whose Component data differ.",
                 "type": "string"
@@ -2077,6 +2102,11 @@
               {
                 "const": "unplaced_units",
                 "description": "Units of a placed multi-unit Component left unplaced.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_one_net",
+                "description": "A Net Tie with all its Pins on one Net, so the tie does nothing.",
                 "type": "string"
               },
               {
@@ -13317,6 +13347,11 @@
                 "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "net_tie_not_joined": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "A Net Tie's Footprint that isn't a valid tie."
+              },
               "opening_collapsed": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -13342,6 +13377,11 @@
                 "default": "error",
                 "description": "Different Nets touching."
               },
+              "shorted_copper": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
+              },
               "silkscreen_over_pads": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -13366,6 +13406,8 @@
             "required": [
               "clearance",
               "short_circuit",
+              "shorted_copper",
+              "net_tie_not_joined",
               "track_width",
               "via_size",
               "hole_size",
@@ -13414,6 +13456,11 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "One Net with different names on one sheet; names differing only in case are one\nname."
+              },
+              "net_tie_one_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Net Tie with all its Pins on one Net, so the tie does nothing."
               },
               "no_connect_connected": {
                 "$ref": "#/$defs/Severity",
@@ -13487,6 +13534,7 @@
               "single_sheet_port",
               "duplicate_designator",
               "unplaced_units",
+              "net_tie_one_net",
               "unit_data_mismatch"
             ],
             "type": "object"
@@ -15594,6 +15642,7 @@
                       "duplicate_nets": "error",
                       "net_names_across_sheets": "warning",
                       "net_names_on_sheet": "error",
+                      "net_tie_one_net": "warning",
                       "no_connect_connected": "warning",
                       "pin_conflict": "error",
                       "pin_conflict_mixed": "warning",
@@ -19234,6 +19283,11 @@
                 "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "net_tie_not_joined": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "A Net Tie's Footprint that isn't a valid tie."
+              },
               "opening_collapsed": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -19259,6 +19313,11 @@
                 "default": "error",
                 "description": "Different Nets touching."
               },
+              "shorted_copper": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
+              },
               "silkscreen_over_pads": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -19283,6 +19342,8 @@
             "required": [
               "clearance",
               "short_circuit",
+              "shorted_copper",
+              "net_tie_not_joined",
               "track_width",
               "via_size",
               "hole_size",
@@ -19331,6 +19392,11 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "One Net with different names on one sheet; names differing only in case are one\nname."
+              },
+              "net_tie_one_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Net Tie with all its Pins on one Net, so the tie does nothing."
               },
               "no_connect_connected": {
                 "$ref": "#/$defs/Severity",
@@ -19404,6 +19470,7 @@
               "single_sheet_port",
               "duplicate_designator",
               "unplaced_units",
+              "net_tie_one_net",
               "unit_data_mismatch"
             ],
             "type": "object"
@@ -21511,6 +21578,7 @@
                       "duplicate_nets": "error",
                       "net_names_across_sheets": "warning",
                       "net_names_on_sheet": "error",
+                      "net_tie_one_net": "warning",
                       "no_connect_connected": "warning",
                       "pin_conflict": "error",
                       "pin_conflict_mixed": "warning",
@@ -31353,6 +31421,16 @@
               {
                 "const": "short_circuit",
                 "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "shorted_copper",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_not_joined",
+                "description": "A Net Tie's Footprint that isn't a valid tie.",
                 "type": "string"
               },
               {

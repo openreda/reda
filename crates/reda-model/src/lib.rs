@@ -9,6 +9,7 @@ mod change;
 mod check;
 mod derived;
 mod document;
+pub mod footprint_copper;
 mod library;
 pub mod net_name;
 mod openings;

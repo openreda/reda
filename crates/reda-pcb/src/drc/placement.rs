@@ -4,6 +4,7 @@
 //! its courtyard drawing encloses: rectangles, polygons and circles, and closed chains of
 //! lines and arcs; open chains enclose nothing.
 
+use crate::copper::shape::BoardShape as _;
 use std::collections::BTreeMap;
 
 use reda_model::geom::{Millideg, Point};

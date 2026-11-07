@@ -4,6 +4,7 @@
 //! clearances (the board-wide rule where a class sets none). Copper on no Net keeps its
 //! clearance from everything, other unassigned copper included.
 
+use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Nm, Point};
 use reda_model::{PcbDocument, TrackGeometry, Uuid};
 use rstar::AABB;
@@ -80,6 +81,7 @@ impl Copper {
             [lo[0] - reach, lo[1] - reach],
             [hi[0] + reach, hi[1] + reach],
         );
+        let ties = super::ties::Ties::of(pcb);
         let mut hits = Vec::new();
         for layer in layers {
             for piece in self.candidates(layer, search) {
@@ -93,6 +95,10 @@ impl Copper {
                 }
                 let required = clearance_between(pcb, net, other).unwrap_or(Nm::ZERO);
                 let gap = shape.distance(&piece.shape);
+                // A Net Tie's other Pads need no clearance, but touching one is a short.
+                if ties.tie_pad_on(net, piece.item) && !shape.touches(&piece.shape) {
+                    continue;
+                }
                 if gap < required.0 as f64 {
                     hits.push(ClearanceHit {
                         item: piece.item,
@@ -129,6 +135,7 @@ impl Copper {
     /// left out: a current fill keeps its clearance by construction.
     pub(crate) fn gaps(&self, pcb: &PcbDocument) -> Vec<Gap> {
         let reach = max_clearance(pcb).0;
+        let ties = super::ties::Ties::of(pcb);
         let mut found: std::collections::BTreeMap<(Item, Item), Gap> = Default::default();
         for (&layer, tree) in &self.index {
             for entry in tree.iter() {
@@ -149,7 +156,9 @@ impl Copper {
                     if na.is_some() && na == nb {
                         continue;
                     }
-                    if piece.shape.touches(&other.shape) {
+                    if piece.shape.touches(&other.shape)
+                        || ties.no_clearance((piece.item, na), (other.item, nb))
+                    {
                         continue;
                     }
                     let Some(required) = clearance_between(pcb, na, nb) else {

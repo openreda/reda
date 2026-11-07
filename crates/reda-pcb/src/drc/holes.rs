@@ -1,6 +1,7 @@
 //! The drill checks: hole size, annular ring and hole-to-hole spacing, over Vias, the Pads
 //! of placed Footprints and Free Pads.
 
+use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Nm, Point};
 use reda_model::{DrcCheck, Hole, Limit, PadKind, PcbDocument, RuleField, RuleKind, Uuid};
 

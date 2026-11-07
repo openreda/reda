@@ -85,6 +85,11 @@
           "default": "error",
           "description": "An object inside a Keepout that forbids it."
         },
+        "net_tie_not_joined": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Net Tie's Footprint that isn't a valid tie."
+        },
         "opening_collapsed": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
@@ -109,6 +114,11 @@
           "$ref": "#/$defs/Severity",
           "default": "error",
           "description": "Different Nets touching."
+        },
+        "shorted_copper": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
         },
         "silkscreen_over_pads": {
           "$ref": "#/$defs/Severity",

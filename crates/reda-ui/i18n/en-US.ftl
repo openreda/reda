@@ -432,9 +432,16 @@ violation-duplicate-nets = { $count } different Nets have the board name { $name
 violation-single-sheet-port = Port { $name } is on only one sheet
 violation-duplicate-designator = Designator { $designator } is used more than once
 violation-unplaced-units = { $designator } has unplaced Units: { $units }
+violation-net-tie-one-net = All the Pins of Net Tie { $designator } are on { $net }, so it ties nothing
 violation-unit-data-mismatch = The Units of { $designator } differ in: { $differs }
 violation-clearance = Clearance { $actual } is below { $required }
 violation-short-circuit = Short circuit between { $net_a } and { $net_b }
+violation-shorted-copper = Pads { $pad_a } and { $pad_b } of { $footprint } touch, but it isn't a Net Tie
+violation-net-tie-not-joined = Net Tie Footprint { $footprint } { $reason ->
+        [not_smd_one_side] needs all its Pads SMD on one side
+        [too_few_numbers] needs Pads with at least two different numbers
+       *[not_joined] has Pads that don't touch as one copper group
+    }
 violation-track-width = Track width { $actual } is { $limit ->
         [max] above { $maximum }
        *[min] below { $minimum }
@@ -529,9 +536,12 @@ check-duplicate-nets = Duplicate Nets
 check-single-sheet-port = Port on One Sheet
 check-duplicate-designator = Duplicate Designator
 check-unplaced-units = Unplaced Units
+check-net-tie-one-net = Net Tie on One Net
 check-unit-data-mismatch = Unit Data Mismatch
 check-clearance = Clearance
 check-short-circuit = Short Circuit
+check-shorted-copper = Shorted Copper
+check-net-tie-not-joined = Net Tie Not Joined
 check-track-width = Track Width
 check-hole-size = Hole Size
 check-annular-ring = Annular Ring

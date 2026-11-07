@@ -25,6 +25,8 @@ pub fn check_name(check: DrcCheck) -> String {
     match check {
         DrcCheck::Clearance => tr!("check-clearance"),
         DrcCheck::ShortCircuit => tr!("check-short-circuit"),
+        DrcCheck::ShortedCopper => tr!("check-shorted-copper"),
+        DrcCheck::NetTieNotJoined => tr!("check-net-tie-not-joined"),
         DrcCheck::TrackWidth => tr!("check-track-width"),
         DrcCheck::ViaSize => tr!("check-via-size"),
         DrcCheck::HoleSize => tr!("check-hole-size"),

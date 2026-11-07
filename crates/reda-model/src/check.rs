@@ -324,6 +324,8 @@ severities! {
     duplicate_designator => DuplicateDesignator = Error,
     /// Units of a placed multi-unit Component left unplaced.
     unplaced_units => UnplacedUnits = Warning,
+    /// A Net Tie with all its Pins on one Net, so the tie does nothing.
+    net_tie_one_net => NetTieOneNet = Warning,
     /// Units of one Component whose Component data differ.
     unit_data_mismatch => UnitDataMismatch = Error,
 }

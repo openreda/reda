@@ -413,6 +413,11 @@
           "default": "error",
           "description": "One Net with different names on one sheet; names differing only in case are one\nname."
         },
+        "net_tie_one_net": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Net Tie with all its Pins on one Net, so the tie does nothing."
+        },
         "no_connect_connected": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
@@ -1247,6 +1252,7 @@
         "duplicate_nets": "error",
         "net_names_across_sheets": "warning",
         "net_names_on_sheet": "error",
+        "net_tie_one_net": "warning",
         "no_connect_connected": "warning",
         "pin_conflict": "error",
         "pin_conflict_mixed": "warning",

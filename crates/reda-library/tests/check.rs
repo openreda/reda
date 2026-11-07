@@ -269,6 +269,7 @@ fn footprint_with_extra_pads(n: u128) -> Footprint {
         let mut pad = f.pads[0].clone();
         pad.uuid = uuid(n * 1000 + i);
         pad.number = "3".into();
+        pad.at.y = Nm::from_mm(2) * (i as i64 - 2);
         f.pads.push(pad);
     }
     f
@@ -344,4 +345,99 @@ fn a_part_without_a_symbol_skips_the_pin_checks() {
     files.part(&format!("{ROOT}/parts/Hole.redapart"), p);
     let index = scanned(&mut files);
     assert_eq!(check_of(&index, 30), vec![]);
+}
+
+/// A Footprint whose two Pads touch: Pad 2 moved onto Pad 1's edge.
+fn touching_pads(n: u128) -> Footprint {
+    let mut f = footprint(n, "Tie");
+    f.pads[1].at = Point::new(f.pads[0].at.x + f.pads[0].width, Nm(0));
+    f
+}
+
+/// A Library with Symbol 10, Footprints 20 (clean) and 21, and Part 30 of type `ty`
+/// with both Footprints as alternates.
+fn tie_library(ty: ComponentType, second: Footprint) -> LibraryIndex {
+    let mut files = MemFiles::default();
+    files.symbol(&format!("{ROOT}/symbols/NT.redasym"), symbol(10, "NT"));
+    files.footprint(&format!("{ROOT}/footprints/A.redafp"), footprint(20, "A"));
+    files.footprint(&format!("{ROOT}/footprints/B.redafp"), second);
+    let mut p = part(30, "NT", 10, &[20, 21]);
+    p.component_type = ty;
+    files.part(&format!("{ROOT}/parts/NT.redapart"), p);
+    scanned(&mut files)
+}
+
+#[test]
+fn touching_pads_with_different_numbers_short_a_part_that_is_not_a_net_tie() {
+    let tie = touching_pads(21);
+    let pads = [tie.pads[0].uuid, tie.pads[1].uuid];
+    let index = tie_library(ComponentType::Standard, tie);
+
+    let found = check_of(&index, 30);
+    assert_eq!(checks(&found), ["shorted_copper"]);
+    assert_eq!(found[0].severity, Severity::Error);
+    assert_eq!(found[0].objects, [uuid(30), uuid(21), pads[0], pads[1]]);
+    assert_eq!(found[0].args["pad_a"], text("1"));
+    assert_eq!(found[0].args["pad_b"], text("2"));
+    assert_eq!(found[0].args["footprint"], text("Tie"));
+    assert_eq!(
+        check_of(&index, 21),
+        vec![],
+        "a Footprint alone has no type"
+    );
+}
+
+#[test]
+fn touching_pads_sharing_a_number_or_on_different_sides_do_not_short() {
+    let mut same = touching_pads(21);
+    same.pads[1].number = "1".into();
+    let index = tie_library(ComponentType::Mechanical, same);
+    assert!(!checks(&check_of(&index, 30)).contains(&"shorted_copper"));
+
+    let mut sides = touching_pads(21);
+    sides.pads[1].side = Some(reda_model::Side::Bottom);
+    let index = tie_library(ComponentType::Standard, sides);
+    assert_eq!(check_of(&index, 30), vec![]);
+}
+
+#[test]
+fn a_net_tie_whose_pads_touch_is_valid_and_not_shorted() {
+    let index = tie_library(ComponentType::NetTie, touching_pads(21));
+    let found = check_of(&index, 30);
+    // Footprint 20's Pads don't touch: that alternate is no tie.
+    assert_eq!(checks(&found), ["net_tie_not_joined"]);
+    assert_eq!(found[0].severity, Severity::Error);
+    assert_eq!(found[0].objects, [uuid(30), uuid(20)]);
+    assert_eq!(found[0].args["reason"], text("not_joined"));
+    assert_eq!(found[0].args["footprint"], text("A"));
+}
+
+#[test]
+fn a_net_tie_needs_smd_pads_on_one_side_with_two_numbers() {
+    let reason = |f: Footprint| {
+        let index = tie_library(ComponentType::NetTie, f);
+        let found: Vec<_> = check_of(&index, 30)
+            .into_iter()
+            .filter(|v| v.objects.contains(&uuid(21)) && v.check != "pin_without_pad")
+            .collect();
+        assert_eq!(checks(&found), ["net_tie_not_joined"]);
+        found[0].args["reason"].clone()
+    };
+    let mut sides = touching_pads(21);
+    sides.pads[1].side = Some(reda_model::Side::Bottom);
+    assert_eq!(reason(sides), text("not_smd_one_side"));
+
+    let mut through = touching_pads(21);
+    through.pads[1].kind = PadKind::PlatedThroughHole;
+    through.pads[1].hole = Some(Hole {
+        width: Nm::from_um(300),
+        height: Nm::from_um(300),
+        rotation: reda_model::geom::Millideg(0),
+        tolerance: None,
+    });
+    assert_eq!(reason(through), text("not_smd_one_side"));
+
+    let mut one_number = touching_pads(21);
+    one_number.pads[1].number = "1".into();
+    assert_eq!(reason(one_number), text("too_few_numbers"));
 }

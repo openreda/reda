@@ -636,3 +636,41 @@ fn batch_erc_waivers_validate_atomically_and_take_one_step_per_document() {
     e.run_ok("project.save", json!({}));
     assert_eq!(erc(&mut reopen(&dir))["unmatched_waivers"], json!([]));
 }
+
+const NET_TIE: &str = "a0000000-0000-4000-8000-000000000170";
+
+/// A Net Tie at the origin whose Pin 1 is labelled `one` and Pin 2 `two`: its Unit.
+fn labelled_tie(engine: &mut TestEngine, one: &str, two: &str) -> String {
+    let tie = place(engine, NET_TIE, 0, 0);
+    wire(engine, &[(0, 150), (0, 300)]);
+    wire(engine, &[(0, -150), (0, -300)]);
+    label(engine, one, 0, 300);
+    label(engine, two, 0, -300);
+    tie
+}
+
+#[test]
+fn a_net_tie_with_all_its_pins_on_one_net_does_nothing_and_warns() {
+    let dir = TempDir::new("erc-net-tie");
+    let mut engine = demo(&dir);
+    labelled_tie(&mut engine, "A", "B");
+    let out = erc(&mut engine);
+    assert!(of(&out, "net_tie_one_net").is_empty(), "{out}");
+
+    let dir = TempDir::new("erc-net-tie-one");
+    let mut engine = demo(&dir);
+    let tie = labelled_tie(&mut engine, "A", "A");
+    let out = erc(&mut engine);
+    let found = of(&out, "net_tie_one_net");
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["args"]["designator"], "R1");
+    assert_eq!(found[0]["args"]["net"], "A");
+    assert_eq!(found[0]["objects"], json!([tie]));
+
+    // An unwired tie's Pins are each on a Net of their own.
+    let dir = TempDir::new("erc-net-tie-unwired");
+    let mut engine = demo(&dir);
+    place(&mut engine, NET_TIE, 0, 0);
+    assert!(of(&erc(&mut engine), "net_tie_one_net").is_empty());
+}

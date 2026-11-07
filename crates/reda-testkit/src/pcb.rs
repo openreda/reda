@@ -15,12 +15,13 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(FootprintAdd);
 }
 
-/// `test.footprint.add {at, rotation?, side?, designator?, graphics?: [{layer, shape, width,
-/// fill?}], pads: [{at, width, height, shape?, kind?, rotation?, corner_ratio?,
-/// chamfer_ratio?, corners?, offset?, side?, net?, hole?, mask_margin?, paste_margin?,
-/// zone_connection?}]}`: places a Footprint instance with its own one-off
-/// Footprint copy (Pads numbered 1, 2, … in param order), as Sync will, so copper tests
-/// need no Library. Pads default to rectangular SMD Pads.
+/// `test.footprint.add {at, rotation?, side?, designator?, component_type?, graphics?:
+/// [{layer, shape, width, fill?}], pads: [{at, width, height, number?, shape?, kind?,
+/// rotation?, corner_ratio?, chamfer_ratio?, corners?, offset?, side?, net?, hole?,
+/// mask_margin?, paste_margin?, zone_connection?}]}`: places a Footprint instance with its
+/// own one-off Footprint copy (Pads numbered 1, 2, … in param order unless `number` says
+/// otherwise), as Sync will, so copper tests need no Library. Pads default to rectangular
+/// SMD Pads, the instance to Mechanical.
 struct FootprintAdd;
 
 #[derive(Deserialize, JsonSchema)]
@@ -42,6 +43,8 @@ struct PadParams {
     at: Xy,
     width: Length,
     height: Length,
+    #[serde(default)]
+    number: Option<String>,
     #[serde(default)]
     shape: Option<PadShape>,
     #[serde(default)]
@@ -95,6 +98,9 @@ struct FootprintAddParams {
     /// Defaults to `TP`.
     #[serde(default)]
     designator: Option<String>,
+    /// Defaults to Mechanical.
+    #[serde(default)]
+    component_type: Option<ComponentType>,
     #[serde(default)]
     graphics: Vec<GraphicParams>,
     pads: Vec<PadParams>,
@@ -135,7 +141,7 @@ impl Command for FootprintAdd {
             let uuid = cx.new_id();
             pads.push(Pad {
                 uuid,
-                number: (i + 1).to_string(),
+                number: pad.number.clone().unwrap_or_else(|| (i + 1).to_string()),
                 kind: pad.kind.unwrap_or(PadKind::Smd),
                 shape: pad.shape.unwrap_or(PadShape::Rect),
                 at: pad.at.point(),
@@ -182,6 +188,7 @@ impl Command for FootprintAdd {
             })
             .collect();
         graphics.sort_by_key(|g| g.uuid);
+        let component_type = p.component_type.unwrap_or(ComponentType::Mechanical);
         let (uuid, copy_uuid) = (cx.new_id(), cx.new_id());
         let instance_uuid = cx.new_id();
         // The texts' UUIDs come last, so the others keep theirs.
@@ -216,9 +223,9 @@ impl Command for FootprintAdd {
             locked: false,
             designator: p.designator.unwrap_or_else(|| "TP".into()),
             fields: Fields::default(),
-            component_type: ComponentType::Mechanical,
-            in_bom: ComponentType::Mechanical.default_in_bom(),
-            in_cpl: ComponentType::Mechanical.default_in_cpl(),
+            component_type,
+            in_bom: component_type.default_in_bom(),
+            in_cpl: component_type.default_in_cpl(),
             not_fitted: false,
             text_overrides: Vec::new(),
             pads: nets,

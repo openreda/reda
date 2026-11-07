@@ -15,6 +15,7 @@
 //!   ([`Copper::ratsnest`]),
 //! - whether proposed copper keeps its clearance ([`Copper::clearance`]).
 
+use shape::BoardShape as _;
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Point;
@@ -26,6 +27,7 @@ use serde::Serialize;
 mod clearance;
 mod ratsnest;
 pub(crate) mod shape;
+pub(crate) mod ties;
 
 pub use clearance::{ClearanceHit, Proposal};
 pub use ratsnest::{RatsnestLine, RatsnestVisibility};
