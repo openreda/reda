@@ -5,8 +5,8 @@
     {"uuid":"914f659b-c304-407f-bbbf-9db8fb2598cc","name":"A"}
   ],
   "pins": [
-    {"uuid":"211af54e-d612-4db6-bf98-17bb897ceb51","unit":"914f659b-c304-407f-bbbf-9db8fb2598cc","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":1270000,"name_visible":false,"number_visible":false},
-    {"uuid":"cf18a0e9-41b3-4b22-bb17-4e076211f10c","unit":"914f659b-c304-407f-bbbf-9db8fb2598cc","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000,"name_visible":false,"number_visible":false}
+    {"uuid":"211af54e-d612-4db6-bf98-17bb897ceb51","unit":"914f659b-c304-407f-bbbf-9db8fb2598cc","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-5080000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"cf18a0e9-41b3-4b22-bb17-4e076211f10c","unit":"914f659b-c304-407f-bbbf-9db8fb2598cc","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":5080000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false}
   ],
   "graphics": [
     {"uuid":"5c3e1076-944a-4d9b-9a4f-0464d599666b","unit":"914f659b-c304-407f-bbbf-9db8fb2598cc","shape":{"kind":"line","start":{"x":0,"y":-2540000},"end":{"x":0,"y":2540000}},"width":254000},

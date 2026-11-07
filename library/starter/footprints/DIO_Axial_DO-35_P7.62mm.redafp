@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"3bd53cfd-bcbc-4628-a910-226fbcc07db4","name":"DIO_Axial_DO-35_P7.62mm","description":"Diode, DO-35 axial, 4.56 × 1.91 mm body, leads 7.62 mm apart. Per onsemi axial lead case 017AG"},
+  "footprint": {"uuid":"3bd53cfd-bcbc-4628-a910-226fbcc07db4","name":"DIO_Axial_DO-35_P7.62mm","description":"Diode, DO-35 axial, 4.56 × 1.91 mm body, leads 7.62 mm apart. Per onsemi axial lead case 017AG","height":1910000},
   "pads": [
     {"uuid":"66a73451-f910-4db9-84ba-42d61e964cb9","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":3810000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
     {"uuid":"faf691c0-2123-473d-bb7c-8974b1d7dcc8","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-3810000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
@@ -16,7 +16,8 @@
     {"uuid":"cc025516-23bd-4d31-81ce-b28698a25cea","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1400000,"y":-1015000},"end":{"x":-1400000,"y":1015000}},"width":120000}
   ],
   "texts": [
-    {"uuid":"1c80f322-c118-4598-abe0-629c0f94ddd5","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-    {"uuid":"2e915579-7507-420c-967c-5dbbf0cd5d46","field":"Designator","at":{"x":0,"y":2005000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    {"uuid":"1c80f322-c118-4598-abe0-629c0f94ddd5","field":"Value","at":{"x":0,"y":-1880000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":950000,"thickness":142500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"2e915579-7507-420c-967c-5dbbf0cd5d46","field":"Designator","at":{"x":0,"y":2005000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"91461d17-be5f-4ace-a544-33ea0534418c","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":950000,"thickness":142500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

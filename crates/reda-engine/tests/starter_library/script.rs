@@ -434,6 +434,15 @@ impl Script {
         );
     }
 
+    /// Moves the origin to Pin 1's connection end, as a rectangular IC body has it. Draw
+    /// it about any convenient point first.
+    pub fn origin_at_pin_1(&mut self, sym: &Sym) {
+        self.edit(
+            "library.symbol.origin.set",
+            json!({"symbol": sym.uuid, "to": {"kind": "pin1"}}),
+        );
+    }
+
     pub fn finish_symbol(&mut self, sym: Sym) -> String {
         self.save(&sym.uuid);
         sym.uuid
@@ -451,11 +460,13 @@ impl Script {
         out["footprint"].as_str().unwrap().to_owned()
     }
 
-    pub fn footprint(&mut self, name: &str, description: &str) -> String {
+    /// A new hand-drawn Footprint; `height` is the part's greatest height above the board,
+    /// in millimetres.
+    pub fn footprint(&mut self, name: &str, description: &str, height: f64) -> String {
         let uuid = self.new_element("footprint", name);
         self.edit(
             "library.footprint.edit",
-            json!({"footprint": uuid, "description": description}),
+            json!({"footprint": uuid, "description": description, "height": mm(height)}),
         );
         uuid
     }
@@ -488,8 +499,50 @@ impl Script {
             "library.footprint.text.edit",
             json!({"footprint": footprint, "text": designator, "at": pt(0, top + mm(0.8))}),
         );
+        self.assembly_designator(footprint);
         self.save(footprint);
         footprint.to_owned()
+    }
+
+    /// Adds the Assembly Designator in the middle of the body and moves the Value below the
+    /// courtyard, both sized as the generators size them: half the Assembly outline's
+    /// shorter side, at most 1 mm, in 0.01 mm steps.
+    fn assembly_designator(&mut self, footprint: &str) {
+        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let extent = |prefix: &str| {
+            let (mut xs, mut ys) = (vec![], vec![]);
+            for g in object["graphics"].as_array().unwrap() {
+                if g["layer"].as_str().unwrap().starts_with(prefix) {
+                    for (x, y) in shape_extent(&g["shape"]) {
+                        xs.push(x);
+                        ys.push(y);
+                    }
+                }
+            }
+            assert!(!xs.is_empty(), "{footprint}: nothing on {prefix}");
+            (xs, ys)
+        };
+        let span = |v: &[i64]| v.iter().max().unwrap() - v.iter().min().unwrap();
+        let (xs, ys) = extent("assembly");
+        let size = (span(&xs).min(span(&ys)) / 2).min(mm(1.0)) / 10_000 * 10_000;
+        self.edit(
+            "library.footprint.text.add",
+            json!({"footprint": footprint, "field": "Designator", "at": pt(0, 0),
+                   "layer": "assembly_top", "height": size}),
+        );
+        let bottom = *extent("courtyard").1.iter().min().unwrap();
+        let value = object["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == "Value")
+            .unwrap()["uuid"]
+            .clone();
+        self.edit(
+            "library.footprint.text.edit",
+            json!({"footprint": footprint, "text": value, "height": size,
+                   "at": pt(0, bottom - mm(0.2) - size / 2)}),
+        );
     }
 
     /// Moves the origin of a Footprint whose courtyard box's centre is more than the
@@ -503,19 +556,7 @@ impl Script {
             if !g["layer"].as_str().unwrap().starts_with("courtyard") {
                 continue;
             }
-            let shape = &g["shape"];
-            let at = |p: &Value| (p["x"].as_i64().unwrap(), p["y"].as_i64().unwrap());
-            let points: Vec<(i64, i64)> = match shape["kind"].as_str().unwrap() {
-                "rect" => vec![at(&shape["start"]), at(&shape["end"])],
-                "circle" => {
-                    let (x, y) = at(&shape["center"]);
-                    let r = shape["radius"].as_i64().unwrap();
-                    vec![(x - r, y - r), (x + r, y + r)]
-                }
-                "polygon" => shape["points"].as_array().unwrap().iter().map(at).collect(),
-                other => panic!("a {other} courtyard: {g}"),
-            };
-            for (x, y) in points {
+            for (x, y) in shape_extent(&g["shape"]) {
                 xs.push(x);
                 ys.push(y);
             }
@@ -571,5 +612,25 @@ impl Script {
         }
         self.save(&uuid);
         uuid
+    }
+}
+
+/// Points spanning a graphic's box, in nanometres; an arc counts as its whole circle.
+fn shape_extent(shape: &Value) -> Vec<(i64, i64)> {
+    let at = |p: &Value| (p["x"].as_i64().unwrap(), p["y"].as_i64().unwrap());
+    match shape["kind"].as_str().unwrap() {
+        "rect" | "line" => vec![at(&shape["start"]), at(&shape["end"])],
+        "circle" => {
+            let (x, y) = at(&shape["center"]);
+            let r = shape["radius"].as_i64().unwrap();
+            vec![(x - r, y - r), (x + r, y + r)]
+        }
+        "arc" => {
+            let ((x, y), (sx, sy)) = (at(&shape["center"]), at(&shape["start"]));
+            let r = ((sx - x) as f64).hypot((sy - y) as f64).round() as i64;
+            vec![(x - r, y - r), (x + r, y + r)]
+        }
+        "polygon" => shape["points"].as_array().unwrap().iter().map(at).collect(),
+        other => panic!("a {other} outline: {shape}"),
     }
 }

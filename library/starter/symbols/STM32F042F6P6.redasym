@@ -5,29 +5,29 @@
     {"uuid":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"A"}
   ],
   "pins": [
-    {"uuid":"0a16e967-dce6-4a84-977c-6daa5782c91e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA1","number":"7","electrical_type":"bidirectional","at":{"x":15240000,"y":10160000},"rotation":180000,"length":2540000},
-    {"uuid":"27f976e9-fc3d-4620-a061-b1668e6d19e0","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PB8/BOOT0","number":"1","electrical_type":"bidirectional","at":{"x":-15240000,"y":7620000},"rotation":0,"length":2540000},
-    {"uuid":"293126f3-f3c6-42d5-b029-81e8e6a4c2bd","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA14/SWCLK","number":"20","electrical_type":"bidirectional","at":{"x":-15240000,"y":-2540000},"rotation":0,"length":2540000},
-    {"uuid":"2a7109ce-7f4e-4ac3-a263-f1caca06af26","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA5","number":"11","electrical_type":"bidirectional","at":{"x":15240000,"y":0},"rotation":180000,"length":2540000},
-    {"uuid":"4bc3141f-e6a6-455c-a927-ed44d55f0b8e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA4","number":"10","electrical_type":"bidirectional","at":{"x":15240000,"y":2540000},"rotation":180000,"length":2540000},
-    {"uuid":"4d2f5fa7-ecc3-4149-8fe2-065ebb776f88","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"VSS","number":"15","electrical_type":"power_in","at":{"x":0,"y":-16510000},"rotation":90000,"length":2540000},
-    {"uuid":"4d52fecb-2138-4588-b32e-1d05ac75a04a","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA2","number":"8","electrical_type":"bidirectional","at":{"x":15240000,"y":7620000},"rotation":180000,"length":2540000},
-    {"uuid":"56e7c968-9eee-4733-822c-0b7af89b5a82","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA9/PA11","number":"17","electrical_type":"bidirectional","at":{"x":-15240000,"y":-10160000},"rotation":0,"length":2540000},
-    {"uuid":"648563a4-168a-4355-8385-0df37373ed1e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PB1","number":"14","electrical_type":"bidirectional","at":{"x":15240000,"y":-7620000},"rotation":180000,"length":2540000},
-    {"uuid":"674d7d8a-51b2-42f2-94ef-e76f15c6a2e0","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PF1/OSC_OUT","number":"3","electrical_type":"bidirectional","at":{"x":15240000,"y":-12700000},"rotation":180000,"length":2540000},
-    {"uuid":"6bc58699-7a6d-4a8e-9168-5dfe136134b6","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PF0/OSC_IN","number":"2","electrical_type":"bidirectional","at":{"x":15240000,"y":-10160000},"rotation":180000,"length":2540000},
-    {"uuid":"7c5027c6-8137-477d-bcdf-345eb7595e39","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"NRST","number":"4","electrical_type":"bidirectional","at":{"x":-15240000,"y":5080000},"rotation":0,"length":2540000},
-    {"uuid":"7e26e0f1-385c-4dc3-952b-b67b6f9a0faa","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA6","number":"12","electrical_type":"bidirectional","at":{"x":15240000,"y":-2540000},"rotation":180000,"length":2540000},
-    {"uuid":"8a892a84-721a-403c-b5c3-866e1e0ba0be","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA0","number":"6","electrical_type":"bidirectional","at":{"x":15240000,"y":12700000},"rotation":180000,"length":2540000},
-    {"uuid":"957fc22b-5ea4-4043-9bd6-c07d075e9150","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA10/PA12","number":"18","electrical_type":"bidirectional","at":{"x":-15240000,"y":-7620000},"rotation":0,"length":2540000},
-    {"uuid":"96606f64-49ef-4f95-8e20-047ba25a64b6","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"VDD","number":"16","electrical_type":"power_in","at":{"x":-2540000,"y":16510000},"rotation":270000,"length":2540000},
-    {"uuid":"aaa32d4b-3aac-45a6-a37d-133a86ffe904","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA7","number":"13","electrical_type":"bidirectional","at":{"x":15240000,"y":-5080000},"rotation":180000,"length":2540000},
-    {"uuid":"c5ea1e9d-e629-405c-8b5d-712ad642b47d","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA13/SWDIO","number":"19","electrical_type":"bidirectional","at":{"x":-15240000,"y":0},"rotation":0,"length":2540000},
-    {"uuid":"f808a2e8-d102-43b1-b741-42ddb4eb536e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA3","number":"9","electrical_type":"bidirectional","at":{"x":15240000,"y":5080000},"rotation":180000,"length":2540000},
-    {"uuid":"fa2dee4f-cd03-46bf-822c-0d0671dcb429","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"VDDA","number":"5","electrical_type":"power_in","at":{"x":2540000,"y":16510000},"rotation":270000,"length":2540000}
+    {"uuid":"0a16e967-dce6-4a84-977c-6daa5782c91e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA1","number":"7","electrical_type":"bidirectional","at":{"x":30480000,"y":2540000},"rotation":180000,"length":2540000},
+    {"uuid":"27f976e9-fc3d-4620-a061-b1668e6d19e0","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PB8/BOOT0","number":"1","electrical_type":"bidirectional","at":{"x":0,"y":0},"rotation":0,"length":2540000},
+    {"uuid":"293126f3-f3c6-42d5-b029-81e8e6a4c2bd","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA14/SWCLK","number":"20","electrical_type":"bidirectional","at":{"x":0,"y":-10160000},"rotation":0,"length":2540000},
+    {"uuid":"2a7109ce-7f4e-4ac3-a263-f1caca06af26","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA5","number":"11","electrical_type":"bidirectional","at":{"x":30480000,"y":-7620000},"rotation":180000,"length":2540000},
+    {"uuid":"4bc3141f-e6a6-455c-a927-ed44d55f0b8e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA4","number":"10","electrical_type":"bidirectional","at":{"x":30480000,"y":-5080000},"rotation":180000,"length":2540000},
+    {"uuid":"4d2f5fa7-ecc3-4149-8fe2-065ebb776f88","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"VSS","number":"15","electrical_type":"power_in","at":{"x":15240000,"y":-24130000},"rotation":90000,"length":2540000},
+    {"uuid":"4d52fecb-2138-4588-b32e-1d05ac75a04a","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA2","number":"8","electrical_type":"bidirectional","at":{"x":30480000,"y":0},"rotation":180000,"length":2540000},
+    {"uuid":"56e7c968-9eee-4733-822c-0b7af89b5a82","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA9/PA11","number":"17","electrical_type":"bidirectional","at":{"x":0,"y":-17780000},"rotation":0,"length":2540000},
+    {"uuid":"648563a4-168a-4355-8385-0df37373ed1e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PB1","number":"14","electrical_type":"bidirectional","at":{"x":30480000,"y":-15240000},"rotation":180000,"length":2540000},
+    {"uuid":"674d7d8a-51b2-42f2-94ef-e76f15c6a2e0","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PF1/OSC_OUT","number":"3","electrical_type":"bidirectional","at":{"x":30480000,"y":-20320000},"rotation":180000,"length":2540000},
+    {"uuid":"6bc58699-7a6d-4a8e-9168-5dfe136134b6","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PF0/OSC_IN","number":"2","electrical_type":"bidirectional","at":{"x":30480000,"y":-17780000},"rotation":180000,"length":2540000},
+    {"uuid":"7c5027c6-8137-477d-bcdf-345eb7595e39","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"NRST","number":"4","electrical_type":"bidirectional","at":{"x":0,"y":-2540000},"rotation":0,"length":2540000},
+    {"uuid":"7e26e0f1-385c-4dc3-952b-b67b6f9a0faa","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA6","number":"12","electrical_type":"bidirectional","at":{"x":30480000,"y":-10160000},"rotation":180000,"length":2540000},
+    {"uuid":"8a892a84-721a-403c-b5c3-866e1e0ba0be","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA0","number":"6","electrical_type":"bidirectional","at":{"x":30480000,"y":5080000},"rotation":180000,"length":2540000},
+    {"uuid":"957fc22b-5ea4-4043-9bd6-c07d075e9150","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA10/PA12","number":"18","electrical_type":"bidirectional","at":{"x":0,"y":-15240000},"rotation":0,"length":2540000},
+    {"uuid":"96606f64-49ef-4f95-8e20-047ba25a64b6","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"VDD","number":"16","electrical_type":"power_in","at":{"x":12700000,"y":8890000},"rotation":270000,"length":2540000},
+    {"uuid":"aaa32d4b-3aac-45a6-a37d-133a86ffe904","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA7","number":"13","electrical_type":"bidirectional","at":{"x":30480000,"y":-12700000},"rotation":180000,"length":2540000},
+    {"uuid":"c5ea1e9d-e629-405c-8b5d-712ad642b47d","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA13/SWDIO","number":"19","electrical_type":"bidirectional","at":{"x":0,"y":-7620000},"rotation":0,"length":2540000},
+    {"uuid":"f808a2e8-d102-43b1-b741-42ddb4eb536e","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"PA3","number":"9","electrical_type":"bidirectional","at":{"x":30480000,"y":-2540000},"rotation":180000,"length":2540000},
+    {"uuid":"fa2dee4f-cd03-46bf-822c-0d0671dcb429","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"VDDA","number":"5","electrical_type":"power_in","at":{"x":17780000,"y":8890000},"rotation":270000,"length":2540000}
   ],
   "graphics": [
-    {"uuid":"006ba5bd-63d7-44a2-bcbf-f346d0bec399","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","shape":{"kind":"text","at":{"x":0,"y":-11430000},"text":"STM32F042","size":1270000,"rotation":0},"width":254000},
-    {"uuid":"f2314a4d-6896-4a60-bc02-4cef25386996","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","shape":{"kind":"rect","start":{"x":-12700000,"y":-13970000},"end":{"x":12700000,"y":13970000}},"width":254000}
+    {"uuid":"006ba5bd-63d7-44a2-bcbf-f346d0bec399","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","shape":{"kind":"text","at":{"x":15240000,"y":-19050000},"text":"STM32F042","size":1270000,"rotation":0},"width":254000},
+    {"uuid":"f2314a4d-6896-4a60-bc02-4cef25386996","unit":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","shape":{"kind":"rect","start":{"x":2540000,"y":-21590000},"end":{"x":27940000,"y":6350000}},"width":254000}
   ]
 }

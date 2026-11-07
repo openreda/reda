@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout"},
+  "footprint": {"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout","height":3200000},
   "pads": [
     {"uuid":"0f8b3078-57ca-4e48-b465-770d7f72d774","number":"S1","kind":"plated_through_hole","shape":"oval","at":{"x":-4320000,"y":2805000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},
     {"uuid":"12ef56d9-c47e-41ae-8e4f-7dddcba6fe4c","number":"S4","kind":"plated_through_hole","shape":"oval","at":{"x":4320000,"y":-1375000},"rotation":0,"width":1000000,"height":1800000,"hole":{"width":600000,"height":1400000}},
@@ -31,6 +31,7 @@
   ],
   "texts": [
     {"uuid":"210590f8-c0cc-4dfb-b429-4245f9d06fa3","field":"Designator","at":{"x":0,"y":5025000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-    {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","field":"Value","at":{"x":0,"y":-325000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    {"uuid":"acbf76b7-9ead-4536-92fe-9b3a78a471d2","field":"Value","at":{"x":0,"y":-4925000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"af54a134-0575-4098-96ed-3419aa15ff03","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

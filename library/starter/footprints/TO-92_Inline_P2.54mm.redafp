@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"163fae4f-3930-40a9-96ae-7630ccb29298","name":"TO-92_Inline_P2.54mm","description":"TO-92, leads in a line 2.54 mm apart, flat face down. Per onsemi TO-92 case 29-11, bent lead"},
+  "footprint": {"uuid":"163fae4f-3930-40a9-96ae-7630ccb29298","name":"TO-92_Inline_P2.54mm","description":"TO-92, leads in a line 2.54 mm apart, flat face down. Per onsemi TO-92 case 29-11, bent lead","height":5200000},
   "pads": [
     {"uuid":"08cdde40-e8c7-42e9-8c97-666b4ebbd709","number":"3","kind":"plated_through_hole","shape":"oval","at":{"x":2540000,"y":-425000},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}},
     {"uuid":"5200ca39-419a-48e1-9309-fa31eca1d9cd","number":"2","kind":"plated_through_hole","shape":"oval","at":{"x":0,"y":-425000},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}},
@@ -14,7 +14,8 @@
     {"uuid":"fcebc2d2-e1df-4fb8-8c3e-b876dbbe3ca5","layer":"silkscreen_top","shape":{"kind":"arc","center":{"x":0,"y":-425000},"start":{"x":1739483,"y":1314483},"sweep":90000},"width":120000}
   ],
   "texts": [
-    {"uuid":"5b4e420b-5828-474c-95b7-7f1fa3a3ac7d","field":"Value","at":{"x":0,"y":-425000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"39bd9b7a-5edd-4ff9-b467-a2a76dcc5b04","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"5b4e420b-5828-474c-95b7-7f1fa3a3ac7d","field":"Value","at":{"x":0,"y":-3025000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"c491169d-e557-4cdb-8d1a-4172cfa69575","field":"Designator","at":{"x":0,"y":3125000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

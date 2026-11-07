@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "footprint": {"uuid":"7d6a13a1-5426-4600-ade9-fa7b906918e8","name":"CAPP_Radial_D5.0mm_P2.00mm","description":"Radial electrolytic capacitor, 5 mm across, leads 2 mm apart"},
+  "footprint": {"uuid":"7d6a13a1-5426-4600-ade9-fa7b906918e8","name":"CAPP_Radial_D5.0mm_P2.00mm","description":"Radial electrolytic capacitor, 5 mm across, leads 2 mm apart","height":11000000},
   "pads": [
     {"uuid":"5f6291dc-af34-4b6a-ad88-10ccbf65ba0f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1000000,"y":0},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":800000,"height":800000}},
     {"uuid":"f1294c8e-037c-4c98-8b9b-b879baf2f266","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1000000,"y":0},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":800000,"height":800000}}
@@ -13,7 +13,8 @@
     {"uuid":"e481498b-dbf1-4d04-bec2-eca61c979ff3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1400000,"y":1450000},"end":{"x":-600000,"y":1450000}},"width":120000}
   ],
   "texts": [
-    {"uuid":"8637a183-e190-417a-881f-867408cc7068","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-    {"uuid":"b3f8076c-3d4e-443b-9d1c-7e0bdc93c9fa","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    {"uuid":"8637a183-e190-417a-881f-867408cc7068","field":"Value","at":{"x":0,"y":-3450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"b3f8076c-3d4e-443b-9d1c-7e0bdc93c9fa","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"e20aabb6-9ae2-4d03-83af-8f1caeb11e0c","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

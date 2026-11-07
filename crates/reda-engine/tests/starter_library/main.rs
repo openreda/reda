@@ -18,6 +18,7 @@ mod mechanical;
 mod passives;
 mod script;
 mod semis;
+mod style;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

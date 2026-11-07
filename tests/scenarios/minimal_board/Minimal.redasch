@@ -10,15 +10,15 @@
     ],"graphics":[
       {"uuid":"93bd7004-ea72-466f-b3dc-d56f21592d70","unit":"c1a75fcd-e6ae-4101-a4e7-dae3866e1862","shape":{"kind":"rect","start":{"x":-2540000,"y":-2540000},"end":{"x":0,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002d","hash":"e1bdbc777f2abee560a61821a9202df2","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-000000000028","00000000-0000-4000-8000-000000000029","00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b","00000000-0000-4000-8000-00000000002c"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
+    {"uuid":"00000000-0000-4000-8000-00000000002d","hash":"d915f0c8f0498ad93b81a3b445c5976d","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-000000000028","00000000-0000-4000-8000-000000000029","00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b","00000000-0000-4000-8000-00000000002c"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[
       {"uuid":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"A"}
     ],"pins":[
-      {"uuid":"4d8013c9-7801-4d73-93ac-a5c047a300b5","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":1270000,"name_visible":false,"number_visible":false},
-      {"uuid":"65cfd6a3-2cbb-4a0d-9649-483821136516","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":1270000,"name_visible":false,"number_visible":false}
+      {"uuid":"4d8013c9-7801-4d73-93ac-a5c047a300b5","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":5080000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false},
+      {"uuid":"65cfd6a3-2cbb-4a0d-9649-483821136516","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-5080000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false}
     ],"graphics":[
       {"uuid":"0e65c72b-7ee9-49c4-94cc-ef11deea34c0","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","shape":{"kind":"rect","start":{"x":-1016000,"y":-2540000},"end":{"x":1016000,"y":2540000}},"width":254000}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"e0569bcfecdb4dea58c2722b7c64cf3c","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000030","00000000-0000-4000-8000-000000000031","00000000-0000-4000-8000-000000000032","00000000-0000-4000-8000-000000000033","00000000-0000-4000-8000-000000000034"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"6d015cc410b3d19b4a7b13886b6305fd","part":{"uuid":"102040b6-3e0f-464d-87e2-c8064eb20dd2","name":"LED","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"564c90dd-a9d3-4873-aa1e-2783bc197ba5"},"footprints":["dc181a05-7861-4a1b-b740-ff448eb58ad6","4e42a296-3583-4c92-a62e-f371552e358c","6265ffd0-3a84-4eb5-baff-7024f3c43c7a","d1dde49b-9032-429b-ba14-75bfc08d5a03","a98b17f8-5ccd-4961-80a0-035239726052"],"copies":["00000000-0000-4000-8000-000000000030","00000000-0000-4000-8000-000000000031","00000000-0000-4000-8000-000000000032","00000000-0000-4000-8000-000000000033","00000000-0000-4000-8000-000000000034"],"fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"pin_map":{},"symbol":{"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},"units":[
       {"uuid":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A"}
     ],"pins":[
       {"uuid":"4c45e5ee-3d76-48d7-9fbf-f1aac5cb4e5c","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"K","number":"1","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false},
@@ -107,7 +107,7 @@
       {"uuid":"44f25427-334b-4b3d-a058-5711924b22fc","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"531eb07c-ec51-40a0-9a33-ad9123eca689","field":"Value","at":{"x":0,"y":-1750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000002c","hash":"56e596c94888a4c5f9e8eae0e3d8dcbf","footprint":{"uuid":"afd4eee0-373d-4487-aade-3ad89f20f99d","name":"RES_Axial_L6.3mm_D2.5mm_P10.16mm","description":"Axial resistor, 0207 body (6.3 × 2.5 mm), leads 10.16 mm apart"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000002c","hash":"9ac4a82b086a6cd3b30e376a657b7cd6","footprint":{"uuid":"afd4eee0-373d-4487-aade-3ad89f20f99d","name":"RES_Axial_L6.3mm_D2.5mm_P10.16mm","description":"Axial resistor, 0207 body (6.3 × 2.5 mm), leads 10.16 mm apart","height":2500000},"pads":[
       {"uuid":"670c3969-f1f4-4732-bbf4-a72a224e8ae3","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
       {"uuid":"af720601-71ec-427b-8d14-4e3ca21befab","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
     ],"graphics":[
@@ -117,7 +117,8 @@
       {"uuid":"a3451996-a692-4def-b945-a4889a6711ee","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-3210000,"y":0},"end":{"x":-4020000,"y":0}},"width":120000},
       {"uuid":"cb042bfe-c1e6-4836-a31e-831a7b9fc7a8","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":3210000,"y":0},"end":{"x":4020000,"y":0}},"width":120000}
     ],"texts":[
-      {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"014b6758-bd5a-45eb-bbf1-b911bfab5ba2","field":"Value","at":{"x":0,"y":-2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"29b5bd88-41a1-4356-b591-e9aae0b6661f","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"93505dbc-3734-4000-9025-215dbd4b74cb","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-000000000030","hash":"3770e81d0d091f3d1490638d299e4bfb","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
@@ -156,7 +157,7 @@
       {"uuid":"4b6333a3-f466-4490-bcb8-326f7019c4e8","field":"Designator","at":{"x":0,"y":1850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"cbf150a1-56ab-45e8-8f1a-559d1a88b79f","field":"Value","at":{"x":0,"y":-1750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000033","hash":"5a951fddf9f4f33c72125174d74a70c9","footprint":{"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000033","hash":"ee1af5f864d332eb6db986f73c316216","footprint":{"uuid":"d1dde49b-9032-429b-ba14-75bfc08d5a03","name":"LED_THT_D3.0mm_P2.54mm","description":"LED, 3 mm round, leads 2.54 mm apart","height":5300000},"pads":[
       {"uuid":"6a99ad72-426c-478c-b3f3-067cf1f78846","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}},
       {"uuid":"f0bbb8ef-024c-462a-9de5-7faf95d15725","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":900000,"height":900000}}
     ],"graphics":[
@@ -165,9 +166,10 @@
       {"uuid":"cf86bc5f-9203-4149-9c67-dd6852644f96","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2500000},"width":120000}
     ],"texts":[
       {"uuid":"4b0f0018-82bb-4cfc-8b8a-3d5d9bc44b62","field":"Designator","at":{"x":0,"y":3610000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-      {"uuid":"4f5b333c-5a38-48c1-a05d-1fc8b2f53f93","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"4f5b333c-5a38-48c1-a05d-1fc8b2f53f93","field":"Value","at":{"x":0,"y":-3510000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"85972a59-7158-48cf-a23b-473331342957","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000034","hash":"55ec2558de2b1c0e159ce0ecbdb48596","footprint":{"uuid":"a98b17f8-5ccd-4961-80a0-035239726052","name":"LED_THT_D5.0mm_P2.54mm","description":"LED, 5 mm round, leads 2.54 mm apart"},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000034","hash":"f516795066d42370f5ab1ace989b439a","footprint":{"uuid":"a98b17f8-5ccd-4961-80a0-035239726052","name":"LED_THT_D5.0mm_P2.54mm","description":"LED, 5 mm round, leads 2.54 mm apart","height":8600000},"pads":[
       {"uuid":"74141d46-6319-4f05-9e44-f274e2e07c2f","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}},
       {"uuid":"d1525900-8215-470d-90a8-caf671d62058","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}}
     ],"graphics":[
@@ -176,7 +178,8 @@
       {"uuid":"bdc21574-3d46-486e-bf88-31dfd8d4b582","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3270000,"y":-3270000},"end":{"x":3270000,"y":3270000}},"width":50000}
     ],"texts":[
       {"uuid":"032141cd-ebdf-4466-b6fe-393be90bd26f","field":"Designator","at":{"x":0,"y":4070000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-      {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","field":"Value","at":{"x":0,"y":-3970000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"c5ed2c0c-d9c2-4a33-8f60-639c8c81c5d3","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]}
   ],
   "units": [
@@ -187,8 +190,8 @@
   "wires": [
     {"uuid":"00000000-0000-4000-8000-000000000038","vertices":[{"x":15240000,"y":52070000},{"x":10160000,"y":52070000}]},
     {"uuid":"00000000-0000-4000-8000-000000000039","vertices":[{"x":15240000,"y":49530000},{"x":10160000,"y":49530000}]},
-    {"uuid":"00000000-0000-4000-8000-00000000003c","vertices":[{"x":40640000,"y":54610000},{"x":40640000,"y":57150000}]},
-    {"uuid":"00000000-0000-4000-8000-00000000003e","vertices":[{"x":40640000,"y":46990000},{"x":40640000,"y":39370000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000003c","vertices":[{"x":40640000,"y":55880000},{"x":40640000,"y":57150000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000003e","vertices":[{"x":40640000,"y":45720000},{"x":40640000,"y":39370000}]},
     {"uuid":"00000000-0000-4000-8000-000000000040","vertices":[{"x":40640000,"y":31750000},{"x":40640000,"y":29210000}]}
   ],
   "net_labels": [
